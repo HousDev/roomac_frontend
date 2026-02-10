@@ -728,7 +728,7 @@ export function AdminHeader({
   subtitle,
   sidebarOpen = true,
   onSidebarToggle
-}: AdminHeaderProps) {
+}: any) {
   const router = useRouter();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);

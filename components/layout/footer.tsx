@@ -25,7 +25,7 @@ export function Footer() {
                 
               ) : (
                  <img
-      src={roomacLogo.src} // Yaha default logo use karein
+      src={roomacLogo} // Yaha default logo use karein
       alt={settings.site_name || 'ROOMAC'}
       className="h-12 w-auto object-contain"
     />

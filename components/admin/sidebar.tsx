@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState, useEffect, useRef } from 'react';
-import { useSettings } from '@/hooks/use-settings';
+import { getSettings, SettingsData } from '@/lib/settingsApi';
 
 interface AdminSidebarProps {
   sidebarOpen: boolean;
@@ -221,8 +221,27 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
   const pathname = usePathname();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [requestsOpen, setRequestsOpen] = useState(false);
+  const [settings, setSettings] = useState<SettingsData | null>(null);
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
-  const { settings } = useSettings();
+
+  // Fetch settings on component mount
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        setLoading(true);
+        const fetchedSettings = await getSettings();
+        setSettings(fetchedSettings);
+      } catch (error) {
+        console.error('Error fetching settings:', error);
+        setSettings(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSettings();
+  }, []);
 
   // Handle click outside for mobile sidebar
   const sidebarRef = useRef<HTMLDivElement>(null);
@@ -251,6 +270,8 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
 
   // Auto-expand requests dropdown if on a request page
   useEffect(() => {
+    if (!pathname) return;
+    
     const isRequestPage = pathname.includes('/admin/complaints') ||
                          pathname.includes('/admin/maintenance') ||
                          pathname.includes('/admin/receipts') ||
@@ -311,6 +332,51 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
         router.push(href);
       }, 300);
     }
+  };
+
+  // Helper function to get setting value from settings object
+  const getSettingValue = (key: string, defaultValue: string = ''): string => {
+    if (loading || !settings || !settings[key]) {
+      return defaultValue;
+    }
+    return settings[key].value || defaultValue;
+  };
+
+  // Get the logo URL from settings
+  const getLogoUrl = () => {
+    if (loading || !settings) {
+      return roomacLogo;
+    }
+    
+    const logoUrl = getSettingValue('logo_admin_sidebar');
+    
+    if (!logoUrl) {
+      return roomacLogo;
+    }
+    
+    // Check if the URL is already a full URL
+    if (logoUrl.startsWith('http://') || logoUrl.startsWith('https://')) {
+      return logoUrl;
+    }
+    
+    // Check if it's a relative path starting with /
+    if (logoUrl.startsWith('/')) {
+      // For deployment, we need to use environment variables or relative URLs
+      // Since your API and frontend are on the same domain in production
+      // We can use the logoUrl as-is if it starts with /
+      return logoUrl;
+    }
+    
+    // If it's just a filename without a leading slash
+    return `/${logoUrl}`;
+  };
+
+  // Get site name from settings
+  const getSiteName = () => {
+    if (loading || !settings) {
+      return "ROOMAC";
+    }
+    return getSettingValue('site_name', 'ROOMAC');
   };
 
   // Desktop sidebar toggle button - only render if setSidebarOpen is provided
@@ -611,8 +677,8 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
               ${sidebarOpen ? 'h-10' : 'h-6'}
             `}>
               <img
-                src={settings.logo_header || roomacLogo.src}
-                alt={settings.site_name || "ROOMAC"}
+                src={getLogoUrl()}
+                alt={getSiteName()}
                 className={`
                   h-full w-auto object-contain
                   transition-all duration-300 
@@ -621,6 +687,10 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
                     : 'max-w-[70px]'
                   }
                 `}
+                onError={(e) => {
+                  // Fallback to default logo if the fetched logo fails to load
+                  (e.target as HTMLImageElement).src = roomacLogo;
+                }}
               />
             </div>
           </Link>
