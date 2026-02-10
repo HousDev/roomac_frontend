@@ -611,7 +611,7 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
               ${sidebarOpen ? 'h-10' : 'h-6'}
             `}>
               <img
-                src={settings.logo_header || roomacLogo.src}
+                src={settings.logo_header || roomacLogo}
                 alt={settings.site_name || "ROOMAC"}
                 className={`
                   h-full w-auto object-contain

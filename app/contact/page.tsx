@@ -517,7 +517,7 @@ async function getContactData(): Promise<ContactPageData> {
         subtitle: "Mon-Sat, 9 AM - 7 PM",
         value: "+91 98765 43210",
         link: "tel:+919876543210",
-        color: "from-blue-500 to-cyan-500"
+        color: "from-yellow-500 to-yellow-500"
       },
       {
         icon: 'Mail', // ✅ Changed to string

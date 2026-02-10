@@ -26,7 +26,7 @@ export default function ContactLoading() {
       </section>
 
       {/* Main Content Skeleton */}
-      <section className="py-20">
+      <section className="py-10">
         <div className="container mx-auto px-4">
           <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2">
@@ -42,7 +42,7 @@ export default function ContactLoading() {
       </section>
 
       {/* FAQ Skeleton */}
-      <section className="py-20 bg-gradient-to-b from-slate-50 via-blue-50/30 to-white">
+      <section className="py-10 bg-gradient-to-b from-slate-50 via-blue-50/30 to-white">
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto">
             <div className="text-center mb-12">

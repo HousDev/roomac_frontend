@@ -556,7 +556,7 @@ function PropertiesSection({ properties, loading }: { properties: any[], loading
                     <div className="relative overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg hover:shadow-xl transition-all duration-300 group-hover:-translate-y-1 h-full">
                       
                       {/* Property Image */}
-                      <div className="relative h-48 sm:h-56 md:h-64 overflow-hidden">
+                      <div className="relative h-48 sm:h-56 md:h-64 overflow-hidden ">
                         <img
                           src={propertyImage}
                           alt={propertyName}
@@ -567,29 +567,26 @@ function PropertiesSection({ properties, loading }: { properties: any[], loading
                         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
                         
                         {/* Available Beds Badge */}
-                        <div className="absolute top-3 right-3 px-3 py-1.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg shadow-md">
+                        {/* <div className="absolute top-3 right-3 px-3 py-1.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg shadow-md">
                           <span className="text-xs font-semibold">
                             {availableBeds} Available
                           </span>
-                        </div>
+                        </div> */}
                         
                         {/* DYNAMIC TAGS FROM BACKEND */}
-                        {propertyTags.map((tag: string, tagIndex: number) => {
-                          // Limit to 1 or 2 tags to avoid overcrowding
-                          if (tagIndex < 2) {
-                            return (
-                              <div 
-                                key={tagIndex}
-                                className={`absolute ${tagIndex === 0 ? 'top-3 left-3' : 'top-12 left-3'} px-3 py-1.5 rounded-lg shadow-md z-10 ${getTagColor(tag)}`}
-                              >
-                                <span className="text-xs font-semibold uppercase">
-                                  {tag}
-                                </span>
-                              </div>
-                            );
-                          }
-                          return null;
-                        })}
+                      
+<div className="absolute top-3 left-3 flex flex-wrap gap-1.5 z-10">
+  {propertyTags.slice(0, 3).map((tag: string, tagIndex: number) => (
+    <div 
+      key={tagIndex}
+      className={`px-2 py-1 rounded-md shadow-md ${getTagColor(tag)}`}
+    >
+      <span className="text-xs font-semibold uppercase whitespace-nowrap">
+        {tag}
+      </span>
+    </div>
+  ))}
+</div>
                         
                         {/* If no tags but has property type, show that */}
                         {propertyTags.length === 0 && propertyType && (
