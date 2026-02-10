@@ -113,24 +113,24 @@ export default function HomePageClient({
 // Hero Section Component
 function HeroSection({ isMounted }: { isMounted: boolean }) {
   return (
-    <section className="relative min-h-[100vh] sm:min-h-[90vh] flex items-center bg-gradient-to-br from-slate-50 via-blue-200 to-blue-50 overflow-hidden px-2 pb-12 sm:px-4">
+    <section className="relative  sm:min-h-[90vh] flex items-center bg-gradient-to-br from-slate-50 via-blue-200 to-blue-50 overflow-hidden px-2 pb-7 sm:px-4">
       <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiMwMDRBQUQiIGZpbGwtb3BhY2l0eT0iMC4wMyI+PHBhdGggZD0iTTM2IDE2YzAtNi42MjcgNS4zNzMtMTIgMTItMTJzMTIgNS4zNzMgMTIgMTItNS4zNzMgMTItMTIgMTItMTItNS4zNzMtMTItMTJ6Ii8+PC9nPjwvZz48L3N2Zz4=')] opacity-40" />
       
-      {/* Animated Dots */}
+      {/* Animated Dots - Mobile me hide kardiya kuch dots */}
       <div className="absolute inset-0 overflow-hidden">
         {[
-          { position: 'top-10 left-10', color: 'yellow-400', delay: 0 },
-          { position: 'top-12 right-15', color: 'cyan-400', delay: 0.3 },
-          { position: 'top-1/2 left-20', color: 'blue-400', delay: 0.6 },
-          { position: 'top-1/2 right-25', color: 'primary', delay: 0.9 },
-          { position: 'bottom-20 left-15', color: 'yellow-400/70', delay: 1.2 },
-          { position: 'bottom-15 right-20', color: 'cyan-300', delay: 1.5 },
-          { position: 'top-1/3 left-1/2', color: 'blue-400/70', delay: 0.4 },
-          { position: 'bottom-1/3 left-1/2', color: 'primary/70', delay: 1.8 },
+          { position: 'top-10 left-10', color: 'yellow-400', delay: 0, mobileHide: false },
+          { position: 'top-12 right-15', color: 'cyan-400', delay: 0.3, mobileHide: true },
+          { position: 'top-1/2 left-20', color: 'blue-400', delay: 0.6, mobileHide: true },
+          { position: 'top-1/2 right-25', color: 'primary', delay: 0.9, mobileHide: true },
+          { position: 'bottom-20 left-15', color: 'yellow-400/70', delay: 1.2, mobileHide: false },
+          { position: 'bottom-15 right-20', color: 'cyan-300', delay: 1.5, mobileHide: true },
+          { position: 'top-1/3 left-1/2', color: 'blue-400/70', delay: 0.4, mobileHide: true },
+          { position: 'bottom-1/3 left-1/2', color: 'primary/70', delay: 1.8, mobileHide: true },
         ].map((dot, index) => (
           <motion.div
             key={index}
-            className={`absolute ${dot.position} w-2 h-2 bg-${dot.color} rounded-full`}
+            className={`absolute ${dot.position} w-2 h-2 bg-${dot.color} rounded-full ${dot.mobileHide ? 'hidden md:block' : ''}`}
             animate={{
               y: [0, dot.position.includes('top') ? -10 : 10, 0],
               opacity: [0.3, 0.7, 0.3],
@@ -147,12 +147,15 @@ function HeroSection({ isMounted }: { isMounted: boolean }) {
 
       <div className="container mx-auto px-3 sm:px-4 relative z-10">
         <div className="max-w-6xl mx-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-12 items-center">
+          {/* Mobile: Single column, Desktop: Two columns */}
+          <div className="flex flex-col lg:grid lg:grid-cols-2 lg:gap-8 md:gap-12 items-center">
+            
+            {/* Left Content Column */}
             <motion.div
               variants={staggerContainer}
               initial="hidden"
               animate={isMounted ? "visible" : "hidden"}
-              className="px-2 sm:px-0"
+              className="px-2 sm:px-0 order-2 lg:order-1" // Mobile me neeche, Desktop me pehle
             >
               <motion.div variants={fadeInUp}>
                 <Badge className="mb-4 sm:mb-6 bg-white shadow-lg backdrop-blur-sm px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium border border-blue-200 text-blue-600 transform hover:border-y-indigo-800 hover:bg-gradient-to-r hover:from-blue-600 hover:to-indigo-600 hover:text-white transition-all duration-300 inline-flex">
@@ -176,7 +179,8 @@ function HeroSection({ isMounted }: { isMounted: boolean }) {
                 </p>
               </motion.div>
 
-              <motion.div variants={staggerContainer} className="flex flex-wrap gap-4 sm:gap-6 mb-6 sm:mb-8">
+              {/* Stats - Mobile me single column, Desktop me side by side */}
+              <motion.div variants={staggerContainer} className="flex flex-col md:flex-row md:flex-wrap gap-4 sm:gap-6 mb-6 sm:mb-8">
                 <motion.div variants={fadeInUp} className="flex items-center gap-2 sm:gap-3">
                   <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-gradient-to-br from-green-100 to-green-50 flex items-center justify-center shadow-md hover:shadow-lg transition-shadow duration-300">
                     <CheckCircle2 className="h-5 w-5 sm:h-6 sm:w-6 text-green-600" />
@@ -198,7 +202,7 @@ function HeroSection({ isMounted }: { isMounted: boolean }) {
                 </motion.div>
               </motion.div>
 
-              <motion.div variants={fadeInUp} className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+              <motion.div variants={fadeInUp} className="flex flex-col sm:flex-row gap-3 sm:gap-4 pb-10">
                 <Link href="/properties" className="flex-1">
                   <Button size="lg" className="bg-gradient-to-r from-primary to-blue-700 hover:from-blue-700 hover:to-primary w-full text-white shadow-lg hover:shadow-xl transition-all duration-300 text-sm sm:text-base h-12 sm:h-14 gap-2">
                     <Search className="h-4 w-4 sm:h-5 sm:w-5" />
@@ -206,22 +210,23 @@ function HeroSection({ isMounted }: { isMounted: boolean }) {
                   </Button>
                 </Link>
                 <Link href="/contact" className="flex-1">
-                  <Button size="lg" variant="outline" className="w-full border-2 border-slate-800 hover:border-slate-900 text-black h-12 sm:h-14 hover:shadow-lg transition-all duration-300">
+                  <Button size="lg" variant="outline" className="w-full border-2 border-slate-800 hover:border-slate-900 text-black h-12 sm:h-14 hover:shadow-lg transition-all duration-300 ">
                     Talk to Expert
                   </Button>
                 </Link>
               </motion.div>
             </motion.div>
 
-            {/* Right side image grid */}
-            <ImageGrid isMounted={isMounted} />
+            {/* Right side image grid - Mobile me upar, Desktop me right side */}
+            <div className="order-1 lg:order-2 mb-6 lg:mb-0 w-full">
+              <ImageGrid isMounted={isMounted} />
+            </div>
           </div>
         </div>
       </div>
     </section>
   );
 }
-
 // ImageGrid Component
 function ImageGrid({ isMounted }: { isMounted: boolean }) {
 // Replace the fourDirectionVariants object in the ImageGrid component:
@@ -755,7 +760,7 @@ function PropertiesSection({ properties, loading }: { properties: any[], loading
 
         {/* View All Button */}
         <ScrollAnimation delay={0.3}>
-          <div className="text-center mt-12">
+          <div className="text-center mt-8 ">
             <Link href="/properties">
               <button className="px-8 py-3.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold rounded-lg hover:shadow-lg transition-all duration-300 transform hover:-translate-y-0.5 text-sm gap-2 inline-flex items-center">
                 View All Properties
@@ -840,7 +845,7 @@ function WhoIsForSection() {
 
   return (
     <ScrollAnimation>
-      <section className="bg-white py-12">
+      <section className="bg-white -mt-5 ">
         <div className="max-w-7xl mx-auto px-2">
           <div className="text-center mb-12">
             <div className="inline-flex items-center justify-center mb-3 sm:mb-4">
@@ -861,22 +866,39 @@ function WhoIsForSection() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {categories.map((category, index) => (
-              <div key={index} className="relative h-[220px] rounded-2xl overflow-hidden group">
-                <img
-                  src={category.image}
-                  alt={category.title}
-                  className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition duration-500"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent"></div>
-                <div className="absolute bottom-4 left-4 right-4 text-white">
-                  <h3 className="text-lg font-semibold mb-1">{category.title}</h3>
-                  <p className="text-sm text-white/90">{category.description}</p>
-                </div>
-              </div>
-            ))}
-          </div>
+        <div className="grid grid-cols-1 px-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5 lg:gap-6 -mt-6">
+  {categories.map((category, index) => (
+    <div
+      key={index}
+      className="relative overflow-hidden rounded-xl sm:rounded-2xl
+                 h-[180px] sm:h-[200px] md:h-[220px] lg:h-[240px]
+                 group"
+    >
+      {/* Image */}
+      <img
+        src={category.image}
+        alt={category.title}
+        className="absolute inset-0 w-full h-full object-cover
+                   transition-transform duration-500
+                   lg:group-hover:scale-105"
+      />
+
+      {/* Overlay */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent" />
+
+      {/* Text */}
+      <div className="absolute bottom-3 sm:bottom-4 left-3 sm:left-4 right-3 sm:right-4 text-white">
+        <h3 className="text-base sm:text-lg font-semibold leading-tight">
+          {category.title}
+        </h3>
+        <p className="mt-1 text-xs sm:text-sm text-white/90 line-clamp-2">
+          {category.description}
+        </p>
+      </div>
+    </div>
+  ))}
+</div>
+
         </div>
       </section>
     </ScrollAnimation>
@@ -887,10 +909,10 @@ function WhoIsForSection() {
 function FeaturesSection({ features }: { features: any[] }) {
   return (
     <ScrollAnimation>
-      <section className="relative py-4 sm:py-8 md:py-10 bg-white px-2 sm:px-4">
+      <section className="relative py-4 sm:py-8 md:py-10 bg-white px-2 sm:px-4 ">
         <div className="container mx-auto px-3 sm:px-4">
           <ScrollAnimation>
-            <div className="flex flex-col items-center">
+            <div className="flex flex-col items-center mt-4">
               <div className="inline-flex items-center justify-center mb-3 sm:mb-4">
                 <div className="h-1.5 w-6 sm:h-2 sm:w-8 bg-blue-600 rounded-full"></div>
                 <span className="mx-2 sm:mx-4 text-xs sm:text-sm font-semibold text-blue-700 tracking-wider uppercase">
@@ -942,7 +964,7 @@ function FeatureCard({ icon: Icon, title, desc, index }: any) {
           <div className="h-15 w-15 sm:h-20 sm:w-20 md:h-24 md:w-24 rounded-full bg-blue-300 opacity-0 group-hover:opacity-20 group-hover:scale-125 transition-all duration-700"></div>
         </div>
         
-        <div className="relative h-15 w-15 sm:h-20 sm:w-20 md:h-24 md:w-24 rounded-full bg-gray-100 group-hover:bg-gradient-to-br group-hover:from-blue-500 group-hover:to-blue-500 flex items-center justify-center transition-all duration-500 shadow-sm group-hover:shadow-xl overflow-hidden">
+        <div className="relative h-15 w-15 sm:h-20 sm:w-20 md:h-24 md:w-24 rounded-full bg-gray-100 group-hover:bg-gradient-to-br group-hover:from-blue-500 group-hover:to-blue-500 flex items-center justify-center transition-all duration-500 shadow-sm group-hover:shadow-xl overflow-hidden p-4">
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-0 group-hover:opacity-30 group-hover:translate-x-full transition-all duration-700 -translate-x-full"></div>
           
           <Icon className={`h-9 w-9 sm:h-10 sm:w-10 md:h-12 md:w-12 text-blue-600 group-hover:text-white transition-all duration-500 ${animationClass}`} strokeWidth={2} />
