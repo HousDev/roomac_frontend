@@ -572,8 +572,8 @@ export default function RoomsClient({ initialRooms, initialProperties }: RoomsCl
       </div>
 
       {/* Main Content Card */}
-      <Card className="border shadow-sm h-20">
-        <CardHeader className="bg-blue-500 border-b p-4 sticky top-20 z-30">
+      <Card className="border shadow-sm max-h-[80vh] overflow-y-auto relative">
+        <CardHeader className="bg-blue-500 border-b p-4 sticky top-0 z-40">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             {/* Left side: Search */}
             <div className="flex items-center gap-3 flex-1">
@@ -613,7 +613,7 @@ export default function RoomsClient({ initialRooms, initialProperties }: RoomsCl
           </div>
         </CardHeader>
 
-        <CardContent className="p-6 ">
+        <CardContent className="p-6 pb-4">
           {loading ? (
             <div className="text-center py-12">
               <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>

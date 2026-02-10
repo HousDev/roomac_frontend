@@ -1384,13 +1384,23 @@ export default function TenantsClient({
   }, []);
 
   // Toggle all selection
+  // const toggleSelectAll = useCallback(() => {
+  //   if (selectedTenantIds.length === tenants.length) {
+  //     setSelectedTenantIds([]);
+  //   } else {
+  //     setSelectedTenantIds(tenants.map(tenant => String(tenant.id)));
+  //   }
+  // }, [tenants]);
   const toggleSelectAll = useCallback(() => {
-    if (selectedTenantIds.length === tenants.length) {
-      setSelectedTenantIds([]);
-    } else {
-      setSelectedTenantIds(tenants.map(tenant => String(tenant.id)));
-    }
-  }, [tenants]);
+  // If all tenants are already selected, deselect all
+  if (selectedTenantIds.length === tenants.length && tenants.length > 0) {
+    setSelectedTenantIds([]);
+  } else {
+    // Otherwise, select all tenants
+    const allIds = tenants.map(tenant => String(tenant.id));
+    setSelectedTenantIds(allIds);
+  }
+}, [tenants, selectedTenantIds]); // Make sure selectedTenantIds is in dependencies
 
   // Load tenants
   const loadTenants = useCallback(async (customFilters?: TenantFilters) => {
@@ -2424,373 +2434,375 @@ export default function TenantsClient({
           </div>
         </CardHeader>
 
-        <CardContent className="p-0 ">
-          {/* Column Headers - Like in screenshot but with search inputs below */}
-          <div className="bg-slate-100 border-b  sticky top-36 z-30">
-            {/* Column Titles Row */}
-            <div className="grid grid-cols-10 gap-2 px-4 md:px-6 py-3 border-b ">
-              {/* Select All Checkbox */}
-  
-              <div className="">
-                <div className="text-left text-xs font-medium text-slate-700 uppercase tracking-wider">
-                  select
-                </div>
-              </div>
-              
-              {/* Name Column Title */}
-              <div className="col-span-2">
-                <div className="text-left text-xs font-medium text-slate-700 uppercase tracking-wider">
-                  NAME
-                </div>
-              </div>
-              
-              {/* Contact Column Title */}
-              <div className="col-span-2">
-                <div className="text-left text-xs font-medium text-slate-700 uppercase tracking-wider">
-                  CONTACT
-                </div>
-              </div>
-              
-              {/* Occupation Column Title */}
-              <div className="col-span-1">
-                <div className="text-left text-xs font-medium text-slate-700 uppercase tracking-wider">
-                  OCCUPATION
-                </div>
-              </div>
-              
-              {/* Property Column Title */}
-              <div className="col-span-1">
-                <div className="text-left text-xs font-medium text-slate-700 uppercase tracking-wider">
-                  PROPERTY & ROOM
-                </div>
-              </div>
-              
-              {/* Payments Column Title */}
-              <div className="col-span-1">
-                <div className="text-left text-xs font-medium text-slate-700 uppercase tracking-wider">
-                  PAYMENTS
-                </div>
-              </div>
-              
-              {/* Status Column Title */}
-              <div className="col-span-1">
-                <div className="text-left text-xs font-medium text-slate-700 uppercase tracking-wider">
-                  STATUS
-                </div>
-              </div>
-              
-              {/* Actions Column Title */}
-              <div className="1">
-                <div className="text-left text-xs font-medium text-slate-700 uppercase tracking-wider">
-                  ACTIONS
-                </div>
-              </div>
-            </div>
+        <CardContent className="p-0">
+  {/* Column Headers with Search */}
+  <div className="bg-slate-50 border-b sticky top-36 z-30">
+    {/* Column Titles Row - More compact */}
+    <div className="grid grid-cols-10 gap-1 px-3 md:px-4 py-2 border-b">
+      {/* Select All Checkbox - Centered */}
+      <div className="flex justify-center">
+        <div className="text-center text-[10px] font-medium text-slate-600 uppercase tracking-wider">
+          select
+        </div>
+      </div>
+      
+      {/* Name Column Title */}
+      <div className="col-span-2">
+        <div className="text-left text-[10px] font-medium text-slate-600 uppercase tracking-wider">
+          NAME
+        </div>
+      </div>
+      
+      {/* Contact Column Title */}
+      <div className="col-span-2">
+        <div className="text-left text-[10px] font-medium text-slate-600 uppercase tracking-wider">
+          CONTACT
+        </div>
+      </div>
+      
+      {/* Occupation Column Title */}
+      <div>
+        <div className="text-left text-[10px] font-medium text-slate-600 uppercase tracking-wider">
+          OCCUPATION
+        </div>
+      </div>
+      
+      {/* Property Column Title */}
+      <div>
+        <div className="text-left text-[10px] font-medium text-slate-600 uppercase tracking-wider">
+          PROPERTY & ROOM
+        </div>
+      </div>
+      
+      {/* Payments Column Title */}
+      <div>
+        <div className="text-left text-[10px] font-medium text-slate-600 uppercase tracking-wider">
+          PAYMENTS
+        </div>
+      </div>
+      
+      {/* Status Column Title */}
+      <div>
+        <div className="text-left text-[10px] font-medium text-slate-600 uppercase tracking-wider">
+          STATUS
+        </div>
+      </div>
+      
+      {/* Actions Column Title */}
+      <div>
+        <div className="text-left text-[10px] font-medium text-slate-600 uppercase tracking-wider">
+          ACTIONS
+        </div>
+      </div>
+    </div>
 
-            {/* Search Inputs Row */}
-            <div className="grid grid-cols-10 gap-2 px-4 md:px-6 py-3">
-              {/* Empty column for checkbox alignment */}
+    {/* Search Inputs Row - More compact */}
+    <div className="grid grid-cols-10 gap-1 px-3 md:px-4 py-2">
+      {/* Select All Checkbox - Centered */}
+      <div className="flex justify-center">
+        <button
+          onClick={toggleSelectAll}
+          className="flex items-center justify-center h-4 w-4"
+        >
+          {selectedTenantIds.length === tenants.length && tenants.length > 0 ? (
+            <CheckSquare className="h-4 w-4 text-blue-600" />
+          ) : (
+            <Square className="h-4 w-4 text-slate-400" />
+          )}
+        </button>
+      </div>
+      
+      {/* Name Column Search */}
+      <div className="col-span-2">
+        <Input
+          placeholder="Search name..."
+          value={columnSearch.name}
+          onChange={(e) => handleColumnSearchChange('name', e.target.value)}
+          className="h-7 text-xs w-full"
+        />
+      </div>
+      
+      {/* Contact Column Search */}
+      <div className="col-span-2">
+        <Input
+          placeholder="Search email/phone..."
+          value={columnSearch.contact}
+          onChange={(e) => handleColumnSearchChange('contact', e.target.value)}
+          className="h-7 text-xs w-full"
+        />
+      </div>
+      
+      {/* Occupation Column Search */}
+      <div>
+        <Input
+          placeholder="Search occupation"
+          value={columnSearch.occupation}
+          onChange={(e) => handleColumnSearchChange('occupation', e.target.value)}
+          className="h-7 text-xs w-full"
+        />
+      </div>
+      
+      {/* Property Column Search */}
+      <div>
+        <Input
+          placeholder="Search property"
+          value={columnSearch.property}
+          onChange={(e) => handleColumnSearchChange('property', e.target.value)}
+          className="h-7 text-xs w-full"
+        />
+      </div>
+      
+      {/* Payments Column Search */}
+      <div>
+        <Input
+          placeholder="Search payment"
+          value={columnSearch.payments}
+          onChange={(e) => handleColumnSearchChange('payments', e.target.value)}
+          className="h-7 text-xs w-full"
+        />
+      </div>
+      
+      {/* Status Column Search */}
+      <div>
+        <Input
+          placeholder="Search status"
+          value={columnSearch.status}
+          onChange={(e) => handleColumnSearchChange('status', e.target.value)}
+          className="h-7 text-xs w-full"
+        />
+      </div>
+      
+      {/* Actions Column - Empty for alignment */}
+      <div></div>
+    </div>
+  </div>
+  
+  {/* Tenants List - More compact */}
+  <div className="overflow-x-auto">
+    {loading ? (
+      <div className="flex justify-center items-center h-48">
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+      </div>
+    ) : tenants.length === 0 ? (
+      <div className="text-center py-8">
+        <Users className="h-10 w-10 text-slate-300 mx-auto mb-3" />
+        <h3 className="text-sm font-medium text-slate-600">No tenants found</h3>
+        <p className="text-slate-500 text-xs mt-1">Add your first tenant to get started</p>
+        <Button 
+          className="mt-3 h-7 text-xs" 
+          onClick={() => setIsAddDialogOpen(true)}
+        >
+          <Plus className="h-3 w-3 mr-1" />
+          Add Tenant
+        </Button>
+      </div>
+    ) : (
+      <div className="divide-y">
+        {tenants.map((tenant) => (
+          <div key={tenant.id} className="grid grid-cols-10 gap-1 px-3 md:px-4 py-2 hover:bg-slate-50 transition-colors items-center">
+            {/* Selection Checkbox - Centered */}
+            <div className="flex justify-center">
+              <button
+                onClick={() => toggleSelection(String(tenant.id))}
+                className="flex items-center justify-center h-4 w-4"
+              >
+                {selectedTenantIds.includes(String(tenant.id)) ? (
+                  <CheckSquare className="h-4 w-4 text-blue-600" />
+                ) : (
+                  <Square className="h-4 w-4 text-slate-400" />
+                )}
+              </button>
+            </div>
+            
+            {/* Name Column */}
+            <div className="space-y-0.5 col-span-2">
+              <div className="flex items-center gap-2">
+                {tenant.photo_url ? (
+                  <img 
+                    src={tenant.photo_url} 
+                    alt={tenant.full_name}
+                    className="h-8 w-8 object-cover rounded-full"
+                  />
+                ) : (
+                  <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
+                    <Users className="h-4 w-4 text-blue-600" />
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <p className="font-medium text-sm truncate">{tenant.full_name}</p>
+                  <p className="text-xs text-slate-500 capitalize truncate">{tenant.gender?.toLowerCase() || 'Not specified'}</p>
+                </div>
+              </div>
+            </div>
+            
+            {/* Contact Column */}
+            <div className="space-y-0.5 col-span-2">
+              <div className="flex items-center gap-1 text-xs">
+                <Mail className="h-3 w-3 text-slate-400 flex-shrink-0" />
+                <span className="truncate">{tenant.email || 'No email'}</span>
+              </div>
+              <div className="flex items-center gap-1 text-xs">
+                <Phone className="h-3 w-3 text-slate-400 flex-shrink-0" />
+                <span className="truncate">{tenant.country_code || ''} {tenant.phone || 'No phone'}</span>
+              </div>
+              {tenant.city && (
+                <div className="text-[10px] text-slate-500 truncate">
+                  <MapPin className="h-2.5 w-2.5 inline mr-0.5" />
+                  {tenant.city}{tenant.state && `, ${tenant.state}`}
+                </div>
+              )}
+            </div>
+            
+            {/* Occupation Column */}
+            <div className="space-y-0.5">
+              <Badge variant="outline" className="text-[10px] py-0 px-1.5 h-4">
+                {tenant.occupation_category || "Other"}
+              </Badge>
+              <p className="text-xs mt-0.5 truncate">{tenant.exact_occupation || tenant.occupation || "Not specified"}</p>
+            </div>
+            
+            {/* Property Column */}
+            <div className="space-y-0.5">
+              {tenant.current_assignment || tenant.assigned_room_id ? (
+                <>
+                  <div className="flex items-center gap-1">
+                    <Building className="h-3 w-3 text-slate-400 flex-shrink-0" />
+                    <span className="font-medium text-xs truncate">
+                      {tenant.current_assignment?.property_name || tenant.assigned_property_name || 'Unknown'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1 text-[10px] text-slate-600">
+                    <Bed className="h-2.5 w-2.5 text-slate-400 flex-shrink-0" />
+                    Room {tenant.current_assignment?.room_number || tenant.assigned_room_number || 'N/A'} • Bed {tenant.current_assignment?.bed_number || tenant.assigned_bed_number || 'N/A'}
+                  </div>
+                  <Badge variant="outline" className="text-[10px] py-0 px-1.5 h-4 bg-green-50 text-green-700 border-green-200">
+                    <CheckCircle className="h-2.5 w-2.5 mr-0.5" />
+                    Assigned
+                  </Badge>
+                </>
+              ) : (
+                <div className="text-xs text-slate-400 italic">
+                  <Building className="h-3 w-3 inline mr-1" />
+                  No assignment
+                </div>
+              )}
+            </div>
+            
+            {/* Payments Column */}
+            <div className="space-y-0.5">
+              {(() => {
+                const payments = tenant.payments || [];
+                const paid = payments.filter(p => p.status === 'paid').reduce((sum, p) => sum + (p.amount || 0), 0);
+                const pending = payments.filter(p => p.status === 'pending').reduce((sum, p) => sum + (p.amount || 0), 0);
+                
+                return (
+                  <>
+                    <div className="flex items-center gap-1 text-xs">
+                      <IndianRupee className="h-3 w-3 text-green-600 flex-shrink-0" />
+                      <span className="text-green-600 font-medium truncate">₹{paid.toLocaleString()}</span>
+                    </div>
+                    {pending > 0 && (
+                      <div className="flex items-center gap-1 text-xs">
+                        <IndianRupee className="h-3 w-3 text-red-600 flex-shrink-0" />
+                        <span className="text-red-600 truncate">₹{pending.toLocaleString()}</span>
+                      </div>
+                    )}
+                    <div className="text-[10px] text-slate-500">
+                      {payments.length} txn
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+            
+            {/* Status Column - With Login Status Restored */}
+            <div className="space-y-0.5">
               <div>
-                <button
-                  onClick={toggleSelectAll}
-                  className="flex items-center justify-center h-5 w-5"
+                <Badge 
+                  variant={tenant.is_active ? "default" : "secondary"} 
+                  className="text-[10px] py-0 px-1.5 h-4"
                 >
-                  {selectedTenantIds.length === tenants.length && tenants.length > 0 ? (
-                    <CheckSquare className="h-5 w-5 text-blue-600" />
-                  ) : (
-                    <Square className="h-5 w-5 text-slate-400" />
-                  )}
-                </button>
+                  {tenant.is_active ? "Active" : "Inactive"}
+                </Badge>
               </div>
-              
-              {/* Name Column Search */}
-              <div className="col-span-2">
-                <Input
-                  placeholder="Search name..."
-                  value={columnSearch.name}
-                  onChange={(e) => handleColumnSearchChange('name', e.target.value)}
-                  className="h-8 text-sm w-full"
-                />
+              <div className="space-y-0.5">
+                {tenant.portal_access_enabled ? (
+                  <Badge variant="outline" className="text-[10px] py-0 px-1.5 h-4 bg-blue-50 text-blue-700 border-blue-200">
+                    <CheckCircle className="h-2.5 w-2.5 mr-0.5" />
+                    Portal Access
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-[10px] py-0 px-1.5 h-4 bg-slate-50 text-slate-700 border-slate-200">
+                    <XCircle className="h-2.5 w-2.5 mr-0.5" />
+                    No Portal
+                  </Badge>
+                )}
+                {tenant.has_credentials ? (
+                  <Badge variant="outline" className="text-[10px] py-0 px-1.5 h-4 bg-green-50 text-green-700 border-green-200">
+                    <Key className="h-2.5 w-2.5 mr-0.5" />
+                    Login Enabled
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-[10px] py-0 px-1.5 h-4 bg-orange-50 text-orange-700 border-orange-200">
+                    <XCircle className="h-2.5 w-2.5 mr-0.5" />
+                    No Login
+                  </Badge>
+                )}
               </div>
-              
-              {/* Contact Column Search */}
-              <div className="col-span-2">
-                <Input
-                  placeholder="Search email/phone..."
-                  value={columnSearch.contact}
-                  onChange={(e) => handleColumnSearchChange('contact', e.target.value)}
-                  className="h-8 text-sm w-full"
-                />
-              </div>
-              
-              {/* Occupation Column Search */}
-              <div>
-                <Input
-                  placeholder="Search occupation"
-                  value={columnSearch.occupation}
-                  onChange={(e) => handleColumnSearchChange('occupation', e.target.value)}
-                  className="h-8 text-sm w-full"
-                />
-              </div>
-              
-              {/* Property Column Search */}
-              <div>
-                <Input
-                  placeholder="Search property"
-                  value={columnSearch.property}
-                  onChange={(e) => handleColumnSearchChange('property', e.target.value)}
-                  className="h-8 text-sm w-full"
-                />
-              </div>
-              
-              {/* Payments Column Search */}
-              <div>
-                <Input
-                  placeholder="Search payment"
-                  value={columnSearch.payments}
-                  onChange={(e) => handleColumnSearchChange('payments', e.target.value)}
-                  className="h-8 text-sm w-full"
-                />
-              </div>
-              
-              {/* Status Column Search */}
-              <div>
-                <Input
-                  placeholder="Search status"
-                  value={columnSearch.status}
-                  onChange={(e) => handleColumnSearchChange('status', e.target.value)}
-                  className="h-8 text-sm w-full"
-                />
-              </div>
-              
-              {/* Actions Column - Empty for alignment */}
-              <div></div>
+            </div>
+            
+            {/* Actions Column */}
+            <div className="flex items-center justify-start">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                    <MoreVertical className="h-3.5 w-3.5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="text-xs">
+                  <DropdownMenuItem onClick={() => {
+                    setSelectedTenant(tenant);
+                    setIsViewDialogOpen(true);
+                  }}>
+                    <Eye className="h-3.5 w-3.5 mr-2" />
+                    View Details
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => {
+                    setSelectedTenant(tenant);
+                    setIsEditDialogOpen(true);
+                  }}>
+                    <Edit className="h-3.5 w-3.5 mr-2" />
+                    Edit
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => {
+                    setSelectedTenant(tenant);
+                    setCredentialPassword("");
+                    setIsCredentialDialogOpen(true);
+                  }}>
+                    <Key className="h-3.5 w-3.5 mr-2" />
+                    {tenant.has_credentials ? "Reset Password" : "Create Login"}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleTogglePortalAccess(tenant)}>
+                    <UserX className="h-3.5 w-3.5 mr-2" />
+                    {tenant.portal_access_enabled ? "Disable Portal" : "Enable Portal"}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem 
+                    onClick={() => handleDelete(tenant)}
+                    className="text-red-600"
+                  >
+                    <Trash2 className="h-3.5 w-3.5 mr-2" />
+                    Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
-          
-          {/* Tenants List */}
-          <div className="overflow-x-auto">
-            {loading ? (
-              <div className="flex justify-center items-center h-64">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-              </div>
-            ) : tenants.length === 0 ? (
-              <div className="text-center py-12">
-                <Users className="h-12 w-12 text-slate-300 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-slate-600">No tenants found</h3>
-                <p className="text-slate-500 mt-1">Add your first tenant to get started</p>
-                <Button 
-                  className="mt-4" 
-                  onClick={() => setIsAddDialogOpen(true)}
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Tenant
-                </Button>
-              </div>
-            ) : (
-              <div className="divide-y">
-                {tenants.map((tenant) => (
-                  <div key={tenant.id} className="grid grid-cols-10 gap-4 px-4 md:px-6 py-4 hover:bg-slate-50 transition-colors items-center">
-                    {/* Selection Checkbox */}
-                    <div className="flex items-center col-span-1">
-                      <button
-                        onClick={() => toggleSelection(String(tenant.id))}
-                        className="flex items-center justify-center h-5 w-5"
-                      >
-                        {selectedTenantIds.includes(String(tenant.id)) ? (
-                          <CheckSquare className="h-5 w-5 text-blue-600" />
-                        ) : (
-                          <Square className="h-5 w-5 text-slate-400" />
-                        )}
-                      </button>
-                    </div>
-                    
-                    {/* Name Column */}
-                    <div className="space-y-1 col-span-2">
-                      <div className="flex items-center gap-3">
-                        {tenant.photo_url ? (
-                          <img 
-                            src={tenant.photo_url} 
-                            alt={tenant.full_name}
-                            className="h-10 w-10 object-cover rounded-full"
-                          />
-                        ) : (
-                          <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                            <Users className="h-5 w-5 text-blue-600" />
-                          </div>
-                        )}
-                        <div>
-                          <p className="font-medium">{tenant.full_name}</p>
-                          <p className="text-sm text-slate-500 capitalize">{tenant.gender?.toLowerCase()}</p>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {/* Contact Column */}
-                    <div className="space-y-1 col-span-2">
-                      <div className="flex items-center gap-2 text-sm">
-                        <Mail className="h-3 w-3 text-slate-400" />
-                        <span className="truncate">{tenant.email}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm">
-                        <Phone className="h-3 w-3 text-slate-400" />
-                        <span>{tenant.country_code} {tenant.phone}</span>
-                      </div>
-                      {tenant.city && (
-                        <div className="text-xs text-slate-500">
-                          <MapPin className="h-3 w-3 inline mr-1" />
-                          {tenant.city}, {tenant.state}
-                        </div>
-                      )}
-                    </div>
-                    
-                    {/* Occupation Column */}
-                    <div className="space-y-1">
-                      <Badge variant="outline" className="text-xs">
-                        {tenant.occupation_category || "Other"}
-                      </Badge>
-                      <p className="text-sm mt-1">{tenant.exact_occupation || tenant.occupation || "Not specified"}</p>
-                    </div>
-                    
-                    {/* Property Column */}
-                    <div className="space-y-1">
-                      {tenant.current_assignment || tenant.assigned_room_id ? (
-                        <>
-                          <div className="flex items-center gap-1">
-                            <Building className="h-3 w-3 text-slate-400" />
-                            <span className="font-medium text-sm">
-                              {tenant.current_assignment?.property_name || tenant.assigned_property_name || 'Unknown Property'}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-1 text-xs text-slate-600">
-                            <Bed className="h-3 w-3 text-slate-400" />
-                            Room {tenant.current_assignment?.room_number || tenant.assigned_room_number || 'N/A'} • Bed {tenant.current_assignment?.bed_number || tenant.assigned_bed_number || 'N/A'}
-                          </div>
-                          <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
-                            <CheckCircle className="h-3 w-3 mr-1" />
-                            Bed Assigned
-                          </Badge>
-                        </>
-                      ) : (
-                        <div className="text-sm text-slate-400 italic">
-                          <Building className="h-3 w-3 inline mr-1" />
-                          No assignment
-                        </div>
-                      )}
-                    </div>
-                    
-                    {/* Payments Column */}
-                    <div className="space-y-1">
-                      {(() => {
-                        const payments = tenant.payments || [];
-                        const paid = payments.filter(p => p.status === 'paid').reduce((sum, p) => sum + (p.amount || 0), 0);
-                        const pending = payments.filter(p => p.status === 'pending').reduce((sum, p) => sum + (p.amount || 0), 0);
-                        
-                        return (
-                          <>
-                            <div className="flex items-center gap-1 text-sm">
-                              <IndianRupee className="h-3 w-3 text-green-600" />
-                              <span className="text-green-600 font-medium">₹{paid.toLocaleString()} paid</span>
-                            </div>
-                            {pending > 0 && (
-                              <div className="flex items-center gap-1 text-sm">
-                                <IndianRupee className="h-3 w-3 text-red-600" />
-                                <span className="text-red-600">₹{pending.toLocaleString()} pending</span>
-                              </div>
-                            )}
-                            <div className="text-xs text-slate-500">
-                              {payments.length} transaction(s)
-                            </div>
-                          </>
-                        );
-                      })()}
-                    </div>
-                    
-                    {/* Status Column */}
-                    <div className="space-y-1">
-                      <div>
-                        <Badge variant={tenant.is_active ? "default" : "secondary"}>
-                          {tenant.is_active ? "Active" : "Inactive"}
-                        </Badge>
-                      </div>
-                      <div className="space-y-1">
-                        {tenant.portal_access_enabled ? (
-                          <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
-                            <CheckCircle className="h-3 w-3 mr-1" />
-                            Portal Access
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-xs bg-slate-50 text-slate-700 border-slate-200">
-                            <XCircle className="h-3 w-3 mr-1" />
-                            No Portal
-                          </Badge>
-                        )}
-                        {tenant.has_credentials ? (
-                          <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
-                            <Key className="h-3 w-3 mr-1" />
-                            Login Enabled
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-xs bg-orange-50 text-orange-700 border-orange-200">
-                            <XCircle className="h-3 w-3 mr-1" />
-                            No Login
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                    
-                    {/* Actions Column */}
-                    <div className="flex items-center justify-start">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => {
-                            setSelectedTenant(tenant);
-                            setIsViewDialogOpen(true);
-                          }}>
-                            <Eye className="h-4 w-4 mr-2" />
-                            View Details
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => {
-                            setSelectedTenant(tenant);
-                            setIsEditDialogOpen(true);
-                          }}>
-                            <Edit className="h-4 w-4 mr-2" />
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => {
-                            setSelectedTenant(tenant);
-                            setCredentialPassword("");
-                            setIsCredentialDialogOpen(true);
-                          }}>
-                            <Key className="h-4 w-4 mr-2" />
-                            {tenant.has_credentials ? "Reset Password" : "Create Login"}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleTogglePortalAccess(tenant)}>
-                            <UserX className="h-4 w-4 mr-2" />
-                            {tenant.portal_access_enabled ? "Disable Portal" : "Enable Portal"}
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem 
-                            onClick={() => handleDelete(tenant)}
-                            className="text-red-600"
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </CardContent>
+        ))}
+      </div>
+    )}
+  </div>
+</CardContent>
       </Card>
 
       {/* Dialogs */}
