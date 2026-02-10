@@ -12,10 +12,10 @@ interface HeroSectionProps {
 
 export default function HeroSection({ onBrowseProperties, onContactUs }: HeroSectionProps) {
   return (
-    <section className="relative overflow-hidden bg-gradient-to-br from-[#9aa5b1] via-blue-100 to-white py-24">
+    <section className="relative overflow-hidden bg-gradient-to-br from-[#9aa5b1] via-blue-100 to-white py-10">
       {/* Background elements */}
       <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10" />
-      <div className="absolute top-0 right-0 w-96 h-96 bg-cyan-400 rounded-full blur-3xl opacity-20" />
+      <div className="absolute top-0 right-0 w-96 h-96 bg-blue-400 rounded-full blur-3xl opacity-20" />
       <div className="absolute bottom-0 left-0 w-96 h-96 bg-blue-400 rounded-full blur-3xl opacity-20" />
 
       <div className="container mx-auto px-4 relative">
@@ -28,12 +28,12 @@ export default function HeroSection({ onBrowseProperties, onContactUs }: HeroSec
           </div>
           
           {/* Heading with animation */}
-          <h1 className="text-5xl text-slate-900 md:text-6xl font-bold mb-6 leading-tight animate-in zoom-in duration-700 delay-400">
+          <h1 className="text-3xl text-slate-900 md:text-6xl font-bold mb-6 leading-tight animate-in zoom-in duration-700 delay-400">
             How It Works
           </h1>
           
           {/* Paragraph with animation */}
-          <p className="text-xl md:text-2xl text-slate-700 mb-8 leading-relaxed max-w-3xl mx-auto animate-in zoom-in duration-700 delay-600">
+          <p className="text-base md:text-2xl text-slate-700 mb-8 leading-relaxed max-w-3xl mx-auto animate-in zoom-in duration-700 delay-600">
             Your journey to comfortable living, simplified in 6 easy steps. From search to move-in, we make it seamless.
           </p>
           

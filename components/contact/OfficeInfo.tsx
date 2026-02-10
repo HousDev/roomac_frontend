@@ -11,34 +11,38 @@ export default function OfficeInfo({ locations }: OfficeInfoProps) {
   return (
     <div className="space-y-6">
       {/* Office Hours */}
-      <Card className="border-0 shadow-xl">
-        <CardContent className="p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="h-12 w-12 bg-gradient-to-br from-[#004AAD] to-cyan-500 rounded-2xl flex items-center justify-center shadow-lg">
-              <Clock className="h-6 w-6 text-white" />
-            </div>
-            <div>
-              <h3 className="font-bold text-lg text-slate-900">Office Hours</h3>
-              <p className="text-sm text-slate-600">Visit us anytime</p>
-            </div>
-          </div>
-          <div className="space-y-3 text-sm">
-            <div className="flex justify-between py-2 border-b">
-              <span className="font-medium text-slate-700">Monday - Friday</span>
-              <span className="text-slate-900 font-semibold">9 AM - 7 PM</span>
-            </div>
-            <div className="flex justify-between py-2 border-b">
-              <span className="font-medium text-slate-700">Saturday</span>
-              <span className="text-slate-900 font-semibold">10 AM - 6 PM</span>
-            </div>
-            <div className="flex justify-between py-2">
-              <span className="font-medium text-slate-700">Sunday</span>
-              <span className="text-slate-900 font-semibold">10 AM - 5 PM</span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
+      <Card className="border border-slate-200/60 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
+  <CardContent className="p-0">
+    <div className="bg-gradient-to-br from-[#004AAD] to-blue-500 p-4">
+      <div className="flex items-center gap-2.5">
+        <div className="h-9 w-9 bg-white/20 backdrop-blur-sm rounded-lg flex items-center justify-center">
+          <Clock className="h-4 w-4 text-white" />
+        </div>
+        <div>
+          <h3 className="font-semibold text-sm text-white">Office Hours</h3>
+          <p className="text-xs text-white/80">Visit us anytime</p>
+        </div>
+      </div>
+    </div>
+    
+    <div className="p-4 bg-white">
+      <div className="space-y-2 text-xs">
+        <div className="flex justify-between items-center py-2 px-3 rounded-lg bg-slate-50 hover:bg-slate-100 transition-colors">
+          <span className="text-slate-600 font-medium">Mon - Fri</span>
+          <span className="text-[#004AAD] font-semibold">9 AM - 7 PM</span>
+        </div>
+        <div className="flex justify-between items-center py-2 px-3 rounded-lg bg-slate-50 hover:bg-slate-100 transition-colors">
+          <span className="text-slate-600 font-medium">Saturday</span>
+          <span className="text-[#004AAD] font-semibold">10 AM - 6 PM</span>
+        </div>
+        <div className="flex justify-between items-center py-2 px-3 rounded-lg bg-slate-50 hover:bg-slate-100 transition-colors">
+          <span className="text-slate-600 font-medium">Sunday</span>
+          <span className="text-[#004AAD] font-semibold">10 AM - 5 PM</span>
+        </div>
+      </div>
+    </div>
+  </CardContent>
+</Card>
       {/* Office Locations */}
       <Card className="border-0 shadow-xl">
         <CardContent className="p-6">
