@@ -43,23 +43,23 @@ export function Header() {
     if (loading || !settings) {
       return roomacLogo;
     }
-    
+
     const logoUrl = getSettingValue('logo_header');
-    
+
     if (!logoUrl) {
       return roomacLogo;
     }
-    
+
     // Check if the URL is already a full URL
     if (logoUrl.startsWith('http://') || logoUrl.startsWith('https://')) {
       return logoUrl;
     }
-    
+
     // Check if it's a relative path starting with /
     if (logoUrl.startsWith('/')) {
       return logoUrl;
     }
-    
+
     // If it's just a filename without a leading slash
     return `/${logoUrl}`;
   };
@@ -84,7 +84,7 @@ export function Header() {
           <img
             src={getLogoUrl()}
             alt={getSiteName()}
-            className="h-14 w-auto object-contain max-w-[200px]"
+            className="h-14 w-auto object-contain max-w-[200px] transition-all duration-300 hover:scale-[1.02]"
             onError={(e) => {
               // Fallback to default logo if the fetched logo fails to load
               (e.target as HTMLImageElement).src = roomacLogo;
@@ -115,7 +115,7 @@ export function Header() {
         </div>
 
         <div className="hidden md:flex items-center space-x-3">
-          <a href={`tel:${getContactPhone()}`}>
+          <a href={`tel:${getContactPhone()}`} className="transition-all duration-300 hover:scale-105">
             <Button variant="outline" size="sm" className="gap-2">
               <Phone className="h-4 w-4" />
               Call Us
@@ -150,62 +150,16 @@ export function Header() {
 
       {/* Mobile Menu - All items centered */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-t bg-white">
-          <div className="container mx-auto px-4 py-4 space-y-4">
-            <Link
-              href="/"
-              className="block py-2 text-sm font-medium hover:text-primary transition-colors"
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              Home
-            </Link>
-            <Link
-              href="/properties"
-              className="block py-2 text-sm font-medium hover:text-primary transition-colors"
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              Properties
-            </Link>
-            <Link
-              href="/how-it-works"
-              className="block py-2 text-sm font-medium hover:text-primary transition-colors"
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              How It Works
-            </Link>
-            <Link
-              href="/partner"
-              className="block py-2 text-sm font-medium hover:text-primary transition-colors"
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              Partner with Us
-            </Link>
-            <Link
-              href="/about"
-              className="block py-2 text-sm font-medium hover:text-primary transition-colors"
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              About Us
-            </Link>
-            <Link
-              href="/contact"
-              className="block py-2 text-sm font-medium hover:text-primary transition-colors"
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              Contact
-            </Link>
-            <div className="pt-4 space-y-2">
-              <a href={`tel:${getContactPhone()}`} className="block">
-                <Button variant="outline" size="sm" className="w-full gap-2">
-                  <Phone className="h-4 w-4" />
-                  Call Us
-                </Button>
-              </a>
-              <Link href="/tenant/login" className="block">
-                <Button variant="outline" size="sm" className="w-full gap-2">
-                  <User className="h-4 w-4" />
-                  Tenant Portal
-                </Button>
+        <div className="md:hidden border-t bg-white overflow-hidden">
+          <div className="flex flex-col items-center px-4 py-6 space-y-4 animate-in fade-in-50 slide-in-from-top-4 duration-500 ease-out">
+            {/* Navigation Links - Centered */}
+            <div className="w-full flex flex-col items-center space-y-3">
+              <Link
+                href="/"
+                className="text-center text-sm font-medium hover:text-primary transition-all duration-300 hover:scale-105 hover:translate-x-1 w-full py-3 animate-in fade-in-50 slide-in-from-right-2 duration-300 delay-75 fill-mode-both"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Home
               </Link>
               <Link
                 href="/properties"
@@ -251,28 +205,28 @@ export function Header() {
             <div className="flex flex-col items-center w-full space-y-4">
               {/* Call Us and Tenant Portal in one line */}
               <div className="flex justify-center items-center gap-4 w-full animate-in fade-in-50 zoom-in-95 duration-400 delay-250 ease-out">
-                <a 
-                  href={`tel:${getContactPhone()}`} 
+                <a
+                  href={`tel:${getContactPhone()}`}
                   className="flex-1 max-w-[150px] transition-all duration-500 hover:scale-105"
                   onClick={() => setMobileMenuOpen(false)}
                 >
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
+                  <Button
+                    variant="outline"
+                    size="sm"
                     className="w-full gap-2 transition-all duration-500 hover:scale-105 hover:shadow-lg"
                   >
                     <Phone className="h-4 w-4 transition-transform duration-500 group-hover:rotate-12" />
                     Call Us
                   </Button>
                 </a>
-                <Link 
-                  href="/tenant/login" 
+                <Link
+                  href="/tenant/login"
                   className="flex-1 max-w-[150px] transition-all duration-500 hover:scale-105"
                   onClick={() => setMobileMenuOpen(false)}
                 >
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
+                  <Button
+                    variant="outline"
+                    size="sm"
                     className="w-full gap-2 transition-all duration-500 hover:scale-105 hover:shadow-lg group"
                   >
                     <User className="h-4 w-4 transition-transform duration-500 group-hover:translate-y-[-2px]" />
@@ -282,13 +236,13 @@ export function Header() {
               </div>
 
               {/* Admin Button - Centered below */}
-              <Link 
-                href="/admin" 
+              <Link
+                href="/admin"
                 className="w-full max-w-[150px] animate-in fade-in-50 zoom-in-95 duration-400 delay-300 ease-out"
                 onClick={() => setMobileMenuOpen(false)}
               >
-                <Button 
-                  size="sm" 
+                <Button
+                  size="sm"
                   className="w-full bg-primary hover:bg-primary/90 transition-all duration-500 hover:scale-105 hover:shadow-lg"
                 >
                   Admin
