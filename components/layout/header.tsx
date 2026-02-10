@@ -18,13 +18,13 @@ export function Header() {
        <Link href="/" className="flex items-center space-x-2">
   {settings.logo_header ? (
     <img
-      src={settings.logo_header}
+      src={roomacLogo}
       alt={settings.site_name || 'ROOMAC'}
       className="h-14 w-auto object-contain max-w-[200px]"
     />
   ) : (
      <img
-              src={roomacLogo.src}  
+              src={roomacLogo}  
               alt={settings.site_name || 'ROOMAC'}
               className="h-14 w-auto object-contain max-w-[200px]"
             />
