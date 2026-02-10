@@ -10,6 +10,7 @@ import roomacLogo from '@/app/src/assets/images/roomaclogo.webp';
 
 export function Footer() {
   const { settings } = useSettings();
+  console.log("settings ", settings)
   return (
     <footer className="bg-slate-900 text-white">
       <div className="container mx-auto px-4 py-12">
@@ -18,7 +19,7 @@ export function Footer() {
             <div className="mb-4">
               {settings.logo_footer ? (
                 <img
-                  // src={settings.logo_footer}
+                  src={settings.logo_footer}
                   alt={settings.site_name || 'ROOMAC'}
                   className="h-12 w-auto object-contain"
                 />
