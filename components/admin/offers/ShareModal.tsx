@@ -36,7 +36,7 @@ interface ShareModalProps {
 }
 
 const getBaseUrl = () => {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+  const apiUrl = process.env.VITE_API_URL || 'http://localhost:3001';
   const baseUrl = apiUrl.replace('/api', '');
   return baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
 };

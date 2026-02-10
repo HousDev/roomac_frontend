@@ -439,7 +439,7 @@
 import { ReactNode } from 'react';
 import { getTenantToken, getTenantId } from './tenantAuthApi';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+const API_BASE_URL = process.env.VITE_API_URL || "http://localhost:3001";
 const API_BASE_PATH = '/api/tenant-details';
 
 // Update the tenantRequest function in tenantDetailsApi.ts:

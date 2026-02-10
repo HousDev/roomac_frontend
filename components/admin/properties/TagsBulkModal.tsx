@@ -105,7 +105,7 @@ const fetchExistingTags = useCallback(async () => {
     console.log("🔍 Fetching existing tags for property IDs:", selectedPropertyIds);
     
     // Correct API URL with port 3001
-    const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    const API_BASE = process.env.VITE_API_URL || 'http://localhost:3001';
     const url = `${API_BASE}/api/properties/bulk-tags-info?ids=${selectedPropertyIds.join(',')}&_t=${Date.now()}`;
     
     console.log("📡 API URL:", url);

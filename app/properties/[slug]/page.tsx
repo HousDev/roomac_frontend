@@ -18,7 +18,7 @@
 //   Maximize2, Coffee as CoffeeIcon, Bath as BathIcon, Coffee
 // } from 'lucide-react';
 
-// const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+// const API_URL = process.env.VITE_API_URL || "http://localhost:3001";
 
 // const Icons = {
 //   Wifi, Wind, Utensils, Shield, Zap, Home, Building2, Bus, ShoppingCart, Heart, Film,

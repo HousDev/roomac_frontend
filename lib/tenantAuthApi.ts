@@ -448,7 +448,7 @@
 //   url: string,
 //   options: RequestInit = {}
 // ): Promise<Response> {
-//   const fullUrl = `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}${url}`;
+//   const fullUrl = `${process.env.VITE_API_URL || "http://localhost:3001"}${url}`;
 //   const headers = getTenantAuthHeaders();
   
 //   return fetch(fullUrl, {
@@ -941,7 +941,7 @@ export function tenantFetch(
   url: string,
   options: RequestInit = {}
 ): Promise<Response> {
-  const fullUrl = `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}${url}`;
+  const fullUrl = `${process.env.VITE_API_URL || "http://localhost:3001"}${url}`;
   const headers = getTenantAuthHeaders();
   
   return fetch(fullUrl, {

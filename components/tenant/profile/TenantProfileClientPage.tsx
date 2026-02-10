@@ -3,12 +3,12 @@
 // import { useState, useCallback, useMemo, SetStateAction } from 'react';
 // import { toast } from 'sonner';
 // import { format, parseISO } from 'date-fns';
-// import { 
-//   User, Mail, Phone, MapPin, Calendar, Home, 
-//   Edit, Save, X, FileText, Shield, Briefcase, 
-//   Building, Bed, BadgeIndianRupee, LogOut, Users, 
-//   AlertCircle, CreditCard, Wallet, Download, 
-//   Eye, Trash2, Upload 
+// import {
+//   User, Mail, Phone, MapPin, Calendar, Home,
+//   Edit, Save, X, FileText, Shield, Briefcase,
+//   Building, Bed, BadgeIndianRupee, LogOut, Users,
+//   AlertCircle, CreditCard, Wallet, Download,
+//   Eye, Trash2, Upload
 // } from 'lucide-react';
 // import {
 //   Card,
@@ -91,7 +91,7 @@
 //           manager_name: data.property_manager_name || data.manager_name,
 //           manager_phone: data.property_manager_phone || data.manager_phone,
 //         };
-        
+
 //         setProfile(tenantData);
 //         setFormData({
 //           full_name: tenantData.full_name || "",
@@ -117,16 +117,16 @@
 //       }
 //     } catch (error: any) {
 //       console.error("Error loading profile:", error);
-      
-//       if (error.message?.includes('401') || 
-//           error.message?.includes('Unauthorized') || 
+
+//       if (error.message?.includes('401') ||
+//           error.message?.includes('Unauthorized') ||
 //           error.message?.includes('Session expired')) {
 //         toast.error("Your session has expired. Please login again.");
-        
+
 //         localStorage.removeItem('tenant_token');
 //         localStorage.removeItem('tenant_id');
 //         localStorage.removeItem('tenant_logged_in');
-        
+
 //         setTimeout(() => {
 //           window.location.href = '/tenant/login';
 //         }, 2000);
@@ -141,13 +141,13 @@
 //   // Format date for server
 //   const formatDateForServer = useCallback((dateString: string): string => {
 //     if (!dateString) return '';
-    
+
 //     try {
 //       const date = new Date(dateString);
 //       const year = date.getFullYear();
 //       const month = String(date.getMonth() + 1).padStart(2, '0');
 //       const day = String(date.getDate()).padStart(2, '0');
-      
+
 //       return `${year}-${month}-${day}`;
 //     } catch (error) {
 //       console.error('Error formatting date:', error);
@@ -162,7 +162,7 @@
 //         toast.error("Tenant not found");
 //         return;
 //       }
-      
+
 //       // Validate form data
 //       const validationErrors = validateProfile(formData);
 //       if (Object.keys(validationErrors).length > 0) {
@@ -171,16 +171,16 @@
 //       }
 
 //       setLoading(true);
-      
+
 //       const formattedData = {
 //         ...formData,
-//         date_of_birth: formData.date_of_birth 
+//         date_of_birth: formData.date_of_birth
 //           ? formatDateForServer(formData.date_of_birth)
 //           : formData.date_of_birth
 //       };
-      
+
 //       const result = await tenantDetailsApi.updateProfile(formattedData);
-      
+
 //       if (result.success) {
 //         toast.success("Profile updated successfully");
 //         setEditing(false);
@@ -190,16 +190,16 @@
 //       }
 //     } catch (error: any) {
 //       console.error("Error updating profile:", error);
-      
+
 //       if (error.message?.includes('Server error')) {
 //         toast.error("Server error. Please check if all fields are valid.");
 //       } else if (error.message?.includes('Session expired')) {
 //         toast.error("Your session has expired. Please login again.");
-        
+
 //         localStorage.removeItem('tenant_token');
 //         localStorage.removeItem('tenant_id');
 //         localStorage.removeItem('tenant_logged_in');
-        
+
 //         setTimeout(() => {
 //           window.location.href = '/tenant/login';
 //         }, 2000);
@@ -244,7 +244,7 @@
 //       localStorage.removeItem('tenant_token');
 //       localStorage.removeItem('tenant_id');
 //       localStorage.removeItem('tenant_logged_in');
-      
+
 //       toast.success("Logged out successfully");
 //       window.location.href = '/tenant/login';
 //     } catch (error) {
@@ -271,7 +271,7 @@
 //     if (!profile?.payments || profile.payments.length === 0) {
 //       return { paid: 0, pending: 0, total: 0 };
 //     }
-    
+
 //     return profile.payments.reduce((acc: { paid: any; pending: any; total: any; }, payment: { status: string; amount: any; }) => {
 //       if (payment.status === 'paid') {
 //         acc.paid += payment.amount;
@@ -287,7 +287,7 @@
 //   const getDocumentUrl = useCallback((url: string) => {
 //     if (!url) return '';
 //     if (url.startsWith('http')) return url;
-//     const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+//     const baseUrl = process.env.VITE_API_URL || 'http://localhost:3001';
 //     return `${baseUrl}${url}`;
 //   }, []);
 
@@ -535,7 +535,7 @@ export default function TenantProfileClientPage({
   const getDocumentUrl = (url: string) => {
     if (!url) return "";
     if (url.startsWith("http")) return url;
-    return `${process.env.NEXT_PUBLIC_API_URL}${url}`;
+    return `${process.env.VITE_API_URL}${url}`;
   };
 
   /* ------------------------------------------------------------------ */

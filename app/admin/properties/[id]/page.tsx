@@ -158,7 +158,7 @@
 //                                 {property.photo_urls && property.photo_urls.length > 0 ? (
 //                                     <>
 //                                         <img
-//                                             src={`${process.env.NEXT_PUBLIC_API_URL}${property.photo_urls[currentImageIndex]}`}
+//                                             src={`${process.env.VITE_API_URL}${property.photo_urls[currentImageIndex]}`}
 //                                             alt={`${property.name} - Image ${currentImageIndex + 1}`}
 //                                             className="w-full h-full object-cover"
 //                                         />

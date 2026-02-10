@@ -37,7 +37,7 @@
 // import { listProperties } from "@/lib/propertyApi";
 
 // const API_URL =
-//   process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+//   process.env.VITE_API_URL || "http://localhost:3001";
 
 // export default function PropertiesPage() {
 //   const [properties, setProperties] = useState<any[]>([]);
@@ -156,9 +156,9 @@
 //     <div className="min-h-screen bg-gradient-to-b from-white via-blue-50/20 to-white ">
 //       {/* HERO - RESPONSIVE UPDATES */}
 // <section className="relative overflow-hidden bg-blue-100 h-auto min-h-[300px] sm:min-h-[350px] md:min-h-[400px] lg:min-h-[450px] py-8 md:py-12 lg:py-16">
-  
+
 //   <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiMwMDRBQUQiIGZpbGwtb3BhY2l0eT0iMC4wMiI+PHBhdGggZD0iTTM2IDE2YzAtNi42MjcgNS4zNzMtMTIgMTItMTJzMTIgNS4zNzMgMTIgMTItNS4zNzMgMTItMTIgMTItMTItNS4zNzMtMTItMTJ6Ii8+PC9nPjwvZz48L3N2Zz4=')] opacity-40" />
-  
+
 
 //   <div className="absolute -top-10 -right-10 sm:-top-20 sm:-right-20 w-48 h-48 sm:w-64 sm:h-64 md:w-80 md:h-80 lg:w-96 lg:h-96 bg-gradient-to-br from-blue-200 to-cyan-200 rounded-full blur-xl sm:blur-2xl md:blur-3xl opacity-20 sm:opacity-25 md:opacity-30" />
 //   <div className="absolute -bottom-10 -left-10 sm:-bottom-20 sm:-left-20 w-48 h-48 sm:w-64 sm:h-64 md:w-80 md:h-80 lg:w-96 lg:h-96 bg-gradient-to-br from-cyan-100 to-blue-100 rounded-full blur-xl sm:blur-2xl md:blur-3xl opacity-25 sm:opacity-30 md:opacity-40" />
@@ -166,7 +166,7 @@
 
 //   <div className="container mx-auto px-3 sm:px-4 md:px-6 relative z-10">
 //     <div className="max-w-4xl mx-auto text-center px-2 sm:px-4">
-      
+
 //       <div className="mb-4 sm:mb-5 md:mb-6">
 //         <motion.div
 //           initial={{ opacity: 0, y: 20 }}
@@ -178,11 +178,11 @@
 //           </Badge>
 //         </motion.div>
 //       </div>
-      
-      
+
+
 //       <div className="mb-4 sm:mb-5 md:mb-6">
 //         <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl 2xl:text-7xl font-bold leading-tight sm:leading-tight md:leading-tight">
-        
+
 //           <div className="block text-slate-900 mb-1 sm:mb-1.5 md:mb-2">
 //             {"Find Your Perfect".split("").map((char, index) => (
 //               <motion.span
@@ -199,8 +199,8 @@
 //               </motion.span>
 //             ))}
 //           </div>
-          
-          
+
+
 //           <div className="block">
 //             {"Home".split("").map((char, index) => (
 //               <motion.span
@@ -225,7 +225,7 @@
 //           </div>
 //         </h1>
 //       </div>
-      
+
 //       {/* Description with fade up animation */}
 //       <motion.div
 //         initial={{ opacity: 0, y: 30 }}
@@ -236,8 +236,8 @@
 //           Discover premium PG accommodations with modern amenities, flexible pricing, and unmatched comfort across multiple locations
 //         </p>
 //       </motion.div>
-      
-      
+
+
 //       <motion.div
 //         initial={{ opacity: 0, y: 40 }}
 //         animate={{ opacity: 1, y: 0 }}
@@ -256,13 +256,13 @@
 //       </motion.div>
 //     </div>
 //   </div>
-  
-  
+
+
 //   <motion.div
 //     className="absolute top-1/4 left-1/4 w-2 h-2 sm:w-3 sm:h-3 md:w-4 md:h-4 bg-cyan-400 rounded-full"
 //     animate={{
 //       y: [0, -10, 0],
-      
+
 //       scale: [1, 1.2, 1],
 //     }}
 //     transition={{
@@ -309,14 +309,14 @@
 //       ease: "easeInOut"
 //     }}
 //   />
-  
+
 // </section>
 
-      
+
 //     <div className="container mx-auto px-3 sm:px-4 md:px-4 -mt-6 sm:-mt-7 md:-mt-8 relative z-10 mb-8 sm:mb-10 md:mb-12">
 //   <Card className="shadow-3xl animate-slide-in-left">
 //     <CardContent className="p-4 sm:p-5 md:p-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
-    
+
 //       <div className="animate-fade-in-up animation-delay-300">
 //         <Input
 //           placeholder="City"
@@ -326,7 +326,7 @@
 //         />
 //       </div>
 
-      
+
 //       <div className="animate-fade-in-up animation-delay-400">
 //         <Input
 //           placeholder="Search name or area"
@@ -451,7 +451,7 @@
 //   <CardContent className="p-4 sm:p-5 md:p-6 relative overflow-hidden group">
 //     {/* Animated wave background overlay */}
 //     <div className="absolute inset-0 bg-gradient-to-br from-blue-100/50 via-blue-2100 to-blue-100/50 opacity-0 group-hover:opacity-100 transition-all duration-700 ease-in-out scale-150 group-hover:scale-100 rotate-12 group-hover:rotate-0"></div>
-    
+
 //     {/* Content with relative positioning to stay above background */}
 //     <div className="relative z-10">
 //       <h3 className="text-lg sm:text-xl font-bold transition-colors duration-300 group-hover:text-blue-700">{property.name}</h3>
@@ -470,9 +470,9 @@
 //             <p className="text-xs text-slate-500">Rooms</p>
 //           </div>
 //         </div>
-        
+
 //         <div className="w-px h-6 bg-slate-200"></div>
-        
+
 //         <div className="flex items-center gap-2">
 //           <div className="bg-green-50 p-2 rounded-lg group-hover:bg-green-100 group-hover:scale-110 transition-all duration-300">
 //             <Bed className="h-4 w-4 text-green-600" />
@@ -483,7 +483,7 @@
 //           </div>
 //         </div>
 //       </div>
-      
+
 //       {((Array.isArray(property.amenities) &&
 //         property.amenities.length > 0) ||
 //         (Array.isArray(property.services) &&
@@ -524,7 +524,7 @@
 //                     }
 //                     return 'bg-slate-50 text-slate-700 border-slate-100 hover:bg-slate-100 hover:border-slate-200 hover:shadow-lg hover:scale-105 hover:-translate-y-1';
 //                   };
-                  
+
 //                   {/* TAGS ADDED HERE - Image के ऊपर */}
 //                   <div className="absolute top-3 left-3 flex flex-wrap gap-1">
 //                     <div className="bg-yellow-500 text-white text-xs font-semibold px-1.5 py-0.5 rounded flex items-center gap-1">
@@ -551,7 +551,7 @@
 //             <CardContent className="p-4 sm:p-5 md:p-6 relative overflow-hidden group">
 //               {/* Animated wave background overlay */}
 //               <div className="absolute inset-0 bg-gradient-to-br from-blue-100/50 via-blue-2100 to-blue-100/50 opacity-0 group-hover:opacity-100 transition-all duration-700 ease-in-out scale-150 group-hover:scale-100 rotate-12 group-hover:rotate-0"></div>
-              
+
 //               {/* Content with relative positioning to stay above background */}
 //               <div className="relative z-10">
 //                 <h3 className="text-lg sm:text-xl font-bold transition-colors duration-300 group-hover:text-blue-700">{property.name}</h3>
@@ -576,9 +576,9 @@
 //                       <p className="text-xs text-slate-500">Rooms</p>
 //                     </div>
 //                   </div>
-                  
+
 //                   <div className="w-px h-6 bg-slate-200"></div>
-                  
+
 //                   <div className="flex items-center gap-2">
 //                     <div className="bg-green-50 p-2 rounded-lg group-hover:bg-green-100 group-hover:scale-110 transition-all duration-300">
 //                       <Bed className="h-4 w-4 text-green-600" />
@@ -589,7 +589,7 @@
 //                     </div>
 //                   </div>
 //                 </div>
-                
+
 //                 {((Array.isArray(property.amenities) &&
 //                   property.amenities.length > 0) ||
 //                   (Array.isArray(property.services) &&
@@ -630,9 +630,9 @@
 //                               }
 //                               return 'bg-slate-50 text-slate-700 border-slate-100 hover:bg-slate-100 hover:border-slate-200 hover:shadow-lg hover:scale-105 hover:-translate-y-1';
 //                             };
-                            
+
 //                             const colorClasses = getColorClass(item);
-                            
+
 //                             return (
 //                               <span
 //                                 key={`amenity-${index}`}
@@ -677,18 +677,18 @@
 //         {property.rating || 4.5}
 //       </span>
 //     </div>
-    
+
 //     {/* Review count */}
 //     <span className="text-xs text-gray-600">
 //       ({property.review_count || 18} reviews)
 //     </span>
 //   </div>
-  
+
 //   {/* Date */}
 //   <div className="flex items-center gap-1 text-gray-500 text-xs">
 //     <Calendar className="h-3 w-3" />
 //     <span>
-//       {property.created_at 
+//       {property.created_at
 //         ? new Date(property.created_at).toLocaleDateString('en-IN')
 //         : '2025-11-20'
 //       }
@@ -702,16 +702,16 @@
 
 // <div className="flex gap-3">
 //   {/* Call Button - Phone icon */}
-//   <button 
+//   <button
 //     onClick={() => window.location.href = `tel:${property.phone || '1234567890'}`}
 //     className="bg-green-500 text-white p-2 rounded-lg hover:bg-green-600 hover:scale-110 transition-all duration-300 flex items-center justify-center"
 //     title="Call"
 //   >
 //     <Phone className="h-4 w-4" />
 //   </button>
-  
+
 //   {/* WhatsApp Button - MessageCircle icon */}
-//   <button 
+//   <button
 //     onClick={() => window.open(`https://wa.me/${property.whatsapp || '911234567890'}?text=Hi, I'm interested in ${property.name}`, '_blank')}
 //     className="bg-[#d5f8e6] text-white p-2 rounded-lg hover:bg-white hover:scale-110 transition-all duration-300 flex items-center justify-center"
 //     title="WhatsApp"
@@ -840,7 +840,7 @@
 // //     </div>
 // //   );
 // // }
-  
+
 
 
 
@@ -892,7 +892,7 @@
 // import { listProperties } from "@/lib/propertyApi";
 
 // const API_URL =
-//   process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+//   process.env.VITE_API_URL || "http://localhost:3001";
 
 // export default function PropertiesPage() {
 //   const [properties, setProperties] = useState<any[]>([]);

@@ -1005,7 +1005,7 @@ export const getChangeBedReasons = async (): Promise<ChangeReason[]> => {
 export const getAvailableBedsForRoom = async (roomId: number): Promise<number[]> => {
     try {
         const token = getTenantToken();
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/rooms/${roomId}/available-beds`, {
+        const response = await fetch(`${process.env.VITE_API_URL}/api/rooms/${roomId}/available-beds`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',

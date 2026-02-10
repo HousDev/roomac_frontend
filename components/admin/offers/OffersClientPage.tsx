@@ -178,7 +178,7 @@ interface BonusDetails {
 
 // Environment utility - use this consistently
 const getApiUrl = () => {
-  return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+  return process.env.VITE_API_URL || 'http://localhost:3001';
 };
 
 const getBaseUrl = () => {

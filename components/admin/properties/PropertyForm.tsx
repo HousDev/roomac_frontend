@@ -183,7 +183,7 @@
 //   useEffect(() => {
 //     if (selectedProperty && editMode) {
 //       const photoUrls = Array.isArray(selectedProperty.photo_urls) ? selectedProperty.photo_urls : [];
-      
+
 //       setFormData({
 //         name: selectedProperty.name || "",
 //         city_id: selectedProperty.city_id || "",
@@ -215,7 +215,7 @@
 //       setExistingPhotoUrls(photoUrls);
 //       setPhotoPreviews(photoUrls.map(url => {
 //         if (url.startsWith('http') || url.startsWith('blob:')) return url;
-//         const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
+//         const apiUrl = process.env.VITE_API_URL || '';
 //         const cleanUrl = url.startsWith('/') ? url.substring(1) : url;
 //         return `${apiUrl}/${cleanUrl}`;
 //       }));
@@ -1391,7 +1391,7 @@ export default function PropertyForm({
       setExistingPhotoUrls(photoUrls);
       setPhotoPreviews(photoUrls.map((url: string) => {
         if (url.startsWith('http') || url.startsWith('blob:')) return url;
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
+        const apiUrl = process.env.VITE_API_URL || '';
         const cleanUrl = url.startsWith('/') ? url.substring(1) : url;
         return `${apiUrl}/${cleanUrl}`;
       }));

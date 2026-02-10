@@ -67,7 +67,7 @@ export const handleExportTypes = async (options?: ExportOptions) => {
     params.append('filters', JSON.stringify(filters));
   }
   
-  const url = `${process.env.NEXT_PUBLIC_API_URL || ''}/api/masters/export/types?${params}`;
+  const url = `${process.env.VITE_API_URL || ''}/api/masters/export/types?${params}`;
   
   return downloadExport(url, `master-types.${format === 'excel' ? 'xlsx' : 'csv'}`, options);
 };
@@ -82,7 +82,7 @@ export const handleExportValues = async (typeId: number, typeName: string, optio
     params.append('filters', JSON.stringify(filters));
   }
   
-  const url = `${process.env.NEXT_PUBLIC_API_URL || ''}/api/masters/export/values/${typeId}?${params}`;
+  const url = `${process.env.VITE_API_URL || ''}/api/masters/export/values/${typeId}?${params}`;
   const fileName = `${typeName.toLowerCase().replace(/[^a-z0-9]/g, '-')}-values.${format === 'excel' ? 'xlsx' : 'csv'}`;
   
   return downloadExport(url, fileName, options);
@@ -90,6 +90,6 @@ export const handleExportValues = async (typeId: number, typeName: string, optio
 
 // Export all data
 export const handleExportAllData = async (options?: ExportOptions) => {
-  const url = `${process.env.NEXT_PUBLIC_API_URL || ''}/api/masters/export/all`;
+  const url = `${process.env.VITE_API_URL || ''}/api/masters/export/all`;
   return downloadExport(url, 'master-data.xlsx', options);
 };

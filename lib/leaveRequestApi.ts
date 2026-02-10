@@ -73,7 +73,7 @@ export interface UpdateLeaveRequestStatusData {
   assigned_to?: string;
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const API_BASE_URL = process.env.VITE_API_URL || 'http://localhost:3001';
 
 // Fetch leave requests with filters
 export async function getLeaveRequests(params: GetLeaveRequestsParams = {}): Promise<PaginatedResponse<LeaveRequest>> {
