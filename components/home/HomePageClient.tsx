@@ -422,6 +422,7 @@ function FiltersSection({
 
 // Properties Section Component - EXACT DESIGN FROM ORIGINAL
 function PropertiesSection({ properties, loading }: { properties: any[], loading: boolean }) {
+  console.log("this is properties : ", properties)
   return (
     <div className="py-12 sm:py-16 bg-gradient-to-b from-blue-50 to-white px-2 sm:px-4">
       <div className="container mx-auto px-3 sm:px-4">
