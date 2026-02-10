@@ -155,7 +155,7 @@ export default function EnquiriesClientPage({
 
   const loadProperties = useCallback(async () => {
     try {
-      const apiUrl = process.env.VITE_API_URL || 'http://localhost:3001';
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
       const res = await fetch(`${apiUrl}/api/properties`);
       const data = await res.json();
       setProperties(data.data || []);

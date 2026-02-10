@@ -181,7 +181,7 @@ const PropertyDetailsClient = ({ initialProperty }: PropertyDetailsClientProps) 
 
     // FIX: Add safe access for photo URLs
     const currentPhotoUrl = property.photo_urls && property.photo_urls[currentImageIndex] 
-        ? `${process.env.VITE_API_URL || ''}${property.photo_urls[currentImageIndex]}`
+        ? `${import.meta.env.VITE_API_URL || ''}${property.photo_urls[currentImageIndex]}`
         : '';
 
     return (
