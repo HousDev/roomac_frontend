@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useCallback, Key, JSXElementConstructor, ReactElement, ReactNode, ReactPortal } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import ScrollAnimation from './ScrollAnimation';
+// import ScrollAnimation from './ScrollAnimation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -55,7 +55,7 @@ export default function OffersSlider({ offers }: OffersSliderProps) {
   }, [offersState, currentOfferIndex, handleNextOfferSlide]);
 
   return (
-    <ScrollAnimation>
+    // <ScrollAnimation>
       <section className="py-8 px-3 relative overflow-hidden bg-gradient-to-br from-blue-50 to-white">
         {/* SVG Background - FIXED */}
         <div className="absolute inset-0 z-0 overflow-hidden">
@@ -638,6 +638,6 @@ export default function OffersSlider({ offers }: OffersSliderProps) {
           )}
         </div>
       </section>
-    </ScrollAnimation>
+    // </ScrollAnimation>
   );
 }

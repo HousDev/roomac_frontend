@@ -84,7 +84,7 @@ export function Header() {
           <img
             src={getLogoUrl()}
             alt={getSiteName()}
-            className="h-14 w-auto object-contain max-w-[200px] transition-all duration-300 hover:scale-[1.02]"
+            className="h-14 w-auto object-contain max-w-[200px]"
             onError={(e) => {
               // Fallback to default logo if the fetched logo fails to load
               (e.target as HTMLImageElement).src = roomacLogo;
@@ -115,7 +115,7 @@ export function Header() {
         </div>
 
         <div className="hidden md:flex items-center space-x-3">
-          <a href={`tel:${getContactPhone()}`} className="transition-all duration-300 hover:scale-105">
+          <a href={`tel:${getContactPhone()}`}>
             <Button variant="outline" size="sm" className="gap-2">
               <Phone className="h-4 w-4" />
               Call Us
@@ -150,16 +150,62 @@ export function Header() {
 
       {/* Mobile Menu - All items centered */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-t bg-white overflow-hidden">
-          <div className="flex flex-col items-center px-4 py-6 space-y-4 animate-in fade-in-50 slide-in-from-top-4 duration-500 ease-out">
-            {/* Navigation Links - Centered */}
-            <div className="w-full flex flex-col items-center space-y-3">
-              <Link
-                href="/"
-                className="text-center text-sm font-medium hover:text-primary transition-all duration-300 hover:scale-105 hover:translate-x-1 w-full py-3 animate-in fade-in-50 slide-in-from-right-2 duration-300 delay-75 fill-mode-both"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Home
+        <div className="md:hidden border-t bg-white">
+          <div className="container mx-auto px-4 py-4 space-y-4">
+            <Link
+              href="/"
+              className="block py-2 text-sm font-medium hover:text-primary transition-colors"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Home
+            </Link>
+            <Link
+              href="/properties"
+              className="block py-2 text-sm font-medium hover:text-primary transition-colors"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Properties
+            </Link>
+            <Link
+              href="/how-it-works"
+              className="block py-2 text-sm font-medium hover:text-primary transition-colors"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              How It Works
+            </Link>
+            <Link
+              href="/partner"
+              className="block py-2 text-sm font-medium hover:text-primary transition-colors"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Partner with Us
+            </Link>
+            <Link
+              href="/about"
+              className="block py-2 text-sm font-medium hover:text-primary transition-colors"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              About Us
+            </Link>
+            <Link
+              href="/contact"
+              className="block py-2 text-sm font-medium hover:text-primary transition-colors"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Contact
+            </Link>
+            <div className="pt-4 space-y-2">
+              <a href={`tel:${getContactPhone()}`} className="block">
+                <Button variant="outline" size="sm" className="w-full gap-2">
+                  <Phone className="h-4 w-4" />
+                  Call Us
+                </Button>
+              </a>
+              <Link href="/tenant/login" className="block">
+                <Button variant="outline" size="sm" className="w-full gap-2">
+                  <User className="h-4 w-4" />
+                  Tenant Portal
+                </Button>
               </Link>
               <Link
                 href="/properties"

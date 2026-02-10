@@ -120,15 +120,27 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           <div>
             <div className="mb-4">
-              <img
-                src={getLogoUrl()}
-                alt={getSiteName()}
-                className="h-12 w-auto object-contain"
-                onError={(e) => {
-                  // Fallback to default logo if the fetched logo fails to load
-                  (e.target as HTMLImageElement).src = roomacLogo;
-                }}
-              />
+              {settings.logo_footer ? (
+                <img
+                  // src={settings.logo_footer}
+                  alt={settings.site_name || 'ROOMAC'}
+                  className="h-12 w-auto object-contain"
+                />
+                
+              ) : (
+                 <img
+      src={roomacLogo} // Yaha default logo use karein
+      alt={settings.site_name || 'ROOMAC'}
+      className="h-12 w-auto object-contain"
+    />
+  )}
+                {/* <div className="flex items-center gap-2">
+                  <div className="h-10 w-10 rounded-lg bg-primary flex items-center justify-center">
+                    <span className="text-2xl font-bold">R</span>
+                  </div>
+                  <span className="text-2xl font-bold">{settings.site_name || 'ROOMAC'}</span>
+                </div> */}
+              
             </div>
             <p className="text-sm text-slate-300 mb-4 leading-relaxed">
               {getSiteTagline()}
