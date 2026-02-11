@@ -1,3 +1,4 @@
+// components/admin/enquiries/EnquiriesClientPage.tsx
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
@@ -64,6 +65,8 @@ export default function EnquiriesClientPage({
   const [statusFilter, setStatusFilter] = useState<string>(initialSearchParams.status || "");
   const [searchTerm, setSearchTerm] = useState<string>(initialSearchParams.search || "");
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [isFirstRender, setIsFirstRender] = useState(true);
+  const initialLoadDone = useRef(false);
 
   // Add new enquiry form state
   const [newEnquiry, setNewEnquiry] = useState<CreateEnquiryPayload>({
@@ -92,17 +95,12 @@ export default function EnquiriesClientPage({
   // Helper function to format date for input field (YYYY-MM-DD)
   const formatDateForInput = useCallback((dateString: string) => {
     if (!dateString) return "";
-
     try {
       const date = new Date(dateString);
-      // Handle invalid dates
       if (isNaN(date.getTime())) return "";
-
-      // Format to YYYY-MM-DD for input[type="date"]
       const year = date.getFullYear();
       const month = String(date.getMonth() + 1).padStart(2, '0');
       const day = String(date.getDate()).padStart(2, '0');
-
       return `${year}-${month}-${day}`;
     } catch (error) {
       console.error("Error formatting date:", error);
@@ -113,16 +111,12 @@ export default function EnquiriesClientPage({
   // Helper function to convert input date to database format
   const formatDateForDatabase = useCallback((dateString: string) => {
     if (!dateString) return null;
-
     try {
       const date = new Date(dateString);
       if (isNaN(date.getTime())) return null;
-
-      // Format to YYYY-MM-DD for MySQL DATE type
       const year = date.getFullYear();
       const month = String(date.getMonth() + 1).padStart(2, '0');
       const day = String(date.getDate()).padStart(2, '0');
-
       return `${year}-${month}-${day}`;
     } catch (error) {
       console.error("Error converting date for database:", error);
@@ -130,16 +124,19 @@ export default function EnquiriesClientPage({
     }
   }, []);
 
-  // Create a ref for loadData to avoid dependency cycles
-  const loadDataRef = useRef<() => Promise<void>>();
+  // Load data with filters - only when explicitly called
+  const loadData = useCallback(async (isManualRefresh = false) => {
+    // Skip if it's the initial render and we already have data
+    if (isFirstRender && !isManualRefresh) {
+      setIsFirstRender(false);
+      return;
+    }
 
-  // Load data with filters - FIXED: No dependencies that cause infinite loops
-  const loadData = useCallback(async () => {
-    if (!isInitialLoad) setLoading(true);
+    setLoading(true);
     
     try {
       const filters: any = {};
-      if (statusFilter && statusFilter !== "") filters.status = statusFilter;
+      if (statusFilter && statusFilter !== "all" && statusFilter !== "") filters.status = statusFilter;
       if (searchTerm) filters.search = searchTerm;
 
       const [enquiriesRes, statsRes] = await Promise.all([
@@ -156,49 +153,58 @@ export default function EnquiriesClientPage({
       setLoading(false);
       if (isInitialLoad) setIsInitialLoad(false);
     }
-  }, [statusFilter, searchTerm, isInitialLoad]);
+  }, [statusFilter, searchTerm, isFirstRender, isInitialLoad]);
 
-  // Update the ref when loadData changes
+  // Load properties once on mount
   useEffect(() => {
-    loadDataRef.current = loadData;
-  }, [loadData]);
-
-  const loadProperties = useCallback(async () => {
-    try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-      const res = await fetch(`${apiUrl}/api/properties`);
-      const data = await res.json();
-      setProperties(data.data || []);
-    } catch (error) {
-      console.error("Error loading properties:", error);
+    const loadProperties = async () => {
+      try {
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+        const res = await fetch(`${apiUrl}/api/properties`);
+        const data = await res.json();
+        setProperties(data.data || []);
+      } catch (error) {
+        console.error("Error loading properties:", error);
+      }
+    };
+    
+    loadProperties();
+    
+    // Mark initial load as done after first render
+    if (!initialLoadDone.current) {
+      initialLoadDone.current = true;
+      setIsFirstRender(false);
+      setIsInitialLoad(false);
     }
   }, []);
 
-  // Load initial data only once
+  // Handle filter changes with URL updates - FIXED: Removed infinite loop
   useEffect(() => {
-    loadProperties();
-    // Use the initial data from props, don't load immediately
-    setIsInitialLoad(false);
-  }, [loadProperties]);
+    // Don't run on first render
+    if (isFirstRender) {
+      return;
+    }
 
-  // Handle filter changes with URL updates - FIXED: No loadData dependency
-  useEffect(() => {
     const params = new URLSearchParams();
-    if (statusFilter) params.set('status', statusFilter);
+    if (statusFilter && statusFilter !== "all") params.set('status', statusFilter);
     if (searchTerm) params.set('search', searchTerm);
     
     const queryString = params.toString();
-    router.push(`/admin/enquiries${queryString ? `?${queryString}` : ''}`);
+    const currentPath = window.location.pathname;
+    const newUrl = `${currentPath}${queryString ? `?${queryString}` : ''}`;
+    
+    // Only update URL if it's different from current
+    if (window.location.href !== window.location.origin + newUrl) {
+      router.push(newUrl);
+    }
     
     // Debounce search to prevent rapid API calls
     const timeoutId = setTimeout(() => {
-      if (loadDataRef.current) {
-        loadDataRef.current();
-      }
-    }, 500); // Increased debounce time
+      loadData(true);
+    }, 800); // Increased debounce time
 
     return () => clearTimeout(timeoutId);
-  }, [statusFilter, searchTerm, router]); // Removed loadData dependency
+  }, [statusFilter, searchTerm, router, isFirstRender, loadData]);
 
   // Add new enquiry handler
   const handleAddEnquiry = useCallback(async () => {
@@ -213,10 +219,7 @@ export default function EnquiriesClientPage({
     }
 
     try {
-      // Get property name
       const selectedProperty = properties.find((p) => p.id === newEnquiry.property_id);
-
-      // Format date for database
       const formattedDate = formatDateForDatabase(newEnquiry.preferred_move_in_date || "");
 
       const enquiryData: CreateEnquiryPayload = {
@@ -240,15 +243,13 @@ export default function EnquiriesClientPage({
         source: "website"
       });
 
-      // Refresh data
-      if (loadDataRef.current) {
-        await loadDataRef.current();
-      }
+      // Refresh data after adding
+      await loadData(true);
     } catch (error: any) {
       console.error("Error adding enquiry:", error);
       toast.error(error.message || "Failed to add enquiry");
     }
-  }, [newEnquiry, properties, formatDateForDatabase]);
+  }, [newEnquiry, properties, formatDateForDatabase, loadData]);
 
   // Open edit dialog with enquiry data
   const handleOpenEditDialog = useCallback((enquiry: Enquiry) => {
@@ -276,14 +277,12 @@ export default function EnquiriesClientPage({
     }
 
     try {
-      // Get property name if property changed
       let propertyName = selectedEnquiry.property_name;
       if (editEnquiryData.property_id && editEnquiryData.property_id !== selectedEnquiry.property_id) {
         const selectedProperty = properties.find((p) => p.id === editEnquiryData.property_id);
         propertyName = selectedProperty?.name || "";
       }
 
-      // Format date for database
       const formattedDate = formatDateForDatabase(editEnquiryData.preferred_move_in_date || "");
 
       const updateData: UpdateEnquiryPayload = {
@@ -292,7 +291,6 @@ export default function EnquiriesClientPage({
         ...(propertyName && { property_name: propertyName })
       };
 
-      // Remove empty values to avoid overwriting with empty strings
       Object.keys(updateData).forEach(key => {
         if (updateData[key as keyof UpdateEnquiryPayload] === "") {
           delete updateData[key as keyof UpdateEnquiryPayload];
@@ -304,22 +302,19 @@ export default function EnquiriesClientPage({
 
       setShowEditDialog(false);
       
-      // Refresh data
-      if (loadDataRef.current) {
-        await loadDataRef.current();
-      }
+      // Refresh data after updating
+      await loadData(true);
     } catch (error: any) {
       console.error("Error updating enquiry:", error);
       toast.error(error.message || "Failed to update enquiry");
     }
-  }, [selectedEnquiry, editEnquiryData, properties, formatDateForDatabase]);
+  }, [selectedEnquiry, editEnquiryData, properties, formatDateForDatabase, loadData]);
 
   const handleUpdateStatus = useCallback(async (id: string, status: string) => {
     try {
       await updateEnquiryStatus(id, status);
       toast.success("Status updated");
 
-      // Update local state immediately for better UX
       setEnquiries(prev => prev.map(enquiry =>
         enquiry.id === id ? { ...enquiry, status } : enquiry
       ));
@@ -353,12 +348,10 @@ export default function EnquiriesClientPage({
       toast.success("Followup added");
       setFollowupText("");
 
-      // Refresh selected enquiry
-      if (loadDataRef.current) {
-        await loadDataRef.current();
-      }
-
-      // Update selected enquiry in dialog
+      // Refresh data after adding followup
+      await loadData(true);
+      
+      // Update selected enquiry
       const updatedEnquiries = await getEnquiries();
       const updatedEnquiry = updatedEnquiries.results.find(e => e.id === selectedEnquiry.id);
       if (updatedEnquiry) {
@@ -368,7 +361,7 @@ export default function EnquiriesClientPage({
       console.error("Error adding followup:", error);
       toast.error("Failed to add followup");
     }
-  }, [followupText, selectedEnquiry]);
+  }, [followupText, selectedEnquiry, loadData]);
 
   const handleDeleteEnquiry = useCallback(async (id: string) => {
     if (!confirm("Are you sure you want to delete this enquiry?")) return;
@@ -380,24 +373,20 @@ export default function EnquiriesClientPage({
       setShowViewDialog(false);
       setShowEditDialog(false);
       
-      // Refresh data
-      if (loadDataRef.current) {
-        await loadDataRef.current();
-      }
+      // Refresh data after deletion
+      await loadData(true);
     } catch (error) {
       console.error("Error deleting enquiry:", error);
       toast.error("Failed to delete enquiry");
     }
-  }, []);
+  }, [loadData]);
 
   // Format date for display
   const formatDateForDisplay = useCallback((dateString: string) => {
     if (!dateString) return "-";
-
     try {
       const date = new Date(dateString);
       if (isNaN(date.getTime())) return "-";
-
       return date.toLocaleDateString('en-IN', {
         day: 'numeric',
         month: 'short',
@@ -419,7 +408,6 @@ export default function EnquiriesClientPage({
       converted: "bg-purple-100 text-purple-800 border-purple-200",
       closed: "bg-gray-100 text-gray-800 border-gray-200"
     };
-
     return (
       <Badge variant="outline" className={`${variants[status] || "bg-gray-100"} capitalize`}>
         {status}
@@ -427,7 +415,12 @@ export default function EnquiriesClientPage({
     );
   }, []);
 
-  // Loading state - only show spinner on subsequent loads, not initial
+  // Manual refresh function
+  const handleManualRefresh = useCallback(() => {
+    loadData(true);
+  }, [loadData]);
+
+  // Loading state
   if (loading && enquiries.length === 0 && !isInitialLoad) {
     return (
       <div className="p-6 flex items-center justify-center min-h-[400px]">
@@ -450,6 +443,33 @@ export default function EnquiriesClientPage({
           </div>
 
           <div className="w-full sm:w-auto flex justify-end gap-2">
+            {/* Refresh Button */}
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleManualRefresh}
+              disabled={loading}
+            >
+              <svg 
+                className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} 
+                xmlns="http://www.w3.org/2000/svg" 
+                width="24" 
+                height="24" 
+                viewBox="0 0 24 24" 
+                fill="none" 
+                stroke="currentColor" 
+                strokeWidth="2" 
+                strokeLinecap="round" 
+                strokeLinejoin="round"
+              >
+                <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                <path d="M3 3v5h5"/>
+                <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
+                <path d="M16 16h5v5"/>
+              </svg>
+              Refresh
+            </Button>
+
             {/* Statistics Button */}
             <Dialog>
               <DialogTrigger asChild>
@@ -559,7 +579,6 @@ export default function EnquiriesClientPage({
                         <TableCell>{formatDateForDisplay(enquiry.created_at || "")}</TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-2">
-                            {/* View Button */}
                             <Button
                               size="sm"
                               variant="outline"
@@ -571,8 +590,6 @@ export default function EnquiriesClientPage({
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
-
-                            {/* Edit Button */}
                             <Button
                               size="sm"
                               variant="outline"
@@ -581,8 +598,6 @@ export default function EnquiriesClientPage({
                             >
                               <Edit className="h-4 w-4" />
                             </Button>
-
-                            {/* Status Dropdown */}
                             <Select
                               value={enquiry.status || "new"}
                               onValueChange={(value) => handleUpdateStatus(enquiry.id, value)}
@@ -599,8 +614,6 @@ export default function EnquiriesClientPage({
                                 <SelectItem value="closed">Closed</SelectItem>
                               </SelectContent>
                             </Select>
-
-                            {/* Delete Button */}
                             <Button
                               variant="outline"
                               size="sm"

@@ -515,16 +515,16 @@ async function getContactData(): Promise<ContactPageData> {
         icon: 'Phone', // ✅ Changed to string
         title: "Call Us",
         subtitle: "Mon-Sat, 9 AM - 7 PM",
-        value: "+91 98765 43210",
-        link: "tel:+919876543210",
+        value: "+91 99239 53933",
+        link: "tel:+919923953933",
         color: "from-yellow-500 to-yellow-500"
       },
       {
         icon: 'Mail', // ✅ Changed to string
         title: "Email Us",
         subtitle: "24/7 Support",
-        value: "info@roomac.com",
-        link: "mailto:info@roomac.com",
+        value: "stay@roomac.com",
+        link: "mailto:stay@roomac.com",
         color: "from-green-500 to-emerald-500"
       },
       {
@@ -539,22 +539,22 @@ async function getContactData(): Promise<ContactPageData> {
     officeLocations: [
       {
         city: "Pune",
-        address: "Hinjawadi Phase 1, Pune, Maharashtra 411057",
-        phone: "+91 98765 43210",
-        email: "pune@roomac.com"
+        address: "Near Indira College, Wakad, Pune, Maharashtra 411057",
+        phone: "+91 9923953933",
+        email: "stay@roomac.com"
       },
-      {
-        city: "Mumbai",
-        address: "Andheri East, Mumbai, Maharashtra 400069",
-        phone: "+91 98765 43211",
-        email: "mumbai@roomac.com"
-      },
-      {
-        city: "Bangalore",
-        address: "Whitefield, Bangalore, Karnataka 560066",
-        phone: "+91 98765 43212",
-        email: "bangalore@roomac.com"
-      }
+      // {
+      //   city: "Mumbai",
+      //   address: "Andheri East, Mumbai, Maharashtra 400069",
+      //   phone: "+91 98765 43211",
+      //   email: "mumbai@roomac.com"
+      // },
+      // {
+      //   city: "Bangalore",
+      //   address: "Whitefield, Bangalore, Karnataka 560066",
+      //   phone: "+91 98765 43212",
+      //   email: "bangalore@roomac.com"
+      // }
     ],
     faqs: [
       {

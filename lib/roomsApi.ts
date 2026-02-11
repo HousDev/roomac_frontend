@@ -600,3 +600,31 @@ export const processPhotoUrls = (photoUrls: any)=> {
   return [];
 };
 
+// Add these functions to your existing roomsApi.ts
+
+// Bulk update rooms
+export const bulkUpdateRooms = async (roomIds: string[], action: 'activate' | 'inactivate' | 'delete') => {
+  const response = await fetch('/api/rooms/bulk-update', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ room_ids: roomIds, action })
+  });
+  return await response.json();
+};
+
+// Get filter data
+export const getFilterData = async () => {
+  const response = await fetch('/api/rooms/filters/data');
+  return await response.json();
+};
+
+// Get filtered rooms
+export const getFilteredRooms = async (filters: any) => {
+  const response = await fetch('/api/rooms/filter', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(filters)
+  });
+  return await response.json();
+};
+

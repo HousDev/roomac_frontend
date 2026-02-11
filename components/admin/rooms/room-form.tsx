@@ -703,7 +703,7 @@ export function RoomForm({
         </DialogHeader>
 
         <Tabs defaultValue="details" className="mt-4">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="sm:grid sm:w-full sm:grid-cols-5 overflow-x-scroll w-[40vh]">
             <TabsTrigger value="details" className="flex items-center gap-2">
               <DoorOpen className="h-4 w-4" />
               Room Details

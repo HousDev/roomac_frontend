@@ -1306,6 +1306,7 @@ export default function RoomsPage() {
   const [data, setData] = useState<{ rooms: any[]; properties: any[] }>({ rooms: [], properties: [] });
   const [loading, setLoading] = useState(true);
 
+
   useEffect(() => {
     fetchData().then(setData).finally(() => setLoading(false));
   }, []);

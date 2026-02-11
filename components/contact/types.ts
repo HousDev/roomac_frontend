@@ -25,6 +25,7 @@ export interface ContactPageData {
   faqs: FAQ[];
 }
 
+// components/contact/types.ts
 export interface ContactFormData {
   name: string;
   email: string;
@@ -32,4 +33,6 @@ export interface ContactFormData {
   subject: string;
   propertyInterest: string;
   message: string;
+  preferredMoveInDate?: string;
+  budgetRange?: string;
 }

@@ -1,4 +1,4 @@
-// import { listProperties } from "@/lib/propertyApi-server";
+// components/admin/properties/PropertyList.tsx
 import { listProperties } from "@/lib/propertyApi";
 import PropertyCardView from "./PropertyCardView";
 import PropertyTableView from "./PropertyTableView";
@@ -16,6 +16,12 @@ export default async function PropertyList({
   statusFilter = "all",
   tagFilter = "all"
 }: PropertyListProps) {
+  console.log('========== PROPERTY LIST SERVER DEBUG ==========');
+  console.log('View Mode:', viewMode);
+  console.log('Search Query:', searchQuery);
+  console.log('Status Filter:', statusFilter);
+  console.log('Tag Filter:', tagFilter);
+  
   // Fetch data on SERVER
   const response = await listProperties({
     page: 1,
@@ -25,7 +31,11 @@ export default async function PropertyList({
     tags: tagFilter === "all" ? undefined : tagFilter,
   });
 
+  console.log('API Response Success:', response.success);
+  console.log('API Response Data:', response.data);
+  
   if (!response.success || !response.data) {
+    console.log('API Response Error:', response.message);
     return (
       <div className="text-center py-16">
         <div className="h-16 w-16 text-gray-300 mx-auto mb-4" />
@@ -40,6 +50,18 @@ export default async function PropertyList({
   }
 
   const properties = response.data.data || [];
+  
+  console.log('Properties array length:', properties.length);
+  if (properties.length > 0) {
+    console.log('First property from API:', {
+      id: properties[0].id,
+      name: properties[0].name,
+      tags: properties[0].tags,
+      tagsType: typeof properties[0].tags,
+      isArray: Array.isArray(properties[0].tags)
+    });
+  }
+  console.log('==========================================');
 
   if (properties.length === 0) {
     return (
