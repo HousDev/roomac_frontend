@@ -57,118 +57,98 @@ export default function OffersSlider({ offers }: OffersSliderProps) {
   return (
     // <ScrollAnimation>
     <section className="py-8 px-3 relative overflow-hidden bg-gradient-to-br from-blue-50 to-white">
-  {/* SVG Background - FIXED */}
-  <div className="absolute inset-0 z-0 overflow-hidden">
-    <div className="w-full h-full opacity-80">
-      <svg 
-        viewBox="0 0 1400 900" 
-        className="w-full h-full"
-        preserveAspectRatio="xMidYMid slice"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <defs>
-          <linearGradient id="mainGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" style={{stopColor: '#f8f9fa', stopOpacity: 1}} />
-            <stop offset="50%" style={{stopColor: '#e8f4f8', stopOpacity: 1}} />
-            <stop offset="100%" style={{stopColor: '#f0f7fa', stopOpacity: 1}} />
-          </linearGradient>
-          
-          <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" style={{stopColor: '#2563eb', stopOpacity: 0.1}} />
-            <stop offset="100%" style={{stopColor: '#3b82f6', stopOpacity: 0.15}} />
-          </linearGradient>
-          
-          <radialGradient id="glowGrad" cx="50%" cy="50%">
-            <stop offset="0%" style={{stopColor: '#ffffff', stopOpacity: 0.8}} />
-            <stop offset="100%" style={{stopColor: '#3b82f6', stopOpacity: 0.05}} />
-          </radialGradient>
-        </defs>
-        
-        <rect width="1400" height="900" fill="url(#mainGrad)"/>
-        
-        <circle cx="200" cy="150" r="180" fill="url(#glowGrad)" opacity="0.4"/>
-        <circle cx="1200" cy="200" r="200" fill="url(#glowGrad)" opacity="0.3"/>
-        <circle cx="700" cy="700" r="150" fill="url(#glowGrad)" opacity="0.35"/>
-        
-        <path d="M 0,400 Q 200,350 400,400 T 800,400" stroke="#2563eb" strokeWidth="2" fill="none" opacity="0.15"/>
-        <path d="M 600,100 Q 800,150 1000,100 T 1400,100" stroke="#3b82f6" strokeWidth="2" fill="none" opacity="0.15"/>
-        
-        <g opacity="0.2">
-          <circle cx="150" cy="300" r="3" fill="#2563eb"/>
-          <circle cx="180" cy="320" r="3" fill="#2563eb"/>
-          <circle cx="210" cy="340" r="3" fill="#2563eb"/>
-          <circle cx="1250" cy="400" r="3" fill="#3b82f6"/>
-          <circle cx="1280" cy="420" r="3" fill="#3b82f6"/>
-          <circle cx="1310" cy="440" r="3" fill="#3b82f6"/>
-          <circle cx="100" cy="600" r="3" fill="#2563eb"/>
-          <circle cx="130" cy="620" r="3" fill="#2563eb"/>
-          <circle cx="160" cy="640" r="3" fill="#2563eb"/>
-        </g>
-        
-        <rect x="50" y="50" width="120" height="120" fill="url(#accentGrad)" rx="10" opacity="0.5">
-          <animateTransform attributeName="transform" type="rotate" from="0 110 110" to="360 110 110" dur="30s" repeatCount="indefinite"/>
-        </rect>
-        
-        <rect x="1200" y="650" width="150" height="150" fill="url(#accentGrad)" rx="10" opacity="0.4">
-          <animateTransform attributeName="transform" type="rotate" from="0 1275 725" to="-360 1275 725" dur="25s" repeatCount="indefinite"/>
-        </rect>
-        
-        <g stroke="#2563eb" strokeWidth="0.5" opacity="0.08">
-          <line x1="0" y1="200" x2="1400" y2="200"/>
-          <line x1="0" y1="400" x2="1400" y2="400"/>
-          <line x1="0" y1="600" x2="1400" y2="600"/>
-          <line x1="300" y1="0" x2="300" y2="900"/>
-          <line x1="700" y1="0" x2="700" y2="900"/>
-          <line x1="1100" y1="0" x2="1100" y2="900"/>
-        </g>
-        
-        <path d="M 0,0 Q 350,80 700,40 T 1400,0 L 1400,0 L 0,0 Z" fill="#2563eb" opacity="0.05"/>
-        
-        <path d="M 0,900 Q 350,820 700,860 T 1400,900 L 1400,900 L 0,900 Z" fill="#3b82f6" opacity="0.05"/>
-        
-        <g opacity="0.6">
-          <circle cx="400" cy="250" r="2" fill="#fbbf24">
-            <animate attributeName="opacity" values="0.3;1;0.3" dur="2s" repeatCount="indefinite"/>
-          </circle>
-          <circle cx="900" cy="180" r="2" fill="#fbbf24">
-            <animate attributeName="opacity" values="0.3;1;0.3" dur="2.5s" repeatCount="indefinite"/>
-          </circle>
-          <circle cx="1100" cy="550" r="2" fill="#fbbf24">
-            <animate attributeName="opacity" values="0.3;1;0.3" dur="3s" repeatCount="indefinite"/>
-          </circle>
-          <circle cx="250" cy="700" r="2" fill="#fbbf24">
-            <animate attributeName="opacity" values="0.3;1;0.3" dur="2.2s" repeatCount="indefinite"/>
-          </circle>
-        </g>
-        
-        <path d="M 1300,300 L 1350,250 L 1400,300 L 1350,350 Z" fill="#3b82f6" opacity="0.1">
-          <animateTransform attributeName="transform" type="scale" values="1;1.1;1" dur="4s" repeatCount="indefinite" additive="sum"/>
-        </path>
-        
-        <path d="M 100,800 L 150,750 L 200,800 L 150,850 Z" fill="#2563eb" opacity="0.1">
-          <animateTransform attributeName="transform" type="scale" values="1;1.15;1" dur="3.5s" repeatCount="indefinite" additive="sum"/>
-        </path>
-      </svg>
-    </div>
-  </div>
-  
-  {/* Content - FIXED with better visibility */}
-  <div className="relative z-10 max-w-6xl mx-auto">
-    <div className="mb-2">
-      <div className="">
-        <div className="flex flex-col items-center mb-4 md:mb-0">
-          <div className="inline-flex items-center justify-center mb-3 sm:mb-4">
-            <div className="h-1.5 w-6 sm:h-2 sm:w-8 bg-blue-600 rounded-full"></div>
-            <span className="mx-2 sm:mx-4 text-xs sm:text-sm font-semibold text-blue-700 tracking-wider uppercase">
-              Limited Time Offers
-            </span>
-            <div className="h-1.5 w-6 sm:h-2 sm:w-8 bg-blue-600 rounded-full"></div>
-          </div>
-          
-          <h2 className="text-xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-3 sm:mb-4 text-center backdrop-blur-sm px-4 py-2 rounded-lg">
-            <span className="text-grey-700">Special</span>
-            <span className="text-blue-600 ml -2 sm:ml-3">Offers</span>
-          </h2>
+      {/* SVG Background - FIXED */}
+      <div className="absolute inset-0 z-0 overflow-hidden">
+        <div className="w-full h-full opacity-80">
+          <svg
+            viewBox="0 0 1400 900"
+            className="w-full h-full"
+            preserveAspectRatio="xMidYMid slice"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <defs>
+              <linearGradient id="mainGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" style={{ stopColor: '#f8f9fa', stopOpacity: 1 }} />
+                <stop offset="50%" style={{ stopColor: '#e8f4f8', stopOpacity: 1 }} />
+                <stop offset="100%" style={{ stopColor: '#f0f7fa', stopOpacity: 1 }} />
+              </linearGradient>
+
+              <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" style={{ stopColor: '#2563eb', stopOpacity: 0.1 }} />
+                <stop offset="100%" style={{ stopColor: '#3b82f6', stopOpacity: 0.15 }} />
+              </linearGradient>
+
+              <radialGradient id="glowGrad" cx="50%" cy="50%">
+                <stop offset="0%" style={{ stopColor: '#ffffff', stopOpacity: 0.8 }} />
+                <stop offset="100%" style={{ stopColor: '#3b82f6', stopOpacity: 0.05 }} />
+              </radialGradient>
+            </defs>
+
+            <rect width="1400" height="900" fill="url(#mainGrad)" />
+
+            <circle cx="200" cy="150" r="180" fill="url(#glowGrad)" opacity="0.4" />
+            <circle cx="1200" cy="200" r="200" fill="url(#glowGrad)" opacity="0.3" />
+            <circle cx="700" cy="700" r="150" fill="url(#glowGrad)" opacity="0.35" />
+
+            <path d="M 0,400 Q 200,350 400,400 T 800,400" stroke="#2563eb" strokeWidth="2" fill="none" opacity="0.15" />
+            <path d="M 600,100 Q 800,150 1000,100 T 1400,100" stroke="#3b82f6" strokeWidth="2" fill="none" opacity="0.15" />
+
+            <g opacity="0.2">
+              <circle cx="150" cy="300" r="3" fill="#2563eb" />
+              <circle cx="180" cy="320" r="3" fill="#2563eb" />
+              <circle cx="210" cy="340" r="3" fill="#2563eb" />
+              <circle cx="1250" cy="400" r="3" fill="#3b82f6" />
+              <circle cx="1280" cy="420" r="3" fill="#3b82f6" />
+              <circle cx="1310" cy="440" r="3" fill="#3b82f6" />
+              <circle cx="100" cy="600" r="3" fill="#2563eb" />
+              <circle cx="130" cy="620" r="3" fill="#2563eb" />
+              <circle cx="160" cy="640" r="3" fill="#2563eb" />
+            </g>
+
+            <rect x="50" y="50" width="120" height="120" fill="url(#accentGrad)" rx="10" opacity="0.5">
+              <animateTransform attributeName="transform" type="rotate" from="0 110 110" to="360 110 110" dur="30s" repeatCount="indefinite" />
+            </rect>
+
+            <rect x="1200" y="650" width="150" height="150" fill="url(#accentGrad)" rx="10" opacity="0.4">
+              <animateTransform attributeName="transform" type="rotate" from="0 1275 725" to="-360 1275 725" dur="25s" repeatCount="indefinite" />
+            </rect>
+
+            <g stroke="#2563eb" strokeWidth="0.5" opacity="0.08">
+              <line x1="0" y1="200" x2="1400" y2="200" />
+              <line x1="0" y1="400" x2="1400" y2="400" />
+              <line x1="0" y1="600" x2="1400" y2="600" />
+              <line x1="300" y1="0" x2="300" y2="900" />
+              <line x1="700" y1="0" x2="700" y2="900" />
+              <line x1="1100" y1="0" x2="1100" y2="900" />
+            </g>
+
+            <path d="M 0,0 Q 350,80 700,40 T 1400,0 L 1400,0 L 0,0 Z" fill="#2563eb" opacity="0.05" />
+
+            <path d="M 0,900 Q 350,820 700,860 T 1400,900 L 1400,900 L 0,900 Z" fill="#3b82f6" opacity="0.05" />
+
+            <g opacity="0.6">
+              <circle cx="400" cy="250" r="2" fill="#fbbf24">
+                <animate attributeName="opacity" values="0.3;1;0.3" dur="2s" repeatCount="indefinite" />
+              </circle>
+              <circle cx="900" cy="180" r="2" fill="#fbbf24">
+                <animate attributeName="opacity" values="0.3;1;0.3" dur="2.5s" repeatCount="indefinite" />
+              </circle>
+              <circle cx="1100" cy="550" r="2" fill="#fbbf24">
+                <animate attributeName="opacity" values="0.3;1;0.3" dur="3s" repeatCount="indefinite" />
+              </circle>
+              <circle cx="250" cy="700" r="2" fill="#fbbf24">
+                <animate attributeName="opacity" values="0.3;1;0.3" dur="2.2s" repeatCount="indefinite" />
+              </circle>
+            </g>
+
+            <path d="M 1300,300 L 1350,250 L 1400,300 L 1350,350 Z" fill="#3b82f6" opacity="0.1">
+              <animateTransform attributeName="transform" type="scale" values="1;1.1;1" dur="4s" repeatCount="indefinite" additive="sum" />
+            </path>
+
+            <path d="M 100,800 L 150,750 L 200,800 L 150,850 Z" fill="#2563eb" opacity="0.1">
+              <animateTransform attributeName="transform" type="scale" values="1;1.15;1" dur="3.5s" repeatCount="indefinite" additive="sum" />
+            </path>
+          </svg>
         </div>
       </div>
 
@@ -187,7 +167,7 @@ export default function OffersSlider({ offers }: OffersSliderProps) {
 
               <h2 className="text-xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-3 sm:mb-4 text-center backdrop-blur-sm px-4 py-2 rounded-lg">
                 <span className="text-grey-700">Special</span>
-                <span className="text-blue-600 ml-2 sm:ml-3">Offers</span>
+                <span className="text-blue-600 ml -2 sm:ml-3">Offers</span>
               </h2>
             </div>
 
@@ -214,10 +194,10 @@ export default function OffersSlider({ offers }: OffersSliderProps) {
         </div>
 
         {/* Slider Container - Shows 2 cards at a time */}
-        <div className="relative overflow-hidden">
+        <div className="relative ">
           <div
-            className="flex transition-transform duration-500 ease-in-out"
-            style={{ transform: `translateX(-${currentOfferIndex * 100}%)` }}
+          // className="flex transition-transform duration-500 ease-in-out"
+          // style={{ transform: `translateX(-${currentOfferIndex * 100}%)` }}
           >
             {(() => {
               // If no active offers, show message
@@ -254,56 +234,88 @@ export default function OffersSlider({ offers }: OffersSliderProps) {
                             setIsClaimPopupOpen(true);
                           }}
                         >
-                          {/* ===== TOP IMAGE ===== */}
-                          <div className="relative w-full h-[220px]">
+                          {/* ===== TOP IMAGE - Mobile height reduced ===== */}
+                          <div className="relative w-full h-[120px] md:h-[220px]">
                             <img
                               src={offer.image || "https://images.pexels.com/photos/271624/pexels-photo-271624.jpeg"}
                               alt="Interior"
                               className="w-full h-full object-cover rounded-t-xl"
                             />
 
-                            {/* BRAND OVERLAY */}
-                            <div className="absolute top-3 left-3 px-3 py-1.5 rounded bg-white/80 backdrop-blur-sm">
-                              <p className="text-xl font-semibold text-blue-900">
+                            {/* BRAND OVERLAY - Smaller text on mobile */}
+                            <div className="absolute top-2 left-2 px-2 py-1 rounded bg-white/80 backdrop-blur-sm">
+                              <p className="text-sm md:text-xl font-semibold text-blue-900">
                                 {offer.property_name || "SOUL SPACE STUDIO"}
                               </p>
                             </div>
                           </div>
 
-                          {/* ===== CONTENT SECTION ===== */}
-                          <div className="p-4 grid md:grid-cols-2 gap-3 items-stretch">
-                            {/* LEFT SIDE: Title & Price */}
-                            <div className="flex flex-col justify-start space-y-1.5">
-                              <h2 className="text-2xl font-black text-blue-900 leading-snug">
-                                {offer.title || "3BHK"} <br /> Only For
-                              </h2>
+                          {/* ===== MOBILE OPTIMIZED CONTENT ===== */}
+                          <div className="md:hidden">
+                            <div className="p-3">
+                              {/* Title and Price in one row */}
+                              <div className="flex justify-between items-start mb-3">
+                                <div>
+                                  <h2 className="text-lg font-black text-blue-900">
+                                    {offer.title || "3BHK"} Only For
+                                  </h2>
+                                  <div className="mt-1">
+                                    <p className="text-2xl font-extrabold text-yellow-500">
+                                      ₹{offer.discounted_price || offer.final_price || "8000"} /-
+                                    </p>
+                                    {offer.original_price || offer.actual_price ? (
+                                      <p className="text-xs text-blue-800/60 line-through">
+                                        Was ₹{offer.original_price || offer.actual_price}
+                                      </p>
+                                    ) : (
+                                      <p className="text-xs text-blue-800/60">
+                                        * Limited time pricing
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
 
-                              {/* DYNAMIC PRICE DISPLAY */}
-                              <div className="mt-1">
-                                <p className="text-3xl font-extrabold text-yellow-500">
-                                  ₹{offer.discounted_price || offer.final_price || "8000"} /-
-                                </p>
-
-                                {offer.original_price || offer.actual_price ? (
-                                  <p className="text-[10px] text-blue-800/60 line-through">
-                                    Was ₹{offer.original_price || offer.actual_price}
-                                  </p>
-                                ) : (
-                                  <p className="text-[10px] text-blue-800/60">
-                                    * Limited time pricing
-                                  </p>
-                                )}
+                                {/* Discount badge */}
+                                <div className="bg-yellow-400 text-blue-900 px-2 py-1.5 rounded text-[10px] min-w-[60px]">
+                                  <p className="uppercase font-semibold">Discount</p>
+                                  <div className="text-xl font-black">
+                                    {offer.discount_value != null && offer.discount_value > 0 ? (
+                                      <div className="text-lg">₹{Math.floor(Number(offer.discount_value))}</div>
+                                    ) : offer.discount_percentage || offer.discount_percent ? (
+                                      <div className="text-lg">{offer.discount_percentage || offer.discount_percent}%</div>
+                                    ) : (
+                                      <div className="text-lg">15%</div>
+                                    )}
+                                  </div>
+                                </div>
                               </div>
 
-                              {offer.start_date || offer.end_date || offer.valid_from || offer.valid_to ? (
-                                <div className="mt-3">
+                              {/* Features - Compact */}
+                              <div className="mb-3">
+                                <h3 className="text-xs font-bold text-blue-900 mb-1">
+                                  WHY CHOOSE US?
+                                </h3>
+                                <ul className="text-xs text-blue-800 space-y-0.5">
+                                  {(offer.features || [
+                                    "Fully Furnished Rooms with AC",
+                                    "High-Speed WiFi & Daily Housekeeping",
+                                    "Free Laundry & Home Cooked Meals"
+                                  ]).slice(0, 3).map((point, idx) => (
+                                    <li key={idx}>• {point.length > 40 ? point.substring(0, 40) + "..." : point}</li>
+                                  ))}
+                                </ul>
+                              </div>
+
+                              {/* Validity Badge */}
+                              {(offer.start_date || offer.end_date || offer.valid_from || offer.valid_to) && (
+                                <div className="mb-3">
                                   <div className="relative inline-block">
-                                    <div className="bg-yellow-400 text-blue-900 px-5 py-2 pr-8 rounded-sm shadow-md skew-x-[-10deg]">
+                                    <div className="bg-yellow-400 text-blue-900 px-3 py-1.5 pr-6 rounded-sm shadow-md skew-x-[-10deg]">
                                       <div className="skew-x-[10deg]">
-                                        <p className="text-[12px] font-extrabold uppercase leading-tight">
-                                          LIMITED TIME OFFER
+                                        <p className="text-[10px] font-extrabold uppercase leading-tight">
+                                          LIMITED TIME
                                         </p>
-                                        <p className="text-[13px] font-bold">
+                                        <p className="text-[11px] font-bold">
                                           Valid Till{" "}
                                           {(() => {
                                             const rawDate = offer.valid_to || offer.end_date;
@@ -312,87 +324,177 @@ export default function OffersSlider({ offers }: OffersSliderProps) {
                                             return d.toLocaleDateString("en-GB", {
                                               day: "2-digit",
                                               month: "short",
-                                              year: "numeric",
                                             });
                                           })()}
                                         </p>
                                       </div>
                                     </div>
-                                    <span className="absolute top-0 right-0 h-full w-3 bg-yellow-600 skew-x-[-10deg]"></span>
+                                    <span className="absolute top-0 right-0 h-full w-2 bg-yellow-600 skew-x-[-10deg]"></span>
                                   </div>
                                 </div>
-                              ) : null}
-                            </div>
+                              )}
 
-                            {/* RIGHT SIDE: Features & Discount */}
-                            <div className="bg-blue-50 rounded-lg p-3 border border-blue-100 flex flex-col justify-between">
-                              <div>
-                                <h3 className="text-xs font-bold text-blue-900 mb-2.5">
-                                  WHY CHOOSE US?
-                                </h3>
-                                <ul className="space-y-1.5 text-[11px] text-blue-800">
-                                  {(offer.features || [
-                                    "Fully Furnished Rooms with AC",
-                                    "High-Speed WiFi & Daily Housekeeping",
-                                    "Free Laundry & Home Cooked Meals"
-                                  ]).map((point: string | number | boolean | ReactElement<any, string | JSXElementConstructor<any>> | Iterable<ReactNode> | ReactPortal | null | undefined, idx: Key | null | undefined) => (
-                                    <li key={idx}>• {point}</li>
+                              {/* Package Images */}
+                              <div className="mb-3">
+                                <p className="text-xs text-blue-800/60 mb-1">
+                                  Package Includes
+                                </p>
+                                <div className="grid grid-cols-3 gap-1">
+                                  {(offer.gallery || [
+                                    "https://images.pexels.com/photos/1571460/pexels-photo-1571460.jpeg",
+                                    "https://images.pexels.com/photos/1457842/pexels-photo-1457842.jpeg",
+                                    "https://images.pexels.com/photos/1643383/pexels-photo-1643383.jpeg",
+                                  ]).map((img, idx) => (
+                                    <img
+                                      key={idx}
+                                      src={img}
+                                      alt="Interior"
+                                      className="h-10 w-full object-cover rounded border border-blue-100"
+                                    />
                                   ))}
-                                </ul>
+                                </div>
                               </div>
 
-                              {/* DYNAMIC DISCOUNT BADGE */}
-                              <div className="mt-3 self-end">
-                                <div className="bg-yellow-400 text-blue-900 px-3 py-1.5 rounded text-[10px]">
-                                  <p className="uppercase font-semibold">Discount</p>
-                                  <div className="text-2xl font-black">
-                                    {offer.discount_value != null && offer.discount_value > 0 ? (
-                                      <div>₹{Math.floor(Number(offer.discount_value))} OFF /</div>
-                                    ) : offer.discount_percentage || offer.discount_percent ? (
-                                      <div>{offer.discount_percentage || offer.discount_percent}%</div>
-                                    ) : (
-                                      <div>15%</div>
-                                    )}
+                              {/* CTA Button */}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedOffer(offer);
+                                  setIsClaimPopupOpen(true);
+                                }}
+                                className="w-full bg-blue-700 hover:bg-blue-500 text-white font-bold py-2 rounded-md text-sm transition flex items-center justify-center gap-2"
+                              >
+                                <span>Claim Offer</span>
+                                <span className="text-lg">→</span>
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* ===== DESKTOP VIEW (Unchanged) ===== */}
+                          <div className="hidden md:block">
+                            <div className="p-3 md:p-4 grid md:grid-cols-2 gap-2 md:gap-3 items-stretch">
+                              {/* LEFT SIDE: Title & Price */}
+                              <div className="flex flex-col justify-start space-y-1 md:space-y-1.5">
+                                <h2 className="text-xl md:text-2xl font-black text-blue-900 leading-snug">
+                                  {offer.title || "3BHK"} <br /> Only For
+                                </h2>
+
+                                {/* DYNAMIC PRICE DISPLAY */}
+                                <div className="mt-1">
+                                  <p className="text-2xl md:text-3xl font-extrabold text-yellow-500">
+                                    ₹{offer.discounted_price || offer.final_price || "8000"} /-
+                                  </p>
+
+                                  {offer.original_price || offer.actual_price ? (
+                                    <p className="text-[10px] text-blue-800/60 line-through">
+                                      Was ₹{offer.original_price || offer.actual_price}
+                                    </p>
+                                  ) : (
+                                    <p className="text-[10px] text-blue-800/60">
+                                      * Limited time pricing
+                                    </p>
+                                  )}
+                                </div>
+
+                                {offer.start_date || offer.end_date || offer.valid_from || offer.valid_to ? (
+                                  <div className="mt-2 md:mt-3">
+                                    <div className="relative inline-block">
+                                      <div className="bg-yellow-400 text-blue-900 px-4 md:px-5 py-1.5 md:py-2 pr-6 md:pr-8 rounded-sm shadow-md skew-x-[-10deg]">
+                                        <div className="skew-x-[10deg]">
+                                          <p className="text-[11px] md:text-[12px] font-extrabold uppercase leading-tight">
+                                            LIMITED TIME OFFER
+                                          </p>
+                                          <p className="text-[12px] md:text-[13px] font-bold">
+                                            Valid Till{" "}
+                                            {(() => {
+                                              const rawDate = offer.valid_to || offer.end_date;
+                                              if (!rawDate) return "N/A";
+                                              const d = new Date(rawDate);
+                                              return d.toLocaleDateString("en-GB", {
+                                                day: "2-digit",
+                                                month: "short",
+                                                year: "numeric",
+                                              });
+                                            })()}
+                                          </p>
+                                        </div>
+                                      </div>
+                                      <span className="absolute top-0 right-0 h-full w-2 md:w-3 bg-yellow-600 skew-x-[-10deg]"></span>
+                                    </div>
+                                  </div>
+                                ) : null}
+                              </div>
+
+                              {/* RIGHT SIDE: Features & Discount */}
+                              <div className="bg-blue-50 rounded-lg p-2 md:p-3 border border-blue-100 flex flex-col justify-between">
+                                <div>
+                                  <h3 className="text-xs font-bold text-blue-900 mb-1.5 md:mb-2.5">
+                                    WHY CHOOSE US?
+                                  </h3>
+                                  <ul className="space-y-1 md:space-y-1.5 text-[10px] md:text-[11px] text-blue-800">
+                                    {(offer.features || [
+                                      "Fully Furnished Rooms with AC",
+                                      "High-Speed WiFi & Daily Housekeeping",
+                                      "Free Laundry & Home Cooked Meals"
+                                    ]).map((point, idx) => (
+                                      <li key={idx}>• {point}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+
+                                {/* DYNAMIC DISCOUNT BADGE */}
+                                <div className="mt-2 md:mt-3 self-end">
+                                  <div className="bg-yellow-400 text-blue-900 px-2 md:px-3 py-1 md:py-1.5 rounded text-[9px] md:text-[10px]">
+                                    <p className="uppercase font-semibold">Discount</p>
+                                    <div className="text-xl md:text-2xl font-black">
+                                      {offer.discount_value != null && offer.discount_value > 0 ? (
+                                        <div>₹{Math.floor(Number(offer.discount_value))} OFF /</div>
+                                      ) : offer.discount_percentage || offer.discount_percent ? (
+                                        <div>{offer.discount_percentage || offer.discount_percent}%</div>
+                                      ) : (
+                                        <div>15%</div>
+                                      )}
+                                    </div>
                                   </div>
                                 </div>
                               </div>
                             </div>
-                          </div>
 
-                          {/* ===== PACKAGE IMAGES ===== */}
-                          <div className="px-4 pb-3">
-                            <p className="text-[10px] text-blue-800/60 mb-2">
-                              Package Includes
-                            </p>
-                            <div className="grid grid-cols-3 gap-2.5">
-                              {(offer.gallery || [
-                                "https://images.pexels.com/photos/1571460/pexels-photo-1571460.jpeg",
-                                "https://images.pexels.com/photos/1457842/pexels-photo-1457842.jpeg",
-                                "https://images.pexels.com/photos/1643383/pexels-photo-1643383.jpeg",
-                              ]).map((img: string | undefined, idx: Key | null | undefined) => (
-                                <img
-                                  key={idx}
-                                  src={img}
-                                  alt="Interior"
-                                  className="h-16 w-full object-cover rounded border border-blue-100"
-                                />
-                              ))}
+                            {/* ===== PACKAGE IMAGES - Smaller on mobile ===== */}
+                            <div className="px-3 md:px-4 pb-2 md:pb-3">
+                              <p className="text-[10px] text-blue-800/60 mb-1 md:mb-2">
+                                Package Includes
+                              </p>
+                              <div className="grid grid-cols-3 gap-1.5 md:gap-2.5">
+                                {(offer.gallery || [
+                                  "https://images.pexels.com/photos/1571460/pexels-photo-1571460.jpeg",
+                                  "https://images.pexels.com/photos/1457842/pexels-photo-1457842.jpeg",
+                                  "https://images.pexels.com/photos/1643383/pexels-photo-1643383.jpeg",
+                                ]).map((img, idx) => (
+                                  <img
+                                    key={idx}
+                                    src={img}
+                                    alt="Interior"
+                                    className="h-12 md:h-16 w-full object-cover rounded border border-blue-100"
+                                  />
+                                ))}
+                              </div>
                             </div>
-                          </div>
 
-                          {/* ===== CTA BUTTON ===== */}
-                          <div className="px-4 pb-4">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedOffer(offer);
-                                setIsClaimPopupOpen(true);
-                              }}
-                              className="w-full bg-blue-700 hover:bg-blue-500 text-white font-bold py-2 rounded-md text-sm transition flex items-center justify-center gap-2"
-                            >
-                              <span>Claim Offer</span>
-                              <span className="text-lg">→</span>
-                            </button>
+                            {/* ===== CTA BUTTON ===== */}
+                            <div className="px-3 md:px-4 pb-3 md:pb-4">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedOffer(offer);
+                                  setIsClaimPopupOpen(true);
+                                }}
+                                className="w-full bg-blue-700 hover:bg-blue-500 text-white font-bold py-1.5 md:py-2 rounded-md text-sm transition flex items-center justify-center gap-2"
+                              >
+                                <span>Claim Offer</span>
+                                <span className="text-lg">→</span>
+                              </button>
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -434,7 +536,7 @@ export default function OffersSlider({ offers }: OffersSliderProps) {
 
         {/* ✅ COMPLETE CLAIM OFFER POPUP MODAL - Added Missing Parts */}
         {isClaimPopupOpen && selectedOffer && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-2 sm:p-4">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-2 sm:p-4 py-3">
             <div className="bg-white border border-slate-300 rounded-xl shadow-xl w-full max-w-3xl max-h-[85vh] flex flex-col">
               {/* Header */}
               <div
@@ -464,7 +566,7 @@ export default function OffersSlider({ offers }: OffersSliderProps) {
               </div>
 
               {/* Main Content - Scrollable */}
-              <div className="flex-1 overflow-y-auto">
+              <div className="flex-1 ">
                 {/* Offer Image */}
                 <div className="relative h-48 sm:h-56">
                   <img
@@ -552,7 +654,7 @@ export default function OffersSlider({ offers }: OffersSliderProps) {
                       "Free Laundry Service",
                       "Home Cooked Meals",
                       "Security & CCTV"
-                    ]).map((feature: string, index: number) => (
+                    ]).map((feature, index) => (
                       <div key={index} className="flex items-center gap-2">
                         <span className="text-green-500">✓</span>
                         <span className="text-sm text-gray-700">{feature}</span>
@@ -570,7 +672,7 @@ export default function OffersSlider({ offers }: OffersSliderProps) {
                         "https://images.pexels.com/photos/1571460/pexels-photo-1571460.jpeg",
                         "https://images.pexels.com/photos/1457842/pexels-photo-1457842.jpeg",
                         "https://images.pexels.com/photos/1643383/pexels-photo-1643383.jpeg"
-                      ]).map((img: string, index: number) => (
+                      ]).map((img, index) => (
                         <img
                           key={index}
                           src={img}
@@ -654,45 +756,9 @@ export default function OffersSlider({ offers }: OffersSliderProps) {
               </div>
             </div>
           </div>
-
-          {/* Footer with Action Buttons */}
-          <div className="sticky bottom-0 z-20 p-4 sm:p-5 border-t bg-white">
-            <div className="flex flex-col sm:flex-row gap-3">
-              <button
-                onClick={() => setIsClaimPopupOpen(false)}
-                className="px-4 py-3 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors flex-1"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  // Handle claim action here
-                  alert(`Claiming offer: ${selectedOffer.title || "Special Offer"}`);
-                  setIsClaimPopupOpen(false);
-                }}
-                className="px-4 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex-1 shadow-md"
-              >
-                Claim Now
-              </button>
-              <button
-                onClick={() => {
-                  // Handle contact action
-                  alert("Contacting property manager...");
-                }}
-                className="px-4 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors flex-1 shadow-md"
-              >
-                Contact Property
-              </button>
-            </div>
-            <p className="text-center text-xs text-gray-500 mt-3">
-              By claiming, you agree to our terms and conditions
-            </p>
-          </div>
-        </div>
+        )}
       </div>
-    )}
-  </div>
-</section>
+    </section>
     // </ScrollAnimation>
   );
 }
