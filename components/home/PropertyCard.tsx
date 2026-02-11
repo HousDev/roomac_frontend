@@ -128,7 +128,7 @@ export default function OffersSlider({ offers }: OffersSliderProps) {
           <div className="relative overflow-hidden">
             <div 
               className="flex transition-transform duration-500 ease-in-out"
-              style={{ transform: `translateX(-${currentOfferIndex * 100}%)` }}
+              // style={{ transform: `translateX(-${currentOfferIndex * 100}%)` }}
             >
               {activeOffers.length === 0 ? (
                 <div className="w-full flex-shrink-0 px-2">

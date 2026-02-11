@@ -116,7 +116,7 @@ export function Footer() {
 
   return (
     <footer className="bg-slate-900 text-white">
-      <div className="container mx-auto px-4 py-12">
+      <div className="container mx-auto px-4 py-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           <div>
             <div className="mb-4">
@@ -267,12 +267,13 @@ export function Footer() {
           </div>
         </div>
         
-        <div className="border-t border-slate-800 mt-8 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
-          <p className="text-sm text-slate-400">
-            © {new Date().getFullYear()} {getSiteName()}. All rights reserved.
-          </p>
+        <div className="border-t border-slate-800 mt-4  mb-0 pt-3 flex flex-col md:flex-row justify-between items-center gap-4">
+        <p className="text-sm text-white">
+  <span className="text-blue-500">© {new Date().getFullYear()}</span>{" "}
+  {getSiteName()}. All rights reserved.
+</p>
 
-          <div className="flex gap-6">
+          <div className="flex gap-6 mt-0">
             <Link
               href={getPrivacyUrl()}
               className="text-sm text-slate-400 hover:text-primary transition-colors"
