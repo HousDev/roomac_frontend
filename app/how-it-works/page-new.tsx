@@ -189,16 +189,21 @@ export default function HowItWorksPage() {
       <p className="text-base sm:text-lg md:text-xl text-white/90 mb-6 sm:mb-7 md:mb-8 leading-relaxed">
         Join hundreds of happy residents who call ROOMAC home
       </p>
-      <div className="flex flex-wrap justify-center gap-3 sm:gap-4">
+      <div className="flex flex-wrap justify-center gap-2 sm:gap-4">
         <Link href="/properties">
-          <Button size="lg" className="bg-white text-[#004AAD] hover:bg-white/90 shadow-lg sm:shadow-xl px-4 sm:px-6 text-sm sm:text-base">
-            <Search className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
+          <Button 
+            className="bg-white text-[#004AAD] hover:bg-white/90 shadow-md sm:shadow-lg lg:shadow-xl px-3 sm:px-6 py-1.5 sm:py-3 text-sm sm:text-base h-9 sm:h-12" // Reduced mobile height
+          >
+            <Search className="mr-1.5 sm:mr-2 h-3.5 w-3.5 sm:h-5 sm:w-5" />
             Explore Properties
           </Button>
         </Link>
         <Link href="/contact">
-          <Button size="lg" variant="outline" className="border-2 border-white text-white hover:bg-white/20 px-4 sm:px-6 text-sm sm:text-base">
-            <Phone className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
+          <Button 
+            variant="outline" 
+            className="border border-white text-white hover:bg-white/20 px-2 sm:px-4 py-1.5 sm:py-3 text-sm sm:text-base h-9 sm:h-12" // Reduced mobile height
+          >
+            <Phone className="mr-1.5 sm:mr-2 h-3 w-3 sm:h-5 sm:w-3" />
             Talk to Us
           </Button>
         </Link>

@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useCallback, Key, JSXElementConstructor, ReactElement, ReactNode, ReactPortal } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-// import ScrollAnimation from './ScrollAnimation';
+import ScrollAnimation from './ScrollAnimation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -56,99 +56,113 @@ export default function OffersSlider({ offers }: OffersSliderProps) {
 
   return (
     // <ScrollAnimation>
-      <section className="py-8 px-3 relative overflow-hidden bg-gradient-to-br from-blue-50 to-white">
-        {/* SVG Background - FIXED */}
-        <div className="absolute inset-0 z-0 overflow-hidden">
-          <div className="w-full h-full opacity-80">
-            <svg 
-              viewBox="0 0 1400 900" 
-              className="w-full h-full"
-              preserveAspectRatio="xMidYMid slice"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <defs>
-                <linearGradient id="mainGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" style={{stopColor: '#f8f9fa', stopOpacity: 1}} />
-                  <stop offset="50%" style={{stopColor: '#e8f4f8', stopOpacity: 1}} />
-                  <stop offset="100%" style={{stopColor: '#f0f7fa', stopOpacity: 1}} />
-                </linearGradient>
-                
-                <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" style={{stopColor: '#2563eb', stopOpacity: 0.1}} />
-                  <stop offset="100%" style={{stopColor: '#3b82f6', stopOpacity: 0.15}} />
-                </linearGradient>
-                
-                <radialGradient id="glowGrad" cx="50%" cy="50%">
-                  <stop offset="0%" style={{stopColor: '#ffffff', stopOpacity: 0.8}} />
-                  <stop offset="100%" style={{stopColor: '#3b82f6', stopOpacity: 0.05}} />
-                </radialGradient>
-              </defs>
-              
-              <rect width="1400" height="900" fill="url(#mainGrad)"/>
-              
-              <circle cx="200" cy="150" r="180" fill="url(#glowGrad)" opacity="0.4"/>
-              <circle cx="1200" cy="200" r="200" fill="url(#glowGrad)" opacity="0.3"/>
-              <circle cx="700" cy="700" r="150" fill="url(#glowGrad)" opacity="0.35"/>
-              
-              <path d="M 0,400 Q 200,350 400,400 T 800,400" stroke="#2563eb" strokeWidth="2" fill="none" opacity="0.15"/>
-              <path d="M 600,100 Q 800,150 1000,100 T 1400,100" stroke="#3b82f6" strokeWidth="2" fill="none" opacity="0.15"/>
-              
-              <g opacity="0.2">
-                <circle cx="150" cy="300" r="3" fill="#2563eb"/>
-                <circle cx="180" cy="320" r="3" fill="#2563eb"/>
-                <circle cx="210" cy="340" r="3" fill="#2563eb"/>
-                <circle cx="1250" cy="400" r="3" fill="#3b82f6"/>
-                <circle cx="1280" cy="420" r="3" fill="#3b82f6"/>
-                <circle cx="1310" cy="440" r="3" fill="#3b82f6"/>
-                <circle cx="100" cy="600" r="3" fill="#2563eb"/>
-                <circle cx="130" cy="620" r="3" fill="#2563eb"/>
-                <circle cx="160" cy="640" r="3" fill="#2563eb"/>
-              </g>
-              
-              <rect x="50" y="50" width="120" height="120" fill="url(#accentGrad)" rx="10" opacity="0.5">
-                <animateTransform attributeName="transform" type="rotate" from="0 110 110" to="360 110 110" dur="30s" repeatCount="indefinite"/>
-              </rect>
-              
-              <rect x="1200" y="650" width="150" height="150" fill="url(#accentGrad)" rx="10" opacity="0.4">
-                <animateTransform attributeName="transform" type="rotate" from="0 1275 725" to="-360 1275 725" dur="25s" repeatCount="indefinite"/>
-              </rect>
-              
-              <g stroke="#2563eb" strokeWidth="0.5" opacity="0.08">
-                <line x1="0" y1="200" x2="1400" y2="200"/>
-                <line x1="0" y1="400" x2="1400" y2="400"/>
-                <line x1="0" y1="600" x2="1400" y2="600"/>
-                <line x1="300" y1="0" x2="300" y2="900"/>
-                <line x1="700" y1="0" x2="700" y2="900"/>
-                <line x1="1100" y1="0" x2="1100" y2="900"/>
-              </g>
-              
-              <path d="M 0,0 Q 350,80 700,40 T 1400,0 L 1400,0 L 0,0 Z" fill="#2563eb" opacity="0.05"/>
-              
-              <path d="M 0,900 Q 350,820 700,860 T 1400,900 L 1400,900 L 0,900 Z" fill="#3b82f6" opacity="0.05"/>
-              
-              <g opacity="0.6">
-                <circle cx="400" cy="250" r="2" fill="#fbbf24">
-                  <animate attributeName="opacity" values="0.3;1;0.3" dur="2s" repeatCount="indefinite"/>
-                </circle>
-                <circle cx="900" cy="180" r="2" fill="#fbbf24">
-                  <animate attributeName="opacity" values="0.3;1;0.3" dur="2.5s" repeatCount="indefinite"/>
-                </circle>
-                <circle cx="1100" cy="550" r="2" fill="#fbbf24">
-                  <animate attributeName="opacity" values="0.3;1;0.3" dur="3s" repeatCount="indefinite"/>
-                </circle>
-                <circle cx="250" cy="700" r="2" fill="#fbbf24">
-                  <animate attributeName="opacity" values="0.3;1;0.3" dur="2.2s" repeatCount="indefinite"/>
-                </circle>
-              </g>
-              
-              <path d="M 1300,300 L 1350,250 L 1400,300 L 1350,350 Z" fill="#3b82f6" opacity="0.1">
-                <animateTransform attributeName="transform" type="scale" values="1;1.1;1" dur="4s" repeatCount="indefinite" additive="sum"/>
-              </path>
-              
-              <path d="M 100,800 L 150,750 L 200,800 L 150,850 Z" fill="#2563eb" opacity="0.1">
-                <animateTransform attributeName="transform" type="scale" values="1;1.15;1" dur="3.5s" repeatCount="indefinite" additive="sum"/>
-              </path>
-            </svg>
+    <section className="py-8 px-3 relative overflow-hidden bg-gradient-to-br from-blue-50 to-white">
+  {/* SVG Background - FIXED */}
+  <div className="absolute inset-0 z-0 overflow-hidden">
+    <div className="w-full h-full opacity-80">
+      <svg 
+        viewBox="0 0 1400 900" 
+        className="w-full h-full"
+        preserveAspectRatio="xMidYMid slice"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <defs>
+          <linearGradient id="mainGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style={{stopColor: '#f8f9fa', stopOpacity: 1}} />
+            <stop offset="50%" style={{stopColor: '#e8f4f8', stopOpacity: 1}} />
+            <stop offset="100%" style={{stopColor: '#f0f7fa', stopOpacity: 1}} />
+          </linearGradient>
+          
+          <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" style={{stopColor: '#2563eb', stopOpacity: 0.1}} />
+            <stop offset="100%" style={{stopColor: '#3b82f6', stopOpacity: 0.15}} />
+          </linearGradient>
+          
+          <radialGradient id="glowGrad" cx="50%" cy="50%">
+            <stop offset="0%" style={{stopColor: '#ffffff', stopOpacity: 0.8}} />
+            <stop offset="100%" style={{stopColor: '#3b82f6', stopOpacity: 0.05}} />
+          </radialGradient>
+        </defs>
+        
+        <rect width="1400" height="900" fill="url(#mainGrad)"/>
+        
+        <circle cx="200" cy="150" r="180" fill="url(#glowGrad)" opacity="0.4"/>
+        <circle cx="1200" cy="200" r="200" fill="url(#glowGrad)" opacity="0.3"/>
+        <circle cx="700" cy="700" r="150" fill="url(#glowGrad)" opacity="0.35"/>
+        
+        <path d="M 0,400 Q 200,350 400,400 T 800,400" stroke="#2563eb" strokeWidth="2" fill="none" opacity="0.15"/>
+        <path d="M 600,100 Q 800,150 1000,100 T 1400,100" stroke="#3b82f6" strokeWidth="2" fill="none" opacity="0.15"/>
+        
+        <g opacity="0.2">
+          <circle cx="150" cy="300" r="3" fill="#2563eb"/>
+          <circle cx="180" cy="320" r="3" fill="#2563eb"/>
+          <circle cx="210" cy="340" r="3" fill="#2563eb"/>
+          <circle cx="1250" cy="400" r="3" fill="#3b82f6"/>
+          <circle cx="1280" cy="420" r="3" fill="#3b82f6"/>
+          <circle cx="1310" cy="440" r="3" fill="#3b82f6"/>
+          <circle cx="100" cy="600" r="3" fill="#2563eb"/>
+          <circle cx="130" cy="620" r="3" fill="#2563eb"/>
+          <circle cx="160" cy="640" r="3" fill="#2563eb"/>
+        </g>
+        
+        <rect x="50" y="50" width="120" height="120" fill="url(#accentGrad)" rx="10" opacity="0.5">
+          <animateTransform attributeName="transform" type="rotate" from="0 110 110" to="360 110 110" dur="30s" repeatCount="indefinite"/>
+        </rect>
+        
+        <rect x="1200" y="650" width="150" height="150" fill="url(#accentGrad)" rx="10" opacity="0.4">
+          <animateTransform attributeName="transform" type="rotate" from="0 1275 725" to="-360 1275 725" dur="25s" repeatCount="indefinite"/>
+        </rect>
+        
+        <g stroke="#2563eb" strokeWidth="0.5" opacity="0.08">
+          <line x1="0" y1="200" x2="1400" y2="200"/>
+          <line x1="0" y1="400" x2="1400" y2="400"/>
+          <line x1="0" y1="600" x2="1400" y2="600"/>
+          <line x1="300" y1="0" x2="300" y2="900"/>
+          <line x1="700" y1="0" x2="700" y2="900"/>
+          <line x1="1100" y1="0" x2="1100" y2="900"/>
+        </g>
+        
+        <path d="M 0,0 Q 350,80 700,40 T 1400,0 L 1400,0 L 0,0 Z" fill="#2563eb" opacity="0.05"/>
+        
+        <path d="M 0,900 Q 350,820 700,860 T 1400,900 L 1400,900 L 0,900 Z" fill="#3b82f6" opacity="0.05"/>
+        
+        <g opacity="0.6">
+          <circle cx="400" cy="250" r="2" fill="#fbbf24">
+            <animate attributeName="opacity" values="0.3;1;0.3" dur="2s" repeatCount="indefinite"/>
+          </circle>
+          <circle cx="900" cy="180" r="2" fill="#fbbf24">
+            <animate attributeName="opacity" values="0.3;1;0.3" dur="2.5s" repeatCount="indefinite"/>
+          </circle>
+          <circle cx="1100" cy="550" r="2" fill="#fbbf24">
+            <animate attributeName="opacity" values="0.3;1;0.3" dur="3s" repeatCount="indefinite"/>
+          </circle>
+          <circle cx="250" cy="700" r="2" fill="#fbbf24">
+            <animate attributeName="opacity" values="0.3;1;0.3" dur="2.2s" repeatCount="indefinite"/>
+          </circle>
+        </g>
+        
+        <path d="M 1300,300 L 1350,250 L 1400,300 L 1350,350 Z" fill="#3b82f6" opacity="0.1">
+          <animateTransform attributeName="transform" type="scale" values="1;1.1;1" dur="4s" repeatCount="indefinite" additive="sum"/>
+        </path>
+        
+        <path d="M 100,800 L 150,750 L 200,800 L 150,850 Z" fill="#2563eb" opacity="0.1">
+          <animateTransform attributeName="transform" type="scale" values="1;1.15;1" dur="3.5s" repeatCount="indefinite" additive="sum"/>
+        </path>
+      </svg>
+    </div>
+  </div>
+  
+  {/* Content - FIXED with better visibility */}
+  <div className="relative z-10 max-w-6xl mx-auto">
+    <div className="mb-2">
+      <div className="">
+        <div className="flex flex-col items-center mb-4 md:mb-0">
+          <div className="inline-flex items-center justify-center mb-3 sm:mb-4">
+            <div className="h-1.5 w-6 sm:h-2 sm:w-8 bg-blue-600 rounded-full"></div>
+            <span className="mx-2 sm:mx-4 text-xs sm:text-sm font-semibold text-blue-700 tracking-wider uppercase">
+              Limited Time Offers
+            </span>
+            <div className="h-1.5 w-6 sm:h-2 sm:w-8 bg-blue-600 rounded-full"></div>
           </div>
           
           <h2 className="text-xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-3 sm:mb-4 text-center backdrop-blur-sm px-4 py-2 rounded-lg">
@@ -742,7 +756,10 @@ export default function OffersSlider({ offers }: OffersSliderProps) {
             </p>
           </div>
         </div>
-      </section>
+      </div>
+    )}
+  </div>
+</section>
     // </ScrollAnimation>
   );
 }

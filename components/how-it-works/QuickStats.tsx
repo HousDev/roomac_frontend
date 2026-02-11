@@ -84,62 +84,73 @@ export default function QuickStats({ stats, IconLoader }: QuickStatsProps) {
                   animationDelay: `${index * 200}ms`
                 }}
               >
-                <CardContent className="p-6 text-center relative z-10 group">
-                  {/* Icon Container */}
-                  <div
-                    className={`
-                      h-16 w-16 mx-auto mb-4 rounded-3xl flex items-center justify-center
-                      bg-gradient-to-br ${colors.iconColor}
-                      shadow-lg ${colors.shadowColor}
-                      relative overflow-hidden transition-transform duration-700
-                      group-hover:scale-110 group-hover:-translate-y-1
-                    `}
-                  >
-                    {/* Soft Glow */}
-                    <div className={`
-                      absolute inset-0 rounded-3xl
-                      bg-gradient-to-r from-transparent via-white/20 to-transparent
-                      animate-[shimmer_2s_infinite] 
-                      pointer-events-none
-                    `} />
+                <CardContent className="p-6 text-center relative z-10 group 
+  transform transition-all duration-300
+  sm:scale-100 scale-90 sm:origin-top origin-top">
+  {/* Icon Container */}
+  <div
+    className={`
+      h-16 w-16 mx-auto mb-4 rounded-3xl flex items-center justify-center
+      bg-gradient-to-br ${colors.iconColor}
+      shadow-lg ${colors.shadowColor}
+      relative overflow-hidden transition-transform duration-700
+      group-hover:scale-110 group-hover:-translate-y-1
+      sm:h-16 sm:w-16 h-12 w-12
+    `}
+  >
+    {/* Soft Glow */}
+    <div className={`
+      absolute inset-0 rounded-3xl
+      bg-gradient-to-r from-transparent via-white/20 to-transparent
+      animate-[shimmer_2s_infinite] 
+      pointer-events-none
+    `} />
 
-                    {/* Pulse Ring */}
-                    <div className={`
-                      absolute inset-0 rounded-3xl border-2 ${colors.accentColor}
-                      scale-100 group-hover:scale-125 opacity-60 group-hover:opacity-20
-                      transition-all duration-700
-                    `} />
+    {/* Pulse Ring */}
+    <div className={`
+      absolute inset-0 rounded-3xl border-2 ${colors.accentColor}
+      scale-100 group-hover:scale-125 opacity-60 group-hover:opacity-20
+      transition-all duration-700
+    `} />
 
-                    {/* Icon */}
-                    <IconLoader name={stat.iconName} className="h-8 w-8 text-white relative z-10 drop-shadow-lg transition-transform duration-500 group-hover:scale-110" />
-                  </div>
+    {/* Icon */}
+    <IconLoader 
+      name={stat.iconName} 
+      className="h-8 w-8 text-white relative z-10 drop-shadow-lg transition-transform duration-500 group-hover:scale-110
+      sm:h-8 sm:w-8 h-6 w-6" 
+    />
+  </div>
 
-                  {/* Number */}
-                  <h3 className="text-4xl font-extrabold mb-1 text-black transition-all duration-500 group-hover:text-gray-800 group-hover:scale-105">
-                    {stat.number}
-                  </h3>
+  {/* Number */}
+  <h3 className="text-4xl font-extrabold mb-1 text-black transition-all duration-500 group-hover:text-gray-800 group-hover:scale-105
+    sm:text-4xl text-2xl">
+    {stat.number}
+  </h3>
 
-                  {/* Label */}
-                  <p className="text-sm text-gray-700 font-semibold transition-all duration-500 group-hover:text-gray-900 group-hover:tracking-wider">
-                    {stat.label}
-                  </p>
+  {/* Label */}
+  <p className="text-sm text-gray-700 font-semibold transition-all duration-500 group-hover:text-gray-900 group-hover:tracking-wider
+    sm:text-sm text-xs">
+    {stat.label}
+  </p>
 
-                  {/* Smooth Bottom Line with Dot */}
-                  <div className={`
-                    absolute bottom-0 left-1/2 -translate-x-1/2 h-1 w-0 group-hover:w-3/4
-                    ${colors.bottomLineColor} rounded-full transition-all duration-700
-                  `}>
-                    <div className="absolute top-1/2 left-0 w-2 h-2 bg-white rounded-full -translate-y-1/2 opacity-0 group-hover:opacity-100 animate-[moveDot_1.5s_linear_infinite]" />
-                  </div>
+  {/* Smooth Bottom Line with Dot */}
+  <div className={`
+    absolute bottom-0 left-1/2 -translate-x-1/2 h-1 w-0 group-hover:w-3/4
+    ${colors.bottomLineColor} rounded-full transition-all duration-700
+    sm:h-1 h-0.5
+  `}>
+    <div className="absolute top-1/2 left-0 w-2 h-2 bg-white rounded-full -translate-y-1/2 opacity-0 group-hover:opacity-100 animate-[moveDot_1.5s_linear_infinite]
+      sm:w-2 sm:h-2 w-1.5 h-1.5" />
+  </div>
 
-                  {/* Soft Background Glow on hover */}
-                  <div className={`
-                    absolute inset-0 rounded-xl -z-10
-                    bg-gradient-to-br
-                    ${colors.bgFromColor}
-                    to-transparent opacity-0 group-hover:opacity-20 transition-opacity duration-700
-                  `} />
-                </CardContent>
+  {/* Soft Background Glow on hover */}
+  <div className={`
+    absolute inset-0 rounded-xl -z-10
+    bg-gradient-to-br
+    ${colors.bgFromColor}
+    to-transparent opacity-0 group-hover:opacity-20 transition-opacity duration-700
+  `} />
+</CardContent>
               </Card>
             );
           })}

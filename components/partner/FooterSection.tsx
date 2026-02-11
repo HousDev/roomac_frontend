@@ -10,9 +10,9 @@ export const FooterSection = forwardRef<HTMLElement, FooterSectionProps>(
     <section 
       ref={ref}
       id={id}
-      className={`py-16 bg-blue-900 text-white transition-all duration-1000 delay-300 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}
+      className={`py-10  bg-blue-900 text-white transition-all duration-1000 delay-300 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 '}`}
     >
-      <div className="container mx-auto px-4 text-center">
+      <div className="container mx-auto px-4 text-center ">
         <h2 className="text-3xl font-bold mb-4">
           Have Questions?
         </h2>
