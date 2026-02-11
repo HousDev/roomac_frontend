@@ -72,10 +72,10 @@ export const BenefitsSection = forwardRef<HTMLElement, BenefitsSectionProps>(
       <section 
         ref={ref}
         id={id}
-        className={`py-16 bg-white transition-all duration-1000 delay-300 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}
+        className={`py-10 bg-white transition-all duration-1000 delay-300 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}
       >
         <div className="container mx-auto px-4">
-          <h2 className="text-4xl font-bold text-center text-slate-900 mb-12">
+          <h2 className="text-4xl font-bold text-center  text-slate-900 mb-5">
             Why Partner with Us?
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-6xl mx-auto">
@@ -94,10 +94,10 @@ export const BenefitsSection = forwardRef<HTMLElement, BenefitsSectionProps>(
                       <div className={`absolute inset-0 rounded-xl bg-gradient-to-br ${colorSet.bg} transition-all duration-700 ${visible ? 'opacity-0' : 'opacity-100'}`}></div>
                     </div>
                     
-                    <div className={`absolute -top-2 -left-2 w-8 h-8 border-t-2 border-l-2 ${colorSet.icon.replace('text', 'border')} rounded-tl-lg opacity-0 group-hover:opacity-100 transition-all duration-500 group-hover:top-3 group-hover:left-3`} />
+                    {/* <div className={`absolute -top-2 -left-2 w-8 h-8 border-t-2 border-l-2 ${colorSet.icon.replace('text', 'border')} rounded-tl-lg opacity-0 group-hover:opacity-100 transition-all duration-500 group-hover:top-3 group-hover:left-3`} />
                     <div className={`absolute -top-2 -right-2 w-8 h-8 border-t-2 border-r-2 ${colorSet.icon.replace('text', 'border')} rounded-tr-lg opacity-0 group-hover:opacity-100 transition-all duration-500 delay-100 group-hover:top-3 group-hover:right-3`} />
                     <div className={`absolute -bottom-2 -left-2 w-8 h-8 border-b-2 border-l-2 ${colorSet.icon.replace('text', 'border')} rounded-bl-lg opacity-0 group-hover:opacity-100 transition-all duration-500 delay-200 group-hover:bottom-3 group-hover:left-3`} />
-                    <div className={`absolute -bottom-2 -right-2 w-8 h-8 border-b-2 border-r-2 ${colorSet.icon.replace('text', 'border')} rounded-br-lg opacity-0 group-hover:opacity-100 transition-all duration-500 delay-300 group-hover:bottom-3 group-hover:right-3`} />
+                    <div className={`absolute -bottom-2 -right-2 w-8 h-8 border-b-2 border-r-2 ${colorSet.icon.replace('text', 'border')} rounded-br-lg opacity-0 group-hover:opacity-100 transition-all duration-500 delay-300 group-hover:bottom-3 group-hover:right-3`} /> */}
                     
                     <CardContent className="p-6 relative z-10 flex-grow flex flex-col">
                       <div className="relative mb-6">

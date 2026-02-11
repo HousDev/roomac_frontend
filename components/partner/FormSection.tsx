@@ -25,7 +25,7 @@ export const FormSection = forwardRef<HTMLElement, FormSectionProps>(
       <section 
         ref={ref}
         id={id}
-        className={`py-16 bg-white relative overflow-hidden transition-all duration-1000 delay-300 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}
+        className={`py-10 bg-white relative overflow-hidden transition-all duration-1000 delay-300 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}
       >
         <div className="absolute inset-0">
           <div className="absolute top-20 left-10 w-24 h-24 border border-slate-200 rounded-full animate-pulse animate-infinite animate-duration-[4000ms]" />

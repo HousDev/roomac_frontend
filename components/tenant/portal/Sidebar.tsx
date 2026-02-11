@@ -2,7 +2,7 @@
 
 import { JSX, JSXElementConstructor, Key, memo, ReactElement, ReactNode } from "react";
 import Image from "@/src/compat/next-image";
-import roomacLogo from '';
+import roomacLogo from '@/app/src/assets/images/roomaclogo.webp';
 import { Button } from "@/components/ui/button";
 import {
   Home,

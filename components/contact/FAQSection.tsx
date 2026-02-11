@@ -24,10 +24,10 @@ export default function FAQSection({ faqs }: FAQSectionProps) {
         <Badge className="mb-3 bg-blue-100 text-[#004AAD] border-0 px-4 py-1.5 font-medium">
           FAQ
         </Badge>
-        <h2 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4 tracking-tight">
+        <h2 className="text-3xl md:text-5xl font-bold text-slate-900 mb-4 tracking-tight">
           Frequently Asked Questions
         </h2>
-        <p className="text-xl text-slate-600 max-w-2xl mx-auto">
+        <p className="text-lg md:text-xl text-slate-600 max-w-2xl mx-auto">
           Quick answers to common questions
         </p>
       </div>
@@ -36,12 +36,12 @@ export default function FAQSection({ faqs }: FAQSectionProps) {
         {faqs.map((faq, index) => (
           <Card 
             key={index} 
-            className="border border-slate-200/60 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer bg-white"
+            className="border border-slate-200/60 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer -mt-8 bg-white"
             onClick={() => handleFaqToggle(index)}
           >
-            <CardContent className="p-6">
+            <CardContent className="p-5 md:p-6">
               <div className="flex items-center justify-between gap-4">
-                <h3 className="font-semibold text-lg text-slate-900 leading-relaxed">
+                <h3 className="font-semibold text-base md:text-lg text-slate-900 leading-relaxed">
                   {faq.question}
                 </h3>
                 <div className="flex-shrink-0">
@@ -76,7 +76,7 @@ export default function FAQSection({ faqs }: FAQSectionProps) {
                     : 'mt-0 opacity-0 max-h-0'
                 }`}
               >
-                <p className="text-slate-600 leading-relaxed pt-3 border-t border-slate-200">
+                <p className="text-slate-600 leading-relaxed pt-3 border-t border-slate-200 text-sm md:text-base">
                   {faq.answer}
                 </p>
               </div>

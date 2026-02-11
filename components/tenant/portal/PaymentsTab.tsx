@@ -286,3 +286,5 @@ function PaymentsTab({ payments, stats }: PaymentsTabProps) {
 }
 
 export default memo(PaymentsTab);
+
+
