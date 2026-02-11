@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { DoorOpen, Plus, Search, Filter, Bed, Users, Building2 } from 'lucide-react';
 import { toast } from "sonner";
-import { type RoomResponse } from '@/lib/roomsApi';
+import { type RoomResponse ,processPhotoUrls, getMediaUrl} from '@/lib/roomsApi';
 
 // Import optimized components
 import RoomsFilters from './rooms-filters';
@@ -188,6 +188,9 @@ export default function RoomsClient({ initialRooms, initialProperties }: RoomsCl
 
   // Your original handleEdit function
   const handleEdit = useCallback((room: RoomResponse) => {
+    setTimeout(() => {
+  console.log("roomDialogOpen:", roomDialogOpen);
+}, 0);
     console.log("=== START EDITING ===");
     console.log("Clicked room ID:", room.id);
     
@@ -226,8 +229,9 @@ export default function RoomsClient({ initialRooms, initialProperties }: RoomsCl
     const isAutoCapacity = defaultForSharingType === capacity && actualSharingType !== 'other';
 
     // Process existing photos properly
-    const { processPhotoUrls } = require('@/lib/roomsApi');
-    const existingPhotos = processPhotoUrls(room.photo_urls);
+    const existingPhotos = processPhotoUrls(room.photo_urls).filter(
+      (photo: { url: string | null; label: any }) => photo.url !== null
+    ) as { url: string; label?: string }[];
 
     // Get gender preferences correctly
     const genderPreferences = room.room_gender_preference 
@@ -363,7 +367,7 @@ export default function RoomsClient({ initialRooms, initialProperties }: RoomsCl
     try {
       const formDataObj = new FormData();
       
-      // REQUIRED FIELDS - हमेशा भेजें
+      // REQUIRED FIELDS - ALWAYS SEND
       formDataObj.append('property_id', formData.property_id);
       formDataObj.append('room_number', formData.room_number);
       formDataObj.append('sharing_type', formData.sharing_type);
@@ -371,7 +375,7 @@ export default function RoomsClient({ initialRooms, initialProperties }: RoomsCl
       formDataObj.append('rent_per_bed', formData.rent_per_bed.toString());
       formDataObj.append('floor', formData.floor || '0');
       
-      // OPTIONAL BOOLEAN FIELDS - हमेशा भेजें
+      // OPTIONAL BOOLEAN FIELDS - ALWAYS SEND
       formDataObj.append('has_attached_bathroom', formData.has_attached_bathroom.toString());
       formDataObj.append('has_balcony', formData.has_balcony.toString());
       formDataObj.append('has_ac', formData.has_ac.toString());
@@ -458,7 +462,6 @@ export default function RoomsClient({ initialRooms, initialProperties }: RoomsCl
     const items: Array<{url: string, label?: string, type: 'photo' | 'video'}> = [];
     
     // Add photos
-    const { processPhotoUrls, getMediaUrl } = require('@/lib/roomsApi');
     const processedPhotos = processPhotoUrls(selectedGalleryRoom.photo_urls);
     processedPhotos.forEach((photo: { url: any; label: any; }) => {
       if (photo.url) {

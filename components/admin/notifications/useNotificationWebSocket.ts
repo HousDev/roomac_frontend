@@ -14,7 +14,7 @@ export function useNotificationWebSocket({
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const connectWebSocket = () => {
-    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:3001';
+    const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:3001';
     
     try {
       const ws = new WebSocket(`${wsUrl}/ws/notifications`);
@@ -70,5 +70,5 @@ export function useNotificationWebSocket({
         clearTimeout(reconnectTimeoutRef.current);
       }
     };
-  }, [onNewNotification, onNotificationRead]);
+  }, []);
 }

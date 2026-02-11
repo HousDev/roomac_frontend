@@ -62,7 +62,7 @@ export default function Filters({ cities, isLoading = false }: FiltersProps) {
                 <motion.div variants={slideInFromLeft} transition={{ delay: 1.7 }} className="md:col-span-1">
                   <Select value={selectedCity} onValueChange={setSelectedCity}>
                     <SelectTrigger className="h-11 sm:h-12 rounded-lg sm:rounded-xl bg-white border-2 border-blue-200/70 text-slate-700 hover:border-blue-400 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200 shadow-sm text-sm sm:text-base">
-                      <SelectValue placeholder="Select City" />
+                      <SelectValue placeholder="Select Cityyy" />
                     </SelectTrigger>
                     <SelectContent className="rounded-lg sm:rounded-xl shadow-xl border border-blue-100 bg-white">
                       {cities.map((city: any) => (

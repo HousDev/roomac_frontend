@@ -1018,13 +1018,12 @@ export function AdminHeader({
             </div>
 
             {/* Mobile Subtitle - Show on mobile when sidebar is closed */}
-            {!sidebarOpen && subtitle && (
-              <div className="lg:hidden flex-1 min-w-0 ml-3">
-                <p className="text-xs text-slate-500 truncate">
-                  {subtitle}
-                </p>
-              </div>
-            )}
+            <div className="lg:hidden ml-12">
+          <h1 className="text-md font-bold text-slate-900 ">{title}</h1>
+          {subtitle && (
+            <p className="text-[10px] text-slate-500 mt-1">{subtitle}</p>
+          )}
+        </div>
           </div>
 
           {/* Right Side - Action Buttons */}
@@ -1078,7 +1077,7 @@ export function AdminHeader({
               >
                 <DropdownMenuLabel className="flex justify-between items-center bg-slate-50 sticky top-0 z-10">
                   <span className="font-semibold">Notifications ({notifications.length})</span>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1">
                     {unreadCount > 0 && (
                       <Button
                         variant="ghost"
@@ -1247,9 +1246,9 @@ export function AdminHeader({
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
-                  className="flex items-center gap-2 h-auto p-1 md:p-2 hover:bg-slate-100"
+                  className="flex items-center gap-1 h-auto p-1 md:p-2 hover:bg-slate-100"
                 >
-                  <Avatar className="h-8 w-8">
+                  <Avatar className="h-6 w-6">
                     <AvatarImage src={profileImage} alt="Admin" />
                     <AvatarFallback className="bg-gradient-to-br from-[#004AAD] to-blue-500 text-white font-semibold">
                       {getInitials()}
@@ -1288,12 +1287,12 @@ export function AdminHeader({
         </div>
 
         {/* Mobile Full Title - Shows below on mobile when there's space */}
-        <div className="lg:hidden mt-2">
+        {/* <div className="lg:hidden mt-2">
           <h1 className="text-lg font-bold text-slate-900">{title}</h1>
           {subtitle && (
             <p className="text-xs text-slate-500 mt-1">{subtitle}</p>
           )}
-        </div>
+        </div> */}
       </div>
     </header>
   );
