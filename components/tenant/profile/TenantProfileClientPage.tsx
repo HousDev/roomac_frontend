@@ -535,7 +535,7 @@ export default function TenantProfileClientPage({
   const getDocumentUrl = (url: string) => {
     if (!url) return "";
     if (url.startsWith("http")) return url;
-    return `${process.env.VITE_API_URL}${url}`;
+    return `${import.meta.env.VITE_API_URL}${url}`;
   };
 
   /* ------------------------------------------------------------------ */

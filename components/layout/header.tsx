@@ -43,23 +43,23 @@ export function Header() {
     if (loading || !settings) {
       return roomacLogo;
     }
-    
+
     const logoUrl = getSettingValue('logo_header');
-    
+
     if (!logoUrl) {
       return roomacLogo;
     }
-    
+
     // Check if the URL is already a full URL
     if (logoUrl.startsWith('http://') || logoUrl.startsWith('https://')) {
       return logoUrl;
     }
-    
+
     // Check if it's a relative path starting with /
     if (logoUrl.startsWith('/')) {
       return logoUrl;
     }
-    
+
     // If it's just a filename without a leading slash
     return `/${logoUrl}`;
   };
@@ -84,7 +84,7 @@ export function Header() {
           <img
             src={getLogoUrl()}
             alt={getSiteName()}
-            className="h-14 w-auto object-contain max-w-[200px]"
+            className="h-14 w-auto object-contain max-w-[200px] transition-all duration-300 hover:scale-[1.02]"
             onError={(e) => {
               // Fallback to default logo if the fetched logo fails to load
               (e.target as HTMLImageElement).src = roomacLogo;
@@ -92,55 +92,63 @@ export function Header() {
           />
         </Link>
 
+        {/* Desktop Navigation */}
         <div className="hidden md:flex items-center space-x-6">
-          <Link href="/" className="text-sm font-medium hover:text-primary transition-colors">
+          <Link href="/" className="text-sm font-medium hover:text-primary transition-all duration-200 hover:scale-105">
             Home
           </Link>
-          <Link href="/properties" className="text-sm font-medium hover:text-primary transition-colors">
+          <Link href="/properties" className="text-sm font-medium hover:text-primary transition-all duration-200 hover:scale-105">
             Properties
           </Link>
-          <Link href="/how-it-works" className="text-sm font-medium hover:text-primary transition-colors">
+          <Link href="/how-it-works" className="text-sm font-medium hover:text-primary transition-all duration-200 hover:scale-105">
             How It Works
           </Link>
-          <Link href="/partner" className="text-sm font-medium hover:text-primary transition-colors">
+          <Link href="/partner" className="text-sm font-medium hover:text-primary transition-all duration-200 hover:scale-105">
             Partner with Us
           </Link>
-          <Link href="/about" className="text-sm font-medium hover:text-primary transition-colors">
+          <Link href="/about" className="text-sm font-medium hover:text-primary transition-all duration-200 hover:scale-105">
             About Us
           </Link>
-          <Link href="/contact" className="text-sm font-medium hover:text-primary transition-colors">
+          <Link href="/contact" className="text-sm font-medium hover:text-primary transition-all duration-200 hover:scale-105">
             Contact
           </Link>
         </div>
 
         <div className="hidden md:flex items-center space-x-3">
-          <a href={`tel:${getContactPhone()}`}>
+          <a href={`tel:${getContactPhone()}`} className="transition-all duration-300 hover:scale-105">
             <Button variant="outline" size="sm" className="gap-2">
               <Phone className="h-4 w-4" />
               Call Us
             </Button>
           </a>
-          <Link href="/tenant/login">
+          <Link href="/tenant/login" className="transition-all duration-300 hover:scale-105">
             <Button variant="outline" size="sm" className="gap-2">
               <User className="h-4 w-4" />
               Tenant Portal
             </Button>
           </Link>
-          <Link href="/admin">
+          <Link href="/admin" className="transition-all duration-300 hover:scale-105">
             <Button size="sm" className="bg-primary hover:bg-primary/90">
               Admin
             </Button>
           </Link>
         </div>
 
+        {/* Mobile Menu Button */}
         <button
-          className="md:hidden p-2"
+          className="md:hidden p-2 transition-all duration-300 hover:scale-110 active:scale-95"
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          aria-label="Toggle menu"
         >
-          {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+          {mobileMenuOpen ? (
+            <X className="h-6 w-6 transition-all duration-500 rotate-180 scale-110" />
+          ) : (
+            <Menu className="h-6 w-6 transition-all duration-500" />
+          )}
         </button>
       </nav>
 
+      {/* Mobile Menu - All items centered */}
       {mobileMenuOpen && (
         <div className="md:hidden border-t bg-white">
           <div className="container mx-auto px-4 py-4 space-y-4">
@@ -199,7 +207,7 @@ export function Header() {
                   Tenant Portal
                 </Button>
               </Link>
-              <Link href="/admin/login" className="block">
+              <Link href="/admin" className="block">
                 <Button size="sm" className="w-full bg-primary hover:bg-primary/90">
                   Admin
                 </Button>

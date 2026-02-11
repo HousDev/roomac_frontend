@@ -10,33 +10,34 @@ import roomacLogo from '@/app/src/assets/images/roomaclogo.webp';
 
 export function Footer() {
   const { settings } = useSettings();
+  console.log("settings ", settings)
   return (
     <footer className="bg-slate-900 text-white">
-      <div className="container mx-auto px-4 py-12">
+      <div className="container mx-auto px-4 py-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           <div>
             <div className="mb-4">
               {settings.logo_footer ? (
                 <img
-                  // src={settings.logo_footer}
+                  src={settings.logo_footer}
                   alt={settings.site_name || 'ROOMAC'}
                   className="h-12 w-auto object-contain"
                 />
-                
+
               ) : (
-                 <img
-      src={roomacLogo} // Yaha default logo use karein
-      alt={settings.site_name || 'ROOMAC'}
-      className="h-12 w-auto object-contain"
-    />
-  )}
-                {/* <div className="flex items-center gap-2">
+                <img
+                  src={roomacLogo} // Yaha default logo use karein
+                  alt={settings.site_name || 'ROOMAC'}
+                  className="h-12 w-auto object-contain"
+                />
+              )}
+              {/* <div className="flex items-center gap-2">
                   <div className="h-10 w-10 rounded-lg bg-primary flex items-center justify-center">
                     <span className="text-2xl font-bold">R</span>
                   </div>
                   <span className="text-2xl font-bold">{settings.site_name || 'ROOMAC'}</span>
                 </div> */}
-              
+
             </div>
             <p className="text-sm text-slate-300 mb-4 leading-relaxed">
               {settings.site_tagline || 'Comfort, Care, and Quality Accommodation. Well-planned living spaces for professionals and students.'}
@@ -133,27 +134,27 @@ export function Footer() {
           </div>
         </div>
 
-       <div className="border-t border-slate-800 mt-8 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
-  <p className="text-sm text-slate-400">
-    © {new Date().getFullYear()} {settings.site_name || 'Hously Finntech Realty'}. All rights reserved.
-  </p>
+        <div className="border-t border-slate-800 mt-8 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
+          <p className="text-sm text-slate-400">
+            © {new Date().getFullYear()} {settings.site_name || 'Hously Finntech Realty'}. All rights reserved.
+          </p>
 
-  <div className="flex gap-6">
-    <Link
-      href={settings.privacy_url || '/privacy'}
-      className="text-sm text-slate-400 hover:text-primary transition-colors"
-    >
-      Privacy Policy
-    </Link>
+          <div className="flex gap-6 mt-0">
+            <Link
+              href={settings.privacy_url || '/privacy'}
+              className="text-sm text-slate-400 hover:text-primary transition-colors"
+            >
+              Privacy Policy
+            </Link>
 
-    <Link
-      href={settings.terms_url || '/terms'}
-      className="text-sm text-slate-400 hover:text-primary transition-colors"
-    >
-      Terms & Conditions
-    </Link>
-  </div>
-</div>
+            <Link
+              href={settings.terms_url || '/terms'}
+              className="text-sm text-slate-400 hover:text-primary transition-colors"
+            >
+              Terms & Conditions
+            </Link>
+          </div>
+        </div>
 
       </div>
     </footer>

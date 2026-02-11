@@ -1391,7 +1391,7 @@ export default function PropertyForm({
       setExistingPhotoUrls(photoUrls);
       setPhotoPreviews(photoUrls.map((url: string) => {
         if (url.startsWith('http') || url.startsWith('blob:')) return url;
-        const apiUrl = process.env.VITE_API_URL || '';
+        const apiUrl = import.meta.env.VITE_API_URL || '';
         const cleanUrl = url.startsWith('/') ? url.substring(1) : url;
         return `${apiUrl}/${cleanUrl}`;
       }));

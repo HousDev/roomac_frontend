@@ -180,32 +180,32 @@ export default function HowItWorksPage() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 bg-gradient-to-r from-[#004AAD] via-blue-600 to-cyan-600 text-white">
-        <div className="container mx-auto px-4">
-          <div className="max-w-4xl mx-auto text-center">
-            <h2 className="text-4xl md:text-5xl font-bold mb-6">
-              Ready to Find Your Perfect Room?
-            </h2>
-            <p className="text-xl text-white/90 mb-8">
-              Join hundreds of happy residents who call ROOMAC home
-            </p>
-            <div className="flex flex-wrap justify-center gap-4">
-              <Link href="/properties">
-                <Button size="lg" className="bg-white text-[#004AAD] hover:bg-white/90 shadow-xl">
-                  <Search className="mr-2 h-5 w-5" />
-                  Explore Properties
-                </Button>
-              </Link>
-              <Link href="/contact">
-                <Button size="lg" variant="outline" className="border-2 border-white text-white hover:bg-white/20">
-                  <Phone className="mr-2 h-5 w-5" />
-                  Talk to Us
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
+    <section className="py-5 sm:py-12 md:py-10 lg:py-20 bg-gradient-to-r from-[#004AAD] via-blue-600 to-cyan-600 text-white">
+  <div className="container mx-auto px-4">
+    <div className="max-w-4xl mx-auto text-center">
+      <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-4 sm:mb-5 md:mb-6 leading-tight">
+        Ready to Find Your Perfect Room?
+      </h2>
+      <p className="text-base sm:text-lg md:text-xl text-white/90 mb-6 sm:mb-7 md:mb-8 leading-relaxed">
+        Join hundreds of happy residents who call ROOMAC home
+      </p>
+      <div className="flex flex-wrap justify-center gap-3 sm:gap-4">
+        <Link href="/properties">
+          <Button size="lg" className="bg-white text-[#004AAD] hover:bg-white/90 shadow-lg sm:shadow-xl px-4 sm:px-6 text-sm sm:text-base">
+            <Search className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
+            Explore Properties
+          </Button>
+        </Link>
+        <Link href="/contact">
+          <Button size="lg" variant="outline" className="border-2 border-white text-white hover:bg-white/20 px-4 sm:px-6 text-sm sm:text-base">
+            <Phone className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
+            Talk to Us
+          </Button>
+        </Link>
+      </div>
+    </div>
+  </div>
+</section>
     </div>
   );
 }

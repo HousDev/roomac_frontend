@@ -15,7 +15,7 @@ interface AboutStoryProps {
 
 export default function AboutStory({ team }: AboutStoryProps) { // Changed prop name
   return (
-    <section className="py-20 relative overflow-hidden">
+    <section className="py-15 relative overflow-hidden">
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute top-1/4 left-10 w-8 h-8 border-2 border-blue-300/30 rounded-lg animate-[floatShape_15s_linear_infinite] rotate-45 opacity-0 animate-[fadeIn_1s_ease-out_1s_forwards]" />
         <div className="absolute top-1/3 right-20 w-6 h-6 border border-cyan-400/20 rounded-full animate-[floatShape_20s_linear_infinite_2s] opacity-0 animate-[fadeIn_1s_ease-out_1.2s_forwards]" />
@@ -25,9 +25,9 @@ export default function AboutStory({ team }: AboutStoryProps) { // Changed prop 
 
       <div className="container mx-auto px-4 relative z-10">
         <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-16 overflow-hidden">
+          <div className="text-center mb-8 overflow-hidden">
             <div className="inline-block mb-4 opacity-0 animate-[badgePop_0.6s_ease-out_1s_forwards]">
-              <Badge className="bg-gradient-to-r from-blue-100 to-cyan-100 text-[#004AAD] border-0 px-6 py-2 shadow-lg hover:scale-105 transition-transform duration-300">
+              <Badge className="bg-gradient-to-r from-blue-100 to-cyan-100 text-[#004AAD] border-0 px-6 py-2  hover:scale-105 transition-transform duration-300">
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 bg-[#004AAD] rounded-full animate-pulse animate-delay-1000" />
                   Our Story
@@ -62,31 +62,30 @@ export default function AboutStory({ team }: AboutStoryProps) { // Changed prop 
           <div className="relative group opacity-0 animate-[fadeIn_1s_ease-out_1.5s_forwards]">
             <div className="absolute -inset-4 bg-gradient-to-r from-blue-400/10 to-cyan-400/10 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
             
-            <Card className="border-0 shadow-2xl mb-12 relative overflow-hidden backdrop-blur-sm bg-white/95">
+            <Card className="border-0 shadow-2xl mb-10 relative overflow-hidden backdrop-blur-sm bg-white/95">
               <div className="absolute inset-0 bg-gradient-to-r from-blue-400 via-[#004AAD] to-cyan-400 opacity-0 group-hover:opacity-10 transition-opacity duration-500" />
               
-              <CardContent className="p-8 md:p-12 relative z-10">
-                {[
-                  "ROOMAC was founded with a simple yet powerful vision: to create living spaces that feel like home for professionals and students away from their families. We understand the challenges of finding quality accommodation that perfectly balances comfort, affordability, and community.",
-                  "What started as a single property has grown into a thriving network across major cities. Today, ROOMAC operates 50+ premium properties, serving hundreds of residents who trust us for their accommodation needs. Our commitment to quality, transparent pricing, and resident satisfaction has made us a preferred choice for co-living.",
-                  "But we're more than just a place to stay. We're a community where friendships are formed, careers are built, and memories are created. Every ROOMAC property is designed to foster connections, support personal growth, and provide the peace of mind you need to focus on what matters most."
-                ].map((paragraph, index) => (
-                  <div 
-                    key={index} 
-                    className="mb-6 last:mb-0 overflow-hidden"
-                  >
-                    <div 
-                      className="text-lg text-slate-700 leading-relaxed transform translate-x-full opacity-0"
-                      style={{
-                        animation: `slideInParagraph 0.8s ease-out ${1.8 + (index * 0.4)}s forwards`
-                      }}
-                    >
-                      {paragraph}
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-              
+             <CardContent className="p-3 md:p-12 relative z-10">
+  {[
+    "ROOMAC was founded with a simple yet powerful vision: to create living spaces that feel like home for professionals and students away from their families. We understand the challenges of finding quality accommodation that perfectly balances comfort, affordability, and community.",
+    "What started as a single property has grown into a thriving network across major cities. Today, ROOMAC operates 50+ premium properties, serving hundreds of residents who trust us for their accommodation needs. Our commitment to quality, transparent pricing, and resident satisfaction has made us a preferred choice for co-living.",
+    "But we're more than just a place to stay. We're a community where friendships are formed, careers are built, and memories are created. Every ROOMAC property is designed to foster connections, support personal growth, and provide the peace of mind you need to focus on what matters most."
+  ].map((paragraph, index) => (
+    <div 
+      key={index} 
+      className="mb-6 last:mb-0 overflow-hidden"
+    >
+      <div 
+        className="text-base md:text-lg text-slate-700 leading-relaxed transform translate-x-full opacity-0"
+        style={{
+          animation: `slideInParagraph 0.8s ease-out ${1.8 + (index * 0.4)}s forwards`
+        }}
+      >
+        {paragraph}
+      </div>
+    </div>
+  ))}
+</CardContent>
               <div className="absolute top-4 right-4 w-2 h-2 bg-blue-400/30 rounded-full opacity-0 animate-[bounce_2s_ease-in-out_infinite,fadeIn_0.5s_ease-out_2.5s_forwards]" />
               <div className="absolute bottom-4 left-4 w-1.5 h-1.5 bg-cyan-400/40 rounded-full opacity-0 animate-[bounce_2s_ease-in-out_infinite_0.5s,fadeIn_0.5s_ease-out_2.7s_forwards]" />
             </Card>
@@ -113,7 +112,7 @@ export default function AboutStory({ team }: AboutStoryProps) { // Changed prop 
                     
                     <CardContent className="p-8 text-center relative z-10">
                       <div className="relative h-16 w-16 mx-auto mb-6">
-                        <div className="absolute inset-0 bg-gradient-to-br from-[#004AAD] to-cyan-500 rounded-2xl animate-[spinSlow_20s_linear_infinite] opacity-20 group-hover:opacity-40 transition-opacity duration-500" />
+                        <div className="absolute inset-0 bg-gradient-to-br from-[#004AAD] to-cyan=-500 rounded-2xl animate-[spinSlow_20s_linear_infinite] opacity-20 group-hover:opacity-40 transition-opacity duration-500" />
                         <div className="absolute inset-2 bg-gradient-to-br from-[#004AAD] to-cyan-500 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 group-hover:rotate-6 transition-all duration-500">
                           <Icon className="h-8 w-8 text-white" />
                         </div>

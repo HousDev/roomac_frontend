@@ -1,4 +1,3 @@
-// components/home/TestimonialsSlider.tsx
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
@@ -9,6 +8,7 @@ import { Card } from '@/components/ui/card';
 export default function TestimonialsSlider() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isAutoPlay, setIsAutoPlay] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
 
   const testimonials = [
     {
@@ -48,29 +48,84 @@ export default function TestimonialsSlider() {
     }
   ];
 
+  // Check if mobile
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   const nextSlide = useCallback(() => {
-    setCurrentIndex((prev) => (prev + 1) % testimonials.length);
+    if (isMobile) {
+      setCurrentIndex((prev) => (prev + 1) % testimonials.length);
+    } else {
+      setCurrentIndex((prev) => (prev + 1) % (testimonials.length - 1));
+    }
     setIsAutoPlay(false);
-  }, [testimonials.length]);
+  }, [testimonials.length, isMobile]);
 
   const prevSlide = useCallback(() => {
-    setCurrentIndex((prev) => (prev - 1 + testimonials.length) % testimonials.length);
+    if (isMobile) {
+      setCurrentIndex((prev) => (prev - 1 + testimonials.length) % testimonials.length);
+    } else {
+      setCurrentIndex((prev) => (prev - 1 + (testimonials.length - 1)) % (testimonials.length - 1));
+    }
     setIsAutoPlay(false);
-  }, [testimonials.length]);
+  }, [testimonials.length, isMobile]);
 
   const goToSlide = useCallback((index: number) => {
     setCurrentIndex(index);
     setIsAutoPlay(false);
   }, []);
 
-  // Testimonials auto-play - EXACT LOGIC FROM ORIGINAL
+  // Testimonials auto-play
   useEffect(() => {
     if (!isAutoPlay) return;
     const interval = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % testimonials.length);
+      if (isMobile) {
+        setCurrentIndex((prev) => (prev + 1) % testimonials.length);
+      } else {
+        setCurrentIndex((prev) => (prev + 1) % (testimonials.length - 1));
+      }
     }, 4000);
     return () => clearInterval(interval);
-  }, [isAutoPlay, testimonials.length]);
+  }, [isAutoPlay, testimonials.length, isMobile]);
+
+  // Calculate translate percentage based on screen size
+  const getTranslatePercentage = () => {
+    if (isMobile) {
+      return currentIndex * 100;
+    }
+    return currentIndex * 50;
+  };
+
+  // Calculate card width based on screen size
+  const getCardWidth = () => {
+    if (isMobile) {
+      return 'min-w-[calc(100%-2rem)]'; // Full width with some margin
+    }
+    return 'min-w-[40%]';
+  };
+
+  // Calculate dots count based on screen size
+  const getDotsCount = () => {
+    if (isMobile) {
+      return testimonials.length;
+    }
+    return testimonials.length - 1;
+  };
+
+  // Get active dot index based on screen size
+  const getActiveDotIndex = () => {
+    if (isMobile) {
+      return currentIndex;
+    }
+    return Math.floor(currentIndex / 2);
+  };
 
   return (
     <ScrollAnimation>
@@ -100,16 +155,18 @@ export default function TestimonialsSlider() {
               </p>
             </div>
 
-            {/* Slider with TWO cards visible at a time - EXACT DESIGN FROM ORIGINAL */}
+            {/* Slider with responsive behavior */}
             <div className="relative">
               <div className="overflow-hidden">
                 <div
-                  className="flex gap-[0.5px] transition-transform duration-700 ease-in-out"
-                  style={{ transform: `translateX(-${currentIndex * 50}%)` }}
+                  className="flex gap-3 sm:gap-[0.5px] transition-transform duration-700 ease-in-out"
+                  style={{ transform: `translateX(-${getTranslatePercentage()}%)` }}
                 >
                   {testimonials.map((review, i) => (
-                    <div key={i} className="min-w-[40%] flex-shrink-0">
-                      <div className="group cursor-pointer bg-white shadow-lg hover:shadow-xl transition-all duration-500 hover:-translate-y-1 relative rounded-xl h-full w-[360px] mx-auto">
+                    <div key={i} className={`flex-shrink-0 px-2 mx-3 sm:px-0`}>
+                      <div className={`group cursor-pointer bg-white shadow-lg hover:shadow-xl transition-all duration-500 hover:-translate-y-1 relative rounded-xl h-full ${
+                        isMobile ? 'w-[300px]' : 'w-[400px] mx-auto'
+                      }`}>
                         
                         <div className="absolute top-0 left-0 right-0 h-1 bg-blue-500 rounded-t-xl"></div>
 
@@ -168,14 +225,14 @@ export default function TestimonialsSlider() {
               </button>
             </div>
 
-            {/* Dots - EXACT LOGIC FROM ORIGINAL */}
+            {/* Dots - Responsive */}
             <div className="flex justify-center gap-1 mt-8">
-              {testimonials.slice(0, Math.ceil(testimonials.length / 2)).map((_, i) => (
+              {testimonials.slice(0, getDotsCount()).map((_, i) => (
                 <button
                   key={i}
-                  onClick={() => goToSlide(i * 2)}
+                  onClick={() => goToSlide(isMobile ? i : i * 2)}
                   className={`h-3 rounded-full transition-all duration-300 ${
-                    Math.floor(currentIndex / 2) === i
+                    getActiveDotIndex() === i
                       ? 'w-8 bg-blue-500'
                       : 'w-3 bg-slate-300 hover:bg-slate-400'
                   }`}
