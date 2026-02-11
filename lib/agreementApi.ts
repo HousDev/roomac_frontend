@@ -137,7 +137,7 @@ export const exportAgreements = (
     params.append('filters', JSON.stringify(filters));
   }
   
-  return fetch(`${process.env.VITE_API_URL || ''}/api/agreements/export?${params}`, {
+  return fetch(`${import.meta.env.VITE_API_URL || ''}/api/agreements/export?${params}`, {
     method: 'GET',
     headers: {
       'Accept': format === 'excel' 
@@ -153,7 +153,7 @@ export const exportAgreementDetails = (id: number, format: 'excel' | 'pdf' = 'ex
   const params = new URLSearchParams();
   params.append('format', format);
   
-  return fetch(`${process.env.VITE_API_URL || ''}/api/agreements/${id}/export?${params}`, {
+  return fetch(`${import.meta.env.VITE_API_URL || ''}/api/agreements/${id}/export?${params}`, {
     method: 'GET',
     headers: {
       'Accept': format === 'excel' 

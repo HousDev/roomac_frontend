@@ -338,7 +338,7 @@ const handleStatusUpdate = async () => {
     console.log('📦 Request payload:', payload);
     console.log('🌐 Making request to:', `/api/admin/vacate-requests/${selectedRequest.vacate_request_id}/status`);
     
-    const response = await fetch(`${process.env.VITE_API_URL}/api/admin/vacate-requests/${selectedRequest.vacate_request_id}/status`, {
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/vacate-requests/${selectedRequest.vacate_request_id}/status`, {
       method: 'PUT',
       headers: headers,
       body: JSON.stringify(payload),

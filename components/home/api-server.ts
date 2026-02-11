@@ -1,5 +1,5 @@
 // lib/api-server.ts
-const API_URL = process.env.VITE_API_URL || 'http://localhost:3001';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 const FETCH_TIMEOUT_MS = 3500; // 3.5 sec - page loads fast even if backend is slow/down
 

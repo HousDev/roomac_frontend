@@ -43,23 +43,23 @@ export function Header() {
     if (loading || !settings) {
       return roomacLogo;
     }
-    
+
     const logoUrl = getSettingValue('logo_header');
-    
+
     if (!logoUrl) {
       return roomacLogo;
     }
-    
+
     // Check if the URL is already a full URL
     if (logoUrl.startsWith('http://') || logoUrl.startsWith('https://')) {
       return logoUrl;
     }
-    
+
     // Check if it's a relative path starting with /
     if (logoUrl.startsWith('/')) {
       return logoUrl;
     }
-    
+
     // If it's just a filename without a leading slash
     return `/${logoUrl}`;
   };
@@ -205,28 +205,28 @@ export function Header() {
             <div className="flex flex-col items-center w-full space-y-4">
               {/* Call Us and Tenant Portal in one line */}
               <div className="flex justify-center items-center gap-4 w-full animate-in fade-in-50 zoom-in-95 duration-400 delay-250 ease-out">
-                <a 
-                  href={`tel:${getContactPhone()}`} 
+                <a
+                  href={`tel:${getContactPhone()}`}
                   className="flex-1 max-w-[150px] transition-all duration-500 hover:scale-105"
                   onClick={() => setMobileMenuOpen(false)}
                 >
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
+                  <Button
+                    variant="outline"
+                    size="sm"
                     className="w-full gap-2 transition-all duration-500 hover:scale-105 hover:shadow-lg"
                   >
                     <Phone className="h-4 w-4 transition-transform duration-500 group-hover:rotate-12" />
                     Call Us
                   </Button>
                 </a>
-                <Link 
-                  href="/tenant/login" 
+                <Link
+                  href="/tenant/login"
                   className="flex-1 max-w-[150px] transition-all duration-500 hover:scale-105"
                   onClick={() => setMobileMenuOpen(false)}
                 >
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
+                  <Button
+                    variant="outline"
+                    size="sm"
                     className="w-full gap-2 transition-all duration-500 hover:scale-105 hover:shadow-lg group"
                   >
                     <User className="h-4 w-4 transition-transform duration-500 group-hover:translate-y-[-2px]" />
@@ -236,13 +236,13 @@ export function Header() {
               </div>
 
               {/* Admin Button - Centered below */}
-              <Link 
-                href="/admin" 
+              <Link
+                href="/admin"
                 className="w-full max-w-[150px] animate-in fade-in-50 zoom-in-95 duration-400 delay-300 ease-out"
                 onClick={() => setMobileMenuOpen(false)}
               >
-                <Button 
-                  size="sm" 
+                <Button
+                  size="sm"
                   className="w-full bg-primary hover:bg-primary/90 transition-all duration-500 hover:scale-105 hover:shadow-lg"
                 >
                   Admin

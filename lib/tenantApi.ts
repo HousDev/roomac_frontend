@@ -274,7 +274,7 @@ async function enhancedFetch<T>(
     };
     
     // Use the request function which already includes API_BASE_URL
-    const response = await fetch(`${process.env.VITE_API_URL || 'http://localhost:3001'}${url}`, {
+    const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}${url}`, {
       ...options,
       headers: mergedHeaders,
       credentials: 'include',

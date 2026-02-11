@@ -105,7 +105,7 @@ export interface PaginatedResponse<T> {
   };
 }
 
-const API_URL = process.env.VITE_API_URL || 'http://localhost:3001';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 // Simple fetch wrapper
 const request = async <T>(endpoint: string, options?: RequestInit): Promise<T> => {
