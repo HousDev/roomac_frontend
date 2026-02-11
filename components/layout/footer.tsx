@@ -13,7 +13,7 @@ export function Footer() {
   console.log("settings ", settings)
   return (
     <footer className="bg-slate-900 text-white">
-      <div className="container mx-auto px-4 py-12">
+      <div className="container mx-auto px-4 py-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           <div>
             <div className="mb-4">
@@ -139,7 +139,7 @@ export function Footer() {
             © {new Date().getFullYear()} {settings.site_name || 'Hously Finntech Realty'}. All rights reserved.
           </p>
 
-          <div className="flex gap-6">
+          <div className="flex gap-6 mt-0">
             <Link
               href={settings.privacy_url || '/privacy'}
               className="text-sm text-slate-400 hover:text-primary transition-colors"

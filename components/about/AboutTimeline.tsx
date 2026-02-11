@@ -11,7 +11,7 @@ interface AboutTimelineProps {
 
 export default function AboutTimeline({ milestones, onScroll }: AboutTimelineProps) {
   return (
-    <section className="py-20 -mt-6 bg-gradient-to-b from-slate-50 via-blue-50/30 to-white relative overflow-hidden">
+    <section className="py-10 -mt-6 bg-gradient-to-b from-slate-50 via-blue-50/30 to-white relative overflow-hidden">
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute top-20 left-10 w-12 h-12 bg-[#004AAD]/10 rounded-full animate-[orbFloat_15s_ease-in-out_infinite] blur-sm" />
         <div className="absolute top-40 right-20 w-8 h-8 bg-blue-400/10 rounded-full animate-[orbFloat_12s_ease-in-out_infinite_reverse_2s] blur-sm" />

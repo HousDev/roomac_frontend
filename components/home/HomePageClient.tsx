@@ -58,10 +58,41 @@ export default function HomePageClient({
   const [selectedCity, setSelectedCity] = useState('');
   const [searchArea, setSearchArea] = useState('');
   const [loading, setLoading] = useState(false);
+  const [likedProperties, setLikedProperties] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  const handleWhatsAppClick = (phoneNumber: string, propertyName: string, location: string) => {
+    const message = `Hi, I'm interested in ${propertyName} at ${location}. Can you share more details?`;
+    const encodedMessage = encodeURIComponent(message);
+    const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodedMessage}`;
+    window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleCallClick = (phoneNumber: string) => {
+    window.location.href = `tel:${phoneNumber}`;
+  };
+
+  const handleHeartClick = (propertyId: number, event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    setLikedProperties(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(propertyId)) {
+        newSet.delete(propertyId);
+        // Optional: Show unlike toast
+        console.log(`Removed property ${propertyId} from favorites`);
+      } else {
+        newSet.add(propertyId);
+        // Optional: Show like toast
+        console.log(`Added property ${propertyId} to favorites`);
+      }
+      return newSet;
+    });
+  };
 
   const features = [
     { icon: Wifi, title: 'High-Speed WiFi', desc: 'Blazing fast internet for work & entertainment' },
@@ -90,7 +121,14 @@ export default function HomePageClient({
       />
 
       {/* Properties Section - EXACT DESIGN FROM ORIGINAL */}
-      <PropertiesSection properties={properties} loading={loading} />
+      <PropertiesSection 
+        properties={properties} 
+        loading={loading} 
+        likedProperties={likedProperties}
+        onWhatsAppClick={handleWhatsAppClick}
+        onCallClick={handleCallClick}
+        onHeartClick={handleHeartClick}
+      />
 
       {/* Who Is For Section */}
       <WhoIsForSection />
@@ -420,8 +458,24 @@ function FiltersSection({
   );
 }
 
-// Properties Section Component - EXACT DESIGN FROM ORIGINAL
-function PropertiesSection({ properties, loading }: { properties: any[], loading: boolean }) {
+// Properties Section Component - EXACT DESIGN FROM ORIGINAL WITH WORKING ICONS
+interface PropertiesSectionProps {
+  properties: any[];
+  loading: boolean;
+  likedProperties: Set<number>;
+  onWhatsAppClick: (phone: string, name: string, location: string) => void;
+  onCallClick: (phone: string) => void;
+  onHeartClick: (propertyId: number, event: React.MouseEvent) => void;
+}
+
+function PropertiesSection({ 
+  properties, 
+  loading, 
+  likedProperties,
+  onWhatsAppClick,
+  onCallClick,
+  onHeartClick
+}: PropertiesSectionProps) {
   return (
     <div className="py-12 sm:py-16 bg-gradient-to-b from-blue-50 to-white px-2 sm:px-4">
       <div className="container mx-auto px-3 sm:px-4">
@@ -571,27 +625,19 @@ function PropertiesSection({ properties, loading }: { properties: any[], loading
                         {/* Gradient Overlay */}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
                         
-                        {/* Available Beds Badge */}
-                        {/* <div className="absolute top-3 right-3 px-3 py-1.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg shadow-md">
-                          <span className="text-xs font-semibold">
-                            {availableBeds} Available
-                          </span>
-                        </div> */}
-                        
                         {/* DYNAMIC TAGS FROM BACKEND */}
-                      
-<div className="absolute top-3 left-3 flex flex-wrap gap-1.5 z-10">
-  {propertyTags.slice(0, 3).map((tag: string, tagIndex: number) => (
-    <div 
-      key={tagIndex}
-      className={`px-2 py-1 rounded-md shadow-md ${getTagColor(tag)}`}
-    >
-      <span className="text-xs font-semibold uppercase whitespace-nowrap">
-        {tag}
-      </span>
-    </div>
-  ))}
-</div>
+                        <div className="absolute top-3 left-3 flex flex-wrap gap-1.5 z-10">
+                          {propertyTags.slice(0, 3).map((tag: string, tagIndex: number) => (
+                            <div 
+                              key={tagIndex}
+                              className={`px-2 py-1 rounded-md shadow-md ${getTagColor(tag)}`}
+                            >
+                              <span className="text-xs font-semibold uppercase whitespace-nowrap">
+                                {tag}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
                         
                         {/* If no tags but has property type, show that */}
                         {propertyTags.length === 0 && propertyType && (
@@ -630,25 +676,25 @@ function PropertiesSection({ properties, loading }: { properties: any[], loading
                           <div className="mb-3">
                             <div className="flex flex-wrap gap-1.5">
                               {displayAmenities.map((amenity:any, idx:any) => {
-  const colorSets = [
-    'bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 hover:scale-105 hover:-translate-y-0.5',
-    'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 hover:scale-105 hover:-translate-y-0.5',
-    'bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 hover:scale-105 hover:-translate-y-0.5',
-    'bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 hover:scale-105 hover:-translate-y-0.5',
-    'bg-pink-50 text-pink-700 border border-pink-200 hover:bg-pink-100 hover:scale-105 hover:-translate-y-0.5',
-    'bg-cyan-50 text-cyan-700 border border-cyan-200 hover:bg-cyan-100 hover:scale-105 hover:-translate-y-0.5'
-  ];
-  const colorClass = colorSets[idx % colorSets.length];
-  
-  return (
-    <span
-      key={idx}
-      className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-md transition-all duration-300 cursor-pointer ${colorClass}`}
-    >
-      {String(amenity)}
-    </span>
-  );
-})}
+                                const colorSets = [
+                                  'bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 hover:scale-105 hover:-translate-y-0.5',
+                                  'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 hover:scale-105 hover:-translate-y-0.5',
+                                  'bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 hover:scale-105 hover:-translate-y-0.5',
+                                  'bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 hover:scale-105 hover:-translate-y-0.5',
+                                  'bg-pink-50 text-pink-700 border border-pink-200 hover:bg-pink-100 hover:scale-105 hover:-translate-y-0.5',
+                                  'bg-cyan-50 text-cyan-700 border border-cyan-200 hover:bg-cyan-100 hover:scale-105 hover:-translate-y-0.5'
+                                ];
+                                const colorClass = colorSets[idx % colorSets.length];
+                                
+                                return (
+                                  <span
+                                    key={idx}
+                                    className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-md transition-all duration-300 cursor-pointer ${colorClass}`}
+                                  >
+                                    {String(amenity)}
+                                  </span>
+                                );
+                              })}
                               {amenities.length > 6 && (
                                 <span className="inline-flex items-center px-2 py-1 bg-slate-50 text-slate-600 text-xs font-medium rounded-md border border-slate-200">
                                   +{amenities.length - 6}
@@ -700,7 +746,7 @@ function PropertiesSection({ properties, loading }: { properties: any[], loading
                           </div>
                         </div>
                         
-                        {/* Action Buttons */}
+                        {/* Action Buttons - UPDATED WITH WORKING ICONS */}
                         <div className="flex items-center justify-between pt-2 border-t border-slate-100">
                           <button className="flex items-center justify-center gap-1.5 px-3 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold rounded-md hover:shadow-sm transition-all duration-300 text-xm">
                             View Details
@@ -708,26 +754,47 @@ function PropertiesSection({ properties, loading }: { properties: any[], loading
                           </button>
                           
                           <div className="flex items-center gap-1">
-                            <a 
-                              href={`https://wa.me/${property.whatsapp || '911234567890'}?text=Hi, I'm interested in ${propertyName} at ${fullLocation}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="p-1.5 bg-emerald-50 hover:bg-emerald-100 rounded-md transition-all duration-300 hover:scale-110"
+                            {/* WhatsApp Button */}
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                const phone = property.whatsapp || '911234567890';
+                                onWhatsAppClick(phone, propertyName, fullLocation);
+                              }}
+                              className="p-1.5 bg-emerald-50 hover:bg-emerald-100 rounded-md transition-all duration-300 hover:scale-110 cursor-pointer"
                               title="WhatsApp"
                             >
                               <BsWhatsapp className="h-6 w-6 text-emerald-500" />
-                            </a>
+                            </button>
                             
-                            <a 
-                              href={`tel:${property.phone || property.contact_number || '1234567890'}`}
-                              className="p-1.5 bg-blue-50 hover:bg-blue-100 rounded-md transition-all duration-300 hover:scale-110"
+                            {/* Call Button */}
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                const phone = property.phone || property.contact_number || '1234567890';
+                                onCallClick(phone);
+                              }}
+                              className="p-1.5 bg-blue-50 hover:bg-blue-100 rounded-md transition-all duration-300 hover:scale-110 cursor-pointer"
                               title="Call"
                             >
                               <Phone className="h-5 w-5 text-blue-500" />
-                            </a>
+                            </button>
                             
-                            <button className="p-1.5 bg-pink-30 hover:bg-pink-100 rounded-md transition-all duration-300 hover:scale-110">
-                              <Heart className="h-6 w-6 text-red-500" />
+                            {/* Heart/Like Button */}
+                            <button
+                              onClick={(e) => onHeartClick(property.id || index, e)}
+                              className="p-1.5 bg-pink-50 hover:bg-pink-100 rounded-md transition-all duration-300 hover:scale-110 cursor-pointer"
+                              title="Save to favorites"
+                            >
+                              <Heart 
+                                className={`h-6 w-6 ${
+                                  likedProperties.has(property.id || index) 
+                                    ? 'fill-red-500 text-red-500' 
+                                    : 'text-red-500'
+                                }`}
+                              />
                             </button>
                           </div>
                         </div>
@@ -773,50 +840,6 @@ function PropertiesSection({ properties, loading }: { properties: any[], loading
     </div>
   );
 }
-<CardScrollAnimation children={undefined} />
-
-// Card Scroll Animation Component (from original code)
-// function CardScrollAnimation({ children, index = 0 }: { children: React.ReactNode; index?: number }) {
-//   const ref = useRef<HTMLDivElement>(null);
-//   const [isVisible, setIsVisible] = useState(false);
-
-//   useEffect(() => {
-//     const observer = new IntersectionObserver(
-//       ([entry]) => {
-//         if (entry.isIntersecting) {
-//           setIsVisible(true);
-//           observer.unobserve(entry.target);
-//         }
-//       },
-//       {
-//         threshold: 0.1,
-//         rootMargin: '0px 0px -50px 0px'
-//       }
-//     );
-
-//     if (ref.current) {
-//       observer.observe(ref.current);
-//     }
-
-//     return () => {
-//       if (ref.current) {
-//         observer.unobserve(ref.current);
-//       }
-//     };
-//   }, []);
-
-//   return (
-//     <div ref={ref}>
-//       <motion.div
-//         initial={{ opacity: 0, y: 30 }}
-//         animate={isVisible ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
-//         transition={{ duration: 0.6, delay: index * 0.1 }}
-//       >
-//         {children}
-//       </motion.div>
-//     </div>
-//   );
-// }
 
 // Who Is For Section Component
 function WhoIsForSection() {
@@ -981,6 +1004,3 @@ function FeatureCard({ icon: Icon, title, desc, index }: any) {
     </div>
   );
 }
-
-// Import useRef at the top
-import { useRef } from 'react';

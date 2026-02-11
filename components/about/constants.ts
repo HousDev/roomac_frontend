@@ -2,7 +2,7 @@ import { AboutPageData } from './types';
 
 export const aboutPageData: AboutPageData = {
   stats: [
-    { number: "500+", label: "Happy Residents", icon: 'Users', color: "from-blue-500 to-cyan-500" },
+    { number: "500+", label: "Happy Residents", icon: 'Users', color: "from-yellow-500 to-yellow-500" },
     { number: "50+", label: "Premium Properties", icon: 'Home', color: "from-green-500 to-emerald-500" },
     { number: "10+", label: "Cities Covered", icon: 'Globe', color: "from-purple-500 to-pink-500" },
     { number: "4.8", label: "Average Rating", icon: 'Award', color: "from-orange-500 to-red-500" }

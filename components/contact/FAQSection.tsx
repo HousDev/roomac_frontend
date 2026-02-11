@@ -17,11 +17,11 @@ export default function FAQSection({ faqs }: FAQSectionProps) {
   }, []);
 
   return (
-    <section className="py-24 bg-gradient-to-b from-slate-50 via-blue-50/30 to-white">
+    <section className="py-5 bg-gradient-to-b from-slate-50 via-blue-50/30 to-white">
   <div className="container mx-auto px-4">
     <div className="max-w-4xl mx-auto">
       <div className="text-center mb-12">
-        <Badge className="mb-4 bg-blue-100 text-[#004AAD] border-0 px-4 py-1.5 font-medium">
+        <Badge className="mb-3 bg-blue-100 text-[#004AAD] border-0 px-4 py-1.5 font-medium">
           FAQ
         </Badge>
         <h2 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4 tracking-tight">
@@ -32,7 +32,7 @@ export default function FAQSection({ faqs }: FAQSectionProps) {
         </p>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-2">
         {faqs.map((faq, index) => (
           <Card 
             key={index} 
