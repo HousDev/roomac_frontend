@@ -305,7 +305,7 @@
 //   try {
 //     const formDataObj = new FormData();
     
-//     // REQUIRED FIELDS - हमेशा भेजें
+//     // REQUIRED FIELDS - 
 //     formDataObj.append('property_id', formData.property_id);
 //     formDataObj.append('room_number', formData.room_number);
 //     formDataObj.append('sharing_type', formData.sharing_type);
@@ -313,7 +313,7 @@
 //     formDataObj.append('rent_per_bed', formData.rent_per_bed.toString());
 //     formDataObj.append('floor', formData.floor || '0');
     
-//     // OPTIONAL BOOLEAN FIELDS - हमेशा भेजें
+//     // OPTIONAL BOOLEAN FIELDS - 
 //     formDataObj.append('has_attached_bathroom', formData.has_attached_bathroom.toString());
 //     formDataObj.append('has_balcony', formData.has_balcony.toString());
 //     formDataObj.append('has_ac', formData.has_ac.toString());

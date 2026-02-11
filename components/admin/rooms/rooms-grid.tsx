@@ -322,7 +322,7 @@ const RoomCard = memo(({
             size="sm"
             className="h-7 w-7 p-0 border-purple-300 text-purple-600 hover:bg-purple-50 hover:text-purple-900"
             onClick={(e) => {
-              e.stopPropagation();
+              // e.stopPropagation();
               onEdit(room);
             }}
             title="Edit"

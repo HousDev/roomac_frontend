@@ -1,7 +1,6 @@
-// components/admin/enquiries/EnquiriesClientPage.tsx
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -64,6 +63,7 @@ export default function EnquiriesClientPage({
   const [stats, setStats] = useState<any>(initialStats);
   const [statusFilter, setStatusFilter] = useState<string>(initialSearchParams.status || "");
   const [searchTerm, setSearchTerm] = useState<string>(initialSearchParams.search || "");
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   // Add new enquiry form state
   const [newEnquiry, setNewEnquiry] = useState<CreateEnquiryPayload>({
@@ -130,9 +130,13 @@ export default function EnquiriesClientPage({
     }
   }, []);
 
-  // Load data with filters
+  // Create a ref for loadData to avoid dependency cycles
+  const loadDataRef = useRef<() => Promise<void>>();
+
+  // Load data with filters - FIXED: No dependencies that cause infinite loops
   const loadData = useCallback(async () => {
-    setLoading(true);
+    if (!isInitialLoad) setLoading(true);
+    
     try {
       const filters: any = {};
       if (statusFilter && statusFilter !== "") filters.status = statusFilter;
@@ -150,8 +154,14 @@ export default function EnquiriesClientPage({
       toast.error("Failed to load data");
     } finally {
       setLoading(false);
+      if (isInitialLoad) setIsInitialLoad(false);
     }
-  }, [statusFilter, searchTerm]);
+  }, [statusFilter, searchTerm, isInitialLoad]);
+
+  // Update the ref when loadData changes
+  useEffect(() => {
+    loadDataRef.current = loadData;
+  }, [loadData]);
 
   const loadProperties = useCallback(async () => {
     try {
@@ -164,27 +174,31 @@ export default function EnquiriesClientPage({
     }
   }, []);
 
-  // Load initial data
+  // Load initial data only once
   useEffect(() => {
     loadProperties();
+    // Use the initial data from props, don't load immediately
+    setIsInitialLoad(false);
   }, [loadProperties]);
 
-  // Handle filter changes with URL updates
+  // Handle filter changes with URL updates - FIXED: No loadData dependency
   useEffect(() => {
     const params = new URLSearchParams();
     if (statusFilter) params.set('status', statusFilter);
     if (searchTerm) params.set('search', searchTerm);
     
     const queryString = params.toString();
-    router.push(`/admin/enquiries${queryString ? `?${queryString}` : ''}`, { scroll: false });
+    router.push(`/admin/enquiries${queryString ? `?${queryString}` : ''}`);
     
-    // Debounce search
+    // Debounce search to prevent rapid API calls
     const timeoutId = setTimeout(() => {
-      loadData();
-    }, 300);
+      if (loadDataRef.current) {
+        loadDataRef.current();
+      }
+    }, 500); // Increased debounce time
 
     return () => clearTimeout(timeoutId);
-  }, [statusFilter, searchTerm, router, loadData]);
+  }, [statusFilter, searchTerm, router]); // Removed loadData dependency
 
   // Add new enquiry handler
   const handleAddEnquiry = useCallback(async () => {
@@ -226,12 +240,15 @@ export default function EnquiriesClientPage({
         source: "website"
       });
 
-      await loadData();
+      // Refresh data
+      if (loadDataRef.current) {
+        await loadDataRef.current();
+      }
     } catch (error: any) {
       console.error("Error adding enquiry:", error);
       toast.error(error.message || "Failed to add enquiry");
     }
-  }, [newEnquiry, properties, formatDateForDatabase, loadData]);
+  }, [newEnquiry, properties, formatDateForDatabase]);
 
   // Open edit dialog with enquiry data
   const handleOpenEditDialog = useCallback((enquiry: Enquiry) => {
@@ -286,19 +303,23 @@ export default function EnquiriesClientPage({
       toast.success("Enquiry updated successfully");
 
       setShowEditDialog(false);
-      await loadData();
+      
+      // Refresh data
+      if (loadDataRef.current) {
+        await loadDataRef.current();
+      }
     } catch (error: any) {
       console.error("Error updating enquiry:", error);
       toast.error(error.message || "Failed to update enquiry");
     }
-  }, [selectedEnquiry, editEnquiryData, properties, formatDateForDatabase, loadData]);
+  }, [selectedEnquiry, editEnquiryData, properties, formatDateForDatabase]);
 
   const handleUpdateStatus = useCallback(async (id: string, status: string) => {
     try {
       await updateEnquiryStatus(id, status);
       toast.success("Status updated");
 
-      // Update local state
+      // Update local state immediately for better UX
       setEnquiries(prev => prev.map(enquiry =>
         enquiry.id === id ? { ...enquiry, status } : enquiry
       ));
@@ -332,10 +353,12 @@ export default function EnquiriesClientPage({
       toast.success("Followup added");
       setFollowupText("");
 
-      // Refresh data
-      await loadData();
-
       // Refresh selected enquiry
+      if (loadDataRef.current) {
+        await loadDataRef.current();
+      }
+
+      // Update selected enquiry in dialog
       const updatedEnquiries = await getEnquiries();
       const updatedEnquiry = updatedEnquiries.results.find(e => e.id === selectedEnquiry.id);
       if (updatedEnquiry) {
@@ -345,7 +368,7 @@ export default function EnquiriesClientPage({
       console.error("Error adding followup:", error);
       toast.error("Failed to add followup");
     }
-  }, [followupText, selectedEnquiry, loadData]);
+  }, [followupText, selectedEnquiry]);
 
   const handleDeleteEnquiry = useCallback(async (id: string) => {
     if (!confirm("Are you sure you want to delete this enquiry?")) return;
@@ -356,12 +379,16 @@ export default function EnquiriesClientPage({
 
       setShowViewDialog(false);
       setShowEditDialog(false);
-      await loadData();
+      
+      // Refresh data
+      if (loadDataRef.current) {
+        await loadDataRef.current();
+      }
     } catch (error) {
       console.error("Error deleting enquiry:", error);
       toast.error("Failed to delete enquiry");
     }
-  }, [loadData]);
+  }, []);
 
   // Format date for display
   const formatDateForDisplay = useCallback((dateString: string) => {
@@ -400,8 +427,8 @@ export default function EnquiriesClientPage({
     );
   }, []);
 
-  // Loading state
-  if (loading && enquiries.length === 0) {
+  // Loading state - only show spinner on subsequent loads, not initial
+  if (loading && enquiries.length === 0 && !isInitialLoad) {
     return (
       <div className="p-6 flex items-center justify-center min-h-[400px]">
         <div className="text-center">

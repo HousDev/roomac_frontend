@@ -1770,7 +1770,7 @@ export default function PropertyForm({
                   <div>
                     <Label className="text-sm font-medium">Rooms</Label>
                     <Input
-                      type="number"
+                      type="text"
                       min="0"
                       value={formData.total_rooms || ''}
                       onChange={(e) => setFormData({ ...formData, total_rooms: parseInt(e.target.value) || 0 })}
@@ -1780,7 +1780,7 @@ export default function PropertyForm({
                   <div>
                     <Label className="text-sm font-medium">Beds</Label>
                     <Input
-                      type="number"
+                      type="text"
                       min="0"
                       value={formData.total_beds || ''}
                       onChange={(e) => setFormData({ ...formData, total_beds: parseInt(e.target.value) || 0 })}
@@ -1790,7 +1790,7 @@ export default function PropertyForm({
                   <div>
                     <Label className="text-sm font-medium">Occupied</Label>
                     <Input
-                      type="number"
+                      type="text"
                       min="0"
                       value={formData.occupied_beds || ''}
                       onChange={(e) => setFormData({ ...formData, occupied_beds: parseInt(e.target.value) || 0 })}
@@ -1802,7 +1802,7 @@ export default function PropertyForm({
                 <div>
                   <Label className="text-sm font-medium">Starting Price (₹)</Label>
                   <Input
-                    type="number"
+                    type="text"
                     min="0"
                     value={formData.starting_price || ''}
                     onChange={(e) => setFormData({ ...formData, starting_price: parseFloat(e.target.value) || 0 })}
@@ -1813,7 +1813,7 @@ export default function PropertyForm({
                 <div>
                   <Label className="text-sm font-medium">Security Deposit (₹)</Label>
                   <Input
-                    type="number"
+                    type="text"
                     min="0"
                     value={formData.security_deposit || ''}
                     onChange={(e) => setFormData({ ...formData, security_deposit: parseFloat(e.target.value) || 0 })}
@@ -1837,14 +1837,28 @@ export default function PropertyForm({
                       />
                     </div>
                     <div>
-                      <Label className="text-xs">Phone Number</Label>
-                      <Input
-                        value={formData.property_manager_phone}
-                        onChange={(e) => setFormData({ ...formData, property_manager_phone: e.target.value })}
-                        placeholder="+91 9876543210"
-                        className="h-8 text-sm"
-                      />
-                    </div>
+  <Label className="text-xs">Phone Number</Label>
+  <Input
+    type="tel"
+    value={formData.property_manager_phone}
+    onChange={(e) => {
+      // Remove non-numeric characters
+      const numericValue = e.target.value.replace(/\D/g, '');
+
+      // Limit to 10 digits
+      if (numericValue.length <= 10) {
+        setFormData({
+          ...formData,
+          property_manager_phone: numericValue,
+        });
+      }
+    }}
+    maxLength={10}
+    placeholder="9876543210"
+    className="h-8 text-sm"
+  />
+</div>
+
                   </div>
                 </div>
               </div>

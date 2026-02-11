@@ -199,7 +199,7 @@ export function Header() {
                   Tenant Portal
                 </Button>
               </Link>
-              <Link href="/admin" className="block">
+              <Link href="/admin/login" className="block">
                 <Button size="sm" className="w-full bg-primary hover:bg-primary/90">
                   Admin
                 </Button>

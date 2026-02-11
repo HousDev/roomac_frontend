@@ -52,12 +52,30 @@ export default function HomePageClient({
   initialOffers 
 }: HomePageClientProps) {
   const [isMounted, setIsMounted] = useState(false);
-  const [cities] = useState(initialCities);
   const [properties] = useState(initialProperties);
   const [offers] = useState(initialOffers);
-  const [selectedCity, setSelectedCity] = useState('');
   const [searchArea, setSearchArea] = useState('');
   const [loading, setLoading] = useState(false);
+
+   // Always include Pune in cities list (static)
+ // Ensure Pune is always in the cities list
+  const [cities] = useState(() => {
+    const hasPune = initialCities.some(city => 
+      city.name.toLowerCase().trim() === 'pune'
+    );
+    
+    if (!hasPune) {
+      return [
+        { id: 'pune-id', name: 'Pune' },
+        ...initialCities
+      ];
+    }
+    
+    return initialCities;
+  });
+
+   // Set Pune as default city
+  const [selectedCity, setSelectedCity] = useState('pune'); // Always 'pune' as value
 
   useEffect(() => {
     setIsMounted(true);
@@ -337,6 +355,11 @@ function FiltersSection({
   searchArea, 
   setSearchArea 
 }: FiltersSectionProps) {
+   // Get display value for SelectValue - STATIC
+  const getSelectedCityDisplay = () => {
+    // Always show Pune as selected
+    return "Pune";
+  };
   return (
     <motion.section 
       className="py-6 sm:py-8 bg-white -mt-8 sm:-mt-12 md:-mt-16 relative border-collapse z-20 px-2 sm:px-4"
@@ -351,14 +374,14 @@ function FiltersSection({
               <div className="grid grid-cols-1 md:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
                 <motion.div variants={fadeInUp} transition={{ delay: 1.7 }} className="md:col-span-1">
                   <Select value={selectedCity} onValueChange={setSelectedCity}>
-                    <SelectTrigger className="h-11 sm:h-12 rounded-lg sm:rounded-xl bg-white border-2 border-blue-200/70 text-slate-700 hover:border-blue-400 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200 shadow-sm text-sm sm:text-base">
+                    <SelectTrigger className="h-11 sm:h-12 rounded-lg sm:rounded-xl bg-white border-2 border-blue-200/70 text-slate-700 hover:border-blue-400  focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200 shadow-sm text-sm sm:text-base">
                       <SelectValue placeholder="Select City" />
                     </SelectTrigger>
                     <SelectContent className="rounded-lg sm:rounded-xl shadow-xl border border-blue-100 bg-white">
                       {cities.map((city: any) => (
                         <SelectItem key={city.id} value={city.name.toLowerCase()} className="cursor-pointer hover:bg-blue-50 focus:bg-blue-50 transition-colors text-sm sm:text-base">
-                          <div className="flex items-center gap-2">
-                            <MapPin className="h-3 w-3 sm:h-4 sm:w-4 text-primary" />
+                          <div className="flex items-center gap-2 text-black">
+                            <MapPin className="h-3 w-3 sm:h-4 sm:w-4 text-primary " />
                             {city.name}
                           </div>
                         </SelectItem>

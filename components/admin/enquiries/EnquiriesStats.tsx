@@ -23,9 +23,15 @@ const EnquiriesStats = ({ stats }: EnquiriesStatsProps) => {
     : "0.0";
 
   // Calculate follow-up rate (interested + contacted vs total)
-  const followupRate = stats.total > 0 
-    ? (((stats.contacted_count + stats.interested_count) / stats.total) * 100).toFixed(1)
-    : "0.0";
+const followedUpCount = Math.max(
+  stats.contacted_count,
+  stats.interested_count
+);
+
+const followupRate = stats.total > 0
+  ? ((followedUpCount / stats.total) * 100).toFixed(1)
+  : "0.0";
+
 
   return (
     <div className="space-y-4 mb-6">
@@ -164,7 +170,7 @@ const EnquiriesStats = ({ stats }: EnquiriesStatsProps) => {
             <div className="flex items-baseline gap-1">
               <p className="text-2xl font-bold text-green-700">{followupRate}%</p>
               <p className="text-xs text-gray-500">
-                ({(stats.contacted_count + stats.interested_count)} of {stats.total})
+                ({followedUpCount} of {stats.total})
               </p>
             </div>
             <div className="mt-2">
