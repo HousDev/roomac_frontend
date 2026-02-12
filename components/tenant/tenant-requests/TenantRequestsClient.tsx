@@ -1,7 +1,7 @@
 // components/tenant/tenant-requests/TenantRequestsClient.tsx
 'use client';
 
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from '@/src/compat/next-navigation';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -54,9 +54,16 @@ import { getTenantToken } from "@/lib/tenantAuthApi";
 export default function TenantRequestsClient() {
   const router = useRouter();
   
+  // Refs to prevent infinite loops
+  const isMounted = useRef(true);
+  const isDataLoaded = useRef(false);
+  const retryCount = useRef(0);
+  const MAX_RETRIES = 2;
+  
   // State management
   const [requests, setRequests] = useState<TenantRequest[]>([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [activeFilter, setActiveFilter] = useState('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -93,6 +100,16 @@ export default function TenantRequestsClient() {
   const [noticeInfo, setNoticeInfo] = useState<any>(null);
   const [secondaryReasonsInput, setSecondaryReasonsInput] = useState('');
 
+  // Cleanup on unmount
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+      isDataLoaded.current = false;
+      retryCount.current = 0;
+    };
+  }, []);
+
   // Check authentication on mount
   useEffect(() => {
     const token = getTenantToken();
@@ -101,92 +118,130 @@ export default function TenantRequestsClient() {
       router.push('/tenant/login');
       return;
     }
-    loadAllData();
-  }, [router]);
+    
+    // Only load data if not already loaded
+    if (!isDataLoaded.current && !initialLoadComplete) {
+      loadAllData();
+    }
+  }, [router, initialLoadComplete]);
 
   // Load all data
   const loadAllData = useCallback(async () => {
+    // Prevent multiple simultaneous calls
+    if (isDataLoaded.current) {
+      return;
+    }
+    
     try {
       setLoading(true);
       
       // Check authentication first
       const token = getTenantToken();
       if (!token) {
-        toast.error('Authentication required');
-        router.push('/tenant/login');
+        if (isMounted.current) {
+          toast.error('Authentication required');
+          router.push('/tenant/login');
+        }
         return;
       }
 
-      // Load all data in parallel
-      const [
-        requestsData,
-        contractData,
-        roomInfo,
-        propertiesData,
-        changeReasonsData,
-        vacateReasonsResponse,
-        leaveTypesData,
-        complaintCategoriesData
-      ] = await Promise.allSettled([
-        getMyTenantRequests(),
-        getTenantContractDetails(),
-        getCurrentRoomInfo(),
-        getActiveProperties(),
-        getChangeBedReasons(),
-        getActiveMasterValuesByCode('VACATE_REASON'),
-        getLeaveTypes(),
-        getComplaintCategories()
+      // Load all data in parallel with error handling for each
+      const results = await Promise.allSettled([
+        getMyTenantRequests().catch(err => {
+          console.error('Failed to fetch tenant requests:', err);
+          return [];
+        }),
+        getTenantContractDetails().catch(err => {
+          console.error('Failed to fetch contract details:', err);
+          return { lockinInfo: null, noticeInfo: null };
+        }),
+        getCurrentRoomInfo().catch(err => {
+          console.error('Failed to fetch current room:', err);
+          return null;
+        }),
+        getActiveProperties().catch(err => {
+          console.error('Failed to fetch properties:', err);
+          return [];
+        }),
+        getChangeBedReasons().catch(err => {
+          console.error('Failed to fetch change reasons:', err);
+          return [];
+        }),
+        getActiveMasterValuesByCode('VACATE_REASON').catch(err => {
+          console.error('Failed to fetch vacate reasons:', err);
+          return { success: true, data: [] };
+        }),
+        getLeaveTypes().catch(err => {
+          console.error('Failed to fetch leave types:', err);
+          return [];
+        }),
+        getComplaintCategories().catch(err => {
+          console.error('Failed to fetch complaint categories:', err);
+          return [];
+        })
       ]);
 
+      // Only update state if component is still mounted
+      if (!isMounted.current) return;
+
       // Handle requests data
-      if (requestsData.status === 'fulfilled') {
-        setRequests(requestsData.value);
+      if (results[0].status === 'fulfilled') {
+        setRequests(results[0].value);
       }
 
       // Handle contract data
-      if (contractData.status === 'fulfilled') {
-        setLockinInfo(contractData.value.lockinInfo);
-        setNoticeInfo(contractData.value.noticeInfo);
+      if (results[1].status === 'fulfilled') {
+        const contractData = results[1].value;
+        setLockinInfo(contractData.lockinInfo || null);
+        setNoticeInfo(contractData.noticeInfo || null);
       }
 
       // Handle room info
-      if (roomInfo.status === 'fulfilled') {
-        setCurrentRoom(roomInfo.value);
+      if (results[2].status === 'fulfilled') {
+        setCurrentRoom(results[2].value);
       }
 
       // Handle properties
-      if (propertiesData.status === 'fulfilled') {
-        setProperties(propertiesData.value);
+      if (results[3].status === 'fulfilled') {
+        setProperties(results[3].value);
       }
 
       // Handle change reasons
-      if (changeReasonsData.status === 'fulfilled') {
-        setChangeReasons(changeReasonsData.value);
+      if (results[4].status === 'fulfilled') {
+        setChangeReasons(results[4].value);
       }
 
       // Handle vacate reasons
-      if (vacateReasonsResponse.status === 'fulfilled') {
-        const response = vacateReasonsResponse.value;
+      if (results[5].status === 'fulfilled') {
+        const response = results[5].value;
         if (response && response.success && Array.isArray(response.data)) {
           setVacateReasons(response.data);
         }
       }
 
       // Handle leave types
-      if (leaveTypesData.status === 'fulfilled') {
-        setLeaveTypes(leaveTypesData.value);
+      if (results[6].status === 'fulfilled') {
+        setLeaveTypes(results[6].value);
       }
 
       // Handle complaint categories
-      if (complaintCategoriesData.status === 'fulfilled') {
-        const categories = complaintCategoriesData.value;
+      if (results[7].status === 'fulfilled') {
+        const categories = results[7].value;
         if (Array.isArray(categories)) {
           setComplaintCategories(categories);
         }
       }
 
+      // Mark as loaded successfully
+      isDataLoaded.current = true;
+      setInitialLoadComplete(true);
+      retryCount.current = 0;
+
     } catch (error: any) {
       console.error('Error loading data:', error);
+      
+      // Only handle errors if component is still mounted
+      if (!isMounted.current) return;
       
       // Check for authentication errors
       if (error.message?.includes('Authentication') || 
@@ -194,13 +249,34 @@ export default function TenantRequestsClient() {
           error.message?.includes('401')) {
         toast.error('Authentication failed. Please login again.');
         router.push('/tenant/login');
+      } else if (retryCount.current < MAX_RETRIES) {
+        // Retry with exponential backoff
+        retryCount.current += 1;
+        const delay = 1000 * Math.pow(2, retryCount.current - 1);
+        console.log(`Retrying data load... Attempt ${retryCount.current} of ${MAX_RETRIES} after ${delay}ms`);
+        
+        setTimeout(() => {
+          if (isMounted.current) {
+            loadAllData();
+          }
+        }, delay);
       } else {
-        toast.error('Failed to load data');
+        toast.error('Failed to load data after multiple attempts. Please refresh the page.');
+        setLoading(false);
       }
     } finally {
-      setLoading(false);
+      if (isMounted.current) {
+        setLoading(false);
+      }
     }
-  }, [router]);
+  }, [router]); // Remove all state setters from dependencies
+
+  // Refresh data manually (e.g., after creating a request)
+  const refreshData = useCallback(async () => {
+    // Reset loaded flag to allow reload
+    isDataLoaded.current = false;
+    await loadAllData();
+  }, [loadAllData]);
 
   // Memoized values
   const filteredRequests = useMemo(() => {
@@ -265,7 +341,9 @@ export default function TenantRequestsClient() {
 
     try {
       const rooms = await getAvailableRooms(propertyId);
-      setAvailableRooms(rooms);
+      if (isMounted.current) {
+        setAvailableRooms(rooms);
+      }
 
       setFormData(prev => ({
         ...prev,
@@ -291,12 +369,14 @@ export default function TenantRequestsClient() {
       const beds = await getAvailableBedsForRoom(roomId);
       console.log('Raw beds response:', beds);
 
-      if (Array.isArray(beds)) {
-        const bedNumbers = beds.filter(bed => typeof bed === 'number');
-        setAvailableBeds(bedNumbers);
-      } else {
-        console.error('Beds is not an array:', beds);
-        setAvailableBeds([]);
+      if (isMounted.current) {
+        if (Array.isArray(beds)) {
+          const bedNumbers = beds.filter(bed => typeof bed === 'number');
+          setAvailableBeds(bedNumbers);
+        } else {
+          console.error('Beds is not an array:', beds);
+          setAvailableBeds([]);
+        }
       }
 
       setFormData(prev => ({
@@ -310,7 +390,9 @@ export default function TenantRequestsClient() {
     } catch (error) {
       console.error('Error loading available beds:', error);
       toast.error('Failed to load available beds');
-      setAvailableBeds([]);
+      if (isMounted.current) {
+        setAvailableBeds([]);
+      }
     }
   }, []);
 
@@ -373,7 +455,9 @@ export default function TenantRequestsClient() {
     
     try {
       const reasons = await getComplaintReasons(categoryId);
-      setComplaintReasons(reasons);
+      if (isMounted.current) {
+        setComplaintReasons(reasons);
+      }
     } catch (error) {
       console.error('Error loading complaint reasons:', error);
       toast.error('Failed to load complaint reasons');
@@ -399,7 +483,7 @@ export default function TenantRequestsClient() {
       ...prev,
       complaintData: {
         ...prev.complaintData,
-        custom_reason: value ||  undefined
+        custom_reason: value || undefined
       }
     }));
   }, []);
@@ -416,29 +500,18 @@ export default function TenantRequestsClient() {
   }, []);
 
   // Leave data handlers
-  // const handleLeaveDataChange = useCallback((field: string, value: any) => {
-  //   setFormData(prev => ({
-  //     ...prev,
-  //     leaveData: {
-  //       ...prev.leaveData || {},
-  //       [field]: value || ''
-  //     }
-  //   }));
-  // }, []);
-
   const handleLeaveDataChange = useCallback(
-  (field: keyof NonNullable<RequestFormData['leaveData']>, value: any) => {
-    setFormData(prev => ({
-      ...prev,
-      leaveData: {
-        ...prev.leaveData,
-        [field]: value
-      }
-    }));
-  },
-  []
-);
-
+    (field: keyof NonNullable<RequestFormData['leaveData']>, value: any) => {
+      setFormData(prev => ({
+        ...prev,
+        leaveData: {
+          ...prev.leaveData,
+          [field]: value
+        }
+      }));
+    },
+    []
+  );
 
   // Maintenance data handlers
   const handleMaintenanceDataChange = useCallback((field: string, value: any) => {
@@ -457,7 +530,7 @@ export default function TenantRequestsClient() {
     const start = new Date(startDate);
     const end = new Date(endDate);
     const diffTime = Math.abs(end.getTime() - start.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 to include both start and end days
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
     return diffDays;
   }, []);
 
@@ -499,7 +572,6 @@ export default function TenantRequestsClient() {
           return;
         }
         
-        // Auto-calculate total days if not provided
         const totalDays = calculateTotalDays(
           formData.leaveData.leave_start_date,
           formData.leaveData.leave_end_date
@@ -510,7 +582,6 @@ export default function TenantRequestsClient() {
           return;
         }
         
-        // Update form data with calculated total days
         setFormData(prev => ({
           ...prev,
           leaveData: {
@@ -519,7 +590,6 @@ export default function TenantRequestsClient() {
           }
         }));
         
-        // Use the updated form data for submission
         formData.leaveData!.total_days = totalDays;
       }
 
@@ -621,7 +691,7 @@ export default function TenantRequestsClient() {
       
       const result = await createTenantRequest(requestData);
       
-      if (result) {
+      if (result && isMounted.current) {
         toast.success('Request created successfully!');
         setIsDialogOpen(false);
         
@@ -644,18 +714,22 @@ export default function TenantRequestsClient() {
         setShowCustomReason(false);
         
         // Refresh data
-        await loadAllData();
+        await refreshData();
       }
     } catch (error: any) {
       console.error('Submit error:', error);
-      toast.error(error.message || 'Failed to create request');
+      if (isMounted.current) {
+        toast.error(error.message || 'Failed to create request');
+      }
     } finally {
-      setSubmitting(false);
+      if (isMounted.current) {
+        setSubmitting(false);
+      }
     }
-  }, [formData, currentRoom, secondaryReasonsInput, calculateTotalDays, loadAllData]);
+  }, [formData, currentRoom, secondaryReasonsInput, calculateTotalDays, refreshData]);
 
   // Loading state
-  if (loading) {
+  if (loading && !initialLoadComplete) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen">
         <Loader2 className="h-12 w-12 animate-spin text-blue-600 mb-4" />
@@ -884,125 +958,125 @@ export default function TenantRequestsClient() {
               <div className="space-y-4 p-4 border border-gray-200 rounded-lg">
                 <h3 className="font-semibold text-lg">Vacate Bed Details</h3>
                 
-{/* Lock-in Period Information */}
-{lockinInfo && (
-  <div className={`rounded-lg p-4 ${lockinInfo.isInLockinPeriod ? 'bg-yellow-50 border border-yellow-200' : 'bg-green-50 border border-green-200'}`}>
-    <div className="flex items-start gap-3">
-      {lockinInfo.isInLockinPeriod ? (
-        <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5" />
-      ) : (
-        <Check className="h-5 w-5 text-green-600 mt-0.5" />
-      )}
-      <div className="flex-1">
-        <h4 className="font-semibold">
-          {lockinInfo.isInLockinPeriod ? 'Lock-in Period Active' : 'Lock-in Period Completed'}
-        </h4>
-        <div className="space-y-1 mt-2">
-          <p className="text-sm">
-            Check-in Date: {format(new Date(lockinInfo.checkInDate), 'dd MMM yyyy')}
-          </p>
-          <p className="text-sm">
-            Lock-in Period: {lockinInfo.lockinPeriodMonths} months
-          </p>
-          <p className="text-sm">
-            Lock-in Ends: {format(new Date(lockinInfo.lockinEnds), 'dd MMM yyyy')}
-          </p>
-          {lockinInfo.isInLockinPeriod && (
-            <>
-              <p className="text-sm">
-                Remaining: {lockinInfo.remainingMonths} month{lockinInfo.remainingMonths > 1 ? 's' : ''}
-              </p>
-              <p className="text-sm font-medium">
-                Early Vacate Penalty: {lockinInfo.penalty.description}
-              </p>
-              {lockinInfo.penalty.calculatedAmount && (
-                <p className="text-sm font-bold">
-                  Amount Payable: ₹{lockinInfo.penalty.calculatedAmount.toFixed(2)}
-                </p>
-              )}
-            </>
-          )}
-        </div>
-        
-        {lockinInfo.isInLockinPeriod && (
-          <div className="flex items-start space-x-2 mt-3">
-            <Checkbox
-              id="agree_lockin_penalty"
-              checked={formData.vacateData?.agree_lockin_penalty || false}
-              onCheckedChange={(checked) => 
-                handleVacateDataChange('agree_lockin_penalty', checked)
-              }
-            />
-            <Label htmlFor="agree_lockin_penalty" className="text-sm cursor-pointer">
-              I understand and agree to pay the lock-in period penalty
-            </Label>
-          </div>
-        )}
-      </div>
-    </div>
-  </div>
-)}
+                {/* Lock-in Period Information */}
+                {lockinInfo && (
+                  <div className={`rounded-lg p-4 ${lockinInfo.isInLockinPeriod ? 'bg-yellow-50 border border-yellow-200' : 'bg-green-50 border border-green-200'}`}>
+                    <div className="flex items-start gap-3">
+                      {lockinInfo.isInLockinPeriod ? (
+                        <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5" />
+                      ) : (
+                        <Check className="h-5 w-5 text-green-600 mt-0.5" />
+                      )}
+                      <div className="flex-1">
+                        <h4 className="font-semibold">
+                          {lockinInfo.isInLockinPeriod ? 'Lock-in Period Active' : 'Lock-in Period Completed'}
+                        </h4>
+                        <div className="space-y-1 mt-2">
+                          <p className="text-sm">
+                            Check-in Date: {format(new Date(lockinInfo.checkInDate), 'dd MMM yyyy')}
+                          </p>
+                          <p className="text-sm">
+                            Lock-in Period: {lockinInfo.lockinPeriodMonths} months
+                          </p>
+                          <p className="text-sm">
+                            Lock-in Ends: {format(new Date(lockinInfo.lockinEnds), 'dd MMM yyyy')}
+                          </p>
+                          {lockinInfo.isInLockinPeriod && (
+                            <>
+                              <p className="text-sm">
+                                Remaining: {lockinInfo.remainingMonths} month{lockinInfo.remainingMonths > 1 ? 's' : ''}
+                              </p>
+                              <p className="text-sm font-medium">
+                                Early Vacate Penalty: {lockinInfo.penalty.description}
+                              </p>
+                              {lockinInfo.penalty.calculatedAmount && (
+                                <p className="text-sm font-bold">
+                                  Amount Payable: ₹{lockinInfo.penalty.calculatedAmount.toFixed(2)}
+                                </p>
+                              )}
+                            </>
+                          )}
+                        </div>
+                        
+                        {lockinInfo.isInLockinPeriod && (
+                          <div className="flex items-start space-x-2 mt-3">
+                            <Checkbox
+                              id="agree_lockin_penalty"
+                              checked={formData.vacateData?.agree_lockin_penalty || false}
+                              onCheckedChange={(checked) => 
+                                handleVacateDataChange('agree_lockin_penalty', checked)
+                              }
+                            />
+                            <Label htmlFor="agree_lockin_penalty" className="text-sm cursor-pointer">
+                              I understand and agree to pay the lock-in period penalty
+                            </Label>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
 
-{/* Notice Period Information */}
-{noticeInfo && (
-  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-    <div className="flex items-start gap-3">
-      <Info className="h-5 w-5 text-blue-600 mt-0.5" />
-      <div className="flex-1">
-        <h4 className="font-semibold text-blue-800">Notice Period Requirements</h4>
-        <div className="space-y-1 mt-2">
-          <p className="text-sm text-blue-700">
-            Required Notice: {noticeInfo.noticePeriodDays} days
-          </p>
-          {noticeInfo.penalty.amount && (
-            <>
-              <p className="text-sm text-blue-700 font-medium">
-                Notice Period Penalty: {noticeInfo.penalty.description}
-              </p>
-              {noticeInfo.penalty.calculatedAmount && (
-                <p className="text-sm text-blue-700 font-bold">
-                  Amount Payable: ₹{noticeInfo.penalty.calculatedAmount.toFixed(2)}
-                </p>
-              )}
-            </>
-          )}
-        </div>
-        
-        {noticeInfo.requiresAgreement && (
-          <div className="flex items-start space-x-2 mt-3">
-            <Checkbox
-              id="agree_notice_penalty"
-              checked={formData.vacateData?.agree_notice_penalty || false}
-              onCheckedChange={(checked) => 
-                handleVacateDataChange('agree_notice_penalty', checked)
-              }
-            />
-            <Label htmlFor="agree_notice_penalty" className="text-sm text-blue-800 cursor-pointer">
-              I understand and agree to the notice period requirements
-            </Label>
-          </div>
-        )}
-      </div>
-    </div>
-  </div>
-)}
+                {/* Notice Period Information */}
+                {noticeInfo && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div className="flex items-start gap-3">
+                      <Info className="h-5 w-5 text-blue-600 mt-0.5" />
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-blue-800">Notice Period Requirements</h4>
+                        <div className="space-y-1 mt-2">
+                          <p className="text-sm text-blue-700">
+                            Required Notice: {noticeInfo.noticePeriodDays} days
+                          </p>
+                          {noticeInfo.penalty.amount && (
+                            <>
+                              <p className="text-sm text-blue-700 font-medium">
+                                Notice Period Penalty: {noticeInfo.penalty.description}
+                              </p>
+                              {noticeInfo.penalty.calculatedAmount && (
+                                <p className="text-sm text-blue-700 font-bold">
+                                  Amount Payable: ₹{noticeInfo.penalty.calculatedAmount.toFixed(2)}
+                                </p>
+                              )}
+                            </>
+                          )}
+                        </div>
+                        
+                        {noticeInfo.requiresAgreement && (
+                          <div className="flex items-start space-x-2 mt-3">
+                            <Checkbox
+                              id="agree_notice_penalty"
+                              checked={formData.vacateData?.agree_notice_penalty || false}
+                              onCheckedChange={(checked) => 
+                                handleVacateDataChange('agree_notice_penalty', checked)
+                              }
+                            />
+                            <Label htmlFor="agree_notice_penalty" className="text-sm text-blue-800 cursor-pointer">
+                              I understand and agree to the notice period requirements
+                            </Label>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
 
-{/* Show message if no lock-in/notice info found */}
-{(!lockinInfo || !noticeInfo) && (
-  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-    <div className="flex items-center gap-3">
-      <Info className="h-5 w-5 text-gray-600" />
-      <div>
-        <p className="text-sm text-gray-600">
-          {loading ? 'Loading contract details...' : 'Unable to load contract details'}
-        </p>
-        <p className="text-xs text-gray-500 mt-1">
-          {loading ? 'Please wait...' : 'Please check your contract terms or contact support'}
-        </p>
-      </div>
-    </div>
-  </div>
-)}
+                {/* Show message if no lock-in/notice info found */}
+                {(!lockinInfo || !noticeInfo) && (
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                    <div className="flex items-center gap-3">
+                      <Info className="h-5 w-5 text-gray-600" />
+                      <div>
+                        <p className="text-sm text-gray-600">
+                          {loading ? 'Loading contract details...' : 'Contract details not available'}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          You can still submit your request without penalty information
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Expected Vacate Date */}
                 <div>
@@ -1023,8 +1097,8 @@ export default function TenantRequestsClient() {
                 <div>
                   <Label htmlFor="primary_reason">Primary Reason for Vacating *</Label>
                   <Select
-                    value={formData.vacateData?.primary_reason_id || ''}
-                    onValueChange={(value) => handleVacateDataChange('primary_reason_id', value)}
+                    value={formData.vacateData?.primary_reason_id?.toString() || ''}
+                    onValueChange={(value) => handleVacateDataChange('primary_reason_id', parseInt(value))}
                   >
                     <SelectTrigger className="h-12">
                       <SelectValue placeholder="Select primary reason" />
@@ -1205,7 +1279,6 @@ export default function TenantRequestsClient() {
                       value={formData.leaveData?.leave_start_date || ''}
                       onChange={(e) => {
                         handleLeaveDataChange('leave_start_date', e.target.value);
-                        // Auto-calculate total days when both dates are set
                         if (formData.leaveData?.leave_end_date && e.target.value) {
                           const totalDays = calculateTotalDays(e.target.value, formData.leaveData.leave_end_date);
                           handleLeaveDataChange('total_days', totalDays);
@@ -1224,7 +1297,6 @@ export default function TenantRequestsClient() {
                       value={formData.leaveData?.leave_end_date || ''}
                       onChange={(e) => {
                         handleLeaveDataChange('leave_end_date', e.target.value);
-                        // Auto-calculate total days when both dates are set
                         if (formData.leaveData?.leave_start_date && e.target.value) {
                           const totalDays = calculateTotalDays(formData.leaveData.leave_start_date, e.target.value);
                           handleLeaveDataChange('total_days', totalDays);
