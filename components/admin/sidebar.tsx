@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 import roomacLogo from '@/app/src/assets/images/roomaclogo.webp';
+import { useAuth } from "@/context/authContext";
 
 import {
   Home, Building2, DoorOpen, Users, CreditCard, Tag, PlusCircle,
@@ -245,6 +246,7 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
 
   // Handle click outside for mobile sidebar
   const sidebarRef = useRef<HTMLDivElement>(null);
+  const { logout } = useAuth();
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -316,11 +318,10 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
   const isActive = (href: string) => pathname === href;
 
   const handleLogout = () => {
-    if (typeof window !== 'undefined') {
-      localStorage.clear();
-    }
-    router.push('/admin/login');
+    logout();                    // ✅ AuthContext logout
+    router.replace('/admin/login'); // ✅ hard redirect
   };
+
 
   // Handle icon click in collapsed sidebar - expands the sidebar
   const handleIconClick = (e: React.MouseEvent, href: string) => {
@@ -714,6 +715,7 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
               <LogOut className="h-4 w-4 mr-2" />
               Logout
             </Button>
+
           ) : (
             <div className="flex justify-center">
               <CollapsedSidebarItem
