@@ -1227,8 +1227,8 @@ const heroSlides = [
   {
     image: "https://images.pexels.com/photos/1457842/pexels-photo-1457842.jpeg?auto=compress&cs=tinysrgb&w=1920",
     badge: "500+ Happy Residents",
-    heading1: "Where Comfort Meets Community",
-    heading2: "",
+    heading1: "Where Comfort ",
+    heading2: "Meets Community",
     subtext: "Join hundreds of professionals and students who've found their perfect home with Roomac.",
   },
 ];
@@ -1361,31 +1361,7 @@ function HeroSection({
             </motion.p>
 
             {/* Stats - FIXED (doesn't change) */}
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }} 
-              animate={{ opacity: 1, y: 0 }} 
-              transition={{ delay: 0.6, duration: 0.6 }} 
-              className="flex flex-wrap justify-center gap-6 mb-5"
-            >
-              <div className="flex items-center gap-2.5">
-                <div className="h-10 w-10 rounded-full bg-green-500/20 backdrop-blur-sm border border-green-400/30 flex items-center justify-center">
-                  <CheckCircle2 className="h-5 w-5 text-green-400" />
-                </div>
-                <div>
-                  <p className="font-semibold text-white text-sm">500+ Residents</p>
-                  <p className="text-xs text-white/70">Happy living</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2.5">
-                <div className="h-10 w-10 rounded-full bg-blue-500/20 backdrop-blur-sm border border-blue-400/30 flex items-center justify-center">
-                  <Star className="h-5 w-5 text-yellow-400 fill-yellow-400" />
-                </div>
-                <div>
-                  <p className="font-semibold text-white text-sm">4.7 Rating</p>
-                  <p className="text-xs text-white/70">Trusted service</p>
-                </div>
-              </div>
-            </motion.div>
+          
 
             {/* CTAs - FIXED (doesn't change) */}
           <motion.div 
@@ -1450,6 +1426,31 @@ function HeroSection({
                 selectedPriceKey={selectedPriceKey}
                 setSelectedPriceKey={setSelectedPriceKey}
               />
+            </motion.div>
+              <motion.div 
+              initial={{ opacity: 0, y: 20 }} 
+              animate={{ opacity: 1, y: 0 }} 
+              transition={{ delay: 0.6, duration: 0.6 }} 
+              className="flex flex-wrap justify-center gap-6 mb-5 mt-6"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="h-10 w-10 rounded-full bg-green-500/20 backdrop-blur-sm border border-green-400/30 flex items-center justify-center">
+                  <CheckCircle2 className="h-5 w-5 text-green-400" />
+                </div>
+                <div>
+                  <p className="font-semibold text-white text-sm">500+ Residents</p>
+                  <p className="text-xs text-white/70">Happy living</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2.5">
+                <div className="h-10 w-10 rounded-full bg-blue-500/20 backdrop-blur-sm border border-blue-400/30 flex items-center justify-center">
+                  <Star className="h-5 w-5 text-yellow-400 fill-yellow-400" />
+                </div>
+                <div>
+                  <p className="font-semibold text-white text-sm">4.7 Rating</p>
+                  <p className="text-xs text-white/70">Trusted service</p>
+                </div>
+              </div>
             </motion.div>
 
           </div>
@@ -1966,24 +1967,33 @@ function PropertiesSection({
               );
             })
           ) : (
-            <ScrollAnimation>
-              <div className="col-span-full text-center py-16">
-                <div className="max-w-md mx-auto">
-                  <Building2 className="h-16 w-16 mx-auto text-slate-300 mb-4" />
-                  <h3 className="text-lg font-semibold text-slate-700 mb-2">
-                    {hasActiveFilters ? 'No properties match your filters' : 'No Properties Found'}
-                  </h3>
-                  <p className="text-slate-500 mb-4">
-                    {hasActiveFilters ? 'Try adjusting or clearing your search filters.' : "We couldn't find any properties at the moment."}
-                  </p>
-                  <Link href="/properties">
-                    <button className="px-6 py-3 bg-[#0249a8] hover:bg-[#0249a8] text-white font-semibold rounded-full hover:shadow-md transition-all duration-300">
-                      Browse All Properties
-                    </button>
-                  </Link>
-                </div>
-              </div>
-            </ScrollAnimation>
+        <div className="col-span-full">
+  <ScrollAnimation>
+    <div className="flex justify-center items-center text-center py-16 w-full">
+      <div className="max-w-md mx-auto flex flex-col items-center">
+        <Building2 className="h-16 w-16 text-slate-300 mb-4" />
+
+        <h3 className="text-lg font-semibold text-slate-700 mb-2">
+          {hasActiveFilters ? 'No properties match your filters' : 'No Properties Found'}
+        </h3>
+
+        <p className="text-slate-500 mb-4">
+          {hasActiveFilters
+            ? 'Try adjusting or clearing your search filters.'
+            : "We couldn't find any properties at the moment."}
+        </p>
+
+        <Link href="/properties">
+          <button className="px-6 py-3 bg-[#0249a8] text-white font-semibold rounded-full hover:shadow-md transition-all duration-300">
+            Browse All Properties
+          </button>
+        </Link>
+      </div>
+    </div>
+  </ScrollAnimation>
+</div>
+
+
           )}
         </div>
 
@@ -2359,7 +2369,7 @@ function AboutUsSection() {
           </div>
 
           {/* MOBILE/TABLET VIEW - Stacked */}
-          <div className="lg:hidden mb-12">
+          <div className="lg:hidden mb-10">
             {/* Content First */}
             <div className="mb-8">
               <div className="mb-3">
@@ -2469,7 +2479,7 @@ function AboutUsSection() {
           </div>
 
           {/* WHO IS ROOMAC FOR SECTION */}
-<div className="mt-16 sm:mt-20 lg:mt-24">
+<div className="mt-10 sm:mt-12 lg:mt-2">
   <div className="text-center mb-10 sm:mb-14">
     <div className="inline-flex items-center justify-center mb-4">
       <div className="h-1.5 w-8 sm:h-2 sm:w-10 bg-gradient-to-r from-[#0249a8] to-blue-400 rounded-full" />
