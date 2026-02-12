@@ -491,21 +491,7 @@ const PropertyDetailView = memo(function PropertyDetailView({ propertyData, offe
                 </div>
               </div>
 
-              {/* Thumbnail Strip */}
-              <div className="flex gap-1.5 md:gap-3 mt-2 md:mt-4 overflow-x-auto pb-1 md:pb-2">
-                {propertyData.images.map((img: string, index: number) => (
-                  <button
-                    key={index}
-                    onClick={() => setCurrentImageIndex(index)}
-                    className={`flex-shrink-0 w-12 h-12 md:w-20 md:h-20 lg:w-24 lg:h-24 rounded-lg md:rounded-xl overflow-hidden border transition-all ${currentImageIndex === index
-                        ? 'border-blue-600 scale-105 shadow-md md:shadow-lg'
-                        : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                  >
-                    <img src={img} alt={`Thumbnail ${index + 1}`} className="w-full h-full object-cover" />
-                  </button>
-                ))}
-              </div>
+              
             </div>
 
             {/* Description Card */}

@@ -98,19 +98,19 @@ export function Footer() {
               <li className="flex items-start gap-2">
                 <MapPin className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
                 <span className="text-sm text-slate-300">
-                  {settings.contact_address || 'Hinjawadi, Pune, Maharashtra 411057'}
+                  {settings.contact_address || 'Wakad, Pune,  411057'}
                 </span>
               </li>
               <li className="flex items-center gap-2">
                 <Phone className="h-5 w-5 text-primary flex-shrink-0" />
                 <a href={`tel:${settings.contact_phone || '+919876543210'}`} className="text-sm text-slate-300 hover:text-primary transition-colors">
-                  {settings.contact_phone || '+91 98765 43210'}
+                  {settings.contact_phone || '+91 99239 53933'}
                 </a>
               </li>
               <li className="flex items-center gap-2">
                 <Mail className="h-5 w-5 text-primary flex-shrink-0" />
                 <a href={`mailto:${settings.contact_email || 'info@roomac.com'}`} className="text-sm text-slate-300 hover:text-primary transition-colors">
-                  {settings.contact_email || 'info@roomac.com'}
+                  {settings.contact_email || 'stay@roomac.in'}
                 </a>
               </li>
             </ul>
