@@ -39,7 +39,7 @@ export default function AboutCTA() {
         <Button 
           size="lg" 
           variant="outline" 
-          className="border-2 border-blue-500 text-blue-900 hover:bg-blue-800 text-base sm:text-lg hover:text-white w-full sm:w-auto px-4 sm:px-8 mb-2 sm:mb-4"
+          className="border-2 border-blue-500 text-blue-900 hover:bg-blue-800 text-base sm:text-lg hover:text-white w-full sm:w-auto px-4 sm:px-8 mb-6 sm:mb-4"
         >
           Get in Touch
         </Button>

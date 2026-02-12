@@ -43,23 +43,23 @@ export function Header() {
     if (loading || !settings) {
       return roomacLogo;
     }
-
+    
     const logoUrl = getSettingValue('logo_header');
-
+    
     if (!logoUrl) {
       return roomacLogo;
     }
-
+    
     // Check if the URL is already a full URL
     if (logoUrl.startsWith('http://') || logoUrl.startsWith('https://')) {
       return logoUrl;
     }
-
+    
     // Check if it's a relative path starting with /
     if (logoUrl.startsWith('/')) {
       return logoUrl;
     }
-
+    
     // If it's just a filename without a leading slash
     return `/${logoUrl}`;
   };
@@ -150,62 +150,23 @@ export function Header() {
 
       {/* Mobile Menu - All items centered */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-t bg-white">
-          <div className="container mx-auto px-4 py-4 space-y-4">
-            <Link
-              href="/"
-              className="block py-2 text-sm font-medium hover:text-primary transition-colors"
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              Home
-            </Link>
-            <Link
-              href="/properties"
-              className="block py-2 text-sm font-medium hover:text-primary transition-colors"
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              Properties
-            </Link>
-            <Link
-              href="/how-it-works"
-              className="block py-2 text-sm font-medium hover:text-primary transition-colors"
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              How It Works
-            </Link>
-            <Link
-              href="/partner"
-              className="block py-2 text-sm font-medium hover:text-primary transition-colors"
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              Partner with Us
-            </Link>
-            <Link
-              href="/about"
-              className="block py-2 text-sm font-medium hover:text-primary transition-colors"
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              About Us
-            </Link>
-            <Link
-              href="/contact"
-              className="block py-2 text-sm font-medium hover:text-primary transition-colors"
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              Contact
-            </Link>
-            <div className="pt-4 space-y-2">
-              <a href={`tel:${getContactPhone()}`} className="block">
-                <Button variant="outline" size="sm" className="w-full gap-2">
-                  <Phone className="h-4 w-4" />
-                  Call Us
-                </Button>
-              </a>
-              <Link href="/tenant/login" className="block">
-                <Button variant="outline" size="sm" className="w-full gap-2">
-                  <User className="h-4 w-4" />
-                  Tenant Portal
-                </Button>
+        <div className="md:hidden border-t bg-white overflow-hidden">
+          <div className="flex flex-col items-center px-4 py-6 space-y-4 animate-in fade-in-50 slide-in-from-top-4 duration-500 ease-out">
+            {/* Navigation Links - Centered */}
+            <div className="w-full flex flex-col items-center space-y-3">
+              <Link
+                href="/"
+                className="text-center text-sm font-medium hover:text-primary transition-all duration-300 hover:scale-105 hover:translate-x-1 w-full py-3 animate-in fade-in-50 slide-in-from-right-2 duration-300 delay-75 fill-mode-both"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Home
+              </Link>
+              <Link
+                href="/properties"
+                className="text-center text-sm font-medium hover:text-primary transition-all duration-300 hover:scale-105 hover:translate-x-1 w-full py-3 animate-in fade-in-50 slide-in-from-right-2 duration-300 delay-100 fill-mode-both"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Properties
               </Link>
               <Link href="/admin/login" className="block">
                 <Button size="sm" className="w-full bg-primary hover:bg-primary/90">

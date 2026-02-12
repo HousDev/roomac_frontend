@@ -112,7 +112,7 @@ export default function AboutStory({ team }: AboutStoryProps) { // Changed prop 
                     
                     <CardContent className="p-8 text-center relative z-10">
                       <div className="relative h-16 w-16 mx-auto mb-6">
-                        <div className="absolute inset-0 bg-gradient-to-br from-[#004AAD] to-cyan=-500 rounded-2xl animate-[spinSlow_20s_linear_infinite] opacity-20 group-hover:opacity-40 transition-opacity duration-500" />
+                        <div className="absolute inset-0 bg-gradient-to-br from-[#004AAD] to-cyan=-500 rounded-2xl  opacity-20 group-hover:opacity-40 transition-opacity duration-500" />
                         <div className="absolute inset-2 bg-gradient-to-br from-[#004AAD] to-cyan-500 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 group-hover:rotate-6 transition-all duration-500">
                           <Icon className="h-8 w-8 text-white" />
                         </div>

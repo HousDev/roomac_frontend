@@ -528,3 +528,6 @@ function NotificationsTab({ notifications, markAllNotificationsRead }: Notificat
 }
 
 export default memo(NotificationsTab);
+
+
+

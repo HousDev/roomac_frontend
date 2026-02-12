@@ -368,7 +368,7 @@ export default function Header() {
                     <CheckCircle2 className="h-5 w-5 sm:h-6 sm:w-6 text-green-600" />
                   </div>
                   <div>
-                    <p className="font-semibold text-sm sm:text-base text-black">500+ Happy Residents</p>
+                    <p className="font-semibold text-sm sm:text-base text-black ">500+ Happy Residents</p>
                     <p className="text-xs sm:text-sm text-slate-500">Living their best life</p>
                   </div>
                 </motion.div>
