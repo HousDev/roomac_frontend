@@ -1028,8 +1028,6 @@
 //   );
 // }
 // components/home/HomePageClient.tsx
-
-
 "use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -1051,6 +1049,9 @@ import TestimonialsSlider from './TestimonialsSlider';
 import OffersSlider from './OffersSlider';
 import FloatingActions from './FloatingActions';
 import CardScrollAnimation from './CardScrollAnimation';
+import { Share2, Copy, Check } from 'lucide-react';
+import { FaFacebookF, FaTwitter, FaLinkedinIn, FaTelegramPlane } from 'react-icons/fa';
+import { MdEmail } from 'react-icons/md';
 
 // ─── Animation variants ───────────────────────────────────────────────────────
 const fadeInUp = {
@@ -1115,16 +1116,14 @@ export default function HomePageClient({ initialCities, initialProperties, initi
     });
   };
 
-  // ── Client-side filtering (no logic change — same field reads) ────────────
+  // ── Client-side filtering ────────────
   const filteredProperties = useMemo(() => {
     return properties.filter((property) => {
-      // City filter
       const cityName = (property.city?.name || property.city_name || '').toLowerCase();
       if (selectedCity && selectedCity !== 'all' && !cityName.includes(selectedCity.toLowerCase())) {
         if (cityName) return false;
       }
 
-      // Search area filter
       if (searchArea.trim()) {
         const q = searchArea.toLowerCase();
         const addr = (property.address || property.location || property.area || '').toLowerCase();
@@ -1132,7 +1131,6 @@ export default function HomePageClient({ initialCities, initialProperties, initi
         if (!addr.includes(q) && !name.includes(q) && !cityName.includes(q)) return false;
       }
 
-      // Amenity filter
       if (selectedAmenity) {
         let amenities: string[] = [];
         if (property.amenities && Array.isArray(property.amenities)) amenities = property.amenities;
@@ -1154,7 +1152,6 @@ export default function HomePageClient({ initialCities, initialProperties, initi
         if (!hasAmenity) return false;
       }
 
-      // Price filter
       const price = property.starting_price || property.price || property.monthly_rent || property.rent || 0;
       const priceRange = PRICE_OPTIONS.find(p => p.label === selectedPriceKey) || PRICE_OPTIONS[0];
       if (price < priceRange.min || price > priceRange.max) return false;
@@ -1176,7 +1173,6 @@ export default function HomePageClient({ initialCities, initialProperties, initi
 
   return (
     <div className="flex flex-col overflow-hidden">
-      {/* Hero with integrated search filter */}
       <HeroSection 
         isMounted={isMounted}
         cities={cities}
@@ -1190,8 +1186,6 @@ export default function HomePageClient({ initialCities, initialProperties, initi
         setSelectedPriceKey={setSelectedPriceKey}
       />
 
-      {/* <div className="h-10 bg-white" /> */}
-
       <PropertiesSection
         properties={filteredProperties}
         allCount={properties.length}
@@ -1203,7 +1197,7 @@ export default function HomePageClient({ initialCities, initialProperties, initi
         hasActiveFilters={!!(searchArea || selectedAmenity || selectedPriceKey !== 'Any Price')}
       />
 
-      < AboutUsSection />
+      <AboutUsSection />
       <FeaturesSection features={features} />
       <OffersSlider offers={offers} />
       <TestimonialsSlider />
@@ -1213,7 +1207,7 @@ export default function HomePageClient({ initialCities, initialProperties, initi
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-// HERO SECTION - WITH INTEGRATED SEARCH FILTER
+// HERO SECTION - BACKGROUND IMAGES CHANGE, TEXT CONTENT CHANGES WITH THEM
 // ═════════════════════════════════════════════════════════════════════════════
 const heroSlides = [
   {
@@ -1264,49 +1258,33 @@ function HeroSection({
   selectedPriceKey,
   setSelectedPriceKey,
 }: HeroSectionProps) {
-  const [current, setCurrent]     = useState(0);
+  const [current, setCurrent] = useState(0);
   const [direction, setDirection] = useState<1 | -1>(1);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const goTo = useCallback((index: number, dir: 1 | -1) => {
-    setDirection(dir); setCurrent(index);
-  }, []);
-
   const next = useCallback(() => {
-    goTo((current + 1) % heroSlides.length, 1);
-  }, [current, goTo]);
-
-  const prev = useCallback(() => {
-    goTo((current - 1 + heroSlides.length) % heroSlides.length, -1);
-  }, [current, goTo]);
+    setDirection(1);
+    setCurrent((prev) => (prev + 1) % heroSlides.length);
+  }, []);
 
   useEffect(() => {
     timerRef.current = setInterval(next, 6000);
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [next]);
 
-  const resetTimer = () => {
-    if (timerRef.current) clearInterval(timerRef.current);
-    timerRef.current = setInterval(next, 6000);
-  };
-
-  const slide = heroSlides[current];
-
   const imageVariants = {
     enter: (dir: number) => ({ x: dir > 0 ? '8%' : '-8%', opacity: 0, scale: 1.08 }),
     center: { x: '0%', opacity: 1, scale: 1.05, transition: { duration: 1.2, ease: [0.25, 0.46, 0.45, 0.94] as any } },
     exit:   (dir: number) => ({ x: dir > 0 ? '-8%' : '8%', opacity: 0, scale: 1, transition: { duration: 0.8, ease: "easeIn" } }),
   };
-  const textVariants = {
-    enter:  { opacity: 0, y: 40 },
-    center: { opacity: 1, y: 0, transition: { duration: 0.8, ease: "easeOut", delay: 0.3 } },
-    exit:   { opacity: 0, y: -20, transition: { duration: 0.4 } },
-  };
+
+  // Get current slide data
+  const currentSlide = heroSlides[current];
 
   return (
     <section className="relative w-full h-screen min-h-[600px] max-h-[660px] overflow-hidden">
 
-      {/* Background image slider */}
+      {/* Background image slider - THIS CHANGES WITH ANIMATION */}
       <AnimatePresence custom={direction} initial={false}>
         <motion.div
           key={current}
@@ -1315,183 +1293,174 @@ function HeroSection({
           variants={imageVariants}
           initial="enter" animate="center" exit="exit"
         >
-          <img src={slide.image} alt={slide.heading2 || slide.heading1} className="w-full h-full object-cover object-center" />
+          <img src={currentSlide.image} alt="Co-living space" className="w-full h-full object-cover object-center" />
           <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/45 to-black/15" />
           <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-transparent to-transparent" />
         </motion.div>
       </AnimatePresence>
 
-      {/* Wave bottom */}
-      {/* Wave bottom */}
-<div className="absolute bottom-0 left-0 right-0 z-10 pointer-events-none -mb-1">
-  <svg viewBox="0 0 1440 90" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full block" preserveAspectRatio="none" style={{display: 'block'}}>
-    <path d="M0,65 C240,5 480,85 720,45 C960,5 1200,75 1440,35 L1440,90 L0,90 Z" fill="white"/>
-  </svg>
-</div>
-
-      {/* Main content - WITH INTEGRATED SEARCH */}
-      <div className="relative z-10 flex items-start justify-center h-full px-4 pt-10 sm:pt-28 md:pt-10">
-        <div className="w-full max-w-4xl mx-auto text-center">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={`content-${current}`}
-              variants={textVariants}
-              initial="enter" animate="center" exit="exit"
-              className="flex flex-col items-center"
-            >
-              {/* Badge */}
-              <motion.div 
-                initial={{ opacity: 0, y: 20 }} 
-                animate={{ opacity: 1, y: 0 }} 
-                transition={{ delay: 0.2, duration: 0.6 }} 
-                className="mb-4"
-              >
-                <span className="inline-flex items-center gap-2 bg-white/15 backdrop-blur-md border border-white/30 text-white text-sm font-medium px-4 py-2 rounded-full">
-                  <Sparkles className="h-4 w-4 text-yellow-300" />
-                  {slide.badge}
-                </span>
-              </motion.div>
-
-              {/* Heading - IN ONE LINE */}
-              <motion.h1
-                initial={{ opacity: 0, y: 20 }} 
-                animate={{ opacity: 1, y: 0 }} 
-                transition={{ delay: 0.35, duration: 0.7 }}
-                className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-white leading-tight mb-4"
-                style={{ fontFamily: "'Playfair Display', 'Georgia', serif" }}
-              >
-                <span className="text-white">{slide.heading1} </span>
-                {slide.heading2 && (
-                  <span 
-                    style={{ 
-                      background: 'linear-gradient(90deg, #60a5fa, #93c5fd, #bfdbfe)', 
-                      WebkitBackgroundClip: 'text', 
-                      WebkitTextFillColor: 'transparent', 
-                      backgroundClip: 'text' 
-                    }}
-                  >
-                    {slide.heading2}
-                  </span>
-                )}
-              </motion.h1>
-
-              {/* Subtext */}
-              <motion.p 
-                initial={{ opacity: 0, y: 20 }} 
-                animate={{ opacity: 1, y: 0 }} 
-                transition={{ delay: 0.5, duration: 0.6 }}
-                className="text-white/90 text-base sm:text-lg md:text-xl leading-relaxed mb-5 max-w-2xl mx-auto"
-              >
-                {slide.subtext}
-              </motion.p>
-
-              {/* Stats */}
-              <motion.div 
-                initial={{ opacity: 0, y: 20 }} 
-                animate={{ opacity: 1, y: 0 }} 
-                transition={{ delay: 0.6, duration: 0.6 }} 
-                className="flex flex-wrap justify-center gap-6 mb-5"
-              >
-                <div className="flex items-center gap-2.5">
-                  <div className="h-10 w-10 rounded-full bg-green-500/20 backdrop-blur-sm border border-green-400/30 flex items-center justify-center">
-                    <CheckCircle2 className="h-5 w-5 text-green-400" />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-white text-sm">500+ Residents</p>
-                    <p className="text-xs text-white/70">Happy living</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2.5">
-                  <div className="h-10 w-10 rounded-full bg-blue-500/20 backdrop-blur-sm border border-blue-400/30 flex items-center justify-center">
-                    <Star className="h-5 w-5 text-yellow-400 fill-yellow-400" />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-white text-sm">4.7 Rating</p>
-                    <p className="text-xs text-white/70">Trusted service</p>
-                  </div>
-                </div>
-              </motion.div>
-
-              {/* CTAs */}
-              <motion.div 
-                initial={{ opacity: 0, y: 20 }} 
-                animate={{ opacity: 1, y: 0 }} 
-                transition={{ delay: 0.7, duration: 0.6 }} 
-                className="flex flex-col sm:flex-row gap-3 justify-center mb-6"
-              >
-                <Link href="/properties">
-                  <Button size="lg" className="bg-[#0249a8]  text-white border-0 px-7 text-base font-semibold shadow-lg shadow-blue-900/40 transition-all duration-300 hover:scale-105 gap-2 h-12">
-                    <Search className="h-5 w-5" /> Explore Properties
-                  </Button>
-                </Link>
-                <Link href="/contact">
-                  <Button size="lg" variant="outline" className="bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white border border-white/40 hover:border-white/70 px-7 text-base font-semibold transition-all duration-300 hover:scale-105 h-12">
-                    Talk to Expert
-                  </Button>
-                </Link>
-              </motion.div>
-
-              {/* SEARCH FILTER - INTEGRATED */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.8, duration: 0.6 }}
-                className="w-full max-w-4xl"
-              >
-                <FiltersSection
-                  isMounted={isMounted}
-                  cities={cities}
-                  selectedCity={selectedCity}
-                  setSelectedCity={setSelectedCity}
-                  searchArea={searchArea}
-                  setSearchArea={setSearchArea}
-                  selectedAmenity={selectedAmenity}
-                  setSelectedAmenity={setSelectedAmenity}
-                  selectedPriceKey={selectedPriceKey}
-                  setSelectedPriceKey={setSelectedPriceKey}
-                />
-              </motion.div>
-
-            </motion.div>
-          </AnimatePresence>
-        </div>
+      {/* Wave bottom - FIXED */}
+      <div className="absolute bottom-0 left-0 right-0 z-10 pointer-events-none -mb-1">
+        <svg viewBox="0 0 1440 90" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full block" preserveAspectRatio="none" style={{display: 'block'}}>
+          <path d="M0,65 C240,5 480,85 720,45 C960,5 1200,75 1440,35 L1440,90 L0,90 Z" fill="white"/>
+        </svg>
       </div>
 
-      {/* Arrows */}
-      {/* <button onClick={() => { prev(); resetTimer(); }} aria-label="Previous"
-        className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 z-20 h-10 w-10 rounded-full bg-white/10 hover:bg-white/25 backdrop-blur-sm border border-white/30 flex items-center justify-center text-white transition-all duration-200 hover:scale-110">
-        <ChevronLeft className="h-5 w-5" />
-      </button>
-      <button onClick={() => { next(); resetTimer(); }} aria-label="Next"
-        className="absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 z-20 h-10 w-10 rounded-full bg-white/10 hover:bg-white/25 backdrop-blur-sm border border-white/30 flex items-center justify-center text-white transition-all duration-200 hover:scale-110">
-        <ChevronRight className="h-5 w-5" />
-      </button> */}
+      {/* FIXED CONTENT CONTAINER - TEXT CHANGES WITH SLIDE, SEARCH BAR STAYS FIXED */}
+      <div className="absolute inset-0 z-10 flex items-center justify-center px-4">
+        <div className="w-full max-w-4xl mx-auto text-center">
+          <div className="flex flex-col items-center">
+            
+            {/* Badge - CHANGES WITH SLIDE */}
+            <motion.div 
+              key={`badge-${current}`}
+              initial={{ opacity: 0, y: 20 }} 
+              animate={{ opacity: 1, y: 0 }} 
+              transition={{ delay: 0.2, duration: 0.6 }} 
+              className="mb-4"
+            >
+              <span className="inline-flex items-center gap-2 bg-white/15 backdrop-blur-md border border-white/30 text-white text-sm font-medium px-4 py-2 rounded-full">
+                <Sparkles className="h-4 w-4 text-yellow-300" />
+                {currentSlide.badge}
+              </span>
+            </motion.div>
 
-      {/* Vertical dots */}
-      {/* <div className="absolute right-4 bottom-24 z-20 flex flex-col gap-2 items-center">
-        {heroSlides.map((_, i) => (
-          <button key={i} onClick={() => { goTo(i, i > current ? 1 : -1); resetTimer(); }}
-            className={`rounded-full transition-all duration-300 ${i === current ? 'w-2 h-6 bg-white' : 'w-2 h-2 bg-white/40 hover:bg-white/70'}`} />
-        ))}
-      </div> */}
+            {/* Heading - CHANGES WITH SLIDE */}
+            <motion.h1
+              key={`heading-${current}`}
+              initial={{ opacity: 0, y: 20 }} 
+              animate={{ opacity: 1, y: 0 }} 
+              transition={{ delay: 0.35, duration: 0.7 }}
+              className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-white leading-tight mb-4"
+              style={{ fontFamily: "'Poppins', 'Sans Serif', serif" }}
+            >
+              <span className="text-white">{currentSlide.heading1} </span>
+              {currentSlide.heading2 && (
+                <span 
+                  style={{ 
+                    background: 'linear-gradient(90deg, #60a5fa, #93c5fd, #bfdbfe)', 
+                    WebkitBackgroundClip: 'text', 
+                    WebkitTextFillColor: 'transparent', 
+                    backgroundClip: 'text' 
+                  }}
+                >
+                  {currentSlide.heading2}
+                </span>
+              )}
+            </motion.h1>
 
-      {/* Slide counter */}
-      {/* <div className="absolute left-4 bottom-20 z-20 text-white/60 text-xs font-medium select-none">
-        <span className="text-white font-bold text-sm">{String(current + 1).padStart(2, '0')}</span>
-        <span className="mx-1">/</span>
-        <span>{String(heroSlides.length).padStart(2, '0')}</span>
-      </div> */}
+            {/* Subtext - CHANGES WITH SLIDE */}
+            <motion.p 
+              key={`subtext-${current}`}
+              initial={{ opacity: 0, y: 20 }} 
+              animate={{ opacity: 1, y: 0 }} 
+              transition={{ delay: 0.5, duration: 0.6 }}
+              className="text-white/90 text-base sm:text-lg md:text-xl leading-relaxed mb-5 max-w-2xl mx-auto"
+            >
+              {currentSlide.subtext}
+            </motion.p>
 
-      {/* Progress bar */}
-      {/* <div className="absolute bottom-0 left-0 right-0 z-20 h-0.5 bg-white/20">
-        <motion.div key={`progress-${current}`} className="h-full bg-blue-400"
-          initial={{ width: '0%' }} animate={{ width: '100%' }} transition={{ duration: 6, ease: 'linear' }} />
-      </div> */}
+            {/* Stats - FIXED (doesn't change) */}
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }} 
+              animate={{ opacity: 1, y: 0 }} 
+              transition={{ delay: 0.6, duration: 0.6 }} 
+              className="flex flex-wrap justify-center gap-6 mb-5"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="h-10 w-10 rounded-full bg-green-500/20 backdrop-blur-sm border border-green-400/30 flex items-center justify-center">
+                  <CheckCircle2 className="h-5 w-5 text-green-400" />
+                </div>
+                <div>
+                  <p className="font-semibold text-white text-sm">500+ Residents</p>
+                  <p className="text-xs text-white/70">Happy living</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2.5">
+                <div className="h-10 w-10 rounded-full bg-blue-500/20 backdrop-blur-sm border border-blue-400/30 flex items-center justify-center">
+                  <Star className="h-5 w-5 text-yellow-400 fill-yellow-400" />
+                </div>
+                <div>
+                  <p className="font-semibold text-white text-sm">4.7 Rating</p>
+                  <p className="text-xs text-white/70">Trusted service</p>
+                </div>
+              </div>
+            </motion.div>
+
+            {/* CTAs - FIXED (doesn't change) */}
+          <motion.div 
+  initial={{ opacity: 0, y: 20 }} 
+  animate={{ opacity: 1, y: 0 }} 
+  transition={{ delay: 0.7, duration: 0.6 }} 
+  className="flex flex-row sm:flex-row gap-2 sm:gap-3 justify-center mb-6"
+>
+  <Link href="/properties">
+    <Button 
+      size="lg"
+      className="
+      bg-[#0249a8] text-white border-0
+      px-4 sm:px-7
+      text-sm sm:text-base
+      font-semibold
+      shadow-lg shadow-blue-900/40
+      transition-all duration-300 hover:scale-105
+      gap-2
+      h-10 sm:h-12
+      whitespace-nowrap
+      ">
+      <Search className="h-4 w-4 sm:h-5 sm:w-5" /> Explore Properties
+    </Button>
+  </Link>
+
+  <Link href="/contact">
+    <Button 
+      size="lg"
+      variant="outline"
+      className="
+      bg-white/10 hover:bg-white/20 backdrop-blur-sm
+      text-white border border-white/40 hover:border-white/70
+      px-4 sm:px-7
+      text-sm sm:text-base
+      font-semibold
+      transition-all duration-300 hover:scale-105
+      h-10 sm:h-12
+      whitespace-nowrap
+      ">
+      Talk to Expert
+    </Button>
+  </Link>
+</motion.div>
+
+            {/* SEARCH FILTER - FIXED (doesn't change) */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.8, duration: 0.6 }}
+              className="w-full max-w-4xl"
+            >
+              <FiltersSection
+                isMounted={isMounted}
+                cities={cities}
+                selectedCity={selectedCity}
+                setSelectedCity={setSelectedCity}
+                searchArea={searchArea}
+                setSearchArea={setSearchArea}
+                selectedAmenity={selectedAmenity}
+                setSelectedAmenity={setSelectedAmenity}
+                selectedPriceKey={selectedPriceKey}
+                setSelectedPriceKey={setSelectedPriceKey}
+              />
+            </motion.div>
+
+          </div>
+        </div>
+      </div>
     </section>
   );
 }
+
 // ═════════════════════════════════════════════════════════════════════════════
-// FILTERS SECTION — ULTRA COMPACT UPDATED
+// FILTERS SECTION
 // ═════════════════════════════════════════════════════════════════════════════
 interface FiltersSectionProps {
   isMounted: boolean;
@@ -1506,7 +1475,6 @@ interface FiltersSectionProps {
   setSelectedPriceKey: (v: string) => void;
 }
 
-// FILTERS SECTION — ULTRA COMPACT UPDATED
 function FiltersSection({
   isMounted,
   cities,
@@ -1520,13 +1488,9 @@ function FiltersSection({
   setSelectedPriceKey,
 }: FiltersSectionProps) {
   return (
-    // Add sticky positioning here
-    <div className=" w-full">
-      {/* Glassmorphism card */}
+    <div className="w-full">
       <div className="bg-white/15 backdrop-blur-xl border border-white/25 rounded-lg shadow-2xl shadow-black/30 px-2 py-2 sm:px-2.5 sm:py-2.5">
-        {/* Rest of the filter content remains the same */}
-
-        {/* Label */}
+        
         <div className="flex items-center gap-1.5 mb-1.5">
           <SlidersHorizontal className="h-3 w-3 text-white/80" />
           <span className="text-white/80 text-[11px] font-semibold uppercase tracking-wide">
@@ -1534,30 +1498,18 @@ function FiltersSection({
           </span>
         </div>
 
-        {/* GRID — Mobile 2x2, Desktop 4 columns */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-1.5">
-          {/* Remove overflow-x-auto and min-w constraints for mobile */}
-
+          
           {/* City */}
-          {/* City */}
-<div className="relative">
-  {/* <div className="absolute left-2 top-1/2 -translate-y-1/2 z-10 pointer-events-none">
-    <MapPin className="h-3 w-3 text-blue-300" />
-  </div> */}
-  
-  <Select value={selectedCity} onValueChange={setSelectedCity}>
-    <SelectTrigger className="h-8 pl-7 rounded-md bg-white/15 backdrop-blur-sm border border-white/30 text-white placeholder:text-white/60 focus:ring-1 focus:ring-white/40 focus:border-white/50 text-[11px] font-medium hover:bg-white/25 transition-all w-full [&>span]:text-white">
-      <SelectValue placeholder="City" />
-    </SelectTrigger>
-
+          <div className="relative">
+            <Select value={selectedCity} onValueChange={setSelectedCity}>
+              <SelectTrigger className="h-8 pl-7 rounded-md bg-white/15 backdrop-blur-sm border border-white/30 text-white placeholder:text-white/60 focus:ring-1 focus:ring-white/40 focus:border-white/50 text-[11px] font-medium hover:bg-white/25 transition-all w-full [&>span]:text-white">
+                <SelectValue placeholder="City" />
+              </SelectTrigger>
               <SelectContent className="rounded-lg shadow-2xl border border-blue-100 bg-white">
                 {cities.map((city: any) => (
-                  <SelectItem
-                    key={city.id}
-                    value={city.name.toLowerCase()}
-                    className="cursor-pointer hover:bg-blue-50 text-[11px]"
-                  >
-                    <div className="flex items-center gap-2 text-white">
+                  <SelectItem key={city.id} value={city.name.toLowerCase()} className="cursor-pointer hover:bg-blue-50 text-[11px]">
+                    <div className="flex items-center gap-2 text-gray-700">
                       <MapPin className="h-3 w-3 text-blue-500" />
                       {city.name}
                     </div>
@@ -1567,26 +1519,19 @@ function FiltersSection({
             </Select>
           </div>
 
-          {/* Locality Search - FIXED BACKGROUND */}
-          {/* Locality Search - FIXED TEXT COLOR */}
-<div className="relative">
-  <div className="absolute left-2 top-1/2 -translate-y-1/2 z-10 pointer-events-none">
-    <Search className="h-3 w-3 text-blue-300" />
-  </div>
-
-  <Input
-    placeholder="Locality..."
-    value={searchArea}
-    onChange={(e) => setSearchArea(e.target.value)}
-    className="h-8 pl-7 rounded-md bg-white/10 backdrop-blur-sm border border-white/30 text-white placeholder:text-white/60 focus:ring-1 focus:ring-white/40 focus:border-white/50 text-[11px] font-medium hover:bg-white/25 transition-all w-full [&>span]:text-white"
-    // style={{ color: 'white' }}
-  />
-
+          {/* Locality */}
+          <div className="relative">
+            <div className="absolute left-2 top-1/2 -translate-y-1/2 z-10 pointer-events-none">
+              <Search className="h-3 w-3 text-blue-300" />
+            </div>
+            <Input
+              placeholder="Locality..."
+              value={searchArea}
+              onChange={(e) => setSearchArea(e.target.value)}
+              className="h-8 pl-7 rounded-md bg-white/10 backdrop-blur-sm border border-white/30 text-white placeholder:text-white/60 focus:ring-1 focus:ring-white/40 focus:border-white/50 text-[11px] font-medium hover:bg-white/25 transition-all w-full"
+            />
             {searchArea && (
-              <button
-                onClick={() => setSearchArea("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-white/60 hover:text-white"
-              >
+              <button onClick={() => setSearchArea("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-white/60 hover:text-white">
                 <X className="h-2.5 w-2.5" />
               </button>
             )}
@@ -1597,33 +1542,14 @@ function FiltersSection({
             <div className="absolute left-2 top-1/2 -translate-y-1/2 z-10 pointer-events-none">
               <Wifi className="h-3 w-3 text-blue-300" />
             </div>
-
-            <Select
-              value={selectedAmenity || "__all__"}
-              onValueChange={(v) =>
-                setSelectedAmenity(v === "__all__" ? "" : v)
-              }
-            >
+            <Select value={selectedAmenity || "__all__"} onValueChange={(v) => setSelectedAmenity(v === "__all__" ? "" : v)}>
               <SelectTrigger className="h-8 pl-7 rounded-md bg-white/15 backdrop-blur-sm border border-white/30 text-white focus:ring-1 focus:ring-white/40 focus:border-white/50 text-[11px] font-medium hover:bg-white/25 transition-all w-full">
                 <SelectValue placeholder="Amenities" />
               </SelectTrigger>
-
               <SelectContent className="rounded-lg shadow-2xl border border-blue-100 bg-white">
-                <SelectItem
-                  value="__all__"
-                  className="hover:bg-blue-50 text-[11px] text-slate-700"
-                >
-                  All Amenities
-                </SelectItem>
-
+                <SelectItem value="__all__" className="hover:bg-blue-50 text-[11px] text-slate-700">All Amenities</SelectItem>
                 {AMENITY_OPTIONS.map((a) => (
-                  <SelectItem
-                    key={a}
-                    value={a}
-                    className="hover:bg-blue-50 text-[11px] text-slate-700"
-                  >
-                    {a}
-                  </SelectItem>
+                  <SelectItem key={a} value={a} className="hover:bg-blue-50 text-[11px] text-slate-700">{a}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -1634,24 +1560,13 @@ function FiltersSection({
             <div className="absolute left-2 top-1/2 -translate-y-1/2 z-10 pointer-events-none">
               <IndianRupee className="h-3 w-3 text-blue-300" />
             </div>
-
-            <Select
-              value={selectedPriceKey}
-              onValueChange={setSelectedPriceKey}
-            >
+            <Select value={selectedPriceKey} onValueChange={setSelectedPriceKey}>
               <SelectTrigger className="h-8 pl-7 rounded-md bg-white/15 backdrop-blur-sm border border-white/30 text-white focus:ring-1 focus:ring-white/40 focus:border-white/50 text-[11px] font-medium hover:bg-white/25 transition-all w-full">
                 <SelectValue placeholder="Price" />
               </SelectTrigger>
-
               <SelectContent className="rounded-lg shadow-2xl border border-blue-100 bg-white">
                 {PRICE_OPTIONS.map((p) => (
-                  <SelectItem
-                    key={p.label}
-                    value={p.label}
-                    className="hover:bg-blue-50 text-[11px] text-slate-700"
-                  >
-                    {p.label}
-                  </SelectItem>
+                  <SelectItem key={p.label} value={p.label} className="hover:bg-blue-50 text-[11px] text-slate-700">{p.label}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -1659,40 +1574,25 @@ function FiltersSection({
         </div>
 
         {/* Active Filters */}
-        {(searchArea ||
-          selectedAmenity ||
-          selectedPriceKey !== "Any Price") && (
+        {(searchArea || selectedAmenity || selectedPriceKey !== "Any Price") && (
           <div className="flex flex-wrap gap-1 mt-1.5 pt-1.5 border-t border-white/20">
-            <span className="text-white/60 text-[10px] self-center">
-              Active:
-            </span>
-
+            <span className="text-white/60 text-[10px] self-center">Active:</span>
             {searchArea && (
               <span className="inline-flex items-center gap-1 bg-blue-500/30 border border-blue-400/40 text-white text-[10px] px-1.5 py-0.5 rounded-full">
                 "{searchArea}"
-                <button onClick={() => setSearchArea("")}>
-                  <X className="h-2 w-2" />
-                </button>
+                <button onClick={() => setSearchArea("")}><X className="h-2 w-2" /></button>
               </span>
             )}
-
             {selectedAmenity && (
               <span className="inline-flex items-center gap-1 bg-emerald-500/30 border border-emerald-400/40 text-white text-[10px] px-1.5 py-0.5 rounded-full">
                 {selectedAmenity}
-                <button onClick={() => setSelectedAmenity("")}>
-                  <X className="h-2 w-2" />
-                </button>
+                <button onClick={() => setSelectedAmenity("")}><X className="h-2 w-2" /></button>
               </span>
             )}
-
             {selectedPriceKey !== "Any Price" && (
               <span className="inline-flex items-center gap-1 bg-amber-500/30 border border-amber-400/40 text-white text-[10px] px-1.5 py-0.5 rounded-full">
                 {selectedPriceKey}
-                <button
-                  onClick={() => setSelectedPriceKey("Any Price")}
-                >
-                  <X className="h-2 w-2" />
-                </button>
+                <button onClick={() => setSelectedPriceKey("Any Price")}><X className="h-2 w-2" /></button>
               </span>
             )}
           </div>
@@ -1701,9 +1601,14 @@ function FiltersSection({
     </div>
   );
 }
+
 // ═════════════════════════════════════════════════════════════════════════════
 // PROPERTIES SECTION — Cards styled like Image 2 (Lucxorio-style)
 // ═════════════════════════════════════════════════════════════════════════════
+// Component to add in HomePageClient.tsx
+
+// Updated PropertiesSection Component with Watermark and Enhanced Share Popup
+
 interface PropertiesSectionProps {
   properties: any[];
   allCount: number;
@@ -1715,11 +1620,77 @@ interface PropertiesSectionProps {
   onHeartClick: (propertyId: number, event: React.MouseEvent) => void;
 }
 
-function PropertiesSection({ properties, allCount, loading, likedProperties, hasActiveFilters, onWhatsAppClick, onCallClick, onHeartClick }: PropertiesSectionProps) {
-  return (
-<div className="py-12 sm:py-16 bg-gradient-to-b from-slate-50 to-white px-2 sm:px-4">      <div className="container mx-auto px-3 sm:px-4">
+function PropertiesSection({ 
+  properties, 
+  allCount, 
+  loading, 
+  likedProperties, 
+  hasActiveFilters, 
+  onWhatsAppClick, 
+  onCallClick, 
+  onHeartClick 
+}: PropertiesSectionProps) {
+  const [sharePopup, setSharePopup] = useState<{ isOpen: boolean; property: any | null }>({ 
+    isOpen: false, 
+    property: null 
+  });
+  const [copied, setCopied] = useState(false);
 
-        {/* Header - UPDATED STYLING */}
+  const handleShareClick = (e: React.MouseEvent, property: any) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setSharePopup({ isOpen: true, property });
+  };
+
+  const closeSharePopup = () => {
+    setSharePopup({ isOpen: false, property: null });
+    setCopied(false);
+  };
+
+  const handleCopyLink = () => {
+    const shareUrl = `${window.location.origin}/properties/${sharePopup.property?.slug || sharePopup.property?.id}`;
+    navigator.clipboard.writeText(shareUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleSocialShare = (platform: string) => {
+    const shareUrl = `${window.location.origin}/properties/${sharePopup.property?.slug || sharePopup.property?.id}`;
+    const propertyName = sharePopup.property?.name || sharePopup.property?.property_name || 'Premium Property';
+    const shareText = `Check out this property: ${propertyName}`;
+
+    let url = '';
+    switch (platform) {
+      case 'whatsapp':
+        url = `https://wa.me/?text=${encodeURIComponent(shareText + ' ' + shareUrl)}`;
+        break;
+      case 'facebook':
+        url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`;
+        break;
+      case 'twitter':
+        url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`;
+        break;
+      case 'linkedin':
+        url = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`;
+        break;
+      case 'telegram':
+        url = `https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareText)}`;
+        break;
+      case 'email':
+        url = `mailto:?subject=${encodeURIComponent(propertyName)}&body=${encodeURIComponent(shareText + '\n\n' + shareUrl)}`;
+        break;
+    }
+    
+    if (url) {
+      window.open(url, '_blank', 'width=600,height=400');
+    }
+  };
+
+  return (
+    <div className="py-12 sm:py-16 bg-gradient-to-b from-slate-50 to-white px-2 sm:px-4">
+      <div className="container mx-auto px-3 sm:px-4">
+
+        {/* Header */}
         <ScrollAnimation>
           <div className="text-center mb-8 sm:mb-12">
             <div className="inline-flex items-center justify-center mb-3 sm:mb-4">
@@ -1743,7 +1714,7 @@ function PropertiesSection({ properties, allCount, loading, likedProperties, has
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8 mt-8 sm:mt-10">
           {properties.length > 0 ? (
             properties.map((property, index) => {
-              // ── All data extraction logic UNCHANGED ──────────────────────
+              // ── All data extraction logic ──────────────────────
               let propertyImages: string[] = [];
               if (property.photo_urls && Array.isArray(property.photo_urls)) propertyImages = property.photo_urls;
               else if (property.images && Array.isArray(property.images)) propertyImages = property.images;
@@ -1791,7 +1762,6 @@ function PropertiesSection({ properties, allCount, loading, likedProperties, has
               const displayAmenities = amenities.slice(0, 5);
               const totalBeds    = property.total_beds || property.beds_available || property.beds || 10;
               const propertyType = property.property_type || property.type || '';
-              // rooms — fetch exactly as original code
               const totalRooms   = property.total_rooms || property.rooms || property.room_count || '';
               const rating       = property.rating || 4.5;
               // ─────────────────────────────────────────────────────────────
@@ -1799,8 +1769,8 @@ function PropertiesSection({ properties, allCount, loading, likedProperties, has
               return (
                 <CardScrollAnimation key={property.id || index} index={index}>
                   <Link href={`/properties/${property.slug || property.id}`} className="group block h-full">
-                    {/* ── CARD: Lucxorio-style (Image 2) ── */}
-<div className="relative overflow-hidden rounded-2xl bg-[#f0f5f5] shadow-md hover:shadow-2xl transition-all duration-500 group-hover:-translate-y-2 h-[500px] flex flex-col">
+                    {/* ── CARD ── */}
+                    <div className="relative overflow-hidden rounded-2xl bg-[#f0f5f5] shadow-md hover:shadow-2xl transition-all duration-500 group-hover:-translate-y-2 h-[500px] flex flex-col">
 
                       {/* Image area */}
                       <div className="relative h-52 sm:h-56 md:h-60 overflow-hidden rounded-t-2xl flex-shrink-0">
@@ -1813,19 +1783,49 @@ function PropertiesSection({ properties, allCount, loading, likedProperties, has
                           onMouseOut={e => (e.currentTarget.style.transform = 'scale(1.03)')}
                         />
 
-                        {/* Rating pill — top left (like Image 2) */}
+                        {/* Watermark - Center Top (Like RealEstateVin) */}
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[5] pointer-events-none">
+  <div
+    className="
+    text-white/40
+    text-sm sm:text-base md:text-lg lg:text-3xl
+    font-semibold
+    tracking-wide
+    select-none
+    whitespace-nowrap
+    "
+    style={{
+      textShadow: '2px 2px 8px rgba(0,0,0,0.3)',
+      fontFamily: 'Poppins, sans-serif',
+      letterSpacing: '0.05em'
+    }}
+  >
+    Roomac.in
+  </div>
+</div>
+
+
+                        {/* Rating pill — top left */}
                         <div className="absolute top-3 left-3 z-10 flex items-center gap-1.5 bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-full shadow-lg">
                           <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
                           <span className="text-xs font-bold text-slate-800">{rating}</span>
                         </div>
 
-                        {/* Heart — top right */}
-                        <button
-                          onClick={(e) => onHeartClick(property.id || index, e)}
-                          className="absolute top-3 right-3 z-10 h-8 w-8 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-lg hover:scale-110 transition-all"
-                        >
-                          <Heart className={`h-4 w-4 ${likedProperties.has(property.id || index) ? 'fill-red-500 text-red-500' : 'text-slate-400'}`} />
-                        </button>
+                        {/* Share & Heart — top right */}
+                        <div className="absolute top-3 right-3 z-10 flex gap-2">
+                          <button
+                            onClick={(e) => handleShareClick(e, property)}
+                            className="h-8 w-8 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-lg hover:scale-110 transition-all"
+                          >
+                            <Share2 className="h-4 w-4 text-slate-600" />
+                          </button>
+                          <button
+                            onClick={(e) => onHeartClick(property.id || index, e)}
+                            className="h-8 w-8 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-lg hover:scale-110 transition-all"
+                          >
+                            <Heart className={`h-4 w-4 ${likedProperties.has(property.id || index) ? 'fill-red-500 text-red-500' : 'text-slate-400'}`} />
+                          </button>
+                        </div>
 
                         {/* Tags */}
                         <div className="absolute bottom-3 left-3 flex flex-wrap gap-1.5 z-10">
@@ -1839,138 +1839,127 @@ function PropertiesSection({ properties, allCount, loading, likedProperties, has
                           )}
                         </div>
 
-                        {/* Amenity icons row — shown on hover (like Lucxorio middle card) */}
-                       // Replace the amenity icons section with:
-{displayAmenities.length > 0 && (
-  <div className="absolute inset-x-0 bottom-0 translate-y-full group-hover:translate-y-0 transition-transform duration-300 pb-10 flex justify-center gap-2 z-10">
-    {displayAmenities.map((a: any, ai: number) => {
-      // Get icon based on amenity name
-      const getIcon = (amenity: string) => {
-        const am = String(amenity).toLowerCase();
-        if (am.includes('wifi')) return <Wifi className="h-4 w-4" />;
-        if (am.includes('meal')) return <Utensils className="h-4 w-4" />;
-        if (am.includes('security')) return <Shield className="h-4 w-4" />;
-        if (am.includes('parking')) return <Car className="h-4 w-4" />;
-        if (am.includes('ac')) return <Zap className="h-4 w-4" />;
-        if (am.includes('bath')) return <Bath className="h-4 w-4" />;
-        if (am.includes('power')) return <Zap className="h-4 w-4" />;
-        if (am.includes('housekeeping')) return <Clock className="h-4 w-4" />;
-        return <CheckCircle2 className="h-4 w-4" />;
-      };
-      
-      return (
-        <div key={ai} title={String(a)} className="h-9 w-9 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-md text-slate-700">
-          {getIcon(a)}
-        </div>
-      );
-    })}
-  </div>
-)}
+                        {/* Amenity icons row — shown on hover */}
+                        {displayAmenities.length > 0 && (
+                          <div className="absolute inset-x-0 bottom-0 translate-y-full group-hover:translate-y-0 transition-transform duration-300 pb-10 flex justify-center gap-2 z-10">
+                            {displayAmenities.map((a: any, ai: number) => {
+                              const getIcon = (amenity: string) => {
+                                const am = String(amenity).toLowerCase();
+                                if (am.includes('wifi')) return <Wifi className="h-4 w-4" />;
+                                if (am.includes('meal')) return <Utensils className="h-4 w-4" />;
+                                if (am.includes('security')) return <Shield className="h-4 w-4" />;
+                                if (am.includes('parking')) return <Car className="h-4 w-4" />;
+                                if (am.includes('ac')) return <Zap className="h-4 w-4" />;
+                                if (am.includes('bath')) return <Bath className="h-4 w-4" />;
+                                if (am.includes('power')) return <Zap className="h-4 w-4" />;
+                                if (am.includes('housekeeping')) return <Clock className="h-4 w-4" />;
+                                return <CheckCircle2 className="h-4 w-4" />;
+                              };
+                              
+                              return (
+                                <div key={ai} title={String(a)} className="h-9 w-9 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-md text-slate-700">
+                                  {getIcon(a)}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
 
-                      {/* Card body — light teal/mint background like Image 2 */}
-                   {/* Card body — light teal/mint background like Image 2 */}
-<div className="p-4 sm:p-5 flex flex-col flex-grow">
-  
-  {/* NEW: Title + Price in Header Row */}
-  <div className="flex items-start justify-between mb-2">
-    <div className="flex-1">
-      <h3 className="font-bold text-base sm:text-lg text-slate-800 group-hover:text-[#0249a8] transition-colors duration-300 line-clamp-1">
-        {propertyName}
-      </h3>
-      <div className="flex items-center gap-2 mt-1">
-        <div className="h-0.5 w-8 bg-[#0249a8] rounded-full" />
-        <div className="h-0.5 w-2 bg-yellow-400 rounded-full" />
-      </div>
-    </div>
-    
-    {/* Price on the right */}
-    <div className="text-right ml-3">
-      <p className="text-xs text-slate-400 font-medium whitespace-nowrap">Starting from</p>
-      <p className="text-lg font-bold text-[#0249a8] whitespace-nowrap">
-        ₹{Number(propertyPrice).toLocaleString()}
-        <span className="text-sm text-slate-400 font-normal">/mo</span>
-      </p>
-    </div>
-  </div>
+                      {/* Card body */}
+                      <div className="p-4 sm:p-5 flex flex-col flex-grow">
+                        
+                        {/* Title + Price in Header Row */}
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex-1">
+                            <h3 className="font-bold text-base sm:text-lg text-slate-800 group-hover:text-[#0249a8] transition-colors duration-300 line-clamp-1">
+                              {propertyName}
+                            </h3>
+                            <div className="flex items-center gap-2 mt-1">
+                              <div className="h-0.5 w-8 bg-[#0249a8] rounded-full" />
+                              <div className="h-0.5 w-2 bg-yellow-400 rounded-full" />
+                            </div>
+                          </div>
+                          
+                          <div className="text-right ml-3">
+                            <p className="text-xs text-slate-400 font-medium whitespace-nowrap">Starting from</p>
+                            <p className="text-lg font-bold text-[#0249a8] whitespace-nowrap">
+                              ₹{Number(propertyPrice).toLocaleString()}
+                              <span className="text-sm text-slate-400 font-normal">/mo</span>
+                            </p>
+                          </div>
+                        </div>
 
-  {/* Description / location */}
-  <div className="flex items-start gap-1.5 mb-3">
-    <MapPin className="h-3.5 w-3.5 text-[#0249a8] flex-shrink-0 mt-0.5" />
-    <span className="text-xs text-slate-500 line-clamp-2 leading-relaxed">{fullLocation}</span>
-  </div>
+                        <div className="flex items-start gap-1.5 mb-3">
+                          <MapPin className="h-3.5 w-3.5 text-[#0249a8] flex-shrink-0 mt-0.5" />
+                          <span className="text-xs text-slate-500 line-clamp-2 leading-relaxed">{fullLocation}</span>
+                        </div>
 
-  {/* Amenity tags */}
-  
+                        <div className="flex items-center gap-4 mb-3 text-slate-600 text-xs">
+                          <div className="flex items-center gap-1.5">
+                            <BedDouble className="h-3.5 w-3.5 text-blue-500" />
+                            <span className="font-semibold text-slate-700">{totalBeds}</span>
+                            <span className="text-slate-400">Beds</span>
+                          </div>
+                          {totalRooms && (
+                            <div className="flex items-center gap-1.5">
+                              <Home className="h-3.5 w-3.5 text-[#0249a8]" />
+                              <span className="font-semibold text-slate-700">{totalRooms}</span>
+                              <span className="text-slate-400">Rooms</span>
+                            </div>
+                          )}
+                        </div>
 
-  {/* Beds row */}
-  <div className="flex items-center gap-4 mb-3 text-slate-600 text-xs">
-    <div className="flex items-center gap-1.5">
-      <BedDouble className="h-3.5 w-3.5 text-blue-500" />
-      <span className="font-semibold text-slate-700">{totalBeds}</span>
-      <span className="text-slate-400">Beds</span>
-    </div>
-    {totalRooms && (
-      <div className="flex items-center gap-1.5">
-        <Home className="h-3.5 w-3.5 text-[#0249a8]" />
-        <span className="font-semibold text-slate-700">{totalRooms}</span>
-        <span className="text-slate-400">Rooms</span>
-      </div>
-    )}
-  </div>
-  {displayAmenities.length > 0 && (
-    <div className="flex flex-wrap gap-1.5 mb-3">
-      {displayAmenities.map((a: any, ai: number) => {
-        const colors = [
-          'bg-blue-50 text-blue-700 border-blue-200',
-          'bg-emerald-50 text-emerald-700 border-emerald-200',
-          'bg-amber-50 text-amber-700 border-amber-200',
-          'bg-purple-50 text-purple-700 border-purple-200',
-          'bg-cyan-50 text-cyan-700 border-cyan-200',
-        ];
-        return (
-          <span key={ai} className={`px-2 py-0.5 rounded-md border text-xs font-medium ${colors[ai % colors.length]}`}>
-            {String(a)}
-          </span>
-        );
-      })}
-      {amenities.length > 5 && (
-        <span className="px-2 py-0.5 rounded-md border border-slate-200 text-xs text-slate-500 bg-slate-50">+{amenities.length - 5}</span>
-      )}
-    </div>
-  )}
+                        {displayAmenities.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 mb-3">
+                            {displayAmenities.map((a: any, ai: number) => {
+                              const colors = [
+                                'bg-blue-50 text-blue-700 border-blue-200',
+                                'bg-emerald-50 text-emerald-700 border-emerald-200',
+                                'bg-amber-50 text-amber-700 border-amber-200',
+                                'bg-purple-50 text-purple-700 border-purple-200',
+                                'bg-cyan-50 text-cyan-700 border-cyan-200',
+                              ];
+                              return (
+                                <span key={ai} className={`px-2 py-0.5 rounded-md border text-xs font-medium ${colors[ai % colors.length]}`}>
+                                  {String(a)}
+                                </span>
+                              );
+                            })}
+                            {amenities.length > 5 && (
+                              <span className="px-2 py-0.5 rounded-md border border-slate-200 text-xs text-slate-500 bg-slate-50">+{amenities.length - 5}</span>
+                            )}
+                          </div>
+                        )}
 
-  {/* Divider */}
-  <div className="border-t border-slate-200 mt-auto pt-3">
-    {/* WhatsApp, Call, View Details - ALL IN ONE LINE */}
-    <div className="flex items-center gap-2">
-      
-        <button className="flex-1 px-2 py-2.5 bg-[#0249a8] hover:bg-[#023a88] text-white text-xs font-semibold rounded-lg shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 flex items-center justify-center gap-1">
-        <span>Details</span>
-        <ArrowRight className="h-3 w-3" />
-      </button>
-      <button
-        onClick={(e) => { e.preventDefault(); e.stopPropagation(); onWhatsAppClick(property.whatsapp || '911234567890', propertyName, fullLocation); }}
-        className="flex-1 flex items-center justify-center gap-1 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 rounded-lg text-xs font-medium transition-all hover:scale-105"
-        title="WhatsApp"
-      >
-        <BsWhatsapp className="h-4 w-4" />
-        <span className="hidden sm:inline">WhatsApp</span>
-      </button>
-      
-      <button
-        onClick={(e) => { e.preventDefault(); e.stopPropagation(); onCallClick(property.phone || property.contact_number || '1234567890'); }}
-        className="flex-1 flex items-center justify-center gap-1 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-medium transition-all hover:scale-105"
-        title="Call"
-      >
-        <Phone className="h-4 w-4" />
-        <span className="hidden sm:inline">Call</span>
-      </button>
-      
-    
-    </div>
-  </div>
-</div>
+                        <div className="border-t border-slate-200 mt-auto pt-3">
+                          <div className="flex items-center gap-2">
+                            <Link href={`/properties/${property.slug || property.id}`} className="flex-1">
+                              <button className="w-full px-2 py-2.5 bg-[#0249a8] hover:bg-[#023a88] text-white text-xs font-semibold rounded-lg shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 flex items-center justify-center gap-1">
+                                <span>Details</span>
+                                <ArrowRight className="h-3 w-3" />
+                              </button>
+                            </Link>
+                            <button
+                              onClick={(e) => { e.preventDefault(); e.stopPropagation(); onWhatsAppClick(property.whatsapp || '911234567890', propertyName, fullLocation); }}
+                              className="flex-1 flex items-center justify-center gap-1 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 rounded-lg text-xs font-medium transition-all hover:scale-105"
+                              title="WhatsApp"
+                            >
+                              <BsWhatsapp className="h-4 w-4" />
+                              <span className="hidden sm:inline">WhatsApp</span>
+                            </button>
+                            
+                            <button
+                              onClick={(e) => { e.preventDefault(); e.stopPropagation(); onCallClick(property.phone || property.contact_number || '1234567890'); }}
+                              className="flex-1 flex items-center justify-center gap-1 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-medium transition-all hover:scale-105"
+                              title="Call"
+                            >
+                              <Phone className="h-4 w-4" />
+                              <span className="hidden sm:inline">Call</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </Link>
                 </CardScrollAnimation>
@@ -2009,9 +1998,173 @@ function PropertiesSection({ properties, allCount, loading, likedProperties, has
           </div>
         </ScrollAnimation>
       </div>
+
+      {/* Share Popup Modal - COMPACT WITH PROPERTY INFO */}
+      {sharePopup.isOpen && sharePopup.property && (() => {
+        const prop = sharePopup.property;
+        let propImages: string[] = [];
+        if (prop.photo_urls && Array.isArray(prop.photo_urls)) propImages = prop.photo_urls;
+        else if (prop.images && Array.isArray(prop.images)) propImages = prop.images;
+        else if (prop.photos && Array.isArray(prop.photos)) propImages = prop.photos;
+        else if (prop.image_urls && Array.isArray(prop.image_urls)) propImages = prop.image_urls;
+        
+        const propImage = propImages.length > 0 ? propImages[0] : 'https://images.pexels.com/photos/1643383/pexels-photo-1643383.jpeg?auto=compress&cs=tinysrgb&w=600';
+        const propName = prop.name || prop.property_name || 'Premium Property';
+        const propPrice = prop.starting_price || prop.price || prop.monthly_rent || prop.rent || 15000;
+        const propBeds = prop.total_beds || prop.beds_available || prop.beds || 10;
+        const propLocation = prop.address || prop.location || prop.area || 'Location';
+        
+        return (
+          <div 
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={closeSharePopup}
+          >
+            <div 
+              className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header with Property Image */}
+              <div className="relative h-40 bg-gradient-to-br from-[#0249a8] to-[#023a88]">
+                <img src={propImage} alt={propName} className="w-full h-full object-cover opacity-30" />
+                {/* <div className="absolute inset-0 bg-gradient-to-t from-[#0249a8] to-transparent" /> */}
+                
+                <button
+                  onClick={closeSharePopup}
+                  className="absolute top-3 right-3 h-8 w-8 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-sm flex items-center justify-center transition-all z-10"
+                >
+                  <X className="h-4 w-4 text-white" />
+                </button>
+                
+                <div className="absolute bottom-3 left-4 right-4">
+                  <div className="flex items-center justify-center mb-2">
+                    <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-white/20 backdrop-blur-sm">
+                      <Share2 className="h-6 w-6 text-white" />
+                    </div>
+                  </div>
+                  <h3 className="text-lg font-bold text-white text-center">Share</h3>
+                  <p className="text-blue-100 text-xs text-center">Share this amazing property</p>
+                </div>
+              </div>
+
+              {/* Property Info Card */}
+              <div className="px-4 py-3 bg-slate-50 border-b border-slate-200">
+                <div className="flex items-start gap-3">
+                  <div className="h-16 w-16 rounded-lg overflow-hidden flex-shrink-0">
+                    <img src={propImage} alt={propName} className="w-full h-full object-cover" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-bold text-sm text-slate-800 truncate">{propName}</h4>
+                    <div className="flex items-center gap-2 mt-1">
+                      <p className="text-[#0249a8] font-bold text-sm">₹{Number(propPrice).toLocaleString()}/mo</p>
+                      <span className="text-slate-400">•</span>
+                      <p className="text-xs text-slate-500">{propBeds} Beds</p>
+                    </div>
+                    <p className="text-xs text-slate-400 truncate mt-0.5">{propLocation}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="p-4">
+                {/* Copy Link */}
+                <div className="mb-4">
+                  <div className="flex items-center gap-2 bg-slate-50 rounded-lg p-2.5 border border-slate-200">
+                    <input
+                      type="text"
+                      readOnly
+                      value={`${typeof window !== 'undefined' ? window.location.origin : ''}/properties/${prop.slug || prop.id}`}
+                      className="flex-1 bg-transparent text-xs text-slate-600 outline-none truncate"
+                    />
+                    <button
+                      onClick={handleCopyLink}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0249a8] hover:bg-[#023a88] text-white rounded-md text-xs font-medium transition-all hover:scale-105 flex-shrink-0"
+                    >
+                      {copied ? (
+                        <>
+                          <Check className="h-3.5 w-3.5" />
+                          <span>Copied!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="h-3.5 w-3.5" />
+                          <span>Copy</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Social Share Buttons - 3 columns */}
+                <div className="grid grid-cols-3 gap-2.5">
+                  <button
+                    onClick={() => handleSocialShare('whatsapp')}
+                    className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-gradient-to-br from-emerald-50 to-green-50 hover:from-emerald-100 hover:to-green-100 border border-emerald-200 transition-all hover:scale-105 group"
+                  >
+                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow">
+                      <BsWhatsapp className="h-5 w-5 text-white" />
+                    </div>
+                    <span className="text-[10px] font-medium text-slate-700">WhatsApp</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleSocialShare('facebook')}
+                    className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 border border-blue-200 transition-all hover:scale-105 group"
+                  >
+                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow">
+                      <FaFacebookF className="h-5 w-5 text-white" />
+                    </div>
+                    <span className="text-[10px] font-medium text-slate-700">Facebook</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleSocialShare('twitter')}
+                    className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-gradient-to-br from-sky-50 to-blue-50 hover:from-sky-100 hover:to-blue-100 border border-sky-200 transition-all hover:scale-105 group"
+                  >
+                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-sky-500 to-blue-500 flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow">
+                      <FaTwitter className="h-5 w-5 text-white" />
+                    </div>
+                    <span className="text-[10px] font-medium text-slate-700">Twitter</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleSocialShare('linkedin')}
+                    className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-gradient-to-br from-blue-50 to-cyan-50 hover:from-blue-100 hover:to-cyan-100 border border-blue-300 transition-all hover:scale-105 group"
+                  >
+                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-700 to-cyan-700 flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow">
+                      <FaLinkedinIn className="h-5 w-5 text-white" />
+                    </div>
+                    <span className="text-[10px] font-medium text-slate-700">LinkedIn</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleSocialShare('telegram')}
+                    className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-gradient-to-br from-cyan-50 to-blue-50 hover:from-cyan-100 hover:to-blue-100 border border-cyan-200 transition-all hover:scale-105 group"
+                  >
+                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow">
+                      <FaTelegramPlane className="h-5 w-5 text-white" />
+                    </div>
+                    <span className="text-[10px] font-medium text-slate-700">Telegram</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleSocialShare('email')}
+                    className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-gradient-to-br from-slate-50 to-gray-50 hover:from-slate-100 hover:to-gray-100 border border-slate-200 transition-all hover:scale-105 group"
+                  >
+                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-slate-600 to-gray-700 flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow">
+                      <MdEmail className="h-5 w-5 text-white" />
+                    </div>
+                    <span className="text-[10px] font-medium text-slate-700">Email</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
-}// ═════════════════════════════════════════════════════════════════════════════
+}
+// ═════════════════════════════════════════════════════════════════════════════
 // ABOUT US SECTION - LUXURY STYLE WITH TABS
 // ═════════════════════════════════════════════════════════════════════════════
 function AboutUsSection() {
