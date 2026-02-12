@@ -1227,8 +1227,8 @@ const heroSlides = [
   {
     image: "https://images.pexels.com/photos/1457842/pexels-photo-1457842.jpeg?auto=compress&cs=tinysrgb&w=1920",
     badge: "500+ Happy Residents",
-    heading1: "Where Comfort Meets Community",
-    heading2: "",
+    heading1: "Where Comfort ",
+    heading2: "Meets Community",
     subtext: "Join hundreds of professionals and students who've found their perfect home with Roomac.",
   },
 ];
