@@ -41,7 +41,7 @@ export default function AboutStats({ stats, onAnimationComplete }: AboutStatsPro
                 <Card className="border-0 shadow-xl hover:shadow-2xl transition-all duration-500 group hover:-translate-y-2 overflow-hidden relative bg-white">
                   <CardContent className="p-4 md:p-4 text-center relative z-10">
                     {/* Icon Container - Beautiful gradients that turn white on hover */}
-                    <div className={`h-10 w-12 md:h-16 md:w-16 ${gradientClass} group-hover:bg-gradient-to-br group-hover:from-white group-hover:to-white rounded-full flex items-center justify-center mx-auto mb-1 group-hover:scale-110 transition-all duration-500 shadow-lg`}>
+                    <div className={`h-10 w-12 md:h-16 md:w-16 ${gradientClass} group-hover:bg-gradient-to-br group-hover:from-white group-hover:to-white rounded-full flex items-center justify-center mx-auto  group-hover:scale-110 transition-all duration-500 shadow-lg`}>
                       {/* Icon - White by default, turns blue (#0148ac) on hover */}
                       <Icon 
                         className="h-6 w-6 md:h-8 md:w-8 text-white group-hover:text-[#0148ac] transition-colors duration-500" 
@@ -50,7 +50,7 @@ export default function AboutStats({ stats, onAnimationComplete }: AboutStatsPro
                     </div>
                     
                     {/* Number - Turns white on hover */}
-                    <h3 className="text-3xl md:text-4xl font-bold text-slate-900 group-hover:text-white mb-2 transition-colors duration-500 font-serif">
+                    <h3 className="text-2xl md:text-4xl font-bold text-slate-900 group-hover:text-white mb-2 transition-colors duration-500 font-serif">
                       {stat.number}
                     </h3>
                     
@@ -61,7 +61,7 @@ export default function AboutStats({ stats, onAnimationComplete }: AboutStatsPro
                     
                     {/* Gold/Yellow underline (#f9bf0f) - appears on hover */}
                     <div 
-                      className="w-16 h-0.5 bg-[#f9bf0f] mx-auto mt-3 opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+                      className="w-16 h-0.5 bg-[#f9bf0f] mx-auto  opacity-0 group-hover:opacity-100 transition-opacity duration-500"
                     />
                   </CardContent>
                   

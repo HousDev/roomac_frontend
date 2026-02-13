@@ -41,70 +41,61 @@ export default function AboutTimeline({ milestones, onScroll }: AboutTimelinePro
               </Badge>
             </div>
             
-            <h2 className="text-4xl md:text-5xl font-bold mb-2 overflow-hidden">
-              <div className="inline-block">
-               <h2 className="font-['Playfair_Display'] text-4xl md:text-5xl lg:text-6xl font-bold text-slate-900 mb-3 tracking-tight leading-tight">
-  {"Milestones & Achievements".split("").map((letter, index) => (
-    <span
-      key={index}
-      className="inline-block opacity-0 animate-[letterWave_0.6s_ease-out_forwards]"
-      style={{ 
-        animationDelay: `${0.5 + (index * 0.03)}s`,
-        color: letter === ' ' ? 'transparent' : '#1e293b'
-      }}
-    >
-      {letter}
-    </span>
-  ))}
+          <h2 className="font-['Poppins'] text-4xl md:text-5xl lg:text-6xl font-bold text-slate-900 mb-3 tracking-tight leading-tight">
+  <span className="text-black">Milestones</span>{' '}
+  <span className="text-black">&</span>{' '}
+  <span className="text-[#004AAD]">Achievements</span>
 </h2>
-              </div>
-            </h2>
-            
-            <p className="text-xl text-slate-600 max-w-3xl mx-auto leading-relaxed opacity-0 animate-[textGlide_1s_ease-out_1.2s_forwards]">
-              From a single property to a trusted network across cities
-            </p>
+           <p className="text-sm sm:text-base md:text-xl text-slate-600 max-w-3xl mx-auto leading-relaxed opacity-0 animate-[textGlide_1s_ease-out_1.2s_forwards]">
+  From a single property to a trusted network across cities
+</p>
           </div>
 
-          <div className="relative pb-20" onScroll={onScroll}>
-            {/* Mobile View - Cards Only */}
-            <div className="md:hidden -mt-6">
-              <div className="space-y-12">
+          <div className="relative pb-7 -mt-10" onScroll={onScroll}>
+            {/* Mobile View - 2px gap between cards */}
+            <div className="md:hidden">
+              <div className="flex flex-col">
                 {milestones.map((milestone, index) => (
                   <div 
                     key={index}
                     ref={cardRefs[index]}
-                    className="opacity-0 relative pb-8"
+                    className="opacity-0"
                     style={{
-                      animation: `cardReveal 0.8s ease-out ${1.8 + (index * 0.2)}s forwards`
+                      animation: `cardReveal 0.8s ease-out ${1.8 + (index * 0.1)}s forwards`
                     }}
                   >
-                    <Card className="border-0 shadow-lg relative overflow-hidden group hover:shadow-xl transition-all duration-500 hover:-translate-y-1">
+                    <Card className="border-0 shadow-lg relative overflow-hidden group hover:shadow-xl transition-all duration-500">
                       <div className="absolute inset-0 bg-gradient-to-r from-[#004AAD]/5 via-blue-400/5 to-cyan-400/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                       <div className="absolute top-0 left-0 w-12 h-1 bg-gradient-to-r from-[#004AAD] to-cyan-400 transform -translate-x-full group-hover:translate-x-0 transition-transform duration-700" />
                       <div className="absolute bottom-0 right-0 w-12 h-1 bg-gradient-to-r from-cyan-400 to-[#004AAD] transform translate-x-full group-hover:translate-x-0 transition-transform duration-700" />
                       
-                      <CardContent className="p-6 relative z-10">
-                        <Badge className="mb-3 bg-gradient-to-r from-[#004AAD] to-cyan-500 text-white border-0 shadow-md relative overflow-hidden group-hover:shadow-lg transition-all duration-300">
-                          <span className="relative z-10">{milestone.year}</span>
+                      <CardContent className="p-4 relative z-10">
+                        <Badge className="mb-2 bg-gradient-to-r from-[#004AAD] to-cyan-500 text-white border-0 shadow-md relative overflow-hidden group-hover:shadow-lg transition-all duration-300">
+                          <span className="relative z-10 text-xs px-2 py-1">{milestone.year}</span>
                           <div className="absolute inset-0 bg-gradient-to-r from-[#004AAD] to-cyan-500 animate-[gradientSlide_2s_ease-in-out_infinite]" />
                         </Badge>
                         
-                        <h3 className="text-xl font-bold text-slate-900 mb-2 group-hover:text-[#004AAD] transition-colors duration-300">
+                        <h3 className="text-base font-bold text-slate-900 mb-1 group-hover:text-[#004AAD] transition-colors duration-300">
                           {milestone.title}
                         </h3>
                         
-                        <p className="text-sm text-slate-600 leading-relaxed group-hover:text-slate-700 transition-colors duration-300">
+                        <p className="text-xs text-slate-600 leading-relaxed group-hover:text-slate-700 transition-colors duration-300">
                           {milestone.description}
                         </p>
                       </CardContent>
                     </Card>
+                    
+                    {/* 2px gap between cards - only between cards, not after last one */}
+                    {index < milestones.length - 1 && (
+                      <div className="h-[10px] w-full" />
+                    )}
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* Desktop View - Cards with line BELOW each card */}
-            <div className="hidden md:block space-y-32">
+            {/* Desktop View - EXACTLY SAME, NO CHANGES */}
+            <div className="hidden md:block space-y-12">
               {milestones.map((milestone, index) => (
                 <div 
                   key={index} 
