@@ -2,40 +2,113 @@
 
 import { Badge } from '@/components/ui/badge';
 import { Sparkles } from 'lucide-react';
+import { Breadcrumb } from '@/components/ui/breadcrumb';
+import { Button } from '@/components/ui/button';
+import { useEffect, useState } from 'react';
 
 export default function AboutHeader() {
-  return (
-    <section className="relative overflow-hidden bg-gradient-to-br from-blue-200 via-[#cfdbea] text-white py-10">       
-      <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10" />
-      <div className="absolute top-0 right-0 w-96 h-96 bg-cyan-200 rounded-full blur-3xl opacity-20 animate-pulse animate-infinite animate-duration-[3000ms]" />
-      <div className="absolute bottom-0 left-0 w-96 h-96 bg-blue-400 rounded-full blur-3xl opacity-20 animate-pulse animate-infinite animate-duration-[4000ms] animate-delay-1000" />
+  const [bgImage, setBgImage] = useState('');
 
-      <div className="container mx-auto px-4 relative ">
-  <div className="max-w-4xl mx-auto text-center">
-    <Badge className="mb-4 bg-white backdrop-blur-md border-white/30 text-blue-400 hover:text-white px-4 py-1.5 text-xs sm:text-sm opacity-0 animate-[popIn_0.6s_ease-out_0.2s_forwards] hover:scale-105 transition-transform duration-300">
-      <Sparkles className="h-3 w-3 mr-1 animate-spin animate-infinite animate-duration-[2000ms]" />
-      Trusted by 500+ Residents
-    </Badge>
+  // DATA FROM YOUR image.png
+  const headerData = {
+    title: "About ROOMAC",
+    description: "Redefining co-living with premium comfort, personalized care, and quality accommodation.We create spaces where you don't just live — you belong..",
+    badgeText: "Trusted by 500+ Residents",
     
-    <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl text-black font-bold mb-4 leading-tight tracking-tight">
-      <div className="inline-block overflow-hidden whitespace-nowrap">
-        <span className="inline-block animate-[typewriter_2.5s_steps(11,end)_forwards_0.5s]">
-          About ROOMAC
-        </span>
+  };
+
+  useEffect(() => {
+   const images = [
+  'https://images.unsplash.com/photo-1590490360182-c33d57733427?q=80&w=2074&auto=format&fit=crop'
+];
+
+    
+    const randomImage = images[Math.floor(Math.random() * images.length)];
+    setBgImage(randomImage);
+  }, []);
+
+  return (
+    <section className="relative overflow-hidden py-16 md:py-20 lg:py-24">
+      <div 
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+        style={{
+          backgroundImage: `url('${bgImage}')`,
+          boxShadow: 'inset 0 0 0 1000px rgba(0,0,0,0.75)',
+          backgroundBlendMode: 'overlay'
+        }}
+      />
+      
+      <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1IiBoZWlnaHQ9IjUiPgo8cmVjdCB3aWR0aD0iNSIgaGVpZ2h0PSI1IiBmaWxsPSIjZmZmZmZmIj48L3JlY3Q+CjxwYXRoIGQ9Ik0wIDVMNSAwWk02IDRMNCA2Wk0tMSAxTDEgLVoiIHN0cm9rZT0iI2RkZGRkZCIgc3Ryb2tlLXdpZHRoPSIxIj48L3BhdGg+Cjwvc3ZnPg==')] opacity-5 z-15" />
+      
+      <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10 z-10" />
+      
+    
+      <div className="container mx-auto px-4 relative z-30">
+        <div className="max-w-4xl mx-auto text-center">
+          
+         
+
+          <Badge className="mb-4 bg-white/10 backdrop-blur-md border-white/30 text-white hover:bg-white/20 px-4 py-1.5 text-xs sm:text-sm opacity-0 animate-[popIn_0.6s_ease-out_0.2s_forwards] hover:scale-105 transition-transform duration-300">
+            <Sparkles className="h-3 w-3 mr-1 animate-spin animate-infinite animate-duration-[2000ms]" />
+            {headerData.badgeText}
+          </Badge>
+          
+          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl text-white font-bold mb-4 leading-tight tracking-tight">
+            <div className="inline-block overflow-hidden">
+              <span className="inline-block animate-[typewriter_2.5s_steps(20,end)_forwards_0.5s] border-r-4 border-white pr-2 whitespace-nowrap">
+                {headerData.title}
+              </span>
+            </div>
+          </h1>
+          
+          {/* Description */}
+          <p className="text-sm sm:text-base md:text-lg text-white/90 mb-6 leading-relaxed max-w-3xl mx-auto">
+            {headerData.description}
+            <span className="block mt-4 text-base sm:text-lg md:text-xl font-bold text-white leading-tight">
+              We create spaces where you don't just live — you belong.
+            </span>
+          </p>
+
+         
+        
+        </div>
       </div>
-    </h1>
-    
-    <p className="text-sm sm:text-base md:text-lg lg:text-xl text-slate-600 mb-2 leading-relaxed max-w-3xl mx-auto ">
-      Redefining co-living with premium comfort, personalized care, and quality accommodation. 
-      <span className="block mt-3 text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-slate-900 leading-tight">
-        We create spaces where you don't just live — you belong.
-      </span>
-    </p>
-  </div>
-</div>
+
       <div className="hidden">
         <style>
-          {`@keyframes popIn {0%{opacity:0;transform:scale(0.8) translateY(-20px);}80%{transform:scale(1.05);}100%{opacity:1;transform:scale(1) translateY(0);}}@keyframes typewriter {from{width:0;}to{width:100%;}}@keyframes fadeUp {from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);}}`}
+          {`@keyframes popIn {
+              0% {
+                opacity: 0;
+                transform: scale(0.8) translateY(-20px);
+              }
+              80% {
+                transform: scale(1.05);
+              }
+              100% {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+              }
+            }
+            
+            @keyframes typewriter {
+              from {
+                width: 0;
+              }
+              to {
+                width: 100%;
+              }
+            }
+            
+            @keyframes fadeUp {
+              from {
+                opacity: 0;
+                transform: translateY(20px);
+              }
+              to {
+                opacity: 1;
+                transform: translateY(0);
+              }
+            }`}
         </style>
       </div>
     </section>
