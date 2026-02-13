@@ -603,7 +603,7 @@ const BookingModal = memo(function BookingModal({
         bookingStatus: paymentStatus === "paid" ? "confirmed" : "pending",
       };
 
-      const response = await fetch('http://localhost:3001/api/bookings', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/bookings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(bookingData),
