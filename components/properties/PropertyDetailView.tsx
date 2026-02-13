@@ -48,6 +48,7 @@ const PropertyDetailView = memo(function PropertyDetailView({ propertyData, offe
   // New states for share modal
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [showCopyMessage, setShowCopyMessage] = useState(false);
+   const [preselectedRoomId, setPreselectedRoomId] = useState<number | undefined>(undefined); // ADD 
 
   // Set isClient to true when component mounts on client side
   useEffect(() => {
@@ -223,13 +224,24 @@ const PropertyDetailView = memo(function PropertyDetailView({ propertyData, offe
         >
           <Share2 className="w-5 h-5" />
         </button>
-        <button
+        {/* <button
           onClick={() => setIsBookingModalOpen(true)}
+          
           className="bg-gradient-to-r from-violet-600 to-purple-600 text-white p-3 md:p-4 rounded-full shadow-2xl hover:shadow-3xl transition-all transform hover:-translate-y-0.5 md:hover:-translate-y-1 animate-pulse"
           title="Book Now"
         >
           <CalendarDays className="w-5 h-5" />
-        </button>
+        </button> */}
+        <button
+  onClick={() => {
+    setPreselectedRoomId(undefined); // Clear preselected room for general booking
+    setIsBookingModalOpen(true);
+  }}
+  className="bg-gradient-to-r from-violet-600 to-purple-600 text-white p-3 md:p-4 rounded-full shadow-2xl hover:shadow-3xl transition-all transform hover:-translate-y-0.5 md:hover:-translate-y-1 animate-pulse"
+  title="Book Now"
+>
+  <CalendarDays className="w-5 h-5" />
+</button>
       </div>
 
       {/* Share Modal - Like the image */}
@@ -1115,7 +1127,7 @@ const PropertyDetailView = memo(function PropertyDetailView({ propertyData, offe
                         </li>
                       ))}
                     </ul>
-                    <button
+                    {/* <button
                       onClick={() => {
                         setIsBookingModalOpen(true);
                         setBookingType('long');
@@ -1126,7 +1138,20 @@ const PropertyDetailView = memo(function PropertyDetailView({ propertyData, offe
                         }`}
                     >
                       Select Plan
-                    </button>
+                    </button> */}
+                    <button
+  onClick={() => {
+    setPreselectedRoomId(undefined); // Clear preselected room for plan selection
+    setIsBookingModalOpen(true);
+    setBookingType('long');
+  }}
+  className={`w-full py-2 md:py-3 rounded-lg md:rounded-xl font-bold text-xs md:text-sm transition-all hover:shadow ${plan.recommended
+      ? 'bg-gradient-to-r from-blue-600 to-blue-600 text-white'
+      : 'bg-gradient-to-r from-gray-700 to-gray-800 text-white'
+    }`}
+>
+  Select Plan
+</button>
                   </div>
                 ))}
               </div>
@@ -1134,7 +1159,7 @@ const PropertyDetailView = memo(function PropertyDetailView({ propertyData, offe
               <div className="mt-3 md:mt-6 pt-3 md:pt-6 border-t border-gray-200">
                 <div className="text-center">
                   <p className="text-xs md:text-sm text-gray-600 font-semibold mb-1.5 md:mb-2">Looking for short stay?</p>
-                  <button
+                  {/* <button
                     onClick={() => {
                       setIsBookingModalOpen(true);
                       setBookingType('short');
@@ -1142,7 +1167,17 @@ const PropertyDetailView = memo(function PropertyDetailView({ propertyData, offe
                     className="w-full py-2 md:py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-lg md:rounded-xl font-bold hover:shadow-lg transition-all text-xs md:text-sm"
                   >
                     Book Short Stay @ ₹{propertyData.dailyRate}/day
-                  </button>
+                  </button> */}
+                  <button
+  onClick={() => {
+    setPreselectedRoomId(undefined); // Clear preselected room for short stay
+    setIsBookingModalOpen(true);
+    setBookingType('short');
+  }}
+  className="w-full py-2 md:py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-lg md:rounded-xl font-bold hover:shadow-lg transition-all text-xs md:text-sm"
+>
+  Book Short Stay @ ₹{propertyData.dailyRate}/day
+</button>
                 </div>
               </div>
             </div>
@@ -1287,18 +1322,20 @@ const PropertyDetailView = memo(function PropertyDetailView({ propertyData, offe
                                  'Fully Occupied'}
                               </span>
                               <button
-                                onClick={() => {
-                                  setIsBookingModalOpen(true);
-                                  setShowAllRooms(false);
-                                }}
-                                className={`px-2.5 md:px-4 py-1 md:py-2 rounded md:rounded-lg text-xs md:text-sm font-bold ${room.status === 'available' || room.status === 'partially-available'
-                                    ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white hover:shadow md:hover:shadow-lg'
-                                    : 'bg-gradient-to-r from-gray-600 to-gray-800 text-white hover:shadow md:hover:shadow-lg'
-                                  }`}
-                                disabled={room.status === 'occupied'}
-                              >
-                                {room.status === 'available' || room.status === 'partially-available' ? 'Book Now' : 'Occupied'}
-                              </button>
+  onClick={() => {
+    setPreselectedRoomId(room.id); // Set the selected room ID
+    setIsBookingModalOpen(true);
+    setShowAllRooms(false);
+  }}
+  className={`px-2.5 md:px-4 py-1 md:py-2 rounded md:rounded-lg text-xs md:text-sm font-bold ${
+    room.status === 'available' || room.status === 'partially-available'
+      ? 'bg-gradient-to-r from-emerald-600 to-teal-900 text-white hover:shadow md:hover:shadow-lg'
+      : 'bg-gradient-to-r from-gray-600 to-gray-800 text-white hover:shadow md:hover:shadow-lg'
+  }`}
+  disabled={room.status === 'occupied'}
+>
+  {room.status === 'available' || room.status === 'partially-available' ? 'Book Now' : 'Occupied'}
+</button>
                             </div>
                           </div>
                         ))}
@@ -1313,16 +1350,19 @@ const PropertyDetailView = memo(function PropertyDetailView({ propertyData, offe
       )}
 
       {/* Booking Modal */}
-      <BookingModal
-        isOpen={isBookingModalOpen}
-        onClose={() => {
-          setIsBookingModalOpen(false);
-          setBookingType('long');
-        }}
-        bookingType={bookingType}
-        setBookingType={setBookingType}
-        propertyData={propertyData}
-      />
+      {/* Booking Modal */}
+<BookingModal
+  isOpen={isBookingModalOpen}
+  onClose={() => {
+    setIsBookingModalOpen(false);
+    setBookingType('long');
+    setPreselectedRoomId(undefined); // Clear preselected room when closing
+  }}
+  bookingType={bookingType}
+  setBookingType={setBookingType}
+  propertyData={propertyData}
+  preselectedRoomId={preselectedRoomId} // Pass the preselected room ID
+/>
     </div>
   );
 });

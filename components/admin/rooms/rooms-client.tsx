@@ -1390,7 +1390,7 @@ const handleBulkActionComplete = useCallback((updatedRooms?: RoomResponse[]) => 
 
       {/* Main Content Card */}
       <Card className="border shadow-sm max-h-[80vh] overflow-y-auto relative">
-        <CardHeader className="hidden sm:block bg-blue-500 border-b p-4 sticky top-0 z-10">
+        <CardHeader className="hidden sm:block bg-blue-500 border-b p-4 sticky top-0 z-50">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             {/* Left side: Search and Bulk Actions */}
             <div className="flex items-center gap-3 flex-1">

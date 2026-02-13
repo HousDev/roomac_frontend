@@ -469,7 +469,7 @@ const RoomCard = memo(({
         <Checkbox
           checked={isSelected}
           onCheckedChange={(checked) => onSelect(checked as boolean)}
-          className="h-5 w-5 bg-white border-2 border-gray-300 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
+          className="h-5 w-5  bg-white border-2 border-gray-300 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
         />
       </div>
 
@@ -477,6 +477,7 @@ const RoomCard = memo(({
       <div className="relative h-40 overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200">
         <img
           src={imageUrl || " "}
+
           alt={`Room ${room.room_number}`}
           className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
           onError={(e) => {

@@ -328,6 +328,7 @@ export interface BedAssignment {
 }
 
 export type RoomResponse = {
+  is_available: unknown;
   id: number;
   property_id: number;
   property_name: string;
@@ -545,7 +546,7 @@ export function getMediaUrl(url: string, type = 'photo') {
   }
   
   // Use the correct base URL (from your photo URLs)
-  const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001';
+  const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
   
   // Remove leading slash if present
   if (url.startsWith('/')) {
