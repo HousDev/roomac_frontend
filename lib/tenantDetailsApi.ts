@@ -592,59 +592,7 @@ export const tenantDetailsApi = {
     }
   },
 
-  // async loadProfile() {
-  //   try {
-  //     console.log('🚀 Starting profile load...');
-
-  //     const tenantId = getTenantId();
-  //     const token = getTenantToken();
-
-  //     console.log('🔑 Tenant ID:', tenantId);
-
-  //     if (!tenantId) {
-  //       throw new Error('No tenant ID found');
-  //     }
-
-  //     // First try authenticated endpoint
-  //     try {
-  //       console.log('🔍 Trying authenticated profile endpoint...');
-  //       const result = await this.getProfile();
-  //       console.log('✅ Profile loaded via authenticated endpoint');
-  //       return result;
-  //     } catch (authError) {
-  //       console.log('⚠️ Authenticated endpoint failed, trying ID-based endpoint...');
-        
-  //       // Fallback to ID-based endpoint
-  //       try {
-  //         const result = await this.getProfileById(tenantId);
-  //         console.log('✅ Profile loaded via ID-based endpoint');
-  //         return result;
-  //       } catch (idError) {
-  //         console.error('❌ Both endpoints failed:', idError);
-  //         throw new Error('Failed to load profile');
-  //       }
-  //     }
-  //   } catch (error: any) {
-  //     console.error('❌ Failed to load profile:', error);
-      
-  //     // Handle 401 specifically
-  //     if (error.message?.includes('401') || error.message?.includes('Session expired')) {
-  //       // Clear tokens and redirect
-  //       localStorage.removeItem("tenant_token");
-  //       localStorage.removeItem("tenant_id");
-  //       localStorage.removeItem("tenant_logged_in");
-        
-  //       // Show toast and redirect after delay
-  //       setTimeout(() => {
-  //         if (typeof window !== 'undefined') {
-  //           window.location.href = '/tenant/login';
-  //         }
-  //       }, 2000);
-  //     }
-      
-  //     throw error;
-  //   }
-  // }
+  
 
   // Update the loadProfile function in tenantDetailsApi
 async loadProfile() {

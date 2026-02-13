@@ -17,7 +17,7 @@ interface AboutValuesProps {
 
 export default function AboutValues({ values, onHover }: AboutValuesProps) {
   return (
-   <section className="py-8 relative overflow-hidden">
+   <section className="py-2 relative overflow-hidden">
   <div className="absolute inset-0 overflow-hidden">
     <div className="absolute top-20 left-10 w-32 h-32 bg-gradient-to-br from-blue-500/5 to-cyan-400/5 rounded-full animate-[float_8s_ease-in-out_infinite] blur-sm" />
     <div className="absolute bottom-20 right-10 w-24 h-24 bg-gradient-to-br from-blue-400/5 to-white/10 rounded-full animate-[float_10s_ease-in-out_infinite_reverse_2s] blur-sm" />
@@ -103,9 +103,9 @@ export default function AboutValues({ values, onHover }: AboutValuesProps) {
         })}
       </div>
 
-      <div className="mt-10 md:mt-16 text-center overflow-hidden">
+      <div className="mt-4 md:mt-16 text-center overflow-hidden">
         <div 
-          className="inline-flex items-center gap-4 bg-white/20 backdrop-blur-sm px-6 py-3 md:px-8 md:py-4 rounded-2xl border border-white/40 shadow-lg opacity-0 scale-95 animate-[zoomIn_0.8s_ease-out_forwards]"
+          className="inline-flex items-center gap-4 bg-white/20 backdrop-blur-sm px-6 py-3 md:px-8 md:py-4 rounded-2xl  border-white/40  opacity-0 scale-95 animate-[zoomIn_0.8s_ease-out_forwards]"
           style={{ animationDelay: '2.5s' }}
         >
           <div className="h-5 w-5 md:h-6 md:w-6 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-full flex items-center justify-center animate-[zoomPulse_2s_ease-in-out_infinite]">

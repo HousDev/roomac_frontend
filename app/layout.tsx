@@ -22,11 +22,11 @@ export default function RootLayout() {
 
   return (
     <div>
-    <div className={poppins.className}>
-      {!isAdminRoute && !isTenantRoute && <Header />}
-      <main className="min-h-screen"><Outlet /></main>
-      {!isAdminRoute && !isTenantRoute && <Footer />}
-    </div>
+      <div className={poppins.className}>
+        {!isAdminRoute && !isTenantRoute && <Header />}
+        <main className="min-h-screen"><Outlet /></main>
+        {!isAdminRoute && !isTenantRoute && <Footer />}
+      </div>
     </div>
   );
 }

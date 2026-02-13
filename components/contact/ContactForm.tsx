@@ -130,7 +130,7 @@ export default function ContactForm({ initialData, properties = [] }: ContactFor
       }
 
       // Map contact form data to enquiry API format
-      const enquiryData: CreateEnquiryPayload = {
+      const enquiryData: any = {
         property_id: formData.propertyInterest,
         property_name: selectedProperty?.name || 'Property Inquiry',
         tenant_name: formData.name,
@@ -225,17 +225,27 @@ export default function ContactForm({ initialData, properties = [] }: ContactFor
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="phone" className="text-xs font-medium">Phone Number *</Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  required
-                  placeholder="9876543210"
-                  value={formData.phone}
-                  onChange={(e) => handleInputChange('phone', e.target.value)}
-                  className="h-10 text-sm"
-                />
-              </div>
+  <Label htmlFor="phone" className="text-xs font-medium">
+    Phone Number *
+  </Label>
+
+  <Input
+    id="phone"
+    type="tel"
+    required
+    placeholder="9876543210"
+    value={formData.phone}
+    maxLength={10}   // prevents typing more than 10 digits
+    onChange={(e) => {
+      const value = e.target.value.replace(/\D/g, ""); // allow only numbers
+      if (value.length <= 10) {
+        handleInputChange("phone", value);
+      }
+    }}
+    className="h-10 text-sm"
+  />
+</div>
+
             </div>
 
             <div className="space-y-1.5">
@@ -294,19 +304,35 @@ export default function ContactForm({ initialData, properties = [] }: ContactFor
                 <p className="text-xs text-gray-500">When would you like to move in?</p>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="budget" className="text-xs font-medium flex items-center gap-1">
-                  <IndianRupee className="h-3 w-3" />
-                  Budget Range
-                </Label>
-                <Input
-                  id="budget"
-                  placeholder="e.g. 8000-12000"
-                  value={formData.budgetRange || ''}
-                  onChange={(e) => handleInputChange('budgetRange', e.target.value)}
-                  className="h-10 text-sm"
-                />
-                <p className="text-xs text-gray-500">Monthly rent budget</p>
-              </div>
+  <Label
+    htmlFor="budget"
+    className="text-xs font-medium flex items-center gap-1"
+  >
+    <IndianRupee className="h-3 w-3" />
+    Budget Range
+  </Label>
+
+  <Select
+    value={formData.budgetRange}
+    onValueChange={(value) => handleInputChange('budgetRange', value)}
+  >
+    <SelectTrigger className="h-10 text-sm">
+      <SelectValue placeholder="Select your budget range" />
+    </SelectTrigger>
+
+    <SelectContent>
+      <SelectItem value="below-5000">Below ₹5,000</SelectItem>
+      <SelectItem value="5000-8000">₹5,000 – ₹8,000</SelectItem>
+      <SelectItem value="8000-12000">₹8,000 – ₹12,000</SelectItem>
+      <SelectItem value="12000-18000">₹12,000 – ₹18,000</SelectItem>
+      <SelectItem value="18000-25000">₹18,000 – ₹25,000</SelectItem>
+      <SelectItem value="25000+">Above ₹25,000</SelectItem>
+    </SelectContent>
+  </Select>
+
+  <p className="text-xs text-gray-500">Monthly rent budget</p>
+</div>
+
             </div>
 
             <div className="space-y-1.5">

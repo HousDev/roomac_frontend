@@ -11,7 +11,7 @@ import {
   Tv, Thermometer, Droplets, Volume2, Lock, Bell, Cloud, Sun, Moon,
   Battery, Radio, Router, Bath, Car, Building, AlertCircle, FileCheck,
   ThumbsUp, TrendingUp, Award, SlidersHorizontal, ArrowRight, ChevronDown,
-  Maximize2, Coffee as CoffeeIcon, Bath as BathIcon, Coffee
+  Maximize2, Coffee as CoffeeIcon, Bath as BathIcon, Coffee, Link2, CheckCircle
 } from 'lucide-react';
 import BookingModal from './BookingModal';
 
@@ -44,6 +44,11 @@ const PropertyDetailView = memo(function PropertyDetailView({ propertyData, offe
   const [availabilityFilter, setAvailabilityFilter] = useState('all');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [isClient, setIsClient] = useState(false);
+  
+  // New states for share modal
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [showCopyMessage, setShowCopyMessage] = useState(false);
+   const [preselectedRoomId, setPreselectedRoomId] = useState<number | undefined>(undefined); // ADD 
 
   // Set isClient to true when component mounts on client side
   useEffect(() => {
@@ -51,10 +56,14 @@ const PropertyDetailView = memo(function PropertyDetailView({ propertyData, offe
   }, []);
 
   const handleShare = useCallback(() => {
+    setIsShareModalOpen(true);
+  }, []);
+
+  const copyShareLink = useCallback(() => {
     if (isClient) {
       navigator.clipboard.writeText(window.location.href);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setShowCopyMessage(true);
+      setTimeout(() => setShowCopyMessage(false), 3000);
     }
   }, [isClient]);
 
@@ -215,15 +224,160 @@ const PropertyDetailView = memo(function PropertyDetailView({ propertyData, offe
         >
           <Share2 className="w-5 h-5" />
         </button>
-        <button
+        {/* <button
           onClick={() => setIsBookingModalOpen(true)}
+          
           className="bg-gradient-to-r from-violet-600 to-purple-600 text-white p-3 md:p-4 rounded-full shadow-2xl hover:shadow-3xl transition-all transform hover:-translate-y-0.5 md:hover:-translate-y-1 animate-pulse"
           title="Book Now"
         >
           <CalendarDays className="w-5 h-5" />
+        </button> */}
+        <button
+  onClick={() => {
+    setPreselectedRoomId(undefined); // Clear preselected room for general booking
+    setIsBookingModalOpen(true);
+  }}
+  className="bg-gradient-to-r from-violet-600 to-purple-600 text-white p-3 md:p-4 rounded-full shadow-2xl hover:shadow-3xl transition-all transform hover:-translate-y-0.5 md:hover:-translate-y-1 animate-pulse"
+  title="Book Now"
+>
+  <CalendarDays className="w-5 h-5" />
+</button>
+      </div>
+
+      {/* Share Modal - Like the image */}
+     {isShareModalOpen && (
+  <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div className="bg-white rounded-xl w-full max-w-sm shadow-xl animate-in fade-in zoom-in duration-200">
+      {/* Header */}
+      <div className="flex items-center justify-between p-4 border-b border-gray-100">
+        <h3 className="text-sm font-semibold text-gray-900">Share Property</h3>
+        <button
+          onClick={() => setIsShareModalOpen(false)}
+          className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+        >
+          <X className="w-4 h-4 text-gray-500" />
         </button>
       </div>
 
+      {/* Share Options */}
+      <div className="p-4">
+        <div className="grid grid-cols-4 gap-2">
+          {/* WhatsApp */}
+          <a
+            href={`https://wa.me/?text=${encodeURIComponent(`Check out this property: ${propertyData.name} - ${propertyData.location}\n${isClient ? window.location.href : ''}`)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex flex-col items-center gap-1 p-2 hover:bg-gray-50 rounded-lg transition-all group"
+          >
+            <div className="w-10 h-10 bg-[#25D366]/10 rounded-lg flex items-center justify-center group-hover:scale-105 transition-transform">
+              <svg className="w-8 h-8 text-[#25D366]" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 2.08.57 4.03 1.56 5.71L2.2 21.44l3.96-1.31c1.63.89 3.49 1.4 5.47 1.4 5.46 0 9.91-4.45 9.91-9.91S17.5 2 12.04 2zm.01 18.05c-1.7 0-3.36-.46-4.8-1.32l-.34-.2-2.55.84.85-2.48-.22-.35c-.86-1.44-1.32-3.1-1.32-4.8 0-4.63 3.77-8.4 8.4-8.4s8.4 3.77 8.4 8.4-3.77 8.4-8.4 8.4z"/>
+                <path d="M16.23 13.44c-.23-.12-1.36-.67-1.57-.75-.21-.08-.37-.12-.52.12s-.6.75-.73.9c-.13.15-.27.17-.5.06-.23-.12-.97-.36-1.85-1.14-.68-.61-1.14-1.36-1.28-1.59-.13-.23-.01-.35.1-.46.1-.1.23-.27.34-.4.11-.14.15-.23.22-.38.07-.15.04-.29-.02-.4-.06-.12-.52-1.25-.71-1.71-.19-.46-.38-.38-.52-.39h-.44c-.15 0-.39.06-.6.28-.21.22-.8.78-.8 1.91s.82 2.22.94 2.37c.12.15 1.62 2.48 3.93 3.47.55.24.98.38 1.31.48.55.17 1.05.14 1.45.08.44-.06 1.36-.56 1.55-1.1.19-.54.19-1 .13-1.1-.06-.1-.23-.16-.47-.28z"/>
+              </svg>
+            </div>
+            <span className="text-[10px] font-medium text-gray-600">WhatsApp</span>
+          </a>
+
+          {/* Facebook */}
+          <a
+            href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(isClient ? window.location.href : '')}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex flex-col items-center gap-1 p-2 hover:bg-gray-50 rounded-lg transition-all group"
+          >
+            <div className="w-10 h-10 bg-[#4267B2]/10 rounded-lg flex items-center justify-center group-hover:scale-105 transition-transform">
+              <svg className="w-8 h-8 text-[#4267B2]" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M22 12c0-5.52-4.48-10-10-10S2 6.48 2 12c0 4.84 3.44 8.87 8 9.8V15H8v-3h2V9.5C10 7.57 11.57 6 13.5 6H16v3h-2c-.55 0-1 .45-1 1v2h3v3h-3v6.95c5.05-.5 9-4.76 9-9.95z"/>
+              </svg>
+            </div>
+            <span className="text-[10px] font-medium text-gray-600">Facebook</span>
+          </a>
+
+          {/* Twitter (X) */}
+          <a
+            href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`Check out this property: ${propertyData.name} - ${propertyData.location}`)}&url=${encodeURIComponent(isClient ? window.location.href : '')}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex flex-col items-center gap-1 p-2 hover:bg-gray-50 rounded-lg transition-all group"
+          >
+            <div className="w-10 h-10 bg-black/10 rounded-lg flex items-center justify-center group-hover:scale-105 transition-transform">
+              <svg className="w-4 h-4 text-black" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+              </svg>
+            </div>
+            <span className="text-[10px] font-medium text-gray-600">X</span>
+          </a>
+
+          {/* LinkedIn */}
+          <a
+            href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(isClient ? window.location.href : '')}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex flex-col items-center gap-1 p-2 hover:bg-gray-50 rounded-lg transition-all group"
+          >
+            <div className="w-10 h-10 bg-[#0A66C2]/10 rounded-lg flex items-center justify-center group-hover:scale-105 transition-transform">
+              <svg className="w-8 h-8 text-[#0A66C2]" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451c.979 0 1.771-.773 1.771-1.729V1.729C24 .774 23.204 0 22.225 0z"/>
+              </svg>
+            </div>
+            <span className="text-[10px] font-medium text-gray-600">LinkedIn</span>
+          </a>
+
+          {/* Telegram */}
+          <a
+            href={`https://t.me/share/url?url=${encodeURIComponent(isClient ? window.location.href : '')}&text=${encodeURIComponent(`Check out this property: ${propertyData.name} - ${propertyData.location}`)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex flex-col items-center gap-1 p-2 hover:bg-gray-50 rounded-lg transition-all group"
+          >
+            <div className="w-10 h-10 bg-[#26A5E4]/10 rounded-lg flex items-center justify-center group-hover:scale-105 transition-transform">
+              <svg className="w-8 h-8 text-[#26A5E4]" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69.01-.04.01-.14-.06-.2s-.17-.04-.24-.02c-.1.02-1.77 1.13-4.99 3.3-.47.32-.9.48-1.28.47-.42-.01-1.23-.24-1.83-.44-.74-.24-1.32-.37-1.27-.78.03-.22.32-.44.9-.67 3.6-1.57 6.01-2.6 7.22-3.1 3.44-1.42 4.16-1.66 4.63-1.66.1 0 .33.02.48.13.13.09.16.21.17.29-.01.09.02.3 0 .46z"/>
+              </svg>
+            </div>
+            <span className="text-[10px] font-medium text-gray-600">Telegram</span>
+          </a>
+
+          {/* Email */}
+          <a
+            href={`mailto:?subject=${encodeURIComponent(`Check out this property: ${propertyData.name}`)}&body=${encodeURIComponent(`I found this property and thought you might be interested:\n\n${propertyData.name}\n${propertyData.location}\nPrice: ₹${propertyData.startingPrice.toLocaleString()}/mo\n\n${isClient ? window.location.href : ''}`)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex flex-col items-center gap-1 p-2 hover:bg-gray-50 rounded-lg transition-all group"
+          >
+            <div className="w-10 h-10 bg-[#EA4335]/10 rounded-lg flex items-center justify-center group-hover:scale-105 transition-transform">
+              <svg className="w-8 h-8 text-[#EA4335]" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
+              </svg>
+            </div>
+            <span className="text-[10px] font-medium text-gray-600">Email</span>
+          </a>
+
+          {/* Copy Link */}
+          <button
+            onClick={copyShareLink}
+            className="flex flex-col items-center gap-1 p-2 hover:bg-gray-50 rounded-lg transition-all group"
+          >
+            <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center group-hover:scale-105 transition-transform">
+              <Link2 className="w-8 h-8 text-gray-600" />
+            </div>
+            <span className="text-[10px] font-medium text-gray-600">Copy</span>
+          </button>
+        </div>
+
+        {/* Copy Link Message */}
+        {showCopyMessage && (
+          <div className="mt-3 p-2 bg-green-50 border border-green-200 rounded-lg">
+            <p className="text-xs text-green-700 font-medium flex items-center gap-1.5">
+              <CheckCircle className="w-4 h-4 text-green-600" />
+              Link copied!
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+)}
       {/* Main Container */}
       <div className="max-w-[1800px] mx-auto px-3 py-2 md:px-4 md:py-3">
         {/* Sticky Back Button */}
@@ -987,7 +1141,7 @@ const PropertyDetailView = memo(function PropertyDetailView({ propertyData, offe
                         </li>
                       ))}
                     </ul>
-                    <button
+                    {/* <button
                       onClick={() => {
                         setIsBookingModalOpen(true);
                         setBookingType('long');
@@ -998,7 +1152,20 @@ const PropertyDetailView = memo(function PropertyDetailView({ propertyData, offe
                         }`}
                     >
                       Select Plan
-                    </button>
+                    </button> */}
+                    <button
+  onClick={() => {
+    setPreselectedRoomId(undefined); // Clear preselected room for plan selection
+    setIsBookingModalOpen(true);
+    setBookingType('long');
+  }}
+  className={`w-full py-2 md:py-3 rounded-lg md:rounded-xl font-bold text-xs md:text-sm transition-all hover:shadow ${plan.recommended
+      ? 'bg-gradient-to-r from-blue-600 to-blue-600 text-white'
+      : 'bg-gradient-to-r from-gray-700 to-gray-800 text-white'
+    }`}
+>
+  Select Plan
+</button>
                   </div>
                 ))}
               </div>
@@ -1006,7 +1173,7 @@ const PropertyDetailView = memo(function PropertyDetailView({ propertyData, offe
               <div className="mt-3 md:mt-6 pt-3 md:pt-6 border-t border-gray-200">
                 <div className="text-center">
                   <p className="text-xs md:text-sm text-gray-600 font-semibold mb-1.5 md:mb-2">Looking for short stay?</p>
-                  <button
+                  {/* <button
                     onClick={() => {
                       setIsBookingModalOpen(true);
                       setBookingType('short');
@@ -1014,7 +1181,17 @@ const PropertyDetailView = memo(function PropertyDetailView({ propertyData, offe
                     className="w-full py-2 md:py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-lg md:rounded-xl font-bold hover:shadow-lg transition-all text-xs md:text-sm"
                   >
                     Book Short Stay @ ₹{propertyData.dailyRate}/day
-                  </button>
+                  </button> */}
+                  <button
+  onClick={() => {
+    setPreselectedRoomId(undefined); // Clear preselected room for short stay
+    setIsBookingModalOpen(true);
+    setBookingType('short');
+  }}
+  className="w-full py-2 md:py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-lg md:rounded-xl font-bold hover:shadow-lg transition-all text-xs md:text-sm"
+>
+  Book Short Stay @ ₹{propertyData.dailyRate}/day
+</button>
                 </div>
               </div>
             </div>
@@ -1159,18 +1336,20 @@ const PropertyDetailView = memo(function PropertyDetailView({ propertyData, offe
                                  'Fully Occupied'}
                               </span>
                               <button
-                                onClick={() => {
-                                  setIsBookingModalOpen(true);
-                                  setShowAllRooms(false);
-                                }}
-                                className={`px-2.5 md:px-4 py-1 md:py-2 rounded md:rounded-lg text-xs md:text-sm font-bold ${room.status === 'available' || room.status === 'partially-available'
-                                    ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white hover:shadow md:hover:shadow-lg'
-                                    : 'bg-gradient-to-r from-gray-600 to-gray-800 text-white hover:shadow md:hover:shadow-lg'
-                                  }`}
-                                disabled={room.status === 'occupied'}
-                              >
-                                {room.status === 'available' || room.status === 'partially-available' ? 'Book Now' : 'Occupied'}
-                              </button>
+  onClick={() => {
+    setPreselectedRoomId(room.id); // Set the selected room ID
+    setIsBookingModalOpen(true);
+    setShowAllRooms(false);
+  }}
+  className={`px-2.5 md:px-4 py-1 md:py-2 rounded md:rounded-lg text-xs md:text-sm font-bold ${
+    room.status === 'available' || room.status === 'partially-available'
+      ? 'bg-gradient-to-r from-emerald-600 to-teal-900 text-white hover:shadow md:hover:shadow-lg'
+      : 'bg-gradient-to-r from-gray-600 to-gray-800 text-white hover:shadow md:hover:shadow-lg'
+  }`}
+  disabled={room.status === 'occupied'}
+>
+  {room.status === 'available' || room.status === 'partially-available' ? 'Book Now' : 'Occupied'}
+</button>
                             </div>
                           </div>
                         ))}
@@ -1185,16 +1364,19 @@ const PropertyDetailView = memo(function PropertyDetailView({ propertyData, offe
       )}
 
       {/* Booking Modal */}
-      <BookingModal
-        isOpen={isBookingModalOpen}
-        onClose={() => {
-          setIsBookingModalOpen(false);
-          setBookingType('long');
-        }}
-        bookingType={bookingType}
-        setBookingType={setBookingType}
-        propertyData={propertyData}
-      />
+      {/* Booking Modal */}
+<BookingModal
+  isOpen={isBookingModalOpen}
+  onClose={() => {
+    setIsBookingModalOpen(false);
+    setBookingType('long');
+    setPreselectedRoomId(undefined); // Clear preselected room when closing
+  }}
+  bookingType={bookingType}
+  setBookingType={setBookingType}
+  propertyData={propertyData}
+  preselectedRoomId={preselectedRoomId} // Pass the preselected room ID
+/>
     </div>
   );
 });

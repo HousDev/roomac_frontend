@@ -2658,7 +2658,11 @@ export default function TenantDashboard() {
   );
 }
 
-// // app/tenant/portal/page.tsx
+
+
+
+
+// app/tenant/portal/page.tsx
 // import { Suspense } from "react";
 // import TenantDashboardClient from "@/components/tenant/portal/TenantDashboardClient";
 // import LoadingSpinner from "@/components/tenant/portal/loading-spinner";
@@ -2719,3 +2723,7 @@ export default function TenantDashboard() {
 //     </Suspense>
 //   );
 // }
+
+
+
+
