@@ -96,7 +96,7 @@ export default function HeroSection() {
               variant="outline"
               className="border-2 border-[#004AAD] text-[#004AAD] hover:bg-teal-300 hover:text-black hover:border-blue-900 hover:shadow-lg px-4 py-3 sm:px-6 sm:py-4 md:px-8 md:py-6 text-sm sm:text-base md:text-lg w-full sm:w-auto mt-2 sm:mt-0 transition-all duration-300 hover:animate-pulse"
             >
-              Learn More
+              Learn 
             </Button>
           </motion.div>
         </div>

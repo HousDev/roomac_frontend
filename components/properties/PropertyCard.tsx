@@ -368,27 +368,7 @@ const PropertyCard = memo(function PropertyCard({
             </span>
           </div>
 
-          {/* Amenity tags */}
-          {displayAmenities.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 mb-3">
-              {displayAmenities.map((a: any, ai: number) => (
-                <span 
-                  key={ai} 
-                  className={`px-2 py-0.5 rounded-md border text-xs font-medium ${getAmenityColor(ai)}`}
-                >
-                  {String(a)}
-                </span>
-              ))}
-              {amenities.length > 5 && (
-                <span className="px-2 py-0.5 rounded-md border border-slate-200 text-xs text-slate-500 bg-slate-50">
-                  +{amenities.length - 5}
-                </span>
-              )}
-            </div>
-          )}
-
-          {/* Beds and Rooms row */}
-          <div className="flex items-center gap-4 mb-3 text-slate-600 text-xs">
+  <div className="flex items-center gap-4 mb-3 text-slate-600 text-xs">
             <div className="flex items-center gap-1.5">
               <Bed className="h-3.5 w-3.5 text-blue-500" />
               <span className="font-semibold text-slate-700">{totalBeds}</span>
@@ -411,11 +391,38 @@ const PropertyCard = memo(function PropertyCard({
               </div>
             )}
           </div>
+          {/* Amenity tags */}
+          {displayAmenities.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mb-3">
+              {displayAmenities.map((a: any, ai: number) => (
+                <span 
+                  key={ai} 
+                  className={`px-2 py-0.5 rounded-md border text-xs font-medium ${getAmenityColor(ai)}`}
+                >
+                  {String(a)}
+                </span>
+              ))}
+              {amenities.length > 5 && (
+                <span className="px-2 py-0.5 rounded-md border border-slate-200 text-xs text-slate-500 bg-slate-50">
+                  +{amenities.length - 5}
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Beds and Rooms row */}
+        
 
           {/* Divider and Actions */}
           <div className="border-t border-slate-200 mt-auto pt-3">
             {/* WhatsApp, Call, View Details - ALL IN ONE LINE */}
             <div className="flex items-center gap-2">
+              <Link href={`/properties/${property.slug || property.id || '#'}`} className="flex-1">
+                <button className="w-full px-2 py-2.5 bg-[#0249a8] hover:bg-[#023a88] text-white text-xs font-semibold rounded-lg shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 flex items-center justify-center gap-1">
+                  <span>View Details</span>
+                  <ArrowRight className="h-3 w-3" />
+                </button>
+              </Link>
               <button
                 onClick={handleWhatsAppClick}
                 className="flex-1 flex items-center justify-center gap-1 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 rounded-lg text-xs font-medium transition-all hover:scale-105"
@@ -434,12 +441,7 @@ const PropertyCard = memo(function PropertyCard({
                 <span className="hidden sm:inline">Call</span>
               </button>
               
-              <Link href={`/properties/${property.slug || property.id || '#'}`} className="flex-1">
-                <button className="w-full px-2 py-2.5 bg-[#0249a8] hover:bg-[#023a88] text-white text-xs font-semibold rounded-lg shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 flex items-center justify-center gap-1">
-                  <span>Details</span>
-                  <ArrowRight className="h-3 w-3" />
-                </button>
-              </Link>
+              
             </div>
           </div>
         </div>
