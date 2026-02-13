@@ -575,9 +575,7 @@ import {
   RefreshCw
 } from "lucide-react";
 import { BsWhatsapp } from 'react-icons/bs';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
-
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 // Fallback images array
 const FALLBACK_IMAGES = [
   "https://images.pexels.com/photos/1643383/pexels-photo-1643383.jpeg?auto=compress&cs=tinysrgb&w=600",
