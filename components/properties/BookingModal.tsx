@@ -435,7 +435,7 @@ const BookingModal = memo(function BookingModal({
       monthlyRent: selectedRoom?.monthly_rent || 0,
       dailyRate: selectedRoom?.daily_rate || 0,
       floor: selectedRoom?.floor || 'Ground',
-      bookingType: bookingType,
+    bookingType: bookingType === 'long' ? 'monthly' : 'daily',
       propertyId: propertyData?.id,
       propertyName: propertyData?.name || '',
       paymentMethod: paymentMethod,

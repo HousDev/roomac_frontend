@@ -1510,7 +1510,7 @@ function FiltersSection({
               <SelectContent className="rounded-lg shadow-2xl border border-blue-100 bg-white">
                 {cities.map((city: any) => (
                   <SelectItem key={city.id} value={city.name.toLowerCase()} className="cursor-pointer hover:bg-blue-50 text-[11px]">
-                    <div className="flex items-center gap-2 text-gray-700">
+                    <div className="flex items-center gap-2 text-white-500">
                       <MapPin className="h-3 w-3 text-blue-500" />
                       {city.name}
                     </div>

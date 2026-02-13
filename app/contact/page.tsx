@@ -531,7 +531,7 @@ async function getContactData(): Promise<ContactPageData> {
         icon: 'MessageSquare', // ✅ Changed to string
         title: "WhatsApp",
         subtitle: "Instant Response",
-        value: "+91 98765 43210",
+        value: "+91 99239 53933",
         link: "https://wa.me/919876543210?text=Hi%20ROOMAC,%20I%20need%20assistance",
         color: "from-purple-500 to-pink-500"
       }

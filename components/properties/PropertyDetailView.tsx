@@ -424,7 +424,7 @@ const PropertyDetailView = memo(function PropertyDetailView({ propertyData, offe
               {/* Stats - Responsive Grid */}
               <div className="grid grid-cols-3 md:flex md:items-center gap-1 md:gap-3 text-xs">
                 <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg px-2 py-1.5 md:px-3 md:py-2 border border-green-200">
-                  <p className="font-bold text-green-700 text-[10px] md:text-xs">Available Beds</p>
+                  {/* <p className="font-bold text-green-700 text-[10px] md:text-xs">Available Beds</p> */}
                   <div className="flex items-baseline gap-0.5 md:gap-1">
                     <Bed className="w-3 h-3 md:w-4 md:h-4 text-green-600" />
                     <span className="font-black text-green-700 text-sm md:text-base">
@@ -677,7 +677,7 @@ const PropertyDetailView = memo(function PropertyDetailView({ propertyData, offe
 
                         <div className="space-y-1.5 md:space-y-2 mb-2 md:mb-4">
                           <div className="flex justify-between items-center">
-                            <span className="text-xs md:text-sm text-gray-600 font-semibold">Available Beds</span>
+                            {/* <span className="text-xs md:text-sm text-gray-600 font-semibold">Available Beds</span> */}
                             <div className="flex items-center gap-1 md:gap-2">
                               <span className="text-sm md:text-base font-black text-blue-600">{summary.availableNow || 0}</span>
                               {summary.availableNow > 0 && (

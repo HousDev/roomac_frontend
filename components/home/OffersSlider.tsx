@@ -1054,7 +1054,6 @@ export default function OffersSlider({ offers }: OffersSliderProps) {
                               </div>
                             </div>
                           </div>
-
                           {/* Features - Compact */}
                           <div className="mb-3">
                             <h3 className="text-xs font-bold text-blue-900 mb-1">
