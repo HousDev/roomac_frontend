@@ -1,115 +1,202 @@
-import * as React from 'react';
-import { Slot } from '@radix-ui/react-slot';
-import { ChevronRight, MoreHorizontal } from 'lucide-react';
+// components/ui/breadcrumb.tsx
+import React from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { ChevronRight, Home } from 'lucide-react';
 
-import { cn } from '@/lib/utils';
+interface BreadcrumbItem {
+  label: string;
+  path: string;
+  isCurrent?: boolean;
+}
 
-const Breadcrumb = React.forwardRef<
-  HTMLElement,
-  React.ComponentPropsWithoutRef<'nav'> & {
-    separator?: React.ReactNode;
-  }
->(({ ...props }, ref) => <nav ref={ref} aria-label="breadcrumb" {...props} />);
-Breadcrumb.displayName = 'Breadcrumb';
+interface BreadcrumbProps {
+  items?: BreadcrumbItem[];
+  showHomeIcon?: boolean;
+  className?: string;
+  homePath?: string;
+  customLabels?: Record<string, string>;
+  dynamicLabels?: {
+    [key: string]: (params: any) => string;
+  };
+  backgroundImage?: string;
+  backgroundOverlay?: boolean;
+  overlayOpacity?: string;
+}
 
-const BreadcrumbList = React.forwardRef<
-  HTMLOListElement,
-  React.ComponentPropsWithoutRef<'ol'>
->(({ className, ...props }, ref) => (
-  <ol
-    ref={ref}
-    className={cn(
-      'flex flex-wrap items-center gap-1.5 break-words text-sm text-muted-foreground sm:gap-2.5',
-      className
-    )}
-    {...props}
-  />
-));
-BreadcrumbList.displayName = 'BreadcrumbList';
+const defaultCustomLabels: Record<string, string> = {
+  'admin': 'Admin',
+  'dashboard': 'Dashboard',
+  'properties': 'Properties',
+  'rooms': 'Rooms',
+  'tenants': 'Tenants',
+  'payments': 'Payments',
+  'reports': 'Reports',
+  'document-center': 'Document Center',
+  'templates': 'Templates',
+  'enquiries': 'Enquiries',
+  'notifications': 'Notifications',
+  'staff': 'Staff',
+  'offers': 'Offers',
+  'add-ons': 'Add-Ons',
+  'masters': 'Masters',
+  'settings': 'Settings',
+  'profile': 'Profile',
+  'complaints': 'Complaints',
+  'maintenance': 'Maintenance',
+  'receipts': 'Receipts',
+  'leave-requests': 'Leave Requests',
+  'vacate-requests': 'Vacate Requests',
+  'change-bed-requests': 'Change Bed Requests',
+  'account-deletion-requests': 'Account Deletion',
+  'login': 'Login',
+  'portal': 'Portal',
+  'documents': 'Documents',
+  'my-documents': 'My Documents',
+  'requests': 'Requests',
+  'support': 'Support',
+  'about': 'About Us',
+  'contact': 'Contact',
+  'how-it-works': 'How It Works',
+  'partner': 'Partner',
+};
 
-const BreadcrumbItem = React.forwardRef<
-  HTMLLIElement,
-  React.ComponentPropsWithoutRef<'li'>
->(({ className, ...props }, ref) => (
-  <li
-    ref={ref}
-    className={cn('inline-flex items-center gap-1.5', className)}
-    {...props}
-  />
-));
-BreadcrumbItem.displayName = 'BreadcrumbItem';
+export const Breadcrumb: React.FC<BreadcrumbProps> = ({
+  items: propItems,
+  showHomeIcon = true,
+  className = '',
+  homePath = '/',
+  customLabels = {},
+  dynamicLabels = {},
+  backgroundImage,
+  backgroundOverlay = true,
+  overlayOpacity = 'bg-black/40',
+}) => {
+  const location = useLocation();
+  const pathnames = location.pathname.split('/').filter((x) => x);
 
-const BreadcrumbLink = React.forwardRef<
-  HTMLAnchorElement,
-  React.ComponentPropsWithoutRef<'a'> & {
-    asChild?: boolean;
-  }
->(({ asChild, className, ...props }, ref) => {
-  const Comp = asChild ? Slot : 'a';
+  const allCustomLabels = { ...defaultCustomLabels, ...customLabels };
+
+  const generateItems = (): BreadcrumbItem[] => {
+    if (propItems) return propItems;
+
+    const items: BreadcrumbItem[] = [];
+    let currentPath = '';
+
+    if (showHomeIcon) {
+      items.push({
+        label: 'Home',
+        path: homePath,
+        isCurrent: pathnames.length === 0,
+      });
+    }
+
+    pathnames.forEach((segment, index) => {
+      currentPath += `/${segment}`;
+      
+      let label = segment;
+      let isDynamic = false;
+
+      if (segment.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i) || 
+          segment.match(/^[0-9]+$/)) {
+        isDynamic = true;
+        
+        const parentSegment = pathnames[index - 1];
+        if (parentSegment && dynamicLabels[parentSegment]) {
+          label = dynamicLabels[parentSegment]({ id: segment, type: parentSegment });
+        } else {
+          label = `Details`;
+        }
+      }
+
+      if (!isDynamic && allCustomLabels[segment]) {
+        label = allCustomLabels[segment];
+      }
+
+      if (!isDynamic && !allCustomLabels[segment]) {
+        label = segment
+          .split('-')
+          .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+          .join(' ');
+      }
+
+      const isLast = index === pathnames.length - 1;
+
+      items.push({
+        label,
+        path: currentPath,
+        isCurrent: isLast,
+      });
+    });
+
+    return items;
+  };
+
+  const breadcrumbItems = generateItems();
+
+  const backgroundStyle = backgroundImage ? {
+    backgroundImage: `url(${backgroundImage})`,
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+    backgroundRepeat: 'no-repeat',
+  } : {};
 
   return (
-    <Comp
-      ref={ref}
-      className={cn('transition-colors hover:text-foreground', className)}
-      {...props}
-    />
+    <div 
+      className="relative w-full py-4 px-6 rounded-lg overflow-hidden"
+      style={backgroundStyle}
+    >
+      {backgroundImage && backgroundOverlay && (
+        <div className={`absolute inset-0 ${overlayOpacity}`} />
+      )}
+      
+      <nav 
+        aria-label="Breadcrumb" 
+        className={`relative z-10 flex items-center text-sm ${className}`}
+      >
+        <ol className="flex items-center flex-wrap gap-1.5">
+          {breadcrumbItems.map((item, index) => (
+            <li key={item.path} className="flex items-center">
+              {index === 0 && item.label === 'Home' && showHomeIcon ? (
+                <Link
+                  to={item.path}
+                  className="flex items-center text-gray-500 hover:text-[#bd081c] transition-colors"
+                  aria-label="Home"
+                >
+                  <Home className="w-4 h-4" />
+                </Link>
+              ) : (
+                <>
+                  {index > 0 && (
+                    <ChevronRight className={`w-4 h-4 mx-1 ${
+                      backgroundImage ? 'text-white/70' : 'text-gray-400'
+                    }`} />
+                  )}
+                  {item.isCurrent ? (
+                    <span className={`font-semibold px-2.5 py-1.5 rounded-full text-sm ${
+                      backgroundImage 
+                        ? 'text-white bg-[#bd081c]/30 backdrop-blur-sm' 
+                        : 'text-gray-900 bg-[#bd081c]/10'
+                    }`}>
+                      {item.label}
+                    </span>
+                  ) : (
+                    <Link
+                      to={item.path}
+                      className={`px-1.5 py-1 transition-colors ${
+                        backgroundImage
+                          ? 'text-white/90 hover:text-white hover:underline'
+                          : 'text-gray-600 hover:text-[#bd081c] hover:underline'
+                      } underline-offset-2`}
+                    >
+                      {item.label}
+                    </Link>
+                  )}
+                </>
+              )}
+            </li>
+          ))}
+        </ol>
+      </nav>
+    </div>
   );
-});
-BreadcrumbLink.displayName = 'BreadcrumbLink';
-
-const BreadcrumbPage = React.forwardRef<
-  HTMLSpanElement,
-  React.ComponentPropsWithoutRef<'span'>
->(({ className, ...props }, ref) => (
-  <span
-    ref={ref}
-    role="link"
-    aria-disabled="true"
-    aria-current="page"
-    className={cn('font-normal text-foreground', className)}
-    {...props}
-  />
-));
-BreadcrumbPage.displayName = 'BreadcrumbPage';
-
-const BreadcrumbSeparator = ({
-  children,
-  className,
-  ...props
-}: React.ComponentProps<'li'>) => (
-  <li
-    role="presentation"
-    aria-hidden="true"
-    className={cn('[&>svg]:size-3.5', className)}
-    {...props}
-  >
-    {children ?? <ChevronRight />}
-  </li>
-);
-BreadcrumbSeparator.displayName = 'BreadcrumbSeparator';
-
-const BreadcrumbEllipsis = ({
-  className,
-  ...props
-}: React.ComponentProps<'span'>) => (
-  <span
-    role="presentation"
-    aria-hidden="true"
-    className={cn('flex h-9 w-9 items-center justify-center', className)}
-    {...props}
-  >
-    <MoreHorizontal className="h-4 w-4" />
-    <span className="sr-only">More</span>
-  </span>
-);
-BreadcrumbEllipsis.displayName = 'BreadcrumbElipssis';
-
-export {
-  Breadcrumb,
-  BreadcrumbList,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-  BreadcrumbEllipsis,
 };
