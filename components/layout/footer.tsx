@@ -40,7 +40,10 @@ export function Footer() {
 
             </div>
             <p className="text-sm text-slate-300 mb-4 leading-relaxed">
-              {settings.site_tagline || 'Comfort, Care, and Quality Accommodation. Well-planned living spaces for professionals and students.'}
+              { 'Premium co-living spaces providing comfort, care, and quality accommodation for professionals and students in Pune.'}
+              <br/>
+              <br/>
+              <p className='font-bold'>Quality Living, Affordable Prices</p>
             </p>
             <div className="flex gap-3">
               {settings.facebook_url && (
