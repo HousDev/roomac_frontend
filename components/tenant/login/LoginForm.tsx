@@ -62,7 +62,7 @@ export default function LoginForm({
         <div>
           <Label className="text-sm font-semibold text-black">Email</Label>
           <div className="relative mt-1">
-            <Mail className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-blue-800" />
+            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-blue-800" />
             <Input
               type="email"
               placeholder="Enter your email"
@@ -71,7 +71,7 @@ export default function LoginForm({
               className="h-11 rounded-full text-sm
                 bg-blue-50 border border-gray-300
                 focus:border-blue-500 focus:ring-4 focus:ring-blue-100
-                pr-11 transition"
+                pl-10 pr-4 transition"
               required
             />
           </div>
@@ -81,7 +81,7 @@ export default function LoginForm({
         <div>
           <Label className="text-sm font-semibold text-black">Password</Label>
           <div className="relative mt-1">
-            <Lock className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-blue-800" />
+            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-blue-800" />
             <Input
               type="password"
               placeholder="Enter your password"
@@ -90,7 +90,7 @@ export default function LoginForm({
               className="h-11 rounded-full text-sm
                 bg-blue-50 border border-gray-300
                 focus:border-blue-500 focus:ring-4 focus:ring-blue-100
-                pr-11 transition"
+                pl-10 pr-4 transition"
               required
             />
           </div>

@@ -40,15 +40,15 @@ export default function AboutHeader() {
       <div className="container mx-auto px-4 relative z-30">
         <div className="max-w-4xl mx-auto text-center">
           
-          <Badge className="mb-4 bg-white/10 backdrop-blur-md border-white/30 text-white hover:bg-white/20 px-4 py-1.5 text-xs sm:text-sm opacity-0 animate-[popIn_0.6s_ease-out_0.2s_forwards] hover:scale-105 transition-transform duration-300">
+          <Badge className="mb-4 bg-white/10 backdrop-blur-md border-white/30 text-white  px-4 py-1.5 text-xs sm:text-sm opacity-0 animate-[popIn_0.6s_ease-out_0.2s_forwards] hover:scale-105 transition-transform duration-300">
             <Sparkles className="h-3 w-3 mr-1 animate-spin animate-infinite animate-duration-[2000ms]" />
             {headerData.badgeText}
           </Badge>
           
-          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl text-white font-bold mb-4 leading-tight tracking-tight opacity-0 animate-[slideDown_1.2s_ease-out_0.4s_forwards]">
-            {headerData.title}
-          </h1>
-          
+         <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-4 leading-tight tracking-tight opacity-0 animate-[slideDown_1.2s_ease-out_0.4s_forwards]">
+  <span className="text-white">About </span>
+  <span className="text-blue-400">ROOMAC</span>
+</h1>
           <p className="text-sm sm:text-base md:text-lg text-white/90 mb-6 leading-relaxed max-w-3xl mx-auto opacity-0 animate-[fadeIn_1s_ease-out_1s_forwards]">
             {headerData.description}
             <span className="block mt-4 text-base sm:text-lg md:text-xl font-bold text-white leading-tight">

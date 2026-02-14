@@ -7,7 +7,7 @@ import { HeroSection } from '@/components/partner/HeroSection';
 import { BenefitsSection } from '@/components/partner/BenefitsSection';
 import { HowItWorksSection } from '@/components/partner/HowItWorksSection';
 import { FormSection } from '@/components/partner/FormSection';
-import { FooterSection } from '@/components/partner/FooterSection';
+// import { FooterSection } from '@/components/partner/FooterSection';
 import { useIntersectionObserver } from '@/components/partner/useIntersectionObserver';
 import type { PartnerFormData, Benefit, Step } from '@/components/partner/types';
 
@@ -142,11 +142,11 @@ export function PartnerPageClient({ initialData }: PartnerPageClientProps) {
         onReset={handleResetSubmission}
       />
       
-      <FooterSection 
+      {/* <FooterSection 
         ref={refs.section5Ref}
         id="section5"
         visible={visibleSections.section5}
-      />
+      /> */}
     </>
   );
 }
