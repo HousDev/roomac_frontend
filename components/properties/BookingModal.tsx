@@ -782,7 +782,7 @@ const BookingModal = memo(function BookingModal({
     <>
       {/* COMPACT MODAL - max-w-2xl instead of 4xl */}
       <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-3 bg-black/60 backdrop-blur-sm">
-        <div className="bg-white rounded-xl sm:rounded-2xl w-full max-w-2xl max-h-[92vh] overflow-hidden shadow-2xl">
+        <div className="bg-white rounded-xl sm:rounded-2xl w-full max-w-2xl max-h-[94vh] overflow-hidden shadow-2xl">
 
           {/* COMPACT Header */}
           <div className="bg-gradient-to-r from-blue-600 to-cyan-600 px-3 sm:px-4 py-2.5 flex items-center justify-between">
@@ -813,7 +813,7 @@ const BookingModal = memo(function BookingModal({
                   onClick={() => setBookingType('long')}
                   className={`flex-1 py-1.5 sm:py-2 rounded-md text-xs font-semibold transition-all ${bookingType === 'long' ? 'bg-white text-gray-900 shadow' : 'text-gray-600'}`}
                 >
-                  <span className="hidden sm:inline">Long Stay</span>
+                  <span className="hidden sm:inline">Long </span>
                   <span className="sm:hidden">Long</span>
                 </button>
                 <button
@@ -826,80 +826,118 @@ const BookingModal = memo(function BookingModal({
               </div>
             </div>
           )}
+    <div className="flex justify-center w-full mt-2 mb-3 px-2">
+  <div className="flex items-center justify-center gap-3 sm:gap-6 w-full max-w-xs sm:max-w-md mx-auto">
+
+    {[
+      { step: 1, label: 'Details', icon: User },
+      { step: 2, label: 'Room', icon: DoorOpen },
+      { step: 3, label: 'Payment', icon: CreditCard }
+    ].map((item, idx) => (
+      <div key={item.step} className="flex items-center gap-3 sm:gap-6">
+
+        {/* STEP ICON */}
+        <div className="flex flex-col items-center">
+          <div
+            className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center font-semibold transition-all ${
+              bookingStep > item.step
+                ? 'bg-gradient-to-br from-green-400 to-green-600 text-white shadow'
+                : bookingStep === item.step
+                ? 'bg-gradient-to-br from-blue-500 to-blue-600 text-white ring-2 ring-blue-200 shadow'
+                : 'bg-gray-200 text-gray-500'
+            }`}
+          >
+            {bookingStep > item.step ? (
+              <Check className="w-4 h-4" />
+            ) : (
+              <item.icon className="w-3.5 h-3.5" />
+            )}
+          </div>
+
+          <span
+            className={`text-[10px] sm:text-xs mt-1 font-semibold ${
+              bookingStep >= item.step ? 'text-gray-900' : 'text-gray-400'
+            }`}
+          >
+            {item.label}
+          </span>
+        </div>
+
+        {/* CONNECTOR LINE */}
+        {idx < 2 && (
+          <div className="w-8 sm:w-16 h-0.5 bg-gray-200 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-green-400 to-green-600 transition-all duration-500"
+              style={{ width: bookingStep > item.step ? '100%' : '0%' }}
+            />
+          </div>
+        )}
+
+      </div>
+    ))}
+
+  </div>
+</div>
+
+
+
 
           {/* COMPACT Verified Badge */}
-          {verified && (
-            <div className="px-3 sm:px-4 pt-2.5">
-              <div className="bg-green-50 border border-green-200 rounded-lg p-2 flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-green-900 truncate">Verified</p>
-                  <p className="text-[10px] text-green-700 truncate">+91 {formData.phone}</p>
-                </div>
-              </div>
-            </div>
-          )}
+          {(verified || (selectedRoom && bookingStep > 2)) && (
+  <div className="px-3 sm:px-4 pt-2.5">
+    <div className="flex gap-2">
 
-          {/* COMPACT Selected Room */}
-          {selectedRoom && bookingStep > 2 && (
-            <div className="px-3 sm:px-4 pt-2.5">
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 flex-1 min-w-0">
-                  <DoorOpen className="w-4 h-4 text-blue-600 flex-shrink-0" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold text-gray-900 truncate">Room {selectedRoom.room_number}</p>
-                    <p className="text-[10px] text-gray-600 truncate">{getSharingLabel(selectedRoom.sharing_type)}</p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setBookingStep(2);
-                    setSelectedRoom(null);
-                  }}
-                  className="text-xs text-blue-600 font-semibold whitespace-nowrap"
-                >
-                  Change
-                </button>
-              </div>
+      {/* VERIFIED */}
+      {verified && (
+        <div className="flex-1 bg-green-50 border border-green-200 rounded-lg p-2 flex items-center gap-2 min-w-0">
+          <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold text-green-900 truncate">Verified</p>
+            <p className="text-[10px] text-green-700 truncate">+91 {formData.phone}</p>
+          </div>
+        </div>
+      )}
+
+      {/* ROOM */}
+      {selectedRoom && bookingStep > 2 && (
+        <div className="flex-1 bg-blue-50 border border-blue-200 rounded-lg p-2 flex items-center justify-between gap-2 min-w-0">
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <DoorOpen className="w-4 h-4 text-blue-600 flex-shrink-0" />
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold text-gray-900 truncate">
+                Room {selectedRoom.room_number}
+              </p>
+              <p className="text-[10px] text-gray-600 truncate">
+                {getSharingLabel(selectedRoom.sharing_type)}
+              </p>
             </div>
-          )}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              setBookingStep(2);
+              setSelectedRoom(null);
+            }}
+            className="text-xs text-blue-600 font-semibold whitespace-nowrap"
+          >
+            Change
+          </button>
+        </div>
+      )}
+
+    </div>
+  </div>
+)}
+
+
 
           {/* COMPACT Scrollable Content */}
           <div className="overflow-y-auto max-h-[calc(92vh-120px)]">
             <div className="p-3 sm:p-4">
 
               {/* COMPACT Progress Steps */}
-              <div className="flex items-center justify-between mb-4">
-                {[
-                  { step: 1, label: 'Details', icon: User },
-                  { step: 2, label: 'Room', icon: DoorOpen },
-                  { step: 3, label: 'Payment', icon: CreditCard }
-                ].map((item, idx) => (
-                  <div key={item.step} className="flex items-center flex-1">
-                    <div className="flex flex-col items-center">
-                      <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center font-semibold transition-all ${bookingStep > item.step ? 'bg-gradient-to-br from-green-400 to-green-600 text-white shadow' :
-                        bookingStep === item.step ? 'bg-gradient-to-br from-blue-500 to-blue-600 text-white ring-2 ring-blue-200 shadow' :
-                          'bg-gray-200 text-gray-500'
-                        }`}>
-                        {bookingStep > item.step ? <Check className="w-4 h-4" /> : <item.icon className="w-3.5 h-3.5" />}
-                      </div>
-                      <span className={`text-[10px] sm:text-xs mt-1 font-semibold ${bookingStep >= item.step ? 'text-gray-900' : 'text-gray-400'}`}>
-                        {item.label}
-                      </span>
-                    </div>
-                    {idx < 2 && (
-                      <div className="flex-1 h-0.5 mx-1 sm:mx-2 bg-gray-200 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-gradient-to-r from-green-400 to-green-600 transition-all duration-500"
-                          style={{ width: bookingStep > item.step ? '100%' : '0%' }}
-                        />
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-
+             
               <form onSubmit={handleBookingSubmit} className="space-y-3">
 
                 {/* STEP 1 - COMPACT */}

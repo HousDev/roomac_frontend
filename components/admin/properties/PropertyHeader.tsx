@@ -18,6 +18,8 @@ import {
   CheckSquare,
   X,
   Search,
+  Filter,
+  Upload,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 
@@ -27,6 +29,7 @@ interface PropertyHeaderProps {
   onRefresh: () => void;
   onFilterClick: () => void;
   onExport: () => void;
+  onImport?: () => void; // Add optional import handler
   onAddProperty: () => void;
   selectedTableIds: string[];
   isBulkActionOpen: boolean;
@@ -45,6 +48,7 @@ export default function PropertyHeader({
   onRefresh,
   onFilterClick,
   onExport,
+  onImport, // Add import handler
   onAddProperty,
   selectedTableIds,
   isBulkActionOpen,
@@ -70,7 +74,7 @@ export default function PropertyHeader({
 
   // Desktop Header - Your original code unchanged
   const DesktopHeader = () => (
-    <div className="hidden md:block sticky top-0 z-30 bg-gradient-to-r from-blue-600 via-blue-500 to-blue-500 text-white -translate-y-1 pt-2">
+    <div className="hidden md:block sticky top-0 z-10 bg-gradient-to-r from-blue-600 via-blue-500 to-blue-500 text-white -translate-y-1 pt-2 rounded-xl">
       <div className="py-2 px-3">
         <div className="flex flex-col space-y-3">
           {/* Top Row */}
@@ -117,7 +121,7 @@ export default function PropertyHeader({
                 className="relative h-8 w-8 bg-white/15 text-white hover:bg-white/25 border-white/30 backdrop-blur-sm shadow-md hover:shadow-lg transition-all duration-200"
                 onClick={onFilterClick}
               >
-                <SlidersHorizontal className="h-4 w-4" />
+                <Filter className="h-4 w-4" />
                 {(statusFilter !== 'all' || tagFilter !== 'all') && (
                   <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-green-400 ring-1 ring-blue-500" />
                 )}
@@ -164,6 +168,18 @@ export default function PropertyHeader({
                 Export
               </Button>
 
+              {/* Import Button - Added beside Export */}
+              {onImport && (
+                <Button
+                  variant="outline"
+                  className="flex items-center gap-2 h-8 bg-white/15 text-white hover:bg-white/25 border-white/30 backdrop-blur-sm shadow-md hover:shadow-lg transition-all duration-200"
+                  onClick={onImport}
+                >
+                  <Upload className="h-4 w-4" />
+                  Import
+                </Button>
+              )}
+
               {/* Add Property (old style) */}
               <Button
                 className="bg-white text-blue-600 hover:bg-blue-50 shadow-md hover:shadow-lg transition-all duration-200 hover:scale-105 font-semibold border-2 border-white/50 px-3 py-1.5 text-sm flex items-center"
@@ -202,7 +218,7 @@ export default function PropertyHeader({
                 className="lg:hidden text-white hover:bg-white/20"
                 onClick={() => setSidebarOpen(true)}
               >
-                <SlidersHorizontal className="h-4 w-4" />
+                <Filter className="h-4 w-4" />
               </Button>
             </div>
           </div>
@@ -213,7 +229,7 @@ export default function PropertyHeader({
 
   // Mobile Header - Compact version
   const MobileHeader = () => (
-    <div className="md:hidden sticky top-0 z-30 bg-gradient-to-r from-blue-600 via-blue-500 to-blue-500 text-white py-1.5">
+    <div className="md:hidden sticky top-0 z-30 bg-gradient-to-r from-blue-600 via-blue-500 to-blue-500 text-white py-1.5 rounded-xl">
       <div className="px-2">
         {/* Top Compact Row */}
         <div className="flex items-center justify-between mb-1">
@@ -280,12 +296,13 @@ export default function PropertyHeader({
               className="relative h-6 w-6 bg-white/15 text-white hover:bg-white/25 border-white/30 backdrop-blur-sm"
               onClick={onFilterClick}
             >
-              <SlidersHorizontal className="h-3 w-3" />
+              <Filter className="h-3 w-3" />
               {(statusFilter !== 'all' || tagFilter !== 'all') && (
                 <span className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-green-400 ring-1 ring-blue-500" />
               )}
             </Button>
 
+            {/* Export Button - Mobile */}
             <Button
               size="icon"
               variant="ghost"
@@ -294,6 +311,18 @@ export default function PropertyHeader({
             >
               <Download className="h-3 w-3" />
             </Button>
+
+            {/* Import Button - Mobile (if handler exists) */}
+            {onImport && (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-6 w-6 bg-white/15 text-white hover:bg-white/25 border-white/30 backdrop-blur-sm"
+                onClick={onImport}
+              >
+                <Upload className="h-3 w-3" />
+              </Button>
+            )}
 
             {/* Add Property Button */}
             <Button
