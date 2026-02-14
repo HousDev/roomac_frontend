@@ -20,7 +20,7 @@ export default function ContactHeader() {
   }, []);
 
   return (
-    <section className="relative overflow-hidden py-16">
+    <section className="relative overflow-hidden py-24">
       {/* Background Image with Overlay */}
       <div 
         className="absolute inset-0 bg-cover bg-center bg-no-repeat"
@@ -53,11 +53,12 @@ export default function ContactHeader() {
           
           {/* Title */}
           <div className="overflow-hidden">
-            <h1 
-              className="text-4xl sm:text-4xl md:text-5xl lg:text-6xl text-white font-bold mb-6 leading-tight animate-in slide-in-from-bottom-12 duration-1000 delay-400 fill-mode-forwards zoom-in-95"
-            >
-              Get in Touch
-            </h1>
+          <h1 
+  className="text-4xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-6 leading-tight animate-in slide-in-from-bottom-12 duration-1000 delay-400 fill-mode-forwards zoom-in-95"
+>
+  <span className="text-white">Get in </span>
+  <span className="text-blue-400">Touch</span>
+</h1>
           </div>
           
           {/* Paragraph */}

@@ -13,51 +13,10 @@ const iconMap = {
   TrendingUp: TrendingUp,
   Users: Users,
   Shield: Shield,
-  Building2: Building2
+  Building2: Building2,
 };
 
-const colorSets: ColorSet[] = [
-  { 
-    bg: 'from-blue-100 to-blue-100',
-    bgHover: 'from-blue-200 to-blue-100',
-    icon: 'text-blue-600',
-    ring: 'border-blue-300/50',
-    shadow: 'shadow-blue-100/50',
-    shadowHover: 'shadow-blue-200/50',
-    titleHover: 'group-hover:text-blue-700',
-    underline: 'via-blue-300'
-  },
-  { 
-    bg: 'from-green-100 to-emerald-50',
-    bgHover: 'from-green-200 to-emerald-100',
-    icon: 'text-emerald-600',
-    ring: 'border-emerald-300/50',
-    shadow: 'shadow-green-100/50',
-    shadowHover: 'shadow-emerald-200/50',
-    titleHover: 'group-hover:text-emerald-700',
-    underline: 'via-emerald-300'
-  },
-  { 
-    bg: 'from-pink-100 to-rose-50',
-    bgHover: 'from-pink-200 to-rose-100',
-    icon: 'text-rose-600',
-    ring: 'border-rose-300/50',
-    shadow: 'shadow-pink-100/50',
-    shadowHover: 'shadow-rose-200/50',
-    titleHover: 'group-hover:text-rose-700',
-    underline: 'via-rose-300'
-  },
-  { 
-    bg: 'from-purple-100 to-violet-50',
-    bgHover: 'from-purple-200 to-violet-100',
-    icon: 'text-violet-600',
-    ring: 'border-violet-300/50',
-    shadow: 'shadow-purple-100/50',
-    shadowHover: 'shadow-violet-200/50',
-    titleHover: 'group-hover:text-violet-700',
-    underline: 'via-violet-300'
-  }
-];
+
 
 export const BenefitsSection = forwardRef<HTMLElement, BenefitsSectionProps>(
   ({ id, visible, benefits }, ref) => {
@@ -69,73 +28,150 @@ export const BenefitsSection = forwardRef<HTMLElement, BenefitsSectionProps>(
     ], []);
 
     return (
-      <section 
+      <section
         ref={ref}
         id={id}
-        className={`py-10 bg-white transition-all duration-1000 delay-300 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}
+        className={`py-10 bg-white transition-all duration-1000 ${
+          visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
+        }`}
       >
         <div className="container mx-auto px-4">
-          <h2 className="text-4xl font-bold text-center  text-slate-900 mb-5">
-            Why Partner with Us?
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-6xl mx-auto">
-            {benefits.map((benefit, index) => {
-              const IconComponent = iconMap[benefit.icon as keyof typeof iconMap];
-              const colorSet = colorSets[index % colorSets.length];
-              const delayClass = delayClasses[index % delayClasses.length];
-              
-              return (
-                <div 
-                  key={index}
-                  className={`h-full transition-all duration-700 ${delayClass} ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
-                >
-                  <Card className="h-full flex flex-col border-0 shadow-lg hover:shadow-2xl transition-all duration-500 group overflow-hidden bg-gradient-to-br from-white to-slate-50 hover:from-slate-50 hover:to-white relative transform perspective-1000">
-                    <div className={`absolute inset-0 rounded-xl transition-all duration-1000 ${visible ? 'rotate-0 opacity-100' : 'rotate-y-90 opacity-0'}`} style={{ transitionDelay: `${index * 150}ms` }}>
-                      <div className={`absolute inset-0 rounded-xl bg-gradient-to-br ${colorSet.bg} transition-all duration-700 ${visible ? 'opacity-0' : 'opacity-100'}`}></div>
-                    </div>
-                    
-                    {/* <div className={`absolute -top-2 -left-2 w-8 h-8 border-t-2 border-l-2 ${colorSet.icon.replace('text', 'border')} rounded-tl-lg opacity-0 group-hover:opacity-100 transition-all duration-500 group-hover:top-3 group-hover:left-3`} />
-                    <div className={`absolute -top-2 -right-2 w-8 h-8 border-t-2 border-r-2 ${colorSet.icon.replace('text', 'border')} rounded-tr-lg opacity-0 group-hover:opacity-100 transition-all duration-500 delay-100 group-hover:top-3 group-hover:right-3`} />
-                    <div className={`absolute -bottom-2 -left-2 w-8 h-8 border-b-2 border-l-2 ${colorSet.icon.replace('text', 'border')} rounded-bl-lg opacity-0 group-hover:opacity-100 transition-all duration-500 delay-200 group-hover:bottom-3 group-hover:left-3`} />
-                    <div className={`absolute -bottom-2 -right-2 w-8 h-8 border-b-2 border-r-2 ${colorSet.icon.replace('text', 'border')} rounded-br-lg opacity-0 group-hover:opacity-100 transition-all duration-500 delay-300 group-hover:bottom-3 group-hover:right-3`} /> */}
-                    
-                    <CardContent className="p-6 relative z-10 flex-grow flex flex-col">
-                      <div className="relative mb-6">
-                        <div className={`absolute -inset-2 bg-gradient-to-br ${colorSet.bg} rounded-2xl blur-md opacity-60 group-hover:opacity-80 group-hover:scale-105 transition-all duration-700`}></div>
-                        <div className={`relative bg-gradient-to-br ${colorSet.bg} w-14 h-14 rounded-xl flex items-center justify-center group-hover:bg-gradient-to-br group-hover:${colorSet.bgHover} transition-all duration-500 shadow-lg ${colorSet.shadow} group-hover:shadow-xl group-hover:${colorSet.shadowHover} transform group-hover:-translate-y-1`}>
-                          <div className={`absolute inset-0 rounded-xl border-2 ${colorSet.ring} group-hover:scale-125 group-hover:opacity-0 transition-all duration-700`} />
-                          <IconComponent className={`w-7 h-7 ${colorSet.icon} group-hover:scale-110 group-hover:rotate-12 transition-all duration-500`} />
-                        </div>
-                      </div>
-                      
-                      <h3 className={`text-xl font-bold text-slate-800 mb-3 ${colorSet.titleHover} transition-colors duration-500 group-hover:translate-x-1 relative inline-block`}>
-                        {benefit.title}
-                        <span className={`absolute -bottom-1 left-0 w-0 group-hover:w-full h-0.5 bg-gradient-to-r ${colorSet.underline} to-transparent transition-all duration-500 rounded-full`}></span>
-                      </h3>
-                      
-                      <p className="text-slate-600 text-sm leading-relaxed group-hover:text-slate-700 transition-colors duration-500 flex-grow">
-                        {benefit.description}
-                      </p>
-                      
-                      <div className="mt-6 flex items-center justify-end">
-                        <div className={`w-8 h-0.5 bg-gradient-to-r ${colorSet.underline} to-transparent group-hover:w-12 transition-all duration-500 rounded-full`}></div>
-                        <div className={`ml-2 w-0 h-0.5 ${colorSet.bgHover.split(' ')[0]} to-transparent group-hover:w-4 transition-all duration-500 delay-100 rounded-full`}></div>
-                      </div>
-                      
-                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-                    </CardContent>
-                    
-                    <div className={`absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r ${colorSet.underline} to-transparent scale-x-0 group-hover:scale-x-100 transition-transform duration-700 origin-left rounded-b-xl`} />
-                    
-                    <div className={`absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 ${colorSet.icon.replace('text', 'border')} rounded-tl-lg transform -rotate-45 scale-0 group-hover:scale-100 group-hover:rotate-0 transition-all duration-500`} style={{transitionDelay: '0ms'}} />
-                    <div className={`absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 ${colorSet.icon.replace('text', 'border')} rounded-tr-lg transform -rotate-45 scale-0 group-hover:scale-100 group-hover:rotate-0 transition-all duration-500`} style={{transitionDelay: '100ms'}} />
-                    <div className={`absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 ${colorSet.icon.replace('text', 'border')} rounded-bl-lg transform rotate-45 scale-0 group-hover:scale-100 group-hover:rotate-0 transition-all duration-500`} style={{transitionDelay: '200ms'}} />
-                    <div className={`absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 ${colorSet.icon.replace('text', 'border')} rounded-br-lg transform rotate-45 scale-0 group-hover:scale-100 group-hover:rotate-0 transition-all duration-500`} style={{transitionDelay: '300ms'}} />
-                  </Card>
-                </div>
-              );
-            })}
+          
+          {/* ================= CENTER HEADING ================= */}
+       <div className="text-center mb-10 ">
+  <h2 className="font-['Poppins'] text-3xl sm:text-4xl md:text-6xl font-semibold text-gray-900 mb-4 tracking-tight">
+  Why Partner with <span className="text-[#004AAD]">Us?</span>
+</h2>
+  <p className="font-['Poppins'] text-sm sm:text-base md:text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
+    We combine strong business networks with meaningful benefits to <span className="font-semibold text-gray-800">accelerate your growth</span> and maximize opportunities.
+  </p>
+</div>
+          {/* ================= TOP SECTION - BENEFITS CARDS ================= */}
+       <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-20 max-w-5xl mx-auto">
+  {benefits.map((benefit, index) => {
+    const IconComponent = iconMap[benefit.icon as keyof typeof iconMap];
+    const delayClass = delayClasses[index % delayClasses.length];
+    
+    return (
+      <div
+        key={index}
+        className={`transition-all duration-700 ${delayClass} ${
+          visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
+        }`}
+      >
+        <Card className="relative overflow-hidden border border-blue-100 shadow-sm hover:shadow-xl transition-all duration-500 group h-full max-w-md">
+          {/* Accent line */}
+          <div className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-blue-700 to-blue-500"></div>
+          
+          <CardContent className="p-6 bg-white">
+            {/* Icon container */}
+            <div className="mb-4 relative">
+              <div className="w-12 h-12 rounded-xl bg-blue-700 flex items-center justify-center shadow-md group-hover:scale-105 transition-all duration-500">
+                <IconComponent className="w-6 h-6 text-white" />
+              </div>
+              {/* Decorative element */}
+              <div className="absolute -top-1 -right-1 w-14 h-14 bg-blue-50 rounded-full opacity-40 group-hover:scale-110 transition-all duration-500 -z-10"></div>
+            </div>
+
+            {/* Content */}
+            <h3 className="text-lg font-bold text-blue-900 mb-2 group-hover:text-blue-700 transition-colors duration-300">
+              {benefit.title}
+            </h3>
+            <p className="text-slate-600 text-sm leading-relaxed">
+              {benefit.description}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  })}
+</div>
+          {/* ================= BOTTOM SECTION - NETWORK OVERLAP DESIGN ================= */}
+       <div className="flex justify-center items-center py-2 -mt-8">
+  {/* Desktop View - Original (UNCHANGED) */}
+  <div className="hidden md:flex relative w-[800px] h-[800px] justify-center items-center">
+    
+    {/* CENTER CIRCLE */}
+    <div className="absolute w-[400px] h-[400px] flex items-center justify-center z-[5]">
+      <div className="absolute w-[300px] h-[300px] rounded-full border-[5px] border-white"></div>
+      <div className="relative w-[260px] h-[260px] rounded-full border-[5px] border-[#5b9ce8] bg-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-lg font-semibold text-[#4a90e2] tracking-wide">
+            PG BUSINESS
           </div>
+          <div className="text-2xl font-bold text-[#2563eb] mt-1">
+            NETWORK
+          </div>
+          <div className="mt-4 flex justify-center">
+            <div className="w-[60px] h-[60px] flex items-center justify-center bg-white">
+              <Building2
+                className="w-8 h-8 text-[#4a90e2]"
+                strokeWidth={2}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {/* IMAGE NODES */}
+    {[
+      { top: 'top-20', left: 'left-20', src: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=400&h=400&fit=crop' },
+      { top: 'top-20', right: 'right-20', src: 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=400&h=400&fit=crop' },
+      { bottom: 'bottom-20', left: 'left-20', src: 'https://images.unsplash.com/photo-1600880292203-757bb62b4baf?w=400&h=400&fit=crop' },
+      { bottom: 'bottom-20', right: 'right-14', src: 'https://images.unsplash.com/photo-1556761175-b413da4baf72?w=400&h=400&fit=crop' },
+    ].map((img, idx) => (
+      <div
+        key={idx}
+        className={`absolute ${img.top || ''} ${img.bottom || ''} ${img.left || ''} ${img.right || ''} w-[300px] h-[300px] rounded-full border-[6px] border-[#5b9ce8] overflow-hidden bg-white transition-transform duration-300 hover:scale-110 hover:shadow-xl`}
+      >
+        <img src={img.src} alt={`Network ${idx}`} className="w-full h-full object-cover" />
+      </div>
+    ))}
+  </div>
+
+  {/* Mobile View - Exact same layout, just scaled */}
+  <div className="md:hidden relative w-[372px] h-[300px] flex items-center justify-center -mt-10">
+    
+    {/* CENTER CIRCLE */}
+    <div className="absolute w-[175px] h-[175px] flex items-center justify-center z-[5]">
+      <div className="absolute w-[130px] h-[130px] rounded-full border-[3px] border-white"></div>
+      <div className="relative w-[115px] h-[115px] rounded-full border-[3px] border-[#5b9ce8] bg-white flex items-center justify-center">
+        <div className="text-center px-1">
+          <div className="text-[9px] font-semibold text-[#4a90e2] tracking-wide">
+            PG BUSINESS
+          </div>
+          <div className="text-xs font-bold text-[#2563eb] mt-0.5">
+            NETWORK
+          </div>
+          <div className="mt-1.5 flex justify-center">
+            <div className="w-[26px] h-[26px] flex items-center justify-center bg-white">
+              <Building2
+                className="w-3.5 h-3.5 text-[#4a90e2]"
+                strokeWidth={2}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {/* IMAGE NODES - Same positions, scaled */}
+    {[
+      { top: 'top-[10px]', left: 'left-[35px]', src: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=400&h=400&fit=crop' },
+      { top: 'top-[10px]', right: 'right-[45px]', src: 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=400&h=400&fit=crop' },
+      { bottom: 'bottom-[10px]', left: 'left-[35px]', src: 'https://images.unsplash.com/photo-1600880292203-757bb62b4baf?w=400&h=400&fit=crop' },
+      { bottom: 'bottom-[10px]', right: 'right-[45px]', src: 'https://images.unsplash.com/photo-1556761175-b413da4baf72?w=400&h=400&fit=crop' },
+    ].map((img, idx) => (
+      <div
+        key={idx}
+        className={`absolute ${img.top || ''} ${img.bottom || ''} ${img.left || ''} ${img.right || ''} w-[131px] h-[131px] rounded-full border-[3px] border-[#5b9ce8] overflow-hidden bg-white transition-transform duration-300 hover:scale-110 hover:shadow-xl active:scale-105`}
+      >
+        <img src={img.src} alt={`Network ${idx}`} className="w-full h-full object-cover" />
+      </div>
+    ))}
+  </div>
+</div>
         </div>
       </section>
     );
