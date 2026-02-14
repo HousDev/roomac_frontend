@@ -1219,7 +1219,7 @@ import { AdminHeader } from '@/components/admin/admin-header';
 // Loading component
 function RoomsLoading() {
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className=" bg-gray-50">
       {/* <AdminHeader title="Rooms Management" /> */}
       <div className="container mx-auto p-4 md:p-6">
         <div className="animate-pulse">
@@ -1313,7 +1313,7 @@ export default function RoomsPage() {
 
   if (loading) return <RoomsLoading />;
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className=" bg-gray-50">
       <div className="container mx-auto p-1 md:p-4">
         <RoomsClient initialRooms={data.rooms} initialProperties={data.properties} />
       </div>

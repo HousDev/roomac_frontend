@@ -11,9 +11,9 @@ import { DataTable } from "@/components/admin/data-table";
 // Loading component
 function PropertiesLoading() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50/30">
+    <div className=" bg-gradient-to-br from-gray-50 to-blue-50/30">
       <div className="p-4">
-        <Card className="border-0 shadow-xl bg-gradient-to-br from-white via-blue-50/30 to-purple-50/30 backdrop-blur-xl overflow-hidden rounded-2xl">
+        <Card className="border-0 shadow-xl bg-gradient-to-br from-white via-blue-50/30 to-purple-50/30 backdrop-blur-xl  rounded-2xl">
           <div className="animate-pulse">
             <div className="h-20 bg-gradient-to-r from-blue-600 via-blue-500 to-blue-500" />
             <CardContent className="p-5">
@@ -47,7 +47,7 @@ export default function PropertiesPage() {
 
   if (loading) return <PropertiesLoading />;
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50/30">
+    <div className=" bg-gradient-to-br from-gray-50 to-blue-50/30">
       <PropertyListClient initialProperties={properties} />
     </div>
   );

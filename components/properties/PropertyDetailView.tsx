@@ -507,31 +507,46 @@ const PropertyDetailView = memo(function PropertyDetailView({ propertyData, offe
             </div>
 
             {/* Description Card */}
-            <div className="bg-white rounded-xl md:rounded-2xl overflow-hidden shadow-lg md:shadow-2xl">
-              <div className="bg-gradient-to-r from-blue-600 to-cyan-600 px-3 md:px-6 py-2 md:py-4 flex items-center justify-between">
-                <div className="flex items-center gap-2 md:gap-3">
-                  <div className="w-8 h-8 md:w-10 md:h-10 lg:w-12 lg:h-12 bg-white/20 rounded-lg md:rounded-xl flex items-center justify-center">
-                    <FileText className="w-4 h-4 md:w-5 md:h-5 text-white" />
-                  </div>
-                  <h2 className="text-sm md:text-xl font-black text-white">About This Property</h2>
-                </div>
-              </div>
-              <div className="p-3 md:p-6">
-                <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-lg md:rounded-xl p-3 md:p-6 mb-3 md:mb-6 border border-blue-100 md:border-2">
-                  <p className="text-gray-800 leading-relaxed font-medium text-xs md:text-base">
-                    {propertyData.description}
-                  </p>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-4">
-                  {propertyData.highlights.map((highlight: string, i: number) => (
-                    <div key={i} className="flex items-center gap-2 md:gap-3 bg-white p-2 md:p-4 rounded-lg md:rounded-xl border border-gray-100 md:border-2 hover:border-blue-200 transition-all">
-                      <CheckCircle2 className="w-3 h-3 md:w-4 md:h-4 text-blue-600" />
-                      <span className="text-xs md:text-sm font-bold text-gray-800">{highlight}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+           <div className="bg-white rounded-lg md:rounded-xl overflow-hidden shadow-md mt-0">
+
+  {/* COMPACT HEADER */}
+  <div className="bg-gradient-to-r from-blue-600 to-cyan-600 px-3 py-2 flex items-center gap-2">
+    <div className="w-6 h-6 bg-white/20 rounded-md flex items-center justify-center">
+      <FileText className="w-3.5 h-3.5 text-white" />
+    </div>
+    <h2 className="text-xs md:text-sm font-semibold text-white">
+      About This Property
+    </h2>
+  </div>
+
+  {/* COMPACT BODY */}
+  <div className="p-3 space-y-3">
+
+    {/* DESCRIPTION */}
+    <div className="bg-blue-50 rounded-md p-2 border border-blue-100">
+      <p className="text-gray-700 text-xs leading-relaxed">
+        {propertyData.description}
+      </p>
+    </div>
+
+    {/* HIGHLIGHTS */}
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+      {propertyData.highlights.map((highlight: string, i: number) => (
+        <div
+          key={i}
+          className="flex items-center gap-1.5 bg-gray-50 px-2 py-1.5 rounded-md border border-gray-100"
+        >
+          <CheckCircle2 className="w-3 h-3 text-blue-600" />
+          <span className="text-[11px] font-medium text-gray-800 truncate">
+            {highlight}
+          </span>
+        </div>
+      ))}
+    </div>
+
+  </div>
+</div>
+
 
             {/* Available Rooms */}
             <div className="bg-white rounded-xl md:rounded-2xl p-3 md:p-6 shadow-lg md:shadow-2xl">
@@ -727,108 +742,143 @@ const PropertyDetailView = memo(function PropertyDetailView({ propertyData, offe
             </div>
 
             {/* Amenities */}
-            <div className="bg-white rounded-xl md:rounded-2xl p-3 md:p-6 shadow-lg md:shadow-2xl">
-              <h2 className="text-base md:text-2xl font-black gradient-text mb-3 md:mb-6">Amenities & Facilities</h2>
+           <div className="bg-white rounded-lg md:rounded-xl p-2 md:p-4 shadow-sm md:shadow-lg border border-gray-100 md:border-gray-200">
+  <h2 className="text-sm md:text-xl font-bold text-gray-900 mb-2 md:mb-4 flex items-center gap-1.5">
+    <Sparkles className="w-3.5 h-3.5 md:w-5 md:h-5 text-blue-600" />
+    Amenities & Facilities
+  </h2>
 
-              <div className="flex gap-1 md:gap-2 mb-3 md:mb-6 overflow-x-auto pb-1 md:pb-2">
-                {allCategories.map(cat => {
-                  const isAll = cat === 'all';
-                  const isActive = selectedCategory === cat;
-                  
-                  return (
-                    <button
-                      key={cat}
-                      onClick={() => setSelectedCategory(cat)}
-                      className={`px-2 md:px-4 py-1 md:py-2 rounded md:rounded-lg font-semibold text-[10px] md:text-sm whitespace-nowrap capitalize ${isActive
-                          ? isAll 
-                            ? 'bg-gradient-to-r from-blue-600 to-blue-600 text-white'
-                            : 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        }`}
-                    >
-                      {isAll ? 'All Amenities' : cat}
-                    </button>
-                  );
-                })}
-              </div>
+  {/* Category Filters - Compact */}
+  <div className="flex gap-1 md:gap-1.5 mb-2 md:mb-4 overflow-x-auto pb-1 scrollbar-hide">
+    {allCategories.map(cat => {
+      const isAll = cat === 'all';
+      const isActive = selectedCategory === cat;
+      
+      return (
+        <button
+          key={cat}
+          onClick={() => setSelectedCategory(cat)}
+          className={`px-2 md:px-3 py-1 md:py-1.5 rounded md:rounded-lg font-medium text-[10px] md:text-xs whitespace-nowrap capitalize transition-all ${
+            isActive
+              ? isAll 
+                ? 'bg-gradient-to-r from-blue-600 to-blue-600 text-white shadow-sm'
+                : 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-sm'
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          }`}
+        >
+          {isAll ? 'All' : cat}
+        </button>
+      );
+    })}
+  </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-4">
-                {filteredAmenities.map((amenity: any, i: number) => {
-                  const IconComponent = (Icons as any)[amenity.icon];
-                  return (
-                    <div key={i} className="bg-white rounded-lg md:rounded-xl p-2 md:p-4 border border-gray-200 md:border-2 hover:border-violet-200 transition-all">
-                      <div className="flex flex-col items-center text-center gap-1.5 md:gap-3">
-                        <div className="w-10 h-10 md:w-16 md:h-16 bg-gradient-to-br from-blue-600 to-blue-400 rounded-lg md:rounded-2xl flex items-center justify-center group-hover:scale-105 md:group-hover:scale-110 transition-transform">
-                          <IconComponent className="w-5 h-5 md:w-8 md:h-8 text-white" />
-                        </div>
-                        <div>
-                          <h3 className="font-bold text-gray-900 text-xs md:text-sm mb-0.5 md:mb-1">{amenity.title}</h3>
-                          <p className="text-[10px] md:text-xs text-gray-600 font-medium">{amenity.description}</p>
-                          <span className="text-[10px] md:text-xs text-blue-900 font-semibold mt-0.5 md:mt-1 inline-block">
-                            {amenity.category}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {filteredAmenities.length === 0 && (
-                <div className="text-center py-4 md:py-8">
-                  <div className="w-10 h-10 md:w-16 md:h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-2 md:mb-4">
-                    <Home className="w-5 h-5 md:w-8 md:h-8 text-gray-400" />
-                  </div>
-                  <p className="text-gray-600 font-semibold text-xs md:text-base">
-                    No amenities found in the "{selectedCategory}" category
-                  </p>
-                </div>
-              )}
+  {/* Amenities Grid - Compact */}
+  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-1.5 md:gap-2">
+    {filteredAmenities.map((amenity: any, i: number) => {
+      const IconComponent = (Icons as any)[amenity.icon] || Home;
+      return (
+        <div 
+          key={i} 
+          className="group bg-white rounded-lg p-1.5 md:p-2 border border-gray-100 hover:border-blue-200 hover:shadow-sm transition-all"
+        >
+          <div className="flex flex-col items-center text-center gap-1">
+            {/* Icon - Smaller */}
+            <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg flex items-center justify-center group-hover:scale-105 transition-transform">
+              <IconComponent className="w-4 h-4 md:w-5 md:h-5 text-blue-600" />
             </div>
+            
+            {/* Title - Compact */}
+            <h3 className="font-semibold text-gray-900 text-[10px] md:text-xs leading-tight">
+              {amenity.title}
+            </h3>
+            
+            {/* Description - Very compact, hidden on mobile */}
+            <p className="hidden md:block text-[8px] md:text-[10px] text-gray-500 leading-tight">
+              {amenity.description}
+            </p>
+            
+            {/* Category Badge - Mini */}
+            <span className="text-[7px] md:text-[9px] text-blue-700 bg-blue-50 px-1 py-0.5 rounded-full mt-0.5">
+              {amenity.category}
+            </span>
+          </div>
+        </div>
+      );
+    })}
+  </div>
+
+  {/* Empty State - Compact */}
+  {filteredAmenities.length === 0 && (
+    <div className="text-center py-3 md:py-6">
+      <div className="w-8 h-8 md:w-12 md:h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-1.5 md:mb-3">
+        <Home className="w-4 h-4 md:w-6 md:h-6 text-gray-400" />
+      </div>
+      <p className="text-gray-600 font-medium text-[10px] md:text-sm">
+        No amenities found in "{selectedCategory}"
+      </p>
+    </div>
+  )}
+</div>
 
             {/* Location & Nearby */}
-            <div className="bg-white rounded-xl md:rounded-2xl p-3 md:p-6 shadow-lg md:shadow-2xl">
-              <h2 className="text-base md:text-2xl font-black gradient-text flex items-center mb-2 md:mb-5">
-                <MapPin className="w-4 h-4 md:w-6 md:h-6 mr-1 md:mr-2" />Location & Nearby
-              </h2>
+           <div className="bg-white rounded-lg md:rounded-xl p-2 md:p-4 shadow-sm md:shadow-lg border border-gray-100 md:border-gray-200">
+  <h2 className="text-sm md:text-xl font-bold text-gray-900 mb-2 md:mb-4 flex items-center gap-1.5">
+    <MapPin className="w-3.5 h-3.5 md:w-5 md:h-5 text-blue-600" />
+    Location & Nearby
+  </h2>
 
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-1.5 md:gap-3 mb-2 md:mb-5">
-                {propertyData.nearbyPlaces.map((place: any, i: number) => {
-                  const Icon = (Icons as any)[place.type];
-                  return (
-                    <div key={i} className="bg-white/60 rounded-lg md:rounded-xl p-2 md:p-3 border border-gray-200 hover:border-blue-300 transition-all">
-                      <div className="flex items-center gap-1.5 md:gap-2">
-                        <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-br from-blue-600 to-blue-400 rounded-lg md:rounded-xl flex items-center justify-center">
-                          <Icon className="w-4 h-4 md:w-5 md:h-5 text-white" />
-                        </div>
-                        <div>
-                          <p className="text-xs md:text-sm font-bold text-gray-900">{place.name}</p>
-                          <p className="text-[10px] md:text-xs text-gray-600 font-semibold">{place.distance}</p>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="relative w-full h-[200px] md:h-[300px] lg:h-[350px] rounded-lg md:rounded-2xl overflow-hidden border border-gray-200 md:border-2 mb-2 md:mb-4">
-                <iframe
-                  src={`https://www.google.com/maps?q=${propertyData.coordinates.lat},${propertyData.coordinates.lng}&z=15&output=embed`}
-                  className="w-full h-full border-0"
-                  loading="lazy"
-                  title="Property Location"
-                />
-              </div>
-
-              <a
-                href={`https://www.google.com/maps/dir/?api=1&destination=${propertyData.coordinates.lat},${propertyData.coordinates.lng}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block w-full text-center bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 md:py-3 rounded-lg md:rounded-xl transition-colors text-xs md:text-sm"
-              >
-                Get Directions
-              </a>
+  {/* Nearby Places Grid - Compact */}
+  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-1.5 md:gap-2 mb-2 md:mb-4">
+    {propertyData.nearbyPlaces.map((place: any, i: number) => {
+      const Icon = (Icons as any)[place.type] || MapPin;
+      return (
+        <div 
+          key={i} 
+          className="group bg-white rounded-lg p-1.5 md:p-2 border border-gray-100 hover:border-blue-200 hover:shadow-sm transition-all"
+        >
+          <div className="flex items-center gap-1.5 md:gap-2">
+            {/* Icon - Compact */}
+            <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg flex items-center justify-center group-hover:scale-105 transition-transform">
+              <Icon className="w-4 h-4 md:w-5 md:h-5 text-blue-600" />
             </div>
+            
+            {/* Text - Compact */}
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold text-gray-900 text-[10px] md:text-xs leading-tight truncate">
+                {place.name}
+              </p>
+              <p className="text-[8px] md:text-[10px] text-gray-500 font-medium">
+                {place.distance}
+              </p>
+            </div>
+          </div>
+        </div>
+      );
+    })}
+  </div>
+
+  {/* Map - Compact */}
+  <div className="relative w-full h-[150px] md:h-[200px] lg:h-[250px] rounded-lg md:rounded-xl overflow-hidden border border-gray-200 mb-2 md:mb-3">
+    <iframe
+      src={`https://www.google.com/maps?q=${propertyData.coordinates.lat},${propertyData.coordinates.lng}&z=15&output=embed`}
+      className="w-full h-full border-0"
+      loading="lazy"
+      title="Property Location"
+    />
+  </div>
+
+  {/* Directions Button - Compact */}
+  <a
+  href="https://www.google.com/maps/place/Roomac+Co-Living/@18.6088666,73.7379061,17z/data=!3m1!4b1!4m6!3m5!1s0x3bc2bb1615bc6be1:0x1b56894191b46ae1!8m2!3d18.6088666!4d73.7379061!16s%2Fg%2F11yllqy06v!17m2!4m1!1e3!18m1!1e1?entry=ttu&g_ep=EgoyMDI2MDIxMS4wIKXMDSoASAFQAw%3D%3D"
+  target="_blank"
+  rel="noopener noreferrer"
+  className="block w-full text-center bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-semibold py-1.5 md:py-2.5 rounded-lg md:rounded-xl transition-all text-[10px] md:text-sm shadow-sm hover:shadow"
+>
+  Get Directions
+</a>
+
+
+</div>
 
             {/* Reviews */}
             <div className="bg-white rounded-xl md:rounded-2xl p-3 md:p-6 shadow-lg md:shadow-2xl">

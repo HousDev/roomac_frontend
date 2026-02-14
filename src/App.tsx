@@ -138,6 +138,8 @@ import PropertySlugPage from "../app/properties/[slug]/page";
 import AdminLoginPage from "../app/admin/login/page";
 import AdminDashboardPage from "../app/admin/dashboard/page";
 import AdminPropertiesPage from "../app/admin/properties/page";
+  import AdminPropertyIdPage from '../app/admin/properties/[id]/page';
+
 import AdminRoomsPage from "../app/admin/rooms/page";
 import AdminTenantsPage from "../app/admin/tenants/page";
 import AdminPaymentsPage from "../app/admin/payments/page";
@@ -159,6 +161,7 @@ import AdminLeaveRequestsPage from "../app/admin/leave-requests/page";
 import AdminVacateRequestsPage from "../app/admin/vacate-requests/page";
 import AdminChangeBedRequestsPage from "../app/admin/change-bed-requests/page";
 import AdminAccountDeletionPage from "../app/admin/account-deletion-requests/page";
+
 
 /* ================= TENANT ================= */
 import TenantLoginPage from "../app/tenant/login/page";
@@ -201,6 +204,8 @@ function App() {
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<AdminDashboardPage />} />
             <Route path="properties" element={<AdminPropertiesPage />} />
+                 <Route path="properties/:id" element={<AdminPropertyIdPage />} />
+
             <Route path="rooms" element={<AdminRoomsPage />} />
             <Route path="tenants" element={<AdminTenantsPage />} />
             <Route path="payments" element={<AdminPaymentsPage />} />

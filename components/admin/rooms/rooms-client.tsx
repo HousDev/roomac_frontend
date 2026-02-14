@@ -1328,68 +1328,71 @@ const handleBulkActionComplete = useCallback((updatedRooms?: RoomResponse[]) => 
   }, [rooms.length]);
 
   return (
-    <div className="space-y-6 ">
+    <div className=" ">
       {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">Total Rooms</p>
-                <h3 className="text-2xl font-bold">{roomStats.totalRooms}</h3>
-              </div>
-              <div className="p-3 bg-blue-100 rounded-lg">
-                <DoorOpen className="h-6 w-6 text-blue-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="sticky top-20 z-10 py-0 md:py-2 px-0 mb-4">
+  <div className="max-w-7xl mx-auto">
+<div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-2">
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">Total Beds</p>
-                <h3 className="text-2xl font-bold">{roomStats.totalBeds}</h3>
-              </div>
-              <div className="p-3 bg-green-100 rounded-lg">
-                <Bed className="h-6 w-6 text-green-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">Available Beds</p>
-                <h3 className="text-2xl font-bold">{roomStats.availableBeds}</h3>
-              </div>
-              <div className="p-3 bg-purple-100 rounded-lg">
-                <Users className="h-6 w-6 text-purple-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">Occupancy Rate</p>
-                <h3 className="text-2xl font-bold">{roomStats.occupancyRate}</h3>
-              </div>
-              <div className="p-3 bg-amber-100 rounded-lg">
-                <Building2 className="h-6 w-6 text-amber-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Total Rooms */}
+      <div className="bg-white rounded-lg p-2 shadow-sm border border-gray-200 h-[56px] md:h-auto flex items-center gap-2">
+        <div className="p-1 bg-blue-100 rounded-md">
+          <DoorOpen className="h-3.5 w-3.5 text-blue-600" />
+        </div>
+        <div className="leading-tight">
+          <p className="text-[9px] text-gray-500 font-medium">Total Rooms</p>
+          <p className="text-xs md:text-lg font-bold text-gray-900">
+            {roomStats.totalRooms}
+          </p>
+        </div>
       </div>
 
+      {/* Total Beds */}
+      <div className="bg-white rounded-lg p-2 shadow-sm border border-gray-200 h-[56px] md:h-auto flex items-center gap-2">
+        <div className="p-1 bg-green-100 rounded-md">
+          <Bed className="h-3.5 w-3.5 text-green-600" />
+        </div>
+        <div className="leading-tight">
+          <p className="text-[9px] text-gray-500 font-medium">Total Beds</p>
+          <p className="text-xs md:text-lg font-bold text-gray-900">
+            {roomStats.totalBeds}
+          </p>
+        </div>
+      </div>
+
+      {/* Available Beds */}
+      <div className="bg-white rounded-lg p-2 shadow-sm border border-gray-200 h-[56px] md:h-auto flex items-center gap-2">
+        <div className="p-1 bg-purple-100 rounded-md">
+          <Users className="h-3.5 w-3.5 text-purple-600" />
+        </div>
+        <div className="leading-tight">
+          <p className="text-[9px] text-gray-500 font-medium">Available Beds</p>
+          <p className="text-xs md:text-lg font-bold text-gray-900">
+            {roomStats.availableBeds}
+          </p>
+        </div>
+      </div>
+
+      {/* Occupancy */}
+      <div className="bg-white rounded-lg p-2 shadow-sm border border-gray-200 h-[56px] md:h-auto flex items-center gap-2">
+        <div className="p-1 bg-amber-100 rounded-md">
+          <Building2 className="h-3.5 w-3.5 text-amber-600" />
+        </div>
+        <div className="leading-tight">
+          <p className="text-[9px] text-gray-500 font-medium">Occupancy Rate</p>
+          <p className="text-xs md:text-lg font-bold text-gray-900">
+            {roomStats.occupancyRate}
+          </p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+
       {/* Main Content Card */}
-      <Card className="border shadow-sm max-h-[80vh] overflow-y-auto relative">
+      <Card className="max-h-[calc(100vh-230px)] md:max-h-[calc(100vh-230px)] overflow-y-auto relative">
         <CardHeader className="hidden sm:block bg-blue-500 border-b p-4 sticky top-0 z-50">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             {/* Left side: Search and Bulk Actions */}

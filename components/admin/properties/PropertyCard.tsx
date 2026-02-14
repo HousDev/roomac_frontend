@@ -56,7 +56,7 @@ export default function PropertyCard({
   }, [router, property.id]);
 
   return (
-    <Card className="h-full overflow-hidden border border-gray-200">
+    <Card className="h-full  border border-gray-200">
       <div className="relative">
         {/* Simple image placeholder */}
         <div className="h-40 bg-gray-100 flex items-center justify-center">

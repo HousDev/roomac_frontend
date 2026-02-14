@@ -10,7 +10,7 @@ interface RoomsHeaderProps {
 
 export default function RoomsHeader({ searchQuery, onSearchChange }: RoomsHeaderProps) {
   return (
-    <div className="relative w-full max-w-sm">
+    <div className="relative w-full max-w-sm rounded-2xl">
       <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
       <Input
         placeholder="Search rooms..."

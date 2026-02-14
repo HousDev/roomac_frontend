@@ -3,7 +3,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function PropertiesLoading() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50/30 p-4">
+    <div className=" bg-gradient-to-br from-gray-50 to-blue-50/30 p-4">
       <Card className="border-0 shadow-xl bg-gradient-to-br from-white via-blue-50/30 to-purple-50/30 backdrop-blur-xl overflow-hidden rounded-2xl">
         {/* Header Skeleton */}
         <div className="sticky top-0 z-30 bg-gradient-to-r from-blue-600 via-blue-500 to-blue-500">
