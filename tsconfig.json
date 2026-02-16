@@ -24,6 +24,6 @@
       "next": ["./src/compat/next.ts"]
     }
   },
-  "include": ["src/vite-env.d.ts", "**/*.ts", "**/*.tsx", "components/about"],
+  "include": ["src/vite-env.d.ts", "**/*.ts", "**/*.tsx", "components/about", "components/layout/TermsPopup.jsx"],
   "exclude": ["node_modules", "backend"]
 }

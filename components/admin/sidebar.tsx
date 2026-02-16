@@ -74,8 +74,8 @@ function SubmenuItemWithTooltip({ reqItem, reqActive, sidebarOpen }: {
           className={`
             h-7 w-7 rounded-lg flex items-center justify-center transition-all p-1.5 flex-shrink-0
             ${reqActive
-              ? 'bg-yellow-400 text-black shadow-md'
-              : 'bg-white/20 text-white group-hover:bg-yellow-400 group-hover:text-black'
+              ? ''
+              : 'bg-white/20 text-white  group-hover:text-white'
             }
           `}
         >
@@ -163,8 +163,8 @@ function CollapsedSidebarItem({
         className={`
           h-9 w-9 rounded-lg flex items-center justify-center transition-all
           ${active
-            ? 'bg-yellow-400 text-black shadow-md'
-            : 'bg-white/20 text-white group-hover:bg-yellow-400 group-hover:text-black'
+            ? ' text-black shadow-md'
+            : 'bg-white/20 text-white  group-hover:text-white'
           }
         `}
       >
@@ -193,8 +193,8 @@ function CollapsedSidebarItem({
         className={`
           h-9 w-9 rounded-lg flex items-center justify-center transition-all
           ${active
-            ? 'bg-yellow-400 text-black shadow-md'
-            : 'bg-white/20 text-white group-hover:bg-yellow-400 group-hover:text-black'
+            ? ''
+            : 'bg-white/20 text-white  group-hover:text-black'
           }
         `}
       >
@@ -475,14 +475,14 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
             `}
           >
             {active && (
-              <span className="absolute left-0 top-2 bottom-2 w-1 rounded-full bg-yellow-400" />
+              <span className="absolute left-0 top-2 bottom-2 w-1 rounded-full " />
             )}
             <div
               className={`
                 h-9 w-9 rounded-lg flex items-center justify-center transition-all
                 ${active
-                  ? 'bg-yellow-400 text-black shadow-md'
-                  : 'bg-white/20 text-white group-hover:bg-yellow-400 group-hover:text-black'
+                  ? ''
+                  : 'bg-white/20 text-white  group-hover:text-black'
                 }
               `}
             >
@@ -506,15 +506,15 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
               `}
             >
               {isRequestActive && (
-                <span className="absolute left-0 top-2 bottom-2 w-1 rounded-full bg-yellow-400" />
+                <span className="absolute left-0 top-2 bottom-2 w-1 rounded-full" />
               )}
               <div className="flex items-center gap-3">
                 <div
                   className={`
                     h-9 w-9 rounded-lg flex items-center justify-center transition-all
                     ${isRequestActive
-                      ? 'bg-yellow-400 text-black shadow-md'
-                      : 'bg-white/20 text-white group-hover:bg-yellow-400 group-hover:text-black'
+                      ? ''
+                      : 'bg-white/20 text-white  group-hover:text-black'
                     }
                   `}
                 >
@@ -560,20 +560,20 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
             className={`
               relative group flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200
               ${active
-                ? 'bg-white/20 text-yellow-300'
+                ? 'bg-white/20 text-white'
                 : 'text-blue-100 hover:bg-white/15 hover:text-white'
               }
             `}
           >
             {active && (
-              <span className="absolute left-0 top-2 bottom-2 w-1 rounded-full bg-yellow-400" />
+              <span className="absolute left-0 top-2 bottom-2 w-1 rounded-full " />
             )}
             <div
               className={`
                 h-9 w-9 rounded-lg flex items-center justify-center transition-all flex-shrink-0
                 ${active
-                  ? 'bg-yellow-400 text-black shadow-md'
-                  : 'bg-white/20 text-white group-hover:bg-yellow-400 group-hover:text-black'
+                  ? ''
+                  : 'bg-white/20 text-white  group-hover:text-black'
                 }
               `}
             >
@@ -602,14 +602,14 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
             `}
           >
             {active && (
-              <span className="absolute left-0 top-2 bottom-2 w-1 rounded-full bg-yellow-400" />
+              <span className="absolute left-0 top-2 bottom-2 w-1 rounded-full " />
             )}
             <div
               className={`
                 h-9 w-9 rounded-lg flex items-center justify-center transition-all flex-shrink-0
                 ${active
-                  ? 'bg-yellow-400 text-black shadow-md'
-                  : 'bg-white/20 text-white group-hover:bg-yellow-400 group-hover:text-black'
+                  ? ''
+                  : 'bg-white/20 text-white  group-hover:text-black'
                 }
               `}
             >
