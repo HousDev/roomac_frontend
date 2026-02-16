@@ -11,7 +11,7 @@ export const HeroSection = forwardRef<HTMLElement, HeroSectionProps>(
     <section
       ref={ref}
       id={id}
-      className={`relative py-8 overflow-hidden transition-all duration-1000 min-h-[420px] flex items-center ${visible ? 'translate-y-0' : 'translate-y-10'}`}
+      className={`relative py-8   overflow-hidden transition-all duration-1000 min-h-[420px] flex items-center ${visible ? 'translate-y-0' : 'translate-y-10'}`}
     >
       {/* Background Image with Overlay */}
       <div className="absolute inset-0">
