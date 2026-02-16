@@ -2377,9 +2377,9 @@ export function RoomForm({
                       <SelectItem key={p.id} value={String(p.id)}>
                         <div className="flex items-center gap-2">
                           <Building className="h-3 w-3 md:h-4 md:w-4" />
-                          <div>
-                            <div className="text-[10px] md:text-xs">{p.name}</div>
-                            <div className="text-[9px] md:text-[10px] text-gray-500 truncate max-w-[200px]">{p.address}</div>
+                          <div className="flex items-center gap-3">
+                            <div className="text-[10px] md:text-xs">{p.name}</div> -
+                            <div className="text-[9px] md:text-[10px]  truncate max-w-[200px]">{p.address}</div>
                           </div>
                         </div>
                       </SelectItem>
@@ -2417,36 +2417,36 @@ export function RoomForm({
                     <SelectItem value="single">
                       <div className="flex items-center gap-2">
                         <UserCircle className="h-3 w-3 md:h-4 md:w-4 text-blue-600" />
-                        <div>
+                        <div className="flex items-center gap-3">
                           <div className="text-[10px] md:text-xs">Single Occupancy</div>
-                          <div className="text-[9px] md:text-[10px] text-gray-500">1 bed per room</div>
+                          <div className="text-[9px] md:text-[10px] ">1 bed per room</div>
                         </div>
                       </div>
                     </SelectItem>
                     <SelectItem value="double">
                       <div className="flex items-center gap-2">
                         <Users className="h-3 w-3 md:h-4 md:w-4 text-green-600" />
-                        <div>
+                        <div className="flex items-center gap-2">
                           <div className="text-[10px] md:text-xs">Double Occupancy</div>
-                          <div className="text-[9px] md:text-[10px] text-gray-500">2 beds per room</div>
+                          <div className="text-[9px] md:text-[10px] ">2 beds per room</div>
                         </div>
                       </div>
                     </SelectItem>
                     <SelectItem value="triple">
                       <div className="flex items-center gap-2">
                         <Users className="h-3 w-3 md:h-4 md:w-4 text-purple-600" />
-                        <div>
+                        <div className="flex items-center gap-2">
                           <div className="text-[10px] md:text-xs">Triple Occupancy</div>
-                          <div className="text-[9px] md:text-[10px] text-gray-500">3 beds per room</div>
+                          <div className="text-[9px] md:text-[10px] ">3 beds per room</div>
                         </div>
                       </div>
                     </SelectItem>
                     <SelectItem value="other">
                       <div className="flex items-center gap-2">
                         <Users className="h-3 w-3 md:h-4 md:w-4 text-gray-600" />
-                        <div>
+                        <div className="flex items-center gap-2">
                           <div className="text-[10px] md:text-xs">Other (Custom)</div>
-                          <div className="text-[9px] md:text-[10px] text-gray-500">Custom bed count</div>
+                          <div className="text-[9px] md:text-[10px] ">Custom bed count</div>
                         </div>
                       </div>
                     </SelectItem>
