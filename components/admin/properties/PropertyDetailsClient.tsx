@@ -715,8 +715,8 @@ const PropertyDetailsClient = ({ initialProperty }: PropertyDetailsClientProps) 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-100">
             {/* Sticky Header */}
-            <div className="bg-white/80 backdrop-blur-xl shadow-sm sticky top-0 z-40 border-b border-slate-200/50">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div className="  sticky top-20 z-10 border-b border-slate-200/50">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-0">
                     <div className="flex items-center justify-between">
                         <button
                             onClick={() => router.back()}
@@ -748,88 +748,118 @@ const PropertyDetailsClient = ({ initialProperty }: PropertyDetailsClientProps) 
                 <div className="grid lg:grid-cols-3 gap-6 lg:gap-8">
                     {/* Left Column */}
                     <div className="lg:col-span-2 space-y-6">
-                        {/* Image Gallery - Compact */}
-                        <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-                            <div className="relative aspect-[16/9] bg-gradient-to-br from-slate-200 to-slate-300">
-                                {property.photo_urls && property.photo_urls.length > 0 ? (
-                                    <>
-                                        <img
-                                            src={currentPhotoUrl}
-                                            alt={`${property.name} - Image ${currentImageIndex + 1}`}
-                                            className="w-full h-full object-cover"
-                                            onError={(e) => {
-                                                (e.target as HTMLImageElement).src = `https://via.placeholder.com/1200x675/f1f5f9/475569?text=${encodeURIComponent(property.name)}`;
-                                            }}
-                                        />
+                      {/* Image Gallery - Compact */}
+<div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+  <div className="relative aspect-[16/9] bg-gradient-to-br from-slate-200 to-slate-300">
 
-                                        {/* Gradient Overlay */}
-                                        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
+    {property.photo_urls && property.photo_urls.length > 0 ? (
+      <>
+        <img
+          src={currentPhotoUrl}
+          alt={`${property.name} - Image ${currentImageIndex + 1}`}
+          className="w-full h-full object-cover"
+          onError={(e) => {
+            (e.target as HTMLImageElement).src =
+              `https://via.placeholder.com/1200x675/f1f5f9/475569?text=${encodeURIComponent(property.name)}`;
+          }}
+        />
 
-                                        {/* Image Navigation */}
-                                        {property.photo_urls.length > 1 && (
-                                            <>
-                                                <button
-                                                    onClick={prevImage}
-                                                    className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-slate-800 p-3 rounded-full transition-all shadow-lg hover:scale-110"
-                                                >
-                                                    <ChevronLeft className="h-6 w-6" />
-                                                </button>
-                                                <button
-                                                    onClick={nextImage}
-                                                    className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-slate-800 p-3 rounded-full transition-all shadow-lg hover:scale-110"
-                                                >
-                                                    <ChevronRight className="h-6 w-6" />
-                                                </button>
+        {/* Gradient Overlay */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
 
-                                                {/* Indicators */}
-                                                <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 bg-black/30 backdrop-blur-sm rounded-full px-4 py-2">
-                                                    {property.photo_urls.map((_, idx) => (
-                                                        <button
-                                                            key={idx}
-                                                            onClick={() => setCurrentImageIndex(idx)}
-                                                            className={`h-2 rounded-full transition-all ${idx === currentImageIndex
-                                                                ? 'w-8 bg-white'
-                                                                : 'w-2 bg-white/50 hover:bg-white/75'
-                                                                }`}
-                                                        />
-                                                    ))}
-                                                </div>
-                                            </>
-                                        )}
+        {/* Image Navigation */}
+        {property.photo_urls.length > 1 && (
+          <>
+            {/* Left Arrow */}
+            <button
+              type="button"
+              onClick={prevImage}
+              className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2
+                         bg-white/90 hover:bg-white text-slate-800
+                         p-1.5 md:p-3 rounded-full shadow-lg transition-all"
+            >
+              <ChevronLeft className="h-4 w-4 md:h-6 md:w-6" />
+            </button>
 
-                                        {/* Fullscreen Button */}
-                                        <button
-                                            onClick={() => setImageFullscreen(true)}
-                                            className="absolute top-4 left-4 bg-black/40 hover:bg-black/60 backdrop-blur-sm text-white p-2.5 rounded-full transition-all"
-                                        >
-                                            <Maximize2 className="h-5 w-5" />
-                                        </button>
-                                    </>
-                                ) : (
-                                    <div className="w-full h-full flex flex-col items-center justify-center">
-                                        <Building2 className="h-24 w-24 text-slate-400 mb-4" />
-                                        <p className="text-slate-500 font-medium">No images available</p>
-                                    </div>
-                                )}
+            {/* Right Arrow */}
+            <button
+              type="button"
+              onClick={nextImage}
+              className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2
+                         bg-white/90 hover:bg-white text-slate-800
+                         p-1.5 md:p-3 rounded-full shadow-lg transition-all"
+            >
+              <ChevronRight className="h-4 w-4 md:h-6 md:w-6" />
+            </button>
 
-                                {/* Status Badge */}
-                                <div className="absolute top-4 right-4">
-                                    <span className={`px-4 py-2 rounded-full text-sm font-bold shadow-lg backdrop-blur-sm ${property.is_active
-                                        ? 'bg-emerald-500/90 text-white'
-                                        : 'bg-slate-500/90 text-white'
-                                        }`}>
-                                        {property.is_active ? '● Active' : '● Inactive'}
-                                    </span>
-                                </div>
+            {/* Indicators */}
+            <div className="absolute bottom-3 md:bottom-6 left-1/2 -translate-x-1/2
+                            flex gap-1.5 md:gap-2
+                            bg-black/30 backdrop-blur-sm
+                            rounded-full px-2 md:px-4 py-1 md:py-2">
+              {property.photo_urls.map((_, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => setCurrentImageIndex(idx)}
+                  className={`rounded-full transition-all
+                    ${idx === currentImageIndex
+                      ? 'w-5 md:w-8 h-1.5 md:h-2 bg-white'
+                      : 'w-1.5 md:w-2 h-1.5 md:h-2 bg-white/50'}
+                  `}
+                />
+              ))}
+            </div>
+          </>
+        )}
 
-                                {/* Image Counter */}
-                                {property.photo_urls && property.photo_urls.length > 0 && (
-                                    <div className="absolute bottom-4 right-4 bg-black/40 backdrop-blur-sm text-white px-3 py-1.5 rounded-full text-sm font-medium">
-                                        {currentImageIndex + 1} / {property.photo_urls.length}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
+        {/* Fullscreen Button */}
+        {/* <button
+          type="button"
+          onClick={() => setImageFullscreen(true)}
+          className="absolute top-2 md:top-4 left-2 md:left-4
+                     bg-black/40 hover:bg-black/60
+                     backdrop-blur-sm text-white
+                     p-1.5 md:p-2.5 rounded-full transition-all"
+        >
+          <Maximize2 className="h-4 w-4 md:h-5 md:w-5" />
+        </button> */}
+      </>
+    ) : (
+      <div className="w-full h-full flex flex-col items-center justify-center">
+        <Building2 className="h-16 md:h-24 w-16 md:w-24 text-slate-400 mb-2 md:mb-4" />
+        <p className="text-xs md:text-base text-slate-500 font-medium">
+          No images available
+        </p>
+      </div>
+    )}
+
+    {/* Status Badge */}
+    <div className="absolute top-2 md:top-4 right-2 md:right-4">
+      <span
+        className={`px-2 md:px-4 py-1 md:py-2
+                    rounded-full text-[10px] md:text-sm
+                    font-bold shadow-lg backdrop-blur-sm
+                    ${property.is_active
+                      ? 'bg-emerald-500/90 text-white'
+                      : 'bg-slate-500/90 text-white'}`}
+      >
+        {property.is_active ? '● Active' : '● Inactive'}
+      </span>
+    </div>
+
+    {/* Image Counter */}
+    {property.photo_urls && property.photo_urls.length > 0 && (
+      <div className="absolute bottom-2 md:bottom-4 right-2 md:right-4
+                      bg-black/40 backdrop-blur-sm text-white
+                      px-2 md:px-3 py-1
+                      rounded-full text-[10px] md:text-sm font-medium">
+        {currentImageIndex + 1} / {property.photo_urls.length}
+      </div>
+    )}
+  </div>
+</div>
+
 
                         {/* Property Info Card - Compact */}
                         <div className="bg-white rounded-2xl shadow-lg p-4 sm:p-6">

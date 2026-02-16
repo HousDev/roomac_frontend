@@ -2014,74 +2014,176 @@ const handleFormSubmit = useCallback(async (
     return (
       <>
         {/* Bulk Actions Bar */}
-        {showBulkActions && (
-          <div className="sticky top-0 z-40 mb-4 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg p-3 shadow-lg">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3 text-white">
-                <div className="p-1 bg-white/20 rounded">
-                  <Check className="h-4 w-4" />
-                </div>
-                <span className="font-medium">
-                  {selectedCardIds.length} property{selectedCardIds.length !== 1 ? 's' : ''} selected
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 bg-white/20 text-white hover:bg-white/30 border-white/30"
-                  onClick={handleSelectAllCards}
-                >
-                  {selectedCardIds.length === filteredProperties.length ? 'Deselect All' : 'Select All'}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 bg-white/20 text-white hover:bg-white/30 border-white/30"
-                  onClick={() => handleBulkStatusChange(selectedCardIds, true)}
-                >
-                  <CheckCircle className="h-3 w-3 mr-2" />
-                  Active
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 bg-white/20 text-white hover:bg-white/30 border-white/30"
-                  onClick={() => handleBulkStatusChange(selectedCardIds, false)}
-                >
-                  <XSquare className="h-3 w-3 mr-2" />
-                  Deactive
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 bg-white/20 text-white hover:bg-white/30 border-white/30"
-                  onClick={() => setTagsModalOpen(true)}
-                >
-                  <Tag className="h-3 w-3 mr-2" />
-                  Manage Tags
-                </Button>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  className="h-8 bg-red-500 hover:bg-red-600"
-                  onClick={() => handleBulkDelete(selectedCardIds)}
-                >
-                  <Trash2 className="h-3 w-3 mr-2" />
-                  Delete
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 text-white hover:bg-white/20"
-                  onClick={() => setSelectedCardIds([])}
-                >
-                  <X className="h-3 w-3" />
-                </Button>
-              </div>
-            </div>
+   {showBulkActions && (
+  <>
+    {/* ================= MOBILE + TABLET ================= */}
+    <div className="md:hidden  mb-3 
+                    bg-gradient-to-r from-blue-500 to-cyan-500 
+                    rounded-md px-2 py-2 shadow-md">
+
+      <div className="flex flex-col gap-2">
+
+        {/* Left */}
+        <div className="flex items-center gap-2 text-white text-xs">
+          <Check className="h-3 w-3" />
+          <span className="font-medium leading-none">
+            {selectedCardIds.length} selected
+          </span>
+        </div>
+
+        {/* Buttons */}
+        <div className="flex flex-wrap items-center gap-1">
+
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 px-2 text-xs bg-white/20 text-white border-white/30"
+            onClick={handleSelectAllCards}
+          >
+            {selectedCardIds.length === filteredProperties.length ? "All ✕" : "All"}
+          </Button>
+
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 px-2 text-xs bg-white/20 text-white border-white/30"
+            onClick={() => handleBulkStatusChange(selectedCardIds, true)}
+          >
+            <CheckCircle className="h-3 w-3 mr-1" />
+            On
+          </Button>
+
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 px-2 text-xs bg-white/20 text-white border-white/30"
+            onClick={() => handleBulkStatusChange(selectedCardIds, false)}
+          >
+            <XSquare className="h-3 w-3 mr-1" />
+            Off
+          </Button>
+
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 px-2 text-xs bg-white/20 text-white border-white/30"
+            onClick={() => setTagsModalOpen(true)}
+          >
+            <Tag className="h-3 w-3 mr-1" />
+            Tags
+          </Button>
+
+          <Button
+            size="sm"
+            variant="destructive"
+            className="h-7 px-2 text-xs"
+            onClick={() => handleBulkDelete(selectedCardIds)}
+          >
+            <Trash2 className="h-3 w-3 mr-1" />
+            Del
+          </Button>
+
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 w-7 p-0 text-white"
+            onClick={() => setSelectedCardIds([])}
+          >
+            <X className="h-3 w-3" />
+          </Button>
+
+        </div>
+      </div>
+    </div>
+
+
+    {/* ================= DESKTOP ================= */}
+    <div className="hidden md:block  mb-4 
+                    bg-gradient-to-r from-blue-500 to-cyan-500 
+                    rounded-lg p-3 shadow-lg">
+
+      <div className="flex items-center justify-between">
+
+        {/* Left */}
+        <div className="flex items-center gap-3 text-white">
+          <div className="p-1 bg-white/20 rounded">
+            <Check className="h-4 w-4" />
           </div>
-        )}
+          <span className="font-medium text-base">
+            {selectedCardIds.length} property
+            {selectedCardIds.length !== 1 ? "s" : ""} selected
+          </span>
+        </div>
+
+        {/* Buttons */}
+        <div className="flex items-center gap-2">
+
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 bg-white/20 text-white border-white/30"
+            onClick={handleSelectAllCards}
+          >
+            {selectedCardIds.length === filteredProperties.length
+              ? "Deselect All"
+              : "Select All"}
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 bg-white/20 text-white border-white/30"
+            onClick={() => handleBulkStatusChange(selectedCardIds, true)}
+          >
+            <CheckCircle className="h-4 w-4 mr-2" />
+            Active
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 bg-white/20 text-white border-white/30"
+            onClick={() => handleBulkStatusChange(selectedCardIds, false)}
+          >
+            <XSquare className="h-4 w-4 mr-2" />
+            Deactive
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 bg-white/20 text-white border-white/30"
+            onClick={() => setTagsModalOpen(true)}
+          >
+            <Tag className="h-4 w-4 mr-2" />
+            Manage Tags
+          </Button>
+
+          <Button
+            variant="destructive"
+            size="sm"
+            className="h-8"
+            onClick={() => handleBulkDelete(selectedCardIds)}
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            Delete
+          </Button>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 text-white"
+            onClick={() => setSelectedCardIds([])}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+
+        </div>
+      </div>
+    </div>
+  </>
+)}
+
 
         {/* Properties Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">

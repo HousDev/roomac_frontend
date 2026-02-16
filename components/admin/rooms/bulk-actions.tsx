@@ -119,16 +119,16 @@ const confirmAction = async () => {
 
   return (
     <>
-      <div className="flex items-center gap-2">
-        <span className="text-sm text-gray-700 pr-14 md:pr-0 py-1 md:py-0">
+      <div className="  flex items-center gap-2">
+        {/* <span className="text-sm text-gray-700 pr-14 md:pr-0 py-1 md:py-0">
           {selectedRooms.length} room(s) selected
-        </span>
+        </span> */}
         
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="h-9 gap-2">
+            <Button variant="outline" className="h-9 gap-2 bg-blue-500">
               Bulk Actions
-              <ChevronDown className="h-4 w-4" />
+              <ChevronDown className="h-4 w-4 " />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">

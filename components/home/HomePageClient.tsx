@@ -253,7 +253,7 @@ function HeroSection({
   const currentSlide = heroSlides[current];
 
   return (
-    <section className="relative w-full h-screen min-h-[600px] max-h-[660px] overflow-hidden">
+    <section className="relative w-full h-screen min-h-[600px] max-h-[400px] md:max-h-[660px] overflow-hidden">
 
       {/* Background image slider - THIS CHANGES WITH ANIMATION */}
       <AnimatePresence custom={direction} initial={false}>
@@ -278,8 +278,7 @@ function HeroSection({
       </div>
 
       {/* FIXED CONTENT CONTAINER - TEXT CHANGES WITH SLIDE, SEARCH BAR STAYS FIXED */}
-      <div className="absolute inset-0 z-10 flex items-center justify-center px-4">
-        <div className="w-full max-w-4xl mx-auto text-center">
+<div className="absolute inset-0 z-10 flex items-start justify-center px-4 pt-8">        <div className="w-full max-w-4xl mx-auto text-center">
           <div className="flex flex-col items-center">
             
             {/* Badge - CHANGES WITH SLIDE */}
@@ -288,9 +287,9 @@ function HeroSection({
               initial={{ opacity: 0, y: 20 }} 
               animate={{ opacity: 1, y: 0 }} 
               transition={{ delay: 0.2, duration: 0.6 }} 
-              className="mb-4"
+              className="mb-4 mt-0"
             >
-              <span className="inline-flex items-center gap-2 bg-white/15 backdrop-blur-md border border-white/30 text-white text-sm font-medium px-4 py-2 rounded-full">
+              <span className="inline-flex items-center gap-2 bg-white/15 backdrop-blur-md border border-white/30 text-white text-sm font-medium px-4 py-1 rounded-full">
                 <Sparkles className="h-4 w-4 text-yellow-300" />
                 {currentSlide.badge}
               </span>
@@ -812,7 +811,7 @@ function PropertiesSection({
                         </div>
 
                         {/* Amenity icons row — shown on hover */}
-                        {displayAmenities.length > 0 && (
+                        {/* {displayAmenities.length > 0 && (
                           <div className="absolute inset-x-0 bottom-0 translate-y-full group-hover:translate-y-0 transition-transform duration-300 pb-10 flex justify-center gap-2 z-10">
                             {displayAmenities.map((a: any, ai: number) => {
                               const getIcon = (amenity: string) => {
@@ -835,7 +834,7 @@ function PropertiesSection({
                               );
                             })}
                           </div>
-                        )}
+                        )} */}
                       </div>
 
                       {/* Card body */}

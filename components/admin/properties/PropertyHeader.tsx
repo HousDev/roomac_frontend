@@ -236,7 +236,7 @@ export default function PropertyHeader({
           {/* Left: Title + Bulk Button */}
           <div className="flex items-center gap-1.5">
             <div className="p-1 rounded-md bg-white/20 backdrop-blur-md shadow-sm ring-1 ring-white/30">
-              <Building2 className="h-4 w-4" />
+              <Building2 className="h-3 w-3" />
             </div>
             <span className="text-sm font-semibold">Properties</span>
             
@@ -269,10 +269,10 @@ export default function PropertyHeader({
               <Button
                 size="sm"
                 variant="ghost"
-                className="h-6 bg-white/10 hover:bg-white/20 text-white border-white/30 backdrop-blur-sm text-xs px-2 opacity-70"
+                className="h-5 bg-white/10 hover:bg-white/20 text-white border-white/30 backdrop-blur-sm text-xs px-2 opacity-70"
                 disabled
               >
-                <CheckSquare className="h-3 w-3 mr-1" />
+                <CheckSquare className="h-2 w-2 mr-1" />
                 0
               </Button>
             )}
@@ -327,11 +327,11 @@ export default function PropertyHeader({
             {/* Add Property Button */}
             <Button
               size="sm"
-              className="h-6 bg-white text-blue-600 hover:bg-blue-50 font-semibold border border-white/50 px-2 text-xs flex items-center ml-1"
+              className="h-5 bg-white text-blue-600 hover:bg-blue-50 font-semibold border border-white/50 px-2 text-xs flex items-center ml-1"
               onClick={onAddProperty}
             >
-              <Plus className="h-3 w-3" />
-              <span className="ml-0.5">Add</span>
+              <Plus className="h-2 w-2" />
+              <span className="ml-0.2">Add</span>
             </Button>
           </div>
         </div>

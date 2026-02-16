@@ -98,7 +98,7 @@ export default function PropertyFilters({
           {/* Sidebar Content */}
           <div className="flex-1 overflow-y-auto p-6 space-y-6">
             {/* Search */}
-            <div className="space-y-2">
+            {/* <div className="space-y-2">
               <Label className="text-sm font-medium text-gray-700 flex items-center gap-2">
                 <Search className="h-4 w-4" />
                 Search Properties
@@ -110,7 +110,7 @@ export default function PropertyFilters({
                 onChange={(e) => onSearchChange(e.target.value)}
                 className="w-full"
               />
-            </div>
+            </div> */}
 
             {/* Status Filter */}
             <div className="space-y-2">
@@ -152,7 +152,7 @@ export default function PropertyFilters({
             </div>
 
             {/* View Mode */}
-            <div className="space-y-2">
+            {/* <div className="space-y-2">
               <Label className="text-sm font-medium text-gray-700 flex items-center gap-2">
                 <LayoutGrid className="h-4 w-4" />
                 View Mode
@@ -177,7 +177,7 @@ export default function PropertyFilters({
                   Cards
                 </Button>
               </div>
-            </div>
+            </div> */}
 
             {/* Clear Filters Button */}
             {(searchQuery || statusFilter !== 'all' || tagFilter !== 'all') && (
