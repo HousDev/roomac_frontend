@@ -37,59 +37,66 @@ export default function FAQSection({ faqs }: FAQSectionProps) {
       </div>
 
       {/* FAQ List */}
-      <div className="space-y-3">
-        {faqs.map((faq, index) => {
-          const isOpen = openFaqIndex === index;
+     <div className="space-y-3">
+  {faqs.map((faq, index) => {
+    const isOpen = openFaqIndex === index;
 
-          return (
+    return (
+      <div
+        key={index}
+        onClick={() => handleFaqToggle(index)}
+        className="cursor-pointer rounded-xl border border-slate-200 bg-white shadow-sm hover:shadow-md transition-all duration-200"
+      >
+        <div className="px-4 py-4 md:px-5 md:py-4">
+
+          {/* Question */}
+          <div className="flex items-center justify-between gap-4">
+            <h3 className="text-sm md:text-base font-semibold text-slate-900">
+              {faq.question}
+            </h3>
+
+            {/* Chevron Icon */}
             <div
-              key={index}
-              onClick={() => handleFaqToggle(index)}
-              className="cursor-pointer rounded-xl border border-slate-200 bg-white shadow-sm hover:shadow-md transition-all duration-200"
+              className={`transition-transform duration-300 ${
+                isOpen ? "rotate-180" : "rotate-0"
+              }`}
             >
-              <div className="px-4 py-4 md:px-5 md:py-4">
-
-                {/* Question */}
-                <div className="flex items-center justify-between gap-4">
-                  <h3 className="text-sm md:text-base font-semibold text-slate-900">
-                    {faq.question}
-                  </h3>
-
-                  {/* Plus / Minus */}
-                  <div
-                    className={`relative h-5 w-5 flex items-center justify-center transition-transform duration-200 ${
-                      isOpen ? "rotate-180" : ""
-                    }`}
-                  >
-                    <span className="absolute h-0.5 w-3 bg-[#004AAD]"></span>
-                    <span
-                      className={`absolute h-3 w-0.5 bg-[#004AAD] transition-opacity duration-200 ${
-                        isOpen ? "opacity-0" : "opacity-100"
-                      }`}
-                    ></span>
-                  </div>
-                </div>
-
-                {/* Answer */}
-                <div
-                  className={`grid transition-all duration-200 ease-in-out ${
-                    isOpen
-                      ? "grid-rows-[1fr] opacity-100 mt-3"
-                      : "grid-rows-[0fr] opacity-0 mt-0"
-                  }`}
-                >
-                  <div className="overflow-hidden">
-                    <p className="text-slate-600 text-sm leading-relaxed border-t border-slate-200 pt-3">
-                      {faq.answer}
-                    </p>
-                  </div>
-                </div>
-
-              </div>
+              <svg
+                className="w-5 h-5 text-[#004AAD]"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M19 9l-7 7-7-7"
+                />
+              </svg>
             </div>
-          );
-        })}
+          </div>
+
+          {/* Answer */}
+          <div
+            className={`grid transition-all duration-200 ease-in-out ${
+              isOpen
+                ? "grid-rows-[1fr] opacity-100 mt-3"
+                : "grid-rows-[0fr] opacity-0 mt-0"
+            }`}
+          >
+            <div className="overflow-hidden">
+              <p className="text-slate-600 text-sm leading-relaxed border-t border-slate-200 pt-3">
+                {faq.answer}
+              </p>
+            </div>
+          </div>
+
+        </div>
       </div>
+    );
+  })}
+</div>
 
     </div>
   </div>
