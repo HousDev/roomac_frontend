@@ -102,15 +102,35 @@ export default function AddOnsClientPage({
   }, [addOns, activeFilter]);
 
   // Update URL when filter changes
-  useEffect(() => {
-    const params = new URLSearchParams();
-    if (activeFilter && activeFilter !== 'all') {
-      params.set('filter', activeFilter);
-    }
+  // useEffect(() => {
+  //   const params = new URLSearchParams();
+  //   if (activeFilter && activeFilter !== 'all') {
+  //     params.set('filter', activeFilter);
+  //   }
     
-    const queryString = params.toString();
-    router.push(`/admin/add-ons${queryString ? `?${queryString}` : ''}`, { scroll: false });
-  }, [activeFilter, router]);
+  //   const queryString = params.toString();
+  //   router.push(`/admin/add-ons${queryString ? `?${queryString}` : ''}`, { scroll: false });
+  // }, [activeFilter, router]);
+
+  // Update URL when filter changes
+useEffect(() => {
+  // ✅ पहले check करो कि URL already correct है या नहीं
+  const currentParams = new URLSearchParams(window.location.search);
+  const currentFilter = currentParams.get('filter') || 'all';
+  
+  // ✅ अगर filter same है तो कुछ मत करो
+  if (currentFilter === activeFilter) {
+    return;
+  }
+  
+  const params = new URLSearchParams();
+  if (activeFilter && activeFilter !== 'all') {
+    params.set('filter', activeFilter);
+  }
+  
+  const queryString = params.toString();
+  router.push(`/admin/add-ons${queryString ? `?${queryString}` : ''}`, { scroll: false });
+}, [activeFilter, router]);
 
   // Handler functions with useCallback
   const handleDelete = useCallback(async (id: number) => {

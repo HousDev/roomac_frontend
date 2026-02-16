@@ -141,9 +141,17 @@ export function Footer() {
           {/* <p className="text-sm text-slate-400">
             © {new Date().getFullYear()} {settings.site_name || 'Hously Finntech Realty'}. All rights reserved.
           </p> */}
-          <p className="text-sm text-slate-400">
+          {/* <p className="text-sm text-slate-400">
             © {new Date().getFullYear()} {'Hously Finntech Realty'}. All rights reserved.
-          </p>
+          </p> */}
+          <p className="text-sm text-slate-400">
+  © {new Date().getFullYear()} 
+  <span className="font-medium text-slate-300">
+    {' '}Hously Fintech Realty
+  </span>
+  <span className="mx-1">.</span>
+  All rights reserved.
+</p>
 
           <div className="flex gap-6 mt-0">
             <Link

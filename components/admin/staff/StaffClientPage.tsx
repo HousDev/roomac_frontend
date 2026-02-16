@@ -216,7 +216,7 @@ export default function StaffClientPage({
     
     const queryString = params.toString();
     router.push(`/admin/staff${queryString ? `?${queryString}` : ''}`, { scroll: false });
-  }, [searchTerm, roleFilter, router]);
+  }, [searchTerm, roleFilter]);
 
   // Handle form submission
   const handleSubmit = async () => {

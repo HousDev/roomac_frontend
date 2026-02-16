@@ -1543,7 +1543,7 @@ const PropertyCard = memo(function PropertyCard({
             )}
 
             {/* Amenity icons row — shown on hover */}
-            {displayAmenities.length > 0 && (
+            {/* {displayAmenities.length > 0 && (
               <div className="absolute inset-x-0 bottom-0 translate-y-full group-hover:translate-y-0 transition-transform duration-300 pb-10 flex justify-center gap-2 z-10">
                 {displayAmenities.map((a: any, ai: number) => (
                   <div 
@@ -1555,7 +1555,7 @@ const PropertyCard = memo(function PropertyCard({
                   </div>
                 ))}
               </div>
-            )}
+            )} */}
           </div>
 
           {/* Card body */}
