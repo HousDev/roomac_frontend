@@ -108,7 +108,7 @@ export default function TemplateManagementPage() {
       setTemplates(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error loading templates:', error);
-      toast.error('Failed to load templates');
+      // toast.error('Failed to load templates');
     } finally {
       setLoading(false);
     }

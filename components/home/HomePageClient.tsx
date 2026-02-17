@@ -23,6 +23,7 @@ import CardScrollAnimation from './CardScrollAnimation';
 import { Share2, Copy, Check } from 'lucide-react';
 import { FaFacebookF, FaTwitter, FaLinkedinIn, FaTelegramPlane } from 'react-icons/fa';
 import { MdEmail } from 'react-icons/md';
+import { useRouter } from 'next/navigation';
 
 // ─── Animation variants ───────────────────────────────────────────────────────
 const fadeInUp = {
@@ -217,6 +218,8 @@ interface HeroSectionProps {
   setSelectedPriceKey: (v: string) => void;
 }
 
+// In your HomePageClient.tsx, update the HeroSection component
+
 function HeroSection({ 
   isMounted,
   cities,
@@ -232,6 +235,7 @@ function HeroSection({
   const [current, setCurrent] = useState(0);
   const [direction, setDirection] = useState<1 | -1>(1);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const router = useRouter(); // Add this
 
   const next = useCallback(() => {
     setDirection(1);
@@ -242,6 +246,46 @@ function HeroSection({
     timerRef.current = setInterval(next, 6000);
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [next]);
+
+  // Add search handler
+  // HomePageClient.tsx mein HeroSection component mein handleSearch function update karein
+
+const handleSearch = () => {
+  // Build query params
+  const params = new URLSearchParams();
+  
+  // Sirf non-empty values ko add karein
+  if (selectedCity && selectedCity !== 'all' && selectedCity !== 'pune') {
+    params.append('city', selectedCity);
+  }
+  
+  if (searchArea && searchArea.trim() !== '') {
+    params.append('search', searchArea.trim());
+  }
+  
+  if (selectedAmenity && selectedAmenity.trim() !== '') {
+    params.append('amenity', selectedAmenity);
+  }
+  
+  if (selectedPriceKey && selectedPriceKey !== 'Any Price') {
+    params.append('price', selectedPriceKey);
+  }
+  
+  // Redirect to properties page with search params
+  // Agar koi filter nahi hai to sirf /properties par jayen
+  const queryString = params.toString();
+  const url = queryString ? `/properties?${queryString}` : '/properties';
+  
+  console.log('Redirecting to:', url); // Debug ke liye
+  router.push(url);
+};
+
+  // Handle Enter key in search input
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSearch();
+    }
+  };
 
   const imageVariants = {
     enter: (dir: number) => ({ x: dir > 0 ? '8%' : '-8%', opacity: 0, scale: 1.08 }),
@@ -255,7 +299,7 @@ function HeroSection({
   return (
     <section className="relative w-full h-screen min-h-[600px] max-h-[400px] md:max-h-[660px] overflow-hidden">
 
-      {/* Background image slider - THIS CHANGES WITH ANIMATION */}
+      {/* Background image slider */}
       <AnimatePresence custom={direction} initial={false}>
         <motion.div
           key={current}
@@ -270,18 +314,19 @@ function HeroSection({
         </motion.div>
       </AnimatePresence>
 
-      {/* Wave bottom - FIXED */}
+      {/* Wave bottom */}
       <div className="absolute bottom-0 left-0 right-0 z-10 pointer-events-none -mb-1">
         <svg viewBox="0 0 1440 90" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full block" preserveAspectRatio="none" style={{display: 'block'}}>
           <path d="M0,65 C240,5 480,85 720,45 C960,5 1200,75 1440,35 L1440,90 L0,90 Z" fill="white"/>
         </svg>
       </div>
 
-      {/* FIXED CONTENT CONTAINER - TEXT CHANGES WITH SLIDE, SEARCH BAR STAYS FIXED */}
-<div className="absolute inset-0 z-10 flex items-start justify-center px-4 pt-8">        <div className="w-full max-w-4xl mx-auto text-center">
+      {/* FIXED CONTENT CONTAINER */}
+      <div className="absolute inset-0 z-10 flex items-start justify-center px-4 pt-8">
+        <div className="w-full max-w-4xl mx-auto text-center">
           <div className="flex flex-col items-center">
             
-            {/* Badge - CHANGES WITH SLIDE */}
+            {/* Badge */}
             <motion.div 
               key={`badge-${current}`}
               initial={{ opacity: 0, y: 20 }} 
@@ -295,7 +340,7 @@ function HeroSection({
               </span>
             </motion.div>
 
-            {/* Heading - CHANGES WITH SLIDE */}
+            {/* Heading */}
             <motion.h1
               key={`heading-${current}`}
               initial={{ opacity: 0, y: 20 }} 
@@ -319,7 +364,7 @@ function HeroSection({
               )}
             </motion.h1>
 
-            {/* Subtext - CHANGES WITH SLIDE */}
+            {/* Subtext */}
             <motion.p 
               key={`subtext-${current}`}
               initial={{ opacity: 0, y: 20 }} 
@@ -330,54 +375,51 @@ function HeroSection({
               {currentSlide.subtext}
             </motion.p>
 
-            {/* Stats - FIXED (doesn't change) */}
-          
+            {/* CTAs */}
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }} 
+              animate={{ opacity: 1, y: 0 }} 
+              transition={{ delay: 0.7, duration: 0.6 }} 
+              className="flex flex-row sm:flex-row gap-2 sm:gap-3 justify-center mb-6"
+            >
+              <Link href="/properties">
+                <Button 
+                  size="lg"
+                  className="
+                  bg-[#0249a8] text-white border-0
+                  px-4 sm:px-7
+                  text-sm sm:text-base
+                  font-semibold
+                  shadow-lg shadow-blue-900/40
+                  transition-all duration-300 hover:scale-105
+                  gap-2
+                  h-10 sm:h-12
+                  whitespace-nowrap
+                  ">
+                  <Search className="h-4 w-4 sm:h-5 sm:w-5" /> Explore Properties
+                </Button>
+              </Link>
 
-            {/* CTAs - FIXED (doesn't change) */}
-          <motion.div 
-  initial={{ opacity: 0, y: 20 }} 
-  animate={{ opacity: 1, y: 0 }} 
-  transition={{ delay: 0.7, duration: 0.6 }} 
-  className="flex flex-row sm:flex-row gap-2 sm:gap-3 justify-center mb-6"
->
-  <Link href="/properties">
-    <Button 
-      size="lg"
-      className="
-      bg-[#0249a8] text-white border-0
-      px-4 sm:px-7
-      text-sm sm:text-base
-      font-semibold
-      shadow-lg shadow-blue-900/40
-      transition-all duration-300 hover:scale-105
-      gap-2
-      h-10 sm:h-12
-      whitespace-nowrap
-      ">
-      <Search className="h-4 w-4 sm:h-5 sm:w-5" /> Explore Properties
-    </Button>
-  </Link>
+              <Link href="/contact">
+                <Button 
+                  size="lg"
+                  variant="outline"
+                  className="
+                  bg-white/10 hover:bg-white/20 backdrop-blur-sm
+                  text-white border border-white/40 hover:border-white/70
+                  px-4 sm:px-7
+                  text-sm sm:text-base
+                  font-semibold
+                  transition-all duration-300 hover:scale-105
+                  h-10 sm:h-12
+                  whitespace-nowrap
+                  ">
+                  Talk to Expert
+                </Button>
+              </Link>
+            </motion.div>
 
-  <Link href="/contact">
-    <Button 
-      size="lg"
-      variant="outline"
-      className="
-      bg-white/10 hover:bg-white/20 backdrop-blur-sm
-      text-white border border-white/40 hover:border-white/70
-      px-4 sm:px-7
-      text-sm sm:text-base
-      font-semibold
-      transition-all duration-300 hover:scale-105
-      h-10 sm:h-12
-      whitespace-nowrap
-      ">
-      Talk to Expert
-    </Button>
-  </Link>
-</motion.div>
-
-            {/* SEARCH FILTER - FIXED (doesn't change) */}
+            {/* SEARCH FILTER - WITH SEARCH BUTTON AND ENTER KEY HANDLER */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -395,9 +437,13 @@ function HeroSection({
                 setSelectedAmenity={setSelectedAmenity}
                 selectedPriceKey={selectedPriceKey}
                 setSelectedPriceKey={setSelectedPriceKey}
+                onSearch={handleSearch} // Add this prop
+                onKeyDown={handleKeyDown} // Add this prop
               />
             </motion.div>
-              <motion.div 
+            
+            {/* Stats */}
+            <motion.div 
               initial={{ opacity: 0, y: 20 }} 
               animate={{ opacity: 1, y: 0 }} 
               transition={{ delay: 0.6, duration: 0.6 }} 
@@ -429,23 +475,9 @@ function HeroSection({
     </section>
   );
 }
-
 // ═════════════════════════════════════════════════════════════════════════════
 // FILTERS SECTION
 // ═════════════════════════════════════════════════════════════════════════════
-interface FiltersSectionProps {
-  isMounted: boolean;
-  cities: any[];
-  selectedCity: string;
-  setSelectedCity: (v: string) => void;
-  searchArea: string;
-  setSearchArea: (v: string) => void;
-  selectedAmenity: string;
-  setSelectedAmenity: (v: string) => void;
-  selectedPriceKey: string;
-  setSelectedPriceKey: (v: string) => void;
-}
-
 function FiltersSection({
   isMounted,
   cities,
@@ -457,6 +489,8 @@ function FiltersSection({
   setSelectedAmenity,
   selectedPriceKey,
   setSelectedPriceKey,
+  onSearch,
+  onKeyDown,
 }: FiltersSectionProps) {
   return (
     <div className="w-full">
@@ -469,105 +503,122 @@ function FiltersSection({
           </span>
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-1.5">
-          
-          {/* City */}
-          <div className="relative">
-            <Select value={selectedCity} onValueChange={setSelectedCity}>
-              <SelectTrigger className="h-8 pl-7 rounded-md bg-white/15 backdrop-blur-sm border border-white/30 text-white placeholder:text-white/60 focus:ring-1 focus:ring-white/40 focus:border-white/50 text-[11px] font-medium hover:bg-white/25 transition-all w-full [&>span]:text-white">
-                <SelectValue placeholder="City" />
-              </SelectTrigger>
-              <SelectContent className="rounded-lg shadow-2xl border border-blue-100 bg-white">
-                {cities.map((city: any) => (
-                  <SelectItem key={city.id} value={city.name.toLowerCase()} className="cursor-pointer hover:bg-blue-50 text-[11px]">
-                    <div className="flex items-center gap-2 text-white-500">
-                      <MapPin className="h-3 w-3 text-blue-500" />
-                      {city.name}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+        {/* ✅ FLEX WRAPPER (Important Change) */}
+        <div className="flex flex-col lg:flex-row gap-1.5">
+
+          {/* Filters Section */}
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-1.5 flex-1">
+            
+            {/* City */}
+            <div className="relative">
+              <Select value={selectedCity} onValueChange={setSelectedCity}>
+                <SelectTrigger className="h-8 pl-7 rounded-md bg-white/15 backdrop-blur-sm border border-white/30 text-white text-[11px] font-medium w-full">
+                  <SelectValue placeholder="City" />
+                </SelectTrigger>
+                <SelectContent className="rounded-lg shadow-2xl border border-blue-100 bg-white">
+                  {cities.map((city: any) => (
+                    <SelectItem
+                      key={city.id}
+                      value={city.name.toLowerCase()}
+                      className="cursor-pointer hover:bg-blue-50 text-[11px]"
+                    >
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-3 w-3 text-blue-500" />
+                        {city.name}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Locality */}
+            <div className="relative">
+              <div className="absolute left-2 top-1/2 -translate-y-1/2 z-10 pointer-events-none">
+                <Search className="h-3 w-3 text-blue-300" />
+              </div>
+              <Input
+                placeholder="Locality..."
+                value={searchArea}
+                onChange={(e) => setSearchArea(e.target.value)}
+                onKeyDown={onKeyDown}
+                className="h-8 pl-7 rounded-md bg-white/10 backdrop-blur-sm border border-white/30 text-white text-[11px] font-medium w-full"
+              />
+              {searchArea && (
+                <button
+                  onClick={() => setSearchArea("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-white/60 hover:text-white"
+                >
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Price */}
+            <div className="relative">
+              <div className="absolute left-2 top-1/2 -translate-y-1/2 z-10 pointer-events-none">
+                <IndianRupee className="h-3 w-3 text-blue-300" />
+              </div>
+              <Select value={selectedPriceKey} onValueChange={setSelectedPriceKey}>
+                <SelectTrigger className="h-8 pl-7 rounded-md bg-white/15 backdrop-blur-sm border border-white/30 text-white text-[11px] font-medium w-full">
+                  <SelectValue placeholder="Any Price" />
+                </SelectTrigger>
+                <SelectContent className="rounded-lg shadow-2xl border border-blue-100 bg-white">
+                  {PRICE_OPTIONS.map((p) => (
+                    <SelectItem
+                      key={p.label}
+                      value={p.label}
+                      className="hover:bg-blue-50 text-[11px] text-slate-700"
+                    >
+                      {p.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
           </div>
 
-          {/* Locality */}
-          <div className="relative">
-            <div className="absolute left-2 top-1/2 -translate-y-1/2 z-10 pointer-events-none">
-              <Search className="h-3 w-3 text-blue-300" />
+          {/* ✅ Search Button in Right Empty Space */}
+          {onSearch && (
+            <div className="lg:w-52 w-full">
+              <Button
+                onClick={onSearch}
+                className="w-full h-8 bg-blue-600 hover:bg-blue-700 text-white text-[11px]"
+              >
+                <Search className="h-3 w-3 mr-1" />
+                Search Properties
+              </Button>
             </div>
-            <Input
-              placeholder="Locality..."
-              value={searchArea}
-              onChange={(e) => setSearchArea(e.target.value)}
-              className="h-8 pl-7 rounded-md bg-white/10 backdrop-blur-sm border border-white/30 text-white placeholder:text-white/60 focus:ring-1 focus:ring-white/40 focus:border-white/50 text-[11px] font-medium hover:bg-white/25 transition-all w-full"
-            />
-            {searchArea && (
-              <button onClick={() => setSearchArea("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-white/60 hover:text-white">
-                <X className="h-2.5 w-2.5" />
-              </button>
-            )}
-          </div>
+          )}
 
-          {/* Amenities */}
-          <div className="relative">
-            <div className="absolute left-2 top-1/2 -translate-y-1/2 z-10 pointer-events-none">
-              <Wifi className="h-3 w-3 text-blue-300" />
-            </div>
-            <Select value={selectedAmenity || "__all__"} onValueChange={(v) => setSelectedAmenity(v === "__all__" ? "" : v)}>
-              <SelectTrigger className="h-8 pl-7 rounded-md bg-white/15 backdrop-blur-sm border border-white/30 text-white focus:ring-1 focus:ring-white/40 focus:border-white/50 text-[11px] font-medium hover:bg-white/25 transition-all w-full">
-                <SelectValue placeholder="Amenities" />
-              </SelectTrigger>
-              <SelectContent className="rounded-lg shadow-2xl border border-blue-100 bg-white">
-                <SelectItem value="__all__" className="hover:bg-blue-50 text-[11px] text-slate-700">All Amenities</SelectItem>
-                {AMENITY_OPTIONS.map((a) => (
-                  <SelectItem key={a} value={a} className="hover:bg-blue-50 text-[11px] text-slate-700">{a}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Price */}
-          <div className="relative">
-            <div className="absolute left-2 top-1/2 -translate-y-1/2 z-10 pointer-events-none">
-              <IndianRupee className="h-3 w-3 text-blue-300" />
-            </div>
-            <Select value={selectedPriceKey} onValueChange={setSelectedPriceKey}>
-              <SelectTrigger className="h-8 pl-7 rounded-md bg-white/15 backdrop-blur-sm border border-white/30 text-white focus:ring-1 focus:ring-white/40 focus:border-white/50 text-[11px] font-medium hover:bg-white/25 transition-all w-full">
-                <SelectValue placeholder="Price" />
-              </SelectTrigger>
-              <SelectContent className="rounded-lg shadow-2xl border border-blue-100 bg-white">
-                {PRICE_OPTIONS.map((p) => (
-                  <SelectItem key={p.label} value={p.label} className="hover:bg-blue-50 text-[11px] text-slate-700">{p.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
         </div>
 
         {/* Active Filters */}
         {(searchArea || selectedAmenity || selectedPriceKey !== "Any Price") && (
           <div className="flex flex-wrap gap-1 mt-1.5 pt-1.5 border-t border-white/20">
             <span className="text-white/60 text-[10px] self-center">Active:</span>
+
             {searchArea && (
               <span className="inline-flex items-center gap-1 bg-blue-500/30 border border-blue-400/40 text-white text-[10px] px-1.5 py-0.5 rounded-full">
                 "{searchArea}"
-                <button onClick={() => setSearchArea("")}><X className="h-2 w-2" /></button>
+                <button onClick={() => setSearchArea("")}>
+                  <X className="h-2 w-2" />
+                </button>
               </span>
             )}
-            {selectedAmenity && (
-              <span className="inline-flex items-center gap-1 bg-emerald-500/30 border border-emerald-400/40 text-white text-[10px] px-1.5 py-0.5 rounded-full">
-                {selectedAmenity}
-                <button onClick={() => setSelectedAmenity("")}><X className="h-2 w-2" /></button>
-              </span>
-            )}
+
             {selectedPriceKey !== "Any Price" && (
               <span className="inline-flex items-center gap-1 bg-amber-500/30 border border-amber-400/40 text-white text-[10px] px-1.5 py-0.5 rounded-full">
                 {selectedPriceKey}
-                <button onClick={() => setSelectedPriceKey("Any Price")}><X className="h-2 w-2" /></button>
+                <button onClick={() => setSelectedPriceKey("Any Price")}>
+                  <X className="h-2 w-2" />
+                </button>
               </span>
             )}
           </div>
         )}
+
       </div>
     </div>
   );

@@ -3525,7 +3525,7 @@ const fetchPropertyDetails = async (propertyId: number) => {
     //     </div>
     //   </div>
     // </form>
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4 ">
   {/* Progress Bar - made smaller */}
   {loading && uploadProgress > 0 && (
     <div className="space-y-1">
@@ -3539,36 +3539,37 @@ const fetchPropertyDetails = async (propertyId: number) => {
 
   {/* Form Tabs - made more compact */}
   <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-    <TabsList className="grid grid-cols-7 mb-4">
-      <TabsTrigger value="basic" className="flex items-center gap-1 py-2 text-xs">
-        <User className="h-3.5 w-3.5" />
-        <span className="hidden sm:inline">Basic</span>
-      </TabsTrigger>
-      <TabsTrigger value="occupation" className="flex items-center gap-1 py-2 text-xs">
-        <Briefcase className="h-3.5 w-3.5" />
-        <span className="hidden sm:inline">Work</span>
-      </TabsTrigger>
-      <TabsTrigger value="address" className="flex items-center gap-1 py-2 text-xs">
-        <MapPin className="h-3.5 w-3.5" />
-        <span className="hidden sm:inline">Address</span>
-      </TabsTrigger>
-      <TabsTrigger value="property" className="flex items-center gap-1 py-2 text-xs">
-        <Building className="h-3.5 w-3.5" />
-        <span className="hidden sm:inline">Property</span>
-      </TabsTrigger>
-      <TabsTrigger value="terms" className="flex items-center gap-1 py-2 text-xs">
-        <FileText className="h-3.5 w-3.5" />
-        <span className="hidden sm:inline">Terms</span>
-      </TabsTrigger>
-      <TabsTrigger value="documents" className="flex items-center gap-1 py-2 text-xs">
-        <FileText className="h-3.5 w-3.5" />
-        <span className="hidden sm:inline">Docs</span>
-      </TabsTrigger>
-      <TabsTrigger value="credentials" className="flex items-center gap-1 py-2 text-xs">
-        <Key className="h-3.5 w-3.5" />
-        <span className="hidden sm:inline">Login</span>
-      </TabsTrigger>
-    </TabsList>
+    {/* Form Tabs - responsive with labels on mobile */}
+<TabsList className="grid grid-cols-7 mb-2 h-8 sm:h-8 mt-2">
+  <TabsTrigger value="basic" className="flex items-center gap-1 py-1 text-[10px] sm:text-xs px-0.5 sm:px-1">
+    <User className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+    <span className="inline text-[8px] sm:text-xs">Basic</span>
+  </TabsTrigger>
+  <TabsTrigger value="occupation" className="flex items-center gap-1 py-1 text-[10px] sm:text-xs px-0.5 sm:px-1">
+    <Briefcase className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+    <span className="inline text-[8px] sm:text-xs">Work</span>
+  </TabsTrigger>
+  <TabsTrigger value="address" className="flex items-center gap-1 py-1 text-[10px] sm:text-xs px-0.5 sm:px-1">
+    <MapPin className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+    <span className="inline text-[8px] sm:text-xs">Address</span>
+  </TabsTrigger>
+  <TabsTrigger value="property" className="flex items-center gap-1 py-1 text-[10px] sm:text-xs px-0.5 sm:px-1">
+    <Building className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+    <span className="inline text-[8px] sm:text-xs">Property</span>
+  </TabsTrigger>
+  <TabsTrigger value="terms" className="flex items-center gap-1 py-1 text-[10px] sm:text-xs px-0.5 sm:px-1">
+    <FileText className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+    <span className="inline text-[8px] sm:text-xs">Terms</span>
+  </TabsTrigger>
+  <TabsTrigger value="documents" className="flex items-center gap-1 py-1 text-[10px] sm:text-xs px-0.5 sm:px-1">
+    <FileText className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+    <span className="inline text-[8px] sm:text-xs">Docs</span>
+  </TabsTrigger>
+  <TabsTrigger value="credentials" className="flex items-center gap-1 py-1 text-[10px] sm:text-xs px-0.5 sm:px-1">
+    <Key className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+    <span className="inline text-[8px] sm:text-xs">Login</span>
+  </TabsTrigger>
+</TabsList>
 
     {/* Basic Information Tab - with salutation and check-in date */}
     <TabsContent value="basic" className="space-y-4">

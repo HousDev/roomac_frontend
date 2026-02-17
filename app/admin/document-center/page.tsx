@@ -117,7 +117,7 @@ export default function AdminDocumentCenter() {
       setProperties(propertiesData || []);
     } catch (error) {
       console.error('Error loading data:', error);
-      toast.error('Failed to load data');
+      // toast.error('Failed to load data');
     } finally {
       setLoading(false);
     }

@@ -2313,24 +2313,37 @@ export function RoomForm({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[calc(100vw-1rem)] sm:max-w-[calc(100vw-2rem)] md:max-w-4xl lg:max-w-5xl max-h-[90vh] md:max-h-[90vh] overflow-hidden p-0 border-0 flex flex-col">
         <div className="sticky top-0 z-10 bg-gradient-to-r from-blue-600 to-cyan-600 text-white px-3 py-2 md:px-4 md:py-3 flex-shrink-0">
-          <DialogHeader className="space-y-0.5 md:space-y-1">
-            <DialogTitle className="text-sm md:text-base lg:text-lg font-bold flex items-center gap-2">
-              {isEditMode ? (
-                <>
-                  <Edit className="h-4 w-4 md:h-5 md:w-5" />
-                  Edit Room
-                </>
-              ) : (
-                <>
-                  <Plus className="h-4 w-4 md:h-5 md:w-5" />
-                  Add New Room
-                </>
-              )}
-            </DialogTitle>
-            <DialogDescription className="text-blue-100 text-[10px] md:text-xs leading-tight">
-              {isEditMode ? 'Update room details, photos, and preferences' : 'Fill in room details and upload photos/video'}
-            </DialogDescription>
-          </DialogHeader>
+           <DialogHeader className="space-y-0.5 md:space-y-1">
+    <div className="flex items-center justify-between">
+      <div className="flex items-center gap-2">
+        <DialogTitle className="text-sm md:text-base lg:text-lg font-bold flex items-center gap-2">
+          {isEditMode ? (
+            <>
+              <Edit className="h-4 w-4 md:h-5 md:w-5" />
+              Edit Room
+            </>
+          ) : (
+            <>
+              <Plus className="h-4 w-4 md:h-5 md:w-5" />
+              Add New Room
+            </>
+          )}
+        </DialogTitle>
+      </div>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-6 w-6 md:h-7 md:w-7 text-white hover:bg-white/20 rounded-full"
+        onClick={() => onOpenChange(false)}
+      >
+        <X className="h-3 w-3 md:h-4 md:w-4" />
+      </Button>
+    </div>
+    <DialogDescription className="text-blue-100 text-[10px] md:text-xs leading-tight">
+      {isEditMode ? 'Update room details, photos, and preferences' : 'Fill in room details and upload photos/video'}
+    </DialogDescription>
+  </DialogHeader>
+
         </div>
 
         <Tabs defaultValue="details" className="px-3 py-2 md:px-4 md:py-2.5 overflow-y-auto flex-1 min-h-0">

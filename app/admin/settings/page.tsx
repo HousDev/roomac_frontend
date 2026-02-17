@@ -1275,7 +1275,7 @@ export default function SettingsPage() {
       });
       setSettings(settingsValues);
       
-      toast.success('Settings loaded successfully');
+      // toast.success('Settings loaded successfully');
     } catch (error: any) {
       console.error('Error loading settings:', error);
       toast.error(error.message || 'Failed to load settings');

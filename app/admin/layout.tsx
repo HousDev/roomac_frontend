@@ -85,7 +85,7 @@ export default function AdminLayout() {
           sidebarOpen={sidebarOpen} description={''}        />
         
         {/* Main Content - Scrollable area with padding for fixed header */}
-        <div className={`flex-1 overflow-auto transition-all duration-300 ${
+        <div className={`flex-1  transition-all duration-300 ${
           sidebarOpen ? 'md:ml-64' : 'md:ml-20'
         }`}>
           <div className="px-6 pt-24 pb-6 -z-20">
