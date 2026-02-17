@@ -142,179 +142,179 @@ export const FormSection = forwardRef<HTMLElement, FormSectionProps>(
     />
 
     {/* Popup Wrapper */}
-    <div className="flex items-center justify-center min-h-screen p-4">
-      <div className="relative bg-white w-full max-w-2xl h-[85vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+    <div className="flex items-center justify-center min-h-screen p-3 sm:p-4">
+  <div className="relative bg-white w-full max-w-2xl h-[90vh] sm:h-[85vh] rounded-xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden">
 
-        {/* ================= STICKY HEADER ================= */}
-        <div className="sticky top-0 z-20 bg-gradient-to-r from-slate-900 to-slate-800 px-6 py-4 flex justify-between items-center">
-          <div>
-            <h3 className="text-lg font-semibold text-white">
-              Partnership Application
-            </h3>
-            <p className="text-xs text-slate-300">
-              Complete required fields
-            </p>
-          </div>
+    {/* ================= STICKY HEADER ================= */}
+    <div className="sticky top-0 z-20 bg-gradient-to-r from-slate-900 to-slate-800 px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center">
+      <div>
+        <h3 className="text-base sm:text-lg font-semibold text-white">
+          Partnership Application
+        </h3>
+        <p className="text-[10px] sm:text-xs text-slate-300">
+          Complete required fields
+        </p>
+      </div>
 
-          <button
-            onClick={handleClosePopup}
-            className="bg-white/10 hover:bg-white/20 text-white rounded-full p-2 transition"
+      <button
+        onClick={handleClosePopup}
+        className="bg-white/10 hover:bg-white/20 text-white rounded-full p-1.5 sm:p-2 transition"
+      >
+        <X className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+      </button>
+    </div>
+
+    {/* ================= SCROLLABLE FORM BODY ================= */}
+    <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 sm:py-5 space-y-3 sm:space-y-4">
+
+      {/* Row 1 */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+        <div>
+          <Label className="text-[10px] sm:text-xs font-medium text-slate-600">
+            Company Name *
+          </Label>
+          <Input
+            name="company_name"
+            value={formData.company_name}
+            onChange={onChange}
+            required
+            className="mt-1 h-8 sm:h-9 text-xs sm:text-sm"
+          />
+        </div>
+
+        <div>
+          <Label className="text-[10px] sm:text-xs font-medium text-slate-600">
+            Contact Person *
+          </Label>
+          <Input
+            name="contact_person"
+            value={formData.contact_person}
+            onChange={onChange}
+            required
+            className="mt-1 h-8 sm:h-9 text-xs sm:text-sm"
+          />
+        </div>
+      </div>
+
+      {/* Row 2 */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+        <div>
+          <Label className="text-[10px] sm:text-xs font-medium text-slate-600">
+            Email *
+          </Label>
+          <Input
+            type="email"
+            name="email"
+            value={formData.email}
+            onChange={onChange}
+            required
+            className="mt-1 h-8 sm:h-9 text-xs sm:text-sm"
+          />
+        </div>
+
+        <div>
+          <Label className="text-[10px] sm:text-xs font-medium text-slate-600">
+            Phone *
+          </Label>
+          <Input
+            type="tel"
+            name="phone"
+            value={formData.phone}
+            onChange={onChange}
+            required
+            className="mt-1 h-8 sm:h-9 text-xs sm:text-sm"
+          />
+        </div>
+      </div>
+
+      {/* Property */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+        <div>
+          <Label className="text-[10px] sm:text-xs font-medium text-slate-600">
+            Property Type *
+          </Label>
+          <Select
+            value={formData.property_type}
+            onValueChange={(value) =>
+              onSelectChange("property_type", value)
+            }
           >
-            <X className="w-4 h-4" />
-          </button>
+            <SelectTrigger className="mt-1 h-8 sm:h-9 text-xs sm:text-sm">
+              <SelectValue placeholder="Select type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="hotel">Hotel</SelectItem>
+              <SelectItem value="hostel">Hostel</SelectItem>
+              <SelectItem value="apartment">Apartment</SelectItem>
+              <SelectItem value="resort">Resort</SelectItem>
+              <SelectItem value="villa">Villa</SelectItem>
+              <SelectItem value="other">Other</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
-        {/* ================= SCROLLABLE FORM BODY ================= */}
-        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
-
-          {/* Row 1 */}
-          <div className="grid md:grid-cols-2 gap-4">
-            <div>
-              <Label className="text-xs font-medium text-slate-600">
-                Company Name *
-              </Label>
-              <Input
-                name="company_name"
-                value={formData.company_name}
-                onChange={onChange}
-                required
-                className="mt-1 h-9 text-sm"
-              />
-            </div>
-
-            <div>
-              <Label className="text-xs font-medium text-slate-600">
-                Contact Person *
-              </Label>
-              <Input
-                name="contact_person"
-                value={formData.contact_person}
-                onChange={onChange}
-                required
-                className="mt-1 h-9 text-sm"
-              />
-            </div>
-          </div>
-
-          {/* Row 2 */}
-          <div className="grid md:grid-cols-2 gap-4">
-            <div>
-              <Label className="text-xs font-medium text-slate-600">
-                Email *
-              </Label>
-              <Input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={onChange}
-                required
-                className="mt-1 h-9 text-sm"
-              />
-            </div>
-
-            <div>
-              <Label className="text-xs font-medium text-slate-600">
-                Phone *
-              </Label>
-              <Input
-                type="tel"
-                name="phone"
-                value={formData.phone}
-                onChange={onChange}
-                required
-                className="mt-1 h-9 text-sm"
-              />
-            </div>
-          </div>
-
-          {/* Property */}
-          <div className="grid md:grid-cols-2 gap-4">
-            <div>
-              <Label className="text-xs font-medium text-slate-600">
-                Property Type *
-              </Label>
-              <Select
-                value={formData.property_type}
-                onValueChange={(value) =>
-                  onSelectChange("property_type", value)
-                }
-              >
-                <SelectTrigger className="mt-1 h-9 text-sm">
-                  <SelectValue placeholder="Select type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="hotel">Hotel</SelectItem>
-                  <SelectItem value="hostel">Hostel</SelectItem>
-                  <SelectItem value="apartment">Apartment</SelectItem>
-                  <SelectItem value="resort">Resort</SelectItem>
-                  <SelectItem value="villa">Villa</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label className="text-xs font-medium text-slate-600">
-                Number of Properties *
-              </Label>
-              <Input
-                type="number"
-                name="property_count"
-                value={formData.property_count}
-                onChange={onChange}
-                min="1"
-                required
-                className="mt-1 h-9 text-sm"
-              />
-            </div>
-          </div>
-
-          {/* Location */}
-          <div>
-            <Label className="text-xs font-medium text-slate-600">
-              Primary Location *
-            </Label>
-            <Input
-              name="location"
-              value={formData.location}
-              onChange={onChange}
-              required
-              className="mt-1 h-9 text-sm"
-            />
-          </div>
-
-          {/* Message */}
-          <div>
-            <Label className="text-xs font-medium text-slate-600">
-              Additional Information
-            </Label>
-            <Textarea
-              name="message"
-              value={formData.message}
-              onChange={onChange}
-              rows={3}
-              className="mt-1 text-sm"
-            />
-          </div>
+        <div>
+          <Label className="text-[10px] sm:text-xs font-medium text-slate-600">
+            Number of Properties *
+          </Label>
+          <Input
+            type="number"
+            name="property_count"
+            value={formData.property_count}
+            onChange={onChange}
+            min="1"
+            required
+            className="mt-1 h-8 sm:h-9 text-xs sm:text-sm"
+          />
         </div>
+      </div>
 
-        {/* ================= STICKY FOOTER ================= */}
-        <div className="sticky bottom-0 bg-white border-t border-slate-200 px-6 py-4">
-          <Button
-            type="submit"
-            className="w-full bg-slate-900 hover:bg-slate-800 text-white h-11 text-sm font-semibold"
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? "Submitting..." : "Submit Partnership Inquiry"}
-          </Button>
+      {/* Location */}
+      <div>
+        <Label className="text-[10px] sm:text-xs font-medium text-slate-600">
+          Primary Location *
+        </Label>
+        <Input
+          name="location"
+          value={formData.location}
+          onChange={onChange}
+          required
+          className="mt-1 h-8 sm:h-9 text-xs sm:text-sm"
+        />
+      </div>
 
-          <p className="text-[11px] text-center text-slate-500 mt-2">
-            By submitting, you agree to our Terms & Privacy Policy.
-          </p>
-        </div>
-
+      {/* Message */}
+      <div>
+        <Label className="text-[10px] sm:text-xs font-medium text-slate-600">
+          Additional Information
+        </Label>
+        <Textarea
+          name="message"
+          value={formData.message}
+          onChange={onChange}
+          rows={3}
+          className="mt-1 text-xs sm:text-sm"
+        />
       </div>
     </div>
+
+    {/* ================= STICKY FOOTER ================= */}
+    <div className="sticky bottom-0 bg-white border-t border-slate-200 px-4 sm:px-6 py-3 sm:py-4">
+      <Button
+        type="submit"
+        className="w-full bg-slate-900 hover:bg-slate-800 text-white h-10 sm:h-11 text-xs sm:text-sm font-semibold"
+        disabled={isSubmitting}
+      >
+        {isSubmitting ? "Submitting..." : "Submit Partnership Inquiry"}
+      </Button>
+
+      <p className="text-[9px] sm:text-[11px] text-center text-slate-500 mt-1.5 sm:mt-2">
+        By submitting, you agree to our Terms & Privacy Policy.
+      </p>
+    </div>
+
+  </div>
+</div>
   </div>
 )}
 

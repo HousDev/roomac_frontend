@@ -24,10 +24,13 @@ const TenantHeader = () => {
   // Logout
   const handleLogout = () => {
     localStorage.removeItem("tenant_token");
-    localStorage.removeItem("tenant_id");
+    localStorage.removeItem("tenant_id"); 
     localStorage.removeItem("tenant_email");
     localStorage.removeItem("tenant_data");
-
+localStorage.removeItem("auth_token");
+        localStorage.removeItem("auth_email");
+        localStorage.removeItem("auth_role");
+       
     router.push("/tenant/login");
   };
 

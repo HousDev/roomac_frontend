@@ -263,7 +263,6 @@ export function AdminHeader({
   // Handle logout
   const handleLogout = () => {
     logout();
-    router.replace("/admin/login");
   };
 
 

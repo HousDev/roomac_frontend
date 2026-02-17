@@ -67,7 +67,7 @@ const getAdminToken = (): string => {
     console.error('❌ No authentication token found');
     if (typeof window !== 'undefined') {
       setTimeout(() => {
-        window.location.href = '/admin/login';
+        window.location.href = '/tenant/login';
       }, 100);
     }
     throw new Error('Admin authentication required. Please login.');
@@ -137,7 +137,7 @@ export const getAdminChangeBedRequests = async (
     
     if (error.message?.includes('401') || error.message?.includes('authentication')) {
       if (typeof window !== 'undefined') {
-        window.location.href = '/admin/login';
+        window.location.href = '/tenant/login';
       }
     }
     

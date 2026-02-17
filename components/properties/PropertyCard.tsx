@@ -1353,20 +1353,25 @@ const PropertyCard = memo(function PropertyCard({
   }, [onHeartClick, propertyId]);
 
   // Handle WhatsApp click
-  const handleWhatsAppClick = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (onWhatsAppClick) {
-      onWhatsAppClick(property.whatsapp || '911234567890', propertyName, fullLocation);
-    }
-  }, [onWhatsAppClick, property.whatsapp, propertyName, fullLocation]);
+  const handleWhatsAppClick = useCallback((e?: React.MouseEvent) => {
+  e?.preventDefault();
+  e?.stopPropagation();
+
+  const phone = "9923953933"; 
+
+  const message = `Hi, I'm interested in ${propertyName} located at ${fullLocation}`;
+  
+  const url = `https://wa.me/91${phone}?text=${encodeURIComponent(message)}`;
+  window.open(url, "_blank");
+}, [propertyName, fullLocation]);
+
 
   // Handle call click
   const handleCallClick = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     if (onCallClick) {
-      onCallClick(property.phone || property.contact_number || '1234567890');
+      onCallClick(property.phone || property.contact_number || '9923953933');
     }
   }, [onCallClick, property.phone, property.contact_number]);
 
@@ -1542,20 +1547,7 @@ const PropertyCard = memo(function PropertyCard({
               </div>
             )}
 
-            {/* Amenity icons row — shown on hover */}
-            {/* {displayAmenities.length > 0 && (
-              <div className="absolute inset-x-0 bottom-0 translate-y-full group-hover:translate-y-0 transition-transform duration-300 pb-10 flex justify-center gap-2 z-10">
-                {displayAmenities.map((a: any, ai: number) => (
-                  <div 
-                    key={ai} 
-                    title={String(a)} 
-                    className="h-9 w-9 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-md text-slate-700 hover:scale-110 transition-transform"
-                  >
-                    {getAmenityIcon(a)}
-                  </div>
-                ))}
-              </div>
-            )} */}
+          *
           </div>
 
           {/* Card body */}
@@ -1770,7 +1762,7 @@ const PropertyCard = memo(function PropertyCard({
                 {/* Social Share Buttons - 3 columns */}
                 <div className="grid grid-cols-3 gap-2.5">
                   <button
-                    onClick={() => handleSocialShare('whatsapp')}
+                    onClick={() => {handleWhatsAppClick()}}
                     className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-gradient-to-br from-emerald-50 to-green-50 hover:from-emerald-100 hover:to-green-100 border border-emerald-200 transition-all hover:scale-105 group"
                   >
                     <div className="h-10 w-10 rounded-full bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow">

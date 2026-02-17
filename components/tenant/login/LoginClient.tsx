@@ -308,16 +308,20 @@ export default function LoginClient({ initialPropertyImages }: LoginClientProps)
     otp: ""
   });
 
-  const handleSuccessfulLogin = useCallback(() => {
+  const handleSuccessfulLogin = useCallback((role: string) => {
     setSlideDirection("slide-out-right-bottom");
     setExitAnimation(true);
 
     setTimeout(() => {
       setShowConfirmation(true);
     }, 300);
-
-    setTimeout(() => {
+ if(role === "admin") router.push("/admin/dashboard");
+      else if(role === "tenant")
       router.push("/tenant/portal");
+    setTimeout(() => {
+      // if(role === "admin") router.push("/admin/dashboard");
+      // else if(role === "tenant")
+      // router.push("/tenant/portal");
     }, 2500);
   }, [router]);
 
@@ -327,11 +331,15 @@ export default function LoginClient({ initialPropertyImages }: LoginClientProps)
     setLoading(true);
 
     try {
-      const result = await loginTenant(credentials.email, credentials.password);
+      const result:any = await loginTenant(credentials.email, credentials.password);
+      console.log(result);
 
       if (result.success && result.token) {
-        // ✅ Use auth context
-        login(credentials.email, "tenant", result.token);
+         
+
+        
+           login(credentials.email, result.role, result.token);
+           if(result.role==="tenant"){
         if (rememberMe) {
           localStorage.setItem("tenant_token", result.token);
           if (result.tenant_id != null) localStorage.setItem("tenant_id", String(result.tenant_id));
@@ -343,9 +351,14 @@ export default function LoginClient({ initialPropertyImages }: LoginClientProps)
           else sessionStorage.setItem("tenant_id", "me");
           sessionStorage.setItem("tenant_email", credentials.email);
         }
+      
+      }
+        // ✅ Use auth context
+       
+        
 
         toast.success("Login successful"); // ✅ ADDED
-        handleSuccessfulLogin();
+        handleSuccessfulLogin(result.role);
       } else {
         toast.error(result.error || result.message || "Invalid credentials");
       }
@@ -453,7 +466,7 @@ export default function LoginClient({ initialPropertyImages }: LoginClientProps)
         <div className="w-full max-w-md flex flex-col justify-center">
           <div className="text-center mb-6">
             <h2 className="relative text-4xl md:text-5xl font-serif font-extrabold tracking-wide text-blue-900 text-center">
-              Tenant Login
+               Login
               <span className="absolute -bottom-2 left-0 w-20 h-1 bg-yellow-400 rounded-full animate-pulse"></span>
               <span className="absolute -bottom-2 right-0 w-20 h-1 bg-yellow-400 rounded-full animate-pulse"></span>
             </h2>

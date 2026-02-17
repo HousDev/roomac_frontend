@@ -208,7 +208,7 @@ export default function VacateRequestsList() {
           error.message?.includes('401') ||
           error.message?.includes('No token')) {
         toast.error('Please login to continue');
-        router.push('/admin/login');
+        router.push('/tenant/login');
         return;
       }
       
@@ -324,7 +324,7 @@ const handleStatusUpdate = async () => {
     if (!token) {
       toast.error('No authentication token found. Please login again.');
       localStorage.clear();
-      window.location.href = '/admin/login';
+        router.push('/tenant/login');
       return;
     }
 
@@ -386,7 +386,7 @@ const handleStatusUpdate = async () => {
     if (error.message?.includes('No token') || error.message?.includes('401') || error.message?.includes('Unauthorized')) {
       toast.error('Your session has expired. Please login again.');
       localStorage.clear();
-      window.location.href = '/admin/login';
+      window.location.href = '/tenant/login';
     } else {
       toast.error(error.message || 'Failed to update status');
     }
