@@ -138,7 +138,7 @@ export const BenefitsSection = forwardRef<HTMLElement, BenefitsSectionProps>(
       <div className="absolute w-[130px] h-[130px] rounded-full border-[3px] border-white"></div>
       <div className="relative w-[115px] h-[115px] rounded-full border-[3px] border-[#5b9ce8] bg-white flex items-center justify-center">
         <div className="text-center px-1">
-          <div className="text-[9px] font-semibold text-[#4a90e2] tracking-wide">
+          <div className="text-[9px] font-bold text-[#4a90e2] tracking-wide">
             PG BUSINESS
           </div>
           <div className="text-xs font-bold text-[#2563eb] mt-0.5">
@@ -147,7 +147,7 @@ export const BenefitsSection = forwardRef<HTMLElement, BenefitsSectionProps>(
           <div className="mt-1.5 flex justify-center">
             <div className="w-[26px] h-[26px] flex items-center justify-center bg-white">
               <Building2
-                className="w-3.5 h-3.5 text-[#4a90e2]"
+                className="w-4 h-4 text-[#083364]"
                 strokeWidth={2}
               />
             </div>

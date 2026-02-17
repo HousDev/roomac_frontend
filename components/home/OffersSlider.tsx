@@ -772,6 +772,7 @@ import ScrollAnimation from './ScrollAnimation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
+import { toast } from 'sonner';
 
 interface OffersSliderProps {
   offers: any[];
@@ -1300,29 +1301,30 @@ export default function OffersSlider({ offers }: OffersSliderProps) {
     </div>
 
     {/* ✅ COMPLETE CLAIM OFFER POPUP MODAL - Added Missing Parts */}
-    {isClaimPopupOpen && selectedOffer && (
+   {isClaimPopupOpen && selectedOffer && (
       <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-2 sm:p-4 py-3">
-        <div className="bg-white border border-slate-300 rounded-xl shadow-xl w-full max-w-3xl max-h-[85vh] flex flex-col">
+        <div className="bg-white border mt-10 border-slate-300 rounded-xl shadow-xl w-full max-w-3xl flex flex-col" style={{ maxHeight: '80vh' }}>
+          
           {/* Header */}
           <div
-            className="px-4 sm:px-5 py-3 sticky top-0 z-20 flex-shrink-0"
+            className="px-4 py-2.5 flex-shrink-0 rounded-t-xl"
             style={{ background: selectedOffer.mainColor || '#2563eb' }}
           >
             <div className="flex justify-between items-center gap-2">
               <div className="flex items-center gap-2">
-                <span className="text-xl text-white">🎉</span>
+                <span className="text-lg text-white">🎉</span>
                 <div className="max-w-[200px] sm:max-w-none overflow-hidden">
-                  <h3 className="text-base sm:text-lg font-bold text-white truncate">
+                  <h3 className="text-sm sm:text-base font-bold text-white truncate">
                     {selectedOffer.title || "Special Offer"}
                   </h3>
-                  <p className="text-white/90 text-[10px] sm:text-xs truncate">
+                  <p className="text-white/90 text-[10px] truncate">
                     {selectedOffer.property_name || "Limited Time Offer"}
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setIsClaimPopupOpen(false)}
-                className="text-white/90 hover:text-white text-lg sm:text-xl transition-colors flex-shrink-0"
+                className="text-white/90 hover:text-white text-base transition-colors flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:bg-white/20"
                 aria-label="Close popup"
               >
                 ✕
@@ -1331,24 +1333,25 @@ export default function OffersSlider({ offers }: OffersSliderProps) {
           </div>
 
           {/* Main Content - Scrollable */}
-          <div className="flex-1 ">
+          <div className="flex-1 overflow-y-auto min-h-0">
+            
             {/* Offer Image */}
-            <div className="relative h-48 sm:h-56">
+            <div className="relative h-40 sm:h-48 flex-shrink-0">
               <img
                 src={selectedOffer.image || "https://images.pexels.com/photos/271624/pexels-photo-271624.jpeg"}
                 alt={selectedOffer.title || "Offer"}
                 className="w-full h-full object-cover"
               />
-              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-4">
+              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-3">
                 <div className="flex justify-between items-end">
                   <div>
-                    <h2 className="text-xl sm:text-2xl font-bold text-white">
+                    <h2 className="text-lg sm:text-xl font-bold text-white">
                       {selectedOffer.property_name || "SOUL SPACE STUDIO"}
                     </h2>
-                    <p className="text-white/90 text-sm">{selectedOffer.location || "Premium Location"}</p>
+                    <p className="text-white/90 text-xs">{selectedOffer.location || "Premium Location"}</p>
                   </div>
-                  <div className="bg-yellow-500 text-blue-900 px-3 py-2 rounded-lg">
-                    <div className="text-lg sm:text-xl font-bold">
+                  <div className="bg-yellow-500 text-blue-900 px-2.5 py-1.5 rounded-lg">
+                    <div className="text-base sm:text-lg font-bold">
                       {selectedOffer.discount_percentage ? `${selectedOffer.discount_percentage}% OFF` : 
                        selectedOffer.discount_value ? `₹${selectedOffer.discount_value} OFF` : "SPECIAL OFFER"}
                     </div>
@@ -1358,26 +1361,26 @@ export default function OffersSlider({ offers }: OffersSliderProps) {
             </div>
 
             {/* Price Section */}
-            <div className="p-4 sm:p-5 border-b">
+            <div className="px-4 py-3 border-b">
               <div className="flex flex-wrap items-center gap-4">
                 <div>
-                  <p className="text-sm text-gray-600">Discounted Price</p>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-3xl sm:text-4xl font-bold text-blue-700">
+                  <p className="text-xs text-gray-600">Discounted Price</p>
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-2xl sm:text-3xl font-bold text-blue-700">
                       ₹{selectedOffer.discounted_price || selectedOffer.final_price || "8000"}
                     </span>
-                    <span className="text-sm text-gray-500">/month</span>
+                    <span className="text-xs text-gray-500">/month</span>
                   </div>
                 </div>
                 
                 {selectedOffer.original_price && (
                   <div>
-                    <p className="text-sm text-gray-600">Original Price</p>
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-xl line-through text-gray-500">
+                    <p className="text-xs text-gray-600">Original Price</p>
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="text-base line-through text-gray-500">
                         ₹{selectedOffer.original_price}
                       </span>
-                      <span className="text-sm text-green-600 font-semibold">
+                      <span className="text-xs text-green-600 font-semibold">
                         Save ₹{(selectedOffer.original_price - (selectedOffer.discounted_price || selectedOffer.final_price || 8000)).toLocaleString()}
                       </span>
                     </div>
@@ -1386,12 +1389,12 @@ export default function OffersSlider({ offers }: OffersSliderProps) {
               </div>
               
               {/* Validity */}
-              <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+              <div className="mt-3 p-2.5 bg-blue-50 rounded-lg">
                 <div className="flex items-center gap-2">
-                  <span className="text-blue-600">⏰</span>
+                  <span className="text-blue-600 text-sm">⏰</span>
                   <div>
-                    <p className="text-sm font-semibold text-blue-800">Limited Time Offer</p>
-                    <p className="text-xs text-blue-700">
+                    <p className="text-xs font-semibold text-blue-800">Limited Time Offer</p>
+                    <p className="text-[10px] text-blue-700">
                       Valid till: {(() => {
                         const rawDate = selectedOffer.valid_to || selectedOffer.end_date;
                         if (!rawDate) return "Not specified";
@@ -1409,9 +1412,9 @@ export default function OffersSlider({ offers }: OffersSliderProps) {
             </div>
 
             {/* Features */}
-            <div className="p-4 sm:p-5 border-b">
-              <h3 className="text-lg font-bold text-gray-800 mb-3">What's Included</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="px-4 py-3 border-b">
+              <h3 className="text-sm font-bold text-gray-800 mb-2">What's Included</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                 {(selectedOffer.features || [
                   "Fully Furnished Rooms with AC",
                   "High-Speed WiFi",
@@ -1420,9 +1423,9 @@ export default function OffersSlider({ offers }: OffersSliderProps) {
                   "Home Cooked Meals",
                   "Security & CCTV"
                 ]).map((feature, index) => (
-                  <div key={index} className="flex items-center gap-2">
-                    <span className="text-green-500">✓</span>
-                    <span className="text-sm text-gray-700">{feature}</span>
+                  <div key={index} className="flex items-center gap-1.5">
+                    <span className="text-green-500 text-xs">✓</span>
+                    <span className="text-xs text-gray-700">{feature}</span>
                   </div>
                 ))}
               </div>
@@ -1430,9 +1433,9 @@ export default function OffersSlider({ offers }: OffersSliderProps) {
 
             {/* Gallery */}
             {(selectedOffer.gallery || selectedOffer.images) && (
-              <div className="p-4 sm:p-5 border-b">
-                <h3 className="text-lg font-bold text-gray-800 mb-3">Gallery</h3>
-                <div className="grid grid-cols-3 gap-2">
+              <div className="px-4 py-3 border-b">
+                <h3 className="text-sm font-bold text-gray-800 mb-2">Gallery</h3>
+                <div className="grid grid-cols-3 gap-1.5">
                   {(selectedOffer.gallery || selectedOffer.images || [
                     "https://images.pexels.com/photos/1571460/pexels-photo-1571460.jpeg",
                     "https://images.pexels.com/photos/1457842/pexels-photo-1457842.jpeg",
@@ -1442,7 +1445,7 @@ export default function OffersSlider({ offers }: OffersSliderProps) {
                       key={index}
                       src={img}
                       alt={`Gallery ${index + 1}`}
-                      className="h-24 w-full object-cover rounded-lg"
+                      className="h-20 w-full object-cover rounded-lg"
                     />
                   ))}
                 </div>
@@ -1450,35 +1453,35 @@ export default function OffersSlider({ offers }: OffersSliderProps) {
             )}
 
             {/* Description */}
-            <div className="p-4 sm:p-5 border-b">
-              <h3 className="text-lg font-bold text-gray-800 mb-3">Description</h3>
-              <p className="text-sm text-gray-700 leading-relaxed">
+            <div className="px-4 py-3 border-b">
+              <h3 className="text-sm font-bold text-gray-800 mb-2">Description</h3>
+              <p className="text-xs text-gray-700 leading-relaxed">
                 {selectedOffer.description || 
                   "This exclusive offer includes premium amenities and services designed for comfortable living. The package is available for a limited time only. Don't miss this opportunity to experience luxury living at an affordable price."}
               </p>
             </div>
 
             {/* Terms & Conditions */}
-            <div className="p-4 sm:p-5">
-              <h3 className="text-lg font-bold text-gray-800 mb-3">Terms & Conditions</h3>
-              <ul className="text-sm text-gray-600 space-y-2">
-                <li className="flex items-start gap-2">
+            <div className="px-4 py-3">
+              <h3 className="text-sm font-bold text-gray-800 mb-2">Terms & Conditions</h3>
+              <ul className="text-xs text-gray-600 space-y-1.5">
+                <li className="flex items-start gap-1.5">
                   <span className="text-gray-400">•</span>
                   <span>Offer valid for new bookings only</span>
                 </li>
-                <li className="flex items-start gap-2">
+                <li className="flex items-start gap-1.5">
                   <span className="text-gray-400">•</span>
                   <span>Minimum stay period: 3 months</span>
                 </li>
-                <li className="flex items-start gap-2">
+                <li className="flex items-start gap-1.5">
                   <span className="text-gray-400">•</span>
                   <span>Security deposit applicable as per standard policy</span>
                 </li>
-                <li className="flex items-start gap-2">
+                <li className="flex items-start gap-1.5">
                   <span className="text-gray-400">•</span>
                   <span>Offer cannot be combined with other promotions</span>
                 </li>
-                <li className="flex items-start gap-2">
+                <li className="flex items-start gap-1.5">
                   <span className="text-gray-400">•</span>
                   <span>Subject to availability</span>
                 </li>
@@ -1487,35 +1490,34 @@ export default function OffersSlider({ offers }: OffersSliderProps) {
           </div>
 
           {/* Footer with Action Buttons */}
-          <div className="sticky bottom-0 z-20 p-4 sm:p-5 border-t bg-white">
-            <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex-shrink-0 px-4 py-3 border-t bg-white rounded-b-xl">
+            <div className="flex flex-col sm:flex-row gap-2">
               <button
                 onClick={() => setIsClaimPopupOpen(false)}
-                className="px-4 py-3 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors flex-1"
+                className="px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors flex-1"
               >
                 Cancel
               </button>
               <button
                 onClick={() => {
-                  // Handle claim action here
-                  alert(`Claiming offer: ${selectedOffer.title || "Special Offer"}`);
+                  toast.success(`Claiming offer: ${selectedOffer.title || "Special Offer"}`);
                   setIsClaimPopupOpen(false);
                 }}
-                className="px-4 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex-1 shadow-md"
+                className="px-4 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors flex-1 shadow-md"
               >
                 Claim Now
               </button>
               <button
                 onClick={() => {
-                  // Handle contact action
-                  alert("Contacting property manager...");
+                  
+                  toast.success("Contacting property manager...");
                 }}
-                className="px-4 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors flex-1 shadow-md"
+                className="px-4 py-2.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors flex-1 shadow-md"
               >
                 Contact Property
               </button>
             </div>
-            <p className="text-center text-xs text-gray-500 mt-3">
+            <p className="text-center text-[10px] text-gray-500 mt-2">
               By claiming, you agree to our terms and conditions
             </p>
           </div>

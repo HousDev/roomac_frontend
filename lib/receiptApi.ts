@@ -77,7 +77,7 @@ export async function getAdminReceiptRequests(): Promise<ReceiptRequest[]> {
     
     if (error.message.includes('401') || error.message.includes('Unauthorized')) {
       if (typeof window !== 'undefined') {
-        window.location.href = '/admin/login';
+        window.location.href = '/tenant/login';
       }
     }
     

@@ -122,14 +122,14 @@ export function Header() {
             </Button>
           </a>
           <Link href="/tenant/login" className="transition-all duration-300 hover:scale-105">
-            <Button variant="outline" size="sm" className="gap-2">
+            {/* <Button variant="outline" size="sm" className="gap-2">
               <User className="h-4 w-4" />
               Tenant Portal
-            </Button>
+            </Button> */}
           </Link>
           <Link href="/admin" className="transition-all duration-300 hover:scale-105">
             <Button size="sm" className="bg-primary hover:bg-primary/90">
-              Admin
+              Login
             </Button>
           </Link>
         </div>

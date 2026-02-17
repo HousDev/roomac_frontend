@@ -115,7 +115,7 @@ export async function getLeaveRequests(params: GetLeaveRequestsParams = {}): Pro
     if (response.status === 401) {
       // Token expired or invalid
       localStorage.removeItem('adminToken');
-      window.location.href = '/admin/login'; // Redirect to login
+      window.location.href = '/tenant/login'; // Redirect to login
       throw new Error('Session expired. Please log in again.');
     }
 

@@ -912,7 +912,7 @@ function PropertiesSection({
                               </button>
                             </Link>
                             <button
-                              onClick={(e) => { e.preventDefault(); e.stopPropagation(); onWhatsAppClick(property.whatsapp || '911234567890', propertyName, fullLocation); }}
+                              onClick={(e) => { e.preventDefault(); e.stopPropagation(); onWhatsAppClick(property.whatsapp || '9923953933', propertyName, fullLocation); }}
                               className="flex-1 flex items-center justify-center gap-1 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 rounded-lg text-xs font-medium transition-all hover:scale-105"
                               title="WhatsApp"
                             >

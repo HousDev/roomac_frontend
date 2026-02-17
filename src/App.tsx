@@ -200,7 +200,7 @@ function App() {
           </Route>
 
           {/* ADMIN PROTECTED */}
-          <Route element={<ProtectedRoute redirectTo="/admin/login" />}>
+          <Route element={<ProtectedRoute redirectTo="/tenant/login" />}>
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<AdminDashboardPage />} />
             <Route path="properties" element={<AdminPropertiesPage />} />

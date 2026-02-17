@@ -319,7 +319,6 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
 
   const handleLogout = () => {
     logout();                    // ✅ AuthContext logout
-    router.replace('/admin/login'); // ✅ hard redirect
   };
 
 
