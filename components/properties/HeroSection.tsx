@@ -582,7 +582,7 @@ export default function PropertyHeroSection({
       placeholder="Search by locality, area, or property name..."
       value={searchArea}
       onChange={(e) => setSearchArea(e.target.value)}
-      className="h-8 pl-7 pr-7 rounded-md bg-white/10 backdrop-blur-sm border border-white/30 text-white text-[11px] font-medium w-full"
+      className="h-8 pl-7 pr-7 rounded-md bg-white/10 backdrop-blur-sm border border-white/30 text-white placeholder:text-white text-[11px] font-medium w-full"
     />
   </div>
 

@@ -506,93 +506,110 @@ function FiltersSection({
         {/* ✅ FLEX WRAPPER (Important Change) */}
         <div className="flex flex-col lg:flex-row gap-1.5">
 
-          {/* Filters Section */}
-          <div className="grid grid-cols-2 lg:grid-cols-3 gap-1.5 flex-1">
-            
-            {/* City */}
-            <div className="relative">
-              <Select value={selectedCity} onValueChange={setSelectedCity}>
-                <SelectTrigger className="h-8 pl-7 rounded-md bg-white/15 backdrop-blur-sm border border-white/30 text-white text-[11px] font-medium w-full">
-                  <SelectValue placeholder="City" />
-                </SelectTrigger>
-                <SelectContent className="rounded-lg shadow-2xl border border-blue-100 bg-white">
-                  {cities.map((city: any) => (
-                    <SelectItem
-                      key={city.id}
-                      value={city.name.toLowerCase()}
-                      className="cursor-pointer hover:bg-blue-50 text-[11px]"
-                    >
-                      <div className="flex items-center gap-2">
-                        <MapPin className="h-3 w-3 text-blue-500" />
-                        {city.name}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+  {/* Filters Section */}
+  <div className="grid grid-cols-2 lg:grid-cols-3 gap-1.5 flex-1">
 
-            {/* Locality */}
-            <div className="relative">
-              <div className="absolute left-2 top-1/2 -translate-y-1/2 z-10 pointer-events-none">
-                <Search className="h-3 w-3 text-blue-300" />
+    {/* City */}
+    <div className="relative">
+      <Select value={selectedCity} onValueChange={setSelectedCity}>
+        <SelectTrigger className="h-8 pl-7 rounded-md bg-white/15 backdrop-blur-sm border border-white/30 text-white text-[11px] font-medium w-full">
+          <SelectValue placeholder="City" />
+        </SelectTrigger>
+        <SelectContent className="rounded-lg shadow-2xl border border-blue-100 bg-white">
+          {cities.map((city: any) => (
+            <SelectItem
+              key={city.id}
+              value={city.name.toLowerCase()}
+              className="cursor-pointer hover:bg-blue-50 text-[11px]"
+            >
+              <div className="flex items-center gap-2">
+                <MapPin className="h-3 w-3 text-blue-500" />
+                {city.name}
               </div>
-              <Input
-                placeholder="Locality..."
-                value={searchArea}
-                onChange={(e) => setSearchArea(e.target.value)}
-                onKeyDown={onKeyDown}
-                className="h-8 pl-7 rounded-md bg-white/10 backdrop-blur-sm border border-white/30 text-white text-[11px] font-medium w-full"
-              />
-              {searchArea && (
-                <button
-                  onClick={() => setSearchArea("")}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-white/60 hover:text-white"
-                >
-                  <X className="h-2.5 w-2.5" />
-                </button>
-              )}
-            </div>
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
 
-            {/* Price */}
-            <div className="relative">
-              <div className="absolute left-2 top-1/2 -translate-y-1/2 z-10 pointer-events-none">
-                <IndianRupee className="h-3 w-3 text-blue-300" />
-              </div>
-              <Select value={selectedPriceKey} onValueChange={setSelectedPriceKey}>
-                <SelectTrigger className="h-8 pl-7 rounded-md bg-white/15 backdrop-blur-sm border border-white/30 text-white text-[11px] font-medium w-full">
-                  <SelectValue placeholder="Any Price" />
-                </SelectTrigger>
-                <SelectContent className="rounded-lg shadow-2xl border border-blue-100 bg-white">
-                  {PRICE_OPTIONS.map((p) => (
-                    <SelectItem
-                      key={p.label}
-                      value={p.label}
-                      className="hover:bg-blue-50 text-[11px] text-slate-700"
-                    >
-                      {p.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+    {/* Locality */}
+    <div className="relative">
+      <div className="absolute left-2 top-1/2 -translate-y-1/2 z-10 pointer-events-none">
+        <Search className="h-3 w-3 text-blue-300" />
+      </div>
 
-          </div>
+      <Input
+        placeholder="Locality..."
+        value={searchArea}
+        onChange={(e) => setSearchArea(e.target.value)}
+        onKeyDown={onKeyDown}
+        className="h-8 pl-7 rounded-md bg-white/10 backdrop-blur-sm border border-white/30 
+                   text-white placeholder:text-white text-[11px] font-medium w-full"
+      />
 
-          {/* ✅ Search Button in Right Empty Space */}
-          {onSearch && (
-            <div className="lg:w-52 w-full">
-              <Button
-                onClick={onSearch}
-                className="w-full h-8 bg-blue-600 hover:bg-blue-700 text-white text-[11px]"
-              >
-                <Search className="h-3 w-3 mr-1" />
-                Search Properties
-              </Button>
-            </div>
-          )}
+      {searchArea && (
+        <button
+          onClick={() => setSearchArea("")}
+          className="absolute right-2 top-1/2 -translate-y-1/2 text-white hover:text-white"
+        >
+          <X className="h-2.5 w-2.5" />
+        </button>
+      )}
+    </div>
 
-        </div>
+    {/* Price */}
+    <div className="relative">
+      <div className="absolute left-2 top-1/2 -translate-y-1/2 z-10 pointer-events-none">
+        <IndianRupee className="h-3 w-3 text-blue-300" />
+      </div>
+
+      <Select value={selectedPriceKey} onValueChange={setSelectedPriceKey}>
+        <SelectTrigger className="h-8 pl-7 rounded-md bg-white/15 backdrop-blur-sm border border-white/30 text-white text-[11px] font-medium w-full">
+          <SelectValue placeholder="Any Price" />
+        </SelectTrigger>
+        <SelectContent className="rounded-lg shadow-2xl border border-blue-100 bg-white">
+          {PRICE_OPTIONS.map((p) => (
+            <SelectItem
+              key={p.label}
+              value={p.label}
+              className="hover:bg-blue-50 text-[11px] text-slate-700"
+            >
+              {p.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+
+    {/* ✅ Mobile Search Button (ONLY visible below lg) */}
+    {onSearch && (
+      <div className="block lg:hidden">
+        <Button
+          onClick={onSearch}
+          className="w-full h-8 bg-blue-600 hover:bg-blue-700 text-white text-[11px]"
+        >
+          <Search className="h-3 w-3 mr-1" />
+          Search
+        </Button>
+      </div>
+    )}
+  </div>
+
+  {/* ✅ Desktop Search Button (ONLY lg and above) */}
+  {onSearch && (
+    <div className="hidden lg:block lg:w-52">
+      <Button
+        onClick={onSearch}
+        className="w-full h-8 bg-blue-600 hover:bg-blue-700 text-white text-[11px]"
+      >
+        <Search className="h-3 w-3 mr-1" />
+        Search Properties
+      </Button>
+    </div>
+  )}
+
+</div>
+
 
         {/* Active Filters */}
         {(searchArea || selectedAmenity || selectedPriceKey !== "Any Price") && (
