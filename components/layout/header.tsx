@@ -219,7 +219,7 @@ export function Header() {
                     Call Us
                   </Button>
                 </a>
-                <Link 
+                {/* <Link 
                   href="/tenant/login" 
                   className="flex-1 max-w-[150px] transition-all duration-500 hover:scale-105"
                   onClick={() => setMobileMenuOpen(false)}
@@ -232,11 +232,8 @@ export function Header() {
                     <User className="h-4 w-4 transition-transform duration-500 group-hover:translate-y-[-2px]" />
                     Tenant Portal
                   </Button>
-                </Link>
-              </div>
-
-              {/* Admin Button - Centered below */}
-              <Link 
+                </Link> */}
+                <Link 
                 href="/admin" 
                 className="w-full max-w-[150px] animate-in fade-in-50 zoom-in-95 duration-400 delay-300 ease-out"
                 onClick={() => setMobileMenuOpen(false)}
@@ -245,9 +242,13 @@ export function Header() {
                   size="sm" 
                   className="w-full bg-primary hover:bg-primary/90 transition-all duration-500 hover:scale-105 hover:shadow-lg"
                 >
-                  Admin
+                  Login
                 </Button>
               </Link>
+              </div>
+
+              {/* Admin Button - Centered below */}
+              
             </div>
           </div>
         </div>
