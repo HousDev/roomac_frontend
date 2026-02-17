@@ -506,7 +506,6 @@
 //     </Sheet>
 //   );
 // }
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -809,7 +808,31 @@ export default function SideFilter({ open, onOpenChange, onFilterChange, hideTri
         </SheetTrigger>
       )}
       
-      <SheetContent side="right" className="w-full sm:max-w-md p-0">
+      {/*
+        RESPONSIVE WIDTH LOGIC:
+        - Mobile (default): w-[50vw]  → half the screen width
+        - Tablet (sm):      w-[50vw]  → still half screen
+        - Desktop (lg+):    w-full sm:max-w-md  → shadcn default full-width capped at md
+
+        We override SheetContent's default inline style with a className approach.
+        The key classes:
+          w-[50vw]        – half screen on mobile & tablet
+          min-w-[280px]   – never shrink below 280px on very small phones
+          sm:w-[380px]    – fixed comfortable width on small-tablet
+          lg:w-full       – revert to full width on large screens
+          lg:max-w-md     – cap at md on large screens (original desktop behavior)
+      */}
+      <SheetContent
+        side="right"
+        className="
+          p-0
+          w-[50vw]
+          min-w-[280px]
+          sm:w-[380px]
+          lg:w-full
+          lg:max-w-md
+        "
+      >
         <div className="h-full flex flex-col">
           <SheetHeader 
             className="p-6 border-b"
@@ -831,14 +854,14 @@ export default function SideFilter({ open, onOpenChange, onFilterChange, hideTri
                   </Badge>
                 )}
               </SheetTitle>
-              {/* <Button
+              <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => onOpenChange(false)}
                 className="text-white hover:bg-white/20"
               >
                 <X className="h-4 w-4" />
-              </Button> */}
+              </Button>
             </div>
           </SheetHeader>
 

@@ -119,7 +119,7 @@ export function Footer() {
               {/* Social Media Icons */}
               <div className="flex gap-6 mt-4 ml-4">
                 <a 
-                  href="https://facebook.com/roomac" 
+                  href="https://www.facebook.com/share/1F4SJ1BQW2/" 
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="hover:text-primary transition-colors cursor-pointer" 
@@ -129,7 +129,7 @@ export function Footer() {
                 </a>
                 
                 <a 
-                  href="https://instagram.com/roomac_official" 
+                  href="https://www.instagram.com/roomac.in?igsh=MWs5NTYzMG1mem82cg==z" 
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="hover:text-primary transition-colors cursor-pointer" 

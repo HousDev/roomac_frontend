@@ -457,21 +457,32 @@ export function RoomDetailsDialog({ room, open, onOpenChange }: RoomDetailsDialo
       <DialogContent className="max-w-[calc(100vw-1rem)] sm:max-w-[calc(100vw-2rem)] md:max-w-3xl lg:max-w-4xl max-h-[90vh] md:max-h-[90vh] overflow-hidden p-0 border-0 flex flex-col">
         <div className="sticky top-0 z-10 bg-gradient-to-r from-blue-600 to-cyan-600 text-white px-3 py-2 md:px-4 md:py-3 flex-shrink-0">
           <DialogHeader className="space-y-0.5 md:space-y-1">
-            <DialogTitle className="text-sm md:text-base lg:text-lg font-bold flex items-center gap-2 flex-wrap">
-              <Eye className="h-4 w-4 md:h-5 md:w-5 flex-shrink-0" />
-              <span className="flex-1">Room {room.room_number}</span>
-              <Badge 
-                variant={room.is_active ? "default" : "secondary"} 
-                className="text-[9px] md:text-[10px] px-1.5 py-0.5 bg-white text-blue-600"
-              >
-                {room.is_active ? 'Active' : 'Inactive'}
-              </Badge>
-            </DialogTitle>
-            <div className="flex items-center gap-1.5 text-[10px] md:text-xs text-blue-100 flex-wrap">
-              <Building className="h-3 w-3 md:h-3.5 md:w-3.5 flex-shrink-0" />
-              <span className="truncate">{room.property_name}</span>
-            </div>
-          </DialogHeader>
+    <div className="flex items-center justify-between">
+      <DialogTitle className="text-sm md:text-base lg:text-lg font-bold flex items-center gap-2 flex-wrap">
+        <Eye className="h-4 w-4 md:h-5 md:w-5 flex-shrink-0" />
+        <span className="flex-1">Room {room.room_number}</span>
+        <Badge 
+          variant={room.is_active ? "default" : "secondary"} 
+          className="text-[9px] md:text-[10px] px-1.5 py-0.5 bg-white text-blue-600"
+        >
+          {room.is_active ? 'Active' : 'Inactive'}
+        </Badge>
+      </DialogTitle>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-6 w-6 md:h-7 md:w-7 text-white hover:bg-white/20 rounded-full -mr-1"
+        onClick={() => onOpenChange(false)}
+      >
+        <X className="h-3 w-3 md:h-4 md:w-4" />
+      </Button>
+    </div>
+    <div className="flex items-center gap-1.5 text-[10px] md:text-xs text-blue-100 flex-wrap">
+      <Building className="h-3 w-3 md:h-3.5 md:w-3.5 flex-shrink-0" />
+      <span className="truncate">{room.property_name}</span>
+    </div>
+  </DialogHeader>
+
         </div>
 
         <div className="px-3 py-2 md:px-4 md:py-2.5 overflow-y-auto flex-1 min-h-0">
