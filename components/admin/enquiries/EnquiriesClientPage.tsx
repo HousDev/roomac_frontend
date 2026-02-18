@@ -1397,7 +1397,6 @@
 //     </div>
 //   );
 // }
-
 // components/admin/enquiries/EnquiriesClientPage.tsx
 "use client";
 
@@ -1409,7 +1408,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogClose } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Eye, Phone, Mail, Calendar, Trash2, Edit, BarChart, Search, Save, RefreshCw, Filter, X } from "lucide-react";
 import { toast } from "sonner";
@@ -1868,32 +1867,16 @@ export default function EnquiriesClientPage({
   const hasActiveColumnFilters = Object.values(columnFilters).some(value => value !== "");
 
   return (
-    <div className="w-full min-h-screen bg-gray-50">
+    <div className="w-full  bg-gray-50">
       <div className="p-3 sm:p-4 md:p-6 lg:p-8">
         {/* Header */}
-        <div className="flex flex-col gap-4 mb-6">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div>
-              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">Enquiry Management</h1>
-              <p className="text-sm sm:text-base text-gray-600 mt-1">Track and manage property enquiries</p>
-            </div>
+        <div className="flex flex-col gap-4 mb-6 -mt-10">
+          <div className="flex flex-col sm:flex-row justify-end items-end sm:items-end gap-4">
+           
 
-            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+            <div className="flex flex-wrap items-end gap-2 w-full sm:w-auto">
               {/* Mobile Filters Toggle */}
-              <Button
-                variant="outline"
-                size="sm"
-                className="lg:hidden"
-                onClick={() => setMobileFiltersOpen(!mobileFiltersOpen)}
-              >
-                <Filter className="h-4 w-4 mr-2" />
-                Filters
-                {hasActiveColumnFilters && (
-                  <Badge className="ml-2 h-5 w-5 p-0 flex items-center justify-center bg-blue-600">
-                    {Object.values(columnFilters).filter(v => v !== "").length}
-                  </Badge>
-                )}
-              </Button>
+             
 
               {/* Refresh Button */}
               <Button
@@ -1927,33 +1910,58 @@ export default function EnquiriesClientPage({
               {/* Add Enquiry Button */}
               <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
                 <DialogTrigger asChild>
-                  <Button className="bg-blue-600 hover:bg-blue-700 text-sm whitespace-nowrap">
+<Button
+  className="bg-blue-600 hover:bg-blue-700 
+             text-sm whitespace-nowrap
+             py-1 px-2 sm:py-0 sm:px-2"
+>
                     <Plus className="mr-2 h-4 w-4" />
                     <span className="hidden sm:inline">Add Enquiry</span>
-                    <span className="sm:hidden">Add</span>
+                    <span className="sm:hidden sm:py-2">Add</span>
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-y-auto">
-                  <DialogHeader>
-                    <DialogTitle>Add New Enquiry</DialogTitle>
-                    <DialogDescription>
-                      Fill in the details below to add a new enquiry
-                    </DialogDescription>
-                  </DialogHeader>
-                  <EnquiryForm
-                    formData={newEnquiry}
-                    setFormData={setNewEnquiry}
-                    properties={properties}
-                    onSubmit={handleAddEnquiry}
-                    submitLabel="Add Enquiry"
-                  />
-                </DialogContent>
+           <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-hidden p-0">
+  
+  {/* Gradient Header */}
+  <div className="bg-gradient-to-r from-blue-700 to-blue-600 text-white 
+    px-4 py-3 md:px-6 md:py-4 
+    flex items-center justify-between rounded-t-lg">
+
+    <div>
+      <h2 className="text-base md:text-lg font-semibold">
+        Add New Enquiry
+      </h2>
+      <p className="text-xs md:text-sm text-blue-100">
+        Fill in the details below to add a new enquiry
+      </p>
+    </div>
+
+    <DialogClose asChild>
+      <button className="p-1.5 md:p-2 rounded-full hover:bg-white/20 transition">
+        <X className="h-4 w-4 md:h-5 md:w-5" />
+      </button>
+    </DialogClose>
+  </div>
+
+  {/* Body */}
+  <div className="p-4 md:p-6 overflow-y-auto max-h-[75vh]">
+    <EnquiryForm
+      formData={newEnquiry}
+      setFormData={setNewEnquiry}
+      properties={properties}
+      onSubmit={handleAddEnquiry}
+      submitLabel="Add Enquiry"
+    />
+  </div>
+
+</DialogContent>
+
               </Dialog>
             </div>
           </div>
 
           {/* Mobile Filters Panel */}
-          {mobileFiltersOpen && (
+          {/* {mobileFiltersOpen && (
             <div className="lg:hidden bg-white p-4 rounded-lg border">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">Filters</h3>
@@ -1968,18 +1976,21 @@ export default function EnquiriesClientPage({
                 setStatusFilter={setStatusFilter}
               />
             </div>
-          )}
+          )} */}
         </div>
 
-        {/* Stats Overview - Compact Cards */}
+        
         {stats && (
-          <div className="mb-6">
-            <EnquiriesStats stats={stats} />
+          <div className="mb-4 mt-0">
+           
+            <div className="enquiries-stats-compact">
+              <EnquiriesStats stats={stats} />
+            </div>
           </div>
         )}
 
         {/* Desktop Filters */}
-        <div className="hidden lg:block mb-6">
+        <div className="hidden lg:block mb-4">
           <EnquiriesFilters
             searchTerm={searchTerm}
             setSearchTerm={setSearchTerm}
@@ -1989,188 +2000,226 @@ export default function EnquiriesClientPage({
         </div>
 
         {/* Enquiries Table */}
-        <Card className="overflow-hidden border rounded-lg">
-          <CardHeader className="bg-white border-b p-4">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-              <CardTitle className="text-lg font-semibold">
-                All Enquiries ({filteredEnquiries.length})
-              </CardTitle>
-              <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-500">
-                <span>Showing {filteredEnquiries.length} of {enquiries.length} enquiries</span>
-                {hasActiveColumnFilters && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={clearColumnFilters}
-                    className="h-7 px-2 text-xs"
-                  >
-                    Clear filters
-                  </Button>
-                )}
-              </div>
-            </div>
-          </CardHeader>
+        <Card className=" border rounded-lg md:-mt-6">
+<CardHeader className="bg-white border-b p-2 sm:p-4">
+  <div className="flex flex-row justify-between items-center gap-2">
+    
+    <CardTitle className="text-base sm:text-lg font-semibold whitespace-nowrap">
+      All Enquiries ({filteredEnquiries.length})
+    </CardTitle>
+
+    <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-500 whitespace-nowrap">
+      <span>
+        Showing {filteredEnquiries.length} of {enquiries.length}
+      </span>
+
+      {hasActiveColumnFilters && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={clearColumnFilters}
+          className="h-6 sm:h-7 px-2 text-xs"
+        >
+          Clear
+        </Button>
+      )}
+    </div>
+
+  </div>
+</CardHeader>
+
+
           <CardContent className="p-0">
-            <div className="overflow-x-auto">
+           
+<div className="max-h-[calc(100vh-460px)] md:max-h-[calc(100vh-380px)] overflow-y-auto overflow-x-auto">
               <div className="min-w-[1200px] lg:min-w-full">
                 <Table>
-                  <TableHeader className="bg-gray-50">
-                    <TableRow>
-                      <TableHead className="py-3 px-4">Name</TableHead>
-                      <TableHead className="py-3 px-4">Contact</TableHead>
-                      <TableHead className="py-3 px-4">Property</TableHead>
-                      <TableHead className="py-3 px-4">Move-in Date</TableHead>
-                      <TableHead className="py-3 px-4">Status</TableHead>
-                      <TableHead className="py-3 px-4">Created</TableHead>
-                      <TableHead className="py-3 px-4 text-right">Actions</TableHead>
-                    </TableRow>
-                    {/* Column Filter Row */}
-                    <TableRow className="bg-gray-50/50">
-                      <TableCell className="px-4 py-2">
-                        <Input
-                          placeholder="Filter name..."
-                          value={columnFilters.name}
-                          onChange={(e) => setColumnFilters(prev => ({ ...prev, name: e.target.value }))}
-                          className="h-8 text-sm"
-                        />
-                      </TableCell>
-                      <TableCell className="px-4 py-2">
-                        <Input
-                          placeholder="Filter contact..."
-                          value={columnFilters.contact}
-                          onChange={(e) => setColumnFilters(prev => ({ ...prev, contact: e.target.value }))}
-                          className="h-8 text-sm"
-                        />
-                      </TableCell>
-                      <TableCell className="px-4 py-2">
-                        <Input
-                          placeholder="Filter property..."
-                          value={columnFilters.property}
-                          onChange={(e) => setColumnFilters(prev => ({ ...prev, property: e.target.value }))}
-                          className="h-8 text-sm"
-                        />
-                      </TableCell>
-                      <TableCell className="px-4 py-2">
-                        <Input
-                          placeholder="Filter date..."
-                          value={columnFilters.moveInDate}
-                          onChange={(e) => setColumnFilters(prev => ({ ...prev, moveInDate: e.target.value }))}
-                          className="h-8 text-sm"
-                        />
-                      </TableCell>
-                      <TableCell className="px-4 py-2">
-                        <Input
-                          placeholder="Filter status..."
-                          value={columnFilters.status}
-                          onChange={(e) => setColumnFilters(prev => ({ ...prev, status: e.target.value }))}
-                          className="h-8 text-sm"
-                        />
-                      </TableCell>
-                      <TableCell className="px-4 py-2">
-                        <Input
-                          placeholder="Filter created..."
-                          value={columnFilters.created}
-                          onChange={(e) => setColumnFilters(prev => ({ ...prev, created: e.target.value }))}
-                          className="h-8 text-sm"
-                        />
-                      </TableCell>
-                      <TableCell className="px-4 py-2"></TableCell>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredEnquiries.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={7} className="text-center py-8 sm:py-12 text-gray-500">
-                          No enquiries found
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      filteredEnquiries.map((enquiry) => (
-                        <TableRow key={enquiry.id} className="hover:bg-gray-50">
-                          <TableCell className="px-4 py-3 font-medium text-sm">
-                            {enquiry.tenant_name}
-                          </TableCell>
-                          <TableCell className="px-4 py-3">
-                            <div className="flex flex-col gap-1 min-w-[140px]">
-                              <div className="flex items-center gap-1 text-xs sm:text-sm">
-                                <Phone className="h-3 w-3 flex-shrink-0" />
-                                <span className="truncate">{enquiry.phone}</span>
-                              </div>
-                              {enquiry.email && (
-                                <div className="flex items-center gap-1 text-xs sm:text-sm text-gray-600">
-                                  <Mail className="h-3 w-3 flex-shrink-0" />
-                                  <span className="truncate">{enquiry.email}</span>
-                                </div>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell className="px-4 py-3 text-sm max-w-[200px]">
-                            <span className="line-clamp-2">{enquiry.property_full_name || enquiry.property_name || "-"}</span>
-                          </TableCell>
-                          <TableCell className="px-4 py-3 text-sm whitespace-nowrap">
-                            {formatDateForDisplay(enquiry.preferred_move_in_date)}
-                          </TableCell>
-                          <TableCell className="px-4 py-3">
-                            {getStatusBadge(enquiry.status || "new")}
-                          </TableCell>
-                          <TableCell className="px-4 py-3 text-sm whitespace-nowrap">
-                            {formatDateForDisplay(enquiry.created_at || "")}
-                          </TableCell>
-                          <TableCell className="px-4 py-3">
-                            <div className="flex flex-wrap justify-end gap-1.5">
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => {
-                                  setSelectedEnquiry(enquiry);
-                                  setShowViewDialog(true);
-                                }}
-                                className="h-8 w-8 p-0"
-                                title="View Details"
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => handleOpenEditDialog(enquiry)}
-                                className="h-8 w-8 p-0"
-                                title="Edit Enquiry"
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              <Select
-                                value={enquiry.status || "new"}
-                                onValueChange={(value) => handleUpdateStatus(enquiry.id, value)}
-                              >
-                                <SelectTrigger className="h-8 w-24 text-xs">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="new" className="text-xs">New</SelectItem>
-                                  <SelectItem value="contacted" className="text-xs">Contacted</SelectItem>
-                                  <SelectItem value="interested" className="text-xs">Interested</SelectItem>
-                                  <SelectItem value="not_interested" className="text-xs">Not Interested</SelectItem>
-                                  <SelectItem value="converted" className="text-xs">Converted</SelectItem>
-                                  <SelectItem value="closed" className="text-xs">Closed</SelectItem>
-                                </SelectContent>
-                              </Select>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleDeleteEnquiry(enquiry.id)}
-                                className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                title="Delete Enquiry"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
+  <TableHeader className="bg-gray-50 sticky top-0 z-10">
+    <TableRow>
+      <TableHead className="py-1.5 sm:py-1 px-2 sm:px-4 text-xs sm:text-sm">
+        Name
+      </TableHead>
+      <TableHead className="py-1.5 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm">
+        Contact
+      </TableHead>
+      <TableHead className="py-1.5 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm">
+        Property
+      </TableHead>
+      <TableHead className="py-1.5 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm">
+        Move-in Date
+      </TableHead>
+      <TableHead className="py-1.5 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm">
+        Status
+      </TableHead>
+      <TableHead className="py-1.5 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm">
+        Created
+      </TableHead>
+      <TableHead className="py-1.5 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm text-right">
+        Actions
+      </TableHead>
+    </TableRow>
+
+    {/* Filter Row */}
+    <TableRow className="bg-gray-50/50">
+      {[
+        { key: "name", placeholder: "Filter name..." },
+        { key: "contact", placeholder: "Filter contact..." },
+        { key: "property", placeholder: "Filter property..." },
+        { key: "moveInDate", placeholder: "Filter date..." },
+        { key: "status", placeholder: "Filter status..." },
+        { key: "created", placeholder: "Filter created..." },
+      ].map((field) => (
+        <TableCell
+          key={field.key}
+          className="px-2 sm:px-4 py-1.5 sm:py-2"
+        >
+          <Input
+            placeholder={field.placeholder}
+            value={columnFilters[field.key]}
+            onChange={(e) =>
+              setColumnFilters((prev) => ({
+                ...prev,
+                [field.key]: e.target.value,
+              }))
+            }
+            className="h-7 sm:h-8 text-xs sm:text-sm"
+          />
+        </TableCell>
+      ))}
+      <TableCell className="px-2 sm:px-4 py-1.5 sm:py-2" />
+    </TableRow>
+  </TableHeader>
+
+  <TableBody>
+    {filteredEnquiries.length === 0 ? (
+      <TableRow>
+        <TableCell
+          colSpan={7}
+          className="text-center py-6 sm:py-12 text-gray-500 text-xs sm:text-sm"
+        >
+          No enquiries found
+        </TableCell>
+      </TableRow>
+    ) : (
+      filteredEnquiries.map((enquiry) => (
+        <TableRow key={enquiry.id} className="hover:bg-gray-50">
+          {/* Name */}
+          <TableCell className="px-2 sm:px-4 py-2 sm:py-3 font-medium text-xs sm:text-sm">
+            {enquiry.tenant_name}
+          </TableCell>
+
+          {/* Contact */}
+          <TableCell className="px-2 sm:px-4 py-2 sm:py-3">
+            <div className="flex flex-col gap-0.5 min-w-[120px]">
+              <div className="flex items-center gap-1 text-xs sm:text-sm">
+                <Phone className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                <span className="truncate">{enquiry.phone}</span>
+              </div>
+              {enquiry.email && (
+                <div className="flex items-center gap-1 text-[10px] sm:text-sm text-gray-600">
+                  <Mail className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                  <span className="truncate">{enquiry.email}</span>
+                </div>
+              )}
+            </div>
+          </TableCell>
+
+          {/* Property */}
+          <TableCell className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm max-w-[160px] sm:max-w-[200px]">
+            <span className="line-clamp-2">
+              {enquiry.property_full_name ||
+                enquiry.property_name ||
+                "-"}
+            </span>
+          </TableCell>
+
+          {/* Move-in */}
+          <TableCell className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm whitespace-nowrap">
+            {formatDateForDisplay(enquiry.preferred_move_in_date)}
+          </TableCell>
+
+          {/* Status */}
+          <TableCell className="px-2 sm:px-4 py-2 sm:py-3">
+            {getStatusBadge(enquiry.status || "new")}
+          </TableCell>
+
+          {/* Created */}
+          <TableCell className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm whitespace-nowrap">
+            {formatDateForDisplay(enquiry.created_at || "")}
+          </TableCell>
+
+          {/* Actions */}
+          <TableCell className="px-2 sm:px-4 py-2 sm:py-3">
+            <div className="flex items-center justify-end gap-1 whitespace-nowrap">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setSelectedEnquiry(enquiry);
+                  setShowViewDialog(true);
+                }}
+                className="h-7 w-7 sm:h-8 sm:w-8 p-0"
+                title="View Details"
+              >
+                <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              </Button>
+
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => handleOpenEditDialog(enquiry)}
+                className="h-7 w-7 sm:h-8 sm:w-8 p-0"
+                title="Edit Enquiry"
+              >
+                <Edit className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              </Button>
+
+              <Select
+                value={enquiry.status || "new"}
+                onValueChange={(value) =>
+                  handleUpdateStatus(enquiry.id, value)
+                }
+              >
+                <SelectTrigger className="h-7 sm:h-8 w-20 sm:w-24 text-[10px] sm:text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[
+                    "new",
+                    "contacted",
+                    "interested",
+                    "not_interested",
+                    "converted",
+                    "closed",
+                  ].map((status) => (
+                    <SelectItem
+                      key={status}
+                      value={status}
+                      className="text-[10px] sm:text-xs"
+                    >
+                      {status.replace("_", " ")}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleDeleteEnquiry(enquiry.id)}
+                className="h-7 w-7 sm:h-8 sm:w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                title="Delete Enquiry"
+              >
+                <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              </Button>
+            </div>
+          </TableCell>
+        </TableRow>
+      ))
+    )}
+  </TableBody>
+</Table>
+
               </div>
             </div>
           </CardContent>
@@ -2192,54 +2241,133 @@ export default function EnquiriesClientPage({
 
       {/* Edit Enquiry Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Edit Enquiry</DialogTitle>
-            <DialogDescription>
-              Update enquiry details for {selectedEnquiry?.tenant_name}
-            </DialogDescription>
-          </DialogHeader>
-          {selectedEnquiry && (
-            <div className="grid gap-4 py-4">
-              <EnquiryForm
-                formData={editEnquiryData}
-                setFormData={setEditEnquiryData}
-                properties={properties}
-                isEdit={true}
-                currentStatus={selectedEnquiry.status}
-              />
-              <div className="flex flex-col sm:flex-row justify-between gap-3 pt-4">
-                <div>
-                  <Button
-                    variant="destructive"
-                    onClick={() => handleDeleteEnquiry(selectedEnquiry.id)}
-                    className="w-full sm:w-auto"
-                  >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Delete
-                  </Button>
-                </div>
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowEditDialog(false)}
-                    className="w-full sm:w-auto"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    onClick={handleUpdateEnquiry}
-                    className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto"
-                  >
-                    <Save className="h-4 w-4 mr-2" />
-                    Update Enquiry
-                  </Button>
-                </div>
-              </div>
+       <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-hidden p-0">
+
+    {/* Gradient Header */}
+    <div className="bg-gradient-to-r from-blue-700 to-blue-600 text-white px-6 py-4 flex items-center justify-between rounded-t-lg">
+      <div>
+        <h2 className="text-lg font-semibold">Edit Enquiry</h2>
+        <p className="text-sm text-blue-100">
+          Update enquiry details for {selectedEnquiry?.tenant_name}
+        </p>
+      </div>
+
+      <DialogClose asChild>
+        <button className="p-2 rounded-full hover:bg-white/20 transition">
+          <X className="h-5 w-5" />
+        </button>
+      </DialogClose>
+    </div>
+
+    {/* Body */}
+    {selectedEnquiry && (
+      <div className="p-6 overflow-y-auto max-h-[75vh]">
+        <div className="grid gap-4 py-2">
+          <EnquiryForm
+            formData={editEnquiryData}
+            setFormData={setEditEnquiryData}
+            properties={properties}
+            isEdit={true}
+            currentStatus={selectedEnquiry.status}
+          />
+
+          <div className="flex flex-col sm:flex-row justify-between gap-3 pt-4">
+            <div>
+              <Button
+                variant="destructive"
+                onClick={() => handleDeleteEnquiry(selectedEnquiry.id)}
+                className="w-full sm:w-auto"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete
+              </Button>
             </div>
-          )}
-        </DialogContent>
+
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowEditDialog(false)}
+                className="w-full sm:w-auto"
+              >
+                Cancel
+              </Button>
+
+              <Button
+                onClick={handleUpdateEnquiry}
+                className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto"
+              >
+                <Save className="h-4 w-4 mr-2" />
+                Update Enquiry
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
+
+  </DialogContent>
+
       </Dialog>
+
+
+      <style>{`
+        /* ── Top-level children of EnquiriesStats wrapper ── */
+
+        /* First direct grid child = the 6 status cards grid */
+        .enquiries-stats-compact > div > div:first-child {
+          display: grid !important;
+          grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+          gap: 0.375rem !important;
+        }
+
+        @media (min-width: 640px) {
+          .enquiries-stats-compact > div > div:first-child {
+            grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+          }
+        }
+
+        /* Second direct grid child = the 3 metric cards (bottom row) */
+        .enquiries-stats-compact > div > div:nth-child(2) {
+          display: grid !important;
+          grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
+          gap: 0.375rem !important;
+          margin-top: 0.375rem !important;
+        }
+
+        @media (min-width: 640px) {
+          .enquiries-stats-compact > div > div:nth-child(2) {
+            grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+          }
+        }
+
+        /* Shrink padding on all stat cards */
+        .enquiries-stats-compact > div > div > div,
+        .enquiries-stats-compact > div > div > div > div {
+          padding: 0.375rem 0.5rem !important;
+        }
+
+        /* Shrink the big number values inside stat cards */
+        .enquiries-stats-compact .text-3xl,
+        .enquiries-stats-compact .text-2xl {
+          font-size: 1.25rem !important;
+          line-height: 1.4 !important;
+        }
+
+        /* Shrink the label/title text */
+        .enquiries-stats-compact .text-sm {
+          font-size: 0.7rem !important;
+        }
+
+        /* Shrink progress bars */
+        .enquiries-stats-compact .h-2 {
+          height: 0.375rem !important;
+        }
+
+        /* Reduce card gap from parent */
+        .enquiries-stats-compact > div {
+          gap: 0 !important;
+        }
+      `}</style>
     </div>
   );
 }

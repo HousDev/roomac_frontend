@@ -1,3 +1,154 @@
+// // components/admin/enquiries/components/EnquiryForm.tsx
+// import { Input } from "@/components/ui/input";
+// import { Label } from "@/components/ui/label";
+// import { Textarea } from "@/components/ui/textarea";
+// import {
+//   Select,
+//   SelectContent,
+//   SelectItem,
+//   SelectTrigger,
+//   SelectValue,
+// } from "@/components/ui/select";
+// import { Button } from "@/components/ui/button";
+// import { CreateEnquiryPayload, UpdateEnquiryPayload } from "@/lib/enquiryApi";
+
+// interface EnquiryFormProps {
+//   formData: CreateEnquiryPayload | UpdateEnquiryPayload;
+//   setFormData: React.Dispatch<React.SetStateAction<any>>;
+//   properties: any[];
+//   isEdit?: boolean;
+//   currentStatus?: string;
+//   onSubmit?: () => void;
+//   submitLabel?: string;
+// }
+
+// const EnquiryForm = ({
+//   formData,
+//   setFormData,
+//   properties,
+//   isEdit = false,
+//   currentStatus,
+//   onSubmit,
+//   submitLabel = "Submit",
+// }: EnquiryFormProps) => {
+//   return (
+//     <div className="grid gap-4 py-4">
+//       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+//         <div>
+//           <Label>Full Name *</Label>
+//           <Input
+//             value={formData.tenant_name}
+//             onChange={(e) => setFormData({ ...formData, tenant_name: e.target.value })}
+//             placeholder="John Doe"
+//             required
+//           />
+//         </div>
+//         <div>
+//           <Label>Phone *</Label>
+//           <Input
+//             value={formData.phone}
+//             onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+//             placeholder="9876543210"
+//             required
+//           />
+//         </div>
+//       </div>
+//       <div>
+//         <Label>Email</Label>
+//         <Input
+//           type="email"
+//           value={formData.email}
+//           onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+//           placeholder="john@example.com"
+//         />
+//       </div>
+//       <div>
+//         <Label>Property *</Label>
+//         <Select
+//           value={formData.property_id}
+//           onValueChange={(value) => setFormData({ ...formData, property_id: value })}
+//         >
+//           <SelectTrigger>
+//             <SelectValue placeholder="Select property" />
+//           </SelectTrigger>
+//           <SelectContent>
+//             {properties.length > 0 ? (
+//               properties.map((prop) => (
+//                 <SelectItem key={prop.id} value={String(prop.id)}>
+//                   {prop.name}
+//                 </SelectItem>
+//               ))
+//             ) : (
+//               <SelectItem value="no-property" disabled>
+//                 No properties available
+//               </SelectItem>
+//             )}
+//           </SelectContent>
+//         </Select>
+//       </div>
+      
+//       {isEdit && (
+//         <div>
+//           <Label>Status</Label>
+//           <Select
+//             value={(formData as UpdateEnquiryPayload).status || currentStatus || "new"}
+//             onValueChange={(value) => setFormData({ ...formData, status: value })}
+//           >
+//             <SelectTrigger>
+//               <SelectValue placeholder="Select status" />
+//             </SelectTrigger>
+//             <SelectContent>
+//               <SelectItem value="new">New</SelectItem>
+//               <SelectItem value="contacted">Contacted</SelectItem>
+//               <SelectItem value="interested">Interested</SelectItem>
+//               <SelectItem value="not_interested">Not Interested</SelectItem>
+//               <SelectItem value="converted">Converted</SelectItem>
+//               <SelectItem value="closed">Closed</SelectItem>
+//             </SelectContent>
+//           </Select>
+//         </div>
+//       )}
+      
+//       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+//         <div>
+//           <Label>Move-in Date</Label>
+//           <Input
+//             type="date"
+//             value={formData.preferred_move_in_date}
+//             onChange={(e) => setFormData({ ...formData, preferred_move_in_date: e.target.value })}
+//           />
+//         </div>
+//         <div>
+//           <Label>Budget Range</Label>
+//           <Input
+//             value={formData.budget_range}
+//             onChange={(e) => setFormData({ ...formData, budget_range: e.target.value })}
+//             placeholder="e.g. 8000-12000"
+//           />
+//         </div>
+//       </div>
+//       <div>
+//         <Label>Message</Label>
+//         <Textarea
+//           value={formData.message}
+//           onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+//           placeholder="Any additional details..."
+//           rows={3}
+//         />
+//       </div>
+      
+//       {onSubmit && (
+//         <Button onClick={onSubmit}>
+//           {submitLabel}
+//         </Button>
+//       )}
+//     </div>
+//   );
+// };
+
+// export default EnquiryForm;
+
+
 // components/admin/enquiries/components/EnquiryForm.tsx
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,113 +183,136 @@ const EnquiryForm = ({
   submitLabel = "Submit",
 }: EnquiryFormProps) => {
   return (
-    <div className="grid gap-4 py-4">
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <Label>Full Name *</Label>
+    <div className="space-y-3 md:space-y-4">
+      {/* Name and Phone - Already 2 columns */}
+      <div className="grid grid-cols-2 gap-2 md:gap-4">
+        <div className="space-y-1 md:space-y-2">
+          <Label className="text-xs md:text-sm font-medium">Full Name *</Label>
           <Input
             value={formData.tenant_name}
             onChange={(e) => setFormData({ ...formData, tenant_name: e.target.value })}
             placeholder="John Doe"
             required
+            className="h-8 md:h-10 text-xs md:text-sm"
           />
         </div>
-        <div>
-          <Label>Phone *</Label>
+        <div className="space-y-1 md:space-y-2">
+          <Label className="text-xs md:text-sm font-medium">Phone *</Label>
           <Input
             value={formData.phone}
             onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
             placeholder="9876543210"
             required
+            className="h-8 md:h-10 text-xs md:text-sm"
           />
         </div>
       </div>
-      <div>
-        <Label>Email</Label>
-        <Input
-          type="email"
-          value={formData.email}
-          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-          placeholder="john@example.com"
-        />
-      </div>
-      <div>
-        <Label>Property *</Label>
-        <Select
-          value={formData.property_id}
-          onValueChange={(value) => setFormData({ ...formData, property_id: value })}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Select property" />
-          </SelectTrigger>
-          <SelectContent>
-            {properties.length > 0 ? (
-              properties.map((prop) => (
-                <SelectItem key={prop.id} value={String(prop.id)}>
-                  {prop.name}
-                </SelectItem>
-              ))
-            ) : (
-              <SelectItem value="no-property" disabled>
-                No properties available
-              </SelectItem>
-            )}
-          </SelectContent>
-        </Select>
-      </div>
-      
-      {isEdit && (
-        <div>
-          <Label>Status</Label>
+
+      {/* Email and Property - 2 columns on mobile */}
+      <div className="grid grid-cols-2 gap-2 md:gap-4">
+        <div className="space-y-1 md:space-y-2">
+          <Label className="text-xs md:text-sm font-medium">Email</Label>
+          <Input
+            type="email"
+            value={formData.email}
+            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+            placeholder="john@example.com"
+            className="h-8 md:h-10 text-xs md:text-sm"
+          />
+        </div>
+        <div className="space-y-1 md:space-y-2">
+          <Label className="text-xs md:text-sm font-medium">Property *</Label>
           <Select
-            value={(formData as UpdateEnquiryPayload).status || currentStatus || "new"}
-            onValueChange={(value) => setFormData({ ...formData, status: value })}
+            value={formData.property_id}
+            onValueChange={(value) => setFormData({ ...formData, property_id: value })}
           >
-            <SelectTrigger>
-              <SelectValue placeholder="Select status" />
+            <SelectTrigger className="h-8 md:h-10 text-xs md:text-sm">
+              <SelectValue placeholder="Select" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="new">New</SelectItem>
-              <SelectItem value="contacted">Contacted</SelectItem>
-              <SelectItem value="interested">Interested</SelectItem>
-              <SelectItem value="not_interested">Not Interested</SelectItem>
-              <SelectItem value="converted">Converted</SelectItem>
-              <SelectItem value="closed">Closed</SelectItem>
+              {properties.length > 0 ? (
+                properties.map((prop) => (
+                  <SelectItem key={prop.id} value={String(prop.id)} className="text-xs md:text-sm">
+                    {prop.name}
+                  </SelectItem>
+                ))
+              ) : (
+                <SelectItem value="no-property" disabled className="text-xs md:text-sm">
+                  No properties available
+                </SelectItem>
+              )}
             </SelectContent>
           </Select>
         </div>
+      </div>
+      
+      {/* Status (Edit Mode Only) - Full width on mobile */}
+      {isEdit && (
+        <div className="grid grid-cols-1 gap-2 md:gap-4">
+          <div className="space-y-1 md:space-y-2">
+            <Label className="text-xs md:text-sm font-medium">Status</Label>
+            <Select
+              value={(formData as UpdateEnquiryPayload).status || currentStatus || "new"}
+              onValueChange={(value) => setFormData({ ...formData, status: value })}
+            >
+              <SelectTrigger className="h-8 md:h-10 text-xs md:text-sm">
+                <SelectValue placeholder="Select status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="new" className="text-xs md:text-sm">New</SelectItem>
+                <SelectItem value="contacted" className="text-xs md:text-sm">Contacted</SelectItem>
+                <SelectItem value="interested" className="text-xs md:text-sm">Interested</SelectItem>
+                <SelectItem value="not_interested" className="text-xs md:text-sm">Not Interested</SelectItem>
+                <SelectItem value="converted" className="text-xs md:text-sm">Converted</SelectItem>
+                <SelectItem value="closed" className="text-xs md:text-sm">Closed</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
       )}
       
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <Label>Move-in Date</Label>
+      {/* Move-in Date and Budget - 2 columns on mobile */}
+      <div className="grid grid-cols-2 gap-2 md:gap-4">
+        <div className="space-y-1 md:space-y-2">
+          <Label className="text-xs md:text-sm font-medium">Move-in Date</Label>
           <Input
             type="date"
             value={formData.preferred_move_in_date}
             onChange={(e) => setFormData({ ...formData, preferred_move_in_date: e.target.value })}
+            className="h-8 md:h-10 text-xs md:text-sm"
           />
         </div>
-        <div>
-          <Label>Budget Range</Label>
+        <div className="space-y-1 md:space-y-2">
+          <Label className="text-xs md:text-sm font-medium">Budget Range</Label>
           <Input
             value={formData.budget_range}
             onChange={(e) => setFormData({ ...formData, budget_range: e.target.value })}
             placeholder="e.g. 8000-12000"
+            className="h-8 md:h-10 text-xs md:text-sm"
           />
         </div>
       </div>
-      <div>
-        <Label>Message</Label>
-        <Textarea
-          value={formData.message}
-          onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-          placeholder="Any additional details..."
-          rows={3}
-        />
+
+      {/* Message - Full width on mobile */}
+      <div className="grid grid-cols-1 gap-2 md:gap-4">
+        <div className="space-y-1 md:space-y-2">
+          <Label className="text-xs md:text-sm font-medium">Message</Label>
+          <Textarea
+            value={formData.message}
+            onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+            placeholder="Any additional details..."
+            rows={2}
+            className="text-xs md:text-sm resize-none min-h-[60px] md:min-h-[80px]"
+          />
+        </div>
       </div>
       
+      {/* Submit Button */}
       {onSubmit && (
-        <Button onClick={onSubmit}>
+        <Button 
+          onClick={onSubmit} 
+          className="w-full mt-2 md:mt-4 h-8 md:h-10 text-xs md:text-sm"
+        >
           {submitLabel}
         </Button>
       )}

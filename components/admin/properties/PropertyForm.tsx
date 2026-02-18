@@ -2463,7 +2463,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
@@ -2490,13 +2489,11 @@ import {
   Shield,
   Upload,
   Check,
-  CheckCircle,
   XSquare,
   ListChecks,
   Trash2,
   Loader2,
   AlertCircle,
-  Bug,
   Receipt,
   Lock,
   Bell,
@@ -2508,6 +2505,8 @@ import {
   getNoticePeriodOptions,
   extractNumberFromDuration 
 } from "@/lib/masterApi";
+
+import { getAllStaff, type StaffMember } from "@/lib/staffApi";
 
 // Common terms templates with headers
 const TERMS_TEMPLATES = [
@@ -2659,6 +2658,9 @@ type Property = {
   description?: string;
   property_manager_name: string;
   property_manager_phone: string;
+  property_manager_email: string;
+  property_manager_role: string;
+  staff_id?: string | number;
   amenities: string[];
   services: string[];
   photo_urls: string[];
@@ -2674,6 +2676,7 @@ type Property = {
   additional_terms?: string;
 };
 
+// ── CHANGE 1: Added property_manager_email, property_manager_role, staff_id to type ──
 type PropertyFormData = {
   name: string;
   city_id: string;
@@ -2688,6 +2691,9 @@ type PropertyFormData = {
   description: string;
   property_manager_name: string;
   property_manager_phone: string;
+  property_manager_email: string;   // ← ADDED
+  property_manager_role: string;    // ← ADDED
+  staff_id: string;                 // ← ADDED
   amenities: string[];
   services: string[];
   photo_urls: string[];
@@ -2740,6 +2746,8 @@ export default function PropertyForm({
   loading,
 }: PropertyFormProps) {
   const [activeTab, setActiveTab] = useState("basic");
+
+  // ── CHANGE 2: Added property_manager_email, property_manager_role, staff_id to initial state ──
   const [formData, setFormData] = useState<PropertyFormData>({
     name: "",
     city_id: "",
@@ -2754,6 +2762,9 @@ export default function PropertyForm({
     description: "",
     property_manager_name: "",
     property_manager_phone: "",
+    property_manager_email: "",   // ← ADDED
+    property_manager_role: "",    // ← ADDED
+    staff_id: "",                 // ← ADDED
     amenities: [],
     services: [],
     photo_urls: [],
@@ -2785,11 +2796,19 @@ export default function PropertyForm({
   const [loadingOptions, setLoadingOptions] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Staff states
+  const [staffList, setStaffList] = useState<StaffMember[]>([]);
+  const [loadingStaff, setLoadingStaff] = useState(false);
+  const [selectedStaffId, setSelectedStaffId] = useState<string>("");
+  const [managerRole, setManagerRole] = useState("");
+  const [managerEmail, setManagerEmail] = useState("");
+
   // Initialize form when selectedProperty changes
   useEffect(() => {
     if (selectedProperty && editMode) {
       const photoUrls = Array.isArray(selectedProperty.photo_urls) ? selectedProperty.photo_urls : [];
       
+      // ── CHANGE 3: Added property_manager_email, property_manager_role, staff_id in editMode init ──
       const initialFormData = {
         name: selectedProperty.name || "",
         city_id: selectedProperty.city_id || "",
@@ -2804,6 +2823,9 @@ export default function PropertyForm({
         description: selectedProperty.description || "",
         property_manager_name: selectedProperty.property_manager_name || "",
         property_manager_phone: selectedProperty.property_manager_phone || "",
+        property_manager_email: selectedProperty.property_manager_email || "",  // ← ADDED
+        property_manager_role: selectedProperty.property_manager_role || "",    // ← ADDED
+        staff_id: selectedProperty.staff_id ? String(selectedProperty.staff_id) : "", // ← ADDED
         amenities: Array.isArray(selectedProperty.amenities) ? selectedProperty.amenities : [],
         services: Array.isArray(selectedProperty.services) ? selectedProperty.services : [],
         photo_urls: photoUrls,
@@ -2838,19 +2860,65 @@ export default function PropertyForm({
       setCustomTerms(customTermsList);
       setSelectedTerms([]);
       setError(null);
+
+      // Try to match existing manager to a staff member
+      const matchingStaff = staffList.find(
+        staff => staff.name === selectedProperty.property_manager_name
+      );
+      if (matchingStaff) {
+        setSelectedStaffId(String(matchingStaff.id));
+        setManagerRole(matchingStaff.role || "");
+        setManagerEmail(matchingStaff.email || "");
+      } else {
+        // ── CHANGE 4: Also restore display states from existing property data ──
+        setSelectedStaffId(selectedProperty.staff_id ? String(selectedProperty.staff_id) : "");
+        setManagerRole(selectedProperty.property_manager_role || "");
+        setManagerEmail(selectedProperty.property_manager_email || "");
+      }
     } else {
       resetForm();
     }
-  }, [selectedProperty, editMode]);
+  }, [selectedProperty, editMode, staffList]);
 
-  // Load master options when form opens
+  // Load master options and staff when form opens
   useEffect(() => {
     if (open) {
       loadMasterOptions();
+      loadStaffList();
     } else {
       setError(null);
     }
   }, [open]);
+
+  const loadStaffList = async () => {
+    setLoadingStaff(true);
+    try {
+      const staff = await getAllStaff();
+      setStaffList(staff);
+    } catch (err) {
+      console.error("Failed to load staff list:", err);
+    } finally {
+      setLoadingStaff(false);
+    }
+  };
+
+  // ── CHANGE 5: handleStaffSelect now also sets email, role, staff_id in formData ──
+  const handleStaffSelect = (staffId: string) => {
+    setSelectedStaffId(staffId);
+    const staff = staffList.find((s) => String(s.id) === staffId);
+    if (staff) {
+      setFormData((prev) => ({
+        ...prev,
+        property_manager_name: staff.name || "",
+        property_manager_phone: staff.phone || "",
+        property_manager_email: staff.email || "",   // ← ADDED
+        property_manager_role: staff.role || "",      // ← ADDED
+        staff_id: staffId,                            // ← ADDED
+      }));
+      setManagerRole(staff.role || "");
+      setManagerEmail(staff.email || "");
+    }
+  };
 
   const loadMasterOptions = async () => {
     setLoadingOptions(true);
@@ -2898,6 +2966,7 @@ export default function PropertyForm({
     }
   };
 
+  // ── CHANGE 6: resetForm now also resets email, role, staff_id in formData ──
   const resetForm = () => {
     setFormData({
       name: "",
@@ -2913,6 +2982,9 @@ export default function PropertyForm({
       description: "",
       property_manager_name: "",
       property_manager_phone: "",
+      property_manager_email: "",   // ← ADDED
+      property_manager_role: "",    // ← ADDED
+      staff_id: "",                 // ← ADDED
       amenities: [],
       services: [],
       photo_urls: [],
@@ -2938,6 +3010,9 @@ export default function PropertyForm({
     setNewTerm("");
     setActiveTab("basic");
     setError(null);
+    setSelectedStaffId("");
+    setManagerRole("");
+    setManagerEmail("");
   };
 
   const handleClose = () => {
@@ -2959,7 +3034,7 @@ export default function PropertyForm({
     const submitData = {
       ...formData,
       terms_conditions: allTerms,
-      custom_terms: customTerms, // Store custom terms separately
+      custom_terms: customTerms,
     };
     
     await onSubmit(submitData, photoFiles, removedPhotoUrls);
@@ -3085,45 +3160,30 @@ export default function PropertyForm({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[calc(100vw-1rem)] sm:max-w-[calc(100vw-2rem)] md:max-w-4xl lg:max-w-5xl max-h-[90vh] md:max-h-[90vh] overflow-hidden p-0 border-0 flex flex-col rounded-2xl">
         <div className="sticky top-0 z-10 bg-gradient-to-r from-blue-600 to-cyan-600 text-white px-3 py-2 md:px-4 md:py-3 flex-shrink-0">
-         <DialogHeader className="space-y-0.5 md:space-y-1">
-      <DialogTitle className="text-sm md:text-base lg:text-lg font-bold">
-        {editMode ? "Edit Property" : "Add New Property"}
-      </DialogTitle>
-      <DialogDescription className="text-blue-100 text-[10px] md:text-xs leading-tight">
-        Enter complete property details
-      </DialogDescription>
-    </DialogHeader>
-  </div>
-  {/* rest of the content */}
-</DialogContent>
-
-
-<DialogContent className="max-w-[calc(100vw-1rem)] sm:max-w-[calc(100vw-2rem)] md:max-w-4xl lg:max-w-5xl max-h-[90vh] md:max-h-[90vh] overflow-hidden p-0 border-0 flex flex-col rounded-2xl">
-  <div className="sticky top-0 z-10 bg-gradient-to-r from-blue-600 to-cyan-600 text-white px-3 py-2 md:px-4 md:py-3 flex-shrink-0">
-    <DialogHeader className="space-y-0.5 md:space-y-1">
-      <div className="flex items-center justify-between">
-        <div>
-          <DialogTitle className="text-sm md:text-base lg:text-lg font-bold">
-            {editMode ? "Edit Property" : "Add New Property"}
-          </DialogTitle>
-          <DialogDescription className="text-blue-100 text-[10px] md:text-xs leading-tight">
-            Enter complete property details
-          </DialogDescription>
-        </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-6 w-6 md:h-7 md:w-7 text-white hover:bg-white/20 rounded-full"
-          onClick={handleClose}
-        >
-          <X className="h-3 w-3 md:h-4 md:w-4" />
-        </Button>
-      </div>
-    </DialogHeader>
+          <DialogHeader className="space-y-0.5 md:space-y-1">
+            <div className="flex items-center justify-between">
+              <div>
+                <DialogTitle className="text-sm md:text-base lg:text-lg font-bold">
+                  {editMode ? "Edit Property" : "Add New Property"}
+                </DialogTitle>
+                <DialogDescription className="text-blue-100 text-[10px] md:text-xs leading-tight">
+                  Enter complete property details
+                </DialogDescription>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 md:h-7 md:w-7 text-white hover:bg-white/20 rounded-full"
+                onClick={handleClose}
+              >
+                <X className="h-3 w-3 md:h-4 md:w-4" />
+              </Button>
+            </div>
+          </DialogHeader>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="  px-3 py-2 md:px-4 md:py-2.5 overflow-y-auto flex-1 min-h-0">
-          <TabsList className=" sticky top-0 z-10 grid grid-cols-5 mb-2 md:mb-3 h-auto gap-0.5 md:gap-1 p-0.5 md:p-1">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="px-3 py-2 md:px-4 md:py-2.5 overflow-y-auto flex-1 min-h-0">
+          <TabsList className="sticky top-0 z-10 grid grid-cols-5 mb-2 md:mb-3 h-auto gap-0.5 md:gap-1 p-0.5 md:p-1">
             <TabsTrigger value="basic" className="flex flex-col md:flex-row items-center gap-0.5 md:gap-1 text-[9px] md:text-xs py-1 md:py-1.5 px-0.5 md:px-2">
               <Home className="h-3 w-3 md:h-3.5 md:w-3.5" />
               <span className="text-[8px] md:text-xs leading-tight">Basic</span>
@@ -3248,30 +3308,21 @@ export default function PropertyForm({
                   </div>
                   <div>
                     <Label className="text-[10px] md:text-xs font-medium">Occupied</Label>
-                    {/* <Input
-                      type="text"
-                      min="0"
-                      value={formData.occupied_beds || ''}
-                      onChange={(e) => setFormData({ ...formData, occupied_beds: parseInt(e.target.value) || 0 })}
-                      className="h-7 md:h-8 text-[10px] md:text-xs mt-0.5"
-                    /> */}
                     <Input
-  type="text"
-  inputMode="numeric"
-  value={formData.occupied_beds}
-  onChange={(e) => {
-    const value = e.target.value;
-
-    if (/^\d*$/.test(value)) {
-      setFormData({
-        ...formData,
-        occupied_beds: value === "" ? "" : Number(value),
-      });
-    }
-  }}
-/>
-
-                    
+                      type="text"
+                      inputMode="numeric"
+                      value={formData.occupied_beds}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        if (/^\d*$/.test(value)) {
+                          setFormData({
+                            ...formData,
+                            occupied_beds: value === "" ? 0 : Number(value),
+                          });
+                        }
+                      }}
+                      className="h-7 md:h-8 text-[10px] md:text-xs mt-0.5"
+                    />
                   </div>
                 </div>
 
@@ -3297,21 +3348,64 @@ export default function PropertyForm({
                   />
                 </div>
 
+                {/* Property Manager Section */}
                 <div className="pt-1 space-y-1.5 md:space-y-2">
                   <h3 className="text-[10px] md:text-xs font-semibold flex items-center gap-1">
                     <Users className="h-3 w-3 md:h-3.5 md:w-3.5" />
                     Property Manager
                   </h3>
-                  <div className="space-y-1.5 md:space-y-2">
+
+                  {/* Staff dropdown */}
+                  <div>
+                    <Label className="text-[9px] md:text-[10px]">
+                      Select Staff Member
+                      {loadingStaff && (
+                        <Loader2 className="inline h-2.5 w-2.5 ml-1 animate-spin text-blue-500" />
+                      )}
+                    </Label>
+                    <Select
+                      value={selectedStaffId}
+                      onValueChange={handleStaffSelect}
+                      disabled={loadingStaff}
+                    >
+                      <SelectTrigger className="h-7 md:h-8 text-[10px] md:text-xs mt-0.5">
+                        <SelectValue placeholder={loadingStaff ? "Loading staff..." : "Choose from staff list..."} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {staffList.length === 0 && !loadingStaff ? (
+                          <div className="px-2 py-1.5 text-[10px] text-gray-500">
+                            No staff members found
+                          </div>
+                        ) : (
+                          staffList.map((staff) => (
+                            <SelectItem
+                              key={staff.id}
+                              value={String(staff.id)}
+                              className="text-[10px] md:text-xs"
+                            >
+                              <span className="font-medium">{staff.name}</span>
+                              <span className="text-gray-400 ml-1">· {staff.role}</span>
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* 2x2 Grid Layout for Manager Fields */}
+                  <div className="grid grid-cols-2 gap-2 mt-2">
+                    {/* Manager Name */}
                     <div>
                       <Label className="text-[9px] md:text-[10px]">Manager Name</Label>
                       <Input
                         value={formData.property_manager_name}
                         onChange={(e) => setFormData({ ...formData, property_manager_name: e.target.value })}
                         placeholder="John Doe"
-                        className="h-6 md:h-7 text-[10px] md:text-xs mt-0.5"
+                        className="h-7 md:h-8 text-[10px] md:text-xs mt-0.5"
                       />
                     </div>
+
+                    {/* Phone Number */}
                     <div>
                       <Label className="text-[9px] md:text-[10px]">Phone Number</Label>
                       <Input
@@ -3328,7 +3422,29 @@ export default function PropertyForm({
                         }}
                         maxLength={10}
                         placeholder="9876543210"
-                        className="h-6 md:h-7 text-[10px] md:text-xs mt-0.5"
+                        className="h-7 md:h-8 text-[10px] md:text-xs mt-0.5"
+                      />
+                    </div>
+
+                    {/* Role (read-only display, but value is in formData) */}
+                    <div>
+                      <Label className="text-[9px] md:text-[10px]">Role</Label>
+                      <Input
+                        value={managerRole}
+                        readOnly
+                        placeholder="Auto-filled"
+                        className="h-7 md:h-8 text-[10px] md:text-xs mt-0.5 bg-gray-50 text-gray-600 cursor-default"
+                      />
+                    </div>
+
+                    {/* Email (read-only display, but value is in formData) */}
+                    <div>
+                      <Label className="text-[9px] md:text-[10px]">Email</Label>
+                      <Input
+                        value={managerEmail}
+                        readOnly
+                        placeholder="Auto-filled"
+                        className="h-7 md:h-8 text-[10px] md:text-xs mt-0.5 bg-gray-50 text-gray-600 cursor-default"
                       />
                     </div>
                   </div>
