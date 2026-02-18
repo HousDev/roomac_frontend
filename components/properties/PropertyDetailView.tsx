@@ -540,7 +540,7 @@ const genderLabel = Array.isArray(room.room_gender_preference)
     </div>
 
     {/* HIGHLIGHTS */}
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+<div className="grid grid-cols-2 sm:grid-cols-2 gap-2">
       {propertyData.highlights.map((highlight: string, i: number) => (
         <div
           key={i}
@@ -604,86 +604,137 @@ const genderLabel = Array.isArray(room.room_gender_preference)
                 </div>
               ) : (
                 <>
-                  {/* Filters Panel */}
-                  {showFilters && (
-                    <div className="mb-3 md:mb-6 bg-white/50 rounded-lg md:rounded-xl p-2 md:p-4 border border-gray-100 md:border-2">
-                      <div className="flex items-center justify-between mb-2 md:mb-4">
-                        <h3 className="font-bold text-gray-900 text-xs md:text-base">Filter Rooms</h3>
-                        {hasActiveFilters && (
-                          <button
-                            onClick={clearFilters}
-                            className="text-[10px] md:text-xs text-blue-600 font-semibold hover:text-blue-700"
-                          >
-                            Clear All
-                          </button>
-                        )}
-                      </div>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-1.5 md:gap-3">
-                        <div>
-                          <label className="block text-[10px] md:text-xs font-semibold text-gray-700 mb-0.5 md:mb-1">Floor</label>
-                          <select
-                            value={selectedFloor}
-                            onChange={(e) => setSelectedFloor(e.target.value)}
-                            className="w-full px-1.5 md:px-3 py-1 md:py-2 border border-gray-300 rounded md:rounded-lg text-xs md:text-sm"
-                          >
-                            <option value="all">All Floors</option>
-                            <option value="1">1st Floor</option>
-                            <option value="2">2nd Floor</option>
-                            <option value="3">3rd Floor</option>
-                          </select>
-                        </div>
+                {/* Filters Modal */}
+{showFilters && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-3">
+    
+    {/* Modal Container */}
+    <div className="w-full max-w-md md:max-w-2xl bg-white rounded-xl md:rounded-2xl shadow-2xl p-4 md:p-6 relative animate-fadeIn">
 
-                        <div>
-                          <label className="block text-[10px] md:text-xs font-semibold text-gray-700 mb-0.5 md:mb-1">Gender</label>
-                          <select
-                            value={selectedGender}
-                            onChange={(e) => setSelectedGender(e.target.value)}
-                            className="w-full px-1.5 md:px-3 py-1 md:py-2 border border-gray-300 rounded md:rounded-lg text-xs md:text-sm"
-                          >
-                            <option value="all">All</option>
-                            <option value="male">Male</option>
-                            <option value="female">Female</option>
-                            <option value="mixed">Mixed</option>
-                          </select>
-                        </div>
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-bold text-gray-900 text-sm md:text-lg">
+          Filter Rooms
+        </h3>
 
-                        <div>
-                          <label className="block text-[10px] md:text-xs font-semibold text-gray-700 mb-0.5 md:mb-1">Sharing</label>
-                          <select
-                            value={selectedSharing}
-                            onChange={(e) => setSelectedSharing(e.target.value)}
-                            className="w-full px-1.5 md:px-3 py-1 md:py-2 border border-gray-300 rounded md:rounded-lg text-xs md:text-sm"
-                          >
-                            <option value="all">All Types</option>
-                            <option value="1">1 Sharing</option>
-                            <option value="2">2 Sharing</option>
-                            <option value="3">3 Sharing</option>
-                            <option value="4">4 Sharing</option>
-                          </select>
-                        </div>
+        <button
+          onClick={() => setShowFilters(false)}
+          className="text-gray-400 hover:text-gray-600 text-lg font-bold"
+        >
+          ✕
+        </button>
+      </div>
 
-                        <div>
-                          <label className="block text-[10px] md:text-xs font-semibold text-gray-700 mb-0.5 md:mb-1">Price</label>
-                          <select
-                            value={priceRange}
-                            onChange={(e) => setPriceRange(e.target.value)}
-                            className="w-full px-1.5 md:px-3 py-1 md:py-2 border border-gray-300 rounded md:rounded-lg text-xs md:text-sm"
-                          >
-                            <option value="all">All Prices</option>
-                            <option value="low">Under ₹5000</option>
-                            <option value="mid">₹5000-₹7000</option>
-                            <option value="high">Above ₹7000</option>
-                          </select>
-                        </div>
-                      </div>
-                    </div>
-                  )}
+      {hasActiveFilters && (
+        <div className="flex justify-end mb-3">
+          <button
+            onClick={clearFilters}
+            className="text-xs text-blue-600 font-semibold hover:text-blue-700"
+          >
+            Clear All
+          </button>
+        </div>
+      )}
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-4 mb-3 md:mb-6">
+      {/* Filters Grid */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+
+        {/* Floor */}
+        <div>
+          <label className="block text-xs font-semibold text-gray-700 mb-1">
+            Floor
+          </label>
+          <select
+            value={selectedFloor}
+            onChange={(e) => setSelectedFloor(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+          >
+            <option value="all">All Floors</option>
+            <option value="1">1st Floor</option>
+            <option value="2">2nd Floor</option>
+            <option value="3">3rd Floor</option>
+          </select>
+        </div>
+
+        {/* Gender */}
+        <div>
+          <label className="block text-xs font-semibold text-gray-700 mb-1">
+            Gender
+          </label>
+          <select
+            value={selectedGender}
+            onChange={(e) => setSelectedGender(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+          >
+            <option value="all">All</option>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+            <option value="mixed">Mixed</option>
+          </select>
+        </div>
+
+        {/* Sharing */}
+        <div>
+          <label className="block text-xs font-semibold text-gray-700 mb-1">
+            Sharing
+          </label>
+          <select
+            value={selectedSharing}
+            onChange={(e) => setSelectedSharing(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+          >
+            <option value="all">All Types</option>
+            <option value="1">1 Sharing</option>
+            <option value="2">2 Sharing</option>
+            <option value="3">3 Sharing</option>
+            <option value="4">4 Sharing</option>
+          </select>
+        </div>
+
+        {/* Price */}
+        <div>
+          <label className="block text-xs font-semibold text-gray-700 mb-1">
+            Price
+          </label>
+          <select
+            value={priceRange}
+            onChange={(e) => setPriceRange(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+          >
+            <option value="all">All Prices</option>
+            <option value="low">Under ₹5000</option>
+            <option value="mid">₹5000-₹7000</option>
+            <option value="high">Above ₹7000</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Footer Buttons */}
+      <div className="mt-6 flex justify-end gap-3">
+        <button
+          onClick={() => setShowFilters(false)}
+          className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-semibold hover:bg-gray-100"
+        >
+          Cancel
+        </button>
+
+        <button
+          onClick={() => setShowFilters(false)}
+          className="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-600 to-cyan-600 text-white text-sm font-bold hover:shadow-lg transition-all"
+        >
+          Apply Filters
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
+
+<div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-4 mb-3 md:mb-6">
                     {roomTypeSummary.slice(0, 3).map((summary: any) => (
                       <div
                         key={summary.id}
-                        className="bg-white rounded-lg md:rounded-xl p-3 md:p-5 border border-gray-200 md:border-2 hover:border-blue-300 hover:shadow-md md:hover:shadow-xl transition-all cursor-pointer group"
+className="bg-white rounded-lg md:rounded-xl p-2 md:p-5 border border-gray-200 md:border-2 hover:border-blue-300 hover:shadow-md md:hover:shadow-xl transition-all cursor-pointer group"
                         onClick={() => setShowAllRooms(true)}
                       >
                         <div className="flex items-center gap-2 md:gap-3 mb-2 md:mb-4">
