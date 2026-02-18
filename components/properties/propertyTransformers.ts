@@ -13,7 +13,7 @@ export const transformPropertyData = (property: any) => {
     "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=800",
     "https://images.unsplash.com/photo-1540518614846-7eded433c457?w=800"
   ];
-
+  console.log("asldkfjsdklfjsldfjsldkajfalksdjfsadjkflsadjf;sakld",property)
   return {
     name: property.name || "Luxury PG Accommodation",
     location: property.area || "Koramangala, Bangalore",
@@ -99,7 +99,8 @@ export const transformPropertyData = (property: any) => {
     manager: {
       name: property.property_manager_name || "Rajesh Kumar",
       phone: property.property_manager_phone || "+919876543210",
-      email: "rajesh@example.com",
+      email: property.property_manager_email || "rajesh@example.com",
+      role: property.property_manager_role || "Verified Manager",
       avatar: "https://i.pravatar.cc/150?img=12",
       rating: 4.8
     },

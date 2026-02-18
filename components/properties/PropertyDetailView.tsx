@@ -1095,7 +1095,7 @@ className="bg-white rounded-lg md:rounded-xl p-2 md:p-5 border border-gray-200 m
                     <p className="font-black text-gray-900 text-sm md:text-lg">{propertyData.manager.name}</p>
                     <p className="text-[10px] md:text-xs text-gray-600 font-semibold flex items-center gap-0.5 md:gap-1">
                       <ShieldCheck className="w-2.5 h-2.5 md:w-3 md:h-3 text-green-600" />
-                      Verified Manager
+                      {propertyData.manager.role}
                     </p>
                   </div>
                 </div>

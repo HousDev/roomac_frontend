@@ -2199,6 +2199,7 @@ function PropertyDetailsContent({ slug }: { slug: string }) {
 
         if (!isNaN(numericId)) {
           const numericResponse = await getProperty(String(numericId));
+          console.log(numericResponse.data, "dafshkldhfajshlfjk")
           if (!cancelled && numericResponse.success && numericResponse.data) {
             propertyData = transformPropertyData(numericResponse.data);
           }
