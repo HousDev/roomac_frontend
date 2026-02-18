@@ -1065,7 +1065,8 @@ import { Badge } from '@/components/ui/badge';
 import { 
   Plus, CreditCard, FileText, Download, Search, 
   DollarSign, AlertCircle, CheckCircle, XCircle, Bell, Send,
-  Filter, ChevronDown, Calendar
+  Filter, ChevronDown, Calendar,
+  IndianRupee
 } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
@@ -1643,7 +1644,7 @@ Thank you for your payment!
           <StatCard
             title="Collected"
             value={`₹${stats?.total_collected?.toLocaleString() || '0'}`}
-            icon={DollarSign}
+            icon={IndianRupee}
             color="bg-blue-600"
             bgColor="bg-gradient-to-br from-blue-50 to-blue-100"
           />
@@ -1977,7 +1978,7 @@ Thank you for your payment!
             <Card className="overflow-hidden border-0 shadow-sm">
               <div className="relative">
                 {/* Sticky Header Table */}
-                <div className="overflow-auto max-h-[calc(100vh-280px)]">
+                <div className="overflow-auto max-h-[calc(100vh-310px)] md:max-h-[calc(100vh-280px)]">
                   <Table>
                     <TableHeader className="sticky top-0 z-20 bg-white">
                       {/* Column Headers */}
