@@ -14,6 +14,7 @@ import {
   Maximize2, Coffee as CoffeeIcon, Bath as BathIcon, Coffee, Link2, CheckCircle
 } from 'lucide-react';
 import BookingModal from './BookingModal';
+import { profile } from 'console';
 
 const Icons = {
   Wifi, Wind, Utensils, Shield, Zap, Home, Building2, Bus, ShoppingCart, Heart, Film,
@@ -91,7 +92,18 @@ const PropertyDetailView = memo(function PropertyDetailView({ propertyData, offe
     
     return propertyData.rooms.filter((room: any) => {
       if (selectedFloor !== 'all' && room.floor !== Number(selectedFloor)) return false;
-      if (selectedGender !== 'all' && room.gender !== selectedGender) return false;
+      if (
+  selectedGender !== 'all' &&
+ !room.room_gender_preference?.includes(
+  selectedGender === 'male' ? 'male_only' :
+  selectedGender === 'female' ? 'female_only' :
+  selectedGender
+)
+
+) {
+  return false;
+}
+
       if (selectedSharing !== 'all' && room.sharingType !== Number(selectedSharing)) return false;
       if (priceRange === 'low' && room.price > 5000) return false;
       if (priceRange === 'mid' && (room.price <= 5000 || room.price > 7000)) return false;
@@ -106,26 +118,26 @@ const PropertyDetailView = memo(function PropertyDetailView({ propertyData, offe
   }, [propertyData, selectedFloor, selectedGender, selectedSharing, priceRange, selectedAmenities, availabilityFilter]);
 
   const roomTypeSummary = useMemo(() => {
+    
     if (!propertyData?.rooms || propertyData.rooms.length === 0) {
       return [];
     }
     
     return propertyData.rooms.map((room: any) => {
+      console.log('ROOM RAW DATA:', {
+    id: room.id,
+    room_gender_preference: room.room_gender_preference,
+    type: typeof room.room_gender_preference,
+  });
       const sharingType = parseInt(room.sharingType?.toString()) || 2;
       const availableCount = parseInt(room.available) || 0;
       
-      const gender = (room.gender || '').toLowerCase();
-      let boysRooms = 0;
-      let girlsRooms = 0;
-      let mixedRooms = 0;
-      
-      if (gender === 'male' || gender === 'm') {
-        boysRooms = 1;
-      } else if (gender === 'female' || gender === 'f') {
-        girlsRooms = 1;
-      } else {
-        mixedRooms = 1;
-      }
+const genderLabel = Array.isArray(room.room_gender_preference)
+  ? room.room_gender_preference.join(', ')
+  : null;
+
+
+
       
       const availableNow = (room.status === 'available' || room.status === 'partially-available') 
         ? availableCount 
@@ -148,9 +160,7 @@ const PropertyDetailView = memo(function PropertyDetailView({ propertyData, offe
         totalRooms: 1,
         hasAC: hasAC,
         hasWiFi: hasWiFi,
-        boysRooms: boysRooms,
-        girlsRooms: girlsRooms,
-        mixedRooms: mixedRooms,
+         gender: genderLabel, // ✅ ADD ONLY THIS
         roomNumber: room.roomNumber || room.name || `Room ${room.id}`,
         roomData: room
       };
@@ -1329,14 +1339,20 @@ const PropertyDetailView = memo(function PropertyDetailView({ propertyData, offe
                                 <span className="text-xs md:text-sm font-black text-gray-900">{room.name}</span>
                                 <p className="text-[10px] md:text-xs text-gray-500">Floor {room.floor}</p>
                               </div>
-                              <span className={`text-[10px] md:text-xs px-2 md:px-3 py-0.5 md:py-1.5 rounded-full font-bold ${room.gender === 'male'
-                                  ? 'bg-blue-100 text-blue-700'
-                                  : room.gender === 'female'
-                                  ? 'bg-pink-100 text-pink-700'
-                                  : 'bg-purple-100 text-purple-700'
-                                }`}>
-                                {room.gender === 'male' ? '♂ Boys' : room.gender === 'female' ? '♀ Girls' : '👥 Mixed'}
-                              </span>
+                              {(() => {
+  const prefs = room.room_gender_preference || []
+
+
+  return (
+    <div>{prefs.map((pref: string) => (
+      <span key={pref} className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full text-xs font-bold mr-1">
+        {pref === 'male_only' ? '♂ Male' : pref === 'female_only' ? '♀ Female' : pref === 'couples' ? ' Couples' : ''}
+      </span>
+    ))}
+    </div>
+  );
+})()}
+
                             </div>
 
                             <div className="flex items-center gap-1.5 md:gap-2 mb-2 md:mb-4">
@@ -1344,11 +1360,13 @@ const PropertyDetailView = memo(function PropertyDetailView({ propertyData, offe
                                 <Users className="w-3 h-3 md:w-4 md:h-4" />
                                 <span className="font-semibold">
                                   {room.occupancy.male + room.occupancy.female}/{sharingType}
-                                  {room.gender === 'mixed' && (
-                                    <span className="text-[10px] md:text-xs text-gray-500 ml-0.5 md:ml-1">
-                                      ({room.occupancy.male}♂ {room.occupancy.female}♀)
-                                    </span>
-                                  )}
+                                  {(!room.room_gender_preference ||
+  room.room_gender_preference.length !== 1) && (
+  <span>
+    ({room.occupancy.male}♂ {room.occupancy.female}♀)
+  </span>
+)}
+
                                 </span>
                               </div>
                               <div className="flex items-center gap-1 ml-auto">

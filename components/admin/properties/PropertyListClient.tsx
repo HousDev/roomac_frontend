@@ -1817,7 +1817,7 @@ const handleFormSubmit = useCallback(async (
           <div className="h-40 bg-gradient-to-br from-blue-50 to-cyan-50 flex items-center justify-center relative overflow-hidden">
             {property.photo_urls && property.photo_urls.length > 0 ? (
               <img 
-                src={property.photo_urls[0]} 
+                src={`${import.meta.env.VITE_API_URL+property.photo_urls[0]}`} 
                 alt={property.name}
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
               />
