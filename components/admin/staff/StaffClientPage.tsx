@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/select";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogHeader,
   DialogTitle,
@@ -53,6 +54,7 @@ import {
   Brush,
   Loader2,
   Eye,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -455,7 +457,7 @@ export default function StaffClientPage({
   }
 
   return (
-    <div className="p-4 md:p-6">
+    <div className="p-4 md:p-6 -mt-9">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold">Staff Management</h1>
@@ -478,49 +480,65 @@ export default function StaffClientPage({
             </Button>
           </DialogTrigger>
 
-          <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="text-xl">
-                {editingStaff ? "Edit Staff Member" : "Add New Staff Member"}
-              </DialogTitle>
-              <p className="text-sm text-gray-500">
-                Fill in the details below to {editingStaff ? "update" : "add"} staff information
-              </p>
-            </DialogHeader>
+          <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden p-0">
 
-            <StaffForm
-              formData={formData}
-              setFormData={setFormData}
-              editingStaff={editingStaff}
-              handleFileUpload={handleFileUpload}
-              handleRemoveDocument={handleRemoveDocument}
-            />
+  {/* Gradient Header */}
+  <div className="bg-gradient-to-r from-blue-700 to-blue-600 text-white px-6 py-4 flex items-center justify-between rounded-t-lg">
+    <div>
+      <h2 className="text-xl font-semibold">
+        {editingStaff ? "Edit Staff Member" : "Add New Staff Member"}
+      </h2>
+      <p className="text-sm text-blue-100">
+        Fill in the details below to {editingStaff ? "update" : "add"} staff information
+      </p>
+    </div>
 
-            <div className="flex justify-end gap-3 pt-4 border-t">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowDialog(false);
-                  resetForm();
-                }}
-                disabled={submitting}
-              >
-                Cancel
-              </Button>
-              <Button 
-                onClick={handleSubmit} 
-                className="min-w-[120px]"
-                disabled={submitting}
-              >
-                {submitting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    {editingStaff ? "Updating..." : "Adding..."}
-                  </>
-                ) : editingStaff ? "Update Staff" : "Add Staff"}
-              </Button>
-            </div>
-          </DialogContent>
+    <DialogClose asChild>
+      <button className="p-2 rounded-full hover:bg-white/20 transition">
+        <X className="h-5 w-5" />
+      </button>
+    </DialogClose>
+  </div>
+
+  {/* Body */}
+  <div className="p-6 overflow-y-auto max-h-[70vh]">
+    <StaffForm
+      formData={formData}
+      setFormData={setFormData}
+      editingStaff={editingStaff}
+      handleFileUpload={handleFileUpload}
+      handleRemoveDocument={handleRemoveDocument}
+    />
+  </div>
+
+  {/* Footer */}
+  <div className="flex justify-end gap-3 p-6 pt-4 border-t bg-gray-50">
+    <Button
+      variant="outline"
+      onClick={() => {
+        setShowDialog(false);
+        resetForm();
+      }}
+      disabled={submitting}
+    >
+      Cancel
+    </Button>
+
+    <Button 
+      onClick={handleSubmit} 
+      className="min-w-[120px] bg-blue-600 hover:bg-blue-700"
+      disabled={submitting}
+    >
+      {submitting ? (
+        <>
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          {editingStaff ? "Updating..." : "Adding..."}
+        </>
+      ) : editingStaff ? "Update Staff" : "Add Staff"}
+    </Button>
+  </div>
+
+</DialogContent>
         </Dialog>
       </div>
 

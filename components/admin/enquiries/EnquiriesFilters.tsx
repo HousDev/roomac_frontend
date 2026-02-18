@@ -25,7 +25,7 @@ const EnquiriesFilters = ({
 }: EnquiriesFiltersProps) => {
   return (
     <div className="mb-6 flex flex-wrap gap-4">
-      <div className="w-full sm:w-auto flex-1">
+      {/* <div className="w-full sm:w-auto flex-1">
         <Label>Search</Label>
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -36,8 +36,8 @@ const EnquiriesFilters = ({
             className="pl-10"
           />
         </div>
-      </div>
-      <div className="w-full sm:w-auto">
+      </div> */}
+      {/* <div className="w-full sm:w-auto">
         <Label>Filter by Status</Label>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-full sm:w-[180px]">
@@ -53,7 +53,7 @@ const EnquiriesFilters = ({
             <SelectItem value="closed">Closed</SelectItem>
           </SelectContent>
         </Select>
-      </div>
+      </div> */}
     </div>
   );
 };
