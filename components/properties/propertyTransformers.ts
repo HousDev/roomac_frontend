@@ -170,6 +170,7 @@ export const transformRoomData = (room: any) => {
     sharingType: sharingType,
     price: price,
     floor: room.floor || 1,
+    room_gender_preference: room.room_gender_preference,
     gender: gender,
     ac: ac,
     wifi: true,

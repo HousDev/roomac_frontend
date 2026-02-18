@@ -387,7 +387,8 @@ import {
   Home, Sparkles, CheckCircle, XCircle, UserRound, Globe,
   Calendar, Wifi, Tv, Droplets, Shield, Coffee,
   Car, Dumbbell, TreePine, Waves, Thermometer, UsersRound, PersonStanding,
-  BadgeIndianRupee
+  BadgeIndianRupee,
+  X
 } from 'lucide-react';
 import type { RoomResponse } from '@/lib/roomsApi';
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, memo } from 'react';
+import { useState, useCallback, useEffect, memo, useRef } from 'react';
 import {
   X, User, Phone, Mail, Users, Calendar, CreditCard, FileText,
   Check, CalendarDays, IndianRupee, Shield,
@@ -20,7 +20,7 @@ interface BookingModalProps {
   bookingType: string;
   setBookingType: (type: string) => void;
   propertyData: any;
-  preselectedRoomId?: number;
+  preselectedRoomId?: number | null;
   onBookingSuccess?: (bookingData: any) => void;
 }
 
@@ -328,6 +328,9 @@ const BookingModal = memo(function BookingModal({
   const [showOTPModal, setShowOTPModal] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [confirmationData, setConfirmationData] = useState<any>(null);
+  
+  // Add ref to track if preselection has been attempted
+  const preselectionAttempted = useRef(false);
 
   const [formData, setFormData] = useState({
     salutation: 'Mr.',
@@ -367,6 +370,7 @@ const BookingModal = memo(function BookingModal({
     });
   }, []);
 
+  // Reset state when modal opens/closes
   useEffect(() => {
     if (isOpen) {
       setBookingStep(1);
@@ -378,8 +382,10 @@ const BookingModal = memo(function BookingModal({
       setShowConfirmation(false);
       setConfirmationData(null);
       setShowOTPModal(false);
+      preselectionAttempted.current = false; // Reset the ref
 
       if (propertyData?.id) {
+        console.log('Fetching rooms for property:', propertyData.id);
         fetchRooms();
       }
     } else {
@@ -414,16 +420,47 @@ const BookingModal = memo(function BookingModal({
     }
   }, [isOpen, propertyData?.id]);
 
+  // Handle preselected room when rooms are loaded
   useEffect(() => {
-    if (preselectedRoomId && rooms.length > 0) {
-      const room = rooms.find(r => r.id === preselectedRoomId);
+    console.log('Checking for preselected room:', {
+      preselectedRoomId,
+      roomsLength: rooms.length,
+      selectedRoom: selectedRoom?.id,
+      attempted: preselectionAttempted.current
+    });
+
+    // Only proceed if we have a preselected room ID, rooms are loaded, no room is selected yet, and we haven't attempted preselection
+    if (preselectedRoomId && rooms.length > 0 && !selectedRoom && !preselectionAttempted.current) {
+      // Convert both to strings for comparison to handle number/string mismatches
+      const preselectedIdStr = String(preselectedRoomId);
+      const room = rooms.find(r => String(r.id) === preselectedIdStr);
+      
+      console.log('Looking for room with ID:', preselectedIdStr);
+      console.log('Available rooms:', rooms.map(r => ({ id: r.id, room_number: r.room_number })));
+      
       if (room) {
-        setTimeout(() => {
-          handleRoomSelect(room);
-        }, 100);
+        console.log('Found preselected room:', room);
+        preselectionAttempted.current = true; // Mark as attempted
+        
+        // Set the selected room
+        setSelectedRoom(room);
+        setFormData(prev => ({
+          ...prev,
+          roomId: room.id.toString(),
+          roomNumber: room.room_number,
+          sharingType: room.sharing_type || '',
+          monthlyRent: room.monthly_rent,
+          dailyRate: room.daily_rate,
+          floor: room.floor || 'Ground'
+        }));
+        
+        // Skip to step 3 (payment)
+        // setBookingStep(3);
+      } else {
+        console.log('Preselected room not found in rooms list');
       }
     }
-  }, [preselectedRoomId, rooms]);
+  }, [preselectedRoomId, rooms, selectedRoom]);
 
   const fetchRooms = async () => {
     if (!propertyData?.id) return;
@@ -432,7 +469,9 @@ const BookingModal = memo(function BookingModal({
     setRoomsError('');
 
     try {
-      const response = await listRoomsByProperty(Number(propertyData.id));
+      const response:any = await listRoomsByProperty(Number(propertyData.id));
+      console.log('Rooms API response:', response);
+      
       let roomsData = [];
 
       if (response.success && response.data) {
@@ -446,6 +485,8 @@ const BookingModal = memo(function BookingModal({
           roomsData = Object.values(response.data);
         }
       }
+
+      console.log('Raw rooms data:', roomsData);
 
       if (roomsData.length > 0) {
         const transformedRooms = roomsData.map((room: any) => {
@@ -474,7 +515,8 @@ const BookingModal = memo(function BookingModal({
           };
         });
 
-        const availableRooms = transformedRooms.filter(room => room.is_available === true);
+        const availableRooms = transformedRooms.filter((room:any) => room.is_available === true);
+        console.log('Transformed available rooms:', availableRooms);
         setRooms(availableRooms);
 
         if (availableRooms.length === 0) {
@@ -510,6 +552,7 @@ const BookingModal = memo(function BookingModal({
   }, []);
 
   const handleRoomSelect = useCallback((room: Room) => {
+    console.log('Room selected:', room);
     setSelectedRoom(room);
     setFormData(prev => ({
       ...prev,
@@ -1155,60 +1198,75 @@ const BookingModal = memo(function BookingModal({
                           </p>
                         </div>
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-72 overflow-y-auto pr-1">
-                          {rooms.map((room) => (
-                            <label
-                              key={room.id}
-                              className={`border-2 rounded-lg p-2.5 cursor-pointer transition-all hover:shadow ${selectedRoom?.id === room.id ? 'border-blue-500 bg-blue-50 shadow ring-1 ring-blue-200' : 'border-gray-200 bg-white'
+                          {rooms.map((room) => {
+                            // Check if this room is the preselected one (convert both to strings for comparison)
+                            const isPreselected = preselectedRoomId && String(room.id) === String(preselectedRoomId);
+                            
+                            return (
+                              <label
+                                key={room.id}
+                                className={`border-2 rounded-lg p-2.5 cursor-pointer transition-all hover:shadow ${
+                                  selectedRoom?.id === room.id 
+                                    ? 'border-blue-500 bg-blue-50 shadow ring-1 ring-blue-200' 
+                                    : isPreselected && !selectedRoom
+                                    ? 'border-blue-300 bg-blue-50/50 ring-2 ring-blue-300 ring-offset-1'
+                                    : 'border-gray-200 bg-white hover:border-gray-300'
                                 }`}
-                            >
-                              <input
-                                type="radio"
-                                name="room"
-                                value={room.id}
-                                checked={selectedRoom?.id === room.id}
-                                onChange={() => handleRoomSelect(room)}
-                                className="sr-only"
-                              />
+                              >
+                                <input
+                                  type="radio"
+                                  name="room"
+                                  value={room.id}
+                                  checked={selectedRoom?.id === room.id}
+                                  onChange={() => handleRoomSelect(room)}
+                                  className="sr-only"
+                                />
 
-                              <div className="flex items-start justify-between mb-2">
-                                <div className="flex items-center gap-1.5">
-                                  <div className="w-7 h-7 bg-gradient-to-br from-blue-100 to-blue-200 rounded flex items-center justify-center flex-shrink-0">
-                                    <BedDouble className="w-3.5 h-3.5 text-blue-600" />
+                                <div className="flex items-start justify-between mb-2">
+                                  <div className="flex items-center gap-1.5">
+                                    <div className="w-7 h-7 bg-gradient-to-br from-blue-100 to-blue-200 rounded flex items-center justify-center flex-shrink-0">
+                                      <BedDouble className="w-3.5 h-3.5 text-blue-600" />
+                                    </div>
+                                    <div>
+                                      <p className="text-xs font-bold text-gray-900">Room {room.room_number}</p>
+                                      <p className="text-[10px] text-gray-500">Floor {room.floor || 'G'}</p>
+                                    </div>
                                   </div>
-                                  <div>
-                                    <p className="text-xs font-bold text-gray-900">Room {room.room_number}</p>
-                                    <p className="text-[10px] text-gray-500">Floor {room.floor || 'G'}</p>
-                                  </div>
+                                  {selectedRoom?.id === room.id && (
+                                    <CheckCircle className="w-4 h-4 text-blue-600" />
+                                  )}
+                                  {isPreselected && !selectedRoom && (
+                                    <span className="text-[8px] bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded-full font-medium">
+                                      Selected
+                                    </span>
+                                  )}
                                 </div>
-                                {selectedRoom?.id === room.id && (
-                                  <CheckCircle className="w-4 h-4 text-blue-600" />
-                                )}
-                              </div>
 
-                              <div className="space-y-1 mb-2">
-                                <div className="flex items-center gap-1 text-[10px] text-gray-600">
-                                  {getSharingIcon(room.sharing_type)}
-                                  <span className="font-medium">{getSharingLabel(room.sharing_type)}</span>
+                                <div className="space-y-1 mb-2">
+                                  <div className="flex items-center gap-1 text-[10px] text-gray-600">
+                                    {getSharingIcon(room.sharing_type)}
+                                    <span className="font-medium">{getSharingLabel(room.sharing_type)}</span>
+                                  </div>
+
+                                  {room.available_beds > 0 && (
+                                    <div className="flex items-center gap-1 text-[9px] text-gray-500">
+                                      <Users className="w-3 h-3" />
+                                      <span>{room.available_beds} bed{room.available_beds > 1 ? 's' : ''}</span>
+                                    </div>
+                                  )}
                                 </div>
 
-                                {room.available_beds > 0 && (
-                                  <div className="flex items-center gap-1 text-[9px] text-gray-500">
-                                    <Users className="w-3 h-3" />
-                                    <span>{room.available_beds} bed{room.available_beds > 1 ? 's' : ''}</span>
-                                  </div>
-                                )}
-                              </div>
-
-                              <div className="pt-2 border-t border-gray-200">
-                                <span className="text-sm font-bold text-gray-900">
-                                  ₹{bookingType === 'long' ? room.monthly_rent.toLocaleString() : room.daily_rate.toLocaleString()}
-                                </span>
-                                <span className="text-[9px] text-gray-500 ml-0.5">
-                                  /{bookingType === 'long' ? 'mo' : 'day'}
-                                </span>
-                              </div>
-                            </label>
-                          ))}
+                                <div className="pt-2 border-t border-gray-200">
+                                  <span className="text-sm font-bold text-gray-900">
+                                    ₹{bookingType === 'long' ? room.monthly_rent.toLocaleString() : room.daily_rate.toLocaleString()}
+                                  </span>
+                                  <span className="text-[9px] text-gray-500 ml-0.5">
+                                    /{bookingType === 'long' ? 'mo' : 'day'}
+                                  </span>
+                                </div>
+                              </label>
+                            );
+                          })}
                         </div>
                       </div>
                     )}

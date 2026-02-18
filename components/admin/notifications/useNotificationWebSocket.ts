@@ -12,15 +12,31 @@ export function useNotificationWebSocket({
 }: UseNotificationWebSocketProps) {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const reconnectAttemptsRef = useRef(0);
+  const maxReconnectAttempts = 5;
 
   const connectWebSocket = () => {
-    const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:3001';
+    // Clear any existing reconnect timeout
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+    }
+
+    // Check if we've exceeded max reconnect attempts
+    if (reconnectAttemptsRef.current >= maxReconnectAttempts) {
+      console.log('Max reconnection attempts reached. Giving up.');
+      return;
+    }
+
+    // Determine WebSocket protocol based on current page protocol
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = import.meta.env.VITE_WS_URL || `${protocol}//localhost:3001`;
     
     try {
       const ws = new WebSocket(`${wsUrl}/ws/notifications`);
       
       ws.onopen = () => {
         console.log('✅ WebSocket connected');
+        reconnectAttemptsRef.current = 0; // Reset reconnect attempts on successful connection
       };
       
       ws.onmessage = (event) => {
@@ -42,14 +58,27 @@ export function useNotificationWebSocket({
         }
       };
       
-      ws.onclose = () => {
-        console.log('🔌 WebSocket disconnected, attempting to reconnect...');
-        // Attempt to reconnect after 3 seconds
-        reconnectTimeoutRef.current = setTimeout(connectWebSocket, 3000);
+      ws.onclose = (event) => {
+        console.log(`🔌 WebSocket disconnected (code: ${event.code}), attempting to reconnect...`);
+        
+        // Don't reconnect if it was a normal closure
+        if (event.code === 1000) {
+          console.log('WebSocket closed normally');
+          return;
+        }
+        
+        reconnectAttemptsRef.current += 1;
+        
+        // Exponential backoff for reconnection attempts
+        const reconnectDelay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 30000);
+        console.log(`Reconnecting in ${reconnectDelay}ms (attempt ${reconnectAttemptsRef.current})`);
+        
+        reconnectTimeoutRef.current = setTimeout(connectWebSocket, reconnectDelay);
       };
       
       ws.onerror = (error) => {
         console.error('WebSocket error:', error);
+        // Don't close here - let onclose handle reconnection
       };
       
       wsRef.current = ws;
@@ -64,7 +93,7 @@ export function useNotificationWebSocket({
     // Cleanup on unmount
     return () => {
       if (wsRef.current) {
-        wsRef.current.close();
+        wsRef.current.close(1000, 'Component unmounting'); // Normal closure
       }
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);

@@ -1955,36 +1955,55 @@ export function RoomForm({
     }
   }, [open]);
 
-  const handleSharingTypeChange = (value: string) => {
-    const defaultCapacity = roomTypeConfig[value]?.capacity || 2;
+const handleSharingTypeChange = (value: string) => {
+  const defaultCapacity = roomTypeConfig[value]?.capacity || 2;
+  
+  // Always update sharing_type first
+  setFormData((prev: RoomFormData) => {
+    // Check if we should update the capacity
+    let newCapacity = prev.capacity;
+    let newIsManualCapacity = prev.isManualCapacity;
     
-    if (!formData.isManualCapacity || formData.capacity === defaultCapacity) {
-      setFormData({
-        ...formData,
-        sharing_type: value,
-        capacity: defaultCapacity
-      });
+    // If it's a standard type (single/double/triple) and not in manual mode, update capacity
+    if (value !== 'other') {
+      // If previous type was 'other' or capacity doesn't match standard, set to default
+      if (prev.sharing_type === 'other' || prev.capacity !== defaultCapacity) {
+        newCapacity = defaultCapacity;
+        newIsManualCapacity = false;
+      }
     } else {
-      setFormData({
-        ...formData,
-        sharing_type: value
-      });
+      // For 'other' type, keep the current capacity but mark as manual
+      newIsManualCapacity = true;
     }
-  };
-
-  const handleCapacityChange = (value: string) => {
-    const numValue = value === '' ? 0 : parseInt(value, 10);
-    const validValue = isNaN(numValue) ? 0 : numValue;
     
-    const currentSharingType = formData.sharing_type;
+    return {
+      ...prev,
+      sharing_type: value,
+      capacity: newCapacity,
+      isManualCapacity: newIsManualCapacity
+    };
+  });
+};
+
+const handleCapacityChange = (value: string) => {
+  const numValue = value === '' ? 0 : parseInt(value, 10);
+  const validValue = isNaN(numValue) ? 0 : numValue;
+  
+  setFormData((prev: RoomFormData) => {
+    const currentSharingType = prev.sharing_type;
     const defaultForCurrentType = roomTypeConfig[currentSharingType]?.capacity;
     
-    setFormData({
-      ...formData,
+    // Determine if we're in manual mode
+    const isManual = currentSharingType === 'other' || 
+                     (currentSharingType && validValue !== defaultForCurrentType);
+    
+    return {
+      ...prev,
       capacity: validValue,
-      isManualCapacity: !(currentSharingType && validValue === defaultForCurrentType && currentSharingType !== 'other')
-    });
-  };
+      isManualCapacity: isManual
+    };
+  });
+};
 
   const handleFileClick = () => {
     if (isFileDialogOpen) return;

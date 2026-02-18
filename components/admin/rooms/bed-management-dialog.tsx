@@ -2710,7 +2710,7 @@
 //   );
 // }
 
-
+// components/admin/rooms/BedManagementDialog.tsx
 "use client";
 
 import { useState, useEffect } from 'react';

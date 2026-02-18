@@ -1210,7 +1210,7 @@
 //   );
 // }
 
-
+// app/admin/rooms/page.tsx
 import { useState, useEffect } from 'react';
 import RoomsClient from '@/components/admin/rooms/rooms-client';
 import { listRooms, listActiveProperties } from '@/lib/roomsApi';
