@@ -171,7 +171,6 @@ export default function MasterTypeList({
                       </div>
                       
                       <div className="flex items-center gap-1">
-                      
 <button
   onClick={() => onToggleStatus(type.id, type.is_active)}
   disabled={togglingTypeId === type.id}
