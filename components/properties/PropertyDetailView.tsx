@@ -201,6 +201,10 @@ const PropertyDetailView = memo(function PropertyDetailView({ propertyData, offe
     setIsClient(true);
   }, []);
 
+
+  useEffect(() => {
+  window.scrollTo({ top: 0, behavior: 'instant' });
+}, []); // runs once when component mounts
   const handleShare = useCallback(() => {
     setIsShareModalOpen(true);
   }, []);
@@ -707,8 +711,8 @@ const PropertyDetailView = memo(function PropertyDetailView({ propertyData, offe
                     </p>
                   )}
                   <div className="text-[10px] md:text-xs text-gray-400 mt-0.5 md:mt-1">
-                    Showing {Math.min(roomTypeSummary.length, 3)} of {roomTypeSummary.length} room types
-                  </div>
+Showing {Math.min(filteredRooms.length, 4)} of {propertyData?.rooms?.length || 0} rooms
+{hasActiveFilters && ` (filtered)`}  </div>
                 </div>
                 <div className="flex items-center gap-1.5 md:gap-2">
                   <button
@@ -741,186 +745,201 @@ const PropertyDetailView = memo(function PropertyDetailView({ propertyData, offe
               ) : (
                 <>
                   {/* Filters Modal */}
-                  {showFilters && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-3">
-                      <div className="w-full max-w-md md:max-w-2xl bg-white rounded-xl md:rounded-2xl shadow-2xl p-4 md:p-6 relative animate-fadeIn">
-                        <div className="flex items-center justify-between mb-4">
-                          <h3 className="font-bold text-gray-900 text-sm md:text-lg">
-                            Filter Rooms
-                          </h3>
-                          <button
-                            onClick={() => setShowFilters(false)}
-                            className="text-gray-400 hover:text-gray-600 text-lg font-bold"
-                          >
-                            ✕
-                          </button>
-                        </div>
+                 {showFilters && (
+  <div 
+    className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm px-3"
+    onClick={(e) => {
+      if (e.target === e.currentTarget) setShowFilters(false); // close on outside click
+    }}
+  >
+    <div className="w-full max-w-md md:max-w-2xl bg-white rounded-xl md:rounded-2xl shadow-2xl p-4 md:p-6 relative animate-fadeIn">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-bold text-gray-900 text-sm md:text-lg">
+          Filter Rooms
+        </h3>
+        <button
+          onClick={() => setShowFilters(false)}
+          className="text-gray-400 hover:text-gray-600 text-lg font-bold"
+        >
+          ✕
+        </button>
+      </div>
 
-                        {hasActiveFilters && (
-                          <div className="flex justify-end mb-3">
-                            <button
-                              onClick={clearFilters}
-                              className="text-xs text-blue-600 font-semibold hover:text-blue-700"
-                            >
-                              Clear All
-                            </button>
-                          </div>
-                        )}
+      {hasActiveFilters && (
+        <div className="flex justify-end mb-3">
+          <button
+            onClick={clearFilters}
+            className="text-xs text-blue-600 font-semibold hover:text-blue-700"
+          >
+            Clear All
+          </button>
+        </div>
+      )}
 
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                          <div>
-                            <label className="block text-xs font-semibold text-gray-700 mb-1">
-                              Floor
-                            </label>
-                            <select
-                              value={selectedFloor}
-                              onChange={(e) => setSelectedFloor(e.target.value)}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                            >
-                              <option value="all">All Floors</option>
-                              <option value="1">1st Floor</option>
-                              <option value="2">2nd Floor</option>
-                              <option value="3">3rd Floor</option>
-                            </select>
-                          </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div>
+          <label className="block text-xs font-semibold text-gray-700 mb-1">Floor</label>
+          <select
+            value={selectedFloor}
+            onChange={(e) => setSelectedFloor(e.target.value)} // auto-filters instantly
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+          >
+            <option value="all">All Floors</option>
+            <option value="1">1st Floor</option>
+            <option value="2">2nd Floor</option>
+            <option value="3">3rd Floor</option>
+          </select>
+        </div>
 
-                          <div>
-                            <label className="block text-xs font-semibold text-gray-700 mb-1">
-                              Gender
-                            </label>
-                            <select
-                              value={selectedGender}
-                              onChange={(e) => setSelectedGender(e.target.value)}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                            >
-                              <option value="all">All Genders</option>
-                              <option value="male">Male Only</option>
-                              <option value="female">Female Only</option>
-                            </select>
-                          </div>
+        <div>
+          <label className="block text-xs font-semibold text-gray-700 mb-1">Gender</label>
+          <select
+            value={selectedGender}
+            onChange={(e) => setSelectedGender(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+          >
+            <option value="all">All Genders</option>
+            <option value="male">Male Only</option>
+            <option value="female">Female Only</option>
+          </select>
+        </div>
 
-                          <div>
-                            <label className="block text-xs font-semibold text-gray-700 mb-1">
-                              Sharing
-                            </label>
-                            <select
-                              value={selectedSharing}
-                              onChange={(e) => setSelectedSharing(e.target.value)}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                            >
-                              <option value="all">All Types</option>
-                              <option value="1">1 Sharing</option>
-                              <option value="2">2 Sharing</option>
-                              <option value="3">3 Sharing</option>
-                              <option value="4">4 Sharing</option>
-                            </select>
-                          </div>
+        <div>
+          <label className="block text-xs font-semibold text-gray-700 mb-1">Sharing</label>
+          <select
+            value={selectedSharing}
+            onChange={(e) => setSelectedSharing(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+          >
+            <option value="all">All Types</option>
+            <option value="1">1 Sharing</option>
+            <option value="2">2 Sharing</option>
+            <option value="3">3 Sharing</option>
+            <option value="4">4 Sharing</option>
+          </select>
+        </div>
 
-                          <div>
-                            <label className="block text-xs font-semibold text-gray-700 mb-1">
-                              Price
-                            </label>
-                            <select
-                              value={priceRange}
-                              onChange={(e) => setPriceRange(e.target.value)}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                            >
-                              <option value="all">All Prices</option>
-                              <option value="low">Under ₹5000</option>
-                              <option value="mid">₹5000-₹7000</option>
-                              <option value="high">Above ₹7000</option>
-                            </select>
-                          </div>
-                        </div>
+        <div>
+          <label className="block text-xs font-semibold text-gray-700 mb-1">Price</label>
+          <select
+            value={priceRange}
+            onChange={(e) => setPriceRange(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+          >
+            <option value="all">All Prices</option>
+            <option value="low">Under ₹5000</option>
+            <option value="mid">₹5000-₹7000</option>
+            <option value="high">Above ₹7000</option>
+          </select>
+        </div>
+      </div>
 
-                        <div className="mt-6 flex justify-end gap-3">
-                          <button
-                            onClick={() => setShowFilters(false)}
-                            className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-semibold hover:bg-gray-100"
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            onClick={() => setShowFilters(false)}
-                            className="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-600 to-cyan-600 text-white text-sm font-bold hover:shadow-lg transition-all"
-                          >
-                            Apply Filters
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
+      {/* Live filter count preview */}
+      <div className="mt-4 p-2 bg-blue-50 rounded-lg border border-blue-100">
+        <p className="text-xs text-blue-700 font-semibold text-center">
+          {filteredRooms.length} room{filteredRooms.length !== 1 ? 's' : ''} match your filters
+        </p>
+      </div>
 
-                  <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-4 mb-3 md:mb-6">
-                    {roomTypeSummary.slice(0, 3).map((summary: any) => (
-                      <div
-                        key={summary.id}
-                        className="bg-white rounded-lg md:rounded-xl p-2 md:p-5 border border-gray-200 md:border-2 hover:border-blue-300 hover:shadow-md md:hover:shadow-xl transition-all cursor-pointer group"
-                        onClick={() => setShowAllRooms(true)}
-                      >
-                        <div className="flex items-center gap-2 md:gap-3 mb-2 md:mb-4">
-                          <div className="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-blue-600 to-cyan-600 rounded-lg md:rounded-xl flex items-center justify-center group-hover:scale-105 md:group-hover:scale-110 transition-transform">
-                            <Users className="w-4 h-4 md:w-6 md:h-6 text-white" />
-                          </div>
-                          <div>
-                            <h3 className="font-black text-sm md:text-lg bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
-                              {summary.sharingType} Sharing
-                            </h3>
-                            <p className="text-[10px] md:text-xs text-gray-500 font-semibold">
-                              Room {summary.roomNumber}
-                            </p>
-                          </div>
-                        </div>
+      <div className="mt-4 flex justify-end gap-3">
+        <button
+          onClick={clearFilters}
+          className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-semibold hover:bg-gray-100"
+        >
+          Reset
+        </button>
+        <button
+          onClick={() => setShowFilters(false)}
+          className="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-600 to-cyan-600 text-white text-sm font-bold hover:shadow-lg transition-all"
+        >
+          Done ({filteredRooms.length})
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
-                        {/* Gender Preference Badge */}
-                        {summary.genderPreference && summary.genderPreference.length > 0 && (
-                          <div className="mb-2">
-                            <span className={`text-[9px] px-2 py-0.5 rounded-full ${
-                              summary.gender.includes('Male') ? 'bg-blue-100 text-blue-700' :
-                              summary.gender.includes('Female') ? 'bg-pink-100 text-pink-700' :
-                              summary.gender.includes('Couples') ? 'bg-red-100 text-red-700' :
-                              'bg-purple-100 text-purple-700'
-                            }`}>
-                              {summary.gender}
-                            </span>
-                          </div>
-                        )}
+                 <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-2 md:gap-4 mb-3 md:mb-6">
+  {filteredRooms.slice(0, 4).map((room: any) => {
+    const sharingType = parseInt(room.sharingType?.toString()) || 2;
+    const availableNow = (room.status === 'available' || room.status === 'partially-available')
+      ? parseInt(room.available) || 0
+      : 0;
+    const hasAC = room.ac === true || room.ac === 'true';
+    const hasWiFi = room.wifi === true || room.wifi === 'true';
+    const genderLabel = formatGenderPreference(room.room_gender_preference || []);
+    const price = parseInt(room.price) || 5000;
 
-                        <div className="space-y-1.5 md:space-y-2 mb-2 md:mb-4">
-                          <div className="flex justify-between items-center">
-                            <div className="flex items-center gap-1 md:gap-2">
-                              <span className="text-sm md:text-base font-black text-blue-600">{summary.availableNow || 0}</span>
-                              {summary.availableNow > 0 && (
-                                <span className="text-[10px] md:text-xs px-1.5 md:px-2 py-0.5 md:py-1 bg-green-100 text-green-700 rounded-full font-bold">
-                                  Available
-                                </span>
-                              )}
-                            </div>
-                          </div>
+    return (
+      <div
+        key={room.id}
+        className="bg-white rounded-lg md:rounded-xl p-2 md:p-5 border border-gray-200 md:border-2 hover:border-blue-300 hover:shadow-md md:hover:shadow-xl transition-all cursor-pointer group"
+        onClick={() => setShowAllRooms(true)}
+      >
+        <div className="flex items-center gap-2 md:gap-3 mb-2 md:mb-4">
+          <div className="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-blue-600 to-cyan-600 rounded-lg md:rounded-xl flex items-center justify-center group-hover:scale-105 md:group-hover:scale-110 transition-transform">
+            <Users className="w-4 h-4 md:w-6 md:h-6 text-white" />
+          </div>
+          <div>
+            <h3 className="font-black text-sm md:text-lg bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+              {sharingType} Sharing
+            </h3>
+            <p className="text-[10px] md:text-xs text-gray-500 font-semibold">
+              Room {room.roomNumber || room.name || `Room ${room.id}`}
+            </p>
+          </div>
+        </div>
 
-                          <div className="flex items-center gap-1 md:gap-2">
-                            {summary.hasAC && (
-                              <span className="text-[10px] md:text-xs px-1.5 md:px-2 py-0.5 md:py-1 bg-blue-100 text-blue-700 rounded-full font-semibold flex items-center gap-0.5 md:gap-1">
-                                <Wind className="w-2.5 h-2.5 md:w-3 md:h-3" /> AC
-                              </span>
-                            )}
-                            {summary.hasWiFi && (
-                              <span className="text-[10px] md:text-xs px-1.5 md:px-2 py-0.5 md:py-1 bg-purple-100 text-purple-700 rounded-full font-semibold flex items-center gap-0.5 md:gap-1">
-                                <Wifi className="w-2.5 h-2.5 md:w-3 md:h-3" /> WiFi
-                              </span>
-                            )}
-                          </div>
-                        </div>
+        {/* Gender Preference Badge */}
+        {room.room_gender_preference && room.room_gender_preference.length > 0 && (
+          <div className="mb-2">
+            <span className={`text-[9px] px-2 py-0.5 rounded-full ${
+              genderLabel.includes('Male') ? 'bg-blue-100 text-blue-700' :
+              genderLabel.includes('Female') ? 'bg-pink-100 text-pink-700' :
+              genderLabel.includes('Couples') ? 'bg-red-100 text-red-700' :
+              'bg-purple-100 text-purple-700'
+            }`}>
+              {genderLabel}
+            </span>
+          </div>
+        )}
 
-                        <div className="pt-2 md:pt-4 border-t border-gray-200">
-                          <p className="text-lg md:text-2xl font-black bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
-                            ₹{(summary.price || 5000).toLocaleString()}
-                            <span className="text-xs md:text-sm text-gray-500 font-normal">/month</span>
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+        <div className="space-y-1.5 md:space-y-2 mb-2 md:mb-4">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-1 md:gap-2">
+              <span className="text-sm md:text-base font-black text-blue-600">{availableNow}</span>
+              {availableNow > 0 && (
+                <span className="text-[10px] md:text-xs px-1.5 md:px-2 py-0.5 md:py-1 bg-green-100 text-green-700 rounded-full font-bold">
+                  Available
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1 md:gap-2">
+            {hasAC && (
+              <span className="text-[10px] md:text-xs px-1.5 md:px-2 py-0.5 md:py-1 bg-blue-100 text-blue-700 rounded-full font-semibold flex items-center gap-0.5 md:gap-1">
+                <Wind className="w-2.5 h-2.5 md:w-3 md:h-3" /> AC
+              </span>
+            )}
+            {hasWiFi && (
+              <span className="text-[10px] md:text-xs px-1.5 md:px-2 py-0.5 md:py-1 bg-purple-100 text-purple-700 rounded-full font-semibold flex items-center gap-0.5 md:gap-1">
+                <Wifi className="w-2.5 h-2.5 md:w-3 md:h-3" /> WiFi
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="pt-2 md:pt-4 border-t border-gray-200">
+          <p className="text-lg md:text-2xl font-black bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+            ₹{price.toLocaleString()}
+            <span className="text-xs md:text-sm text-gray-500 font-normal">/month</span>
+          </p>
+        </div>
+      </div>
+    );
+  })}
+</div>
                 </>
               )}
             </div>
