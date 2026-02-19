@@ -458,13 +458,13 @@ export default function StaffClientPage({
 
   return (
     <div className="p-4 md:p-6 -mt-9">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-        <div>
+      <div className="flex flex-col sm:flex-row justify-end items-end sm:items- gap-4 mb-6">
+        {/* <div>
           <h1 className="text-2xl sm:text-3xl font-bold">Staff Management</h1>
           <p className="text-gray-600 text-sm sm:text-base">
             Manage caretakers, managers, and staff members
           </p>
-        </div>
+        </div> */}
 
         <Dialog
           open={showDialog}
@@ -474,13 +474,14 @@ export default function StaffClientPage({
           }}
         >
           <DialogTrigger asChild>
-            <Button className="w-full sm:w-auto">
-              <Plus className="mr-2 h-4 w-4" />
-              Add Staff
-            </Button>
+<Button className="w-28 sm:w-30">
+  <Plus className="mr-2 h-4 w-4" />
+  Add Staff
+</Button>
+
           </DialogTrigger>
 
-          <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden p-0">
+          <DialogContent className="max-w-6xl max-h-[97vh] overflow-hidden p-0">
 
   {/* Gradient Header */}
   <div className="bg-gradient-to-r from-blue-700 to-blue-600 text-white px-6 py-4 flex items-center justify-between rounded-t-lg">
@@ -542,16 +543,20 @@ export default function StaffClientPage({
         </Dialog>
       </div>
 
-      <Card>
-        <CardHeader className="pb-3">
+      
+        <CardHeader className="pb-3 -mt-9 px-0 md:px-0">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div>
-              <CardTitle>All Staff Members</CardTitle>
-              <p className="text-sm text-gray-500 mt-1">
-                Showing {filteredStaff.length} of {staff.length} staff member{staff.length !== 1 ? 's' : ''}
-              </p>
-            </div>
-            
+           <div>
+  <CardTitle className="text-lg sm:text-xl">
+    All Staff Members
+  </CardTitle>
+
+  <p className="text-xs sm:text-sm text-gray-500 mt-1">
+    Showing {filteredStaff.length} of {staff.length} staff member
+    {staff.length !== 1 ? 's' : ''}
+  </p>
+</div>
+
             <StaffFilters
               searchTerm={searchTerm}
               setSearchTerm={setSearchTerm}
@@ -561,7 +566,7 @@ export default function StaffClientPage({
           </div>
         </CardHeader>
         
-        <CardContent>
+        <CardContent className="px-0 md:px-0">
           <StaffTable
             staff={filteredStaff}
             loading={loading}
@@ -574,7 +579,7 @@ export default function StaffClientPage({
             onToggleActive={handleToggleActive}
           />
         </CardContent>
-      </Card>
+    
     </div>
   );
 }

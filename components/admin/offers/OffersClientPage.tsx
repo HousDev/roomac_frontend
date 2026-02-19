@@ -28,6 +28,7 @@ import {
   DialogTitle,
   DialogTrigger,
   DialogDescription,
+  DialogClose,
 } from "@/components/ui/dialog";
 import {
   Table,
@@ -681,89 +682,129 @@ export default function OffersClientPage({
   }, [properties]);
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50 -mt-8 px-0 md:px-0">
       <AdminHeader title="Offers" description={""} />
 
       <div className="p-6">
         <Card className="border-0 shadow-xl bg-white">
-          <CardHeader className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-t-lg">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-3 text-2xl">
-                  <div className="bg-white/20 p-2 rounded-lg">
-                    <Tag className="h-7 w-7" />
-                  </div>
-                  <div>
-                    <div>Offer Management</div>
-                    <CardDescription className="text-blue-100">
-                      Create and manage promotional offers for properties and rooms
-                    </CardDescription>
-                  </div>
-                </CardTitle>
-              </div>
-              <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button className="bg-white text-blue-600 hover:bg-blue-50 hover:text-blue-700 border-0 font-bold">
-                    <Plus className="h-5 w-5 mr-2" />
-                    Create New Offer
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-                  <DialogHeader>
-                    <div className="flex items-center gap-3">
-                      <div className="bg-blue-100 p-2 rounded-lg">
-                        <Megaphone className="h-6 w-6 text-blue-600" />
-                      </div>
-                      <div>
-                        <DialogTitle>Create New Offer</DialogTitle>
-                        <CardDescription>Fill in the details to create an attractive promotional offer</CardDescription>
-                      </div>
-                    </div>
-                  </DialogHeader>
-                  <OfferForm
-                    formData={formData}
-                    setFormData={setFormData}
-                    existingCodes={existingOfferCodes}
-                    properties={properties}
-                    rooms={rooms}
-                    loadingRooms={loadingRooms}
-                    onPropertyChange={handlePropertyChange}
-                    onGenerateCode={handleGenerateCode}
-                    isGeneratingCode={isGeneratingCode}
-                  />
-                  <DialogFooter>
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        setIsAddDialogOpen(false);
-                        resetForm();
-                      }}
-                      className="border-gray-300"
-                    >
-                      Cancel
-                    </Button>
-                    <Button onClick={handleAdd} className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700">
-                      Create Offer
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            </div>
-          </CardHeader>
+        <CardHeader
+  className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-t-lg p-4 sm:p-6"
+>
+  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
+    
+    <div>
+      <CardTitle className="flex items-start sm:items-center gap-2 sm:gap-3 text-lg sm:text-2xl">
+        
+        <div className="bg-white/20 p-1.5 sm:p-2 rounded-lg">
+          <Tag className="h-5 w-5 sm:h-7 sm:w-7" />
+        </div>
 
-          <CardContent className="p-6">
-            <OffersFilters
-              searchQuery={searchQuery}
-              setSearchQuery={setSearchQuery}
-              filterType={filterType}
-              setFilterType={setFilterType}
-              filterProperty={filterProperty}
-              setFilterProperty={setFilterProperty}
-              itemsPerPage={itemsPerPage}
-              setItemsPerPage={setItemsPerPage}
-              properties={properties}
-              pagination={pagination}
-            />
+        <div>
+          <div className="leading-tight">Offer Management</div>
+          <CardDescription className="text-blue-100 text-xs sm:text-sm mt-1 sm:mt-0">
+            Create and manage promotional offers for properties and rooms
+          </CardDescription>
+        </div>
+
+      </CardTitle>
+    </div>
+
+    <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+      <DialogTrigger asChild>
+        <Button
+          size="sm"
+          className="bg-white text-blue-600 hover:bg-blue-50 hover:text-blue-700 border-0 font-semibold w-full sm:w-auto"
+        >
+          <Plus className="h-4 w-4 sm:h-5 sm:w-5 mr-1 sm:mr-2" />
+          <span className="text-xs sm:text-sm">
+            Create New Offer
+          </span>
+        </Button>
+      </DialogTrigger>
+
+    <DialogContent className="max-w-3xl max-h-[96vh] overflow-hidden p-0">
+  {/* Gradient Header */}
+  <div className="bg-gradient-to-r from-blue-700 to-blue-600 text-white px-4 py-2.5 flex items-center justify-between rounded-t-lg">
+    <div>
+      <h2 className="text-base font-semibold flex items-center gap-1.5">
+        <Megaphone className="h-4 w-4" />
+        Create New Offer
+      </h2>
+      <p className="text-[10px] text-blue-100">
+        Fill in the details below to create an attractive promotional offer
+      </p>
+    </div>
+    <DialogClose asChild>
+      <button className="p-1 rounded-full hover:bg-white/20 transition">
+        <X className="h-3.5 w-3.5" />
+      </button>
+    </DialogClose>
+  </div>
+
+  {/* Scrollable Body */}
+  <div className="p-4 overflow-y-auto max-h-[calc(90vh-100px)]">
+    <OfferForm
+      formData={formData}
+      setFormData={setFormData}
+      existingCodes={existingOfferCodes}
+      properties={properties}
+      rooms={rooms}
+      loadingRooms={loadingRooms}
+      onPropertyChange={handlePropertyChange}
+      onGenerateCode={handleGenerateCode}
+      isGeneratingCode={isGeneratingCode}
+    />
+  </div>
+
+  {/* Footer */}
+  <div className="flex justify-end gap-2 p-4 pt-3 border-t bg-gray-50">
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={() => {
+        setIsAddDialogOpen(false);
+        resetForm();
+      }}
+      className="h-7 text-[10px] px-3"
+    >
+      Cancel
+    </Button>
+    <Button 
+      size="sm"
+      onClick={handleAdd}
+      className="h-7 text-[10px] px-3 bg-gradient-to-r from-blue-600 to-cyan-600"
+    >
+      Create Offer
+    </Button>
+  </div>
+</DialogContent>
+    </Dialog>
+
+  </div>
+</CardHeader>
+
+
+          <CardContent className="p-6 ">
+
+  {/* Hide only filters on mobile */}
+  <div className="hidden lg:block">
+    <OffersFilters
+      searchQuery={searchQuery}
+      setSearchQuery={setSearchQuery}
+      filterType={filterType}
+      setFilterType={setFilterType}
+      filterProperty={filterProperty}
+      setFilterProperty={setFilterProperty}
+      itemsPerPage={itemsPerPage}
+      setItemsPerPage={setItemsPerPage}
+      properties={properties}
+      pagination={pagination}
+    />
+  </div>
+
+  {/* Table will still show on all devices */}
+ 
+
 
             <OffersTable
               offers={offers}
@@ -775,8 +816,9 @@ export default function OffersClientPage({
               onPreview={handlePreview}
               onShare={handleShare}
               pagination={pagination}
-              onPageChange={handlePageChange}
-            />
+              onPageChange={handlePageChange} onCreateNew={function (): void {
+                throw new Error("Function not implemented.");
+              } }            />
           </CardContent>
         </Card>
 

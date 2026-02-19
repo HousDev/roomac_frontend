@@ -46,9 +46,9 @@ const Pagination = ({
 
   return (
     <div className={`flex flex-col sm:flex-row items-center justify-between gap-4 ${className}`}>
-      <div className="text-sm text-gray-600">
+      {/* <div className="text-sm text-gray-600">
         Page {currentPage} of {totalPages}
-      </div>
+      </div> */}
       
       <div className="flex items-center gap-2">
         <Button

@@ -1630,7 +1630,6 @@
 
 
 
-
 "use client";
 
 import { useState, useRef, useEffect } from 'react';
@@ -1817,7 +1816,8 @@ export function RoomForm({
   const [isVideoDialogOpen, setIsVideoDialogOpen] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [galleryItems, setGalleryItems] = useState<Array<{url: string, label?: string, type: 'photo' | 'video'}>>([]);
-  
+  const [currentTab, setCurrentTab] = useState('details');
+
   // States for existing video
   const [existingVideoUrl, setExistingVideoUrl] = useState<string | null>(null);
   const [videoToRemove, setVideoToRemove] = useState<boolean>(false);
@@ -2327,6 +2327,21 @@ const handleCapacityChange = (value: string) => {
       ...(formData.video && { video_label: formData.video_label })
     };
   };
+  const goToNextTab = () => {
+  const tabs = ['details', 'photos', 'video', 'amenities'];
+  const currentIndex = tabs.indexOf(currentTab);
+  if (currentIndex < tabs.length - 1) {
+    setCurrentTab(tabs[currentIndex + 1]);
+  }
+};
+
+const goToPrevTab = () => {
+  const tabs = ['details', 'photos', 'video', 'amenities'];
+  const currentIndex = tabs.indexOf(currentTab);
+  if (currentIndex > 0) {
+    setCurrentTab(tabs[currentIndex - 1]);
+  }
+};
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -2365,8 +2380,7 @@ const handleCapacityChange = (value: string) => {
 
         </div>
 
-        <Tabs defaultValue="details" className="px-3 py-2 md:px-4 md:py-2.5 overflow-y-auto flex-1 min-h-0">
-          <TabsList className="grid grid-cols-5 mb-2 md:mb-3 h-auto gap-0.5 md:gap-1 p-0.5 md:p-1 w-full">
+<Tabs value={currentTab} onValueChange={setCurrentTab} className="px-3 py-2 md:px-4 md:py-2.5 overflow-y-auto flex-1 min-h-0">          <TabsList className="grid grid-cols-4 mb-2 md:mb-3 h-auto gap-0.5 md:gap-1 p-0.5 md:p-1 w-full">
             <TabsTrigger value="details" className="flex flex-col md:flex-row items-center gap-0.5 md:gap-1 text-[9px] md:text-xs py-1 md:py-1.5 px-0.5 md:px-2">
               <DoorOpen className="h-3 w-3 md:h-3.5 md:w-3.5" />
               <span className="text-[8px] md:text-xs leading-tight">Details</span>
@@ -2382,10 +2396,6 @@ const handleCapacityChange = (value: string) => {
             <TabsTrigger value="amenities" className="flex flex-col md:flex-row items-center gap-0.5 md:gap-1 text-[9px] md:text-xs py-1 md:py-1.5 px-0.5 md:px-2">
               <Sparkles className="h-3 w-3 md:h-3.5 md:w-3.5" />
               <span className="text-[8px] md:text-xs leading-tight">Amenities</span>
-            </TabsTrigger>
-            <TabsTrigger value="preferences" className="flex flex-col md:flex-row items-center gap-0.5 md:gap-1 text-[9px] md:text-xs py-1 md:py-1.5 px-0.5 md:px-2">
-              <Users className="h-3 w-3 md:h-3.5 md:w-3.5" />
-              <span className="text-[8px] md:text-xs leading-tight">Preferences</span>
             </TabsTrigger>
           </TabsList>
           
@@ -2436,7 +2446,7 @@ const handleCapacityChange = (value: string) => {
               <div className="space-y-1.5 md:space-y-2">
                 <Label className="text-[10px] md:text-xs font-medium flex items-center gap-1 mb-0.5">
                   <Users className="h-3 w-3 md:h-3.5 md:w-3.5" />
-                  Room Type *
+                  Sharing Type *
                 </Label>
                 <Select
                   value={formData.sharing_type}
@@ -2548,6 +2558,52 @@ const handleCapacityChange = (value: string) => {
                   className="h-7 md:h-8 text-[10px] md:text-xs mt-0.5"
                 />
               </div>
+
+            {/* Gender Preference Dropdown - FIXED */}
+<div className="space-y-1.5 md:space-y-2">
+  <Label className="text-[10px] md:text-xs font-medium flex items-center gap-1 mb-0.5">
+    <Users className="h-3 w-3 md:h-3.5 md:w-3.5" />
+    Gender Preference *
+  </Label>
+  <Select
+    value={formData.room_gender_preference[0] || 'none'}
+    onValueChange={(value) => {
+      // If 'none' is selected, set empty array, otherwise set the selected value
+      setFormData({ 
+        ...formData, 
+        room_gender_preference: value === 'none' ? [] : [value] 
+      });
+    }}
+  >
+    <SelectTrigger className="h-7 md:h-8 text-[10px] md:text-xs">
+      <SelectValue placeholder="Select gender preference" />
+    </SelectTrigger>
+    <SelectContent>
+      {GENDER_PREFERENCES.map((pref) => (
+        <SelectItem key={pref.value} value={pref.value}>
+          <div className="flex items-center gap-2">
+            <div className={pref.iconColor}>
+              {pref.icon}
+            </div>
+            <span className="text-[10px] md:text-xs">{pref.label}</span>
+          </div>
+        </SelectItem>
+      ))}
+      {/* Use a non-empty string value for "None" option */}
+      <SelectItem value="none">
+        <div className="flex items-center gap-2">
+          <div className="text-gray-600">
+            <Users className="h-4 w-4" />
+          </div>
+          <span className="text-[10px] md:text-xs">None (No preference)</span>
+        </div>
+      </SelectItem>
+    </SelectContent>
+  </Select>
+  <p className="text-[9px] md:text-[10px] text-gray-500 mt-0.5">
+    Select who can book beds in this room
+  </p>
+</div>
             </div>
 
             <div className="space-y-1.5 md:space-y-2 mt-2 md:mt-3">
@@ -2564,6 +2620,25 @@ const handleCapacityChange = (value: string) => {
                 className="resize-none text-[10px] md:text-xs min-h-12 md:min-h-14 mt-0.5"
               />
             </div>
+
+            {/* Show selected preference as badge */}
+            {formData.room_gender_preference.length > 0 && (
+              <div className="mt-2 p-2 bg-gray-50 rounded-lg">
+                <p className="text-[10px] md:text-xs font-medium text-gray-700 mb-1.5">Selected Preference:</p>
+                <div className="flex flex-wrap gap-1 md:gap-1.5">
+                  {formData.room_gender_preference.map(pref => {
+                    const prefConfig = GENDER_PREFERENCES.find(p => p.value === pref);
+                    if (!prefConfig) return null;
+                    return (
+                      <Badge key={pref} className={`${prefConfig.color} text-[9px] md:text-[10px] px-1.5 py-0.5`}>
+                        {prefConfig.icon}
+                        <span className="ml-0.5">{prefConfig.label}</span>
+                      </Badge>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </TabsContent>
 
           {/* Photos Tab */}
@@ -3085,67 +3160,6 @@ const handleCapacityChange = (value: string) => {
               </div>
             </div>
           </TabsContent>
-
-          {/* Preferences Tab */}
-          <TabsContent value="preferences" className="space-y-3 md:space-y-4 mt-0">
-            <div>
-              <Label className="text-[10px] md:text-xs font-medium flex items-center gap-1 mb-2 md:mb-3">
-                <Users className="h-3 w-3 md:h-3.5 md:w-3.5" />
-                Room Gender Preference (Select Multiple)
-              </Label>
-              <p className="text-[10px] md:text-xs text-gray-600 mb-3 md:mb-4">
-                Select who can book beds in this room. You can select multiple preferences.
-              </p>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-3">
-                {GENDER_PREFERENCES.map((pref) => (
-                  <div
-                    key={pref.value}
-                    className={`p-3 md:p-4 border-2 rounded-xl cursor-pointer transition-all ${
-                      formData.room_gender_preference.includes(pref.value)
-                        ? `${pref.color} border-${pref.color.split('bg-')[1].split('-')[0]}-300`
-                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                    }`}
-                    onClick={() => toggleGenderPreference(pref.value)}
-                  >
-                    <div className="flex flex-col items-center text-center">
-                      <div className={`p-2 md:p-2.5 rounded-full mb-2 ${formData.room_gender_preference.includes(pref.value) ? pref.color : 'bg-gray-100'}`}>
-                        <div className={formData.room_gender_preference.includes(pref.value) ? pref.iconColor : 'text-gray-600'}>
-                          {pref.icon}
-                        </div>
-                      </div>
-                      <p className="text-[10px] md:text-xs font-semibold">{pref.label}</p>
-                      <div className="mt-1.5">
-                        {formData.room_gender_preference.includes(pref.value) ? (
-                          <Badge className="bg-green-100 text-green-800 border-green-300 text-[9px] md:text-[10px] px-1.5 py-0.5">
-                            <Check className="h-2.5 w-2.5 md:h-3 md:w-3 mr-0.5" />
-                            Selected
-                          </Badge>
-                        ) : null}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              
-              {formData.room_gender_preference.length > 0 && (
-                <div className="mt-2 md:mt-3 p-2 md:p-2.5 bg-gray-50 rounded-lg">
-                  <p className="text-[10px] md:text-xs font-medium text-gray-700 mb-1.5">Selected Preferences:</p>
-                  <div className="flex flex-wrap gap-1 md:gap-1.5">
-                    {formData.room_gender_preference.map(pref => {
-                      const prefConfig = GENDER_PREFERENCES.find(p => p.value === pref);
-                      return (
-                        <Badge key={pref} className={`${prefConfig?.color} text-[9px] md:text-[10px] px-1.5 py-0.5`}>
-                          {prefConfig?.icon}
-                          <span className="ml-0.5">{prefConfig?.label}</span>
-                        </Badge>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-          </TabsContent>
         </Tabs>
 
         <Separator className="my-2 md:my-3" />
@@ -3188,51 +3202,78 @@ const handleCapacityChange = (value: string) => {
         </div>
 
         <DialogFooter className="sticky bottom-0 bg-white border-t px-3 py-2 md:px-4 md:py-2.5 flex-shrink-0">
-          <div className="flex w-full justify-end gap-1.5 md:gap-2">
-            <Button 
-              variant="outline" 
-              onClick={() => onOpenChange(false)}
-              disabled={isCreating}
-              className="h-7 md:h-8 text-[10px] md:text-xs px-2 md:px-3"
-            >
-              Cancel
-            </Button>
-            <Button 
-              onClick={async () => {
-                try {
-                  setIsCreating(true);
-                  const preparedData = prepareFormData();
-                  console.log('Submitting form data:', preparedData);
-                  await onSubmit();
-                  toast.success(isEditMode ? "Room updated successfully!" : "Room created successfully!");
-                } catch (error) {
-                  console.error('Error submitting form:', error);
-                  toast.error(error instanceof Error ? error.message : "Failed to create room. Please try again.");
-                  setIsCreating(false);
-                }
-              }}
-              disabled={isCreating}
-              className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 h-7 md:h-8 text-[10px] md:text-xs px-2 md:px-3"
-            >
-              {isCreating ? (
-                <>
-                  <div className="h-2.5 w-2.5 md:h-3 md:w-3 mr-1 md:mr-2 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                  Processing...
-                </>
-              ) : isEditMode ? (
-                <>
-                  <Edit className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
-                  Update Room
-                </>
-              ) : (
-                <>
-                  <Plus className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
-                  Create Room
-                </>
-              )}
-            </Button>
-          </div>
-        </DialogFooter>
+  <div className="flex w-full justify-between gap-1.5 md:gap-2">
+    <div className="flex gap-1.5 md:gap-2">
+      <Button 
+        variant="outline" 
+        onClick={() => onOpenChange(false)}
+        disabled={isCreating}
+        className="h-7 md:h-8 text-[10px] md:text-xs px-2 md:px-3"
+      >
+        Cancel
+      </Button>
+      
+      {/* Previous Button */}
+      <Button 
+        variant="outline" 
+        onClick={goToPrevTab}
+        disabled={currentTab === 'details' || isCreating}
+        className="h-7 md:h-8 text-[10px] md:text-xs px-2 md:px-3"
+      >
+        <ArrowRight className="h-3 w-3 md:h-4 md:w-4 rotate-180 mr-1" />
+        Previous
+      </Button>
+      
+      {/* Next Button - only show if not on last tab */}
+      {currentTab !== 'amenities' && (
+        <Button 
+          variant="outline" 
+          onClick={goToNextTab}
+          className="h-7 md:h-8 text-[10px] md:text-xs px-2 md:px-3 bg-cyan-50 hover:bg-cyan-100 border-cyan-200"
+        >
+          Next
+          <ArrowRight className="h-3 w-3 md:h-4 md:w-4 ml-1" />
+        </Button>
+      )}
+    </div>
+    
+    {/* Submit Button */}
+    <Button 
+      onClick={async () => {
+        try {
+          setIsCreating(true);
+          const preparedData = prepareFormData();
+          console.log('Submitting form data:', preparedData);
+          await onSubmit();
+          toast.success(isEditMode ? "Room updated successfully!" : "Room created successfully!");
+        } catch (error) {
+          console.error('Error submitting form:', error);
+          toast.error(error instanceof Error ? error.message : "Failed to create room. Please try again.");
+          setIsCreating(false);
+        }
+      }}
+      disabled={isCreating}
+      className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 h-7 md:h-8 text-[10px] md:text-xs px-2 md:px-3"
+    >
+      {isCreating ? (
+        <>
+          <div className="h-2.5 w-2.5 md:h-3 md:w-3 mr-1 md:mr-2 animate-spin rounded-full border-2 border-white border-t-transparent" />
+          Processing...
+        </>
+      ) : isEditMode ? (
+        <>
+          <Edit className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
+          Update Room
+        </>
+      ) : (
+        <>
+          <Plus className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
+          Create Room
+        </>
+      )}
+    </Button>
+  </div>
+</DialogFooter>
       </DialogContent>
       
       <PhotoGalleryModal
@@ -3244,7 +3285,6 @@ const handleCapacityChange = (value: string) => {
     </Dialog>
   );
 }
-
 // "use client";
 
 // import { useState, useRef, useEffect } from 'react';

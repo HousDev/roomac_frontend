@@ -3731,6 +3731,8 @@ const fetchPropertyDetails = async (propertyId: number) => {
                     value={formData.emergency_contact_phone}
                     onChange={(e) => handleInputChange("emergency_contact_phone", e.target.value)}
                     className="h-9 text-sm"
+                    pattern="[6-9][0-9]{9}"
+                     maxLength={10}
                   />
                 </div>
                 <Select
