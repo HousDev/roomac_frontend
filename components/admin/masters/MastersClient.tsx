@@ -605,8 +605,8 @@ import {
   deleteMasterType,
   toggleMasterTypeStatus,
   getMasterTabs,
-  createMasterTab,  // Add this import
-  updateMasterTab,  // Add this import
+  createMasterTab, 
+  updateMasterTab,  
   deleteMasterTab,  // Add this import
 } from "@/lib/masterApi";
 import Header from "./Header";
