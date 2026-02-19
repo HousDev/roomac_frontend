@@ -2499,6 +2499,7 @@ import {
   Bell,
   Wrench,
   BookOpen,
+  User,
 } from "lucide-react";
 import { 
   getLockinPeriodOptions, 
@@ -2800,8 +2801,30 @@ export default function PropertyForm({
   const [staffList, setStaffList] = useState<StaffMember[]>([]);
   const [loadingStaff, setLoadingStaff] = useState(false);
   const [selectedStaffId, setSelectedStaffId] = useState<string>("");
+  const [selectedStaff, setSelectedStaff] = useState<StaffMember | null>(null); 
   const [managerRole, setManagerRole] = useState("");
   const [managerEmail, setManagerEmail] = useState("");
+  // Add helper function for photo URL
+const getFullPhotoUrl = (photoUrl: string | null) => {
+  if (!photoUrl) return null;
+  if (photoUrl.startsWith('http') || photoUrl.startsWith('blob:')) return photoUrl;
+  const apiUrl = import.meta.env.VITE_API_URL || '';
+  const cleanUrl = photoUrl.startsWith('/') ? photoUrl.substring(1) : photoUrl;
+  return `${apiUrl}/${cleanUrl}`;
+};
+
+// Add helper function to get salutation display
+const getSalutationDisplay = (salutation: string) => {
+  const salutations: Record<string, string> = {
+    'mr': 'Mr.',
+    'mrs': 'Mrs.',
+    'miss': 'Miss',
+    'dr': 'Dr.',
+    'prof': 'Prof.'
+  };
+  return salutations[salutation] || '';
+};
+
 
   // Initialize form when selectedProperty changes
   useEffect(() => {
@@ -2903,22 +2926,28 @@ export default function PropertyForm({
   };
 
   // ── CHANGE 5: handleStaffSelect now also sets email, role, staff_id in formData ──
-  const handleStaffSelect = (staffId: string) => {
-    setSelectedStaffId(staffId);
-    const staff = staffList.find((s) => String(s.id) === staffId);
-    if (staff) {
-      setFormData((prev) => ({
-        ...prev,
-        property_manager_name: staff.name || "",
-        property_manager_phone: staff.phone || "",
-        property_manager_email: staff.email || "",   // ← ADDED
-        property_manager_role: staff.role || "",      // ← ADDED
-        staff_id: staffId,                            // ← ADDED
-      }));
-      setManagerRole(staff.role || "");
-      setManagerEmail(staff.email || "");
-    }
-  };
+ // Replace the existing handleStaffSelect function with this:
+const handleStaffSelect = (staffId: string) => {
+  setSelectedStaffId(staffId);
+  const staff = staffList.find((s) => String(s.id) === staffId);
+  if (staff) {
+    setSelectedStaff(staff); // Store the full staff object
+    const fullName = staff.name || "";
+    const salutation = getSalutationDisplay(staff.salutation || '');
+    const displayName = salutation ? `${salutation} ${fullName}` : fullName;
+    
+    setFormData((prev) => ({
+      ...prev,
+      property_manager_name: fullName,
+      property_manager_phone: staff.phone || "",
+      property_manager_email: staff.email || "",
+      property_manager_role: staff.role || "",
+      staff_id: staffId,
+    }));
+    setManagerRole(staff.role || "");
+    setManagerEmail(staff.email || "");
+  }
+};
 
   const loadMasterOptions = async () => {
     setLoadingOptions(true);
@@ -3356,98 +3385,161 @@ export default function PropertyForm({
                   </h3>
 
                   {/* Staff dropdown */}
-                  <div>
-                    <Label className="text-[9px] md:text-[10px]">
-                      Select Staff Member
-                      {loadingStaff && (
-                        <Loader2 className="inline h-2.5 w-2.5 ml-1 animate-spin text-blue-500" />
-                      )}
-                    </Label>
-                    <Select
-                      value={selectedStaffId}
-                      onValueChange={handleStaffSelect}
-                      disabled={loadingStaff}
-                    >
-                      <SelectTrigger className="h-7 md:h-8 text-[10px] md:text-xs mt-0.5">
-                        <SelectValue placeholder={loadingStaff ? "Loading staff..." : "Choose from staff list..."} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {staffList.length === 0 && !loadingStaff ? (
-                          <div className="px-2 py-1.5 text-[10px] text-gray-500">
-                            No staff members found
-                          </div>
-                        ) : (
-                          staffList.map((staff) => (
-                            <SelectItem
-                              key={staff.id}
-                              value={String(staff.id)}
-                              className="text-[10px] md:text-xs"
-                            >
-                              <span className="font-medium">{staff.name}</span>
-                              <span className="text-gray-400 ml-1">· {staff.role}</span>
-                            </SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                {/* Staff dropdown with photos and salutations */}
+<div>
+  <Label className="text-[9px] md:text-[10px]">
+    Select Staff Member
+    {loadingStaff && (
+      <Loader2 className="inline h-2.5 w-2.5 ml-1 animate-spin text-blue-500" />
+    )}
+  </Label>
+  <Select
+    value={selectedStaffId}
+    onValueChange={handleStaffSelect}
+    disabled={loadingStaff}
+  >
+    <SelectTrigger className="h-7 md:h-8 text-[10px] md:text-xs mt-0.5">
+      <SelectValue placeholder={loadingStaff ? "Loading staff..." : "Choose from staff list..."}>
+        {selectedStaff && (
+          <div className="flex items-center gap-2">
+            {selectedStaff.photo_url && (
+              <img 
+                src={getFullPhotoUrl(selectedStaff.photo_url)} 
+                alt={selectedStaff.name}
+                className="w-5 h-5 rounded-full object-cover"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = '/default-avatar.png';
+                }}
+              />
+            )}
+            <span>
+              {getSalutationDisplay(selectedStaff.salutation || '')} {selectedStaff.name}
+            </span>
+          </div>
+        )}
+      </SelectValue>
+    </SelectTrigger>
+    <SelectContent>
+      {staffList.length === 0 && !loadingStaff ? (
+        <div className="px-2 py-1.5 text-[10px] text-gray-500">
+          No staff members found
+        </div>
+      ) : (
+        staffList.map((staff) => (
+          <SelectItem
+            key={staff.id}
+            value={String(staff.id)}
+            className="text-[10px] md:text-xs"
+          >
+            <div className="flex items-center gap-2">
+              {staff.photo_url ? (
+                <img 
+                  src={getFullPhotoUrl(staff.photo_url)} 
+                  alt={staff.name}
+                  className="w-6 h-6 rounded-full object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = '/default-avatar.png';
+                  }}
+                />
+              ) : (
+                <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center">
+                  <User className="h-3 w-3 text-gray-500" />
+                </div>
+              )}
+              <div className="flex flex-col">
+                <span className="font-medium">
+                  {getSalutationDisplay(staff.salutation || '')} {staff.name}
+                </span>
+                <span className="text-gray-400 text-[8px]">{staff.role}</span>
+              </div>
+            </div>
+          </SelectItem>
+        ))
+      )}
+    </SelectContent>
+  </Select>
+</div>
 
                   {/* 2x2 Grid Layout for Manager Fields */}
-                  <div className="grid grid-cols-2 gap-2 mt-2">
-                    {/* Manager Name */}
-                    <div>
-                      <Label className="text-[9px] md:text-[10px]">Manager Name</Label>
-                      <Input
-                        value={formData.property_manager_name}
-                        onChange={(e) => setFormData({ ...formData, property_manager_name: e.target.value })}
-                        placeholder="John Doe"
-                        className="h-7 md:h-8 text-[10px] md:text-xs mt-0.5"
-                      />
-                    </div>
+                 {/* 2x2 Grid Layout for Manager Fields with Photo */}
+<div className="grid grid-cols-2 gap-2 mt-2">
+  {/* Manager Name with Photo */}
+  <div className="col-span-2 flex items-center gap-3 p-2 bg-gray-50 rounded-lg">
+    {selectedStaff?.photo_url ? (
+      <img 
+        src={getFullPhotoUrl(selectedStaff.photo_url)} 
+        alt={selectedStaff.name}
+        className="w-12 h-12 rounded-full object-cover border-2 border-blue-200"
+        onError={(e) => {
+          (e.target as HTMLImageElement).src = '/default-avatar.png';
+        }}
+      />
+    ) : (
+      <div className="w-12 h-12 rounded-full bg-gradient-to-r from-blue-400 to-cyan-400 flex items-center justify-center text-white font-bold text-lg">
+        {selectedStaff ? (
+          selectedStaff.name?.charAt(0).toUpperCase() || 'M'
+        ) : (
+          'M'
+        )}
+      </div>
+    )}
+    <div>
+      <Label className="text-[9px] md:text-[10px] text-gray-500">Manager Name</Label>
+      <div className="font-medium text-sm">
+        {selectedStaff ? (
+          <>
+            {getSalutationDisplay(selectedStaff.salutation || '')} {formData.property_manager_name}
+          </>
+        ) : (
+          formData.property_manager_name || 'Not selected'
+        )}
+      </div>
+    </div>
+  </div>
 
-                    {/* Phone Number */}
-                    <div>
-                      <Label className="text-[9px] md:text-[10px]">Phone Number</Label>
-                      <Input
-                        type="tel"
-                        value={formData.property_manager_phone}
-                        onChange={(e) => {
-                          const numericValue = e.target.value.replace(/\D/g, '');
-                          if (numericValue.length <= 10) {
-                            setFormData({
-                              ...formData,
-                              property_manager_phone: numericValue,
-                            });
-                          }
-                        }}
-                        maxLength={10}
-                        placeholder="9876543210"
-                        className="h-7 md:h-8 text-[10px] md:text-xs mt-0.5"
-                      />
-                    </div>
+  {/* Phone Number */}
+  <div>
+    <Label className="text-[9px] md:text-[10px]">Phone Number</Label>
+    <Input
+      type="tel"
+      value={formData.property_manager_phone}
+      onChange={(e) => {
+        const numericValue = e.target.value.replace(/\D/g, '');
+        if (numericValue.length <= 10) {
+          setFormData({
+            ...formData,
+            property_manager_phone: numericValue,
+          });
+        }
+      }}
+      maxLength={10}
+      placeholder="9876543210"
+      className="h-7 md:h-8 text-[10px] md:text-xs mt-0.5"
+    />
+  </div>
 
-                    {/* Role (read-only display, but value is in formData) */}
-                    <div>
-                      <Label className="text-[9px] md:text-[10px]">Role</Label>
-                      <Input
-                        value={managerRole}
-                        readOnly
-                        placeholder="Auto-filled"
-                        className="h-7 md:h-8 text-[10px] md:text-xs mt-0.5 bg-gray-50 text-gray-600 cursor-default"
-                      />
-                    </div>
+  {/* Role (read-only display) */}
+  <div>
+    <Label className="text-[9px] md:text-[10px]">Role</Label>
+    <Input
+      value={managerRole}
+      readOnly
+      placeholder="Auto-filled"
+      className="h-7 md:h-8 text-[10px] md:text-xs mt-0.5 bg-gray-50 text-gray-600 cursor-default"
+    />
+  </div>
 
-                    {/* Email (read-only display, but value is in formData) */}
-                    <div>
-                      <Label className="text-[9px] md:text-[10px]">Email</Label>
-                      <Input
-                        value={managerEmail}
-                        readOnly
-                        placeholder="Auto-filled"
-                        className="h-7 md:h-8 text-[10px] md:text-xs mt-0.5 bg-gray-50 text-gray-600 cursor-default"
-                      />
-                    </div>
-                  </div>
+  {/* Email (read-only display) */}
+  <div>
+    <Label className="text-[9px] md:text-[10px]">Email</Label>
+    <Input
+      value={managerEmail}
+      readOnly
+      placeholder="Auto-filled"
+      className="h-7 md:h-8 text-[10px] md:text-xs mt-0.5 bg-gray-50 text-gray-600 cursor-default"
+    />
+  </div>
+</div>
                 </div>
               </div>
             </div>

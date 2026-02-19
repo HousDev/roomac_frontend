@@ -399,10 +399,10 @@ const StaffTable = ({
   }
 
   return (
-    <div className="relative">
+    <div className=" px-0 md:px-0">
       {/* Scrollable table container with max height */}
-      <div className="rounded-md border overflow-hidden">
-        <div className="max-h-[600px] overflow-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+      <div className="rounded-md border overflow-hidden px-0 md:px-0">
+        <div className="max-h-[430px] md:max-h-[520px] overflow-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
           <Table className="relative">
             <TableHeader className="sticky top-0 bg-white z-10 shadow-sm">
               <TableRow>
@@ -542,56 +542,58 @@ const StaffTable = ({
                     </div>
                   </TableCell>
                   <TableCell className="align-top">
-                    <div className="flex justify-end gap-1 flex-wrap min-w-[120px]">
-                      {/* Document View Buttons */}
-                      {member.aadhar_document_url && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          asChild
-                          className="h-8 w-8 p-0 flex-shrink-0"
-                          title="View Aadhar"
-                        >
-                          <a
-                            href={member.aadhar_document_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            <Eye className="h-3.5 w-3.5" />
-                          </a>
-                        </Button>
-                      )}
-                      
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => onEdit(member)}
-                        className="h-8 w-8 p-0 flex-shrink-0"
-                        title="Edit"
-                      >
-                        <Edit className="h-3.5 w-3.5" />
-                      </Button>
-                      
-                      <Button
-                        size="sm"
-                        variant={member.is_active ? "outline" : "default"}
-                        onClick={() => onToggleActive(member.id, member.is_active)}
-                        className="h-8 px-2 text-xs whitespace-nowrap flex-shrink-0"
-                      >
-                        {member.is_active ? "Deactivate" : "Activate"}
-                      </Button>
-                      
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => onDelete(member.id)}
-                        className="h-8 w-8 p-0 flex-shrink-0"
-                        title="Delete"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  </TableCell>
+  <div className="flex justify-end items-center gap-1 whitespace-nowrap">
+    
+    {member.aadhar_document_url && (
+      <Button
+        size="sm"
+        variant="ghost"
+        asChild
+        className="h-8 w-8 p-0 flex-shrink-0"
+        title="View Aadhar"
+      >
+        <a
+          href={member.aadhar_document_url}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <Eye className="h-3.5 w-3.5" />
+        </a>
+      </Button>
+    )}
+
+    <Button
+      size="sm"
+      variant="outline"
+      onClick={() => onEdit(member)}
+      className="h-8 w-8 p-0 flex-shrink-0"
+      title="Edit"
+    >
+      <Edit className="h-3.5 w-3.5" />
+    </Button>
+
+    <Button
+      size="sm"
+      variant={member.is_active ? "outline" : "default"}
+      onClick={() => onToggleActive(member.id, member.is_active)}
+      className="h-8 px-2 text-xs whitespace-nowrap flex-shrink-0"
+    >
+      {member.is_active ? "Deactivate" : "Activate"}
+    </Button>
+
+    <Button
+      size="sm"
+      variant="destructive"
+      onClick={() => onDelete(member.id)}
+      className="h-8 w-8 p-0 flex-shrink-0"
+      title="Delete"
+    >
+      <Trash2 className="h-3.5 w-3.5" />
+    </Button>
+
+  </div>
+</TableCell>
+
                 </TableRow>
               ))}
             </TableBody>

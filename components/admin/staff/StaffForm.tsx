@@ -80,7 +80,7 @@ const StaffForm = ({
   handleRemoveDocument,
 }: StaffFormProps) => {
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 py-4">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 py-0">
       {/* Column 1 - Personal Information */}
       <div className="space-y-4">
         <div className="space-y-2">
