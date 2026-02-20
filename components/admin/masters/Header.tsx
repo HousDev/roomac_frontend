@@ -58,7 +58,7 @@ export default function Header({
               className="px-3 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 flex items-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Plus size={16} />
-              New Item
+              New Master Type
             </button>
           </div>
         </div>

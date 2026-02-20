@@ -1,5 +1,4 @@
-
-
+// components/admin/properties/PropertyForm.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -54,11 +53,12 @@ import {
   BookOpen,
   User,
 } from "lucide-react";
-import { 
-  getLockinPeriodOptions, 
-  getNoticePeriodOptions,
-  extractNumberFromDuration 
-} from "@/lib/masterApi";
+// import { 
+//   getLockinPeriodOptions, 
+//   getNoticePeriodOptions,
+//   extractNumberFromDuration 
+// } from "@/lib/masterApi";
+import { consumeMasters } from "@/lib/masterApi";
 
 import { getAllStaff, type StaffMember } from "@/lib/staffApi";
 
@@ -206,7 +206,7 @@ type Property = {
   address: string;
   total_rooms: number;
   total_beds: number;
-  occupied_beds?: number;
+  floor: number;
   starting_price: number;
   security_deposit: number;
   description?: string;
@@ -239,7 +239,7 @@ type PropertyFormData = {
   address: string;
   total_rooms: number;
   total_beds: number;
-  occupied_beds: number;
+  floor: number; 
   starting_price: number;
   security_deposit: number;
   description: string;
@@ -310,7 +310,7 @@ export default function PropertyForm({
     address: "",
     total_rooms: 0,
     total_beds: 0,
-    occupied_beds: 0,
+    floor: 0,
     starting_price: 0,
     security_deposit: 0,
     description: "",
@@ -357,6 +357,24 @@ export default function PropertyForm({
   const [selectedStaff, setSelectedStaff] = useState<StaffMember | null>(null); 
   const [managerRole, setManagerRole] = useState("");
   const [managerEmail, setManagerEmail] = useState("");
+const [masters, setMasters] = useState<Record<string, { id: number; name: string }[]>>({});
+const [loadingMasters, setLoadingMasters] = useState(false);
+
+const loadMasters = async () => {
+  setLoadingMasters(true);
+  try {
+    const res = await consumeMasters({ tab: "properties" });
+
+    if (res?.success && res.data) {
+      setMasters(res.data);
+    }
+  } catch (err) {
+    console.error("Failed to load masters", err);
+  } finally {
+    setLoadingMasters(false);
+  }
+};
+  
   // Add helper function for photo URL
 const getFullPhotoUrl = (photoUrl: string | null) => {
   if (!photoUrl) return null;
@@ -393,7 +411,7 @@ const getSalutationDisplay = (salutation: string) => {
         address: selectedProperty.address || "",
         total_rooms: selectedProperty.total_rooms || 0,
         total_beds: selectedProperty.total_beds || 0,
-        occupied_beds: selectedProperty.occupied_beds || 0,
+       floor: selectedProperty.floor || 0,
         starting_price: selectedProperty.starting_price || 0,
         security_deposit: selectedProperty.security_deposit || 0,
         description: selectedProperty.description || "",
@@ -462,7 +480,8 @@ if (matchingStaff) {
   // Load master options and staff when form opens
   useEffect(() => {
     if (open) {
-      loadMasterOptions();
+      // loadMasterOptions();
+      loadMasters();
       loadStaffList();
     } else {
       setError(null);
@@ -561,7 +580,7 @@ const handleStaffSelect = (staffId: string) => {
       address: "",
       total_rooms: 0,
       total_beds: 0,
-      occupied_beds: 0,
+      floor: 0,
       starting_price: 0,
       security_deposit: 0,
       description: "",
@@ -813,16 +832,49 @@ const handleStaffSelect = (staffId: string) => {
                 </div>
 
                 <div className="grid grid-cols-2 gap-1.5 md:gap-2">
-                  <div>
-                    <Label className="text-[10px] md:text-xs font-medium">City *</Label>
-                    <Input
-                      value={formData.city_id}
-                      onChange={(e) => setFormData({ ...formData, city_id: e.target.value })}
-                      placeholder="Pune"
-                      className="h-7 md:h-8 text-[10px] md:text-xs mt-0.5"
-                      required
-                    />
-                  </div>
+                  {/* City */}
+<div className="flex flex-col gap-1">
+  <Label className="text-[11px] md:text-xs font-medium">
+    City <span className="text-red-500">*</span>
+  </Label>
+
+  <Select
+    value={formData.city}
+    onValueChange={(value) =>
+      setFormData((prev) => ({
+        ...prev,
+        city: value,
+      }))
+    }
+    disabled={loadingMasters}
+  >
+    <SelectTrigger className="h-7 md:h-8 text-[10px] md:text-xs">
+      <SelectValue
+        placeholder={
+          loadingMasters ? "Loading cities..." : "Select City"
+        }
+      />
+    </SelectTrigger>
+
+    <SelectContent>
+      {masters?.city && masters.city.length > 0 ? (
+        masters.city.map((item) => (
+          <SelectItem
+            key={item.id}
+            value={String(item.id)}
+            className="text-[10px] md:text-xs"
+          >
+            {item.name}
+          </SelectItem>
+        ))
+      ) : (
+        <div className="px-3 py-2 text-[10px] text-muted-foreground">
+          No cities found
+        </div>
+      )}
+    </SelectContent>
+  </Select>
+</div>
                   <div>
                     <Label className="text-[10px] md:text-xs font-medium">State *</Label>
                     <Input
@@ -892,23 +944,23 @@ const handleStaffSelect = (staffId: string) => {
                     />
                   </div>
                   <div>
-                    <Label className="text-[10px] md:text-xs font-medium">Occupied</Label>
-                    <Input
-                      type="text"
-                      inputMode="numeric"
-                      value={formData.occupied_beds}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        if (/^\d*$/.test(value)) {
-                          setFormData({
-                            ...formData,
-                            occupied_beds: value === "" ? 0 : Number(value),
-                          });
-                        }
-                      }}
-                      className="h-7 md:h-8 text-[10px] md:text-xs mt-0.5"
-                    />
-                  </div>
+    <Label className="text-[10px] md:text-xs font-medium">Floors</Label>
+    <Input
+      type="text"
+      inputMode="numeric"
+      value={formData.floor}
+      onChange={(e) => {
+        const value = e.target.value;
+        if (/^\d*$/.test(value)) {
+          setFormData({
+            ...formData,
+            floor: value === "" ? " " : Number(value),
+          });
+        }
+      }}
+      className="h-7 md:h-8 text-[10px] md:text-xs mt-0.5"
+    />
+  </div>
                 </div>
 
                 <div>
