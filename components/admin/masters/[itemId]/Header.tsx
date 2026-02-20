@@ -1,16 +1,17 @@
+// components/admin/masters/[itemId]/Header.tsx
 "use client";
 
-import { ChevronLeft, RefreshCw, Plus, Tag } from "lucide-react";
+import { ChevronLeft, RefreshCw, Plus, Layers } from "lucide-react";
 
-interface MasterType {
+interface MasterItem {
   id: number;
-  code: string;
   name: string;
-  is_active: boolean;
+  isactive: number;
+  tab_name?: string;
 }
 
 interface HeaderProps {
-  masterType: MasterType;
+  masterItem: MasterItem;
   loading: boolean;
   onBack: () => void;
   onRefresh: () => void;
@@ -18,7 +19,7 @@ interface HeaderProps {
 }
 
 export default function Header({
-  masterType,
+  masterItem,
   loading,
   onBack,
   onRefresh,
@@ -26,7 +27,7 @@ export default function Header({
 }: HeaderProps) {
   return (
     <div className="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm">
-      <div className="max-w-7xl mx-auto p-4 md:p-6">
+      <div className="max-w-8xl mx-auto p-4 md:p-2">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <button
@@ -36,20 +37,22 @@ export default function Header({
               <ChevronLeft className="h-5 w-5 text-gray-600" />
             </button>
             <div className="p-2 bg-blue-50 rounded-lg">
-              <Tag className="h-6 w-6 text-blue-600" />
+              <Layers className="h-5 w-5 text-blue-600" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-gray-800">{masterType.name}</h1>
+              <h1 className="text-lg font-bold text-gray-800">{masterItem.name}</h1>
               <div className="flex items-center gap-3 mt-1">
-                <code className="text-sm font-mono text-gray-600 bg-gray-100 px-2 py-1 rounded">
-                  {masterType.code}
-                </code>
+                {masterItem.tab_name && (
+                  <span className="text-sm text-gray-600 bg-gray-100 px-2 py-1 rounded">
+                    Tab: {masterItem.tab_name}
+                  </span>
+                )}
                 <span className={`px-2 py-1 text-xs rounded ${
-                  masterType.is_active 
+                  masterItem.isactive === 1
                     ? 'bg-green-100 text-green-700' 
                     : 'bg-gray-100 text-gray-700'
                 }`}>
-                  {masterType.is_active ? 'Active' : 'Inactive'}
+                  {masterItem.isactive === 1 ? 'Active' : 'Inactive'}
                 </span>
               </div>
             </div>

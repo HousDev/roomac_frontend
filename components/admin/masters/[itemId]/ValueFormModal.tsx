@@ -1,48 +1,49 @@
-// components/admin/masters/TypeFormModal.tsx
+// components/admin/masters/[itemId]/ValueFormModal.tsx
 "use client";
 
-import { Plus, Edit2, X, Key, Save, Loader2 } from "lucide-react";
+import { Plus, Edit2, X, Save, Loader2 } from "lucide-react";
 
-interface TypeFormData {
-  id: number | null;
-  code: string;
+interface MasterItem {
+  id: number;
   name: string;
-  is_active: boolean;
+  tab_name?: string;
 }
 
-interface TypeFormModalProps {
+interface ValueFormData {
+  id: number | null;
+  name: string;  // Changed from 'value' to 'name'
+  isactive: number;  // Changed from 'is_active' (boolean) to 'isactive' (number)
+}
+
+interface ValueFormModalProps {
   isOpen: boolean;
-  formData: TypeFormData;
-  activeTab: string;
+  formData: ValueFormData;
+  masterItem: MasterItem;  // Changed from masterType to masterItem
   submitting: boolean;
-  onFormDataChange: any;
+  onFormDataChange: (data: ValueFormData) => void;
   onSubmit: () => void;
   onClose: () => void;
 }
 
-export default function TypeFormModal({
+export default function ValueFormModal({
   isOpen,
   formData,
-  activeTab,
+  masterItem,
   submitting,
   onFormDataChange,
   onSubmit,
   onClose
-}: TypeFormModalProps) {
+}: ValueFormModalProps) {
   if (!isOpen) return null;
 
   const isEdit = !!formData?.id;
   const Icon = isEdit ? Edit2 : Plus;
-  const title = isEdit ? "Edit Master Type" : "Create Master Type";
+  const title = isEdit ? "Edit Value" : "Create New Value";
   
   // Safe access with default values
-  const code = formData?.code || "";
   const name = formData?.name || "";
-  const isActive = formData?.is_active || true;
-  
-  const isFormValid = isEdit 
-    ? name?.trim()?.length > 0
-    : code?.trim()?.length > 0 && name?.trim()?.length > 0;
+  const isActive = formData?.isactive === 1;
+  const isFormValid = name?.trim()?.length > 0;
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
@@ -60,49 +61,26 @@ export default function TypeFormModal({
               <X className="h-4 w-4 text-gray-400" />
             </button>
           </div>
-          {activeTab && (
+          {masterItem && (
             <p className="text-sm text-gray-600 mt-1">
-              Tab: {activeTab}
+              Item: {masterItem.name}
+              {masterItem.tab_name && ` (${masterItem.tab_name})`}
             </p>
           )}
         </div>
         
         <div className="p-4">
           <div className="space-y-4">
-            {!isEdit && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Type Code *
-                </label>
-                <div className="flex items-center gap-2">
-                  <Key className="h-4 w-4 text-gray-400" />
-                  <input
-                    className="flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 font-mono"
-                    placeholder="e.g., PROPERTY_TYPE"
-                    value={code}
-                    onChange={(e) => onFormDataChange({
-                      ...formData, 
-                      code: e.target.value.toUpperCase().replace(/\s+/g, '_')
-                    })}
-                    autoFocus
-                  />
-                </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  System identifier (cannot be changed later)
-                </p>
-              </div>
-            )}
-            
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Type Name *
+                Value Name *
               </label>
               <input
                 className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                placeholder="e.g., Property Types"
+                placeholder="Enter value name..."
                 value={name}
                 onChange={(e) => onFormDataChange({...formData, name: e.target.value})}
-                autoFocus={isEdit}
+                autoFocus
               />
             </div>
             
@@ -110,14 +88,17 @@ export default function TypeFormModal({
               <div className="flex items-center justify-between">
                 <div>
                   <span className="text-sm font-medium text-gray-700">Active Status</span>
-                  <p className="text-xs text-gray-500">Only active types are available in forms</p>
+                  <p className="text-xs text-gray-500">Only active values are available in forms</p>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
                     type="checkbox"
                     className="sr-only peer"
                     checked={isActive}
-                    onChange={(e) => onFormDataChange({...formData, is_active: e.target.checked})}
+                    onChange={(e) => onFormDataChange({
+                      ...formData, 
+                      isactive: e.target.checked ? 1 : 0
+                    })}
                   />
                   <div className="w-10 h-5 bg-gray-200 rounded-full peer peer-checked:after:translate-x-5 peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-500"></div>
                 </label>
@@ -134,9 +115,9 @@ export default function TypeFormModal({
             </button>
             <button
               onClick={onSubmit}
-              disabled={!isFormValid || submitting || !activeTab}
+              disabled={!isFormValid || submitting}
               className={`flex-1 px-3 py-2 rounded-lg font-medium text-sm flex items-center justify-center gap-1 ${
-                !isFormValid || submitting || !activeTab
+                !isFormValid || submitting
                   ? "bg-gray-300 text-gray-500"
                   : "bg-blue-600 hover:bg-blue-700 text-white"
               }`}

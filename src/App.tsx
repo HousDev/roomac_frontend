@@ -152,7 +152,7 @@ import AdminStaffPage from "../app/admin/staff/page";
 import AdminOffersPage from "../app/admin/offers/page";
 import AdminAddOnsPage from "../app/admin/add-ons/page";
 import AdminMastersPage from "../app/admin/masters/page";
-import AdminMastersValues from "../app/admin/masters/[typeId]/page";
+import AdminMastersValues from "../app/admin/masters/[itemId]/page";
 import AdminSettingsPage from "../app/admin/settings/page";
 import AdminProfilePage from "../app/admin/profile/page";
 import AdminComplaintsPage from "../app/admin/complaints/page";
@@ -219,7 +219,7 @@ function App() {
             <Route path="offers" element={<AdminOffersPage />} />
             <Route path="add-ons" element={<AdminAddOnsPage />} />
             <Route path="masters" element={<AdminMastersPage />} />
-            <Route path="masters/:typeId" element={<AdminMastersValues />} />
+            <Route path="masters/:itemId" element={<AdminMastersValues />} />
             <Route path="settings" element={<AdminSettingsPage />} />
             <Route path="profile" element={<AdminProfilePage />} />
             <Route path="complaints" element={<AdminComplaintsPage />} />

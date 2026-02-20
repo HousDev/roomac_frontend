@@ -650,37 +650,64 @@
 //   );
 // }
 
+
+// app/admin/masters/[itemId]/page.tsx
 import { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
-import { getMasterTypeById, getMasterValues } from "@/lib/masterApi";
-import ValuesClient from "@/components/admin/masters/[typeId]/ValuesClient";
-import Loading from "@/components/admin/masters/[typeId]/loading";
-import ErrorComponent from "@/components/admin/masters/[typeId]/error";
+import { useParams } from "next/navigation";
+import { getMasterItems, getMasterValues } from "@/lib/masterApi";
+import ValuesClient from "@/components/admin/masters/[itemId]/ValuesClient";
+import Loading from "@/components/admin/masters/[itemId]/loading";
+import ErrorComponent from "@/components/admin/masters/[itemId]/error";
 
 export default function MasterValuesPage() {
-  const { typeId } = useParams<{ typeId: string }>();
-  const [masterType, setMasterType] = useState<any>(null);
+  const params = useParams();
+  const itemId = params?.itemId as string;
+  
+  const [masterItem, setMasterItem] = useState<any>(null);
   const [initialValues, setInitialValues] = useState<any[]>([]);
   const [error, setError] = useState<Error | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!typeId) {
-      setError(new Error("Type ID is required"));
+    if (!itemId) {
+      setError(new Error("Item ID is required"));
+      setLoading(false);
       return;
     }
-    Promise.all([getMasterTypeById(typeId), getMasterValues(typeId)])
-      .then(([typeRes, valuesRes]) => {
-        if (!typeRes.success || !typeRes.data) {
-          setError(new Error("Type ID is required"));
-          return;
-        }
-        setMasterType(typeRes.data);
-        setInitialValues(valuesRes.success && Array.isArray(valuesRes.data) ? valuesRes.data : []);
-      })
-      .catch((err) => setError(err instanceof Error ? err : new Error(String(err))));
-  }, [typeId]);
 
+    const fetchData = async () => {
+      try {
+        // Get all items and find the one we need
+        const itemsRes = await getMasterItems();
+        
+        if (!itemsRes.success) {
+          throw new Error("Failed to fetch master items");
+        }
+
+        const item = itemsRes.data.find((i: any) => i.id === parseInt(itemId));
+        
+        if (!item) {
+          throw new Error("Master item not found");
+        }
+
+        setMasterItem(item);
+
+        // Get values for this item
+        const valuesRes = await getMasterValues(parseInt(itemId));
+        setInitialValues(valuesRes.success && Array.isArray(valuesRes.data) ? valuesRes.data : []);
+      } catch (err) {
+        setError(err instanceof Error ? err : new Error(String(err)));
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [itemId]);
+
+  if (loading) return <Loading />;
   if (error) return <ErrorComponent error={error} />;
-  if (!masterType) return <Loading />;
-  return <ValuesClient masterType={masterType} initialValues={initialValues} />;
+  if (!masterItem) return <ErrorComponent error={new Error("Master item not found")} />;
+  
+  return <ValuesClient masterItem={masterItem} initialValues={initialValues} />;
 }

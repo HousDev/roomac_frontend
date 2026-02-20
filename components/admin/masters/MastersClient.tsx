@@ -592,47 +592,45 @@
 
 
 
-
 // components/admin/masters/MastersClient.tsx
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, SetStateAction } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
-  getMasterTypesByTab,
-  createMasterType,
-  updateMasterType,
-  deleteMasterType,
-  toggleMasterTypeStatus,
+  getMasterItemsByTab,
+  createMasterItem,
+  updateMasterItem,
+  deleteMasterItem,
   getMasterTabs,
-  createMasterTab, 
-  updateMasterTab,  
-  deleteMasterTab,  // Add this import
+  createMasterTab,
+  updateMasterTab,
+  deleteMasterTab,
+  getMasterItems,
 } from "@/lib/masterApi";
 import Header from "./Header";
 import StatsCards from "./StatsCards";
-import TabList from "./TabList";
-import MasterTypeList from "./MasterTypeList";
+import HorizontalTabList from "./HorizontalTabList";
+import MasterItemCards from "./MasterItemCards";
 import DeleteConfirmModal from "./DeleteConfirmModal";
-import DebugPanel from "./DebugPanel";
 import TabFormModal from "./TabFormModal";
-import TypeFormModal from "./TypeFormModal";
+import ItemFormModal from "./ItemFormModal";
 
 interface Tab {
-  id?: number;
+  id: number;
   name: string;
-  type_count: number;
+  item_count: number;
   created_at: string;
   is_active: number;
 }
 
-interface MasterType {
+interface MasterItem {
   id: number;
-  code: string;
+  tab_id: number;
   name: string;
-  tab: string | null;
-  is_active: boolean;
+  isactive: number;
   created_at: string;
+  tab_name?: string;
   value_count: number;
 }
 
@@ -645,82 +643,75 @@ export default function MastersClient({ initialTabs }: MastersClientProps) {
   
   // State for tabs
   const [tabs, setTabs] = useState<Tab[]>(initialTabs);
-  const [activeTab, setActiveTab] = useState<string>("General");
+  const [activeTab, setActiveTab] = useState<Tab | null>(initialTabs[0] || null);
   
-  // State for master types
-  const [types, setTypes] = useState<MasterType[]>([]);
+  // State for master items
+  const [items, setItems] = useState<MasterItem[]>([]);
   
   // Loading states
   const [loadingTabs, setLoadingTabs] = useState(false);
-  const [loadingTypes, setLoadingTypes] = useState(false);
+  const [loadingItems, setLoadingItems] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [togglingTypeId, setTogglingTypeId] = useState<number | null>(null);
   
   // Search & Filter states
-  const [tabSearchTerm, setTabSearchTerm] = useState("");
-  const [typeSearchTerm, setTypeSearchTerm] = useState("");
-  const [typeStatusFilter, setTypeStatusFilter] = useState<"all" | "active" | "inactive">("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showInactive, setShowInactive] = useState(false);
   
   // Modal states
-  const [showTypeForm, setShowTypeForm] = useState(false);
+  const [showItemForm, setShowItemForm] = useState(false);
   const [showNewTabModal, setShowNewTabModal] = useState(false);
   const [showEditTabModal, setShowEditTabModal] = useState<Tab | null>(null);
-  const [showDeleteTypeConfirm, setShowDeleteTypeConfirm] = useState<number | null>(null);
+  const [showDeleteItemConfirm, setShowDeleteItemConfirm] = useState<number | null>(null);
   const [showDeleteTabConfirm, setShowDeleteTabConfirm] = useState<Tab | null>(null);
   
   // Form data states
-  const [typeFormData, setTypeFormData] = useState({
-    id: null,
-    code: "",
+  const [itemFormData, setItemFormData] = useState({
+    id: null as number | null,
     name: "",
-    is_active: true,
+    isactive: 1,
   });
 
   const [newTabName, setNewTabName] = useState("");
   const [editTabName, setEditTabName] = useState("");
-  const [showTabMenu, setShowTabMenu] = useState<string | null>(null);
 
-  // Load types for active tab
-  const loadTypesForTab = useCallback(async (tabName: string) => {
-    if (!tabName) {
-      setTypes([]);
-      return;
-    }
+
+const loadItemsForTab = useCallback(async (tab: Tab | null) => {
+  if (!tab || !tab.id) {
+    setItems([]);
+    return;
+  }
+  
+  setLoadingItems(true);
+  try {
+    // Get all items with counts from the main endpoint
+    const res = await getMasterItems();
     
-    setLoadingTypes(true);
-    try {
-      const res = await getMasterTypesByTab(tabName);
+    if (res.success && Array.isArray(res.data)) {
+      // Filter items by tab_id
+      const filteredItems = res.data
+        .filter((item: any) => item.tab_id === tab.id)
+        .map((item: any) => ({
+          id: item.id,
+          tab_id: item.tab_id,
+          name: item.name,
+          isactive: item.isactive,
+          created_at: item.created_at,
+          tab_name: tab.name,
+          value_count: item.value_count || 0
+        }));
       
-      if (res.success) {
-        let typesData = [];
-        
-        if (Array.isArray(res.data)) {
-          typesData = res.data;
-        } else if (Array.isArray(res.types)) {
-          typesData = res.types;
-        }
-        
-        if (tabName === "General") {
-          const generalTypes = typesData.filter((type: { tab: string; }) => 
-            !type.tab || type.tab.trim() === ""
-          );
-          setTypes(generalTypes);
-        } else {
-          const tabTypes = typesData.filter((type: { tab: string; }) => 
-            type.tab && type.tab.trim() === tabName
-          );
-          setTypes(tabTypes);
-        }
-      } else {
-        setTypes([]);
-      }
-    } catch (error) {
-      console.error(`Failed to load types for tab "${tabName}":`, error);
-      setTypes([]);
-    } finally {
-      setLoadingTypes(false);
+      // console.log("Filtered items with counts:", filteredItems);
+      setItems(filteredItems);
+    } else {
+      setItems([]);
     }
-  }, []);
+  } catch (error) {
+    // console.error(`Failed to load items for tab "${tab.name}":`, error);
+    setItems([]);
+  } finally {
+    setLoadingItems(false);
+  }
+}, []);
 
   // Load tabs from API
   const loadTabs = useCallback(async () => {
@@ -728,32 +719,38 @@ export default function MastersClient({ initialTabs }: MastersClientProps) {
     try {
       const res = await getMasterTabs();
       
-      let tabsList = [
-        { name: "General", type_count: 0, created_at: new Date().toISOString(), is_active: 1 }
-      ];
-      
       if (res.success && Array.isArray(res.data)) {
-        const apiTabs = res.data.map((tab: { id: any; name: any; tab_name: any; type_count: any; created_at: any; is_active: any; }) => ({
+        const tabsList = res.data.map((tab: any) => ({
           id: tab.id,
-          name: tab.name || tab.tab_name || "Unknown",
-          type_count: tab.type_count || 0,
+          name: tab.tab_name,
+          item_count: tab.item_count || 0,
           created_at: tab.created_at || new Date().toISOString(),
-          is_active: tab.is_active || 1
+          is_active: tab.isactive || 1
         }));
         
-        tabsList = [...tabsList, ...apiTabs.filter((tab: { name: string; }) => tab.name !== "General")];
-      }
-      
-      setTabs(tabsList);
-      
-      const tabExists = tabsList.some(tab => tab.name === activeTab);
-      if (!tabExists) {
-        const newActiveTab = tabsList[0]?.name || "General";
-        setActiveTab(newActiveTab);
+        setTabs(tabsList);
+        
+        // Update active tab if needed
+        if (activeTab) {
+          const updatedActiveTab = tabsList.find(t => t.id === activeTab.id);
+          if (updatedActiveTab) {
+            setActiveTab(updatedActiveTab);
+          } else if (tabsList.length > 0) {
+            setActiveTab(tabsList[0]);
+          } else {
+            setActiveTab(null);
+          }
+        } else if (tabsList.length > 0) {
+          setActiveTab(tabsList[0]);
+        }
+      } else {
+        setTabs([]);
+        setActiveTab(null);
       }
     } catch (error) {
       console.error("Failed to load tabs:", error);
-      setTabs([{ name: "General", type_count: 0, created_at: new Date().toISOString(), is_active: 1 }]);
+      setTabs([]);
+      setActiveTab(null);
     } finally {
       setLoadingTabs(false);
     }
@@ -763,246 +760,132 @@ export default function MastersClient({ initialTabs }: MastersClientProps) {
   const handleManualRefresh = useCallback(() => {
     loadTabs();
     if (activeTab) {
-      loadTypesForTab(activeTab);
+      loadItemsForTab(activeTab);
     }
-  }, [activeTab, loadTabs, loadTypesForTab]);
+  }, [activeTab, loadTabs, loadItemsForTab]);
 
-  // Load types when active tab changes
+  // Load items when active tab changes
   useEffect(() => {
     if (activeTab) {
-      loadTypesForTab(activeTab);
+      loadItemsForTab(activeTab);
     }
-  }, [activeTab, loadTypesForTab]);
+  }, [activeTab, loadItemsForTab]);
 
-  // Handle type creation/update
-  const handleTypeSubmit = useCallback(async () => {
-    if (!typeFormData.code.trim() && !typeFormData.id) {
-      alert("Please enter a type code");
+  // Handle item creation/update
+  const handleItemSubmit = useCallback(async () => {
+    if (!itemFormData.name.trim()) {
+      alert("Please enter an item name");
       return;
     }
 
-    if (!typeFormData.name.trim()) {
-      alert("Please enter a type name");
+    if (!activeTab) {
+      alert("Please select a tab");
       return;
     }
 
     setSubmitting(true);
     try {
-      if (typeFormData.id) {
-        const res = await updateMasterType(typeFormData.id, {
-          name: typeFormData.name.trim(),
-          tab: activeTab === "General" ? "" : activeTab,
-          is_active: typeFormData.is_active,
+      if (itemFormData.id) {
+        const res = await updateMasterItem(itemFormData.id, {
+          name: itemFormData.name.trim(),
+          isactive: itemFormData.isactive,
         });
         
         if (res.success) {
-          await loadTypesForTab(activeTab);
-          setShowTypeForm(false);
-          resetTypeForm();
+          await loadItemsForTab(activeTab);
+          setShowItemForm(false);
+          setItemFormData({ id: null, name: "", isactive: 1 });
         } else {
-          alert(res.error || "Failed to update master type");
+          alert(res.error || "Failed to update master item");
         }
       } else {
-        const code = typeFormData.code.trim().toUpperCase().replace(/\s+/g, '_');
-        const res = await createMasterType({
-          code: code,
-          name: typeFormData.name.trim(),
-          tab: activeTab === "General" ? "" : activeTab,
-          is_active: typeFormData.is_active,
+        const res = await createMasterItem({
+          tab_id: activeTab.id,
+          name: itemFormData.name.trim(),
+          isactive: itemFormData.isactive,
         });
         
         if (res.success) {
-          await loadTypesForTab(activeTab);
-          setShowTypeForm(false);
-          resetTypeForm();
+          await loadItemsForTab(activeTab);
+          setShowItemForm(false);
+          setItemFormData({ id: null, name: "", isactive: 1 });
         } else {
-          alert(res.error || "Failed to create master type");
+          alert(res.error || "Failed to create master item");
         }
       }
     } catch (error) {
-  console.error("Failed to save type:", error);
-  
-  let errorMessage = "Failed to save master type";
-  if (error instanceof Error) {
-    errorMessage = error.message;
-  } else if (typeof error === 'string') {
-    errorMessage = error;
-  } else if (error && typeof error === 'object' && 'message' in error) {
-    errorMessage = String(error.message);
-  }
-  
-  alert(`Error: ${errorMessage}`);
-} finally {
-  setSubmitting(false);
-}
-  }, [typeFormData, activeTab, loadTypesForTab]);
+      console.error("Failed to save item:", error);
+      alert(`Error: ${error instanceof Error ? error.message : "Failed to save"}`);
+    } finally {
+      setSubmitting(false);
+    }
+  }, [itemFormData, activeTab, loadItemsForTab]);
 
-  // Handle delete type
-  const handleDeleteType = useCallback(async (id: any) => {
-    setShowDeleteTypeConfirm(null);
+  // Handle delete item
+  const handleDeleteItem = useCallback(async (id: number) => {
+    setShowDeleteItemConfirm(null);
     try {
-      const res = await deleteMasterType(id);
-      
-      if (res.success) {
-        await loadTypesForTab(activeTab);
+      const res = await deleteMasterItem(id);
+      if (res.success && activeTab) {
+        await loadItemsForTab(activeTab);
       } else {
-        alert(res.error || "Failed to delete master type");
+        alert(res.error || "Failed to delete master item");
       }
     } catch (error) {
-
-      console.error("Failed to delete type:", error);
-      let errorMessage = "Failed to delete master type";
-  if (error instanceof Error) {
-    errorMessage = error.message;
-  } else if (typeof error === 'string') {
-    errorMessage = error;
-  } else if (error && typeof error === 'object' && 'message' in error) {
-    errorMessage = String(error.message);
-  }
-
-      alert(`Error: ${errorMessage}`);
+      alert(`Error: ${error instanceof Error ? error.message : "Failed to delete"}`);
     }
-  }, [activeTab, loadTypesForTab]);
+  }, [activeTab, loadItemsForTab]);
 
-  // Toggle type status
-// Toggle type status
-const toggleTypeStatus = useCallback(async (id: number, current: boolean) => {
-  setTogglingTypeId(id);
-  
-  try {
-    const newStatus = !current;
-    const res = await toggleMasterTypeStatus(id, newStatus);
-    
-    if (res.success) {
-      setTypes(prev => prev.map(type => 
-        type.id === id ? { ...type, is_active: newStatus } : type
-      ));
-    } else {
-      alert(res.error || "Failed to toggle status");
-    }
-  } catch (error) {
-    console.error("Failed to toggle status:", error);
-    
-    let errorMessage = "Failed to toggle status";
-    if (error instanceof Error) {
-      errorMessage = error.message;
-    } else if (typeof error === 'string') {
-      errorMessage = error;
-    } else if (error && typeof error === 'object' && 'message' in error) {
-      errorMessage = String(error.message);
-    }
-    
-    alert(`Error: ${errorMessage}`);
-  } finally {
-    setTogglingTypeId(null);
-  }
-}, []);
-
-  // Handle edit type
-  const handleEditType = useCallback((type: { id: any; code: any; name: any; is_active: any; }) => {
-    setTypeFormData({
-      id: type.id,
-      code: type.code,
-      name: type.name,
-      is_active: type.is_active,
+  // Handle edit item
+  const handleEditItem = useCallback((item: MasterItem) => {
+    setItemFormData({
+      id: item.id,
+      name: item.name,
+      isactive: item.isactive,
     });
-    setShowTypeForm(true);
+    setShowItemForm(true);
   }, []);
 
-  // Reset type form
-  const resetTypeForm = useCallback(() => {
-    setTypeFormData({
-      id: null,
-      code: "",
-      name: "",
-      is_active: true,
-    });
-  }, []);
-
-// Handle create tab - FIXED: Now calls API
-const handleCreateTab = useCallback(async () => {
-  if (!newTabName.trim()) {
-    alert("Please enter a tab name");
-    return;
-  }
-
-  const trimmedName = newTabName.trim();
-  
-  if (tabs.some(tab => tab.name.toLowerCase() === trimmedName.toLowerCase())) {
-    alert("Tab already exists");
-    return;
-  }
-
-  setSubmitting(true);
-  try {
-    const res = await createMasterTab({
-      name: trimmedName,
-      is_active: true
-    });
-    
-    if (res.success) {
-      // Reload tabs from API to get the updated list
-      await loadTabs();
-      setActiveTab(trimmedName);
-      setNewTabName("");
-      setShowNewTabModal(false);
-    } else {
-      alert(res.error || "Failed to create tab");
-    }
-  } catch (error) {
-    console.error("Failed to create tab:", error);
-    
-    // Handle error properly
-    let errorMessage = "Failed to create tab";
-    if (error instanceof Error) {
-      errorMessage = error.message;
-    } else if (typeof error === 'string') {
-      errorMessage = error;
-    } else if (error && typeof error === 'object' && 'message' in error) {
-      errorMessage = String(error.message);
-    }
-    
-    alert(`Error: ${errorMessage}`);
-  } finally {
-    setSubmitting(false);
-  }
-}, [newTabName, tabs, loadTabs]);
-
-  // Handle edit tab - FIXED: Now calls API
-  const handleEditTab = useCallback(async () => {
-    if (!showEditTabModal) return;
-    
-    const oldName = showEditTabModal.name;
-    const newName = editTabName.trim();
-    
-    if (!newName) {
+  // Handle create tab
+  const handleCreateTab = useCallback(async () => {
+    if (!newTabName.trim()) {
       alert("Please enter a tab name");
       return;
     }
 
-    if (oldName === newName) {
-      setShowEditTabModal(null);
-      setEditTabName("");
-      return;
-    }
-
-    if (tabs.some(tab => 
-      tab.name.toLowerCase() === newName.toLowerCase() && 
-      tab.name !== oldName
-    )) {
-      alert("Tab already exists");
-      return;
-    }
-
     setSubmitting(true);
     try {
-      const res = await updateMasterTab(oldName, {
-        name: newName,
-        is_active: true
+      const res = await createMasterTab({
+        tab_name: newTabName.trim(),
+        isactive: 1
       });
       
       if (res.success) {
-        // Reload tabs from API
+        await loadTabs();
+        setNewTabName("");
+        setShowNewTabModal(false);
+      } else {
+        alert(res.error || "Failed to create tab");
+      }
+    } catch (error) {
+      alert(`Error: ${error instanceof Error ? error.message : "Failed to create tab"}`);
+    } finally {
+      setSubmitting(false);
+    }
+  }, [newTabName, loadTabs]);
+
+  // Handle edit tab
+  const handleEditTab = useCallback(async () => {
+    if (!showEditTabModal || !editTabName.trim()) return;
+
+    setSubmitting(true);
+    try {
+      const res = await updateMasterTab(showEditTabModal.id, {
+        tab_name: editTabName.trim(),
+        isactive: showEditTabModal.is_active
+      });
+      
+      if (res.success) {
         await loadTabs();
         setShowEditTabModal(null);
         setEditTabName("");
@@ -1010,164 +893,122 @@ const handleCreateTab = useCallback(async () => {
         alert(res.error || "Failed to update tab");
       }
     } catch (error) {
-  console.error("Failed to update tab:", error);
-  
-  let errorMessage = "Failed to update tab";
-  if (error instanceof Error) {
-    errorMessage = error.message;
-  } else if (typeof error === 'string') {
-    errorMessage = error;
-  } else if (error && typeof error === 'object' && 'message' in error) {
-    errorMessage = String(error.message);
-  }
-  
-  alert(`Error: ${errorMessage}`);
-} finally {
-  setSubmitting(false);
-}
-  }, [showEditTabModal, editTabName, tabs, loadTabs]);
+      alert(`Error: ${error instanceof Error ? error.message : "Failed to update tab"}`);
+    } finally {
+      setSubmitting(false);
+    }
+  }, [showEditTabModal, editTabName, loadTabs]);
 
-  // Handle delete tab - FIXED: Now calls API
+  // Handle delete tab
   const handleDeleteTab = useCallback(async () => {
     if (!showDeleteTabConfirm) return;
-    
-    const tabToDelete = showDeleteTabConfirm.name;
-    
-    if (tabToDelete === "General") {
-      alert("Cannot delete the General tab");
-      setShowDeleteTabConfirm(null);
-      return;
-    }
-
-    if (showDeleteTabConfirm.type_count > 0) {
-      if (!confirm(`This tab has ${showDeleteTabConfirm.type_count} types. Deleting it will also delete all types in this tab. Are you sure?`)) {
-        setShowDeleteTabConfirm(null);
-        return;
-      }
-    }
 
     setSubmitting(true);
     try {
-      const res = await deleteMasterTab(tabToDelete);
-      
+      const res = await deleteMasterTab(showDeleteTabConfirm.id);
       if (res.success) {
-        // Reload tabs from API
         await loadTabs();
         setShowDeleteTabConfirm(null);
       } else {
         alert(res.error || "Failed to delete tab");
       }
     } catch (error) {
-  console.error("Failed to delete tab:", error);
-  
-  let errorMessage = "Failed to delete tab";
-  if (error instanceof Error) {
-    errorMessage = error.message;
-  } else if (typeof error === 'string') {
-    errorMessage = error;
-  } else if (error && typeof error === 'object' && 'message' in error) {
-    errorMessage = String(error.message);
-  }
-  
-  alert(`Error: ${errorMessage}`);
-} finally {
-  setSubmitting(false);
-}
+      alert(`Error: ${error instanceof Error ? error.message : "Failed to delete tab"}`);
+    } finally {
+      setSubmitting(false);
+    }
   }, [showDeleteTabConfirm, loadTabs]);
 
-  // Filtered tabs based on search
-  const filteredTabs = useMemo(() => 
-    tabs.filter(tab => 
-      tab.name.toLowerCase().includes(tabSearchTerm.toLowerCase())
-    ), [tabs, tabSearchTerm]
-  );
-
-  // Filtered types based on search and filter
-  const filteredTypes = useMemo(() => 
-    types.filter(type => {
-      const matchesSearch = typeSearchTerm === "" || 
-        type.name.toLowerCase().includes(typeSearchTerm.toLowerCase()) ||
-        type.code.toLowerCase().includes(typeSearchTerm.toLowerCase());
+  // Filtered items based on search and status
+  const filteredItems = useMemo(() => 
+    items.filter(item => {
+      const matchesSearch = searchQuery === "" || 
+        item.name.toLowerCase().includes(searchQuery.toLowerCase());
       
-      const matchesStatus = typeStatusFilter === "all" || 
-        (typeStatusFilter === "active" && type.is_active) ||
-        (typeStatusFilter === "inactive" && !type.is_active);
+      const matchesStatus = showInactive ? true : item.isactive === 1;
       
       return matchesSearch && matchesStatus;
-    }), [types, typeSearchTerm, typeStatusFilter]
+    }), [items, searchQuery, showInactive]
   );
 
   // Statistics
   const stats = useMemo(() => ({
-    totalTypes: types.length,
-    activeTypes: types.filter(t => t.is_active).length,
-  }), [types]);
+    totalItems: items.length,
+    activeItems: items.filter(i => i.isactive === 1).length,
+  }), [items]);
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <DebugPanel 
-        tabs={tabs}
-        activeTab={activeTab}
-        types={types}
-        filteredTypes={filteredTypes}
-        onRefresh={handleManualRefresh}
-      />
-
       <Header
         onRefresh={handleManualRefresh}
         onNewTab={() => setShowNewTabModal(true)}
-        onNewType={() => setShowTypeForm(true)}
+        onNewItem={() => setShowItemForm(true)}
         loadingTabs={loadingTabs}
-        loadingTypes={loadingTypes}
-        activeTab={activeTab}
+        loadingItems={loadingItems}
+        activeTab={activeTab?.name || ""}
       />
 
-      <div className="max-w-7xl mx-auto p-4 md:p-6">
-        <StatsCards 
+      <div className="max-w-8xl mx-auto p-4 md:p-6 space-y-4">
+        {/* Stats Cards - Compact */}
+        {/* <StatsCards 
+          activeTab={activeTab?.name || "No Tab Selected"}
+          totalItems={stats.totalItems}
+          activeItems={stats.activeItems}
+        /> */}
+
+        {/* Horizontal Tabs - Clean */}
+        <HorizontalTabList
+          tabs={tabs}
           activeTab={activeTab}
-          totalTypes={stats.totalTypes}
-          activeTypes={stats.activeTypes}
+          loading={loadingTabs}
+          onTabClick={setActiveTab}
+          onEditTab={(tab) => {
+            setEditTabName(tab.name);
+            setShowEditTabModal(tab);
+          }}
+          onDeleteTab={setShowDeleteTabConfirm}
         />
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <TabList
-            tabs={filteredTabs}
-            activeTab={activeTab}
-            loading={loadingTabs}
-            searchTerm={tabSearchTerm}
-            onSearchChange={setTabSearchTerm}
-            onTabClick={(tabName) => {
-              if (showTabMenu !== tabName) {
-                setActiveTab(tabName);
-                setShowTabMenu(null);
-              }
-            }}
-            showTabMenu={showTabMenu}
-            onTabMenuClick={setShowTabMenu}
-            onEditTab={setShowEditTabModal}
-            onDeleteTab={setShowDeleteTabConfirm}
-          />
-
-          <MasterTypeList
-            activeTab={activeTab}
-            types={filteredTypes}
-            loading={loadingTypes}
-            searchTerm={typeSearchTerm}
-            onSearchChange={setTypeSearchTerm}
-            statusFilter={typeStatusFilter}
-            onStatusFilterChange={setTypeStatusFilter}
-            togglingTypeId={togglingTypeId}
-            onEditType={handleEditType}
-            onToggleStatus={toggleTypeStatus}
-            onDeleteType={setShowDeleteTypeConfirm}
-            onViewValues={(id) => router.push(`/admin/masters/${id}`)}
-            onNewType={() => setShowTypeForm(true)}
-            onRefresh={() => loadTypesForTab(activeTab)}
-          />
+        {/* Compact Search Bar */}
+        <div className="flex items-center gap-3 bg-white p-3 rounded-xl shadow-sm border">
+          <div className="flex-1 relative">
+            <input
+              type="text"
+              placeholder="Search items..."
+              className="w-full px-3 py-1.5 bg-gray-50 border rounded-lg text-sm focus:ring-1 focus:ring-blue-500"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+          {/* <label className="flex items-center gap-1.5 text-sm text-gray-600">
+            <input
+              type="checkbox"
+              checked={showInactive}
+              onChange={(e) => setShowInactive(e.target.checked)}
+              className="rounded border-gray-300"
+            />
+            Show inactive
+          </label> */}
         </div>
+
+        {/* Items Grid */}
+        {activeTab ? (
+          <MasterItemCards
+            items={filteredItems}
+            loading={loadingItems}
+            onEditItem={handleEditItem}
+            onDeleteItem={setShowDeleteItemConfirm}
+            onViewValues={(id) => router.push(`/admin/masters/${id}`)}
+            onNewItem={() => setShowItemForm(true)}
+          />
+        ) : (
+          <div className="bg-white rounded-xl shadow-sm p-8 text-center">
+            <p className="text-gray-500">Select a tab to view items</p>
+          </div>
+        )}
       </div>
 
-      {/* Create Tab Modal */}
+      {/* Modals */}
       <TabFormModal
         isOpen={showNewTabModal}
         formData={{ name: newTabName, is_active: true }}
@@ -1180,7 +1021,6 @@ const handleCreateTab = useCallback(async () => {
         }}
       />
 
-      {/* Edit Tab Modal */}
       <TabFormModal
         isOpen={!!showEditTabModal}
         formData={{ name: editTabName, is_active: true }}
@@ -1193,32 +1033,31 @@ const handleCreateTab = useCallback(async () => {
         }}
       />
 
-      {/* Type Form Modal */}
-      <TypeFormModal
-        isOpen={showTypeForm}
-        formData={typeFormData}
+      <ItemFormModal
+        isOpen={showItemForm}
+        formData={itemFormData}
         activeTab={activeTab}
         submitting={submitting}
-        onFormDataChange={setTypeFormData}
-        onSubmit={handleTypeSubmit}
+        onFormDataChange={setItemFormData}
+        onSubmit={handleItemSubmit}
         onClose={() => {
-          setShowTypeForm(false);
-          resetTypeForm();
+          setShowItemForm(false);
+          setItemFormData({ id: null, name: "", isactive: 1 });
         }}
       />
 
       <DeleteConfirmModal
-        isOpen={!!showDeleteTypeConfirm}
-        type="type"
-        onConfirm={() => handleDeleteType(showDeleteTypeConfirm)}
-        onClose={() => setShowDeleteTypeConfirm(null)}
+        isOpen={!!showDeleteItemConfirm}
+        type="item"
+        onConfirm={() => handleDeleteItem(showDeleteItemConfirm!)}
+        onClose={() => setShowDeleteItemConfirm(null)}
       />
 
       <DeleteConfirmModal
         isOpen={!!showDeleteTabConfirm}
         type="tab"
         tabName={showDeleteTabConfirm?.name}
-        typeCount={showDeleteTabConfirm?.type_count}
+        itemCount={showDeleteTabConfirm?.item_count}
         onConfirm={handleDeleteTab}
         onClose={() => setShowDeleteTabConfirm(null)}
       />

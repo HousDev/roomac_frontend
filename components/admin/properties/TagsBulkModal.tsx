@@ -23,7 +23,7 @@ import {
 import { Tag, X, Plus, Check, Loader2, Search, AlertCircle, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { getAllTags, createTag } from "@/lib/masterApi";
+// import { getAllTags, createTag } from "@/lib/masterApi";
 
 interface TagsBulkModalProps {
   open: boolean;
