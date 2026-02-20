@@ -262,7 +262,7 @@ function TenantDashboardClient({ initialData }: TenantDashboardClientProps) {
     const tenantEmail = typeof window !== "undefined" ? localStorage.getItem("tenant_email") : null;
     
     if (!tenantId) {
-      router.push("/tenant/login");
+      router.push("/login");
       return;
     }
 
@@ -306,7 +306,7 @@ function TenantDashboardClient({ initialData }: TenantDashboardClientProps) {
       localStorage.removeItem("tenant_id");
       localStorage.removeItem("tenant_email");
     }
-    router.push("/tenant/login");
+    router.push("/login");
     toast.success("Logged out successfully");
   }, [router]);
 

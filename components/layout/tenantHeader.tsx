@@ -31,7 +31,7 @@ localStorage.removeItem("auth_token");
         localStorage.removeItem("auth_email");
         localStorage.removeItem("auth_role");
        
-    router.push("/tenant/login");
+    router.push("/login");
   };
 
   return (

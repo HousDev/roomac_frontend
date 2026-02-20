@@ -652,7 +652,7 @@ async loadProfile() {
       // Show toast and redirect after delay
       setTimeout(() => {
         if (typeof window !== 'undefined') {
-          window.location.href = '/tenant/login';
+          window.location.href = '/login';
         }
       }, 2000);
     }

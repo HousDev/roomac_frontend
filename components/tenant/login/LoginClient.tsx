@@ -87,7 +87,9 @@ export default function LoginClient({ initialPropertyImages }: LoginClientProps)
        
         
 
-        toast.success("Login successful"); // ✅ ADDED
+        toast.success("Login successful", {
+          duration: 3000,
+        }); // ✅ ADDED
         handleSuccessfulLogin(result.role);
       } else {
         toast.error(result.error || result.message || "Invalid credentials");
@@ -131,7 +133,7 @@ export default function LoginClient({ initialPropertyImages }: LoginClientProps)
     setLoading(true);
 
     try {
-      const result = await verifyTenantOTP(otpData.email, otpData.otp);
+      const result: any = await verifyTenantOTP(otpData.email, otpData.otp);
 
       if (result.success && result.token) {
         // ✅ Use auth context
@@ -149,8 +151,10 @@ export default function LoginClient({ initialPropertyImages }: LoginClientProps)
           sessionStorage.setItem("tenant_email", otpData.email);
         }
 
-        toast.success("Login successful"); // ✅ ADDED
-        handleSuccessfulLogin();
+        toast.success("Login successful", {
+          duration: 3000,
+        }); // ✅ ADDED
+        handleSuccessfulLogin(result.role);
       } else {
         toast.error(result.error || result.message || "Invalid OTP");
       }

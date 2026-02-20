@@ -195,15 +195,17 @@ export default function SettingsClient({
       localStorage.removeItem("tenant_token");
       localStorage.removeItem("tenant_id");
       localStorage.removeItem("tenant_logged_in");
+      localStorage.clear()
       toast.success("Logged out successfully");
-      router.push("/tenant/login");
+      router.push("/login");
     } catch (error) {
       console.error("Logout error:", error);
       localStorage.removeItem("tenant_token");
       localStorage.removeItem("tenant_id");
       localStorage.removeItem("tenant_logged_in");
+      localStorage.clear()
       toast.success("Logged out");
-      router.push("/tenant/login");
+      router.push("/login");
     }
   }, [router]);
 

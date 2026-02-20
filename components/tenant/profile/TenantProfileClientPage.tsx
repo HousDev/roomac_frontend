@@ -640,7 +640,7 @@ export default function TenantProfileClientPage({
   const handleLogout = async () => {
     await logoutTenant();
     localStorage.clear();
-    window.location.href = "/tenant/login";
+    window.location.href = "/login";
   };
 
   /* ------------------------------------------------------------------ */

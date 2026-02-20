@@ -10,7 +10,7 @@ export default function AdminLayout() {
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  const isLoginPage = pathname === '/tenant/login' || pathname === '/admin';
+  const isLoginPage = pathname === '/login' || pathname === '/admin';
 
   // Get the current page title based on pathname
   const getPageTitle = () => {

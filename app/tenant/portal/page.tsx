@@ -3743,6 +3743,7 @@ import {
 
 // Assets
 import roomacLogo from "@/app/src/assets/images/roomaclogo.webp";
+import { useAuth } from "@/context/authContext";
 
 // Types
 interface DashboardStats {
@@ -4270,7 +4271,7 @@ export default function TenantDashboard() {
   const [showComplaintDialog, setShowComplaintDialog] = useState(false);
   const [showLeaveDialog, setShowLeaveDialog] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>("");
-  
+  const { logout } = useAuth()
   // Form states
   const [newComplaint, setNewComplaint] = useState({
     title: "",
@@ -4327,7 +4328,7 @@ export default function TenantDashboard() {
       const tenantId = getTenantId();
       
       if (!token || !tenantId) {
-        router.push('/tenant/login');
+        router.push('/login');
         return;
       }
 
@@ -4476,8 +4477,10 @@ export default function TenantDashboard() {
 
   const handleLogout = useCallback(async () => {
     await logoutTenant();
-    router.push('/tenant/login');
-  }, [router]);
+    localStorage.clear()
+    router.push('/login');
+    logout()
+  }, []);
 
   const handleSubmitComplaint = useCallback(async () => {
     if (!newComplaint.title || !newComplaint.description || !newComplaint.category) {
