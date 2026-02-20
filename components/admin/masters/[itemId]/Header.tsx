@@ -73,7 +73,7 @@ export default function Header({
               className="px-3 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 flex items-center gap-2 text-sm"
             >
               <Plus size={16} />
-              New Value
+              New Master Value
             </button>
           </div>
         </div>
