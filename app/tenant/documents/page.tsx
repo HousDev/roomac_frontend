@@ -18,7 +18,7 @@ import {
 import { format } from "date-fns";
 import { DocumentData, downloadPDF, printPDF, sharePDF } from "@/lib/pdf-generator";
 import { toast } from "sonner";
-import TenantHeader from "@/components/layout/tenantHeader";
+// import TenantHeader from "@/components/layout/tenantHeader";
 
 interface SavedDocument {
   id: string;
@@ -356,7 +356,7 @@ const getAuthHeaders = (): HeadersInit => {
 
   return (
     <div>
-      <TenantHeader />
+      {/* <TenantHeader /> */}
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 p-6">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">

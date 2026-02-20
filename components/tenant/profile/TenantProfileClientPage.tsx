@@ -437,7 +437,7 @@ import {
 import { logoutTenant } from "@/lib/tenantAuthApi";
 
 import { useTenantValidation } from "./useTenantValidation";
-import ProfileHeader from "./ProfileHeader";
+// import ProfileHeader from "./ProfileHeader";
 import ProfileSidebar from "./ProfileSidebar";
 import PersonalInfoTab from "./PersonalInfoTab";
 import AccommodationTab from "./AccommodationTab";
@@ -685,7 +685,7 @@ export default function TenantProfileClientPage({
 
   return (
     <>
-      <ProfileHeader tenantName={profile.full_name} onLogout={handleLogout} />
+      {/* <ProfileHeader tenantName={profile.full_name} onLogout={handleLogout} /> */}
 
       <div className="max-w-7xl mx-auto p-6 grid lg:grid-cols-4 gap-6">
         <ProfileSidebar
