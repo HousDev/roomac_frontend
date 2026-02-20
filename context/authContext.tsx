@@ -109,7 +109,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem("auth_email");
     localStorage.removeItem("auth_role");
     localStorage.removeItem("auth_login_source");
-
+    localStorage.clear
     setUser(null);
 
     // ✅ Redirect based on original login page
@@ -117,7 +117,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // ✅ Naya code — loginSource ke basis par redirect
 
-  window.location.href = "/tenant/login";
+    window.location.href = "/login";
 
     
   };

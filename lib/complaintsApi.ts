@@ -91,7 +91,7 @@ function getAdminToken(): string {
     console.error('No admin token found');
     if (typeof window !== 'undefined') {
       setTimeout(() => {
-        window.location.href = '/tenant/login';
+        window.location.href = '/login';
       }, 100);
     }
     throw new Error('Admin authentication required. Please login.');
@@ -134,7 +134,7 @@ export async function getAdminComplaints(): Promise<Complaint[]> {
     
     if (error.message.includes('401') || error.message.includes('Unauthorized')) {
       if (typeof window !== 'undefined') {
-        window.location.href = '/tenant/login';
+        window.location.href = '/login';
       }
     }
     

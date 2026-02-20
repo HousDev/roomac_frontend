@@ -36,7 +36,9 @@ export default function AdminLoginPage() {
       }
 
       login(data.user.email, data.token);
-      toast.success("Login successful 🎉");
+      toast.success("Login successful 🎉", {
+        duration: 3000,
+      });
       console.log("Admin logged in:", data.user.email);
       console.log("redirecting to dashboard...");
       router.push('/admin/dashboard');
