@@ -23,7 +23,7 @@ export default function TenantPortalPage() {
             <p className="text-slate-600 mb-8">
               Login with your registered mobile number to access your tenant dashboard
             </p>
-            <Link href="/tenant/login">
+            <Link href="/login">
               <Button size="lg" className="bg-primary hover:bg-primary/90">
                 Sign In with OTP
               </Button>

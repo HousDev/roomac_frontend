@@ -44,7 +44,7 @@ async function makeAdminRequest<T = any>(
     if (!response.ok) {
       if (response.status === 401) {
         localStorage.removeItem("admin_token");
-        window.location.href = "/tenant/login";
+        window.location.href = "/login";
       }
       throw new Error(data.error || data.message || `HTTP ${response.status}`);
     }

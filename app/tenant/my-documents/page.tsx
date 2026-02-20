@@ -73,7 +73,7 @@ const getAuthHeaders = (): HeadersInit => {
       const id = localStorage.getItem("tenant_id");
 
       if (!id) {
-        router.push("/tenant/login");
+        router.push("/login");
         return;
       }
 

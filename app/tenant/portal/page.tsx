@@ -61,6 +61,9 @@ import {
 } from "@/lib/tenantRequestsApi";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
+// Assets
+import roomacLogo from "@/app/src/assets/images/roomaclogo.webp";
+import { useAuth } from "@/context/authContext";
 
 interface DashboardStats {
   totalPaid: number;
@@ -230,6 +233,9 @@ export default function TenantPortalPage() {
   });
 
   // Forms
+  const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const { logout } = useAuth()
+  // Form states
   const [newComplaint, setNewComplaint] = useState({
     title: "", description: "", category: "", reason: "", priority: "medium",
   });
@@ -260,7 +266,7 @@ export default function TenantPortalPage() {
       const token = getTenantToken();
       const tenantId = getTenantId();
       if (!token || !tenantId) {
-        navigate("/tenant/login");
+        router.push('/login');
         return;
       }
 
@@ -341,7 +347,13 @@ export default function TenantPortalPage() {
         .catch(console.error);
   }, [selectedCategory]);
 
-  // Handlers
+  const handleLogout = useCallback(async () => {
+    await logoutTenant();
+    localStorage.clear()
+    router.push('/login');
+    logout()
+  }, []);
+
   const handleSubmitComplaint = useCallback(async () => {
     if (!newComplaint.title || !newComplaint.description || !newComplaint.category) {
       toast.error("Please fill in all required fields");

@@ -586,7 +586,7 @@ const getAdminToken = (): string => {
     // Redirect to login
     if (typeof window !== 'undefined') {
       setTimeout(() => {
-        window.location.href = '/tenant/login';
+        window.location.href = '/login';
       }, 100);
     }
     
@@ -654,7 +654,7 @@ export const getAdminVacateRequests = async (): Promise<AdminVacateRequest[]> =>
     if (error.message?.includes('401') || error.message?.includes('authentication')) {
       console.error('🔒 Authentication error - redirecting to login');
       if (typeof window !== 'undefined') {
-        window.location.href = '/tenant/login';
+        window.location.href = '/login';
       }
     }
     

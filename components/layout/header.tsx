@@ -121,7 +121,7 @@ export function Header() {
               Call Us
             </Button>
           </a>
-          <Link href="/tenant/login" className="transition-all duration-300 hover:scale-105">
+          <Link href="/login" className="transition-all duration-300 hover:scale-105">
             {/* <Button variant="outline" size="sm" className="gap-2">
               <User className="h-4 w-4" />
               Tenant Portal

@@ -347,17 +347,14 @@ function App() {
         {/* 🔐 ADMIN ROUTES */}
         <Route path="/admin" element={<AdminLayout />}>
 
-          {/* ADMIN LOGIN (only if logged-out) */}
-          <Route element={<PublicRoute redirectTo="/admin/dashboard" />}>
-            <Route path="login" element={<AdminLoginPage />} />
-          </Route>
 
           {/* ADMIN PROTECTED */}
-          <Route element={<ProtectedRoute redirectTo="/tenant/login" />}>
+          <Route element={<ProtectedRoute />}>
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<AdminDashboardPage />} />
             <Route path="properties" element={<AdminPropertiesPage />} />
             <Route path="properties/:id" element={<AdminPropertyIdPage />} />
+
             <Route path="rooms" element={<AdminRoomsPage />} />
             <Route path="tenants" element={<AdminTenantsPage />} />
             <Route path="payments" element={<AdminPaymentsPage />} />
@@ -383,18 +380,19 @@ function App() {
           </Route>
 
         </Route>
+        <Route element={<PublicRoute />}>
+          <Route index element={<Navigate to="login" replace />} />
+          <Route path="login" element={<TenantLoginPage />} />
+        </Route>
 
         {/* 🔐 TENANT ROUTES — TenantLayout provides sidebar + header */}
         <Route path="/tenant" element={<TenantLayout />}>
 
-          {/* TENANT LOGIN (no sidebar on login) */}
-          <Route element={<PublicRoute redirectTo="/tenant/portal" />}>
-            <Route index element={<Navigate to="login" replace />} />
-            <Route path="login" element={<TenantLoginPage />} />
-          </Route>
+          {/* TENANT LOGIN */}
 
-          {/* TENANT PROTECTED — sidebar + header auto applied */}
-          <Route element={<ProtectedRoute redirectTo="/tenant/login" />}>
+
+          {/* TENANT PROTECTED */}
+          <Route element={<ProtectedRoute />}>
             <Route path="portal" element={<TenantPortalPage />} />
             <Route path="dashboard" element={<TenantPortalPage />} />
             <Route path="profile" element={<TenantProfilePage />} />

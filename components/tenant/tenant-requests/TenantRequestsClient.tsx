@@ -115,7 +115,7 @@ export default function TenantRequestsClient() {
     const token = getTenantToken();
     if (!token) {
       toast.error('Authentication required. Please login.');
-      router.push('/tenant/login');
+      router.push('/login');
       return;
     }
     
@@ -140,7 +140,7 @@ export default function TenantRequestsClient() {
       if (!token) {
         if (isMounted.current) {
           toast.error('Authentication required');
-          router.push('/tenant/login');
+          router.push('/login');
         }
         return;
       }
@@ -248,7 +248,7 @@ export default function TenantRequestsClient() {
           error.message?.includes('token') || 
           error.message?.includes('401')) {
         toast.error('Authentication failed. Please login again.');
-        router.push('/tenant/login');
+        router.push('/login');
       } else if (retryCount.current < MAX_RETRIES) {
         // Retry with exponential backoff
         retryCount.current += 1;
