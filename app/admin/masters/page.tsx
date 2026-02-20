@@ -1517,12 +1517,8 @@ import { getMasterTabs } from "@/lib/masterApi";
 import MastersClient from "@/components/admin/masters/MastersClient";
 import Loading from "@/components/admin/masters/loading";
 
-const defaultTabs = [
-  { name: "General", type_count: 0, created_at: new Date().toISOString(), is_active: 1 }
-];
-
-export default function MasterTypesPage() {
-  const [initialTabs, setInitialTabs] = useState<any[]>(defaultTabs);
+export default function MasterItemsPage() {
+  const [initialTabs, setInitialTabs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -1531,12 +1527,14 @@ export default function MasterTypesPage() {
         if (tabsRes.success && Array.isArray(tabsRes.data)) {
           const apiTabs = tabsRes.data.map((tab: any) => ({
             id: tab.id,
-            name: tab.name || tab.tab_name || "Unknown",
-            type_count: tab.type_count || 0,
+            name: tab.tab_name,
+            item_count: tab.item_count || 0,
             created_at: tab.created_at || new Date().toISOString(),
-            is_active: tab.is_active || 1
+            is_active: tab.isactive || 1
           }));
-          setInitialTabs([...defaultTabs, ...apiTabs.filter((tab: { name: string }) => tab.name !== "General")]);
+          setInitialTabs(apiTabs);
+        } else {
+          setInitialTabs([]);
         }
       })
       .finally(() => setLoading(false));

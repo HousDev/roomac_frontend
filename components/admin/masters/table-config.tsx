@@ -39,9 +39,9 @@ export function getTabIcon(tabName: string) {
   return <FolderOpen size={16} />;
 }
 
-// Get icon for type
-export function getTypeIcon(typeName: string) {
-  const name = typeName.toLowerCase();
+// Get icon for item
+export function getItemIcon(itemName: string) {
+  const name = itemName.toLowerCase();
   if (name.includes('property') || name.includes('building') || name.includes('home')) {
     return <Home size={16} />;
   } else if (name.includes('tenant') || name.includes('user')) {
@@ -76,20 +76,11 @@ export function formatDate(dateString: string) {
 }
 
 // Column configurations for DataTable (if needed)
-export const typeColumns = [
+export const itemColumns = [
   {
     accessorKey: "name",
-    header: "Type Name",
+    header: "Item Name",
     cell: (info: any) => info.getValue(),
-  },
-  {
-    accessorKey: "code",
-    header: "Code",
-    cell: (info: any) => (
-      <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs font-mono rounded">
-        {info.getValue()}
-      </span>
-    ),
   },
   {
     accessorKey: "value_count",
@@ -97,15 +88,15 @@ export const typeColumns = [
     cell: (info: any) => info.getValue(),
   },
   {
-    accessorKey: "is_active",
+    accessorKey: "isactive",
     header: "Status",
     cell: (info: any) => (
       <span className={`px-2 py-1 text-xs rounded ${
-        info.getValue() 
+        info.getValue() === 1
           ? 'bg-green-100 text-green-700' 
           : 'bg-gray-100 text-gray-700'
       }`}>
-        {info.getValue() ? 'Active' : 'Inactive'}
+        {info.getValue() === 1 ? 'Active' : 'Inactive'}
       </span>
     ),
   },
@@ -113,20 +104,20 @@ export const typeColumns = [
 
 export const valueColumns = [
   {
-    accessorKey: "value",
+    accessorKey: "name",
     header: "Value",
     cell: (info: any) => info.getValue(),
   },
   {
-    accessorKey: "is_active",
+    accessorKey: "isactive",
     header: "Status",
     cell: (info: any) => (
       <span className={`px-2 py-1 text-xs rounded ${
-        info.getValue() 
+        info.getValue() === 1
           ? 'bg-green-100 text-green-700' 
           : 'bg-gray-100 text-gray-700'
       }`}>
-        {info.getValue() ? 'Active' : 'Inactive'}
+        {info.getValue() === 1 ? 'Active' : 'Inactive'}
       </span>
     ),
   },

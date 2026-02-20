@@ -1,13 +1,12 @@
-// components/admin/masters/DeleteConfirmModal.tsx
 "use client";
 
 import { AlertCircle, Trash2 } from "lucide-react";
 
 interface DeleteConfirmModalProps {
   isOpen: boolean;
-  type: "type" | "tab";
+  type: "item" | "tab";
   tabName?: string;
-  typeCount?: number;
+  itemCount?: number;
   onConfirm: () => void;
   onClose: () => void;
 }
@@ -16,15 +15,15 @@ export default function DeleteConfirmModal({
   isOpen,
   type,
   tabName,
-  typeCount,
+  itemCount,
   onConfirm,
   onClose
 }: DeleteConfirmModalProps) {
   if (!isOpen) return null;
 
-  const title = type === "type" ? "Delete Master Type" : "Delete Tab";
-  const content = type === "type" 
-    ? "Are you sure you want to delete this master type? This will also delete all values associated with it."
+  const title = type === "item" ? "Delete Master Item" : "Delete Tab";
+  const content = type === "item" 
+    ? "Are you sure you want to delete this master item? This will also delete all values associated with it."
     : `Are you sure you want to delete the tab ${tabName ? `"${tabName}"` : ''}?`;
 
   return (
@@ -42,11 +41,11 @@ export default function DeleteConfirmModal({
             {content}
           </p>
           
-          {type === "tab" && typeCount && typeCount > 0 && (
+          {type === "tab" && itemCount && itemCount > 0 && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
               <p className="text-red-700 text-sm">
-                ⚠️ This tab contains <strong>{typeCount} master types</strong>. 
-                Deleting the tab will also delete all types in this tab.
+                ⚠️ This tab contains <strong>{itemCount} master items</strong> with their values. 
+                Deleting the tab will also delete all items and values in this tab.
               </p>
             </div>
           )}
@@ -63,7 +62,7 @@ export default function DeleteConfirmModal({
               className="flex-1 px-3 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 text-sm flex items-center justify-center gap-1"
             >
               <Trash2 size={16} />
-              {type === "type" ? "Delete Type" : "Delete Tab"}
+              {type === "item" ? "Delete Item" : "Delete Tab"}
             </button>
           </div>
         </div>

@@ -1,3 +1,4 @@
+// components/admin/masters/[itemId]/DeleteConfirmModal.tsx
 "use client";
 
 import { AlertCircle, Trash2 } from "lucide-react";
