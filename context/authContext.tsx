@@ -109,7 +109,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem("auth_email");
     localStorage.removeItem("auth_role");
     localStorage.removeItem("auth_login_source");
-    localStorage.clear
+    localStorage.clear()
     setUser(null);
 
     // ✅ Redirect based on original login page

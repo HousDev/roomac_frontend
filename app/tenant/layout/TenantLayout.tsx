@@ -18,6 +18,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { logoutTenant, type TenantProfile } from "@/lib/tenantAuthApi";
 import { tenantDetailsApi } from "@/lib/tenantDetailsApi";
 import roomacLogo from "@/app/src/assets/images/roomaclogo.webp";
+import { useAuth } from "@/context/authContext";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -548,6 +549,7 @@ export default function TenantLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [tenant, setTenant] = useState<TenantProfile | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>(MOCK_NOTIFICATIONS);
+  const { logout } = useAuth()
 
   // Load tenant profile
   useEffect(() => {
@@ -581,7 +583,9 @@ export default function TenantLayout() {
 
   const handleLogout = async () => {
     await logoutTenant();
-    navigate("/tenant/login");
+    localStorage.clear()
+    logout();
+    navigate("/login");
   };
 
   const handleMarkNotificationRead = (id: string) => {
