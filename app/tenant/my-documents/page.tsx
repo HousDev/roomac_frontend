@@ -24,7 +24,7 @@ import {
   Calendar
 } from "lucide-react";
 import { format } from "date-fns";
-import TenantHeader from "@/components/layout/tenantHeader";
+// import TenantHeader from "@/components/layout/tenantHeader";
 
 interface SavedDocument {
   id: string;
@@ -175,7 +175,7 @@ const getAuthHeaders = (): HeadersInit => {
 
   return (
     <div>
-      <TenantHeader />
+      {/* <TenantHeader /> */}
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto p-6">
         <div className="flex items-center gap-4 mb-6">

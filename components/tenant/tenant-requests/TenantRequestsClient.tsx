@@ -47,7 +47,7 @@ import {
 } from "@/lib/tenantRequestsApi";
 
 // import { getActiveMasterValuesByCode } from "@/lib/masterApi";
-import TenantHeader from '@/components/layout/tenantHeader';
+// import TenantHeader from '@/components/layout/tenantHeader';
 import { getTenantToken } from "@/lib/tenantAuthApi";
 
 // Main component - handles all authentication and data loading
@@ -740,16 +740,16 @@ export default function TenantRequestsClient() {
 
   return (
     <div>
-      <TenantHeader />
+      {/* <TenantHeader /> */}
       <div className="min-h-screen bg-gray-50">
         <div className="max-w-7xl mx-auto p-6">
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-4">
-              <Button variant="outline" onClick={() => router.push('/tenant/portal')}>
+              {/* <Button variant="outline" onClick={() => router.push('/tenant/portal')}>
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back
-              </Button>
+              </Button> */}
               <div>
                 <h1 className="text-3xl font-bold text-gray-900">My Requests</h1>
                 <p className="text-gray-600 mt-1">Raise requests and track their status</p>

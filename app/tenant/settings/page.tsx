@@ -578,7 +578,7 @@
 
 
 import { useState, useEffect } from "react";
-import TenantHeader from "@/components/layout/tenantHeader";
+// import TenantHeader from "@/components/layout/tenantHeader";
 import SettingsClient from "@/components/tenant/settings/SettingsClient";
 import { getTenantData, getNotificationPreferences } from "@/components/tenant/settings/actions";
 
@@ -598,7 +598,7 @@ export default function SettingsPage() {
   if (loading) {
     return (
       <div>
-        <TenantHeader />
+        {/* <TenantHeader /> */}
         <div className="min-h-screen flex items-center justify-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500" />
         </div>
@@ -608,9 +608,9 @@ export default function SettingsPage() {
 
   return (
     <div>
-      <TenantHeader />
+      {/* <TenantHeader /> */}
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 p-6">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-9xl mx-auto">
           <div className="mb-8">
             <h1 className="text-4xl font-bold text-gray-900 mb-2">Account Settings</h1>
             <p className="text-gray-600">Manage your account preferences and security</p>
