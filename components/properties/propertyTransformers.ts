@@ -109,14 +109,64 @@ export const transformPropertyData = (property: any) => {
       "Guests not allowed after 10 PM",
       "Smoking and alcohol strictly prohibited"
     ],
-    manager: {
-      name: property.property_manager_name || "Rajesh Kumar",
-      phone: property.property_manager_phone || "+919876543210",
-      email: property.property_manager_email || "rajesh@example.com",
-      role: property.property_manager_role || "Verified Manager",
-      avatar: avatarUrl,  // Using the constructed URL with debug
-      rating: 4.8
-    },
+//    manager: (() => {
+//   const salutationMap: Record<string, string> = {
+//     mr: 'Mr.', mrs: 'Mrs.', miss: 'Miss', dr: 'Dr.', prof: 'Prof.'
+//   };
+//   const salutation = property.manager_salutation
+//     ? (salutationMap[property.manager_salutation.toLowerCase()] || '')
+//     : '';
+//   const managerName = property.property_manager_name || "Rajesh Kumar";
+//   const rawRole = property.property_manager_role || "Verified Manager";
+//   const formattedRole = rawRole.charAt(0).toUpperCase() + rawRole.slice(1).toLowerCase();
+
+//   return {
+//     name: salutation ? `${salutation} ${managerName}` : managerName,
+//     phone: property.property_manager_phone || "+919876543210",
+//     email: property.property_manager_email || "rajesh@example.com",
+//     role: formattedRole,
+//     avatar: avatarUrl,
+//     rating: 4.8
+//   };
+// })(),
+
+
+manager: (() => {
+  const salutationMap: Record<string, string> = {
+    mr: 'Mr.', mrs: 'Mrs.', miss: 'Miss', dr: 'Dr.', prof: 'Prof.'
+  };
+  const salutation = property.manager_salutation
+    ? (salutationMap[property.manager_salutation.toLowerCase()] || '')
+    : '';
+
+  // staff_id hai toh live staff data use karo, warna property table ka data
+  const managerName = property.staff_id 
+    ? (property.staff_name || property.property_manager_name || "Manager")
+    : (property.property_manager_name || "Manager");
+  
+  const managerPhone = property.staff_id
+    ? (property.staff_phone || property.property_manager_phone || "")
+    : (property.property_manager_phone || "");
+
+  const managerEmail = property.staff_id
+    ? (property.staff_email || property.property_manager_email || "")
+    : (property.property_manager_email || "");
+
+  const rawRole = property.staff_id
+    ? (property.staff_role || property.property_manager_role || "Manager")
+    : (property.property_manager_role || "Manager");
+
+  const formattedRole = rawRole.charAt(0).toUpperCase() + rawRole.slice(1).toLowerCase();
+
+  return {
+    name: salutation ? `${salutation} ${managerName}` : managerName,
+    phone: managerPhone,
+    email: managerEmail,
+    role: formattedRole,
+    avatar: avatarUrl,
+    rating: 4.8
+  };
+})(),
     
     reviews: [
       {

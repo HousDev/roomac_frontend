@@ -1196,70 +1196,81 @@ Showing {Math.min(filteredRooms.length, 4)} of {propertyData?.rooms?.length || 0
           {/* Sidebar */}
           <div className="lg:sticky lg:top-6 lg:self-start space-y-4">
             {/* Property Manager Card */}
-            <div className="bg-white rounded-xl md:rounded-2xl overflow-hidden shadow-lg md:shadow-2xl border border-blue-100 md:border-2">
-              <div className="bg-gradient-to-r from-blue-600 to-cyan-600 px-3 md:px-4 py-2 md:py-3 flex items-center justify-between">
-                <div className="flex items-center gap-1.5 md:gap-2">
-                  <div className="w-8 h-8 md:w-10 md:h-10 bg-white/20 rounded-lg md:rounded-xl flex items-center justify-center">
-                    <User className="w-4 h-4 md:w-5 md:h-5 text-white" />
-                  </div>
-                  <h3 className="text-xs md:text-sm font-black text-white">Property Manager</h3>
-                </div>
-                <div className="flex items-center gap-0.5 md:gap-1 bg-white/20 px-1.5 py-0.5 md:px-2 md:py-1 rounded-full">
-                  <Star className="w-3 h-3 md:w-4 md:h-4 text-yellow-300 fill-yellow-300" />
-                  <span className="text-xs font-black text-white">{propertyData.manager?.rating || '4.8'}</span>
-                </div>
-              </div>
-              <div className="p-3 md:p-4">
-                <div className="flex items-center gap-2 md:gap-3 mb-3 md:mb-4">
-                  <img
-                    src={propertyData.manager?.avatar || '/default-avatar.png'}
-                    alt={propertyData.manager?.name || 'Manager'}
-                    className="w-14 h-14 md:w-20 md:h-20 rounded-lg md:rounded-xl object-cover ring-1 md:ring-2 ring-blue-200"
-                  />
-                  <div>
-                    <p className="font-black text-gray-900 text-sm md:text-lg">{propertyData.manager?.name || propertyData.property_manager_name || 'Property Manager'}</p>
-                    <p className="text-[10px] md:text-xs text-gray-600 font-semibold flex items-center gap-0.5 md:gap-1">
-                      <ShieldCheck className="w-2.5 h-2.5 md:w-3 md:h-3 text-green-600" />
-                      {propertyData.manager?.role || 'Manager'}
-                    </p>
-                  </div>
-                </div>
 
-                <div className="space-y-1.5 md:space-y-2 mb-3 md:mb-4">
-                  <a
-                    href={`tel:${propertyData.manager?.phone || propertyData.property_manager_phone}`}
-                    className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm text-gray-700 hover:text-blue-600"
-                  >
-                    <Phone className="w-3 h-3 md:w-4 md:h-4" />
-                    {propertyData.manager?.phone || propertyData.property_manager_phone || 'Not available'}
-                  </a>
-                  <a
-                    href={`mailto:${propertyData.manager?.email}`}
-                    className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm text-gray-700 hover:text-blue-600"
-                  >
-                    <Mail className="w-3 h-3 md:w-4 md:h-4" />
-                    {propertyData.manager?.email || 'Not available'}
-                  </a>
-                </div>
+{/* Property Manager Card */}
+<div className="bg-white rounded-xl md:rounded-2xl overflow-hidden shadow-lg md:shadow-2xl border border-blue-100 md:border-2">
+  <div className="bg-gradient-to-r from-blue-600 to-cyan-600 px-3 md:px-4 py-2 md:py-3 flex items-center justify-between">
+    <div className="flex items-center gap-1.5 md:gap-2">
+      <div className="w-8 h-8 md:w-10 md:h-10 bg-white/20 rounded-lg md:rounded-xl flex items-center justify-center">
+        <User className="w-4 h-4 md:w-5 md:h-5 text-white" />
+      </div>
+      <h3 className="text-xs md:text-sm font-black text-white">Property Manager</h3>
+    </div>
+    <div className="flex items-center gap-0.5 md:gap-1 bg-white/20 px-1.5 py-0.5 md:px-2 md:py-1 rounded-full">
+      <Star className="w-3 h-3 md:w-4 md:h-4 text-yellow-300 fill-yellow-300" />
+      <span className="text-xs font-black text-white">{propertyData.manager?.rating || '4.8'}</span>
+    </div>
+  </div>
+  <div className="p-3 md:p-4">
+    <div className="flex items-center gap-2 md:gap-3 mb-3 md:mb-4">
+      <img
+        src={propertyData.manager?.avatar || 
+          `https://ui-avatars.com/api/?name=${encodeURIComponent(propertyData.manager?.name || 'Manager')}&background=3b82f6&color=fff&size=128`}
+        alt={propertyData.manager?.name || 'Manager'}
+        className="w-14 h-14 md:w-20 md:h-20 rounded-lg md:rounded-xl object-cover ring-1 md:ring-2 ring-blue-200"
+        onError={(e) => {
+          // Fallback to avatar with name initials if image fails to load
+          const target = e.target as HTMLImageElement;
+          const name = propertyData.manager?.name || 'Manager';
+          target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=3b82f6&color=fff&size=128`;
+        }}
+      />
+      <div>
+        <p className="font-black text-gray-900 text-sm md:text-lg">
+          {propertyData.manager?.name || propertyData.property_manager_name || 'Property Manager'}
+        </p>
+        <p className="text-[10px] md:text-xs text-gray-600 font-semibold flex items-center gap-0.5 md:gap-1">
+          <ShieldCheck className="w-2.5 h-2.5 md:w-3 md:h-3 text-green-600" />
+          {propertyData.manager?.role || propertyData.property_manager_role || 'Manager'}
+        </p>
+      </div>
+    </div>
 
-                <div className="grid grid-cols-2 gap-1.5 md:gap-2">
-                  <a
-                    href={`tel:${propertyData.manager?.phone || propertyData.property_manager_phone}`}
-                    className="flex items-center justify-center gap-1 md:gap-1.5 px-2 py-1.5 md:px-3 md:py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg md:rounded-xl font-bold text-xs md:text-sm hover:shadow-lg transition-all"
-                  >
-                    <Phone className="w-3 h-3 md:w-4 md:h-4" />Call Now
-                  </a>
-                  <a
-                    href={`https://wa.me/${(propertyData.manager?.phone || propertyData.property_manager_phone)?.replace(/[^0-9]/g, '')}?text=Hi, I'm interested in ${encodeURIComponent(propertyData.name)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-1 md:gap-1.5 px-2 py-1.5 md:px-3 md:py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-lg md:rounded-xl font-bold text-xs md:text-sm hover:shadow-lg transition-all"
-                  >
-                    <MessageSquare className="w-3 h-3 md:w-4 md:h-4" />WhatsApp
-                  </a>
-                </div>
-              </div>
-            </div>
+    <div className="space-y-1.5 md:space-y-2 mb-3 md:mb-4">
+      <a
+        href={`tel:${propertyData.manager?.phone || propertyData.property_manager_phone}`}
+        className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm text-gray-700 hover:text-blue-600"
+      >
+        <Phone className="w-3 h-3 md:w-4 md:h-4" />
+        {propertyData.manager?.phone || propertyData.property_manager_phone || 'Not available'}
+      </a>
+      <a
+        href={`mailto:${propertyData.manager?.email || propertyData.property_manager_email}`}
+        className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm text-gray-700 hover:text-blue-600"
+      >
+        <Mail className="w-3 h-3 md:w-4 md:h-4" />
+        {propertyData.manager?.email || propertyData.property_manager_email || 'Not available'}
+      </a>
+    </div>
+
+    <div className="grid grid-cols-2 gap-1.5 md:gap-2">
+      <a
+        href={`tel:${propertyData.manager?.phone || propertyData.property_manager_phone}`}
+        className="flex items-center justify-center gap-1 md:gap-1.5 px-2 py-1.5 md:px-3 md:py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg md:rounded-xl font-bold text-xs md:text-sm hover:shadow-lg transition-all"
+      >
+        <Phone className="w-3 h-3 md:w-4 md:h-4" />Call Now
+      </a>
+      <a
+        href={`https://wa.me/${(propertyData.manager?.phone || propertyData.property_manager_phone || '').replace(/[^0-9]/g, '')}?text=Hi, I'm interested in ${encodeURIComponent(propertyData.name)}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center justify-center gap-1 md:gap-1.5 px-2 py-1.5 md:px-3 md:py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-lg md:rounded-xl font-bold text-xs md:text-sm hover:shadow-lg transition-all"
+      >
+        <MessageSquare className="w-3 h-3 md:w-4 md:h-4" />WhatsApp
+      </a>
+    </div>
+  </div>
+</div>
 
             {/* Offers */}
             <div className="bg-white rounded-xl md:rounded-2xl p-3 md:p-5 shadow-lg md:shadow-2xl">

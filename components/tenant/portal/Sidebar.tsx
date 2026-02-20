@@ -76,14 +76,13 @@ function Sidebar({
         {!sidebarCollapsed ? (
           <div className="flex items-center justify-between w-full px-4">
             <div className="flex items-center gap-3">
-              <div className="h-25 w-25 mt-2 flex items-center justify-center">
-                <Image 
-                  src={roomacLogo}
-                  alt="ROOMAC"
-                  className="h-14 w-auto object-contain"
-                  priority
-                />
-              </div>
+             <div className="mt-2 flex items-center justify-center">
+  {/* <img 
+    src={roomacLogo}
+    alt="ROOMAC"
+    className="h-14 w-auto object-contain"
+  /> */}
+</div>
             </div>
             <Button
               variant="ghost"
