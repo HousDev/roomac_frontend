@@ -1054,7 +1054,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { AdminHeader } from '@/components/admin/admin-header';
+// import { AdminHeader } from '@/components/admin/admin-header';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -1636,7 +1636,7 @@ Thank you for your payment!
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <AdminHeader title="Payments" />
+      {/* <AdminHeader title="Payments" /> */}
 
       <div className="p-2 sm:p-3 md:p-4 space-y-2 sm:space-y-3">
         {/* Compact Stats Cards */}

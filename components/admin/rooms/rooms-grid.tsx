@@ -775,13 +775,31 @@ export default function RoomsGrid({
   // Ensure rooms is always an array
   const safeRooms = Array.isArray(rooms) ? rooms : [];
   
-  if (safeRooms.length === 0) {
+  // Sort rooms in ascending order by room number
+  const sortedRooms = [...safeRooms].sort((a, b) => {
+    // Convert room numbers to strings for comparison
+    const roomA = String(a.room_number || '');
+    const roomB = String(b.room_number || '');
+    
+    // Try numeric comparison first
+    const numA = parseInt(roomA);
+    const numB = parseInt(roomB);
+    
+    if (!isNaN(numA) && !isNaN(numB)) {
+      return numA - numB;
+    }
+    
+    // Fall back to string comparison
+    return roomA.localeCompare(roomB, undefined, { numeric: true });
+  });
+  
+  if (sortedRooms.length === 0) {
     return null;
   }
 
-  const allRoomIds = safeRooms.map(room => room.id.toString());
-  const allSelected = safeRooms.length > 0 && 
-    safeRooms.every(room => selectedRooms.includes(room.id.toString()));
+  const allRoomIds = sortedRooms.map(room => room.id.toString());
+  const allSelected = sortedRooms.length > 0 && 
+    sortedRooms.every(room => selectedRooms.includes(room.id.toString()));
 
   return (
     <div className="space-y-4">
@@ -820,9 +838,9 @@ export default function RoomsGrid({
         </div>
       )}
 
-      {/* Rooms Grid */}
+      {/* Rooms Grid - Use sortedRooms instead of safeRooms */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {safeRooms.map(room => (
+        {sortedRooms.map(room => (
           <RoomCard
             key={room.id}
             room={room}

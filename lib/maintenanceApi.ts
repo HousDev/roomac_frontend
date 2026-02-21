@@ -37,7 +37,7 @@ export type MaintenanceRequest = {
 // Helper function to get admin token
 function getAdminToken(): string | null {
   if (typeof window === "undefined") return null;
-  return localStorage.getItem("admin_token") || localStorage.getItem("token");
+  return localStorage.getItem("auth_token") || localStorage.getItem("token");
 }
 
 /* ================= API CALLS ================= */

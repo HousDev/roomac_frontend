@@ -56,9 +56,9 @@ const getAdminToken = (): string => {
     return '';
   }
   
-  const adminToken = localStorage.getItem('admin_token');
+  const adminToken = localStorage.getItem('auth_token');
   const genericToken = localStorage.getItem('token');
-  const sessionAdminToken = sessionStorage.getItem('admin_token');
+  const sessionAdminToken = sessionStorage.getItem('auth_token');
   const sessionGenericToken = sessionStorage.getItem('token');
   
   const token = adminToken || genericToken || sessionAdminToken || sessionGenericToken;

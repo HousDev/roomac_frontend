@@ -25,7 +25,7 @@ export function useRouter(): AppRouterInstance {
   };
 }
 
-export { useParams, useSearchParams };
+export { useParams, useSearchParams, useNavigate };
 
 export function redirect(url: string) {
   window.location.href = url;

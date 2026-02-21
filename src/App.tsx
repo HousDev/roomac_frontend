@@ -304,6 +304,7 @@ import AdminAddOnsPage from "../app/admin/add-ons/page";
 import AdminMastersPage from "../app/admin/masters/page";
 import AdminMastersValues from "../app/admin/masters/[itemId]/page";
 import AdminSettingsPage from "../app/admin/settings/page";
+import AdminIntegrationSettingsPage from "../app/admin/settings/integration/page";
 import AdminProfilePage from "../app/admin/profile/page";
 import AdminComplaintsPage from "../app/admin/complaints/page";
 import AdminMaintenancePage from "../app/admin/maintenance/page";
@@ -369,6 +370,8 @@ function App() {
             <Route path="masters" element={<AdminMastersPage />} />
             <Route path="masters/:itemId" element={<AdminMastersValues />} />
             <Route path="settings" element={<AdminSettingsPage />} />
+            <Route path="settings/integration" element={<AdminIntegrationSettingsPage />} />  
+
             <Route path="profile" element={<AdminProfilePage />} />
             <Route path="complaints" element={<AdminComplaintsPage />} />
             <Route path="maintenance" element={<AdminMaintenancePage />} />

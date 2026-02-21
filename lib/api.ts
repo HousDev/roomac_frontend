@@ -165,17 +165,17 @@ export type User = {
 // Admin Token
 export function getAuthToken(): string | null {
   if (typeof window === "undefined") return null;
-  return localStorage.getItem("admin_token");
+  return localStorage.getItem("auth_token");
 }
 
 export function setAuthToken(token: string) {
   if (typeof window === "undefined") return;
-  localStorage.setItem("admin_token", token);
+  localStorage.setItem("auth_token", token);
 }
 
 export function clearAuthToken() {
   if (typeof window === "undefined") return;
-  localStorage.removeItem("admin_token");
+  localStorage.removeItem("auth_token");
   localStorage.removeItem("admin_email");
   localStorage.removeItem("admin_logged_in");
 }

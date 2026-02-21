@@ -85,7 +85,7 @@ function getAdminToken(): string {
     return '';
   }
   
-  const adminToken = localStorage.getItem("admin_token") || localStorage.getItem("token");
+  const adminToken = localStorage.getItem("auth_token") || localStorage.getItem("token");
   
   if (!adminToken) {
     console.error('No admin token found');

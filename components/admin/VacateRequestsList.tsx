@@ -315,7 +315,7 @@ const handleStatusUpdate = async () => {
     });
     
     // Get token from all possible locations
-    const adminToken = localStorage.getItem('admin_token');
+    const adminToken = localStorage.getItem('auth_token');
     const genericToken = localStorage.getItem('token');
     const token = adminToken || genericToken;
     

@@ -570,9 +570,9 @@ const getAdminToken = (): string => {
   }
   
   // Check multiple possible token storage locations
-  const adminToken = localStorage.getItem('admin_token');
+  const adminToken = localStorage.getItem('auth_token');
   const genericToken = localStorage.getItem('token');
-  const sessionAdminToken = sessionStorage.getItem('admin_token');
+  const sessionAdminToken = sessionStorage.getItem('auth_token');
   const sessionGenericToken = sessionStorage.getItem('token');
   
   // Priority: admin_token > token > session_admin_token > session_token
@@ -756,14 +756,14 @@ export const checkAuthStatus = () => {
   }
   
   console.log('🔍 Checking authentication status:');
-  console.log('admin_token:', localStorage.getItem('admin_token'));
+  console.log('auth_token:', localStorage.getItem('auth_token'));
   console.log('token:', localStorage.getItem('token'));
   console.log('admin_email:', localStorage.getItem('admin_email'));
   console.log('admin_logged_in:', localStorage.getItem('admin_logged_in'));
   
   // Try to get token
   try {
-    const token = localStorage.getItem('admin_token');
+    const token = localStorage.getItem('auth_token');
     if (token) {
       console.log('✅ Token found, length:', token.length);
       console.log('Token starts with:', token.substring(0, 20));

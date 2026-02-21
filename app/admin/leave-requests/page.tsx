@@ -83,7 +83,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 // API Functions
 const fetchLeaveRequests = async (filters = {}) => {
   try {
-    const token = localStorage.getItem('admin_token');
+    const token = localStorage.getItem('auth_token');
     
     // Build query string
     const queryParams = new URLSearchParams();
@@ -111,7 +111,7 @@ const fetchLeaveRequests = async (filters = {}) => {
 
 const updateLeaveStatus = async (requestId: number, payload: UpdateLeaveStatusPayload) => {
   try {
-    const token = localStorage.getItem('admin_token');
+    const token = localStorage.getItem('auth_token');
     
     const response = await fetch(`${API_BASE_URL}/api/admin/leave-requests/${requestId}/status`, {
       method: 'PUT',
@@ -135,7 +135,7 @@ const updateLeaveStatus = async (requestId: number, payload: UpdateLeaveStatusPa
 
 const fetchLeaveStatistics = async () => {
   try {
-    const token = localStorage.getItem('admin_token');
+    const token = localStorage.getItem('auth_token');
     
     const response = await fetch(`${API_BASE_URL}/api/admin/leave-requests/statistics`, {
       headers: {

@@ -729,6 +729,8 @@ export interface TenantProfile {
   // Personal Information
   id: number;
   full_name: string;
+  salutation?: string;
+
   email: string;
   phone: string;
   country_code: string;

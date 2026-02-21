@@ -63,7 +63,7 @@ export default function MaintenancePage() {
   const [selectedStaffId, setSelectedStaffId] = useState<string>("");
 
   useEffect(() => {
-    const token = localStorage.getItem("admin_token") || localStorage.getItem("token");
+    const token = localStorage.getItem("auth_token") || localStorage.getItem("token");
     if (!token) {
       console.log("Token not ready yet");
       return;

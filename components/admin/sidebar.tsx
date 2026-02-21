@@ -11,7 +11,9 @@ import {
   Settings, Menu, X, LogOut, UserCircle, Mail, UserCog,
   AlertCircle, Calendar, FileText, Layout, BarChart3,
   LayoutGrid, Receipt, Wrench, ChevronRight, Bell,
-  ChevronDown
+  ChevronDown,
+  Sliders,
+  Link2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState, useEffect, useRef } from 'react';
@@ -52,6 +54,15 @@ function SubmenuItemWithTooltip({ reqItem, reqActive, sidebarOpen }: {
       }
     };
   }, []);
+  // components/admin/sidebar.tsx mein, component ke andar ye add karo:
+
+useEffect(() => {
+  // Current path ko localStorage mein save karo jab bhi change ho
+  const currentPath = window.location.pathname;
+  if (currentPath.startsWith('/admin') && currentPath !== '/admin') {
+    localStorage.setItem('admin_last_path', currentPath);
+  }
+}, []);
 
   return (
     <li key={reqItem.href}>
@@ -222,6 +233,8 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
   const pathname = usePathname();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [requestsOpen, setRequestsOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);  // Add this line
+
   const [settings, setSettings] = useState<SettingsData | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
@@ -270,6 +283,17 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
     setMobileSidebarOpen(false);
   }, [pathname]);
 
+  // Auto-expand settings dropdown if on a settings page
+useEffect(() => {
+  if (!pathname) return;
+  
+  const isSettingsPage = pathname.includes('/admin/settings') ||
+                        pathname.includes('/admin/settings/integration') ||
+                        pathname === '/admin/settings';
+  if (isSettingsPage) {
+    setSettingsOpen(true);
+  }
+}, [pathname]);
   // Auto-expand requests dropdown if on a request page
   useEffect(() => {
     if (!pathname) return;
@@ -314,6 +338,10 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
     { href: '/admin/change-bed-requests', label: 'Change Bed Requests', icon: Users },
     { href: '/admin/account-deletion-requests', label: 'Account Deletion', icon: UserCircle },
   ];
+  const settingsItems = [
+  { href: '/admin/settings', label: 'General Settings', icon: Sliders },
+  { href: '/admin/settings/integration', label: 'Integration', icon: Link2 },
+];
 
   const isActive = (href: string) => pathname === href;
 
@@ -402,11 +430,15 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
     const Icon = item.icon;
     const active = isActive(item.href);
     const isRequestActive = requestItems.some(req => isActive(req.href));
+const isSettingsActive = settingsItems.some(setting => isActive(setting.href));  // Add this line
 
     // Check if this is the Notifications item (index 9)
     const isNotificationsItem = index === 9;
+    const isSettingsItem = index === 14;  // Add this line (Settings is at index 14)
+
 
     if (!sidebarOpen) {
+      
       // Collapsed view - only icons (CLICKING EXPANDS SIDEBAR)
       if (isNotificationsItem) {
         // Render both Notifications icon and Requests dropdown icon
@@ -440,7 +472,29 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
                 }}
               />
             </li>
+            
           </>
+        );
+      }
+
+      if (isSettingsItem) {
+        return (
+          <li key="settings-collapsed" className="flex justify-center">
+            <CollapsedSidebarItem
+              item={{ href: '#', label: 'Settings', icon: Settings }}
+              active={isSettingsActive}
+              sidebarOpen={sidebarOpen}
+              setSidebarOpen={setSidebarOpen}
+              handleIconClick={handleIconClick}
+              isSettingsItem={true}
+              onClick={() => {
+                if (setSidebarOpen) {
+                  setSidebarOpen(true);
+                }
+                setSettingsOpen(!settingsOpen);
+              }}
+            />
+          </li>
         );
       }
 
@@ -546,6 +600,65 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
               </ul>
             )}
           </div>
+        </li>
+      );
+    }
+    if (isSettingsItem) {
+      return (
+        <li key="settings-group">
+          {/* Settings parent item */}
+          <button
+            onClick={() => setSettingsOpen(!settingsOpen)}
+            className={`
+              relative group flex items-center justify-between w-full px-4 py-3 rounded-xl transition-all duration-200
+              ${isSettingsActive
+                ? 'bg-white/20 text-yellow-300'
+                : 'text-blue-100 hover:bg-white/15 hover:text-white'
+              }
+            `}
+          >
+            {isSettingsActive && (
+              <span className="absolute left-0 top-2 bottom-2 w-1 rounded-full" />
+            )}
+            <div className="flex items-center gap-3">
+              <div
+                className={`
+                  h-9 w-9 rounded-lg flex items-center justify-center transition-all
+                  ${isSettingsActive
+                    ? ''
+                    : 'bg-white/20 text-white group-hover:text-black'
+                  }
+                `}
+              >
+                <Icon className="h-5 w-5" />
+              </div>
+              <span className="font-medium tracking-wide whitespace-nowrap overflow-hidden text-ellipsis">
+                {item.label}
+              </span>
+            </div>
+            {settingsOpen ? (
+              <ChevronDown className="h-4 w-4 flex-shrink-0" />
+            ) : (
+              <ChevronRight className="h-4 w-4 flex-shrink-0" />
+            )}
+          </button>
+
+          {/* Settings submenu */}
+          {settingsOpen && (
+            <ul className="space-y-1 mt-1 ml-2">
+              {settingsItems.map((settingItem) => {
+                const settingActive = isActive(settingItem.href);
+                return (
+                  <SubmenuItemWithTooltip 
+                    key={settingItem.href}
+                    reqItem={settingItem} 
+                    reqActive={settingActive}
+                    sidebarOpen={sidebarOpen}
+                  />
+                );
+              })}
+            </ul>
+          )}
         </li>
       );
     }
