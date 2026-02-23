@@ -13,6 +13,13 @@ import { toast } from 'sonner';
 import { vacateApi } from '@/lib/vacateApi';
 import { getMyTenantRequests } from '@/lib/tenantRequestsApi';
 import { updateBedAssignment } from '@/lib/roomsApi';
+import { consumeMasters } from "@/lib/masterApi";
+
+interface MasterValue {
+  id: number;
+  name: string;
+  isactive: number;
+}
 
 export function VacateBedWizard({
   open,
@@ -39,6 +46,11 @@ export function VacateBedWizard({
   const [wizardDisabled, setWizardDisabled] = useState(false);
   const [isCheckingExisting, setIsCheckingExisting] = useState(false);
   
+  // Master data states
+  const [roomsMasters, setRoomsMasters] = useState<Record<string, MasterValue[]>>({});
+  const [loadingMasters, setLoadingMasters] = useState(false);
+  const [vacateReasons, setVacateReasons] = useState<any[]>([]);
+  
   // Store tenant vacate request details
   const [tenantVacateData, setTenantVacateData] = useState<any>(null);
   const [noticeGivenByTenant, setNoticeGivenByTenant] = useState<boolean>(false);
@@ -64,9 +76,49 @@ export function VacateBedWizard({
     tenantAgreedToTerms: false,
   });
 
+  // Fetch rooms masters for vacate reasons
+  const fetchRoomsMasters = async () => {
+    console.log("Fetching rooms masters for vacate reasons...");
+    setLoadingMasters(true);
+    try {
+      const res = await consumeMasters({ tab: "Rooms" });
+      if (res?.success && res.data) {
+        const grouped: Record<string, MasterValue[]> = {};
+        res.data.forEach((item: any) => {
+          const type = item.type_name;
+          if (!grouped[type]) {
+            grouped[type] = [];
+          }
+          grouped[type].push({
+            id: item.value_id,
+            name: item.value_name,
+            isactive: 1,
+          });
+        });
+        console.log("Rooms masters loaded:", grouped);
+        setRoomsMasters(grouped);
+        
+        // Set vacate reasons from masters
+        if (grouped["Vacate Reason"] && grouped["Vacate Reason"].length > 0) {
+          const reasons = grouped["Vacate Reason"].map(reason => ({
+            id: reason.id,
+            value: reason.name
+          }));
+          setVacateReasons(reasons);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to fetch rooms masters:", error);
+      toast.error("Failed to load vacate reasons");
+    } finally {
+      setLoadingMasters(false);
+    }
+  };
+
   // Reset when wizard opens
   useEffect(() => {
     if (open && bedAssignment) {
+      fetchRoomsMasters();
       checkForExistingRequest();
     } else if (!open) {
       resetWizard();
@@ -166,8 +218,6 @@ export function VacateBedWizard({
       const termsAgreed = lockinAccepted && noticeAccepted;
       setTenantAgreedToTerms(termsAgreed);
       
-      
-      
       // Store reason ID for later lookup
       if (vacateData.primary_reason_id) {
         setTenantVacateReasonId(vacateData.primary_reason_id);
@@ -184,7 +234,6 @@ export function VacateBedWizard({
   const updateFormWithTenantData = () => {
     if (!initialData || !tenantVacateData) return;
     
-    
     const newFormData = { ...formData };
     
     // Date already handled by useEffect above
@@ -195,9 +244,9 @@ export function VacateBedWizard({
       newFormData.isNoticeGiven = noticeGivenByTenant;
     }
     
-    // Set vacate reason from ID
-    if (tenantVacateReasonId && initialData && (initialData as any).vacateReasons && Array.isArray((initialData as any).vacateReasons)) {
-      const reason = (initialData as any).vacateReasons.find((r: any) => r.id === tenantVacateReasonId);
+    // Set vacate reason from ID using masters data
+    if (tenantVacateReasonId && vacateReasons.length > 0) {
+      const reason = vacateReasons.find((r: any) => r.id === tenantVacateReasonId);
       if (reason) {
         setTenantVacateReason(reason.value);
         newFormData.vacateReasonValue = reason.value;
@@ -265,10 +314,6 @@ export function VacateBedWizard({
       
       if (!data || !data.bedAssignment) {
         throw new Error("Invalid response from server");
-      }
-      
-      if (!data.vacateReasons || !Array.isArray(data.vacateReasons)) {
-        data.vacateReasons = [];
       }
       
       setInitialData(data);
@@ -362,8 +407,6 @@ const checkLockinStatus = async () => {
     const lockinMonths = initialData?.bedAssignment?.lockin_period_months || 0;
     const currentDate = new Date(); // Use current date
     
-    
-    
     if (!checkInDateStr) {
       setLockinStatus({
         isCompleted: true,
@@ -418,8 +461,6 @@ const checkLockinStatus = async () => {
       lockInEndDate: lockInEndDate.toISOString().split('T')[0],
       penaltyApplicable: !isCompleted
     });
-    
-   
     
   } catch (error) {
     console.error('Error checking lock-in status:', error);
@@ -526,8 +567,6 @@ const calculateNoticePeriodStatus = () => {
     (normalizedNoticeEndDate.getTime() - normalizedCurrentDate.getTime()) / (1000 * 3600 * 24)
   ));
   
- 
-  
   if (isNoticeCompleted) {
     return {
       isNoticeGiven: true,
@@ -568,8 +607,6 @@ const calculateAllPenalties = async () => {
     const rentPerBed = parseFloat(bedData.rent_per_bed) || 0;
     const currentDate = new Date().toISOString().split('T')[0];
     
-   
-    
     // 1. LOCK-IN PENALTY CALCULATION
     let lockinPenalty = 0;
     let lockinPenaltyDescription = '';
@@ -586,8 +623,6 @@ const calculateAllPenalties = async () => {
       // Get penalty from tenant data
       const penaltyAmount = parseFloat(bedData.lockin_penalty_amount) || 0;
       const penaltyType = bedData.lockin_penalty_type || '';
-      
-    
       
       if (penaltyAmount > 0) {
         lockinPenalty = penaltyAmount;
@@ -614,8 +649,6 @@ const calculateAllPenalties = async () => {
       lockinPenaltyDescription = "No penalty - Lock-in period completed";
     }
     
-   
-    
     // 2. NOTICE PERIOD CALCULATION
     let noticePenalty = 0;
     let noticePenaltyDescription = '';
@@ -625,15 +658,12 @@ const calculateAllPenalties = async () => {
     const noticeStatus = calculateNoticePeriodStatus();
     setNoticePeriodStatus(noticeStatus);
     
-    
     if (noticeStatus?.penaltyApplicable) {
       noticePenaltyApplicable = true;
       
       // Get penalty from tenant data
       const penaltyAmount = parseFloat(bedData.notice_penalty_amount) || 0;
       const penaltyType = bedData.notice_penalty_type || '';
-      
-     
       
       if (penaltyAmount > 0) {
         noticePenalty = penaltyAmount;
@@ -677,15 +707,11 @@ const calculateAllPenalties = async () => {
       }
     }
     
-    
-    
     // 3. FINAL CALCULATION
     const totalPenalty = Number(lockinPenalty) + Number(noticePenalty);
     const refundableAmount = Number(securityDeposit) - totalPenalty;
     const isNegativeRefund = refundableAmount < 0;
     const additionalPaymentNeeded = isNegativeRefund ? Math.abs(refundableAmount) : 0;
-    
-    
     
     // Update form data
     setFormData(prev => ({
@@ -850,9 +876,7 @@ const calculatePenaltyAmount = (penaltyType: string, securityDeposit: number, re
         tenantVacateRequestId: existingVacateRequest?.id
       };
       
-      
       const response = await vacateApi.submitVacateRequest(payload);
-      
       
       if (response && response.success) {
         setSubmissionResult(response.data);
@@ -1026,6 +1050,13 @@ const calculatePenaltyAmount = (penaltyType: string, securityDeposit: number, re
           </p>
         </DialogHeader>
 
+        {loadingMasters && (
+          <div className="py-2 text-center mb-2">
+            <Loader2 className="h-4 w-4 animate-spin mx-auto mb-1 text-blue-500" />
+            <p className="text-xs text-gray-500">Loading master data...</p>
+          </div>
+        )}
+
         {isCheckingExisting && (
           <div className="py-4 text-center">
             <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2 text-blue-500" />
@@ -1133,14 +1164,24 @@ const calculatePenaltyAmount = (penaltyType: string, securityDeposit: number, re
                 <Select
                   value={formData.vacateReasonValue}
                   onValueChange={(value) => handleInputChange('vacateReasonValue', value)}
+                  disabled={loadingMasters}
                 >
                   <SelectTrigger className="h-9">
                     <SelectValue placeholder={formData.vacateReasonValue || "Select reason"} />
                   </SelectTrigger>
                   <SelectContent>
-                    {initialData.vacateReasons?.map((reason: any) => (
-                      <SelectItem key={reason.id} value={reason.value} className="text-sm">{reason.value}</SelectItem>
-                    ))}
+                    {loadingMasters ? (
+                      <div className="px-2 py-1.5 text-sm text-gray-500 flex items-center gap-1">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Loading reasons...
+                      </div>
+                    ) : vacateReasons.length > 0 ? (
+                      vacateReasons.map((reason: any) => (
+                        <SelectItem key={reason.id} value={reason.value} className="text-sm">{reason.value}</SelectItem>
+                      ))
+                    ) : (
+                      <div className="px-2 py-1.5 text-sm text-gray-500">No vacate reasons found</div>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -1698,7 +1739,7 @@ const calculatePenaltyAmount = (penaltyType: string, securityDeposit: number, re
           )}
           
           {step < 5 ? (
-            <Button onClick={handleNext} disabled={loading || calculating} size="sm">
+            <Button onClick={handleNext} disabled={loading || calculating || loadingMasters} size="sm">
               {calculating ? (
                 <>
                   <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />

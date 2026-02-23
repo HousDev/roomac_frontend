@@ -6,6 +6,7 @@ export const STATIC_TABS = [
   { id: 'common', name: 'Common', icon: 'FolderOpen' },
   { id: 'properties', name: 'Properties', icon: 'Home' },
   { id: 'rooms', name: 'Rooms', icon: 'Door' },
+  { id: 'requests', name: 'Requests', icon: 'MessageSquare' },
 ] as const;
 
 export type TabName = typeof STATIC_TABS[number]['name'];

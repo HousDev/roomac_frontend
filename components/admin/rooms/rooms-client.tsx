@@ -86,6 +86,7 @@ export default function RoomsClient({ initialRooms, initialProperties }: RoomsCl
     property_id: '',
     room_number: '',
     sharing_type: '',
+    room_type: '',
     capacity: 2,
     rent_per_bed: 0,
     floor: '',
@@ -419,6 +420,7 @@ export default function RoomsClient({ initialRooms, initialProperties }: RoomsCl
       property_id: room.property_id.toString(),
       room_number: room.room_number.toString(),
       sharing_type: actualSharingType,
+      room_type:room.room_type || '',
       capacity: capacity,
       rent_per_bed: room.rent_per_bed || 0,
       floor: room.floor ? room.floor.toString() : '',
@@ -478,6 +480,7 @@ export default function RoomsClient({ initialRooms, initialProperties }: RoomsCl
       property_id: '',
       room_number: '',
       sharing_type: '',
+      room_type: '',
       capacity: 2,
       rent_per_bed: 0,
       floor: '',
@@ -508,6 +511,7 @@ export default function RoomsClient({ initialRooms, initialProperties }: RoomsCl
       property_id: formData.property_id,
       room_number: formData.room_number,
       sharing_type: formData.sharing_type,
+      room_type: formData.room_type,
       rent_per_bed: formData.rent_per_bed
     });
 
@@ -528,6 +532,7 @@ export default function RoomsClient({ initialRooms, initialProperties }: RoomsCl
       formDataObj.append('property_id', formData.property_id);
       formDataObj.append('room_number', formData.room_number);
       formDataObj.append('sharing_type', formData.sharing_type);
+    formDataObj.append('room_type', formData.room_type || 'standard');
       formDataObj.append('total_beds', formData.capacity.toString());
       formDataObj.append('rent_per_bed', formData.rent_per_bed.toString());
       formDataObj.append('floor', formData.floor || '0');

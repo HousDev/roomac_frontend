@@ -1,5 +1,5 @@
 
-
+// lib/tenantDetailsApi.ts 
 import { ReactNode } from 'react';
 import { getTenantToken, getTenantId } from './tenantAuthApi';
 

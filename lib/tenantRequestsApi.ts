@@ -2,7 +2,7 @@
 import { request} from "./api";
 import { getTenantToken } from "./tenantAuthApi";
 import { tenantApiRequest } from "./tenantApiHelper"; 
-import { getActiveMasterValuesByCode } from "./masterApi";
+import { consumeMasters } from "./masterApi";
 
 export type TenantRequest = {
   change_bed_data?: ChangeBedData;
@@ -295,6 +295,76 @@ export async function createTenantRequest(data: any) {
     throw new Error(error.message || 'Failed to create request');
   }
 }
+
+// Get master values by tab
+export const getMasterValuesByTab = async (tab: string): Promise<Record<string, any[]>> => {
+  try {
+    console.log(`🔍 Fetching master values for tab: ${tab}`);
+    
+    const res = await consumeMasters({ tab });
+    
+    console.log(`📊 Master values response for tab ${tab}:`, res);
+    
+    if (res?.success && res.data) {
+      // Group by type_name
+      const grouped: Record<string, any[]> = {};
+      res.data.forEach((item: any) => {
+        const type = item.type_name;
+        if (!grouped[type]) {
+          grouped[type] = [];
+        }
+        grouped[type].push({
+          id: item.value_id,
+          value: item.value_name,
+          name: item.value_name,
+          description: item.description || '',
+          display_order: item.display_order || 0,
+          is_active: item.is_active === 1 || item.is_active === true
+        });
+      });
+      
+      console.log(`✅ Grouped master values for tab ${tab}:`, Object.keys(grouped));
+      return grouped;
+    }
+    
+    return {};
+  } catch (error) {
+    console.error(`❌ Error getting master values for tab ${tab}:`, error);
+    return {};
+  }
+};
+
+// Get vacate reasons from Rooms tab
+export const getVacateReasonsFromMasters = async (): Promise<any[]> => {
+  try {
+    const masters = await getMasterValuesByTab('Rooms');
+    
+    // Look for vacate reasons in the masters data
+    // You might need to adjust the type name based on your actual master data structure
+    const vacateReasons = masters['Vacate Reason'] || masters['VacateReason'] || masters['Vacate'] || [];
+    
+    if (vacateReasons.length > 0) {
+      console.log(`✅ Found ${vacateReasons.length} vacate reasons from masters`);
+      return vacateReasons;
+    }
+    
+    // Fallback reasons if not found
+    console.log('⚠️ No vacate reasons found in masters, using fallback');
+    return [
+      { id: 1, value: 'Job Change/Relocation', description: 'Changing job or moving to new location' },
+      { id: 2, value: 'Personal Reasons', description: 'Personal or family-related reasons' },
+      { id: 3, value: 'Financial Issues', description: 'Budget constraints or financial difficulties' },
+      { id: 4, value: 'Found Better Accommodation', description: 'Found better or cheaper accommodation' },
+      { id: 5, value: 'Completing Studies', description: 'Education completed or leaving the city' },
+      { id: 6, value: 'Medical Reasons', description: 'Health-related issues' },
+      { id: 7, value: 'Family Reasons', description: 'Family commitments or issues' },
+      { id: 8, value: 'Dissatisfied with Services', description: 'Not satisfied with the services provided' }
+    ];
+  } catch (error) {
+    console.error('❌ Error getting vacate reasons from masters:', error);
+    return [];
+  }
+};
 
 // Add to lib/tenantRequestsApi.ts
 export const getMyVacateRequests = async (): Promise<TenantRequest[]> => {
@@ -654,6 +724,7 @@ export type StatusUpdatePayload = {
 
 
 // Get tenant contract details
+// Get tenant contract details
 export const getTenantContractDetails = async (): Promise<{
   tenantDetails: any;
   lockinInfo: any;
@@ -661,21 +732,33 @@ export const getTenantContractDetails = async (): Promise<{
 }> => {
   try {
     const res = await tenantApiRequest<{
-      message: string;
       success: boolean;
-      data: any;
+      data: {
+        tenantDetails: any;
+        lockinInfo: any;
+        noticeInfo: any;
+      };
+      message?: string;
     }>("/api/tenant-requests/contract-details", {
       method: "GET",
     });
+
+    console.log('📊 Contract details API response:', res);
 
     if (!res.success) {
       throw new Error(res.message || "Failed to get contract details");
     }
 
+    // Return the data object directly - this matches what your component expects
     return res.data;
   } catch (error: any) {
     console.error('❌ Error getting tenant contract details:', error);
-    throw error;
+    // Return default values instead of throwing
+    return {
+      tenantDetails: null,
+      lockinInfo: null,
+      noticeInfo: null
+    };
   }
 };
 

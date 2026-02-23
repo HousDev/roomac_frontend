@@ -43,7 +43,8 @@ import {
   type CurrentRoomInfo,
   type ComplaintCategory,
   type ComplaintReason,
-  type LeaveType
+  type LeaveType,
+  getVacateReasonsFromMasters
 } from "@/lib/tenantRequestsApi";
 
 // import { getActiveMasterValuesByCode } from "@/lib/masterApi";
@@ -126,149 +127,178 @@ export default function TenantRequestsClient() {
   }, [router, initialLoadComplete]);
 
   // Load all data
-  const loadAllData = useCallback(async () => {
-    // Prevent multiple simultaneous calls
-    if (isDataLoaded.current) {
+// Load all data
+const loadAllData = useCallback(async () => {
+  // Prevent multiple simultaneous calls
+  if (isDataLoaded.current) {
+    return;
+  }
+  
+  try {
+    setLoading(true);
+    
+    // Check authentication first
+    const token = getTenantToken();
+    if (!token) {
+      if (isMounted.current) {
+        toast.error('Authentication required');
+        router.push('/login');
+      }
       return;
     }
-    
-    try {
-      setLoading(true);
+
+    // Load all data in parallel with error handling for each
+    const results = await Promise.allSettled([
+      getMyTenantRequests().catch(err => {
+        console.error('Failed to fetch tenant requests:', err);
+        return [];
+      }),
+      getTenantContractDetails().catch(err => {
+        console.error('Failed to fetch contract details:', err);
+        return { lockinInfo: null, noticeInfo: null };
+      }),
+      getCurrentRoomInfo().catch(err => {
+        console.error('Failed to fetch current room:', err);
+        return null;
+      }),
+      getActiveProperties().catch(err => {
+        console.error('Failed to fetch properties:', err);
+        return [];
+      }),
+      getChangeBedReasons().catch(err => {
+        console.error('Failed to fetch change reasons:', err);
+        return [];
+      }),
+      // Make sure this function is imported
+      // In the Promise.allSettled array, replace the getActiveMasterValuesByCode line with:
+getVacateReasonsFromMasters().catch(err => {
+  console.error('Failed to fetch vacate reasons:', err);
+  return [];
+}),
+      getLeaveTypes().catch(err => {
+        console.error('Failed to fetch leave types:', err);
+        return [];
+      }),
+      getComplaintCategories().catch(err => {
+        console.error('Failed to fetch complaint categories:', err);
+        return [];
+      })
+    ]);
+
+    // Only update state if component is still mounted
+    if (!isMounted.current) return;
+
+    // Handle requests data
+    if (results[0].status === 'fulfilled') {
+      setRequests(results[0].value);
+    }
+
+    // Handle contract data - FIXED VERSION
+    if (results[1].status === 'fulfilled') {
+      const contractResponse = results[1].value;
+      console.log('📋 Contract response received:', contractResponse);
       
-      // Check authentication first
-      const token = getTenantToken();
-      if (!token) {
-        if (isMounted.current) {
-          toast.error('Authentication required');
-          router.push('/login');
-        }
-        return;
-      }
-
-      // Load all data in parallel with error handling for each
-      const results = await Promise.allSettled([
-        getMyTenantRequests().catch(err => {
-          console.error('Failed to fetch tenant requests:', err);
-          return [];
-        }),
-        getTenantContractDetails().catch(err => {
-          console.error('Failed to fetch contract details:', err);
-          return { lockinInfo: null, noticeInfo: null };
-        }),
-        getCurrentRoomInfo().catch(err => {
-          console.error('Failed to fetch current room:', err);
-          return null;
-        }),
-        getActiveProperties().catch(err => {
-          console.error('Failed to fetch properties:', err);
-          return [];
-        }),
-        getChangeBedReasons().catch(err => {
-          console.error('Failed to fetch change reasons:', err);
-          return [];
-        }),
-        getActiveMasterValuesByCode('VACATE_REASON').catch(err => {
-          console.error('Failed to fetch vacate reasons:', err);
-          return { success: true, data: [] };
-        }),
-        getLeaveTypes().catch(err => {
-          console.error('Failed to fetch leave types:', err);
-          return [];
-        }),
-        getComplaintCategories().catch(err => {
-          console.error('Failed to fetch complaint categories:', err);
-          return [];
-        })
-      ]);
-
-      // Only update state if component is still mounted
-      if (!isMounted.current) return;
-
-      // Handle requests data
-      if (results[0].status === 'fulfilled') {
-        setRequests(results[0].value);
-      }
-
-      // Handle contract data
-      if (results[1].status === 'fulfilled') {
-        const contractData = results[1].value;
-        setLockinInfo(contractData.lockinInfo || null);
-        setNoticeInfo(contractData.noticeInfo || null);
-      }
-
-      // Handle room info
-      if (results[2].status === 'fulfilled') {
-        setCurrentRoom(results[2].value);
-      }
-
-      // Handle properties
-      if (results[3].status === 'fulfilled') {
-        setProperties(results[3].value);
-      }
-
-      // Handle change reasons
-      if (results[4].status === 'fulfilled') {
-        setChangeReasons(results[4].value);
-      }
-
-      // Handle vacate reasons
-      if (results[5].status === 'fulfilled') {
-        const response = results[5].value;
-        if (response && response.success && Array.isArray(response.data)) {
-          setVacateReasons(response.data);
-        }
-      }
-
-      // Handle leave types
-      if (results[6].status === 'fulfilled') {
-        setLeaveTypes(results[6].value);
-      }
-
-      // Handle complaint categories
-      if (results[7].status === 'fulfilled') {
-        const categories = results[7].value;
-        if (Array.isArray(categories)) {
-          setComplaintCategories(categories);
-        }
-      }
-
-      // Mark as loaded successfully
-      isDataLoaded.current = true;
-      setInitialLoadComplete(true);
-      retryCount.current = 0;
-
-    } catch (error: any) {
-      console.error('Error loading data:', error);
-      
-      // Only handle errors if component is still mounted
-      if (!isMounted.current) return;
-      
-      // Check for authentication errors
-      if (error.message?.includes('Authentication') || 
-          error.message?.includes('token') || 
-          error.message?.includes('401')) {
-        toast.error('Authentication failed. Please login again.');
-        router.push('/login');
-      } else if (retryCount.current < MAX_RETRIES) {
-        // Retry with exponential backoff
-        retryCount.current += 1;
-        const delay = 1000 * Math.pow(2, retryCount.current - 1);
+      // Check if the response has the expected structure
+      if (contractResponse && contractResponse.success && contractResponse.data) {
+        // Extract the nested data
+        const { lockinInfo, noticeInfo } = contractResponse.data;
+        console.log('🔒 Setting lockinInfo:', lockinInfo);
+        console.log('📋 Setting noticeInfo:', noticeInfo);
         
-        setTimeout(() => {
-          if (isMounted.current) {
-            loadAllData();
-          }
-        }, delay);
-      } else {
-        toast.error('Failed to load data after multiple attempts. Please refresh the page.');
-        setLoading(false);
+        setLockinInfo(lockinInfo || null);
+        setNoticeInfo(noticeInfo || null);
+      } 
+      // If the API function already returns just the data
+      else if (contractResponse && contractResponse.lockinInfo) {
+        setLockinInfo(contractResponse.lockinInfo || null);
+        setNoticeInfo(contractResponse.noticeInfo || null);
       }
-    } finally {
-      if (isMounted.current) {
-        setLoading(false);
+      else {
+        console.warn('⚠️ Unexpected contract response structure:', contractResponse);
+        setLockinInfo(null);
+        setNoticeInfo(null);
       }
     }
-  }, [router]); 
+
+    // Handle room info
+    if (results[2].status === 'fulfilled') {
+      setCurrentRoom(results[2].value);
+    }
+
+    // Handle properties
+    if (results[3].status === 'fulfilled') {
+      setProperties(results[3].value);
+    }
+
+    // Handle change reasons
+    if (results[4].status === 'fulfilled') {
+      setChangeReasons(results[4].value);
+    }
+
+    // Handle vacate reasons - FIXED VERSION
+    if (results[5].status === 'fulfilled') {
+      const response = results[5].value;
+      console.log('📋 Vacate reasons response:', response);
+      
+      if (response && response.success && Array.isArray(response.data)) {
+        setVacateReasons(response.data);
+      } else if (Array.isArray(response)) {
+        setVacateReasons(response);
+      } else {
+        setVacateReasons([]);
+      }
+    }
+
+    // Handle leave types
+    if (results[6].status === 'fulfilled') {
+      setLeaveTypes(results[6].value);
+    }
+
+    // Handle complaint categories
+    if (results[7].status === 'fulfilled') {
+      const categories = results[7].value;
+      if (Array.isArray(categories)) {
+        setComplaintCategories(categories);
+      }
+    }
+
+    // Mark as loaded successfully
+    isDataLoaded.current = true;
+    setInitialLoadComplete(true);
+    retryCount.current = 0;
+
+  } catch (error: any) {
+    console.error('Error loading data:', error);
+    
+    // Only handle errors if component is still mounted
+    if (!isMounted.current) return;
+    
+    // Check for authentication errors
+    if (error.message?.includes('Authentication') || 
+        error.message?.includes('token') || 
+        error.message?.includes('401')) {
+      toast.error('Authentication failed. Please login again.');
+      router.push('/login');
+    } else if (retryCount.current < MAX_RETRIES) {
+      // Retry with exponential backoff
+      retryCount.current += 1;
+      const delay = 1000 * Math.pow(2, retryCount.current - 1);
+      
+      setTimeout(() => {
+        if (isMounted.current) {
+          loadAllData();
+        }
+      }, delay);
+    } else {
+      toast.error('Failed to load data after multiple attempts. Please refresh the page.');
+      setLoading(false);
+    }
+  } finally {
+    if (isMounted.current) {
+      setLoading(false);
+    }
+  }
+}, [router]);
 
   const refreshData = useCallback(async () => {
     // Reset loaded flag to allow reload
