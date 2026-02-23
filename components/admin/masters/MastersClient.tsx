@@ -597,6 +597,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import {toast} from "sonner";
 import {
   getMasterItemsByTab,
   createMasterItem,
@@ -700,13 +701,13 @@ const loadItemsForTab = useCallback(async (tab: Tab | null) => {
           value_count: item.value_count || 0
         }));
       
-      // console.log("Filtered items with counts:", filteredItems);
       setItems(filteredItems);
     } else {
       setItems([]);
     }
   } catch (error) {
-    // console.error(`Failed to load items for tab "${tab.name}":`, error);
+    console.error(`Failed to load items for tab "${tab.name}":`, error);
+    toast.error("Failed to load items");
     setItems([]);
   } finally {
     setLoadingItems(false);
@@ -749,6 +750,7 @@ const loadItemsForTab = useCallback(async (tab: Tab | null) => {
       }
     } catch (error) {
       console.error("Failed to load tabs:", error);
+      toast.error("Failed to load tabs");
       setTabs([]);
       setActiveTab(null);
     } finally {
@@ -762,6 +764,7 @@ const loadItemsForTab = useCallback(async (tab: Tab | null) => {
     if (activeTab) {
       loadItemsForTab(activeTab);
     }
+    toast.success("Refreshed successfully");
   }, [activeTab, loadTabs, loadItemsForTab]);
 
   // Load items when active tab changes
@@ -774,12 +777,12 @@ const loadItemsForTab = useCallback(async (tab: Tab | null) => {
   // Handle item creation/update
   const handleItemSubmit = useCallback(async () => {
     if (!itemFormData.name.trim()) {
-      alert("Please enter an item name");
+      toast.error("Please enter an item name");
       return;
     }
 
     if (!activeTab) {
-      alert("Please select a tab");
+      toast.error("Please select a tab");
       return;
     }
 
@@ -795,8 +798,9 @@ const loadItemsForTab = useCallback(async (tab: Tab | null) => {
           await loadItemsForTab(activeTab);
           setShowItemForm(false);
           setItemFormData({ id: null, name: "", isactive: 1 });
+          toast.success("Item updated successfully");
         } else {
-          alert(res.error || "Failed to update master item");
+          toast.error(res.error || "Failed to update master item");
         }
       } else {
         const res = await createMasterItem({
@@ -809,13 +813,14 @@ const loadItemsForTab = useCallback(async (tab: Tab | null) => {
           await loadItemsForTab(activeTab);
           setShowItemForm(false);
           setItemFormData({ id: null, name: "", isactive: 1 });
+          toast.success("Item created successfully");
         } else {
-          alert(res.error || "Failed to create master item");
+          toast.error(res.error || "Failed to create master item");
         }
       }
     } catch (error) {
       console.error("Failed to save item:", error);
-      alert(`Error: ${error instanceof Error ? error.message : "Failed to save"}`);
+      toast.error(`Error: ${error instanceof Error ? error.message : "Failed to save"}`);
     } finally {
       setSubmitting(false);
     }
@@ -828,11 +833,12 @@ const loadItemsForTab = useCallback(async (tab: Tab | null) => {
       const res = await deleteMasterItem(id);
       if (res.success && activeTab) {
         await loadItemsForTab(activeTab);
+        toast.success("Item deleted successfully");
       } else {
-        alert(res.error || "Failed to delete master item");
+        toast.error(res.error || "Failed to delete master item");
       }
     } catch (error) {
-      alert(`Error: ${error instanceof Error ? error.message : "Failed to delete"}`);
+      toast.error(`Error: ${error instanceof Error ? error.message : "Failed to delete"}`);
     }
   }, [activeTab, loadItemsForTab]);
 
@@ -849,7 +855,7 @@ const loadItemsForTab = useCallback(async (tab: Tab | null) => {
   // Handle create tab
   const handleCreateTab = useCallback(async () => {
     if (!newTabName.trim()) {
-      alert("Please enter a tab name");
+      toast.error("Please enter a tab name");
       return;
     }
 
@@ -864,11 +870,12 @@ const loadItemsForTab = useCallback(async (tab: Tab | null) => {
         await loadTabs();
         setNewTabName("");
         setShowNewTabModal(false);
+        toast.success("Tab created successfully");
       } else {
-        alert(res.error || "Failed to create tab");
+        toast.error(res.error || "Failed to create tab");
       }
     } catch (error) {
-      alert(`Error: ${error instanceof Error ? error.message : "Failed to create tab"}`);
+      toast.error(`Error: ${error instanceof Error ? error.message : "Failed to create tab"}`);
     } finally {
       setSubmitting(false);
     }
@@ -889,11 +896,12 @@ const loadItemsForTab = useCallback(async (tab: Tab | null) => {
         await loadTabs();
         setShowEditTabModal(null);
         setEditTabName("");
+        toast.success("Tab updated successfully");
       } else {
-        alert(res.error || "Failed to update tab");
+        toast.error(res.error || "Failed to update tab");
       }
     } catch (error) {
-      alert(`Error: ${error instanceof Error ? error.message : "Failed to update tab"}`);
+      toast.error(`Error: ${error instanceof Error ? error.message : "Failed to update tab"}`);
     } finally {
       setSubmitting(false);
     }
@@ -909,11 +917,12 @@ const loadItemsForTab = useCallback(async (tab: Tab | null) => {
       if (res.success) {
         await loadTabs();
         setShowDeleteTabConfirm(null);
+        toast.success("Tab deleted successfully");
       } else {
-        alert(res.error || "Failed to delete tab");
+        toast.error(res.error || "Failed to delete tab");
       }
     } catch (error) {
-      alert(`Error: ${error instanceof Error ? error.message : "Failed to delete tab"}`);
+      toast.error(`Error: ${error instanceof Error ? error.message : "Failed to delete tab"}`);
     } finally {
       setSubmitting(false);
     }
@@ -949,13 +958,6 @@ const loadItemsForTab = useCallback(async (tab: Tab | null) => {
       />
 
       <div className="max-w-8xl mx-auto p-4 md:p-6 space-y-4">
-        {/* Stats Cards - Compact */}
-        {/* <StatsCards 
-          activeTab={activeTab?.name || "No Tab Selected"}
-          totalItems={stats.totalItems}
-          activeItems={stats.activeItems}
-        /> */}
-
         {/* Horizontal Tabs - Clean */}
         <HorizontalTabList
           tabs={tabs}
@@ -980,15 +982,6 @@ const loadItemsForTab = useCallback(async (tab: Tab | null) => {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-          {/* <label className="flex items-center gap-1.5 text-sm text-gray-600">
-            <input
-              type="checkbox"
-              checked={showInactive}
-              onChange={(e) => setShowInactive(e.target.checked)}
-              className="rounded border-gray-300"
-            />
-            Show inactive
-          </label> */}
         </div>
 
         {/* Items Grid */}

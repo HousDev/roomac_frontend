@@ -1,3 +1,4 @@
+// components/admin/masters/DebugPanel.tsx
 "use client";
 
 import { useState } from "react";
