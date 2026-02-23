@@ -39,10 +39,8 @@ export default function AdminLoginPage() {
       toast.success("Login successful 🎉", {
         duration: 3000,
       });
-      console.log("Admin logged in:", data.user.email);
-      console.log("redirecting to dashboard...");
+      
       router.push('/admin/dashboard');
-      console.log("Redirected to /admin/dashboard");
     } catch (err: any) {
       const msg = err?.message || 'Something went wrong';
       setError(msg);

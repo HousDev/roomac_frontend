@@ -1,5 +1,3 @@
-
-// app/admin/settings/page.tsx
 "use client";
 
 import { useEffect, useState } from 'react';
@@ -8,9 +6,6 @@ import { getSettings, updateSettings, uploadFile, SettingsData } from '@/lib/set
 import SettingsLayout from '@/components/admin/settings/SettingsLayout';
 import GeneralSettings from '@/components/admin/settings/GeneralSettings';
 import BrandingSettings from '@/components/admin/settings/BrandingSettings';
-import SMSSettings from '@/components/admin/settings/SMSSettings';
-import EmailSettings from '@/components/admin/settings/EmailSettings';
-import PaymentSettings from '@/components/admin/settings/PaymentSettings';
 import NotificationSettings from '@/components/admin/settings/NotificationSettings';
 import AdvancedSettings from '@/components/admin/settings/AdvancedSettings';
 import SaveSettingsBar from '@/components/admin/settings/SaveSettingsBar';
@@ -98,17 +93,12 @@ export default function SettingsPage() {
     setShowSecrets(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const testConnection = async (type: 'sms' | 'email' | 'payment') => {
-    toast.info(`Testing ${type} connection...`);
-    // Implement test functionality here
-  };
-
   if (loading) {
     return <LoadingSkeleton />;
   }
 
   return (
-    <SettingsLayout title="Settings" description="Manage your platform configuration">
+    <SettingsLayout title="General Settings" description="Manage your platform configuration">
       <GeneralSettings 
         settings={settings}
         updateSetting={updateSetting}
@@ -119,30 +109,6 @@ export default function SettingsPage() {
         updateSetting={updateSetting}
         uploading={uploading}
         handleFileUpload={handleFileUpload}
-      />
-      
-      <SMSSettings 
-        settings={settings}
-        updateSetting={updateSetting}
-        showSecrets={showSecrets}
-        toggleSecretVisibility={toggleSecretVisibility}
-        testConnection={testConnection}
-      />
-      
-      <EmailSettings 
-        settings={settings}
-        updateSetting={updateSetting}
-        showSecrets={showSecrets}
-        toggleSecretVisibility={toggleSecretVisibility}
-        testConnection={testConnection}
-      />
-      
-      <PaymentSettings 
-        settings={settings}
-        updateSetting={updateSetting}
-        showSecrets={showSecrets}
-        toggleSecretVisibility={toggleSecretVisibility}
-        testConnection={testConnection}
       />
       
       <NotificationSettings 

@@ -271,12 +271,10 @@ const handleSearch = () => {
     params.append('price', selectedPriceKey);
   }
   
-  // Redirect to properties page with search params
-  // Agar koi filter nahi hai to sirf /properties par jayen
+  
   const queryString = params.toString();
   const url = queryString ? `/properties?${queryString}` : '/properties';
   
-  console.log('Redirecting to:', url); // Debug ke liye
   router.push(url);
 };
 

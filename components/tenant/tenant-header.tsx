@@ -79,18 +79,15 @@ export default function TenantHeader({
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      console.log("Searching for:", searchQuery);
       // Implement search functionality
     }
   };
 
   const markNotificationAsRead = (id: number) => {
-    console.log("Mark notification as read:", id);
     // Implement notification read logic
   };
 
   const markAllAsRead = () => {
-    console.log("Mark all notifications as read");
     // Implement mark all as read logic
   };
 

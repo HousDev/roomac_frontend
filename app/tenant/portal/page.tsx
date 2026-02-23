@@ -459,72 +459,221 @@ export default function TenantPortalPage() {
   return (
     <div className="p-4 sm:p-6">
       {/* Welcome Banner */}
-      <div className="mb-6 bg-[#0149ab] rounded-xl p-4 sm:p-6 text-white">
-        <h1 className="text-xl sm:text-2xl font-bold mb-1">
-          Hey, {tenant?.full_name?.split(" ")[0] || "Rahul"}! 👋
-        </h1>
-        <p className="text-blue-100 text-sm sm:text-base flex items-center gap-2">
-          <Building className="h-4 w-4 shrink-0" />
-          <span className="truncate">
-            {tenant?.property_name || "Roomac Heights"} · Room{" "}
-            {tenant?.room_number || "204"} · Bed {tenant?.bed_number || "1"}
-          </span>
-        </p>
-      </div>
+    {/* Welcome Banner - Compact & Moved Up */}
+<div className="mb-4 bg-white border border-slate-200 rounded-lg p-3 text-slate-900 shadow-sm">
+ <h1 className="text-xl font-semibold text-slate-900">
+              Welcome back,{" "}
+              <span className="text-[#0149ab]">
+                {tenant?.salutation
+                  ? `${tenant.salutation} ${tenant?.full_name?.split(" ")[0]}`
+                  : tenant?.full_name?.split(" ")[0] || "Tenant"}!👋
+              </span>
+            </h1>
+  <p className="text-slate-500 text-xs sm:text-sm flex items-center gap-1.5 mt-0.5">
+    <Building className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+    <span className="truncate">
+      {tenant?.property_name || "Roomac Heights"} · Room {tenant?.room_number || "204"} · Bed {tenant?.bed_number || "1"}
+    </span>
+  </p>
+</div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
+     
+      {/* ── Stats Cards ── */}
+<div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+
+  {/* Rent Due Card — Blue */}
+  <Card className="border border-blue-200/50 bg-gradient-to-br from-blue-50 to-white shadow-sm hover:shadow-md transition-all">
+    <CardContent className="p-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center">
+            <Calendar className="h-4 w-4 text-blue-600" />
+          </div>
+          <div>
+            <p className="text-xs font-medium text-slate-600">Rent Due</p>
+            <div className="flex items-baseline gap-1">
+              <p className="text-lg font-bold text-slate-900">{stats.daysUntilRentDue}</p>
+              <span className="text-xs font-medium text-slate-500">days</span>
+            </div>
+          </div>
+        </div>
+        <div className="text-right">
+          <p className="text-xs text-slate-500 mb-1">Amount</p>
+          <p className="text-base font-bold text-blue-700">
+            ₹{stats.monthlyRent.toLocaleString("en-IN")}
+          </p>
+        </div>
+      </div>
+      <div className="mt-3">
+        <div className="flex justify-between text-xs text-slate-500 mb-1">
+          <span>Today</span>
+          <span className="font-medium">
+            {new Date(stats.nextDueDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+          </span>
+        </div>
+        <div className="w-full bg-slate-100 rounded-full h-1.5">
+          <div
+            className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-full h-1.5 transition-all duration-500"
+            style={{ width: `${Math.min((stats.daysUntilRentDue / 30) * 100, 100)}%` }}
+          />
+        </div>
+      </div>
+    </CardContent>
+  </Card>
+
+  {/* Open Issues Card — Amber/Orange */}
+  <Card className="border border-orange-200/50 bg-gradient-to-br from-orange-50 to-white shadow-sm hover:shadow-md transition-all">
+    <CardContent className="p-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-orange-100 to-amber-100 flex items-center justify-center">
+            <AlertCircle className="h-4 w-4 text-orange-600" />
+          </div>
+          <div>
+            <p className="text-xs font-medium text-slate-600">Open Issues</p>
+            <p className="text-lg font-bold text-slate-900">{stats.openComplaints}</p>
+          </div>
+        </div>
+        <div className="text-right">
+          <p className="text-xs text-slate-500 mb-1">Urgent</p>
+          <Badge variant="destructive" className="text-xs px-2 py-0.5">
+            {stats.urgentComplaints}
+          </Badge>
+        </div>
+      </div>
+      <div className="mt-3 flex gap-1">
+        <div className="flex-1 bg-amber-100 rounded-lg p-1.5 text-center">
+          <p className="text-xs font-semibold text-amber-900">In Progress</p>
+          <p className="text-xs text-amber-700">{stats.inProgressComplaints}</p>
+        </div>
+        <div className="flex-1 bg-orange-100 rounded-lg p-1.5 text-center">
+          <p className="text-xs font-semibold text-orange-900">Pending</p>
+          <p className="text-xs text-orange-700">
+            {stats.openComplaints - stats.inProgressComplaints}
+          </p>
+        </div>
+      </div>
+    </CardContent>
+  </Card>
+
+  {/* Pending Payments Card — Emerald */}
+  <Card className="border border-emerald-200/50 bg-gradient-to-br from-emerald-50 to-white shadow-sm hover:shadow-md transition-all">
+    <CardContent className="p-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-emerald-100 to-green-100 flex items-center justify-center">
+            <CreditCard className="h-4 w-4 text-emerald-600" />
+          </div>
+          <div>
+            <p className="text-xs font-medium text-slate-600">Pending</p>
+            <p className="text-lg font-bold text-slate-900">{stats.pendingCount}</p>
+          </div>
+        </div>
+        <div className="text-right">
+          <p className="text-xs text-slate-500 mb-1">Total</p>
+          <p className="text-base font-bold text-emerald-700">
+            {formatCurrency(stats.totalPending)}
+          </p>
+        </div>
+      </div>
+      <div className="mt-3">
+        <Button
+          size="sm"
+          className="w-full bg-emerald-600 hover:bg-emerald-700 h-7 text-xs"
+          onClick={() => { handleTabChange("payments"); setShowPaymentDialog(true); }}
+        >
+          <CreditCard className="h-3 w-3 mr-1.5" />
+          Pay Now
+        </Button>
+      </div>
+    </CardContent>
+  </Card>
+
+  {/* PG Rating Card — Purple */}
+  <Card className="border border-purple-200/50 bg-gradient-to-br from-purple-50 to-white shadow-sm hover:shadow-md transition-all">
+    <CardContent className="p-3">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-purple-100 to-violet-100 flex items-center justify-center">
+            <Bell className="h-4 w-4 text-purple-600" />
+          </div>
+          <div>
+            <p className="text-xs font-medium text-slate-600">PG Rating</p>
+            <p className="text-lg font-bold text-slate-900">4.8</p>
+          </div>
+        </div>
+        <Badge className="bg-green-500 hover:bg-green-600 text-xs">↑ +0.5</Badge>
+      </div>
+      <div className="grid grid-cols-3 gap-1">
         {[
-          { label: "Monthly Rent", value: formatCurrency(stats.monthlyRent), sub: `Due in ${stats.daysUntilRentDue} days` },
-          { label: "Total Paid", value: formatCurrency(stats.totalPaid), sub: "All time" },
-          { label: "Days Staying", value: stats.occupancyDays, sub: `Since ${formatDate(tenant?.check_in_date || "2024-01-15")}` },
-          { label: "Room Type", value: tenant?.preferred_sharing || "Double", sub: "Sharing", capitalize: true },
-        ].map((card) => (
-          <Card key={card.label} className="border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-            <CardContent className="p-4 sm:p-5">
-              <p className="text-xs sm:text-sm text-slate-500 mb-1">{card.label}</p>
-              <p className={`text-lg sm:text-2xl font-bold text-slate-900 ${card.capitalize ? "capitalize" : ""}`}>
-                {card.value}
-              </p>
-              <p className="text-xs text-slate-500 mt-1">{card.sub}</p>
-            </CardContent>
-          </Card>
+          { label: "Clean", score: 9,   color: "bg-emerald-400" },
+          { label: "Maint.", score: 8.5, color: "bg-blue-400" },
+          { label: "Commu.", score: 8.7, color: "bg-purple-400" },
+        ].map((item) => (
+          <div key={item.label} className="text-center">
+            <div className="text-xs font-bold text-slate-900">{item.score}</div>
+            <div className="text-[10px] text-slate-600">{item.label}</div>
+            <div className="h-1 rounded-full bg-slate-200 mt-1">
+              <div
+                className={`h-1 rounded-full ${item.color}`}
+                style={{ width: `${item.score * 10}%` }}
+              />
+            </div>
+          </div>
         ))}
       </div>
+    </CardContent>
+  </Card>
+
+</div>
+
 
       {/* Action Buttons */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
-        <Button variant="outline"
-          className="h-auto py-3 sm:py-4 flex flex-col items-center gap-1 sm:gap-2 bg-white hover:bg-blue-50 border border-slate-200 text-slate-700 hover:text-[#0149ab] shadow-sm"
-          onClick={() => setShowComplaintDialog(true)}>
-          <AlertCircle className="h-5 w-5 sm:h-6 sm:w-6 text-[#0149ab]" />
-          <span className="text-xs sm:text-sm font-medium">Raise Complaint</span>
-        </Button>
+   {/* Action Buttons - Small height and width as requested */}
+<div className="grid grid-cols-4 gap-2 sm:gap-3 mb-6">
+  <Button
+    variant="outline"
+    className="h-auto py-2 px-1 flex flex-col items-center justify-center gap-0.5 bg-white hover:bg-blue-50 border border-slate-200 text-slate-700 hover:text-[#0149ab] shadow-sm rounded-lg"
+    onClick={() => setShowComplaintDialog(true)}
+  >
+    <AlertCircle className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
+    <span className="text-[10px] sm:text-xs font-medium text-center leading-tight">Raise Complaint</span>
+    <span className="text-[8px] sm:text-[10px] text-slate-400 text-center leading-tight hidden sm:block">Report any issues</span>
+  </Button>
 
-        <Button variant="outline"
-          className="h-auto py-3 sm:py-4 flex flex-col items-center gap-1 sm:gap-2 bg-white hover:bg-blue-50 border border-slate-200 text-slate-700 hover:text-[#0149ab] shadow-sm"
-          onClick={() => setShowLeaveDialog(true)}>
-          <Calendar className="h-5 w-5 sm:h-6 sm:w-6 text-[#0149ab]" />
-          <span className="text-xs sm:text-sm font-medium">Request Leave</span>
-        </Button>
+  <Button
+    variant="outline"
+    className="h-auto py-2 px-1 flex flex-col items-center justify-center gap-0.5 bg-white hover:bg-blue-50 border border-slate-200 text-slate-700 hover:text-[#0149ab] shadow-sm rounded-lg"
+    onClick={() => setShowLeaveDialog(true)}
+  >
+    <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-green-500" />
+    <span className="text-[10px] sm:text-xs font-medium text-center leading-tight">Request Leave</span>
+    <span className="text-[8px] sm:text-[10px] text-slate-400 text-center leading-tight hidden sm:block">Vacation or early leave</span>
+  </Button>
 
-        <Button variant="outline"
-          className="h-auto py-3 sm:py-4 flex flex-col items-center gap-1 sm:gap-2 bg-white hover:bg-blue-50 border border-slate-200 text-slate-700 hover:text-[#0149ab] shadow-sm"
-          onClick={() => navigate("/tenant/documents")}>
-          <FileText className="h-5 w-5 sm:h-6 sm:w-6 text-[#0149ab]" />
-          <span className="text-xs sm:text-sm font-medium">Documents</span>
-        </Button>
+  <Button
+    variant="outline"
+    className="h-auto py-2 px-1 flex flex-col items-center justify-center gap-0.5 bg-white hover:bg-blue-50 border border-slate-200 text-slate-700 hover:text-[#0149ab] shadow-sm rounded-lg"
+    onClick={() => navigate("/tenant/documents")}
+  >
+    <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-purple-500" />
+    <span className="text-[10px] sm:text-xs font-medium text-center leading-tight">View Agreement</span>
+    <span className="text-[8px] sm:text-[10px] text-slate-400 text-center leading-tight hidden sm:block">Rental contract</span>
+  </Button>
 
-        <Button
-          className="h-auto py-3 sm:py-4 flex flex-col items-center gap-1 sm:gap-2 bg-[#0149ab] hover:bg-[#0149ab]/90 text-white border-none shadow-sm"
-          onClick={() => {
-            handleTabChange("payments");
-            setShowPaymentDialog(true);
-          }}>
-          <CreditCard className="h-5 w-5 sm:h-6 sm:w-6" />
-          <span className="text-xs sm:text-sm font-medium">Make Payment</span>
-        </Button>
-      </div>
+  <Button
+    variant="outline"
+    className="h-auto py-2 px-1 flex flex-col items-center justify-center gap-0.5 bg-white hover:bg-blue-50 border border-slate-200 text-slate-700 hover:text-[#0149ab] shadow-sm rounded-lg"
+    onClick={() => {
+      handleTabChange("payments");
+      setShowPaymentDialog(true);
+    }}
+  >
+    <CreditCard className="h-4 w-4 sm:h-5 sm:w-5 text-amber-500" />
+    <span className="text-[10px] sm:text-xs font-medium text-center leading-tight">Download Invoice</span>
+    <span className="text-[8px] sm:text-[10px] text-slate-400 text-center leading-tight hidden sm:block">Payment receipts</span>
+  </Button>
+</div>
 
       {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -711,7 +860,7 @@ export default function TenantPortalPage() {
         {/* Right Column */}
         <div className="space-y-6">
           {/* Accommodation */}
-          <Card className="bg-[#0149ab] text-white border-none shadow-lg">
+          {/* <Card className="bg-[#0149ab] text-white border-none shadow-lg">
             <CardHeader className="pb-2 px-4 sm:px-6">
               <CardTitle className="text-base sm:text-lg font-semibold flex items-center gap-2 text-white">
                 <Building className="h-4 w-4 sm:h-5 sm:w-5" />
@@ -740,7 +889,7 @@ export default function TenantPortalPage() {
                 ))}
               </div>
             </CardContent>
-          </Card>
+          </Card> */}
 
           {/* Contract Details */}
           <Card className="border border-slate-200 shadow-sm">

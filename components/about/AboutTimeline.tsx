@@ -102,7 +102,7 @@ export default function AboutTimeline({ milestones, onScroll }: AboutTimelinePro
                   ref={cardRefs[index]}
                   className={`flex flex-col md:flex-row items-start gap-8 opacity-0 ${index % 2 === 0 ? '' : 'md:flex-row-reverse'}`}
                   style={{
-                    animation: `cardReveal 0.8s ease-out ${1.8 + (index * 0.2)}s forwards`
+                    animation: `cardReveal 0.4s ease-out ${1.8 + (index * 0.2)}s forwards`
                   }}
                 >
                   <div className="md:w-1/2">

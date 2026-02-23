@@ -49,9 +49,7 @@ export default function LoginClient({ initialPropertyImages }: LoginClientProps)
       else if(role === "tenant")
       router.push("/tenant/portal");
     setTimeout(() => {
-      // if(role === "admin") router.push("/admin/dashboard");
-      // else if(role === "tenant")
-      // router.push("/tenant/portal");
+    
     }, 2500);
   }, [router]);
 
@@ -62,7 +60,6 @@ export default function LoginClient({ initialPropertyImages }: LoginClientProps)
 
     try {
       const result:any = await loginTenant(credentials.email, credentials.password);
-      console.log(result);
 
       if (result.success && result.token) {
          
@@ -83,13 +80,12 @@ export default function LoginClient({ initialPropertyImages }: LoginClientProps)
         }
       
       }
-        // ✅ Use auth context
        
         
 
         toast.success("Login successful", {
           duration: 3000,
-        }); // ✅ ADDED
+        }); 
         handleSuccessfulLogin(result.role);
       } else {
         toast.error(result.error || result.message || "Invalid credentials");

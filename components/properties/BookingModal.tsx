@@ -309,8 +309,6 @@ const ConfirmationModal = ({
 
 const SALUTATIONS = ['Mr.', 'Mrs.', 'Ms.', 'Dr.', 'Prof.', 'Adv.', 'Er.', 'Miss'];
 
-// Helper function to check if a room allows a specific gender
-// Helper function to check if a room allows a specific gender
 const isRoomAllowedForGender = (room: any, gender: string): boolean => {
   if (!gender || gender === 'all' || gender === '') return true;
   
@@ -319,7 +317,6 @@ const isRoomAllowedForGender = (room: any, gender: string): boolean => {
   
   const normalizedGender = gender.toLowerCase();
   
-  console.log(`Checking room ${room.room_number} with preferences:`, preferences, 'for gender:', normalizedGender);
   
   // For male selection
   if (normalizedGender === 'male') {
@@ -526,7 +523,6 @@ const [rooms, setRooms] = useState<any[]>([]); // Filtered rooms for display
       }));
 
       if (propertyData?.id) {
-        console.log('Fetching rooms for property:', propertyData.id);
         fetchRooms();
       }
     } else {
@@ -568,7 +564,6 @@ const [rooms, setRooms] = useState<any[]>([]); // Filtered rooms for display
       const room = rooms.find(r => String(r.id) === preselectedIdStr);
       
       if (room) {
-        console.log('Found preselected room:', room);
         preselectionAttempted.current = true;
         
         // Set the selected room
@@ -604,7 +599,6 @@ const [rooms, setRooms] = useState<any[]>([]); // Filtered rooms for display
 // Filter rooms based on selected gender
 useEffect(() => {
   if (allRooms.length > 0 && formData.gender) {
-    console.log('Filtering rooms for gender:', formData.gender);
     const filteredRooms = allRooms.filter(room => isRoomAllowedForGender(room, formData.gender));
     setRooms(filteredRooms);
     
@@ -638,7 +632,6 @@ const fetchRooms = async () => {
 
   try {
     const response: any = await listRoomsByProperty(Number(propertyData.id));
-    console.log('Rooms API response:', response);
     
     let roomsData = [];
 
@@ -654,7 +647,6 @@ const fetchRooms = async () => {
       }
     }
 
-    console.log('Raw rooms data:', roomsData);
 
     if (roomsData.length > 0) {
       const transformedRooms = roomsData.map((room: any) => {
@@ -682,7 +674,6 @@ const fetchRooms = async () => {
         // IMPORTANT: Preserve the original gender preference array
         const genderPreference = room.room_gender_preference || [];
         
-        console.log(`Room ${room.room_number} gender preferences:`, genderPreference);
 
         return {
           id: room.id,
@@ -705,7 +696,6 @@ const fetchRooms = async () => {
 
       // Filter only available rooms
       const availableRooms = transformedRooms.filter((room: any) => room.is_available === true);
-      console.log('Transformed available rooms:', availableRooms);
       
       // Store all available rooms
       setAllRooms(availableRooms);
@@ -715,7 +705,6 @@ const fetchRooms = async () => {
         ? availableRooms.filter((room: any) => isRoomAllowedForGender(room, formData.gender))
         : availableRooms;
       
-      console.log('Filtered rooms by gender:', filteredRooms);
       setRooms(filteredRooms);
 
       if (filteredRooms.length === 0) {
@@ -751,12 +740,10 @@ const fetchRooms = async () => {
   }, []);
 
 const handleRoomSelect = useCallback((room: Room) => {
-  console.log('Room selected:', room);
   setSelectedRoom(room);
   
   // Get gender preferences
   const genderPref = room.gender_preference || [];
-  console.log('Room gender preferences:', genderPref);
   
   // Auto-select gender based on room preference
   let autoGender = formData.gender;
@@ -873,7 +860,6 @@ const handleRoomSelect = useCallback((room: Room) => {
       });
 
       const result = await response.json();
-      console.log("booking error : ", result, selectedRoom)
       if (result.success) {
         setConfirmationData({
           id: result.bookingId,

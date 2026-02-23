@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from '@/src/compat/next-navigation';
-import { AdminHeader } from '@/components/admin/admin-header';
+// import { AdminHeader } from '@/components/admin/admin-header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -56,7 +56,6 @@ export default function NotificationsClientPage({
   // WebSocket for real-time updates
   useNotificationWebSocket({
     onNewNotification: (notification) => {
-      console.log('🔔 New real-time notification:', notification);
       setNotifications(prev => [notification, ...prev]);
       setStats((prev: { [x: string]: number; total: number; unread: number; }) => ({
         ...prev,
@@ -67,7 +66,6 @@ export default function NotificationsClientPage({
       toast.info('New notification received!');
     },
     onNotificationRead: (notificationId) => {
-      console.log('✅ Notification marked as read:', notificationId);
       setNotifications(prev => prev.map(notif => 
         notif.id === notificationId ? { ...notif, is_read: true } : notif
       ));
@@ -191,7 +189,7 @@ export default function NotificationsClientPage({
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <AdminHeader title="Notifications" description={''} />
+      {/* <AdminHeader title="Notifications" description={''} /> */}
       
       <div className="max-w-7xl mx-auto p-6">
         {/* Stats Cards */}

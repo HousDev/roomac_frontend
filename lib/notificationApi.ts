@@ -34,7 +34,6 @@ export interface NotificationStats {
 // Simple fetch wrapper
 async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
   try {
-    console.log(`🌐 API Call: ${API_BASE_URL}${url}`);
     
     const response = await fetch(`${API_BASE_URL}${url}`, {
       ...options,
@@ -58,7 +57,6 @@ async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
 // Get admin notifications
 export const getAdminNotifications = async (limit = 10): Promise<Notification[]> => {
   try {
-    console.log(`🔔 Fetching admin notifications (limit: ${limit})`);
     
     const response = await apiFetch<{
       success: boolean;
@@ -66,7 +64,6 @@ export const getAdminNotifications = async (limit = 10): Promise<Notification[]>
     }>(`/api/admin/notifications?limit=${limit}`);
     
     if (response.success) {
-      console.log(`✅ Found ${response.data.length} notifications`);
       return response.data;
     }
     
@@ -197,7 +194,6 @@ export const testNotificationAPI = async () => {
     }
   }
   
-  console.log('🧪 API Test Results:', results);
   return results;
 };
 

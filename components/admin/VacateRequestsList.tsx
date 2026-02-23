@@ -306,20 +306,12 @@ const handleStatusUpdate = async () => {
       penalty_waived: statusUpdateData.penalty_waived,
     };
 
-    // DEBUG: Check what tokens are available
-    console.log('🔍 DEBUG - All localStorage items:');
-    Object.keys(localStorage).forEach(key => {
-      if (key.includes('token') || key.includes('admin')) {
-        console.log(`${key}: ${localStorage.getItem(key)?.substring(0, 30)}...`);
-      }
-    });
     
     // Get token from all possible locations
-    const adminToken = localStorage.getItem('admin_token');
+    const adminToken = localStorage.getItem('auth_token');
     const genericToken = localStorage.getItem('token');
     const token = adminToken || genericToken;
     
-    console.log('🔑 Selected token:', token ? `${token.substring(0, 30)}...` : 'NO TOKEN');
     
     if (!token) {
       toast.error('No authentication token found. Please login again.');
@@ -333,10 +325,7 @@ const handleStatusUpdate = async () => {
       'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json',
     };
-    
-    console.log('📤 Request headers being sent:', headers);
-    console.log('📦 Request payload:', payload);
-    console.log('🌐 Making request to:', `/api/admin/vacate-requests/${selectedRequest.vacate_request_id}/status`);
+   
     
     const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/vacate-requests/${selectedRequest.vacate_request_id}/status`, {
       method: 'PUT',
@@ -344,12 +333,9 @@ const handleStatusUpdate = async () => {
       body: JSON.stringify(payload),
     });
 
-    console.log('📥 Response status:', response.status);
-    console.log('📥 Response headers:', Object.fromEntries(response.headers.entries()));
-    
+  
     // Try to read response text
     const responseText = await response.text();
-    console.log('📥 Response body:', responseText);
     
     if (!response.ok) {
       let errorMessage = `HTTP ${response.status}`;
@@ -394,33 +380,6 @@ const handleStatusUpdate = async () => {
     setSubmitting(false);
   }
 };
-
-  // const sendNotificationToTenant = async (tenantId: number, status: string) => {
-  //   try {
-  //     const token = localStorage.getItem('admin_token');
-  //     if (!token) return;
-
-  //     const notificationData = {
-  //       user_id: tenantId,
-  //       user_type: 'tenant',
-  //       title: `Vacate Request ${status.replace('_', ' ')}`,
-  //       message: `Your vacate request has been ${status.replace('_', ' ')}`,
-  //       type: 'vacate_request',
-  //       data: { request_id: selectedRequest?.vacate_request_id }
-  //     };
-
-  //     await fetch('http://localhost:3001/api/notifications', {
-  //       method: 'POST',
-  //       headers: {
-  //         'Authorization': `Bearer ${token}`,
-  //         'Content-Type': 'application/json',
-  //       },
-  //       body: JSON.stringify(notificationData),
-  //     });
-  //   } catch (error) {
-  //     console.error('Error sending notification:', error);
-  //   }
-  // };
 
   const getStatusBadge = (status: VacateRequest['vacate_status']) => {
     const config = {

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { AdminHeader } from '@/components/admin/admin-header';
+// import { AdminHeader } from '@/components/admin/admin-header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -181,7 +181,7 @@ useEffect(() => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <AdminHeader title="Add-ons Management" description={''} />
+      {/* <AdminHeader title="Add-ons Management" description={''} /> */}
       
       {/* Form Modal */}
       {showForm && (

@@ -204,60 +204,9 @@ export type ComplaintReason = {
   is_active?: number;
 };
 
-/* =========================================================
-   GET MY TENANT REQUESTS - FIXED WITH MANUAL TOKEN PASSING
-========================================================= */
-// export const getMyTenantRequests = async (): Promise<TenantRequest[]> => {
-//   try {
-//     console.log('🔄 Getting tenant requests...');
-    
-//     // Get token from tenantAuthApi.ts
-//     const token = getTenantToken();
-//     console.log('🔑 Token status:', token ? 'Token exists' : 'No token found');
-    
-//     if (!token) {
-//       console.error('❌ No authentication token found');
-//       throw new Error("No authentication token found. Please login again.");
-//     }
-
-//     console.log('📡 Making request to /api/tenant-requests...');
-    
-//     // Pass token manually in headers
-//     const res = await request<{
-//       success: boolean;
-//       data: TenantRequest[];
-//     }>("/api/tenant-requests", {
-//       method: "GET",
-//       headers: {
-//         'Authorization': `Bearer ${token}`
-//       }
-//     });
-
-//     console.log('📊 Tenant requests response:', res);
-
-//     if (!res.success || !Array.isArray(res.data)) {
-//       console.warn('⚠️ No valid data in response:', res);
-//       return [];
-//     }
-
-//     console.log(`✅ Found ${res.data.length} tenant requests`);
-//     return res.data;
-//   } catch (error: any) {
-//     console.error('❌ Error getting tenant requests:', error);
-    
-//     // Check if it's a 401 error
-//     if (error.message.includes('401') || error.message.includes('Unauthorized')) {
-//       console.error('🔐 Authentication failed. Token might be invalid or expired.');
-//       throw new Error('Authentication failed. Please login again.');
-//     }
-    
-//     throw error;
-//   }
-// };
 
 export const getMyTenantRequests = async (): Promise<TenantRequest[]> => {
   try {
-    console.log('🔵 Getting tenant requests via tenantApiRequest...');
     
     const res = await tenantApiRequest<{
       success: boolean;
@@ -290,180 +239,10 @@ export const getMyTenantRequests = async (): Promise<TenantRequest[]> => {
   }
 };
 
-/* =========================================================
-   CREATE TENANT REQUEST - FIXED
-========================================================= */
-// export async function createTenantRequest(data: any) {
-//   try {
-//     console.log('🔄 Creating tenant request...', data);
-    
-//     // Get token from tenantAuthApi.ts
-//     const token = getTenantToken();
-    
-//     if (!token) {
-//       throw new Error("No authentication token found. Please login again.");
-//     }
-    
-//     const res = await request<{
-//       success: boolean;
-//       message?: string;
-//       data?: any;
-//     }>("/api/tenant-requests", {
-//       method: "POST",
-//       headers: {
-//         'Authorization': `Bearer ${token}`
-//       },
-//       body: JSON.stringify(data),
-//     });
 
-//     if (!res.success) {
-//       console.error('❌ Create request failed:', res);
-//       throw new Error(res.message || "Failed to create request");
-//     }
-
-//     console.log('✅ Request created successfully:', res);
-//     return res;
-//   } catch (error: any) {
-//     console.error('❌ Error creating tenant request:', error);
-    
-//     // Handle specific error cases
-//     if (error.message.includes('lock-in period penalty')) {
-//       throw new Error('You must agree to the lock-in period penalty.');
-//     } else if (error.message.includes('notice period penalty')) {
-//       throw new Error('You must agree to the notice period penalty.');
-//     }
-    
-//     throw error;
-//   }
-// }
-
-// export const getMyTenantRequests = async (): Promise<TenantRequest[]> => {
-//   try {
-//     console.log('🔄 Getting tenant requests...');
-    
-//     const token = getTenantToken();
-//     console.log('🔑 Token status:', token ? 'Token exists' : 'No token found');
-    
-//     if (!token) {
-//       console.error('❌ No authentication token found');
-//       throw new Error("No authentication token found. Please login again.");
-//     }
-
-//     console.log('📡 Making request to /api/tenant-requests...');
-    
-//     // Try with fetch directly to get the raw response
-//     const response = await fetch('http://localhost:3001/api/tenant-requests', {
-//       method: "GET",
-//       headers: {
-//         'Authorization': `Bearer ${token}`,
-//         'Content-Type': 'application/json'
-//       }
-//     });
-
-//     // Get the raw text first
-//     const text = await response.text();
-//     console.log('📊 Raw response text (first 500 chars):', text.substring(0, 500));
-
-//     try {
-//       // Try to parse it as JSON
-//       const res = JSON.parse(text);
-      
-//       console.log('📊 Tenant requests response:', {
-//         success: res.success,
-//         dataLength: res.data?.length || 0
-//       });
-
-//       if (!res.success) {
-//         console.error('❌ API returned failure:', res);
-//         throw new Error(res.message || "Failed to get tenant requests");
-//       }
-
-//       if (!Array.isArray(res.data)) {
-//         console.warn('⚠️ No valid data array in response:', res);
-//         return [];
-//       }
-
-//       console.log(`✅ Found ${res.data.length} tenant requests`);
-      
-//       // Log all vacate_bed requests for debugging
-//       const vacateRequests = res.data.filter(r => r.request_type === 'vacate_bed');
-//       console.log(`📋 Found ${vacateRequests.length} vacate_bed requests:`, vacateRequests);
-      
-//       return res.data;
-      
-//     } catch (parseError) {
-//       console.error('❌ Error parsing JSON response:', parseError);
-//       console.error('Raw response that failed to parse:', text);
-//       throw new Error('Failed to parse server response');
-//     }
-    
-//   } catch (error: any) {
-//     console.error('❌ Error getting tenant requests:', error);
-    
-//     // Check if it's a 401 error
-//     if (error.message?.includes('401') || error.message?.includes('Unauthorized')) {
-//       console.error('🔐 Authentication failed. Token might be invalid or expired.');
-//       throw new Error('Authentication failed. Please login again.');
-//     }
-    
-//     throw error;
-//   }
-// };
-
-// export async function createTenantRequest(data: any) {
-//   try {
-//     console.log('🔄 Creating tenant request...', data);
-    
-//     const token = getTenantToken();
-    
-//     if (!token) {
-//       throw new Error("No authentication token found. Please login again.");
-//     }
-    
-//     const res = await request<{
-//       success: boolean;
-//       message?: string;
-//       code?: string;
-//       data?: any;
-//     }>("/api/tenant-requests", {
-//       method: "POST",
-//       headers: {
-//         'Authorization': `Bearer ${token}`
-//       },
-//       body: JSON.stringify(data),
-//     });
-
-//     // Handle duplicate request error
-//     if (res.code === 'DUPLICATE_VACATE_REQUEST') {
-//       throw new Error(res.message || "You already have a pending vacate request.");
-//     }
-
-//     if (!res.success) {
-//       console.error('❌ Create request failed:', res);
-//       throw new Error(res.message || "Failed to create request");
-//     }
-
-//     console.log('✅ Request created successfully:', res);
-//     return res;
-//   } catch (error: any) {
-//     console.error('❌ Error creating tenant request:', error);
-    
-//     // Handle specific error cases
-//     if (error.message.includes('lock-in period penalty')) {
-//       throw new Error('You must agree to the lock-in period penalty.');
-//     } else if (error.message.includes('notice period penalty')) {
-//       throw new Error('You must agree to the notice period penalty.');
-//     } else if (error.message.includes('already have a pending')) {
-//       throw error; // Pass through the duplicate request error
-//     }
-    
-//     throw error;
-//   }
-// }
 
 export async function createTenantRequest(data: any) {
   try {
-    console.log('🔵 Creating tenant request via tenantApiRequest...', data);
     
     const res = await tenantApiRequest<{
       success: boolean;
@@ -475,7 +254,6 @@ export async function createTenantRequest(data: any) {
       body: JSON.stringify(data),
     });
 
-    console.log('📊 Create request response:', res);
 
     // Handle duplicate request error
     if (res.code === 'DUPLICATE_VACATE_REQUEST') {
@@ -521,7 +299,6 @@ export async function createTenantRequest(data: any) {
 // Add to lib/tenantRequestsApi.ts
 export const getMyVacateRequests = async (): Promise<TenantRequest[]> => {
   try {
-    console.log('🔄 Getting vacate bed requests...');
     
     const token = getTenantToken();
     
@@ -570,9 +347,9 @@ const getAdminToken = (): string => {
   }
   
   // Check multiple possible token storage locations
-  const adminToken = localStorage.getItem('admin_token');
+  const adminToken = localStorage.getItem('auth_token');
   const genericToken = localStorage.getItem('token');
-  const sessionAdminToken = sessionStorage.getItem('admin_token');
+  const sessionAdminToken = sessionStorage.getItem('auth_token');
   const sessionGenericToken = sessionStorage.getItem('token');
   
   // Priority: admin_token > token > session_admin_token > session_token
@@ -580,8 +357,7 @@ const getAdminToken = (): string => {
   
   if (!token) {
     console.error('❌ No authentication token found in storage');
-    console.log('Available localStorage keys:', Object.keys(localStorage));
-    console.log('Available sessionStorage keys:', Object.keys(sessionStorage));
+   
     
     // Redirect to login
     if (typeof window !== 'undefined') {
@@ -756,14 +532,14 @@ export const checkAuthStatus = () => {
   }
   
   console.log('🔍 Checking authentication status:');
-  console.log('admin_token:', localStorage.getItem('admin_token'));
+  console.log('auth_token:', localStorage.getItem('auth_token'));
   console.log('token:', localStorage.getItem('token'));
   console.log('admin_email:', localStorage.getItem('admin_email'));
   console.log('admin_logged_in:', localStorage.getItem('admin_logged_in'));
   
   // Try to get token
   try {
-    const token = localStorage.getItem('admin_token');
+    const token = localStorage.getItem('auth_token');
     if (token) {
       console.log('✅ Token found, length:', token.length);
       console.log('Token starts with:', token.substring(0, 20));

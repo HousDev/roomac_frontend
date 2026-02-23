@@ -93,10 +93,8 @@ export function AdminHeader({
   // Load notifications
   const loadNotifications = useCallback(async () => {
     try {
-      console.log('📬 Loading notifications...');
       const data = await getAdminNotifications(10); // Get 10 latest
       setNotifications(data);
-      console.log(`✅ Loaded ${data.length} notifications`);
     } catch (err: any) {
       console.error('Error loading notifications:', err);
       toast.error('Failed to load notifications');
@@ -106,10 +104,8 @@ export function AdminHeader({
   // Load unread count
   const loadUnreadCount = useCallback(async () => {
     try {
-      console.log('🔔 Loading unread count...');
       const count = await getAdminUnreadCount();
       setUnreadCount(count);
-      console.log(`✅ Unread count: ${count}`);
     } catch (err: any) {
       console.error('Error loading unread count:', err);
     }
@@ -122,7 +118,6 @@ export function AdminHeader({
 
     // Set up polling for new notifications every 30 seconds
     const interval = setInterval(() => {
-      console.log('🔄 Auto-refreshing notifications (30s interval)...');
       loadAllData();
     }, 30000); // 30 seconds
 
@@ -149,7 +144,6 @@ export function AdminHeader({
     if (e) e.stopPropagation();
 
     try {
-      console.log(`✅ Marking notification ${id} as read`);
       const success = await markNotificationAsRead(id);
 
       if (success) {
@@ -173,7 +167,6 @@ export function AdminHeader({
     e.stopPropagation();
 
     try {
-      console.log('✅ Marking all notifications as read');
       const success = await markAllAdminNotificationsAsRead();
 
       if (success) {
@@ -555,7 +548,7 @@ export function AdminHeader({
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
-                  className="flex items-center gap-1 h-auto p-1 md:p-2 hover:bg-slate-100"
+                  className="flex items-center gap-1 h-auto p-1 md:p-2 hover:bg-slate-300"
                 >
                   <Avatar className="h-6 w-6">
                     <AvatarImage src={profileImage} alt="Admin" />

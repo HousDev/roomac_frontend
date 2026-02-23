@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { AdminHeader } from "@/components/admin/admin-header";
+// import { AdminHeader } from "@/components/admin/admin-header";
 import {
   Card,
   CardContent,
@@ -683,7 +683,7 @@ export default function OffersClientPage({
 
   return (
     <div className="min-h-screen bg-slate-50 -mt-8 px-0 md:px-0">
-      <AdminHeader title="Offers" description={""} />
+      {/* <AdminHeader title="Offers" description={""} /> */}
 
       <div className="p-6">
         <Card className="border-0 shadow-xl bg-white">

@@ -4,4 +4,4 @@ export default function VacateRequestsPage() {
   return <VacateRequestsList />;
 }
 
-export const dynamic = 'force-dynamic'; // Optional: if you want fresh data on every load
+export const dynamic = 'force-dynamic'; 

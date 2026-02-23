@@ -46,7 +46,6 @@ export type ProfileResponse = {
 
 // Get current user's profile
 export async function getProfile(): Promise<ProfileResponse> {
-  console.log('🔄 getProfile API called');
   try {
     const result = await request<ProfileResponse>('/api/profile');
     console.log('✅ getProfile API response:', result);

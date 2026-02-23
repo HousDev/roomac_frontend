@@ -52,13 +52,7 @@ export function TenantFiltersSheet({
   };
 
   const handleApplyFilters = () => {
-    // Clean up empty string values
-    // const cleanedFilters: TenantFilters = {};
-    // Object.entries(localFilters).forEach(([key, value]) => {
-    //   if (value !== "" && value !== undefined && value !== null) {
-    //     cleanedFilters[key as keyof TenantFilters] = value;
-    //   }
-    // });
+    
     const cleanedFilters: TenantFilters = {};
 
 (Object.entries(localFilters) as [keyof TenantFilters, any][]).forEach(([key, value]) => {

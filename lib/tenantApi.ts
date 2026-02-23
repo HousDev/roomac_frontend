@@ -1,5 +1,5 @@
 // lib/tenantApi.ts - UPDATED VERSION
-import { request } from "@/lib/api";  // This already has API_BASE_URL = "http://localhost:3001"
+import { request } from "@/lib/api"; 
 
 export type Tenant = {
   id: number | string;
@@ -21,6 +21,7 @@ export type Tenant = {
   preferred_room_type?: string;
   preferred_property_id?: number;
   check_in_date?: string; 
+  
   id_proof_url?: string;
   address_proof_url?: string;
   photo_url?: string;
@@ -150,7 +151,6 @@ export type LocationOptions = {
 // Update tenant without files (for simple updates)
 // In tenantApi.ts - Add debugging
 export async function updateTenantSimple(id: string | number, payload: Partial<Tenant>): Promise<ApiResult> {
-  console.log('🔍 updateTenantSimple called:', { id, payload });
   
   try {
     const result = await enhancedFetch<ApiResult>(`/api/tenants/${id}`, {
@@ -161,7 +161,6 @@ export async function updateTenantSimple(id: string | number, payload: Partial<T
       body: JSON.stringify(payload),
     });
     
-    console.log('🔍 updateTenantSimple response:', result);
     return result;
   } catch (error: any) {
     console.error('❌ updateTenantSimple error:', error);
@@ -169,71 +168,6 @@ export async function updateTenantSimple(id: string | number, payload: Partial<T
   }
 }
 
-// SIMPLIFIED FETCH FUNCTION - Uses the existing `request` function
-// In tenantApi.ts - Update enhancedFetch function
-// async function enhancedFetch<T>(
-//   url: string,
-//   options: RequestInit = {}
-// ): Promise<T> {
-//   try {
-//     console.log('🔍 [enhancedFetch] Making API call:', {
-//       url,
-//       method: options.method,
-//       headers: options.headers,
-//       body: options.body
-//     });
-    
-//     const fullUrl = `http://localhost:3001${url}`;
-//     console.log('🔍 [enhancedFetch] Full URL:', fullUrl);
-    
-//     // Try using fetch directly to see what's happening
-//     const response = await fetch(fullUrl, {
-//       ...options,
-//       credentials: 'include', // Important for cookies/sessions
-//       headers: {
-//         'Content-Type': 'application/json',
-//         ...options.headers,
-//       },
-//     });
-    
-//     console.log('🔍 [enhancedFetch] Response status:', response.status, response.statusText);
-    
-//     const responseText = await response.text();
-//     console.log('🔍 [enhancedFetch] Response text:', responseText.substring(0, 500));
-    
-//     let data;
-//     try {
-//       data = responseText ? JSON.parse(responseText) : {};
-//     } catch (e) {
-//       console.error('❌ [enhancedFetch] Failed to parse JSON:', e);
-//       data = { success: false, message: 'Invalid JSON response' };
-//     }
-    
-//     if (!response.ok) {
-//       console.error('❌ [enhancedFetch] API error:', {
-//         status: response.status,
-//         data
-//       });
-//       throw {
-//         status: response.status,
-//         message: data.message || `HTTP ${response.status}`,
-//         response: data
-//       };
-//     }
-    
-//     console.log('✅ [enhancedFetch] Success:', data);
-//     return data as T;
-//   } catch (error: any) {
-//     console.error('❌ [enhancedFetch] Error:', {
-//       url,
-//       error: error.message,
-//       status: error.status,
-//       response: error.response
-//     });
-    
-//     throw error;
-//   }
-// }
 
 // In tenantApi.ts - Fix enhancedFetch function
 async function enhancedFetch<T>(
@@ -242,12 +176,7 @@ async function enhancedFetch<T>(
 ): Promise<T> {
   try {
     if (process.env.NODE_ENV === 'development') {
-      console.log('🔍 [enhancedFetch] Making API call:', {
-        url,
-        method: options.method,
-        hasBody: !!options.body,
-        isFormData: options.body instanceof FormData
-      });
+     
     }
     
     // IMPORTANT: Don't set Content-Type for FormData
@@ -324,7 +253,6 @@ async function enhancedFetch<T>(
     }
     
     if (process.env.NODE_ENV === 'development') {
-      console.log('✅ [enhancedFetch] Success:', data);
     }
     return data as T;
   } catch (error: any) {
@@ -370,18 +298,13 @@ export async function listTenants(filters: {
   const queryString = params.toString();
   const path = `/api/tenants${queryString ? `?${queryString}` : ""}`;
   
-  console.log('📡 Fetching tenants from:', path);
-  console.log('🔍 Filters applied:', filters);
+
   
   try {
     // Use enhancedFetch which internally uses `request` -> goes to localhost:3001
     const result = await enhancedFetch<ApiResult<Tenant[]>>(path, { method: "GET" });
     
-    console.log('✅ Tenant fetch result:', {
-      success: result.success,
-      dataLength: result.data?.length || 0,
-      message: result.message
-    });
+    
     
     return result;
   } catch (error: any) {
@@ -451,16 +374,7 @@ export async function createTenant(formData: FormData): Promise<ApiResult<{ id: 
 
 // Alternative create tenant with JSON (without files)
 export async function createTenantJson(tenantData: Partial<Tenant>): Promise<ApiResult<{ id: number }>> {
-  // console.log('🔍 Creating tenant with FormData');
-  //   console.log('🔍 FormData entries:');
-  //    // Log all FormData entries
-  //   for (const [key, value] of formData.entries()) {
-  //     if (value instanceof File) {
-  //       console.log(`  ${key}: File - ${value.name} (${value.size} bytes)`);
-  //     } else {
-  //       console.log(`  ${key}: ${value}`);
-  //     }
-  //   }
+  
   return enhancedFetch<ApiResult<{ id: number }>>('/api/tenants', {
     method: 'POST',
     headers: {

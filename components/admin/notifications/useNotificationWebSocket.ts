@@ -23,7 +23,6 @@ export function useNotificationWebSocket({
 
     // Check if we've exceeded max reconnect attempts
     if (reconnectAttemptsRef.current >= maxReconnectAttempts) {
-      console.log('Max reconnection attempts reached. Giving up.');
       return;
     }
 
@@ -35,7 +34,6 @@ export function useNotificationWebSocket({
       const ws = new WebSocket(`${wsUrl}/ws/notifications`);
       
       ws.onopen = () => {
-        console.log('✅ WebSocket connected');
         reconnectAttemptsRef.current = 0; // Reset reconnect attempts on successful connection
       };
       
@@ -51,7 +49,6 @@ export function useNotificationWebSocket({
               onNotificationRead(data.notificationId);
               break;
             default:
-              console.log('Unknown WebSocket message:', data);
           }
         } catch (error) {
           console.error('Error parsing WebSocket message:', error);
@@ -59,11 +56,9 @@ export function useNotificationWebSocket({
       };
       
       ws.onclose = (event) => {
-        console.log(`🔌 WebSocket disconnected (code: ${event.code}), attempting to reconnect...`);
         
         // Don't reconnect if it was a normal closure
         if (event.code === 1000) {
-          console.log('WebSocket closed normally');
           return;
         }
         
@@ -71,7 +66,6 @@ export function useNotificationWebSocket({
         
         // Exponential backoff for reconnection attempts
         const reconnectDelay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 30000);
-        console.log(`Reconnecting in ${reconnectDelay}ms (attempt ${reconnectAttemptsRef.current})`);
         
         reconnectTimeoutRef.current = setTimeout(connectWebSocket, reconnectDelay);
       };
