@@ -26,7 +26,6 @@ import {
   User, Hash, Tag, Building2, Circle
 } from 'lucide-react';
 import {
-  getChangeReasons,
   getCurrentAssignment,
   getCompatibleRooms,
   getAvailableBeds,
@@ -39,6 +38,7 @@ import {
   type BedsResponse,
   type CurrentAssignment
 } from '@/lib/changeBedApi';
+import { consumeMasters } from "@/lib/masterApi";
 
 interface ChangeBedWizardProps {
   tenantId: number;
@@ -46,6 +46,12 @@ interface ChangeBedWizardProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
+}
+
+interface MasterValue {
+  id: number;
+  name: string;
+  isactive: number;
 }
 
 type WizardStep = 
@@ -72,7 +78,6 @@ export function ChangeBedWizard({ tenantId, tenantName, open, onOpenChange, onSu
   const [confirmRent, setConfirmRent] = useState(false);
   
   // Data states
-  const [reasons, setReasons] = useState<ChangeReason[]>([]);
   const [currentAssignment, setCurrentAssignment] = useState<CurrentAssignment | null>(null);
   const [compatibleRooms, setCompatibleRooms] = useState<CompatibleRoom[]>([]);
   const [availableBeds, setAvailableBeds] = useState<AvailableBed[]>([]);
@@ -81,54 +86,101 @@ export function ChangeBedWizard({ tenantId, tenantName, open, onOpenChange, onSu
   const [searchQuery, setSearchQuery] = useState('');
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
 
-  // Sharing types
-  const sharingTypes = [
-    // { 
-    //   value: '', 
-    //   label: 'Any Type', 
-    //   icon: <Building2 className="h-5 w-5" />,
-    //   color: "bg-gray-50",
-    //   borderColor: "border-gray-300",
-    //   textColor: "text-gray-700",
-    //   hoverColor: "hover:bg-gray-100 hover:border-gray-400"
-    // },
-    { 
-      value: 'single', 
-      label: 'Single', 
-      icon: <UserRound className="h-5 w-5" />, 
-      description: '1 person',
-      color: "bg-blue-50",
-      borderColor: "border-blue-300",
-      textColor: "text-blue-700",
-      hoverColor: "hover:bg-blue-100 hover:border-blue-400"
-    },
-    { 
-      value: 'double', 
-      label: 'Double', 
-      icon: <UsersRound className="h-5 w-5" />, 
-      description: '2 persons',
-      color: "bg-green-50",
-      borderColor: "border-green-300",
-      textColor: "text-green-700",
-      hoverColor: "hover:bg-green-100 hover:border-green-400"
-    },
-    { 
-      value: 'triple', 
-      label: 'Triple', 
-      icon: <Users className="h-5 w-5" />, 
-      description: '3 persons',
-      color: "bg-purple-50",
-      borderColor: "border-purple-300",
-      textColor: "text-purple-700",
-      hoverColor: "hover:bg-purple-100 hover:border-purple-400"
+  // Master data states
+  const [roomsMasters, setRoomsMasters] = useState<Record<string, MasterValue[]>>({});
+  const [loadingMasters, setLoadingMasters] = useState(false);
+  const [sharingTypes, setSharingTypes] = useState<any[]>([]);
+  const [changeReasons, setChangeReasons] = useState<ChangeReason[]>([]);
+
+  // Fetch rooms masters
+  const fetchRoomsMasters = async () => {
+    setLoadingMasters(true);
+    try {
+      const res = await consumeMasters({ tab: "Rooms" });
+      if (res?.success && res.data) {
+        const grouped: Record<string, MasterValue[]> = {};
+        res.data.forEach((item: any) => {
+          const type = item.type_name;
+          if (!grouped[type]) {
+            grouped[type] = [];
+          }
+          grouped[type].push({
+            id: item.value_id,
+            name: item.value_name,
+            isactive: 1,
+          });
+        });
+        setRoomsMasters(grouped);
+        
+        // Set sharing types from masters
+        if (grouped["Sharing Type"] && grouped["Sharing Type"].length > 0) {
+          const types = grouped["Sharing Type"].map(type => {
+            const typeName = type.name.toLowerCase();
+            let icon = <Users className="h-5 w-5" />;
+            let color = "bg-purple-50";
+            let borderColor = "border-purple-300";
+            let textColor = "text-purple-700";
+            
+            if (typeName.includes('single')) {
+              icon = <UserRound className="h-5 w-5" />;
+              color = "bg-blue-50";
+              borderColor = "border-blue-300";
+              textColor = "text-blue-700";
+            } else if (typeName.includes('double')) {
+              icon = <UsersRound className="h-5 w-5" />;
+              color = "bg-green-50";
+              borderColor = "border-green-300";
+              textColor = "text-green-700";
+            } else if (typeName.includes('triple')) {
+              icon = <Users className="h-5 w-5" />;
+              color = "bg-purple-50";
+              borderColor = "border-purple-300";
+              textColor = "text-purple-700";
+            }
+            
+            // Extract capacity from name
+            let capacity = 2;
+            if (typeName.includes('single')) capacity = 1;
+            else if (typeName.includes('double')) capacity = 2;
+            else if (typeName.includes('triple')) capacity = 3;
+            
+            return {
+              value: typeName,
+              label: type.name,
+              icon: icon,
+              description: `${capacity} person${capacity > 1 ? 's' : ''}`,
+              color: color,
+              borderColor: borderColor,
+              textColor: textColor,
+              hoverColor: `hover:${color.replace('50', '100')} hover:${borderColor.replace('300', '400')}`
+            };
+          });
+          setSharingTypes(types);
+        }
+
+        // Set change reasons from masters
+        if (grouped["Change Reason"] && grouped["Change Reason"].length > 0) {
+          const reasons = grouped["Change Reason"].map(reason => ({
+            id: reason.id,
+            value: reason.name
+          }));
+          setChangeReasons(reasons);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to fetch rooms masters:", error);
+      toast.error("Failed to load master data");
+    } finally {
+      setLoadingMasters(false);
     }
-  ];
+  };
 
   // Initialize
   useEffect(() => {
     if (open) {
       resetForm();
-      loadInitialData();
+      fetchRoomsMasters();
+      loadCurrentAssignment();
     }
   }, [open, tenantId]);
 
@@ -150,14 +202,9 @@ export function ChangeBedWizard({ tenantId, tenantName, open, onOpenChange, onSu
     setErrorDetails(null);
   };
 
-  const loadInitialData = async () => {
+  const loadCurrentAssignment = async () => {
     setLoading(true);
     try {
-      // Load change reasons
-      const reasonsData = await getChangeReasons();
-      setReasons(reasonsData);
-
-      // Load current assignment
       const assignment = await getCurrentAssignment(tenantId);
       if (assignment) {
         setCurrentAssignment(assignment);
@@ -166,8 +213,8 @@ export function ChangeBedWizard({ tenantId, tenantName, open, onOpenChange, onSu
         onOpenChange(false);
       }
     } catch (error: any) {
-      console.error('Failed to load initial data:', error);
-      toast.error('Failed to load initial data');
+      console.error('Failed to load current assignment:', error);
+      toast.error('Failed to load current assignment');
     } finally {
       setLoading(false);
     }
@@ -250,40 +297,39 @@ export function ChangeBedWizard({ tenantId, tenantName, open, onOpenChange, onSu
     }
   };
 
- 
-const handleBedSelect = async (bed: AvailableBed) => {
-  setSelectedBed(bed);
-  
-  // CRITICAL FIX: Only calculate rent if we have both room IDs
-  if (currentAssignment && selectedRoom) {
-    try {
-      console.log('Calculating rent difference:', {
-        oldRoomId: currentAssignment.room_id,
-        newRoomId: selectedRoom.id
-      });
-      
-      const rentDiff = await calculateRentDifference(
-        currentAssignment.room_id,
-        selectedRoom.id
-      );
-      
-      console.log('Rent difference result:', rentDiff);
-      setRentDifference(rentDiff);
-      
-      // If rent calculation succeeds, proceed to date selection
-      setCurrentStep('date');
-      
-    } catch (error) {
-      console.error('Error calculating rent difference:', error);
-      toast.warning('Could not calculate rent difference. Proceeding anyway...');
-      // Continue to date step even if rent calculation fails
-      setCurrentStep('date');
+  const handleBedSelect = async (bed: AvailableBed) => {
+    setSelectedBed(bed);
+    
+    // CRITICAL FIX: Only calculate rent if we have both room IDs
+    if (currentAssignment && selectedRoom) {
+      try {
+        console.log('Calculating rent difference:', {
+          oldRoomId: currentAssignment.room_id,
+          newRoomId: selectedRoom.id
+        });
+        
+        const rentDiff = await calculateRentDifference(
+          currentAssignment.room_id,
+          selectedRoom.id
+        );
+        
+        console.log('Rent difference result:', rentDiff);
+        setRentDifference(rentDiff);
+        
+        // If rent calculation succeeds, proceed to date selection
+        setCurrentStep('date');
+        
+      } catch (error) {
+        console.error('Error calculating rent difference:', error);
+        toast.warning('Could not calculate rent difference. Proceeding anyway...');
+        // Continue to date step even if rent calculation fails
+        setCurrentStep('date');
+      }
+    } else {
+      console.error('Missing room information for rent calculation');
+      toast.warning('Please select a room first');
     }
-  } else {
-    console.error('Missing room information for rent calculation');
-    toast.warning('Please select a room first');
-  }
-};
+  };
 
   // Step 5: Handle date selection
   const handleDateSelect = () => {
@@ -349,54 +395,54 @@ const handleBedSelect = async (bed: AvailableBed) => {
   // Render room occupants details
   const renderRoomOccupants = (room: CompatibleRoom) => {
     // Use the ACTUAL count from backend
-  const actualOccupantsCount = room.occupants_count || 0;
-  const hasOccupants = actualOccupantsCount > 0 && 
-                      room.current_occupants && 
-                      room.current_occupants.length > 0;
+    const actualOccupantsCount = room.occupants_count || 0;
+    const hasOccupants = actualOccupantsCount > 0 && 
+                        room.current_occupants && 
+                        room.current_occupants.length > 0;
 
-  if (!hasOccupants) {
+    if (!hasOccupants) {
+      return (
+        <div className="flex items-center text-xs text-gray-500">
+          <User className="h-3 w-3 mr-1" />
+          No occupants
+        </div>
+      );
+    }
+
     return (
-      <div className="flex items-center text-xs text-gray-500">
-        <User className="h-3 w-3 mr-1" />
-        No occupants
+      <div className="space-y-1">
+        <div className="flex items-center text-xs font-medium text-gray-700">
+          <Users className="h-3 w-3 mr-1" />
+          Current Occupants ({actualOccupantsCount})
+        </div>
+        <div className="space-y-1">
+          {room.current_occupants.map((occupant, idx) => (
+            <div key={idx} className="flex items-center justify-between text-xs pl-2">
+              <div className="flex items-center">
+                <div className="w-2 h-2 rounded-full bg-blue-500 mr-2"></div>
+                <span className="truncate max-w-[120px]">{occupant.full_name}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="text-xs px-1 py-0 h-5">
+                  Bed {occupant.bed_number}
+                </Badge>
+                <Badge 
+                  variant="outline" 
+                  className={cn(
+                    "text-xs px-1 py-0 h-5",
+                    occupant.gender === 'Male' ? "bg-blue-50 text-blue-700 border-blue-200" :
+                    occupant.gender === 'Female' ? "bg-pink-50 text-pink-700 border-pink-200" :
+                    "bg-gray-50 text-gray-700 border-gray-200"
+                  )}
+                >
+                  {occupant.gender}
+                </Badge>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     );
-  }
-
-    return (
-    <div className="space-y-1">
-      <div className="flex items-center text-xs font-medium text-gray-700">
-        <Users className="h-3 w-3 mr-1" />
-        Current Occupants ({actualOccupantsCount}) {/* ← Now shows correct count */}
-      </div>
-      <div className="space-y-1">
-        {room.current_occupants.map((occupant, idx) => (
-          <div key={idx} className="flex items-center justify-between text-xs pl-2">
-            <div className="flex items-center">
-              <div className="w-2 h-2 rounded-full bg-blue-500 mr-2"></div>
-              <span className="truncate max-w-[120px]">{occupant.full_name}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="text-xs px-1 py-0 h-5">
-                Bed {occupant.bed_number}
-              </Badge>
-              <Badge 
-                variant="outline" 
-                className={cn(
-                  "text-xs px-1 py-0 h-5",
-                  occupant.gender === 'Male' ? "bg-blue-50 text-blue-700 border-blue-200" :
-                  occupant.gender === 'Female' ? "bg-pink-50 text-pink-700 border-pink-200" :
-                  "bg-gray-50 text-gray-700 border-gray-200"
-                )}
-              >
-                {occupant.gender}
-              </Badge>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
   };
 
   // Render room gender preferences
@@ -524,14 +570,14 @@ const handleBedSelect = async (bed: AvailableBed) => {
   };
 
   const renderStepContent = () => {
-    if (loading && currentStep === 'reason') {
+    if (loadingMasters && currentStep === 'reason') {
       return (
         <div className="py-12 text-center">
           <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
           </div>
-          <h3 className="font-semibold text-gray-700 mb-1">Loading...</h3>
-          <p className="text-sm text-gray-500">Preparing bed change wizard</p>
+          <h3 className="font-semibold text-gray-700 mb-1">Loading Masters...</h3>
+          <p className="text-sm text-gray-500">Fetching change reasons and sharing types</p>
         </div>
       );
     }
@@ -559,14 +605,18 @@ const handleBedSelect = async (bed: AvailableBed) => {
                 <SelectValue placeholder="Select a reason..." />
               </SelectTrigger>
               <SelectContent className="max-h-60">
-                {reasons.map(reason => (
-                  <SelectItem key={reason.id} value={reason.id.toString()} className="py-3 hover:bg-blue-50">
-                    <div className="flex items-center gap-3">
-                      <Circle className="h-2 w-2 fill-blue-500 text-blue-500" />
-                      <span>{reason.value}</span>
-                    </div>
-                  </SelectItem>
-                ))}
+                {changeReasons.length > 0 ? (
+                  changeReasons.map(reason => (
+                    <SelectItem key={reason.id} value={reason.id.toString()} className="py-3 hover:bg-blue-50">
+                      <div className="flex items-center gap-3">
+                        <Circle className="h-2 w-2 fill-blue-500 text-blue-500" />
+                        <span>{reason.value}</span>
+                      </div>
+                    </SelectItem>
+                  ))
+                ) : (
+                  <div className="px-2 py-1.5 text-sm text-gray-500">No change reasons found</div>
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -574,67 +624,67 @@ const handleBedSelect = async (bed: AvailableBed) => {
       ),
 
       'sharing': (
-  <div className="space-y-4">
-    <div className="text-center mb-3">
-      <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-2">
-        <Users className="h-4 w-4 text-green-600" />
-      </div>
-      <h3 className="text-base font-bold text-gray-800">Sharing Type</h3>
-      <p className="text-xs text-gray-500 mt-1">
-        Select room sharing preference
-      </p>
-    </div>
-    
-    <div className="space-y-2">
-      <Label className="text-xs font-medium flex items-center gap-1.5 mb-1">
-        <KeyRound className="h-3 w-3 text-green-500" />
-        Sharing Type <span className="text-red-500">*</span>
-      </Label>
-      <RadioGroup 
-        value={selectedSharingType} 
-        onValueChange={setSelectedSharingType}
-        className="grid grid-cols-2 gap-2"
-      >
-        {sharingTypes.map(type => (
-          <div key={type.value}>
-            <RadioGroupItem 
-              value={type.value} 
-              id={`type-${type.value}`} 
-              className="peer sr-only" 
-            />
-            <Label
-              htmlFor={`type-${type.value}`}
-              className={cn(
-                "flex flex-col items-center justify-center rounded-md border p-2.5 cursor-pointer transition-all duration-150 min-h-[70px]",
-                type.borderColor,
-                type.color,
-                type.hoverColor,
-                "peer-data-[state=checked]:border-blue-500 peer-data-[state=checked]:ring-1 peer-data-[state=checked]:ring-blue-200",
-                selectedSharingType === type.value && "border-blue-500 ring-1 ring-blue-200"
-              )}
-            >
-              <div className="flex flex-col items-center gap-1">
-                <div className={cn("p-1 rounded", type.color)}>
-                  <span className={type.textColor}>
-                    {React.cloneElement(type.icon, { className: "h-3.5 w-3.5" })}
-                  </span>
-                </div>
-                <span className={cn("text-xs font-medium", type.textColor)}>
-                  {type.label}
-                </span>
-              </div>
-              {type.description && (
-                <span className={cn("text-[10px] mt-1", type.textColor.replace("700", "600"))}>
-                  {type.description}
-                </span>
-              )}
-            </Label>
+        <div className="space-y-4">
+          <div className="text-center mb-3">
+            <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-2">
+              <Users className="h-4 w-4 text-green-600" />
+            </div>
+            <h3 className="text-base font-bold text-gray-800">Sharing Type</h3>
+            <p className="text-xs text-gray-500 mt-1">
+              Select room sharing preference
+            </p>
           </div>
-        ))}
-      </RadioGroup>
-    </div>
-  </div>
-),
+          
+          <div className="space-y-2">
+            <Label className="text-xs font-medium flex items-center gap-1.5 mb-1">
+              <KeyRound className="h-3 w-3 text-green-500" />
+              Sharing Type <span className="text-red-500">*</span>
+            </Label>
+            <RadioGroup 
+              value={selectedSharingType} 
+              onValueChange={setSelectedSharingType}
+              className="grid grid-cols-2 gap-2"
+            >
+              {sharingTypes.map(type => (
+                <div key={type.value}>
+                  <RadioGroupItem 
+                    value={type.value} 
+                    id={`type-${type.value}`} 
+                    className="peer sr-only" 
+                  />
+                  <Label
+                    htmlFor={`type-${type.value}`}
+                    className={cn(
+                      "flex flex-col items-center justify-center rounded-md border p-2.5 cursor-pointer transition-all duration-150 min-h-[70px]",
+                      type.borderColor,
+                      type.color,
+                      type.hoverColor,
+                      "peer-data-[state=checked]:border-blue-500 peer-data-[state=checked]:ring-1 peer-data-[state=checked]:ring-blue-200",
+                      selectedSharingType === type.value && "border-blue-500 ring-1 ring-blue-200"
+                    )}
+                  >
+                    <div className="flex flex-col items-center gap-1">
+                      <div className={cn("p-1 rounded", type.color)}>
+                        <span className={type.textColor}>
+                          {React.cloneElement(type.icon, { className: "h-3.5 w-3.5" })}
+                        </span>
+                      </div>
+                      <span className={cn("text-xs font-medium", type.textColor)}>
+                        {type.label}
+                      </span>
+                    </div>
+                    {type.description && (
+                      <span className={cn("text-[10px] mt-1", type.textColor.replace("700", "600"))}>
+                        {type.description}
+                      </span>
+                    )}
+                  </Label>
+                </div>
+              ))}
+            </RadioGroup>
+          </div>
+        </div>
+      ),
 
       'room': (
         <div className="space-y-4">
@@ -985,14 +1035,14 @@ const handleBedSelect = async (bed: AvailableBed) => {
                       <span className="font-medium capitalize">{currentAssignment.sharing_type}</span>
                     </div>
                     <div className="flex justify-between items-center">
-  <span className="text-gray-600">Check-in date:</span>
-  <span className="font-medium">
-    {currentAssignment.check_in_date 
-      ? format(new Date(currentAssignment.check_in_date), 'MMM dd, yyyy')
-      : 'Not set'
-    }
-  </span>
-</div>
+                      <span className="text-gray-600">Check-in date:</span>
+                      <span className="font-medium">
+                        {currentAssignment.check_in_date 
+                          ? format(new Date(currentAssignment.check_in_date), 'MMM dd, yyyy')
+                          : 'Not set'
+                        }
+                      </span>
+                    </div>
                   </div>
                 )}
               </CardContent>
@@ -1061,20 +1111,6 @@ const handleBedSelect = async (bed: AvailableBed) => {
               </PopoverContent>
             </Popover>
           </div>
-          
-          {/* <div className="space-y-2">
-            <Label className="text-sm font-medium flex items-center gap-2">
-              <MessageSquare className="h-4 w-4 text-gray-500" />
-              Additional Notes
-            </Label>
-            <Textarea
-              placeholder="Any special instructions or notes about this change..."
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={3}
-              className="text-sm border-gray-300 focus:border-blue-500 focus:ring-blue-500 hover:border-gray-400"
-            />
-          </div> */}
         </div>
       ),
 
@@ -1327,7 +1363,7 @@ const handleBedSelect = async (bed: AvailableBed) => {
             <div className="bg-gray-50 p-3 rounded-lg border border-gray-300 hover:bg-gray-100 transition-colors">
               <p className="text-gray-500 text-xs">Change Reason</p>
               <p className="font-medium text-sm truncate">
-                {reasons.find(r => r.id.toString() === selectedReason)?.value || 'N/A'}
+                {changeReasons.find(r => r.id.toString() === selectedReason)?.value || 'N/A'}
               </p>
             </div>
             <div className="bg-gray-50 p-3 rounded-lg border border-gray-300 hover:bg-gray-100 transition-colors">
@@ -1365,30 +1401,6 @@ const handleBedSelect = async (bed: AvailableBed) => {
               </div>
             </div>
           )}
-          
-          {/* Important Notice
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 hover:bg-amber-100 transition-colors">
-            <div className="flex items-start gap-2">
-              <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
-              <div>
-                <p className="text-sm font-semibold text-amber-800 mb-2">Important Notice</p>
-                <ul className="text-xs text-amber-700 space-y-1">
-                  <li className="flex items-start gap-2">
-                    <span className="mt-0.5">•</span>
-                    <span>Current bed will be vacated immediately</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="mt-0.5">•</span>
-                    <span>Tenant will be assigned to new bed</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="mt-0.5">•</span>
-                    <span>Changes will be logged for audit</span>
-                  </li>
-                </ul>
-              </div>
-            </div>
-          </div> */}
         </div>
       )
     };
@@ -1501,103 +1513,103 @@ const handleBedSelect = async (bed: AvailableBed) => {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-  <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col border border-gray-300 shadow-xl p-0">
-    {/* Header - ULTRA COMPACT */}
-    <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-3 sticky top-0 z-10">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <RefreshCw className="h-4 w-4" />
-          <div>
-            <DialogTitle className="text-base font-bold">
-              Change Bed
-            </DialogTitle>
-            <DialogDescription className="text-blue-100 text-xs">
-              {tenantName}
-            </DialogDescription>
-          </div>
-        </div>
-        <div className="text-xs bg-white/20 px-2 py-1 rounded">
-          Step {currentStepIndex + 1}/{steps.length}
-        </div>
-      </div>
-    </div>
-    
-    {/* Step Indicator - MINIMAL WITH ICONS */}
-    <div className="px-3 py-2 bg-gray-50 border-b border-gray-200">
-      <div className="flex items-center justify-between gap-0.5">
-        {steps.map((step, index) => (
-          <div key={step.key} className="flex-1 flex flex-col items-center relative">
-            {/* Connection line between steps */}
-            {index < steps.length - 1 && (
-              <div className={cn(
-                "absolute top-3 left-1/2 w-full h-0.5 -translate-x-1/2",
-                currentStepIndex > index ? "bg-blue-500" : "bg-gray-300"
-              )} />
-            )}
-            
-            {/* Step circle with icon */}
-            <div className={cn(
-              "w-7 h-7 rounded-full flex items-center justify-center border-2 z-10 mb-1 relative",
-              currentStepIndex >= index
-                ? "bg-white border-blue-600 text-blue-600"
-                : "bg-white border-gray-300 text-gray-400"
-            )}>
-              {currentStepIndex > index ? (
-                <Check className="h-3 w-3" />
-              ) : currentStepIndex === index ? (
-                <div className="text-blue-600">
-                  {step.icon}
-                </div>
-              ) : (
-                <div className="text-gray-400 opacity-70">
-                  {React.cloneElement(step.icon, { className: "h-3 w-3" })}
-                </div>
-              )}
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col border border-gray-300 shadow-xl p-0">
+        {/* Header - ULTRA COMPACT */}
+        <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-3 sticky top-0 z-10">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <RefreshCw className="h-4 w-4" />
+              <div>
+                <DialogTitle className="text-base font-bold">
+                  Change Bed
+                </DialogTitle>
+                <DialogDescription className="text-blue-100 text-xs">
+                  {tenantName}
+                </DialogDescription>
+              </div>
             </div>
-            
-            {/* Step label */}
-            <span className={cn(
-              "text-[10px] font-medium truncate w-full text-center",
-              currentStepIndex >= index
-                ? "text-blue-600 font-semibold"
-                : "text-gray-500"
-            )}>
-              {step.label}
-            </span>
+            <div className="text-xs bg-white/20 px-2 py-1 rounded">
+              Step {currentStepIndex + 1}/{steps.length}
+            </div>
           </div>
-        ))}
-      </div>
-      
-      {/* Mini Progress Bar */}
-      <div className="mt-2">
-        <div className="w-full h-1 bg-gray-200 rounded-full overflow-hidden">
-          <div 
-            className="h-full bg-blue-500 transition-all duration-300"
-            style={{ width: `${progressValue}%` }}
-          />
         </div>
-      </div>
-    </div>
-    
-    {/* Content Area */}
-    <div className="flex-1 overflow-y-auto p-4">
-      {loading && currentStep === 'reason' ? (
-        <div className="py-8 text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto text-blue-600 mb-2" />
-          <p className="text-sm text-gray-600">Loading...</p>
+        
+        {/* Step Indicator - MINIMAL WITH ICONS */}
+        <div className="px-3 py-2 bg-gray-50 border-b border-gray-200">
+          <div className="flex items-center justify-between gap-0.5">
+            {steps.map((step, index) => (
+              <div key={step.key} className="flex-1 flex flex-col items-center relative">
+                {/* Connection line between steps */}
+                {index < steps.length - 1 && (
+                  <div className={cn(
+                    "absolute top-3 left-1/2 w-full h-0.5 -translate-x-1/2",
+                    currentStepIndex > index ? "bg-blue-500" : "bg-gray-300"
+                  )} />
+                )}
+                
+                {/* Step circle with icon */}
+                <div className={cn(
+                  "w-7 h-7 rounded-full flex items-center justify-center border-2 z-10 mb-1 relative",
+                  currentStepIndex >= index
+                    ? "bg-white border-blue-600 text-blue-600"
+                    : "bg-white border-gray-300 text-gray-400"
+                )}>
+                  {currentStepIndex > index ? (
+                    <Check className="h-3 w-3" />
+                  ) : currentStepIndex === index ? (
+                    <div className="text-blue-600">
+                      {step.icon}
+                    </div>
+                  ) : (
+                    <div className="text-gray-400 opacity-70">
+                      {React.cloneElement(step.icon, { className: "h-3 w-3" })}
+                    </div>
+                  )}
+                </div>
+                
+                {/* Step label */}
+                <span className={cn(
+                  "text-[10px] font-medium truncate w-full text-center",
+                  currentStepIndex >= index
+                    ? "text-blue-600 font-semibold"
+                    : "text-gray-500"
+                )}>
+                  {step.label}
+                </span>
+              </div>
+            ))}
+          </div>
+          
+          {/* Mini Progress Bar */}
+          <div className="mt-2">
+            <div className="w-full h-1 bg-gray-200 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-blue-500 transition-all duration-300"
+                style={{ width: `${progressValue}%` }}
+              />
+            </div>
+          </div>
         </div>
-      ) : (
-        <>
-          <div className="mb-4">
-            {renderStepContent()}
-          </div>
-          <div className="pt-3 border-t">
-            {renderStepActions()}
-          </div>
-        </>
-      )}
-    </div>
-  </DialogContent>
-</Dialog>
+        
+        {/* Content Area */}
+        <div className="flex-1 overflow-y-auto p-4">
+          {loadingMasters && currentStep === 'reason' ? (
+            <div className="py-8 text-center">
+              <Loader2 className="h-8 w-8 animate-spin mx-auto text-blue-600 mb-2" />
+              <p className="text-sm text-gray-600">Loading master data...</p>
+            </div>
+          ) : (
+            <>
+              <div className="mb-4">
+                {renderStepContent()}
+              </div>
+              <div className="pt-3 border-t">
+                {renderStepActions()}
+              </div>
+            </>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
