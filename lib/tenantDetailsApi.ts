@@ -155,6 +155,68 @@ export const tenantDetailsApi = {
   
 
   // Update the loadProfile function in tenantDetailsApi
+// async loadProfile() {
+//   try {
+//     console.log('🚀 Starting profile load...');
+
+//     const tenantId = getTenantId();
+//     const token = getTenantToken();
+
+//     console.log('🔑 Tenant ID:', tenantId);
+
+//     if (!tenantId) {
+//       throw new Error('No tenant ID found');
+//     }
+
+//     // Get profile data
+//     let profileData;
+//     try {
+//       profileData = await this.getProfile();
+//       console.log('✅ Profile loaded via authenticated endpoint');
+//     } catch (authError) {
+//       console.log('⚠️ Authenticated endpoint failed, trying ID-based endpoint...');
+      
+//       try {
+//         profileData = await this.getProfileById(tenantId);
+//       } catch (idError) {
+//         console.error('❌ Both endpoints failed:', idError);
+//         throw new Error('Failed to load profile');
+//       }
+//     }
+
+//     // Get deletion request status
+//     try {
+//       const deletionStatus = await this.getDeletionStatus();
+//       if (deletionStatus.success && deletionStatus.data) {
+//         profileData.data.deletion_request = deletionStatus.data;
+//       }
+//     } catch (error) {
+//       profileData.data.deletion_request = {
+//         status: 'none'
+//       };
+//     }
+
+//     return profileData;
+//   } catch (error: any) {
+//     console.error('❌ Failed to load profile:', error);
+    
+//     if (error.message?.includes('401') || error.message?.includes('Session expired')) {
+//       // Clear tokens and redirect
+//       localStorage.removeItem("tenant_token");
+//       localStorage.removeItem("tenant_id");
+//       localStorage.removeItem("tenant_logged_in");
+      
+//       // Show toast and redirect after delay
+//       setTimeout(() => {
+//         if (typeof window !== 'undefined') {
+//           window.location.href = '/login';
+//         }
+//       }, 2000);
+//     }
+    
+//     throw error;
+//   }
+// },
 async loadProfile() {
   try {
     console.log('🚀 Starting profile load...');
@@ -163,34 +225,53 @@ async loadProfile() {
     const token = getTenantToken();
 
     console.log('🔑 Tenant ID:', tenantId);
+    console.log('🔐 Token exists:', !!token);
 
     if (!tenantId) {
+      console.error('No tenant ID found');
       throw new Error('No tenant ID found');
+    }
+
+    if (!token) {
+      console.error('No token found');
+      throw new Error('No authentication token found');
     }
 
     // Get profile data
     let profileData;
     try {
+      console.log('Attempting to fetch profile via authenticated endpoint...');
       profileData = await this.getProfile();
-      console.log('✅ Profile loaded via authenticated endpoint');
+      console.log('✅ Profile loaded via authenticated endpoint:', profileData);
     } catch (authError) {
-      console.log('⚠️ Authenticated endpoint failed, trying ID-based endpoint...');
+      console.log('⚠️ Authenticated endpoint failed, trying ID-based endpoint...', authError);
       
       try {
         profileData = await this.getProfileById(tenantId);
+        console.log('✅ Profile loaded via ID-based endpoint:', profileData);
       } catch (idError) {
         console.error('❌ Both endpoints failed:', idError);
         throw new Error('Failed to load profile');
       }
     }
 
+    // Ensure profileData has the expected structure
+    if (!profileData) {
+      throw new Error('No profile data received');
+    }
+
     // Get deletion request status
     try {
+      console.log('Fetching deletion status...');
       const deletionStatus = await this.getDeletionStatus();
       if (deletionStatus.success && deletionStatus.data) {
+        profileData.data = profileData.data || {};
         profileData.data.deletion_request = deletionStatus.data;
+        console.log('✅ Deletion status added to profile');
       }
     } catch (error) {
+      console.warn('Could not fetch deletion status:', error);
+      profileData.data = profileData.data || {};
       profileData.data.deletion_request = {
         status: 'none'
       };
@@ -217,7 +298,6 @@ async loadProfile() {
     throw error;
   }
 },
-
 // Add this new method for deletion status
   async getDeletionStatus() {
     try {

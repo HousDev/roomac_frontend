@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ArrowLeft, FileText, Plus, Loader2, Send, AlertTriangle, Check, Info, Home } from 'lucide-react';
+import { ArrowLeft, FileText, Plus, Loader2, Send, AlertTriangle, Check, Info, Home, X } from 'lucide-react';
 import { format } from 'date-fns';
 
 // Import extracted components
@@ -739,26 +739,29 @@ export default function TenantRequestsClient() {
       <div className="min-h-screen bg-gray-50">
         <div className="max-w-7xl mx-auto p-6">
           {/* Header */}
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-4">
-              {/* <Button variant="outline" onClick={() => router.push('/tenant/portal')}>
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back
-              </Button> */}
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">My Requests</h1>
-                <p className="text-gray-600 mt-1">Raise requests and track their status</p>
-              </div>
-            </div>
+        <div className="mb-4 sm:mb-6">
 
-            <Button 
-              onClick={() => setIsDialogOpen(true)} 
-              className="bg-blue-600 hover:bg-blue-700"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              New Request
-            </Button>
-          </div>
+  {/* Top Row: Title + Button */}
+  <div className="flex items-center justify-between">
+    <h1 className="text-lg sm:text-2xl lg:text-3xl font-bold text-gray-900 leading-tight">
+      My Requests
+    </h1>
+
+    <Button 
+      onClick={() => setIsDialogOpen(true)} 
+      className="bg-blue-600 hover:bg-blue-700 h-8 sm:h-9 px-3 sm:px-4 text-xs sm:text-sm"
+    >
+      <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+      New Request
+    </Button>
+  </div>
+
+  {/* Subtitle */}
+  <p className="text-xs sm:text-sm text-gray-600 mt-1">
+    Raise requests and track their status
+  </p>
+
+</div>
 
           {/* Quick Request Cards */}
           <QuickRequestCards onQuickRequest={handleQuickRequest} />
@@ -812,7 +815,7 @@ export default function TenantRequestsClient() {
       </div>
 
       {/* Request Form Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={(open) => {
+    <Dialog open={isDialogOpen} onOpenChange={(open) => {
         setIsDialogOpen(open);
         if (!open) {
           // Reset form when dialog closes
@@ -834,696 +837,651 @@ export default function TenantRequestsClient() {
           setShowCustomReason(false);
         }
       }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Create New Request</DialogTitle>
-            <DialogDescription>
-              Fill in the details below to submit your request
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="max-w-3xl w-[98vw] p-0 max-h-[90vh] overflow-hidden">
+        <DialogHeader className="bg-gradient-to-r from-blue-600 to-cyan-600 px-4 py-3 sticky top-0 z-10 relative">
+  <DialogTitle className="text-white text-lg">Create New Request</DialogTitle>
+  <DialogDescription className="text-blue-50 text-sm">
+    Fill in the details below to submit your request
+  </DialogDescription>
+  {/* Close button in header */}
+  <button
+    onClick={() => setIsDialogOpen(false)}
+    className="absolute right-4 top-4 rounded-sm opacity-70  transition-opacity hover:opacity-100  disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
+  >
+    <X className="h-4 w-4 text-white" />
+    <span className="sr-only">Close</span>
+  </button>
+</DialogHeader>
 
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="request_type">Request Type *</Label>
-              <Select
-                value={formData.request_type}
-                onValueChange={(value) => {
-                  setFormData({ 
-                    ...formData, 
-                    request_type: value,
-                    vacateData: value === 'vacate_bed' ? formData.vacateData : undefined,
-                    changeBedData: value === 'change_bed' ? formData.changeBedData : undefined,
-                    leaveData: value === 'leave' ? formData.leaveData : undefined,
-                    maintenanceData: value === 'maintenance' ? formData.maintenanceData : undefined,
-                    complaintData: value === 'complaint' ? formData.complaintData : undefined
-                  });
-                  if (value === 'change_bed') {
-                    setStep(1);
-                  }
-                  if (value === 'complaint') {
-                    setSelectedComplaintCategory(null);
-                    setComplaintReasons([]);
-                    setShowCustomReason(false);
-                  }
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select request type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="general">General Query</SelectItem>
-                  <SelectItem value="complaint">Complaint</SelectItem>
-                  <SelectItem value="receipt">Receipt Request</SelectItem>
-                  <SelectItem value="maintenance">Maintenance Request</SelectItem>
-                  <SelectItem value="leave">Leave Application</SelectItem>
-                  <SelectItem value="vacate_bed">Vacate Bed Request</SelectItem>
-                  <SelectItem value="change_bed">Change Bed Request</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label htmlFor="priority">Priority *</Label>
-              <Select
-                value={formData.priority}
-                onValueChange={(value) => setFormData({ ...formData, priority: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select priority" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="urgent">Urgent</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label htmlFor="title">Title *</Label>
-              <Input
-                id="title"
-                value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                placeholder="Brief title for your request"
-                className="h-12"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="description">Description *</Label>
-              <Textarea
-                id="description"
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Provide detailed information about your request"
-                rows={3}
-              />
-            </div>
-
-            {/* Conditional rendering for Change Bed Request */}
-            {formData.request_type === 'change_bed' && (
-              <ChangeBedForm
-                step={step}
-                setStep={setStep}
-                currentRoom={currentRoom}
-                changeReasons={changeReasons}
-                properties={properties}
-                selectedPropertyId={selectedPropertyId}
-                setSelectedPropertyId={setSelectedPropertyId}
-                availableRooms={availableRooms}
-                selectedRoomId={selectedRoomId}
-                setSelectedRoomId={setSelectedRoomId}
-                availableBeds={availableBeds}
-                selectedBedNumber={selectedBedNumber}
-                setSelectedBedNumber={setSelectedBedNumber}
-                onPropertySelect={handlePropertySelect}
-                onRoomSelect={handleRoomSelect}
-                onBedSelect={handleBedSelect}
-                onReasonSelect={handleChangeReasonSelect}
-                onDateChange={handleShiftingDateChange}
-                onNotesChange={handleNotesChange}
-                formData={formData}
-              />
-            )}
-
-            {/* Conditional rendering for Vacate Bed Request */}
-            {formData.request_type === 'vacate_bed' && (
-              <div className="space-y-4 p-4 border border-gray-200 rounded-lg">
-                <h3 className="font-semibold text-lg">Vacate Bed Details</h3>
-                
-                {/* Lock-in Period Information */}
-                {lockinInfo && (
-                  <div className={`rounded-lg p-4 ${lockinInfo.isInLockinPeriod ? 'bg-yellow-50 border border-yellow-200' : 'bg-green-50 border border-green-200'}`}>
-                    <div className="flex items-start gap-3">
-                      {lockinInfo.isInLockinPeriod ? (
-                        <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5" />
-                      ) : (
-                        <Check className="h-5 w-5 text-green-600 mt-0.5" />
-                      )}
-                      <div className="flex-1">
-                        <h4 className="font-semibold">
-                          {lockinInfo.isInLockinPeriod ? 'Lock-in Period Active' : 'Lock-in Period Completed'}
-                        </h4>
-                        <div className="space-y-1 mt-2">
-                          <p className="text-sm">
-                            Check-in Date: {format(new Date(lockinInfo.checkInDate), 'dd MMM yyyy')}
-                          </p>
-                          <p className="text-sm">
-                            Lock-in Period: {lockinInfo.lockinPeriodMonths} months
-                          </p>
-                          <p className="text-sm">
-                            Lock-in Ends: {format(new Date(lockinInfo.lockinEnds), 'dd MMM yyyy')}
-                          </p>
-                          {lockinInfo.isInLockinPeriod && (
-                            <>
-                              <p className="text-sm">
-                                Remaining: {lockinInfo.remainingMonths} month{lockinInfo.remainingMonths > 1 ? 's' : ''}
-                              </p>
-                              <p className="text-sm font-medium">
-                                Early Vacate Penalty: {lockinInfo.penalty.description}
-                              </p>
-                              {lockinInfo.penalty.calculatedAmount && (
-                                <p className="text-sm font-bold">
-                                  Amount Payable: ₹{lockinInfo.penalty.calculatedAmount.toFixed(2)}
-                                </p>
-                              )}
-                            </>
-                          )}
-                        </div>
-                        
-                        {lockinInfo.isInLockinPeriod && (
-                          <div className="flex items-start space-x-2 mt-3">
-                            <Checkbox
-                              id="agree_lockin_penalty"
-                              checked={formData.vacateData?.agree_lockin_penalty || false}
-                              onCheckedChange={(checked) => 
-                                handleVacateDataChange('agree_lockin_penalty', checked)
-                              }
-                            />
-                            <Label htmlFor="agree_lockin_penalty" className="text-sm cursor-pointer">
-                              I understand and agree to pay the lock-in period penalty
-                            </Label>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Notice Period Information */}
-                {noticeInfo && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <div className="flex items-start gap-3">
-                      <Info className="h-5 w-5 text-blue-600 mt-0.5" />
-                      <div className="flex-1">
-                        <h4 className="font-semibold text-blue-800">Notice Period Requirements</h4>
-                        <div className="space-y-1 mt-2">
-                          <p className="text-sm text-blue-700">
-                            Required Notice: {noticeInfo.noticePeriodDays} days
-                          </p>
-                          {noticeInfo.penalty.amount && (
-                            <>
-                              <p className="text-sm text-blue-700 font-medium">
-                                Notice Period Penalty: {noticeInfo.penalty.description}
-                              </p>
-                              {noticeInfo.penalty.calculatedAmount && (
-                                <p className="text-sm text-blue-700 font-bold">
-                                  Amount Payable: ₹{noticeInfo.penalty.calculatedAmount.toFixed(2)}
-                                </p>
-                              )}
-                            </>
-                          )}
-                        </div>
-                        
-                        {noticeInfo.requiresAgreement && (
-                          <div className="flex items-start space-x-2 mt-3">
-                            <Checkbox
-                              id="agree_notice_penalty"
-                              checked={formData.vacateData?.agree_notice_penalty || false}
-                              onCheckedChange={(checked) => 
-                                handleVacateDataChange('agree_notice_penalty', checked)
-                              }
-                            />
-                            <Label htmlFor="agree_notice_penalty" className="text-sm text-blue-800 cursor-pointer">
-                              I understand and agree to the notice period requirements
-                            </Label>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Show message if no lock-in/notice info found */}
-                {(!lockinInfo || !noticeInfo) && (
-                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                    <div className="flex items-center gap-3">
-                      <Info className="h-5 w-5 text-gray-600" />
-                      <div>
-                        <p className="text-sm text-gray-600">
-                          {loading ? 'Loading contract details...' : 'Contract details not available'}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          You can still submit your request without penalty information
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Expected Vacate Date */}
-                <div>
-                  <Label htmlFor="expected_vacate_date">Expected Vacate Date *</Label>
-                  <Input
-                    id="expected_vacate_date"
-                    type="date"
-                    value={formData.vacateData?.expected_vacate_date || ''}
-                    onChange={(e) => handleVacateDataChange('expected_vacate_date', e.target.value)}
-                    min={new Date().toISOString().split('T')[0]}
-                    className="h-12"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Select when you plan to vacate
-                  </p>
-                </div>
-
-                <div>
-                  <Label htmlFor="primary_reason">Primary Reason for Vacating *</Label>
+          <div className="px-4 py-3 overflow-y-auto max-h-[calc(90vh-80px)]">
+            <div className="space-y-4">
+              {/* Request Type and Priority in grid */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="request_type" className="text-sm font-medium">Request Type *</Label>
                   <Select
-                    value={formData.vacateData?.primary_reason_id?.toString() || ''}
-                    onValueChange={(value) => handleVacateDataChange('primary_reason_id', parseInt(value))}
+                    value={formData.request_type}
+                    onValueChange={(value) => {
+                      setFormData({ 
+                        ...formData, 
+                        request_type: value,
+                        vacateData: value === 'vacate_bed' ? formData.vacateData : undefined,
+                        changeBedData: value === 'change_bed' ? formData.changeBedData : undefined,
+                        leaveData: value === 'leave' ? formData.leaveData : undefined,
+                        maintenanceData: value === 'maintenance' ? formData.maintenanceData : undefined,
+                        complaintData: value === 'complaint' ? formData.complaintData : undefined
+                      });
+                      if (value === 'change_bed') {
+                        setStep(1);
+                      }
+                      if (value === 'complaint') {
+                        setSelectedComplaintCategory(null);
+                        setComplaintReasons([]);
+                        setShowCustomReason(false);
+                      }
+                    }}
                   >
-                    <SelectTrigger className="h-12">
-                      <SelectValue placeholder="Select primary reason" />
+                    <SelectTrigger className="h-10">
+                      <SelectValue placeholder="Select request type" />
                     </SelectTrigger>
                     <SelectContent>
-                      {Array.isArray(vacateReasons) && vacateReasons.map((reason) => (
-                        <SelectItem key={reason.id} value={reason.id.toString()}>
-                          {reason.value}
-                        </SelectItem>
-                      ))}
+                      <SelectItem value="general">General Query</SelectItem>
+                      <SelectItem value="complaint">Complaint</SelectItem>
+                      <SelectItem value="receipt">Receipt Request</SelectItem>
+                      <SelectItem value="maintenance">Maintenance Request</SelectItem>
+                      <SelectItem value="leave">Leave Application</SelectItem>
+                      <SelectItem value="vacate_bed">Vacate Bed Request</SelectItem>
+                      <SelectItem value="change_bed">Change Bed Request</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
-                <div>
-                  <Label htmlFor="secondary_reasons">
-                    Secondary Reasons (comma separated)
-                  </Label>
+                <div className="space-y-2">
+                  <Label htmlFor="priority" className="text-sm font-medium">Priority *</Label>
+                  <Select
+                    value={formData.priority}
+                    onValueChange={(value) => setFormData({ ...formData, priority: value })}
+                  >
+                    <SelectTrigger className="h-10">
+                      <SelectValue placeholder="Select priority" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="low">Low</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="high">High</SelectItem>
+                      <SelectItem value="urgent">Urgent</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Title and Description */}
+              <div className="grid grid-cols-3 gap-4">
+                <div className="col-span-1 space-y-2">
+                  <Label htmlFor="title" className="text-sm font-medium">Title *</Label>
                   <Input
-                    id="secondary_reasons"
-                    value={secondaryReasonsInput}
-                    onChange={(e) => setSecondaryReasonsInput(e.target.value)}
-                    placeholder="e.g., Distance from work, Need bigger room, etc."
-                    className="h-12"
+                    id="title"
+                    value={formData.title}
+                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    placeholder="Brief title for your request"
+                    className="h-10"
                   />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Enter multiple reasons separated by commas
-                  </p>
                 </div>
 
-                {/* Ratings Section */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="overall_rating">Overall Rating (1-5)</Label>
-                    <Select
-                      value={formData.vacateData?.overall_rating?.toString() || ''}
-                      onValueChange={(value) => handleVacateDataChange('overall_rating', parseInt(value))}
-                    >
-                      <SelectTrigger className="h-12">
-                        <SelectValue placeholder="Select rating" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="1">1 - Very Poor</SelectItem>
-                        <SelectItem value="2">2 - Poor</SelectItem>
-                        <SelectItem value="3">3 - Average</SelectItem>
-                        <SelectItem value="4">4 - Good</SelectItem>
-                        <SelectItem value="5">5 - Excellent</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="food_rating">Food Rating (1-5)</Label>
-                    <Select
-                      value={formData.vacateData?.food_rating?.toString() || ''}
-                      onValueChange={(value) => handleVacateDataChange('food_rating', parseInt(value))}
-                    >
-                      <SelectTrigger className="h-12">
-                        <SelectValue placeholder="Select rating" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="1">1 - Very Poor</SelectItem>
-                        <SelectItem value="2">2 - Poor</SelectItem>
-                        <SelectItem value="3">3 - Average</SelectItem>
-                        <SelectItem value="4">4 - Good</SelectItem>
-                        <SelectItem value="5">5 - Excellent</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="cleanliness_rating">Cleanliness Rating (1-5)</Label>
-                    <Select
-                      value={formData.vacateData?.cleanliness_rating?.toString() || ''}
-                      onValueChange={(value) => handleVacateDataChange('cleanliness_rating', parseInt(value))}
-                    >
-                      <SelectTrigger className="h-12">
-                        <SelectValue placeholder="Select rating" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="1">1 - Very Poor</SelectItem>
-                        <SelectItem value="2">2 - Poor</SelectItem>
-                        <SelectItem value="3">3 - Average</SelectItem>
-                        <SelectItem value="4">4 - Good</SelectItem>
-                        <SelectItem value="5">5 - Excellent</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="management_rating">Management Rating (1-5)</Label>
-                    <Select
-                      value={formData.vacateData?.management_rating?.toString() || ''}
-                      onValueChange={(value) => handleVacateDataChange('management_rating', parseInt(value))}
-                    >
-                      <SelectTrigger className="h-12">
-                        <SelectValue placeholder="Select rating" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="1">1 - Very Poor</SelectItem>
-                        <SelectItem value="2">2 - Poor</SelectItem>
-                        <SelectItem value="3">3 - Average</SelectItem>
-                        <SelectItem value="4">4 - Good</SelectItem>
-                        <SelectItem value="5">5 - Excellent</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                <div className="col-span-2 space-y-2">
+                  <Label htmlFor="description" className="text-sm font-medium">Description *</Label>
+                  <Input
+                    id="description"
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    placeholder="Provide detailed information about your request"
+                    className="h-10"
+                  />
                 </div>
+              </div>
 
-                <div>
-                  <Label htmlFor="improvement_suggestions">Improvement Suggestions</Label>
-                  <Textarea
+              {/* Conditional rendering for Change Bed Request */}
+              {formData.request_type === 'change_bed' && (
+                <div className="border-t border-gray-200 pt-3">
+                  <ChangeBedForm
+                    step={step}
+                    setStep={setStep}
+                    currentRoom={currentRoom}
+                    changeReasons={changeReasons}
+                    properties={properties}
+                    selectedPropertyId={selectedPropertyId}
+                    setSelectedPropertyId={setSelectedPropertyId}
+                    availableRooms={availableRooms}
+                    selectedRoomId={selectedRoomId}
+                    setSelectedRoomId={setSelectedRoomId}
+                    availableBeds={availableBeds}
+                    selectedBedNumber={selectedBedNumber}
+                    setSelectedBedNumber={setSelectedBedNumber}
+                    onPropertySelect={handlePropertySelect}
+                    onRoomSelect={handleRoomSelect}
+                    onBedSelect={handleBedSelect}
+                    onReasonSelect={handleChangeReasonSelect}
+                    onDateChange={handleShiftingDateChange}
+                    onNotesChange={handleNotesChange}
+                    formData={formData}
+                  />
+                </div>
+              )}
+
+              {/* Conditional rendering for Vacate Bed Request */}
+              {formData.request_type === 'vacate_bed' && (
+                <div className="border-t border-gray-200 pt-3 space-y-3">
+                  <h3 className="font-semibold text-base">Vacate Bed Details</h3>
+                  
+                  {/* Lock-in Period Information */}
+                  {lockinInfo && (
+                    <div className={`rounded-lg p-2 ${lockinInfo.isInLockinPeriod ? 'bg-yellow-50 border border-yellow-200' : 'bg-green-50 border border-green-200'}`}>
+                      <div className="flex items-start gap-2">
+                        {lockinInfo.isInLockinPeriod ? (
+                          <AlertTriangle className="h-4 w-4 text-yellow-600 mt-0.5 flex-shrink-0" />
+                        ) : (
+                          <Check className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-semibold text-sm">
+                            {lockinInfo.isInLockinPeriod ? 'Lock-in Period Active' : 'Lock-in Period Completed'}
+                          </h4>
+                          <div className="grid grid-cols-4 gap-2 mt-1 text-sm">
+                            <p>Check-in: {format(new Date(lockinInfo.checkInDate), 'dd MMM yyyy')}</p>
+                            <p>Lock-in: {lockinInfo.lockinPeriodMonths} months</p>
+                            <p>Ends: {format(new Date(lockinInfo.lockinEnds), 'dd MMM yyyy')}</p>
+                            {lockinInfo.isInLockinPeriod && lockinInfo.penalty.calculatedAmount && (
+                              <p className="font-bold">Payable: ₹{lockinInfo.penalty.calculatedAmount.toFixed(2)}</p>
+                            )}
+                          </div>
+                          
+                          {lockinInfo.isInLockinPeriod && (
+                            <div className="flex items-center space-x-2 mt-1">
+                              <Checkbox
+                                id="agree_lockin_penalty"
+                                checked={formData.vacateData?.agree_lockin_penalty || false}
+                                onCheckedChange={(checked) => 
+                                  handleVacateDataChange('agree_lockin_penalty', checked)
+                                }
+                              />
+                              <Label htmlFor="agree_lockin_penalty" className="text-sm cursor-pointer">
+                                I agree to pay the lock-in penalty
+                              </Label>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Notice Period Information */}
+                  {noticeInfo && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-2">
+                      <div className="flex items-start gap-2">
+                        <Info className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-semibold text-sm text-blue-800">Notice Period</h4>
+                          <div className="grid grid-cols-3 gap-2 mt-1 text-sm text-blue-700">
+                            <p>Required: {noticeInfo.noticePeriodDays} days</p>
+                            {noticeInfo.penalty.calculatedAmount && (
+                              <p className="font-bold">Payable: ₹{noticeInfo.penalty.calculatedAmount.toFixed(2)}</p>
+                            )}
+                          </div>
+                          
+                          {noticeInfo.requiresAgreement && (
+                            <div className="flex items-center space-x-2 mt-1">
+                              <Checkbox
+                                id="agree_notice_penalty"
+                                checked={formData.vacateData?.agree_notice_penalty || false}
+                                onCheckedChange={(checked) => 
+                                  handleVacateDataChange('agree_notice_penalty', checked)
+                                }
+                              />
+                              <Label htmlFor="agree_notice_penalty" className="text-sm text-blue-800 cursor-pointer">
+                                I agree to notice period requirements
+                              </Label>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Show message if no lock-in/notice info found */}
+                  {(!lockinInfo || !noticeInfo) && (
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-2">
+                      <div className="flex items-center gap-2">
+                        <Info className="h-4 w-4 text-gray-600 flex-shrink-0" />
+                        <div className="text-sm">
+                          <p className="text-gray-600">
+                            {loading ? 'Loading contract details...' : 'Contract details not available'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Vacate Fields Grid */}
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="space-y-1">
+                      <Label htmlFor="expected_vacate_date" className="text-sm font-medium">Vacate Date *</Label>
+                      <Input
+                        id="expected_vacate_date"
+                        type="date"
+                        value={formData.vacateData?.expected_vacate_date || ''}
+                        onChange={(e) => handleVacateDataChange('expected_vacate_date', e.target.value)}
+                        min={new Date().toISOString().split('T')[0]}
+                        className="h-10"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label htmlFor="primary_reason" className="text-sm font-medium">Primary Reason *</Label>
+                      <Select
+                        value={formData.vacateData?.primary_reason_id?.toString() || ''}
+                        onValueChange={(value) => handleVacateDataChange('primary_reason_id', parseInt(value))}
+                      >
+                        <SelectTrigger className="h-10">
+                          <SelectValue placeholder="Select primary reason" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Array.isArray(vacateReasons) && vacateReasons.map((reason) => (
+                            <SelectItem key={reason.id} value={reason.id.toString()}>
+                              {reason.value}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label htmlFor="secondary_reasons" className="text-sm font-medium">Secondary</Label>
+                      <Input
+                        id="secondary_reasons"
+                        value={secondaryReasonsInput}
+                        onChange={(e) => setSecondaryReasonsInput(e.target.value)}
+                        placeholder="Comma separated"
+                        className="h-10"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Ratings Section */}
+                  <div className="grid grid-cols-4 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-sm">Overall Rating</Label>
+                      <Select
+                        value={formData.vacateData?.overall_rating?.toString() || ''}
+                        onValueChange={(value) => handleVacateDataChange('overall_rating', parseInt(value))}
+                      >
+                        <SelectTrigger className="h-10">
+                          <SelectValue placeholder="Select Rating" />
+                        </SelectTrigger>
+                        <SelectContent>
+                           <SelectItem value="1">1 - Very Poor</SelectItem>
+                        <SelectItem value="2">2 - Poor</SelectItem>
+                        <SelectItem value="3">3 - Average</SelectItem>
+                        <SelectItem value="4">4 - Good</SelectItem>
+                        <SelectItem value="5">5 - Excellent</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label className="text-sm">Food</Label>
+                      <Select
+                        value={formData.vacateData?.food_rating?.toString() || ''}
+                        onValueChange={(value) => handleVacateDataChange('food_rating', parseInt(value))}
+                      >
+                        <SelectTrigger className="h-10">
+                          <SelectValue placeholder="Select Rating" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1">1 - Very Poor</SelectItem>
+                        <SelectItem value="2">2 - Poor</SelectItem>
+                        <SelectItem value="3">3 - Average</SelectItem>
+                        <SelectItem value="4">4 - Good</SelectItem>
+                        <SelectItem value="5">5 - Excellent</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label className="text-sm">Cleanliness</Label>
+                      <Select
+                        value={formData.vacateData?.cleanliness_rating?.toString() || ''}
+                        onValueChange={(value) => handleVacateDataChange('cleanliness_rating', parseInt(value))}
+                      >
+                        <SelectTrigger className="h-10">
+                          <SelectValue placeholder="Select Rating" />
+                        </SelectTrigger>
+                        <SelectContent>
+                           <SelectItem value="1">1 - Very Poor</SelectItem>
+                        <SelectItem value="2">2 - Poor</SelectItem>
+                        <SelectItem value="3">3 - Average</SelectItem>
+                        <SelectItem value="4">4 - Good</SelectItem>
+                        <SelectItem value="5">5 - Excellent</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label className="text-sm">Management</Label>
+                      <Select
+                        value={formData.vacateData?.management_rating?.toString() || ''}
+                        onValueChange={(value) => handleVacateDataChange('management_rating', parseInt(value))}
+                      >
+                        <SelectTrigger className="h-10">
+                          <SelectValue placeholder="Select Rating" />
+                        </SelectTrigger>
+                        <SelectContent>
+                           <SelectItem value="1">1 - Very Poor</SelectItem>
+                        <SelectItem value="2">2 - Poor</SelectItem>
+                        <SelectItem value="3">3 - Average</SelectItem>
+                        <SelectItem value="4">4 - Good</SelectItem>
+                        <SelectItem value="5">5 - Excellent</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {/* Improvement Suggestions */}
+                  <Input
                     id="improvement_suggestions"
                     value={formData.vacateData?.improvement_suggestions || ''}
                     onChange={(e) => handleVacateDataChange('improvement_suggestions', e.target.value)}
-                    placeholder="Any suggestions for improvement..."
-                    rows={3}
+                    placeholder="Improvement suggestions"
+                    className="h-10"
                   />
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Conditional rendering for Leave Request */}
-            {formData.request_type === 'leave' && (
-              <div className="space-y-4 p-4 border border-gray-200 rounded-lg">
-                <h3 className="font-semibold text-lg">Leave Application Details</h3>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="leave_type">Leave Type *</Label>
-                    <Select
-                      value={formData.leaveData?.leave_type || ''}
-                      onValueChange={(value) => handleLeaveDataChange('leave_type', value)}
-                    >
-                      <SelectTrigger className="h-12">
-                        <SelectValue placeholder="Select leave type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {leaveTypes.map((type) => (
-                          <SelectItem key={type.id} value={type.value}>
-                            <div className="flex flex-col">
-                              <span className="font-medium">{type.value}</span>
-                              {type.description && (
-                                <span className="text-xs text-gray-500">{type.description}</span>
-                              )}
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+              {/* Conditional rendering for Leave Request */}
+              {formData.request_type === 'leave' && (
+                <div className="border-t border-gray-200 pt-3 space-y-3">
+                  <h3 className="font-semibold text-base">Leave Application Details</h3>
                   
-                  <div>
-                    <Label htmlFor="total_days">Total Days *</Label>
-                    <Input
-                      id="total_days"
-                      type="number"
-                      min="1"
-                      max="30"
-                      value={formData.leaveData?.total_days || ''}
-                      onChange={(e) => handleLeaveDataChange('total_days', parseInt(e.target.value) || 0)}
-                      placeholder="Enter number of days"
-                      className="h-12"
-                      disabled={!!(formData.leaveData?.leave_start_date && formData.leaveData?.leave_end_date)}
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Will be auto-calculated from dates, maximum 30 days allowed
-                    </p>
+                  <div className="grid grid-cols-4 gap-3">
+                    <div className="col-span-2 space-y-1">
+                      <Label htmlFor="leave_type" className="text-sm font-medium">Leave Type *</Label>
+                      <Select
+                        value={formData.leaveData?.leave_type || ''}
+                        onValueChange={(value) => handleLeaveDataChange('leave_type', value)}
+                      >
+                        <SelectTrigger className="h-10">
+                          <SelectValue placeholder="Select leave type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {leaveTypes.map((type) => (
+                            <SelectItem key={type.id} value={type.value}>
+                              {type.value}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="space-y-1">
+                      <Label htmlFor="total_days" className="text-sm font-medium">Days *</Label>
+                      <Input
+                        id="total_days"
+                        type="number"
+                        min="1"
+                        max="30"
+                        value={formData.leaveData?.total_days || ''}
+                        onChange={(e) => handleLeaveDataChange('total_days', parseInt(e.target.value) || 0)}
+                        placeholder="Days"
+                        className="h-10"
+                        disabled={!!(formData.leaveData?.leave_start_date && formData.leaveData?.leave_end_date)}
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label htmlFor="emergency_contact_number" className="text-sm font-medium">Emergency</Label>
+                      <Input
+                        id="emergency_contact_number"
+                        type="tel"
+                        value={formData.leaveData?.emergency_contact_number || ''}
+                        onChange={(e) => handleLeaveDataChange('emergency_contact_number', e.target.value)}
+                        placeholder="Contact"
+                        className="h-10"
+                      />
+                    </div>
                   </div>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="leave_start_date">Leave Start Date *</Label>
-                    <Input
-                      id="leave_start_date"
-                      type="date"
-                      value={formData.leaveData?.leave_start_date || ''}
-                      onChange={(e) => {
-                        handleLeaveDataChange('leave_start_date', e.target.value);
-                        if (formData.leaveData?.leave_end_date && e.target.value) {
-                          const totalDays = calculateTotalDays(e.target.value, formData.leaveData.leave_end_date);
-                          handleLeaveDataChange('total_days', totalDays);
-                        }
-                      }}
-                      min={new Date().toISOString().split('T')[0]}
-                      className="h-12"
-                    />
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label htmlFor="leave_start_date" className="text-sm font-medium">Start Date *</Label>
+                      <Input
+                        id="leave_start_date"
+                        type="date"
+                        value={formData.leaveData?.leave_start_date || ''}
+                        onChange={(e) => {
+                          handleLeaveDataChange('leave_start_date', e.target.value);
+                          if (formData.leaveData?.leave_end_date && e.target.value) {
+                            const totalDays = calculateTotalDays(e.target.value, formData.leaveData.leave_end_date);
+                            handleLeaveDataChange('total_days', totalDays);
+                          }
+                        }}
+                        min={new Date().toISOString().split('T')[0]}
+                        className="h-10"
+                      />
+                    </div>
+                    
+                    <div className="space-y-1">
+                      <Label htmlFor="leave_end_date" className="text-sm font-medium">End Date *</Label>
+                      <Input
+                        id="leave_end_date"
+                        type="date"
+                        value={formData.leaveData?.leave_end_date || ''}
+                        onChange={(e) => {
+                          handleLeaveDataChange('leave_end_date', e.target.value);
+                          if (formData.leaveData?.leave_start_date && e.target.value) {
+                            const totalDays = calculateTotalDays(formData.leaveData.leave_start_date, e.target.value);
+                            handleLeaveDataChange('total_days', totalDays);
+                          }
+                        }}
+                        min={formData.leaveData?.leave_start_date || new Date().toISOString().split('T')[0]}
+                        className="h-10"
+                      />
+                    </div>
                   </div>
-                  
-                  <div>
-                    <Label htmlFor="leave_end_date">Leave End Date *</Label>
-                    <Input
-                      id="leave_end_date"
-                      type="date"
-                      value={formData.leaveData?.leave_end_date || ''}
-                      onChange={(e) => {
-                        handleLeaveDataChange('leave_end_date', e.target.value);
-                        if (formData.leaveData?.leave_start_date && e.target.value) {
-                          const totalDays = calculateTotalDays(formData.leaveData.leave_start_date, e.target.value);
-                          handleLeaveDataChange('total_days', totalDays);
-                        }
-                      }}
-                      min={formData.leaveData?.leave_start_date || new Date().toISOString().split('T')[0]}
-                      className="h-12"
-                    />
-                  </div>
-                </div>
-                
-                <div>
-                  <Label htmlFor="contact_address_during_leave">Contact Address During Leave</Label>
-                  <Textarea
-                    id="contact_address_during_leave"
+
+                  <Input
                     value={formData.leaveData?.contact_address_during_leave || ''}
                     onChange={(e) => handleLeaveDataChange('contact_address_during_leave', e.target.value)}
-                    placeholder="Your address during the leave period"
-                    rows={2}
+                    placeholder="Contact address during leave"
+                    className="h-10"
                   />
-                </div>
-                
-                <div>
-                  <Label htmlFor="emergency_contact_number">Emergency Contact Number</Label>
-                  <Input
-                    id="emergency_contact_number"
-                    type="tel"
-                    value={formData.leaveData?.emergency_contact_number || ''}
-                    onChange={(e) => handleLeaveDataChange('emergency_contact_number', e.target.value)}
-                    placeholder="Emergency contact number"
-                    className="h-12"
-                  />
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="room_locked"
-                      checked={formData.leaveData?.room_locked || false}
-                      onCheckedChange={(checked) => handleLeaveDataChange('room_locked', checked)}
-                    />
-                    <Label htmlFor="room_locked" className="cursor-pointer">Room will be locked during leave</Label>
+
+                  <div className="flex gap-4">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="room_locked"
+                        checked={formData.leaveData?.room_locked || false}
+                        onCheckedChange={(checked) => handleLeaveDataChange('room_locked', checked)}
+                      />
+                      <Label htmlFor="room_locked" className="text-sm cursor-pointer">Room will be locked during leave</Label>
+                    </div>
+                    
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="keys_submitted"
+                        checked={formData.leaveData?.keys_submitted || false}
+                        onCheckedChange={(checked) => handleLeaveDataChange('keys_submitted', checked)}
+                      />
+                      <Label htmlFor="keys_submitted" className="text-sm cursor-pointer">Keys will be submitted before leave</Label>
+                    </div>
                   </div>
+                </div>
+              )}
+
+              {/* Conditional rendering for Maintenance Request */}
+              {formData.request_type === 'maintenance' && (
+                <div className="border-t border-gray-200 pt-3 space-y-3">
+                  <h3 className="font-semibold text-base">Maintenance Request</h3>
                   
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="space-y-1">
+                      <Label htmlFor="issue_category" className="text-sm font-medium">Category *</Label>
+                      <Select
+                        value={formData.maintenanceData?.issue_category || ''}
+                        onValueChange={(value) => handleMaintenanceDataChange('issue_category', value)}
+                      >
+                        <SelectTrigger className="h-10">
+                          <SelectValue placeholder="Select category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {MAINTENANCE_CATEGORIES.map((category) => (
+                            <SelectItem key={category.id} value={category.id}>
+                              {category.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label htmlFor="location" className="text-sm font-medium">Location *</Label>
+                      <Select
+                        value={formData.maintenanceData?.location || ''}
+                        onValueChange={(value) => handleMaintenanceDataChange('location', value)}
+                      >
+                        <SelectTrigger className="h-10">
+                          <SelectValue placeholder="Select location" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {MAINTENANCE_LOCATIONS.map((location) => (
+                            <SelectItem key={location.id} value={location.id}>
+                              {location.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label htmlFor="preferred_visit_time" className="text-sm font-medium">Visit Time</Label>
+                      <Select
+                        value={formData.maintenanceData?.preferred_visit_time || ''}
+                        onValueChange={(value) => handleMaintenanceDataChange('preferred_visit_time', value)}
+                      >
+                        <SelectTrigger className="h-10">
+                          <SelectValue placeholder="Select time" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {VISIT_TIMES.map((time) => (
+                            <SelectItem key={time.id} value={time.id}>
+                              {time.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
                   <div className="flex items-center space-x-2">
                     <Checkbox
-                      id="keys_submitted"
-                      checked={formData.leaveData?.keys_submitted || false}
-                      onCheckedChange={(checked) => handleLeaveDataChange('keys_submitted', checked)}
+                      id="access_permission"
+                      checked={formData.maintenanceData?.access_permission || false}
+                      onCheckedChange={(checked) => handleMaintenanceDataChange('access_permission', checked)}
                     />
-                    <Label htmlFor="keys_submitted" className="cursor-pointer">Keys will be submitted before leave</Label>
+                    <Label htmlFor="access_permission" className="text-sm cursor-pointer">
+  I grant permission for staff to enter my room when I'm away if needed                    </Label>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Conditional rendering for Maintenance Request */}
-            {formData.request_type === 'maintenance' && (
-              <div className="space-y-4 p-4 border border-gray-200 rounded-lg">
-                <h3 className="font-semibold text-lg">Maintenance Request Details</h3>
-                
-                <div>
-                  <Label htmlFor="issue_category">Issue Category *</Label>
-                  <Select
-                    value={formData.maintenanceData?.issue_category || ''}
-                    onValueChange={(value) => handleMaintenanceDataChange('issue_category', value)}
-                  >
-                    <SelectTrigger className="h-12">
-                      <SelectValue placeholder="Select issue category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {MAINTENANCE_CATEGORIES.map((category) => (
-                        <SelectItem key={category.id} value={category.id}>
-                          {category.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              {/* Conditional rendering for Complaint Request */}
+              {formData.request_type === 'complaint' && (
+                <div className="border-t border-red-200 pt-3 space-y-3">
+                  <h3 className="font-semibold text-base text-red-800">Complaint Details</h3>
+                  
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label htmlFor="complaint_category" className="text-sm font-medium">Category *</Label>
+                      <Select
+                        value={formData.complaintData?.category_master_type_id?.toString() || ''}
+                        onValueChange={(value) => handleComplaintCategoryChange(parseInt(value))}
+                      >
+                        <SelectTrigger className="h-10">
+                          <SelectValue placeholder="Select category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {complaintCategories.map((category) => (
+                            <SelectItem key={category.id} value={category.id.toString()}>
+                              {category.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-                <div>
-                  <Label htmlFor="location">Location *</Label>
-                  <Select
-                    value={formData.maintenanceData?.location || ''}
-                    onValueChange={(value) => handleMaintenanceDataChange('location', value)}
-                  >
-                    <SelectTrigger className="h-12">
-                      <SelectValue placeholder="Select location" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {MAINTENANCE_LOCATIONS.map((location) => (
-                        <SelectItem key={location.id} value={location.id}>
-                          {location.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label htmlFor="preferred_visit_time">Preferred Visit Time</Label>
-                  <Select
-                    value={formData.maintenanceData?.preferred_visit_time || ''}
-                    onValueChange={(value) => handleMaintenanceDataChange('preferred_visit_time', value)}
-                  >
-                    <SelectTrigger className="h-12">
-                      <SelectValue placeholder="Select preferred time" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {VISIT_TIMES.map((time) => (
-                        <SelectItem key={time.id} value={time.id}>
-                          {time.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="access_permission"
-                    checked={formData.maintenanceData?.access_permission || false}
-                    onCheckedChange={(checked) => handleMaintenanceDataChange('access_permission', checked)}
-                  />
-                  <Label htmlFor="access_permission" className="cursor-pointer">
-                    I grant permission for staff to enter my room when I'm away if needed
-                  </Label>
-                </div>
-              </div>
-            )}
-
-            {/* Conditional rendering for Complaint Request */}
-            {formData.request_type === 'complaint' && (
-              <div className="space-y-4 p-4 border border-red-200 rounded-lg bg-red-50">
-                <h3 className="font-semibold text-lg text-red-800">Complaint Details</h3>
-                
-                <div>
-                  <Label htmlFor="complaint_category" className="text-base">Complaint Category *</Label>
-                  <Select
-                    value={formData.complaintData?.category_master_type_id?.toString() || ''}
-                    onValueChange={(value) => handleComplaintCategoryChange(parseInt(value))}
-                  >
-                    <SelectTrigger className="h-12">
-                      <SelectValue placeholder="Select complaint category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {complaintCategories.map((category) => (
-                        <SelectItem key={category.id} value={category.id.toString()}>
-                          <div className="flex flex-col">
-                            <span className="font-medium">{category.name}</span>
-                            {category.description && (
-                              <span className="text-xs text-gray-500">{category.description}</span>
-                            )}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {selectedComplaintCategory && complaintReasons.length > 0 && (
-                  <div>
-                    <Label htmlFor="complaint_reason" className="text-base">Select Reason *</Label>
-                    <Select
-                      value={formData.complaintData?.reason_master_value_id?.toString() || ''}
-                      onValueChange={(value) => {
-                        const reason = complaintReasons.find(r => r.id.toString() === value);
-                        handleComplaintReasonChange(parseInt(value), reason?.value || '');
-                      }}
-                    >
-                      <SelectTrigger className="h-12">
-                        <SelectValue placeholder="Select reason for complaint" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {complaintReasons.map((reason) => (
-                          <SelectItem key={reason.id} value={reason.id.toString()}>
-                            <div className="flex flex-col">
-                              <span className="font-medium">{reason.value}</span>
-                              {reason.description && (
-                                <span className="text-xs text-gray-500">{reason.description}</span>
-                              )}
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    {selectedComplaintCategory && complaintReasons.length > 0 && (
+                      <div className="space-y-1">
+                        <Label htmlFor="complaint_reason" className="text-sm font-medium">Reason *</Label>
+                        <Select
+                          value={formData.complaintData?.reason_master_value_id?.toString() || ''}
+                          onValueChange={(value) => {
+                            const reason = complaintReasons.find(r => r.id.toString() === value);
+                            handleComplaintReasonChange(parseInt(value), reason?.value || '');
+                          }}
+                        >
+                          <SelectTrigger className="h-10">
+                            <SelectValue placeholder="Select reason" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {complaintReasons.map((reason) => (
+                              <SelectItem key={reason.id} value={reason.id.toString()}>
+                                {reason.value}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
                   </div>
-                )}
 
-                {showCustomReason && (
-                  <div>
-                    <Label htmlFor="custom_reason" className="text-base">Please specify your reason *</Label>
-                    <Textarea
-                      id="custom_reason"
+                  {showCustomReason && (
+                    <Input
                       value={formData.complaintData?.custom_reason || ''}
                       onChange={(e) => handleCustomReasonChange(e.target.value)}
-                      placeholder="Please describe your complaint in detail..."
-                      rows={3}
-                      className="mt-1"
+                      placeholder="Describe your complaint"
+                      className="h-10"
                     />
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsDialogOpen(false)}
-              disabled={submitting}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSubmitRequest}
-              className="bg-blue-600 hover:bg-blue-700"
-              disabled={submitting}
-            >
-              {submitting ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Submitting...
-                </>
-              ) : (
-                <>
-                  <Send className="h-4 w-4 mr-2" />
-                  Submit Request
-                </>
+                  )}
+                </div>
               )}
-            </Button>
-          </DialogFooter>
+            </div>
+
+            <DialogFooter className="mt-4 pt-3 border-t border-gray-200 flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setIsDialogOpen(false)}
+                disabled={submitting}
+                className="flex-1 h-10"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSubmitRequest}
+                className="flex-1 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 h-10"
+                disabled={submitting}
+              >
+                {submitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Submitting...
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-4 w-4 mr-2" />
+                    Submit
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

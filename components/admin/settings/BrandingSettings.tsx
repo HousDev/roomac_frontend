@@ -106,7 +106,7 @@ export default function BrandingSettings({
 
             <Separator className="my-2" />
 
-            <div>
+            {/* <div>
               <h3 className="text-sm font-semibold text-slate-800 mb-3 flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 bg-purple-600 rounded-full"></span>
                 Brand Colors
@@ -174,7 +174,7 @@ export default function BrandingSettings({
                   </div>
                 </div>
               </div>
-            </div>
+            </div> */}
           </div>
         </CardContent>
       </Card>

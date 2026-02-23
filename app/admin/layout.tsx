@@ -61,7 +61,7 @@ export default function AdminLayout() {
     
     // Subtitles for ALL pages
     const pageSubtitles: Record<string, string> = {
-      'dashboard': 'Manage your ROOMAC platform',
+      'dashboard': 'Manage rooms, beds, tenants, and operations in one place.',
       'properties': 'Manage all your property listings',
       'property': 'View and manage property details',
       'tenants': 'Manage tenant information and records',
