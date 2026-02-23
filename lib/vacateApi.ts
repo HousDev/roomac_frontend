@@ -14,12 +14,12 @@ export interface VacateInitialData {
     property_name: string;
     tenant_name: string;
     room_number: number;
-    lockin_period_months: number;        // From tenant table
-    lockin_penalty_amount: number;       // From tenant table
-    lockin_penalty_type: string;         // From tenant table
-    notice_period_days: number;          // From tenant table
-    notice_penalty_amount: number;       // From tenant table
-    notice_penalty_type: string;         // From tenant table
+    lockin_period_months: number;         
+    lockin_penalty_amount: number;      
+    lockin_penalty_type: string;         
+    notice_period_days: number;         
+    notice_penalty_amount: number;      
+    notice_penalty_type: string;        
   };
   vacateReasons: Array<{
     id: number;

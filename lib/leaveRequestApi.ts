@@ -101,7 +101,6 @@ export async function getLeaveRequests(params: GetLeaveRequestsParams = {}): Pro
 
     // ✅ CORRECTED ENDPOINT
     const url = `${API_BASE_URL}/api/admin/leave-requests?${queryParams.toString()}`;
-    console.log('Fetching leave requests from:', url);
 
     const response = await fetch(url, {
       headers: {

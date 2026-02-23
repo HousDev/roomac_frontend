@@ -143,7 +143,6 @@ export default function TenantHeader({
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      console.log("Searching for:", searchQuery);
     }
   };
 
@@ -153,12 +152,10 @@ export default function TenantHeader({
     setNotificationsOpen(false);
     
     if (!notification.read) {
-      console.log("Marking notification as read:", notification.id);
     }
   };
 
   const markAllAsRead = () => {
-    console.log("Marking all notifications as read");
     toast.success("All notifications marked as read");
   };
 

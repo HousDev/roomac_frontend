@@ -102,12 +102,10 @@ function DashboardTab({
       bgColor: "bg-green-50",
       trend: "positive"
     },
-    // ... other metrics
   ];
 
   const pgAmenities = [
     { icon: <Home className="h-4 w-4" />, name: "High-Speed WiFi", available: true, status: "500 Mbps", uptime: "99.9%" },
-    // ... other amenities
   ];
 
   const roomAmenities = [

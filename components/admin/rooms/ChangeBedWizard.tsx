@@ -250,24 +250,7 @@ export function ChangeBedWizard({ tenantId, tenantName, open, onOpenChange, onSu
     }
   };
 
-  // Step 4: Handle bed selection and calculate rent
-  // const handleBedSelect = async (bed: AvailableBed) => {
-  //   setSelectedBed(bed);
-  //   if (currentAssignment && selectedRoom) {
-  //     try {
-  //       const rentDiff = await calculateRentDifference(
-  //         currentAssignment.room_id,
-  //         selectedRoom.id
-  //       );
-  //       setRentDifference(rentDiff);
-  //     } catch (error) {
-  //       console.error('Error calculating rent difference:', error);
-  //       // Continue anyway even if rent calculation fails
-  //     }
-  //   }
-  //   setCurrentStep('date');
-  // };
-  // Step 4: Handle bed selection and calculate rent
+ 
 const handleBedSelect = async (bed: AvailableBed) => {
   setSelectedBed(bed);
   

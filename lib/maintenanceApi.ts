@@ -50,7 +50,6 @@ export async function getAdminMaintenanceRequests(): Promise<MaintenanceRequest[
       return [];
     }
 
-    console.log('📡 Fetching maintenance requests...');
     
     const response = await request<{ success: boolean; data: MaintenanceRequest[] }>(
       "/api/admin/maintenance",
@@ -63,7 +62,6 @@ export async function getAdminMaintenanceRequests(): Promise<MaintenanceRequest[
       }
     );
     
-    console.log('✅ Maintenance API response:', response);
     
     if (response.success && Array.isArray(response.data)) {
       return response.data;
@@ -105,7 +103,6 @@ export async function updateMaintenanceStatus(
   const body: any = { status };
   if (admin_notes) body.admin_notes = admin_notes;
   
-  console.log(`📝 Updating maintenance ${id} status to ${status}`);
   
   try {
     const response = await request(`/api/admin/maintenance/${id}`, {
@@ -131,7 +128,6 @@ export async function assignMaintenanceStaff(
   const token = getAdminToken();
   if (!token) throw new Error("No admin token found");
 
-  console.log(`👥 Assigning staff ${staffId} to maintenance ${id}`);
   
   const body = {
     assigned_to: staffId === 0 ? null : staffId,
@@ -162,7 +158,6 @@ export async function resolveMaintenance(
   const token = getAdminToken();
   if (!token) throw new Error("No admin token found");
 
-  console.log(`✅ Resolving maintenance ${id}`);
   
   try {
     const response = await request(`/api/admin/maintenance/${id}`, {

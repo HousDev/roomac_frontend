@@ -59,7 +59,6 @@ export default function ProfileClient({ initialProfile, initialNotifications }: 
 
   // Fetch fresh profile data
   const fetchProfile = useCallback(async () => {
-    console.log('🔄 Fetching profile...');
     
     try {
       setLoading(true);

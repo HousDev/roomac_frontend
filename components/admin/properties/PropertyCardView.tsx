@@ -41,18 +41,10 @@ export default function PropertyCardView({ properties }: PropertyCardViewProps) 
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [formSubmitting, setFormSubmitting] = useState(false);
 
-  // ============ DEBUGGING ============
-  console.log('🚀 PropertyCardView rendered');
-  console.log('📦 Properties received:', properties);
-  console.log('🔢 Number of properties:', properties?.length);
+ 
   
   if (properties && properties.length > 0) {
-    console.log('🏠 First property:', properties[0]);
-    console.log('🏷️ First property tags:', properties[0].tags);
-    console.log('📋 First property tags type:', typeof properties[0].tags);
-    console.log('🔍 Is tags an array?', Array.isArray(properties[0].tags));
-    console.log('📊 First property tags length:', properties[0].tags?.length);
-    console.log('🔬 First property tags JSON:', JSON.stringify(properties[0].tags));
+    
   }
   
   // Log all unique tag values across all properties
@@ -65,7 +57,6 @@ export default function PropertyCardView({ properties }: PropertyCardViewProps) 
     return [];
   }) || [];
   
-  console.log('🏷️ All tags across properties:', [...new Set(allTags)]);
   // ============ END DEBUGGING ============
 
   const handleCardSelect = (propertyId: string) => {
@@ -108,7 +99,6 @@ export default function PropertyCardView({ properties }: PropertyCardViewProps) 
   };
 
   const handleFormSubmit = async (formData: any, photoFiles: File[], removedPhotos: string[]) => {
-    console.log("Form submitted", formData);
   };
 
   const handleFormReset = () => {
@@ -120,7 +110,6 @@ export default function PropertyCardView({ properties }: PropertyCardViewProps) 
   const extractTags = (property: Property): string[] => {
     if (!property) return [];
     
-    console.log(`🔍 Extracting tags for property: ${property.name}`, property.tags);
     
     // Case 1: tags is already an array of strings
     if (Array.isArray(property.tags)) {
@@ -129,11 +118,9 @@ export default function PropertyCardView({ properties }: PropertyCardViewProps) 
         const extracted = property.tags.map((t: any) => {
           return t.name || t.title || t.value || t.label || JSON.stringify(t);
         });
-        console.log(`📦 Extracted object tags:`, extracted);
         return extracted.filter(Boolean);
       }
       // It's already an array of strings
-      console.log(`📦 Array of strings tags:`, property.tags);
       return property.tags.filter(t => t && t.trim() !== '');
     }
     
@@ -151,18 +138,15 @@ export default function PropertyCardView({ properties }: PropertyCardViewProps) 
               if (typeof t === 'object') return t.name || t.title || t.value || JSON.stringify(t);
               return String(t);
             });
-            console.log(`📦 Parsed JSON tags:`, extracted);
             return extracted.filter(Boolean);
           }
         } catch (e) {
-          console.log('Failed to parse JSON tags:', e);
         }
       }
       
       // Split by comma
       if (tagString.includes(',')) {
         const split = tagString.split(',').map(t => t.trim()).filter(Boolean);
-        console.log(`📦 Comma-separated tags:`, split);
         return split;
       }
       
@@ -175,16 +159,13 @@ export default function PropertyCardView({ properties }: PropertyCardViewProps) 
     
     // Case 3: property has tag_list or property_tags
     if ((property as any).tag_list && Array.isArray((property as any).tag_list)) {
-      console.log(`📦 Using tag_list:`, (property as any).tag_list);
       return (property as any).tag_list.filter(Boolean);
     }
     
     if ((property as any).property_tags && Array.isArray((property as any).property_tags)) {
-      console.log(`📦 Using property_tags:`, (property as any).property_tags);
       return (property as any).property_tags.filter(Boolean);
     }
     
-    console.log(`📦 No tags found for:`, property.name);
     return [];
   };
 
@@ -227,7 +208,6 @@ export default function PropertyCardView({ properties }: PropertyCardViewProps) 
     // Extract tags using our universal extractor
     const tags = extractTags(property);
     
-    console.log(`🏷️ Final tags for ${property.name}:`, tags);
 
     const maxVisibleTags = 3;
     const visibleTags = tags.slice(0, maxVisibleTags);

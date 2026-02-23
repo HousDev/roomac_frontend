@@ -19,7 +19,6 @@ export async function tenantApiRequest<T = any>(
 ): Promise<T> {
   const url = `${API_BASE_URL}${path}`;
   
-  console.log('🔵 Tenant API Request to:', url);
   
   const token = getTenantToken();
   
@@ -39,7 +38,6 @@ export async function tenantApiRequest<T = any>(
   }
 
   headers["Authorization"] = `Bearer ${token}`;
-  console.log('🔑 Tenant token used:', token.substring(0, 20) + '...');
 
   const res = await fetch(url, {
     ...options,
@@ -47,8 +45,7 @@ export async function tenantApiRequest<T = any>(
   });
 
   const text = await res.text();
-  console.log('📥 Response status:', res.status);
-  console.log('📥 Raw response (first 300 chars):', text.substring(0, 300));
+ ;
   
   let data: any = {};
 

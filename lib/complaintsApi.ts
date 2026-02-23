@@ -106,7 +106,6 @@ export async function getAdminComplaints(): Promise<Complaint[]> {
   try {
     const token = getAdminToken();
 
-    console.log('📡 Fetching complaints from API...');
     
     const response = await request<{
       message(arg0: string, message: any): unknown; success: boolean; data: Complaint[] 
@@ -121,7 +120,6 @@ export async function getAdminComplaints(): Promise<Complaint[]> {
       }
     );
     
-    console.log(`✅ Complaints API response: ${response.data?.length || 0} complaints`);
     
     if (response.success && Array.isArray(response.data)) {
       return response.data;
@@ -240,7 +238,6 @@ export async function updateComplaintStatus(
     const body: any = { status };
     if (admin_notes) body.admin_notes = admin_notes;
     
-    console.log(`📝 Updating complaint ${id} status to ${status}`);
     
     const response = await request(`/api/admin/complaints/${id}`, {
       method: "PUT",
@@ -265,7 +262,6 @@ export async function assignComplaintStaff(
   try {
     const token = getAdminToken();
 
-    console.log(`👥 Assigning staff ${staffId} to complaint ${id}`);
     
     const body: any = {
       assigned_to: staffId
@@ -294,7 +290,6 @@ export async function resolveComplaint(
   try {
     const token = getAdminToken();
 
-    console.log(`✅ Resolving complaint ${id}`);
     
     const response = await request(`/api/admin/complaints/${id}`, {
       method: "PUT",

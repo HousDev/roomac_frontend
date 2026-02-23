@@ -91,7 +91,6 @@ async function fetchWithToken<T>(url: string, options: RequestInit = {}): Promis
   const token = typeof window !== 'undefined' ? localStorage.getItem('admin_token') : null;
   
   const fullUrl = `${API_BASE}${url}`;
-  console.log('Fetching:', fullUrl); // Debug log
   
   const response = await fetch(fullUrl, {
     ...options,

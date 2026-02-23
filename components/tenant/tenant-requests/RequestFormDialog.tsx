@@ -10,9 +10,7 @@ import { ChangeBedForm } from './ChangeBedForm';
 import type { RequestFormData } from './requestConfig';
 import { MouseEventHandler } from 'react';
 
-// This component would be quite large, so I'm showing the structure
-// You would need to implement the full dialog with all form fields
-// Similar to your existing dialog content but extracted into components
+
 
 interface RequestFormDialogProps {
   onSubmit: MouseEventHandler<HTMLButtonElement> | undefined;
@@ -21,12 +19,10 @@ interface RequestFormDialogProps {
   onOpenChange: (open: boolean) => void;
   formData: RequestFormData;
   setFormData: (data: RequestFormData) => void;
-  // ... other props
 }
 
 export function RequestFormDialog(props: RequestFormDialogProps) {
-  // Implement the dialog form here
-  // Break it down into smaller components like VacateBedForm, LeaveForm, etc.
+
   
   return (
     <Dialog open={props.isOpen} onOpenChange={props.onOpenChange}>

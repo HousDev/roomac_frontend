@@ -13,7 +13,6 @@ export async function getTenantData() {
       return null;
     }
 
-    // In a real app, you'd fetch from your API
     // This is a simplified version
     const result = await tenantDetailsApi.loadProfile();
     return result.success ? result.data : null;

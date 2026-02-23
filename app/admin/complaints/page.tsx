@@ -80,7 +80,6 @@ export default function ComplaintsPage() {
       setLoading(true);
       const data = await getAdminComplaints();
       setComplaints(data);
-      console.log('Loaded complaints:', data);
       
       // Load staff and categories
       await Promise.all([loadStaff(), loadCategories()]);

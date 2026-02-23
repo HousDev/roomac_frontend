@@ -101,8 +101,6 @@ function buildFormData(
 ) {
   const fd = new FormData();
 
-  console.log("🔧 Building FormData:");
-  console.log("Payload:", payload);
 
   // Add regular fields
   Object.entries(payload).forEach(([key, val]) => {
@@ -143,7 +141,6 @@ export async function createProperty(
 ) {
   const fd = buildFormData(payload, photoFiles);
 
-  console.log("🚀 Sending CREATE request with FormData");
 
   return await request<ApiResult<{ id: string }>>("/api/properties", {
     method: "POST",
@@ -160,18 +157,15 @@ export async function updateProperty(
 ) {
   const fd = buildFormData(payload, photoFiles, removedPhotos);
 
-  console.log(`🔄 Sending UPDATE request for property ID: ${id}`);
 
   return await request<ApiResult>(`/api/properties/${id}`, {
     method: "PUT",
     body: fd,
   });
-  console.log("Update request sent.");
 }
 
 /** DELETE /api/properties/:id */
 export async function deleteProperty(id: string) {
-  console.log(`🗑️  Sending DELETE request for property ID: ${id}`);
   
   return await request<ApiResult>(`/api/properties/${id}`, {
     method: "DELETE",
@@ -180,7 +174,6 @@ export async function deleteProperty(id: string) {
 
 /** BULK DELETE /api/properties/bulk-delete */
 export async function bulkDeleteProperties(ids: number[]) {
-  console.log(`🧹 Sending BULK DELETE for ${ids.length} properties`);
   
   return await request<ApiResult>("/api/properties/bulk-delete", {
     method: "POST",
@@ -191,7 +184,6 @@ export async function bulkDeleteProperties(ids: number[]) {
 
 /** BULK STATUS UPDATE /api/properties/bulk-status */
 export async function bulkUpdateStatus(ids: number[], is_active: boolean) {
-  console.log(`🔄 Sending BULK STATUS UPDATE for ${ids.length} properties to ${is_active ? 'active' : 'inactive'}`);
   
   try {
     const res = await request<ApiResult>("/api/properties/bulk-status", {
@@ -200,7 +192,6 @@ export async function bulkUpdateStatus(ids: number[], is_active: boolean) {
       headers: { "Content-Type": "application/json" },
     });
     
-    console.log("📊 Bulk status update response:", res);
     return res;
   } catch (err) {
     console.error("❌ Bulk status update error:", err);
@@ -239,7 +230,6 @@ export async function bulkUpdateTags(ids: number[], tags: string[], operation: '
 
 /** DEBUG /api/properties/:id/debug */
 export async function debugProperty(id: string) {
-  console.log(`🐛 DEBUG request for property ID: ${id}`);
   
   return await request<ApiResult>(`/api/properties/${id}/debug`, {
     method: "GET",

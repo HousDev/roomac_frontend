@@ -76,7 +76,6 @@ export default function SettingsClient({
       
       if (!res.ok) {
         if (res.status === 404) {
-          console.log('Notification endpoint not found, using defaults');
           return;
         }
         console.warn('Failed to load notification prefs:', res.status);

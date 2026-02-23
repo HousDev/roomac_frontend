@@ -83,9 +83,7 @@ export function VacateBedWizard({
   // **CRITICAL FIX: Set tenant date immediately when available**
   useEffect(() => {
     if (tenantVacateDate && open) {
-      console.log('🔄 SETTING TENANT DATE TO FORM:', tenantVacateDate);
       const formattedDate = formatDateForInput(tenantVacateDate);
-      console.log('📅 Formatted date for input:', formattedDate);
       
       setFormData(prev => ({
         ...prev,
@@ -97,7 +95,6 @@ export function VacateBedWizard({
   // Also update form when we have all tenant data
   useEffect(() => {
     if (tenantVacateData && initialData && open) {
-      console.log('🔄 Updating form with complete tenant data');
       updateFormWithTenantData();
     }
   }, [tenantVacateData, initialData, open]);
@@ -134,7 +131,6 @@ export function VacateBedWizard({
 
   // Function to extract tenant vacate request details
   const extractTenantVacateData = async (requests: any[]) => {
-    console.log('🔍 Extracting tenant vacate data from:', requests);
     
     const vacateRequests = requests.filter(request => {
       const isVacateBed = request.request_type === 'vacate_bed';
@@ -145,13 +141,11 @@ export function VacateBedWizard({
 
     if (vacateRequests.length > 0) {
       const latestRequest = vacateRequests[0];
-      console.log('📋 Found tenant vacate request:', latestRequest);
       
       const vacateData = latestRequest.vacate_data || {};
       
       if (vacateData.expected_vacate_date) {
         const tenantDate = vacateData.expected_vacate_date;
-        console.log('📅 Raw tenant vacate date:', tenantDate);
         setTenantVacateDate(tenantDate);
       }
       
@@ -172,11 +166,7 @@ export function VacateBedWizard({
       const termsAgreed = lockinAccepted && noticeAccepted;
       setTenantAgreedToTerms(termsAgreed);
       
-      console.log('📋 Tenant agreement status:', {
-        lockinAccepted,
-        noticeAccepted,
-        termsAgreed
-      });
+      
       
       // Store reason ID for later lookup
       if (vacateData.primary_reason_id) {
@@ -194,7 +184,6 @@ export function VacateBedWizard({
   const updateFormWithTenantData = () => {
     if (!initialData || !tenantVacateData) return;
     
-    console.log('🔄 Updating form with tenant data');
     
     const newFormData = { ...formData };
     
@@ -373,11 +362,7 @@ const checkLockinStatus = async () => {
     const lockinMonths = initialData?.bedAssignment?.lockin_period_months || 0;
     const currentDate = new Date(); // Use current date
     
-    console.log('🔒 Lock-in calculation inputs:', {
-      checkInDate: checkInDateStr,
-      lockinMonths: lockinMonths,
-      currentDate: currentDate.toISOString().split('T')[0]
-    });
+    
     
     if (!checkInDateStr) {
       setLockinStatus({
@@ -434,17 +419,7 @@ const checkLockinStatus = async () => {
       penaltyApplicable: !isCompleted
     });
     
-    console.log('🔒 Lock-in status calculated:', {
-      checkInDate: checkIn.toISOString().split('T')[0],
-      lockInEndDate: normalizedLockInEndDate.toISOString().split('T')[0],
-      currentDate: normalizedCurrentDate.toISOString().split('T')[0],
-      isCompleted,
-      completedMonths,
-      remainingMonths,
-      remainingDays,
-      penaltyApplicable: !isCompleted,
-      message
-    });
+   
     
   } catch (error) {
     console.error('Error checking lock-in status:', error);
@@ -551,15 +526,7 @@ const calculateNoticePeriodStatus = () => {
     (normalizedNoticeEndDate.getTime() - normalizedCurrentDate.getTime()) / (1000 * 3600 * 24)
   ));
   
-  console.log('📅 Notice period calculation:', {
-    noticeStartDate: normalizedNoticeStartDate.toISOString().split('T')[0],
-    noticePeriodDays,
-    noticeEndDate: normalizedNoticeEndDate.toISOString().split('T')[0],
-    currentDate: normalizedCurrentDate.toISOString().split('T')[0],
-    isNoticeCompleted,
-    daysSinceNotice,
-    daysRemaining
-  });
+ 
   
   if (isNoticeCompleted) {
     return {
@@ -601,11 +568,7 @@ const calculateAllPenalties = async () => {
     const rentPerBed = parseFloat(bedData.rent_per_bed) || 0;
     const currentDate = new Date().toISOString().split('T')[0];
     
-    console.log('💰 Financial inputs:', {
-      securityDeposit,
-      rentPerBed,
-      currentDate
-    });
+   
     
     // 1. LOCK-IN PENALTY CALCULATION
     let lockinPenalty = 0;
@@ -624,11 +587,7 @@ const calculateAllPenalties = async () => {
       const penaltyAmount = parseFloat(bedData.lockin_penalty_amount) || 0;
       const penaltyType = bedData.lockin_penalty_type || '';
       
-      console.log('🔒 Lock-in penalty calculation:', {
-        penaltyAmount,
-        penaltyType,
-        penaltyApplicable: lockinStatus.penaltyApplicable
-      });
+    
       
       if (penaltyAmount > 0) {
         lockinPenalty = penaltyAmount;
@@ -655,11 +614,7 @@ const calculateAllPenalties = async () => {
       lockinPenaltyDescription = "No penalty - Lock-in period completed";
     }
     
-    console.log('🔒 Lock-in penalty result:', {
-      lockinPenalty,
-      lockinPenaltyDescription,
-      lockinPenaltyApplicable
-    });
+   
     
     // 2. NOTICE PERIOD CALCULATION
     let noticePenalty = 0;
@@ -670,7 +625,6 @@ const calculateAllPenalties = async () => {
     const noticeStatus = calculateNoticePeriodStatus();
     setNoticePeriodStatus(noticeStatus);
     
-    console.log('📅 Notice status:', noticeStatus);
     
     if (noticeStatus?.penaltyApplicable) {
       noticePenaltyApplicable = true;
@@ -679,11 +633,7 @@ const calculateAllPenalties = async () => {
       const penaltyAmount = parseFloat(bedData.notice_penalty_amount) || 0;
       const penaltyType = bedData.notice_penalty_type || '';
       
-      console.log('📅 Notice penalty calculation:', {
-        penaltyAmount,
-        penaltyType,
-        penaltyApplicable: noticeStatus.penaltyApplicable
-      });
+     
       
       if (penaltyAmount > 0) {
         noticePenalty = penaltyAmount;
@@ -727,11 +677,7 @@ const calculateAllPenalties = async () => {
       }
     }
     
-    console.log('📅 Notice penalty result:', {
-      noticePenalty,
-      noticePenaltyDescription,
-      noticePenaltyApplicable
-    });
+    
     
     // 3. FINAL CALCULATION
     const totalPenalty = Number(lockinPenalty) + Number(noticePenalty);
@@ -739,15 +685,7 @@ const calculateAllPenalties = async () => {
     const isNegativeRefund = refundableAmount < 0;
     const additionalPaymentNeeded = isNegativeRefund ? Math.abs(refundableAmount) : 0;
     
-    console.log('💸 Final calculation:', {
-      securityDeposit,
-      lockinPenalty,
-      noticePenalty,
-      totalPenalty,
-      refundableAmount,
-      isNegativeRefund,
-      additionalPaymentNeeded
-    });
+    
     
     // Update form data
     setFormData(prev => ({
@@ -912,18 +850,15 @@ const calculatePenaltyAmount = (penaltyType: string, securityDeposit: number, re
         tenantVacateRequestId: existingVacateRequest?.id
       };
       
-      console.log('📤 Submitting vacate request with payload:', payload);
       
       const response = await vacateApi.submitVacateRequest(payload);
       
-      console.log('✅ Backend response:', response);
       
       if (response && response.success) {
         setSubmissionResult(response.data);
         toast.success(response.message || "Bed vacated successfully by admin!");
         
         if (onVacateComplete) {
-          console.log('🔄 Calling onVacateComplete callback...');
           onVacateComplete();
         }
         
@@ -933,7 +868,6 @@ const calculatePenaltyAmount = (penaltyType: string, securityDeposit: number, re
             tenant_gender: null,
             is_available: true
           });
-          console.log('✅ Bed marked as available in database');
         } catch (updateError) {
           console.error('⚠️ Could not update bed assignment:', updateError);
         }
@@ -950,7 +884,6 @@ const calculatePenaltyAmount = (penaltyType: string, securityDeposit: number, re
         toast.success(response.data.message || "Bed vacated successfully by admin!");
         
         if (onVacateComplete) {
-          console.log('🔄 Calling onVacateComplete callback...');
           onVacateComplete();
         }
         
@@ -960,7 +893,6 @@ const calculatePenaltyAmount = (penaltyType: string, securityDeposit: number, re
             tenant_gender: null,
             is_available: true
           });
-          console.log('✅ Bed marked as available in database');
         } catch (updateError) {
           console.error('⚠️ Could not update bed assignment:', updateError);
         }

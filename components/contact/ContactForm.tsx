@@ -86,7 +86,6 @@ export default function ContactForm({ initialData, properties = [] }: ContactFor
       const data = await response.json();
       
       if (data.success) {
-        console.log('✅ Admin notification created successfully');
       } else {
         console.warn('⚠️ Notification created but response indicated failure:', data);
       }

@@ -36,7 +36,6 @@ export default function AboutClient({ data }: AboutClientProps) {
 
   // Memoize animation callbacks
   const handleStatsAnimation = useCallback((index: number) => {
-    console.log(`Stat ${index} animated`);
   }, []);
 
   const handleValueHover = useCallback((index: number) => {

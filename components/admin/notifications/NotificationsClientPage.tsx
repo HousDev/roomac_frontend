@@ -56,7 +56,6 @@ export default function NotificationsClientPage({
   // WebSocket for real-time updates
   useNotificationWebSocket({
     onNewNotification: (notification) => {
-      console.log('🔔 New real-time notification:', notification);
       setNotifications(prev => [notification, ...prev]);
       setStats((prev: { [x: string]: number; total: number; unread: number; }) => ({
         ...prev,
@@ -67,7 +66,6 @@ export default function NotificationsClientPage({
       toast.info('New notification received!');
     },
     onNotificationRead: (notificationId) => {
-      console.log('✅ Notification marked as read:', notificationId);
       setNotifications(prev => prev.map(notif => 
         notif.id === notificationId ? { ...notif, is_read: true } : notif
       ));

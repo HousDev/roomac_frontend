@@ -253,7 +253,6 @@ export default function TenantRequestsClient() {
         // Retry with exponential backoff
         retryCount.current += 1;
         const delay = 1000 * Math.pow(2, retryCount.current - 1);
-        console.log(`Retrying data load... Attempt ${retryCount.current} of ${MAX_RETRIES} after ${delay}ms`);
         
         setTimeout(() => {
           if (isMounted.current) {
@@ -269,9 +268,8 @@ export default function TenantRequestsClient() {
         setLoading(false);
       }
     }
-  }, [router]); // Remove all state setters from dependencies
+  }, [router]); 
 
-  // Refresh data manually (e.g., after creating a request)
   const refreshData = useCallback(async () => {
     // Reset loaded flag to allow reload
     isDataLoaded.current = false;
@@ -365,9 +363,7 @@ export default function TenantRequestsClient() {
     setSelectedBedNumber(null);
 
     try {
-      console.log('Fetching beds for room:', roomId);
       const beds = await getAvailableBedsForRoom(roomId);
-      console.log('Raw beds response:', beds);
 
       if (isMounted.current) {
         if (Array.isArray(beds)) {
@@ -687,7 +683,6 @@ export default function TenantRequestsClient() {
         };
       }
 
-      console.log('Submitting request data:', requestData);
       
       const result = await createTenantRequest(requestData);
       

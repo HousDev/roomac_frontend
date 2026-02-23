@@ -109,26 +109,6 @@ export const transformPropertyData = (property: any) => {
       "Guests not allowed after 10 PM",
       "Smoking and alcohol strictly prohibited"
     ],
-//    manager: (() => {
-//   const salutationMap: Record<string, string> = {
-//     mr: 'Mr.', mrs: 'Mrs.', miss: 'Miss', dr: 'Dr.', prof: 'Prof.'
-//   };
-//   const salutation = property.manager_salutation
-//     ? (salutationMap[property.manager_salutation.toLowerCase()] || '')
-//     : '';
-//   const managerName = property.property_manager_name || "Rajesh Kumar";
-//   const rawRole = property.property_manager_role || "Verified Manager";
-//   const formattedRole = rawRole.charAt(0).toUpperCase() + rawRole.slice(1).toLowerCase();
-
-//   return {
-//     name: salutation ? `${salutation} ${managerName}` : managerName,
-//     phone: property.property_manager_phone || "+919876543210",
-//     email: property.property_manager_email || "rajesh@example.com",
-//     role: formattedRole,
-//     avatar: avatarUrl,
-//     rating: 4.8
-//   };
-// })(),
 
 
 manager: (() => {
@@ -194,7 +174,6 @@ manager: (() => {
 };
 
 export const transformRoomData = (room: any) => {
-  // console.log("🔄 Transforming room data:", room);
   
   let gender = 'mixed';
   if (room.room_gender_preference && Array.isArray(room.room_gender_preference)) {
@@ -259,6 +238,5 @@ export const transformRoomData = (room: any) => {
     bedAssignments: room.bed_assignments || []
   };
   
-  // console.log(`✅ Transformed room ${room.id}:`, transformedRoom);
   return transformedRoom;
 };

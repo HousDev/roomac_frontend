@@ -71,7 +71,7 @@ useEffect(() => {
         className={`
           relative group flex items-center gap-3 px-3 py-2 pl-10 rounded-xl transition-all duration-200
           ${reqActive
-            ? 'bg-white/20 text-yellow-300'
+            ? 'bg-white/20 text-white'
             : 'text-blue-100 hover:bg-white/15 hover:text-white'
           }
         `}
@@ -79,7 +79,7 @@ useEffect(() => {
         onMouseLeave={handleMouseLeave}
       >
         {reqActive && (
-          <span className="absolute left-0 top-2 bottom-2 w-1 rounded-full bg-yellow-400" />
+          <span className="absolute left-0 top-2 bottom-2 w-1 rounded-full " />
         )}
         <div
           className={`
@@ -159,7 +159,7 @@ function CollapsedSidebarItem({
       className={`
         relative group flex items-center justify-center p-3 rounded-xl transition-all duration-200 cursor-pointer
         ${active
-          ? 'bg-white/20 text-yellow-300'
+          ? 'bg-white/20 text-white'
           : 'text-blue-100 hover:bg-white/15 hover:text-white'
         }
       `}
@@ -168,7 +168,7 @@ function CollapsedSidebarItem({
       onMouseLeave={handleMouseLeave}
     >
       {active && (
-        <span className="absolute left-0 top-2 bottom-2 w-1 rounded-full bg-yellow-400" />
+        <span className="absolute left-0 top-2 bottom-2 w-1 rounded-full " />
       )}
       <div
         className={`
@@ -189,7 +189,7 @@ function CollapsedSidebarItem({
       className={`
         relative group flex items-center justify-center p-3 rounded-xl transition-all duration-200
         ${active
-          ? 'bg-white/20 text-yellow-300'
+          ? 'bg-white/20 text-white'
           : 'text-blue-100 hover:bg-white/15 hover:text-white'
         }
       `}
@@ -198,7 +198,7 @@ function CollapsedSidebarItem({
       onMouseLeave={handleMouseLeave}
     >
       {active && (
-        <span className="absolute left-0 top-2 bottom-2 w-1 rounded-full bg-yellow-400" />
+        <span className="absolute left-0 top-2 bottom-2 w-1 rounded-full " />
       )}
       <div
         className={`
@@ -522,7 +522,7 @@ const isSettingsActive = settingsItems.some(setting => isActive(setting.href)); 
             className={`
               relative group flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200
               ${active
-                ? 'bg-white/20 text-yellow-300'
+                ? 'bg-white/20 text-white'
                 : 'text-blue-100 hover:bg-white/15 hover:text-white'
               }
             `}
@@ -553,7 +553,7 @@ const isSettingsActive = settingsItems.some(setting => isActive(setting.href)); 
               className={`
                 relative group flex items-center justify-between w-full px-4 py-3 rounded-xl transition-all duration-200
                 ${isRequestActive
-                  ? 'bg-white/20 text-yellow-300'
+                  ? 'bg-white/20 text-white'
                   : 'text-blue-100 hover:bg-white/15 hover:text-white'
                 }
               `}
@@ -612,7 +612,7 @@ const isSettingsActive = settingsItems.some(setting => isActive(setting.href)); 
             className={`
               relative group flex items-center justify-between w-full px-4 py-3 rounded-xl transition-all duration-200
               ${isSettingsActive
-                ? 'bg-white/20 text-yellow-300'
+                ? 'bg-white/20 text-white'
                 : 'text-blue-100 hover:bg-white/15 hover:text-white'
               }
             `}
@@ -708,7 +708,7 @@ const isSettingsActive = settingsItems.some(setting => isActive(setting.href)); 
             className={`
               relative group flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200
               ${active
-                ? 'bg-white/20 text-yellow-300'
+                ? 'bg-white/20 text-white'
                 : 'text-blue-100 hover:bg-white/15 hover:text-white'
               }
             `}

@@ -174,7 +174,6 @@ export default function DashboardCharts({
 
   // Filter functions
   const applyRentActivityFilters = useCallback(() => {
-    console.log('Rent Activity Filters Applied:', filterState);
     setShowFilterPanel(false);
     setShowComparisonDropdown(false);
   }, [filterState]);
