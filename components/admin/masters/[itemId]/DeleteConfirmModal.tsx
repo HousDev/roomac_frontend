@@ -16,6 +16,11 @@ export default function DeleteConfirmModal({
 }: DeleteConfirmModalProps) {
   if (!isOpen) return null;
 
+  const handleConfirm = (e: React.MouseEvent) => {
+    e.preventDefault();
+    onConfirm();
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-xl shadow-lg w-full max-w-md">
@@ -28,7 +33,7 @@ export default function DeleteConfirmModal({
         
         <div className="p-4">
           <p className="text-gray-700 mb-4 text-sm">
-            Are you sure you want to delete this value?
+            Are you sure you want to delete this value? This action cannot be undone.
           </p>
           
           <div className="flex gap-2">
@@ -39,7 +44,7 @@ export default function DeleteConfirmModal({
               Cancel
             </button>
             <button
-              onClick={onConfirm}
+              onClick={handleConfirm}
               className="flex-1 px-3 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 text-sm flex items-center justify-center gap-1"
             >
               <Trash2 size={16} />
