@@ -51,6 +51,7 @@ const EnquiryForm = ({
             value={formData.phone}
             onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
             placeholder="9876543210"
+            maxLength={10}
             required
             className="h-8 md:h-10 text-xs md:text-sm"
           />

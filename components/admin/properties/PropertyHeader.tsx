@@ -74,8 +74,9 @@ export default function PropertyHeader({
 
   // Desktop Header - Your original code unchanged
   const DesktopHeader = () => (
-    <div className="hidden md:block sticky top-0 z-10 bg-gradient-to-r from-blue-600 via-blue-500 to-blue-500 text-white -translate-y-1 pt-2 rounded-xl">
-      <div className="py-2 px-3">
+<div className="hidden md:block sticky top-0 z-10 
+  bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] 
+  text-white -translate-y-1 pt-2 rounded-xl">      <div className="py-2 px-3">
         <div className="flex flex-col space-y-3">
           {/* Top Row */}
           <div className="flex items-center justify-between">

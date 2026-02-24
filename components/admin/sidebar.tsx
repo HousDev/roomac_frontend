@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from 'next/link';
@@ -13,7 +14,8 @@ import {
   LayoutGrid, Receipt, Wrench, ChevronRight, Bell,
   ChevronDown,
   Sliders,
-  Link2
+  Link2,
+  Search
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState, useEffect, useRef } from 'react';
@@ -54,57 +56,56 @@ function SubmenuItemWithTooltip({ reqItem, reqActive, sidebarOpen }: {
       }
     };
   }, []);
-  // components/admin/sidebar.tsx mein, component ke andar ye add karo:
 
-useEffect(() => {
-  // Current path ko localStorage mein save karo jab bhi change ho
-  const currentPath = window.location.pathname;
-  if (currentPath.startsWith('/admin') && currentPath !== '/admin') {
-    localStorage.setItem('admin_last_path', currentPath);
-  }
-}, []);
+  useEffect(() => {
+    const currentPath = window.location.pathname;
+    if (currentPath.startsWith('/admin') && currentPath !== '/admin') {
+      localStorage.setItem('admin_last_path', currentPath);
+    }
+  }, []);
 
   return (
     <li key={reqItem.href}>
       <Link
         href={reqItem.href}
         className={`
-          relative group flex items-center gap-3 px-3 py-2 pl-10 rounded-xl transition-all duration-200
+          relative group flex items-center gap-3 w-[200px] px-2 py-2 pl-8 rounded-xl transition-all duration-200
           ${reqActive
-            ? 'bg-white/20 text-white'
-            : 'text-blue-100 hover:bg-white/15 hover:text-white'
+            ? 'bg-[#F5C000]/20 text-[#F5C000]'
+            : 'text-blue-100 hover:bg-white/10 hover:text-white'
           }
         `}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
         {reqActive && (
-          <span className="absolute left-0 top-2 bottom-2 w-1 rounded-full " />
+          // FIXED: Reduced white bar width from w-1 to w-0.5
+          <span className="absolute left-0 top-2 bottom-2 w-0.5 rounded-full bg-[#F5C000]" />
         )}
         <div
           className={`
-            h-7 w-7 rounded-lg flex items-center justify-center transition-all p-1.5 flex-shrink-0
+            h-5 w-5 rounded-lg flex items-center justify-center transition-all p-1 flex-shrink-0
             ${reqActive
-              ? ''
-              : 'bg-white/20 text-white  group-hover:text-white'
+              ? 'bg-[#F5C000]/20 text-[#F5C000]'
+              : 'bg-white/10 text-blue-200 group-hover:text-white'
             }
           `}
         >
-          <ReqIcon className="h-3.5 w-3.5" />
+          <ReqIcon className="h-3 w-3" />
         </div>
         <span className="text-sm font-medium tracking-wide whitespace-nowrap overflow-hidden text-ellipsis flex-1">
           {reqItem.label}
         </span>
         
         {/* Tooltip for long text */}
-        {showTooltip && sidebarOpen && (
+        {/* {showTooltip && sidebarOpen && (
           <div className="absolute left-full top-1/2 -translate-y-1/2 ml-3 z-50 pointer-events-none">
-            <div className="bg-gray-900 text-white text-sm px-3 py-2 rounded-md shadow-lg whitespace-nowrap">
+            <div className="bg-[#0A1F5C] border border-[#F5C000]/30 text-white text-sm px-3 py-2 rounded-md shadow-xl whitespace-nowrap">
               {reqItem.label}
-              <div className="absolute right-full top-1/2 -translate-y-1/2 border-8 border-transparent border-r-gray-900"></div>
+              <div className="absolute right-full top-1/2 -translate-y-1/2 border-8 border-transparent border-r-[#0A1F5C]"></div>
             </div>
           </div>
-        )}
+        )} */}
       </Link>
     </li>
   );
@@ -157,10 +158,10 @@ function CollapsedSidebarItem({
     <div
       onClick={onClick}
       className={`
-        relative group flex items-center justify-center p-3 rounded-xl transition-all duration-200 cursor-pointer
+        relative group flex items-center justify-center p-2.5 rounded-xl transition-all duration-200 cursor-pointer
         ${active
-          ? 'bg-white/20 text-white'
-          : 'text-blue-100 hover:bg-white/15 hover:text-white'
+          ? 'bg-[#F5C000]/20 text-[#F5C000]'
+          : 'text-blue-200 hover:bg-white/10 hover:text-white'
         }
       `}
       title={item.label}
@@ -168,14 +169,14 @@ function CollapsedSidebarItem({
       onMouseLeave={handleMouseLeave}
     >
       {active && (
-        <span className="absolute left-0 top-2 bottom-2 w-1 rounded-full " />
+        <span className="absolute left-0 top-2 bottom-2 w-1 rounded-full bg-[#F5C000]" />
       )}
       <div
         className={`
-          h-9 w-9 rounded-lg flex items-center justify-center transition-all
+          h-9 w-9 rounded-xl flex items-center justify-center transition-all
           ${active
-            ? ' text-black shadow-md'
-            : 'bg-white/20 text-white  group-hover:text-white'
+            ? 'bg-[#F5C000]/20 text-[#F5C000]'
+            : 'bg-white/10 text-blue-200 group-hover:bg-white/15 group-hover:text-white'
           }
         `}
       >
@@ -187,10 +188,10 @@ function CollapsedSidebarItem({
       href={item.href}
       onClick={(e) => handleIconClick(e, item.href)}
       className={`
-        relative group flex items-center justify-center p-3 rounded-xl transition-all duration-200
+        relative group flex items-center justify-center p-2.5 rounded-xl transition-all duration-200
         ${active
-          ? 'bg-white/20 text-white'
-          : 'text-blue-100 hover:bg-white/15 hover:text-white'
+          ? 'bg-[#F5C000]/20 text-[#F5C000]'
+          : 'text-blue-200 hover:bg-white/10 hover:text-white'
         }
       `}
       title={item.label}
@@ -198,14 +199,14 @@ function CollapsedSidebarItem({
       onMouseLeave={handleMouseLeave}
     >
       {active && (
-        <span className="absolute left-0 top-2 bottom-2 w-1 rounded-full " />
+        <span className="absolute left-0 top-2 bottom-2 w-1 rounded-full bg-[#F5C000]" />
       )}
       <div
         className={`
-          h-9 w-9 rounded-lg flex items-center justify-center transition-all
+          h-9 w-9 rounded-xl flex items-center justify-center transition-all
           ${active
-            ? ''
-            : 'bg-white/20 text-white  group-hover:text-black'
+            ? 'bg-[#F5C000]/20 text-[#F5C000]'
+            : 'bg-white/10 text-blue-200 group-hover:bg-white/15 group-hover:text-white'
           }
         `}
       >
@@ -219,9 +220,9 @@ function CollapsedSidebarItem({
       {content}
       {showTooltip && !sidebarOpen && (
         <div className="absolute left-full top-1/2 -translate-y-1/2 ml-3 z-50 pointer-events-none">
-          <div className="bg-gray-900 text-white text-sm px-3 py-2 rounded-md shadow-lg whitespace-nowrap">
+          <div className="bg-[#0A1F5C] border border-[#F5C000]/30 text-white text-sm px-3 py-2 rounded-md shadow-xl whitespace-nowrap">
             {item.label}
-            <div className="absolute right-full top-1/2 -translate-y-1/2 border-8 border-transparent border-r-gray-900"></div>
+            <div className="absolute right-full top-1/2 -translate-y-1/2 border-8 border-transparent border-r-[#0A1F5C]"></div>
           </div>
         </div>
       )}
@@ -233,7 +234,8 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
   const pathname = usePathname();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [requestsOpen, setRequestsOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);  // Add this line
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const [settings, setSettings] = useState<SettingsData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -284,16 +286,17 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
   }, [pathname]);
 
   // Auto-expand settings dropdown if on a settings page
-useEffect(() => {
-  if (!pathname) return;
-  
-  const isSettingsPage = pathname.includes('/admin/settings') ||
-                        pathname.includes('/admin/settings/integration') ||
-                        pathname === '/admin/settings';
-  if (isSettingsPage) {
-    setSettingsOpen(true);
-  }
-}, [pathname]);
+  useEffect(() => {
+    if (!pathname) return;
+    
+    const isSettingsPage = pathname.includes('/admin/settings') ||
+                          pathname.includes('/admin/settings/integration') ||
+                          pathname === '/admin/settings';
+    if (isSettingsPage) {
+      setSettingsOpen(true);
+    }
+  }, [pathname]);
+
   // Auto-expand requests dropdown if on a request page
   useEffect(() => {
     if (!pathname) return;
@@ -338,24 +341,23 @@ useEffect(() => {
     { href: '/admin/change-bed-requests', label: 'Change Bed Requests', icon: Users },
     { href: '/admin/account-deletion-requests', label: 'Account Deletion', icon: UserCircle },
   ];
+
   const settingsItems = [
-  { href: '/admin/settings', label: 'General Settings', icon: Sliders },
-  { href: '/admin/settings/integration', label: 'Integration', icon: Link2 },
-];
+    { href: '/admin/settings', label: 'General Settings', icon: Sliders },
+    { href: '/admin/settings/integration', label: 'Integration', icon: Link2 },
+  ];
 
   const isActive = (href: string) => pathname === href;
 
   const handleLogout = () => {
-    logout();                    // ✅ AuthContext logout
+    logout();
   };
-
 
   // Handle icon click in collapsed sidebar - expands the sidebar
   const handleIconClick = (e: React.MouseEvent, href: string) => {
     if (!sidebarOpen && setSidebarOpen) {
       e.preventDefault();
       setSidebarOpen(true);
-      // Navigate after a short delay to allow sidebar animation
       setTimeout(() => {
         router.push(href);
       }, 300);
@@ -372,49 +374,40 @@ useEffect(() => {
 
   // Get the logo URL from settings
   const getLogoUrl = () => {
-    if (loading || !settings) {
-      return roomacLogo;
-    }
-    
+    if (loading || !settings) return roomacLogo;
     const logoUrl = getSettingValue('logo_admin_sidebar');
-    
-    if (!logoUrl) {
-      return roomacLogo;
-    }
-    
-    // Check if the URL is already a full URL
-    if (logoUrl.startsWith('http://') || logoUrl.startsWith('https://')) {
-      return logoUrl;
-    }
-    
-    // Check if it's a relative path starting with /
-    if (logoUrl.startsWith('/')) {
-      // For deployment, we need to use environment variables or relative URLs
-      // Since your API and frontend are on the same domain in production
-      // We can use the logoUrl as-is if it starts with /
-      return logoUrl;
-    }
-    
-    // If it's just a filename without a leading slash
+    if (!logoUrl) return roomacLogo;
+    if (logoUrl.startsWith('http://') || logoUrl.startsWith('https://')) return logoUrl;
+    if (logoUrl.startsWith('/')) return logoUrl;
     return `/${logoUrl}`;
   };
 
   // Get site name from settings
   const getSiteName = () => {
-    if (loading || !settings) {
-      return "ROOMAC";
-    }
+    if (loading || !settings) return "ROOMAC";
     return getSettingValue('site_name', 'ROOMAC');
   };
 
-  // Desktop sidebar toggle button - only render if setSidebarOpen is provided
+  // Filter all menu items based on search query
+  const allSearchableItems = [
+    ...mainMenuItems,
+    ...requestItems,
+    ...settingsItems,
+  ];
+
+  const filteredItems = searchQuery.trim()
+    ? allSearchableItems.filter(item =>
+        item.label.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : [];
+
+  // Desktop sidebar toggle button
   const DesktopToggleButton = () => {
     if (!setSidebarOpen) return null;
-    
     return (
       <button
         onClick={() => setSidebarOpen(!sidebarOpen)}
-        className="hidden lg:flex absolute -right-3 top-6 z-10 w-6 h-6 mr-3 bg-gradient-to-b from-[#0b2a5b] via-[#11408c] to-[#1c5fd4] border border-white/20 rounded-full items-center justify-center text-white hover:bg-blue-700 transition-all duration-200 shadow-lg"
+        className="hidden lg:flex absolute -right-3 top-7 z-10 w-6 h-6 bg-[#1B4FD8] border border-[#F5C000]/50 rounded-full items-center justify-center text-white hover:bg-[#F5C000] hover:text-[#0A1F5C] transition-all duration-200 shadow-lg"
       >
         {sidebarOpen ? (
           <ChevronRight className="w-3 h-3" />
@@ -430,21 +423,14 @@ useEffect(() => {
     const Icon = item.icon;
     const active = isActive(item.href);
     const isRequestActive = requestItems.some(req => isActive(req.href));
-const isSettingsActive = settingsItems.some(setting => isActive(setting.href));  // Add this line
-
-    // Check if this is the Notifications item (index 9)
+    const isSettingsActive = settingsItems.some(setting => isActive(setting.href));
     const isNotificationsItem = index === 9;
-    const isSettingsItem = index === 14;  // Add this line (Settings is at index 14)
-
+    const isSettingsItem = index === 14;
 
     if (!sidebarOpen) {
-      
-      // Collapsed view - only icons (CLICKING EXPANDS SIDEBAR)
       if (isNotificationsItem) {
-        // Render both Notifications icon and Requests dropdown icon
         return (
           <>
-            {/* Notifications icon */}
             <li key={item.href} className="flex justify-center">
               <CollapsedSidebarItem
                 item={item}
@@ -454,8 +440,6 @@ const isSettingsActive = settingsItems.some(setting => isActive(setting.href)); 
                 handleIconClick={handleIconClick}
               />
             </li>
-            
-            {/* Requests dropdown icon */}
             <li key="requests-collapsed" className="flex justify-center">
               <CollapsedSidebarItem
                 item={{ href: '#', label: 'Requests', icon: AlertCircle }}
@@ -465,14 +449,11 @@ const isSettingsActive = settingsItems.some(setting => isActive(setting.href)); 
                 handleIconClick={handleIconClick}
                 isRequestItem={true}
                 onClick={() => {
-                  if (setSidebarOpen) {
-                    setSidebarOpen(true);
-                  }
+                  if (setSidebarOpen) setSidebarOpen(true);
                   setRequestsOpen(!requestsOpen);
                 }}
               />
             </li>
-            
           </>
         );
       }
@@ -488,9 +469,7 @@ const isSettingsActive = settingsItems.some(setting => isActive(setting.href)); 
               handleIconClick={handleIconClick}
               isSettingsItem={true}
               onClick={() => {
-                if (setSidebarOpen) {
-                  setSidebarOpen(true);
-                }
+                if (setSidebarOpen) setSidebarOpen(true);
                 setSettingsOpen(!settingsOpen);
               }}
             />
@@ -498,7 +477,6 @@ const isSettingsActive = settingsItems.some(setting => isActive(setting.href)); 
         );
       }
 
-      // Regular collapsed menu items
       return (
         <li key={item.href} className="flex justify-center">
           <CollapsedSidebarItem
@@ -512,80 +490,63 @@ const isSettingsActive = settingsItems.some(setting => isActive(setting.href)); 
       );
     }
 
-    // Expanded view - icons + labels
+    // Expanded view
     if (isNotificationsItem) {
       return (
         <li key="notifications-requests-group">
-          {/* Notifications item */}
           <Link
             href={item.href}
             className={`
-              relative group flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200
+              relative group flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200
               ${active
-                ? 'bg-white/20 text-white'
-                : 'text-blue-100 hover:bg-white/15 hover:text-white'
+                ? 'bg-[#F5C000]/15 text-[#F5C000]'
+                : 'text-blue-100 hover:bg-white/10 hover:text-white'
               }
             `}
           >
             {active && (
-              <span className="absolute left-0 top-2 bottom-2 w-1 rounded-full " />
+              <span className="absolute left-0 top-2 bottom-2 w-1 rounded-full bg-[#F5C000]" />
             )}
-            <div
-              className={`
-                h-9 w-9 rounded-lg flex items-center justify-center transition-all
-                ${active
-                  ? ''
-                  : 'bg-white/20 text-white  group-hover:text-black'
-                }
-              `}
-            >
+            <div className={`h-9 w-9 rounded-xl flex items-center justify-center transition-all flex-shrink-0
+              ${active ? 'bg-[#F5C000]/20 text-[#F5C000]' : 'bg-white/10 text-blue-200 group-hover:bg-white/15 group-hover:text-white'}`}>
               <Icon className="h-5 w-5" />
             </div>
-            <span className="font-medium tracking-wide whitespace-nowrap overflow-hidden text-ellipsis">
+            <span className="font-medium tracking-wide whitespace-nowrap overflow-hidden text-ellipsis text-sm">
               {item.label}
             </span>
           </Link>
 
-          {/* Requests Dropdown - Fixed alignment */}
-          <div className="mt-1">
+          <div className="mt-0.5">
             <button
               onClick={() => setRequestsOpen(!requestsOpen)}
               className={`
-                relative group flex items-center justify-between w-full px-4 py-3 rounded-xl transition-all duration-200
+                relative group flex items-center justify-between w-full px-3 py-2.5 rounded-xl transition-all duration-200
                 ${isRequestActive
-                  ? 'bg-white/20 text-white'
-                  : 'text-blue-100 hover:bg-white/15 hover:text-white'
+                  ? 'bg-[#F5C000]/15 text-[#F5C000]'
+                  : 'text-blue-100 hover:bg-white/10 hover:text-white'
                 }
               `}
             >
               {isRequestActive && (
-                <span className="absolute left-0 top-2 bottom-2 w-1 rounded-full" />
+                // FIXED: Reduced white bar width from w-1 to w-0.5 for the main Requests button when active
+                <span className="absolute left-0 top-2 bottom-2 w-0.5 rounded-full bg-[#F5C000]" />
               )}
               <div className="flex items-center gap-3">
-                <div
-                  className={`
-                    h-9 w-9 rounded-lg flex items-center justify-center transition-all
-                    ${isRequestActive
-                      ? ''
-                      : 'bg-white/20 text-white  group-hover:text-black'
-                    }
-                  `}
-                >
+                <div className={`h-9 w-9 rounded-xl flex items-center justify-center transition-all flex-shrink-0
+                  ${isRequestActive ? 'bg-[#F5C000]/20 text-[#F5C000]' : 'bg-white/10 text-blue-200 group-hover:bg-white/15 group-hover:text-white'}`}>
                   <AlertCircle className="h-5 w-5" />
                 </div>
-                <span className="font-medium tracking-wide whitespace-nowrap overflow-hidden text-ellipsis">
-                  Requests
-                </span>
+                <span className="font-medium tracking-wide whitespace-nowrap text-sm">Requests</span>
               </div>
               {requestsOpen ? (
-                <ChevronDown className="h-4 w-4 flex-shrink-0" />
+                <ChevronDown className="h-4 w-4 flex-shrink-0 text-blue-300" />
               ) : (
-                <ChevronRight className="h-4 w-4 flex-shrink-0" />
+                <ChevronRight className="h-4 w-4 flex-shrink-0 text-blue-300" />
               )}
             </button>
 
             {requestsOpen && (
-              <ul className="space-y-1 mt-1 ml-2">
+              <ul className="space-y-0.5 mt-0.5 ml-2">
                 {requestItems.map((reqItem) => {
                   const reqActive = isActive(reqItem.href);
                   return (
@@ -603,49 +564,40 @@ const isSettingsActive = settingsItems.some(setting => isActive(setting.href)); 
         </li>
       );
     }
+
     if (isSettingsItem) {
       return (
         <li key="settings-group">
-          {/* Settings parent item */}
           <button
             onClick={() => setSettingsOpen(!settingsOpen)}
             className={`
-              relative group flex items-center justify-between w-full px-4 py-3 rounded-xl transition-all duration-200
+              relative group flex items-center justify-between w-full px-3 py-2.5 rounded-xl transition-all duration-200
               ${isSettingsActive
-                ? 'bg-white/20 text-white'
-                : 'text-blue-100 hover:bg-white/15 hover:text-white'
+                ? 'bg-[#F5C000]/15 text-[#F5C000]'
+                : 'text-blue-100 hover:bg-white/10 hover:text-white'
               }
             `}
           >
             {isSettingsActive && (
-              <span className="absolute left-0 top-2 bottom-2 w-1 rounded-full" />
+              // FIXED: Reduced white bar width from w-1 to w-0.5 for the main Settings button when active
+              <span className="absolute left-0 top-2 bottom-2 w-0.5 rounded-full bg-[#F5C000]" />
             )}
             <div className="flex items-center gap-3">
-              <div
-                className={`
-                  h-9 w-9 rounded-lg flex items-center justify-center transition-all
-                  ${isSettingsActive
-                    ? ''
-                    : 'bg-white/20 text-white group-hover:text-black'
-                  }
-                `}
-              >
+              <div className={`h-9 w-9 rounded-xl flex items-center justify-center transition-all flex-shrink-0
+                ${isSettingsActive ? 'bg-[#F5C000]/20 text-[#F5C000]' : 'bg-white/10 text-blue-200 group-hover:bg-white/15 group-hover:text-white'}`}>
                 <Icon className="h-5 w-5" />
               </div>
-              <span className="font-medium tracking-wide whitespace-nowrap overflow-hidden text-ellipsis">
-                {item.label}
-              </span>
+              <span className="font-medium tracking-wide whitespace-nowrap text-sm">{item.label}</span>
             </div>
             {settingsOpen ? (
-              <ChevronDown className="h-4 w-4 flex-shrink-0" />
+              <ChevronDown className="h-4 w-4 flex-shrink-0 text-blue-300" />
             ) : (
-              <ChevronRight className="h-4 w-4 flex-shrink-0" />
+              <ChevronRight className="h-4 w-4 flex-shrink-0 text-blue-300" />
             )}
           </button>
 
-          {/* Settings submenu */}
           {settingsOpen && (
-            <ul className="space-y-1 mt-1 ml-2">
+            <ul className="space-y-0.5 mt-0.5 ml-2">
               {settingsItems.map((settingItem) => {
                 const settingActive = isActive(settingItem.href);
                 return (
@@ -663,71 +615,27 @@ const isSettingsActive = settingsItems.some(setting => isActive(setting.href)); 
       );
     }
 
-    // Regular expanded menu items (before Notifications)
-    if (index < 9) {
+    if (index < 9 || index > 9) {
       return (
         <li key={item.href}>
           <Link
             href={item.href}
             className={`
-              relative group flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200
+              relative group flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200
               ${active
-                ? 'bg-white/20 text-white'
-                : 'text-blue-100 hover:bg-white/15 hover:text-white'
+                ? 'bg-[#F5C000]/15 text-[#F5C000]'
+                : 'text-blue-100 hover:bg-white/10 hover:text-white'
               }
             `}
           >
             {active && (
-              <span className="absolute left-0 top-2 bottom-2 w-1 rounded-full " />
+              <span className="absolute left-0 top-2 bottom-2 w-1 rounded-full bg-[#F5C000]" />
             )}
-            <div
-              className={`
-                h-9 w-9 rounded-lg flex items-center justify-center transition-all flex-shrink-0
-                ${active
-                  ? ''
-                  : 'bg-white/20 text-white  group-hover:text-black'
-                }
-              `}
-            >
+            <div className={`h-9 w-9 rounded-xl flex items-center justify-center transition-all flex-shrink-0
+              ${active ? 'bg-[#F5C000]/20 text-[#F5C000]' : 'bg-white/10 text-blue-200 group-hover:bg-white/15 group-hover:text-white'}`}>
               <Icon className="h-5 w-5" />
             </div>
-            <span className="font-medium tracking-wide whitespace-nowrap overflow-hidden text-ellipsis">
-              {item.label}
-            </span>
-          </Link>
-        </li>
-      );
-    }
-
-    // Items after Notifications (but skip Notifications index)
-    if (index > 9) {
-      return (
-        <li key={item.href}>
-          <Link
-            href={item.href}
-            className={`
-              relative group flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200
-              ${active
-                ? 'bg-white/20 text-white'
-                : 'text-blue-100 hover:bg-white/15 hover:text-white'
-              }
-            `}
-          >
-            {active && (
-              <span className="absolute left-0 top-2 bottom-2 w-1 rounded-full " />
-            )}
-            <div
-              className={`
-                h-9 w-9 rounded-lg flex items-center justify-center transition-all flex-shrink-0
-                ${active
-                  ? ''
-                  : 'bg-white/20 text-white  group-hover:text-black'
-                }
-              `}
-            >
-              <Icon className="h-5 w-5" />
-            </div>
-            <span className="font-medium tracking-wide whitespace-nowrap overflow-hidden text-ellipsis">
+            <span className="font-medium tracking-wide whitespace-nowrap overflow-hidden text-ellipsis text-sm">
               {item.label}
             </span>
           </Link>
@@ -744,7 +652,7 @@ const isSettingsActive = settingsItems.some(setting => isActive(setting.href)); 
       <Button
         variant="ghost"
         size="icon"
-        className="fixed top-4 left-4 z-50 md:hidden text-white bg-blue-800 backdrop-blur"
+        className="fixed top-4 left-4 z-50 md:hidden text-white bg-[#1B4FD8] hover:bg-[#F5C000] hover:text-[#0A1F5C] backdrop-blur transition-all duration-200"
         onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
       >
         {mobileSidebarOpen ? <X /> : <Menu />}
@@ -752,7 +660,7 @@ const isSettingsActive = settingsItems.some(setting => isActive(setting.href)); 
 
       {mobileSidebarOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          className="fixed inset-0 bg-black/60 z-40 md:hidden backdrop-blur-sm"
           onClick={() => setMobileSidebarOpen(false)}
         />
       )}
@@ -762,82 +670,196 @@ const isSettingsActive = settingsItems.some(setting => isActive(setting.href)); 
         ref={sidebarRef}
         className={`
           fixed top-0 left-0 h-screen z-40 flex flex-col
-          bg-gradient-to-b from-[#003A8F] to-[#0056D2]
           transition-all duration-300 ease-in-out
           ${mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
           md:translate-x-0
-          ${sidebarOpen ? 'w-64' : 'w-20'}
+          ${sidebarOpen ? 'w-64' : 'w-[72px]'}
         `}
+        style={{
+          background: 'linear-gradient(180deg, #0A1F5C 0%, #0d2870 50%, #0A1F5C 100%)',
+          borderRight: '1px solid rgba(27, 79, 216, 0.35)',
+          boxShadow: '4px 0 28px rgba(10, 31, 92, 0.5)',
+        }}
       >
         {/* Desktop toggle button */}
         <DesktopToggleButton />
 
-        {/* Logo - Fixed for collapsed state */}
-        <div className={`
-          border-b border-white/15 bg-gradient-to-b from-blue-50 to-white
-          transition-all duration-300
-          flex items-center justify-center
-          ${sidebarOpen ? 'h-16 px-6' : 'h-14 px-4'}
-        `}>
+        {/* ── Logo Area ── */}
+       <div
+  className={`
+    flex items-center justify-center flex-shrink-0
+    transition-all duration-300
+    bg-blue-50
+    ${sidebarOpen ? 'h-[76px] px-4' : 'h-[68px] px-2'}
+  `}
+  style={{
+    borderBottom: '1px solid rgba(0,0,0,0.08)',
+  }}
+>
           <Link
             href="/admin/dashboard"
             className="flex items-center justify-center w-full h-full"
             aria-label="Go to Admin Dashboard"
           >
-            <div className={`
-              flex items-center justify-center
-              transition-all duration-300
-              ${sidebarOpen ? 'h-10' : 'h-6'}
-            `}>
-              <img
-                src={getLogoUrl()}
-                alt={getSiteName()}
-                className={`
-                  h-full w-auto object-contain
-                  transition-all duration-300 
-                  ${sidebarOpen
-                    ? 'max-w-[150px]'
-                    : 'max-w-[70px]'
-                  }
-                `}
-                onError={(e) => {
-                  // Fallback to default logo if the fetched logo fails to load
-                  (e.target as HTMLImageElement).src = roomacLogo;
-                }}
-              />
-            </div>
+            <img
+              src={getLogoUrl()}
+              alt={getSiteName()}
+              className={`
+                w-auto object-contain transition-all duration-300
+                ${sidebarOpen ? 'h-16 max-w-[190px]' : 'h-10 max-w-[52px]'}
+              `}
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = roomacLogo;
+              }}
+            />
           </Link>
         </div>
 
-        {/* Menu - Scrollbar hidden */}
-        <nav className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 
+        {/* ── Search Bar (expanded) ── */}
+        {sidebarOpen && (
+          <div className="px-3 pt-3 pb-1 flex-shrink-0">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-blue-300/70 pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Search menu..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-8 pr-8 py-2 text-sm rounded-xl outline-none transition-all duration-200 text-white placeholder-blue-300/50"
+                style={{
+                  background: 'rgba(255,255,255,0.07)',
+                  border: '1px solid rgba(27,79,216,0.45)',
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.border = '1px solid rgba(245,192,0,0.5)';
+                  e.currentTarget.style.background = 'rgba(255,255,255,0.10)';
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.border = '1px solid rgba(27,79,216,0.45)';
+                  e.currentTarget.style.background = 'rgba(255,255,255,0.07)';
+                }}
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-blue-300 hover:text-[#F5C000] transition-colors"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Search Results */}
+            {searchQuery && filteredItems.length > 0 && (
+              <div
+                className="mt-1.5 rounded-xl overflow-hidden"
+                style={{
+                  background: 'rgba(10,31,92,0.97)',
+                  border: '1px solid rgba(27,79,216,0.4)',
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+                }}
+              >
+                {filteredItems.map((item) => {
+                  const Icon = item.icon;
+                  const active = isActive(item.href);
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setSearchQuery('')}
+                      className={`flex items-center gap-3 px-3 py-2.5 transition-all duration-150
+                        ${active ? 'bg-[#F5C000]/15 text-[#F5C000]' : 'text-blue-100 hover:bg-white/10 hover:text-white'}`}
+                    >
+                      <div className={`h-7 w-7 rounded-lg flex items-center justify-center flex-shrink-0
+                        ${active ? 'bg-[#F5C000]/20 text-[#F5C000]' : 'bg-white/10 text-blue-300'}`}>
+                        <Icon className="h-3.5 w-3.5" />
+                      </div>
+                      <span className="text-sm font-medium">{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+
+            {searchQuery && filteredItems.length === 0 && (
+              <div
+                className="mt-1.5 rounded-xl px-3 py-3 text-center"
+                style={{ background: 'rgba(10,31,92,0.97)', border: '1px solid rgba(27,79,216,0.4)' }}
+              >
+                <p className="text-sm text-blue-300">No results found</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Search icon for collapsed state ── */}
+        {!sidebarOpen && (
+          <div className="flex justify-center pt-2 pb-1 flex-shrink-0">
+            <button
+              onClick={() => setSidebarOpen && setSidebarOpen(true)}
+              className="h-9 w-9 rounded-xl flex items-center justify-center bg-white/10 text-blue-200 hover:bg-[#F5C000]/20 hover:text-[#F5C000] transition-all duration-200"
+              title="Search menu"
+            >
+              <Search className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+
+        {/* Gold divider */}
+        <div className="mx-3 my-1.5 h-px flex-shrink-0"
+          style={{ background: 'linear-gradient(90deg, transparent, rgba(245,192,0,0.25), transparent)' }} />
+
+        {/* ── Navigation Menu ── */}
+        <nav className="flex-1 overflow-y-auto overflow-x-hidden px-2 py-1
           [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] z-50">
-          <ul className="space-y-1">
+          <ul className="space-y-0.5">
             {mainMenuItems.map((item, index) => renderMenuItem(item, index))}
           </ul>
         </nav>
 
-        {/* Footer - Logout Button */}
-        <div className="p-4 border-t border-white/15">
-          {sidebarOpen ? (
-            <Button
-              onClick={handleLogout}
-              className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-semibold shadow-lg"
-            >
-              <LogOut className="h-4 w-4 mr-2" />
-              Logout
-            </Button>
+        {/* Gold divider above footer */}
+        <div className="mx-3 h-px flex-shrink-0"
+          style={{ background: 'linear-gradient(90deg, transparent, rgba(245,192,0,0.25), transparent)' }} />
 
+        {/* ── Footer – Logout ── */}
+        <div className="p-3 flex-shrink-0">
+          {sidebarOpen ? (
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-bold text-sm transition-all duration-200"
+              style={{
+                background: 'linear-gradient(135deg, #F5C000 0%, #e6b400 100%)',
+                color: '#0A1F5C',
+                boxShadow: '0 4px 14px rgba(245,192,0,0.25)',
+              }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 20px rgba(245,192,0,0.45)';
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 14px rgba(245,192,0,0.25)';
+              }}
+            >
+              <LogOut className="h-4 w-4" />
+              Logout
+            </button>
           ) : (
             <div className="flex justify-center">
-              <CollapsedSidebarItem
-                item={{ href: '#', label: 'Logout', icon: LogOut }}
-                active={false}
-                sidebarOpen={sidebarOpen}
-                setSidebarOpen={setSidebarOpen}
-                handleIconClick={handleIconClick}
+              <button
                 onClick={handleLogout}
-              />
+                className="h-9 w-9 rounded-xl flex items-center justify-center transition-all duration-200"
+                title="Logout"
+                style={{ background: 'rgba(245,192,0,0.15)', color: '#F5C000' }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.background = '#F5C000';
+                  (e.currentTarget as HTMLButtonElement).style.color = '#0A1F5C';
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.background = 'rgba(245,192,0,0.15)';
+                  (e.currentTarget as HTMLButtonElement).style.color = '#F5C000';
+                }}
+              >
+                <LogOut className="h-4 w-4" />
+              </button>
             </div>
           )}
         </div>
