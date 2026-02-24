@@ -1,5 +1,5 @@
 import { Card, CardContent } from '@/components/ui/card';
-import { IndianRupee } from 'lucide-react';
+import { Package, CheckCircle, IndianRupee, Star } from 'lucide-react';
 
 interface AddOnsStatsProps {
   stats: {
@@ -12,62 +12,73 @@ interface AddOnsStatsProps {
   formatCurrency: (amount: number) => string;
 }
 
+// StatCard component for consistent styling
+const StatCard = ({ 
+  title, 
+  value, 
+  icon: Icon, 
+  color,
+  bgColor 
+}: { 
+  title: string; 
+  value: string | number; 
+  icon: React.ElementType; 
+  color: string;
+  bgColor: string;
+}) => (
+  <Card className="border-0 shadow-sm overflow-hidden">
+    <CardContent className="p-3 sm:p-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-xs sm:text-sm text-gray-600 font-medium">{title}</p>
+          <h3 className="text-base sm:text-lg font-bold text-gray-800 mt-1">{value}</h3>
+        </div>
+        <div className={`p-2 sm:p-2.5 rounded-xl ${bgColor}`}>
+          <Icon className={`h-4 w-4 sm:h-5 sm:w-5 ${color}`} />
+        </div>
+      </div>
+    </CardContent>
+  </Card>
+);
+
 export default function AddOnsStats({ stats, formatCurrency }: AddOnsStatsProps) {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Total Add-ons</p>
-              <h3 className="text-2xl font-bold">{stats.total}</h3>
-            </div>
-            <div className="p-2 bg-blue-100 rounded">
-              <span className="text-blue-600 font-semibold">All</span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+      {/* Total Add-ons Card */}
+      <StatCard
+        title="Total"
+        value={stats.total}
+        icon={Package}
+        color="text-blue-600"
+        bgColor="bg-gradient-to-br from-blue-50 to-blue-100"
+      />
 
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Active</p>
-              <h3 className="text-2xl font-bold">{stats.active}</h3>
-            </div>
-            <div className="p-2 bg-green-100 rounded">
-              <span className="text-green-600 font-semibold">Live</span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Active Card */}
+      <StatCard
+        title="Active"
+        value={stats.active}
+        icon={CheckCircle}
+        color="text-green-600"
+        bgColor="bg-gradient-to-br from-green-50 to-green-100"
+      />
 
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Monthly Revenue</p>
-              <h3 className="text-2xl font-bold">{formatCurrency(stats.monthly_revenue)}</h3>
-            </div>
-            <IndianRupee className="h-6 w-6 text-gray-500" />
-          </div>
-        </CardContent>
-      </Card>
+      {/* Monthly Revenue Card */}
+      <StatCard
+        title="Revenue"
+        value={formatCurrency(stats.monthly_revenue)}
+        icon={IndianRupee}
+        color="text-purple-600"
+        bgColor="bg-gradient-to-br from-purple-50 to-purple-100"
+      />
 
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Popular</p>
-              <h3 className="text-2xl font-bold">{stats.popular}</h3>
-            </div>
-            <div className="p-2 bg-orange-100 rounded">
-              <span className="text-orange-600 font-semibold">Hot</span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Popular Card */}
+      <StatCard
+        title="Popular"
+        value={stats.popular}
+        icon={Star}
+        color="text-orange-600"
+        bgColor="bg-gradient-to-br from-orange-50 to-orange-100"
+      />
     </div>
   );
 }

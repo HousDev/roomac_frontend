@@ -7,13 +7,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { 
   Plus, CreditCard, FileText, Download, Search, 
   DollarSign, AlertCircle, CheckCircle, XCircle, Bell, Send,
   Filter, ChevronDown, Calendar,
-  IndianRupee
+  IndianRupee,
+  X
 } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
@@ -651,15 +652,25 @@ Thank you for your payment!
           {/* Add Payment Dialog with Gradient Header */}
           <Dialog open={isAddPaymentOpen} onOpenChange={setIsAddPaymentOpen}>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0">
-              <DialogHeader className="bg-gradient-to-r from-blue-600 to-cyan-500 text-white p-4 rounded-t-lg sticky top-0 z-10">
-                <DialogTitle className="flex items-center gap-2 text-lg">
-                  <Plus className="h-5 w-5" />
-                  Record New Payment
-                </DialogTitle>
-                <DialogDescription className="text-blue-50 text-sm">
-                  Add a new payment record for a tenant
-                </DialogDescription>
-              </DialogHeader>
+             <DialogHeader className="relative bg-gradient-to-r from-blue-600 to-cyan-500 text-white p-4 rounded-t-lg sticky top-0 z-10">
+  
+  {/* Close Button */}
+  <DialogClose asChild>
+    <button className="absolute right-4 top-4 text-white/80 hover:text-white transition">
+      <X className="h-5 w-5" />
+    </button>
+  </DialogClose>
+
+  <DialogTitle className="flex items-center gap-2 text-lg">
+    <Plus className="h-5 w-5" />
+    Record New Payment
+  </DialogTitle>
+
+  <DialogDescription className="text-blue-50 text-sm">
+    Add a new payment record for a tenant
+  </DialogDescription>
+
+</DialogHeader>
 
               <div className="p-4 space-y-3">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -794,6 +805,12 @@ Thank you for your payment!
           <Dialog open={isDemandPaymentOpen} onOpenChange={setIsDemandPaymentOpen}>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0">
               <DialogHeader className="bg-gradient-to-r from-orange-500 to-red-500 text-white p-4 rounded-t-lg sticky top-0 z-10">
+                {/* Close Button */}
+  <DialogClose asChild>
+    <button className="absolute right-4 top-4 text-white/80 hover:text-white transition">
+      <X className="h-5 w-5" />
+    </button>
+  </DialogClose>
                 <DialogTitle className="flex items-center gap-2 text-lg">
                   <Bell className="h-5 w-5" />
                   Demand Payment

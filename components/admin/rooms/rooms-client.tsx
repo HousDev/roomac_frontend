@@ -723,7 +723,7 @@ export default function RoomsClient({ initialRooms, initialProperties }: RoomsCl
       {/* Main Content Card */}
       <Card className="max-h-[calc(100vh-230px)] md:max-h-[calc(100vh-210px)] overflow-y-auto relative">
         {/* Desktop Header - Hidden on mobile */}
-        <CardHeader className="hidden md:block bg-gradient-to-r from-blue-600 via-blue-500 to-blue-500 text-white sticky top-0 z-50 -translate-y-1 pt-2 rounded-xl">
+        <CardHeader className="hidden md:block bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white sticky top-0 z-50 -translate-y-1 pt-2 rounded-xl">
           <div className="py-2  px-0  ">
             <div className="flex flex-col space-y-3">
               {/* Top Row */}

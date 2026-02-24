@@ -991,7 +991,7 @@ export default function TenantsClient({
     <div className="p-2">
       <Card className="border-0 shadow-lg flex flex-col h-[calc(96vh-5rem)]">
         {/* ── STICKY HEADER (CardHeader) ── */}
-        <CardHeader className="shrink-0 sticky top-0 z-10 bg-gradient-to-r from-blue-600 via-blue-500 to-blue-500 text-white shadow-md border-b py-2 px-3 md:px-4 rounded-t-xl">
+        <CardHeader className="shrink-0 sticky top-0 z-10 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white shadow-md border-b py-2 px-3 md:px-4 rounded-t-xl">
           <div className="flex flex-col gap-2">
             {/* Desktop View (lg and above) */}
             <div className="hidden lg:block">
