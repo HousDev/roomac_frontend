@@ -822,6 +822,7 @@
 // }
 
 
+// app/admin/change-bed-requests/page.tsx
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -866,7 +867,8 @@ import {
   Mail,
   Building2,
   Calendar,
-  DollarSign
+  DollarSign,
+  MessageSquare
 } from 'lucide-react';
 import { format } from 'date-fns';
 import {
@@ -1914,178 +1916,186 @@ export default function AdminChangeBedRequestsPage() {
       </Dialog>
 
       {/* Status Update Dialog */}
-      <Dialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
-        <DialogContent className="max-w-md w-[95vw] p-0 gap-0 rounded-xl overflow-hidden">
-          <DialogHeader className="bg-gradient-to-r from-blue-500 to-cyan-500 px-4 py-3">
-            <div className="flex items-center justify-between">
-              <DialogTitle className="flex items-center gap-2 text-white text-sm sm:text-base font-semibold">
-                <Settings className="h-4 w-4" />
-                Update Status
-              </DialogTitle>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={() => setStatusDialogOpen(false)}
-                className="h-7 w-7 text-white hover:bg-white/20"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-            <DialogDescription className="text-blue-50 text-xs">
-              Update status for request #{selectedRequest?.tenant_request_id}
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="p-4 sm:p-5 space-y-4">
-            <div>
-              <Label htmlFor="status" className="text-xs">Status *</Label>
-              <Select
-                value={statusForm.request_status}
-                onValueChange={(value: any) => setStatusForm((prev: any) => ({ 
-                  ...prev, 
-                  request_status: value 
-                }))}
-              >
-                <SelectTrigger className="mt-1 h-9 text-xs">
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pending">
-                    <div className="flex items-center gap-2">
-                      <Clock className="h-3.5 w-3.5" />
-                      <span className="text-xs">Pending</span>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="approved">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle className="h-3.5 w-3.5" />
-                      <span className="text-xs">Approved</span>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="rejected">
-                    <div className="flex items-center gap-2">
-                      <XCircle className="h-3.5 w-3.5" />
-                      <span className="text-xs">Rejected</span>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="processed">
-                    <div className="flex items-center gap-2">
-                      <Check className="h-3.5 w-3.5" />
-                      <span className="text-xs">Processed</span>
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            {statusForm.request_status === 'approved' && (
-              <>
-                <div>
-                  <Label htmlFor="assigned_bed_number" className="text-xs">Assigned Bed Number</Label>
-                  <Input
-                    id="assigned_bed_number"
-                    type="number"
-                    min="1"
-                    value={statusForm.assigned_bed_number || ''}
-                    onChange={(e) => setStatusForm((prev: any) => ({ 
-                      ...prev, 
-                      assigned_bed_number: e.target.value ? parseInt(e.target.value) : undefined 
-                    }))}
-                    placeholder="Enter bed number"
-                    className="mt-1 h-9 text-xs"
-                  />
-                  <p className="text-[10px] text-gray-500 mt-1">
-                    Available beds: {
-                      selectedRequest ? 
-                        selectedRequest.requested_total_beds - selectedRequest.requested_occupied_beds 
-                        : 'Loading...'
-                    }
-                  </p>
-                </div>
-                
-                <div>
-                  <Label htmlFor="rent_difference" className="text-xs">Rent Difference (₹)</Label>
-                  <Input
-                    id="rent_difference"
-                    type="number"
-                    value={statusForm.rent_difference || ''}
-                    onChange={(e) => setStatusForm((prev: any) => ({ 
-                      ...prev, 
-                      rent_difference: e.target.value ? parseFloat(e.target.value) : undefined 
-                    }))}
-                    placeholder="Enter rent difference"
-                    className="mt-1 h-9 text-xs"
-                  />
-                  <p className="text-[10px] text-gray-500 mt-1">
-                    Current: ₹{selectedRequest?.current_rent} → Requested: ₹{selectedRequest?.requested_rent}
-                  </p>
-                </div>
-                
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="process_request"
-                    checked={statusForm.process_request}
-                    onCheckedChange={(checked) => 
-                      setStatusForm((prev: any) => ({ 
-                        ...prev, 
-                        process_request: checked as boolean 
-                      }))
-                    }
-                  />
-                  <Label htmlFor="process_request" className="text-xs cursor-pointer">
-                    Process bed change immediately
-                  </Label>
-                </div>
-              </>
-            )}
-            
-            <div>
-              <Label htmlFor="admin_notes" className="text-xs">Admin Notes</Label>
-              <Textarea
-                id="admin_notes"
-                value={statusForm.admin_notes}
-                onChange={(e) => setStatusForm((prev: any) => ({ 
-                  ...prev, 
-                  admin_notes: e.target.value 
-                }))}
-                placeholder="Add notes about this status update..."
-                rows={3}
-                className="mt-1 text-xs"
-              />
-            </div>
+      {/* Status Update Dialog - Add Admin Notes section */}
+<Dialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
+  <DialogContent className="max-w-md w-[95vw] p-0 gap-0 rounded-xl overflow-hidden">
+    <DialogHeader className="bg-gradient-to-r from-blue-500 to-cyan-500 px-4 py-3">
+      <div className="flex items-center justify-between">
+        <DialogTitle className="flex items-center gap-2 text-white text-sm sm:text-base font-semibold">
+          <Settings className="h-4 w-4" />
+          Update Status
+        </DialogTitle>
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          onClick={() => setStatusDialogOpen(false)}
+          className="h-7 w-7 text-white hover:bg-white/20"
+        >
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
+      <DialogDescription className="text-blue-50 text-xs">
+        Update status for request #{selectedRequest?.tenant_request_id}
+      </DialogDescription>
+    </DialogHeader>
+    
+    <div className="p-4 sm:p-5 space-y-4">
+      <div>
+        <Label htmlFor="status" className="text-xs">Status *</Label>
+        <Select
+          value={statusForm.request_status}
+          onValueChange={(value: any) => setStatusForm((prev: any) => ({ 
+            ...prev, 
+            request_status: value 
+          }))}
+        >
+          <SelectTrigger className="mt-1 h-9 text-xs">
+            <SelectValue placeholder="Select status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="pending">
+              <div className="flex items-center gap-2">
+                <Clock className="h-3.5 w-3.5" />
+                <span className="text-xs">Pending</span>
+              </div>
+            </SelectItem>
+            <SelectItem value="approved">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="h-3.5 w-3.5" />
+                <span className="text-xs">Approved</span>
+              </div>
+            </SelectItem>
+            <SelectItem value="rejected">
+              <div className="flex items-center gap-2">
+                <XCircle className="h-3.5 w-3.5" />
+                <span className="text-xs">Rejected</span>
+              </div>
+            </SelectItem>
+            <SelectItem value="processed">
+              <div className="flex items-center gap-2">
+                <Check className="h-3.5 w-3.5" />
+                <span className="text-xs">Processed</span>
+              </div>
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      
+      {statusForm.request_status === 'approved' && (
+        <>
+          <div>
+            <Label htmlFor="assigned_bed_number" className="text-xs">Assigned Bed Number</Label>
+            <Input
+              id="assigned_bed_number"
+              type="number"
+              min="1"
+              value={statusForm.assigned_bed_number || ''}
+              onChange={(e) => setStatusForm((prev: any) => ({ 
+                ...prev, 
+                assigned_bed_number: e.target.value ? parseInt(e.target.value) : undefined 
+              }))}
+              placeholder="Enter bed number"
+              className="mt-1 h-9 text-xs"
+            />
+            <p className="text-[10px] text-gray-500 mt-1">
+              Available beds: {
+                selectedRequest ? 
+                  selectedRequest.requested_total_beds - selectedRequest.requested_occupied_beds 
+                  : 'Loading...'
+              }
+            </p>
           </div>
           
-          <DialogFooter className="px-4 py-3 border-t bg-gray-50">
-            <Button
-              variant="outline"
-              onClick={() => setStatusDialogOpen(false)}
-              disabled={updating !== null}
-              size="sm"
-              className="h-8 text-xs"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleStatusUpdate}
-              disabled={updating !== null}
-              size="sm"
-              className="h-8 text-xs bg-gradient-to-r from-blue-500 to-cyan-500"
-            >
-              {updating ? (
-                <>
-                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                  Updating...
-                </>
-              ) : (
-                <>
-                  <Save className="h-3 w-3 mr-1" />
-                  Update
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          <div>
+            <Label htmlFor="rent_difference" className="text-xs">Rent Difference (₹)</Label>
+            <Input
+              id="rent_difference"
+              type="number"
+              value={statusForm.rent_difference || ''}
+              onChange={(e) => setStatusForm((prev: any) => ({ 
+                ...prev, 
+                rent_difference: e.target.value ? parseFloat(e.target.value) : undefined 
+              }))}
+              placeholder="Enter rent difference"
+              className="mt-1 h-9 text-xs"
+            />
+            <p className="text-[10px] text-gray-500 mt-1">
+              Current: ₹{selectedRequest?.current_rent} → Requested: ₹{selectedRequest?.requested_rent}
+            </p>
+          </div>
+          
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="process_request"
+              checked={statusForm.process_request}
+              onCheckedChange={(checked) => 
+                setStatusForm((prev: any) => ({ 
+                  ...prev, 
+                  process_request: checked as boolean 
+                }))
+              }
+            />
+            <Label htmlFor="process_request" className="text-xs cursor-pointer">
+              Process bed change immediately
+            </Label>
+          </div>
+        </>
+      )}
+      
+      {/* Admin Notes Section - ADD THIS */}
+      <div>
+        <Label htmlFor="admin_notes" className="text-xs flex items-center gap-1">
+          <MessageSquare className="h-3 w-3" />
+          Admin Notes
+        </Label>
+        <Textarea
+          id="admin_notes"
+          value={statusForm.admin_notes}
+          onChange={(e) => setStatusForm((prev: any) => ({ 
+            ...prev, 
+            admin_notes: e.target.value 
+          }))}
+          placeholder="Add notes about this status update (will be sent to tenant)"
+          rows={3}
+          className="mt-1 text-xs"
+        />
+        <p className="text-[10px] text-gray-500 mt-1">
+          These notes will be included in the notification sent to the tenant.
+        </p>
+      </div>
+    </div>
+    
+    <DialogFooter className="px-4 py-3 border-t bg-gray-50">
+      <Button
+        variant="outline"
+        onClick={() => setStatusDialogOpen(false)}
+        disabled={updating !== null}
+        size="sm"
+        className="h-8 text-xs"
+      >
+        Cancel
+      </Button>
+      <Button
+        onClick={handleStatusUpdate}
+        disabled={updating !== null}
+        size="sm"
+        className="h-8 text-xs bg-gradient-to-r from-blue-500 to-cyan-500"
+      >
+        {updating ? (
+          <>
+            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+            Updating...
+          </>
+        ) : (
+          <>
+            <Save className="h-3 w-3 mr-1" />
+            Update
+          </>
+        )}
+      </Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
     </div>
   );
 }

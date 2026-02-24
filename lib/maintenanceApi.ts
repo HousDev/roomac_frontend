@@ -95,14 +95,15 @@ export async function getActiveStaff(): Promise<StaffMember[]> {
 export async function updateMaintenanceStatus(
   id: number,
   status: string,
-  admin_notes?: string
+  adminNotes?: string // Add adminNotes parameter
 ): Promise<any> {
   const token = getAdminToken();
   if (!token) throw new Error("No admin token found");
 
   const body: any = { status };
-  if (admin_notes) body.admin_notes = admin_notes;
+  if (adminNotes) body.admin_notes = adminNotes;
   
+  console.log(`📝 Updating maintenance ${id} status to ${status} with notes:`, adminNotes);
   
   try {
     const response = await request(`/api/admin/maintenance/${id}`, {

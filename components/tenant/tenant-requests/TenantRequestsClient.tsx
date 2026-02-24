@@ -21,7 +21,7 @@ import { QuickRequestCards } from './QuickRequestCards';
 import { RequestFilters } from './RequestFilters';
 import { RequestCard } from './RequestCard';
 import { ChangeBedForm } from './ChangeBedForm';
-import { QUICK_REQUESTS, MAINTENANCE_CATEGORIES, VISIT_TIMES, MAINTENANCE_LOCATIONS, type RequestFormData } from './requestConfig';
+import { QUICK_REQUESTS, type RequestFormData } from './requestConfig';
 
 // Import API functions
 import {
@@ -30,12 +30,15 @@ import {
   getTenantContractDetails,
   getCurrentRoomInfo,
   getActiveProperties,
-  getChangeBedReasons,
+  getChangeBedReasonsFromMasters as getChangeBedReasons,
   getAvailableRooms,
   getAvailableBedsForRoom,
-  getLeaveTypes,
-  getComplaintCategories,
-  getComplaintReasons,
+  getLeaveTypesFromMasters,
+  getComplaintCategoriesFromMasters as getComplaintCategories,
+  getComplaintReasonsFromMasters as getComplaintReasons,
+   getMaintenanceCategoriesFromMasters,
+  getMaintenanceLocationsFromMasters,
+  getVisitTimesFromMasters,
   type TenantRequest,
   type Property as ApiProperty,
   type Room as ApiRoom,
@@ -44,11 +47,9 @@ import {
   type ComplaintCategory,
   type ComplaintReason,
   type LeaveType,
-  getVacateReasonsFromMasters
+  getVacateReasonsFromMasters,
 } from "@/lib/tenantRequestsApi";
 
-// import { getActiveMasterValuesByCode } from "@/lib/masterApi";
-// import TenantHeader from '@/components/layout/tenantHeader';
 import { getTenantToken } from "@/lib/tenantAuthApi";
 
 // Main component - handles all authentication and data loading
@@ -92,6 +93,10 @@ export default function TenantRequestsClient() {
   const [complaintCategories, setComplaintCategories] = useState<ComplaintCategory[]>([]);
   const [complaintReasons, setComplaintReasons] = useState<ComplaintReason[]>([]);
   const [selectedComplaintCategory, setSelectedComplaintCategory] = useState<number | null>(null);
+  // Add these state declarations with your other state
+const [maintenanceCategories, setMaintenanceCategories] = useState<any[]>([]);
+const [maintenanceLocations, setMaintenanceLocations] = useState<any[]>([]);
+const [visitTimes, setVisitTimes] = useState<any[]>([]);
   const [showCustomReason, setShowCustomReason] = useState(false);
   
   // Other data
@@ -171,16 +176,31 @@ const loadAllData = useCallback(async () => {
       }),
       // Make sure this function is imported
       // In the Promise.allSettled array, replace the getActiveMasterValuesByCode line with:
-getVacateReasonsFromMasters().catch(err => {
+  getVacateReasonsFromMasters().catch(err => {
   console.error('Failed to fetch vacate reasons:', err);
   return [];
-}),
-      getLeaveTypes().catch(err => {
+  }),
+      getLeaveTypesFromMasters().catch(err => {
         console.error('Failed to fetch leave types:', err);
         return [];
       }),
       getComplaintCategories().catch(err => {
         console.error('Failed to fetch complaint categories:', err);
+        return [];
+      }),
+      // Get maintenance categories from Requests tab
+      getMaintenanceCategoriesFromMasters().catch(err => {
+        console.error('Failed to fetch maintenance categories:', err);
+        return [];
+      }),
+      // Get maintenance locations from Requests tab
+      getMaintenanceLocationsFromMasters().catch(err => {
+        console.error('Failed to fetch maintenance locations:', err);
+        return [];
+      }),
+      // Get visit times from Requests tab
+      getVisitTimesFromMasters().catch(err => {
+        console.error('Failed to fetch visit times:', err);
         return [];
       })
     ]);
@@ -195,7 +215,7 @@ getVacateReasonsFromMasters().catch(err => {
 
     // Handle contract data - FIXED VERSION
     if (results[1].status === 'fulfilled') {
-      const contractResponse = results[1].value;
+      const contractResponse:any = results[1].value;
       console.log('📋 Contract response received:', contractResponse);
       
       // Check if the response has the expected structure
@@ -237,7 +257,7 @@ getVacateReasonsFromMasters().catch(err => {
 
     // Handle vacate reasons - FIXED VERSION
     if (results[5].status === 'fulfilled') {
-      const response = results[5].value;
+      const response:any = results[5].value;
       console.log('📋 Vacate reasons response:', response);
       
       if (response && response.success && Array.isArray(response.data)) {
@@ -259,6 +279,33 @@ getVacateReasonsFromMasters().catch(err => {
       const categories = results[7].value;
       if (Array.isArray(categories)) {
         setComplaintCategories(categories);
+      }
+    }
+
+    // Handle maintenance categories
+    if (results[8].status === 'fulfilled') {
+      const maintenanceCategoriesData = results[8].value;
+      console.log('📋 Maintenance categories from Requests tab:', maintenanceCategoriesData);
+      if (Array.isArray(maintenanceCategoriesData)) {
+        setMaintenanceCategories(maintenanceCategoriesData);
+      }
+    }
+
+    // Handle maintenance locations
+    if (results[9].status === 'fulfilled') {
+      const maintenanceLocationsData = results[9].value;
+      console.log('📋 Maintenance locations from Requests tab:', maintenanceLocationsData);
+      if (Array.isArray(maintenanceLocationsData)) {
+        setMaintenanceLocations(maintenanceLocationsData);
+      }
+    }
+
+    // Handle visit times
+    if (results[10].status === 'fulfilled') {
+      const visitTimesData = results[10].value;
+      console.log('📋 Visit times from Requests tab:', visitTimesData);
+      if (Array.isArray(visitTimesData)) {
+        setVisitTimes(visitTimesData);
       }
     }
 
@@ -644,6 +691,7 @@ getVacateReasonsFromMasters().catch(err => {
       }
 
       setSubmitting(true);
+
       
       const requestData: any = {
         request_type: formData.request_type,
@@ -715,8 +763,12 @@ getVacateReasonsFromMasters().catch(err => {
 
       
       const result = await createTenantRequest(requestData);
+       console.log('API Response:', result);
+
+        
+    
       
-      if (result && isMounted.current) {
+      if (result && result.success && isMounted.current) {
         toast.success('Request created successfully!');
         setIsDialogOpen(false);
         
@@ -740,6 +792,8 @@ getVacateReasonsFromMasters().catch(err => {
         
         // Refresh data
         await refreshData();
+      }else {
+        toast.error('Failed to create request. Please try again.');
       }
     } catch (error: any) {
       console.error('Submit error:', error);
@@ -868,7 +922,7 @@ getVacateReasonsFromMasters().catch(err => {
         }
       }}>
         <DialogContent className="max-w-3xl w-[98vw] p-0 max-h-[90vh] overflow-hidden">
-        <DialogHeader className="bg-gradient-to-r from-blue-600 to-cyan-600 px-4 py-3 sticky top-0 z-10 relative">
+        <DialogHeader className="bg-gradient-to-r from-blue-600 to-cyan-600 px-4 py-3 sticky top-0 z-10">
   <DialogTitle className="text-white text-lg">Create New Request</DialogTitle>
   <DialogDescription className="text-blue-50 text-sm">
     Fill in the details below to submit your request
@@ -1347,80 +1401,119 @@ getVacateReasonsFromMasters().catch(err => {
               )}
 
               {/* Conditional rendering for Maintenance Request */}
-              {formData.request_type === 'maintenance' && (
-                <div className="border-t border-gray-200 pt-3 space-y-3">
-                  <h3 className="font-semibold text-base">Maintenance Request</h3>
-                  
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="space-y-1">
-                      <Label htmlFor="issue_category" className="text-sm font-medium">Category *</Label>
-                      <Select
-                        value={formData.maintenanceData?.issue_category || ''}
-                        onValueChange={(value) => handleMaintenanceDataChange('issue_category', value)}
-                      >
-                        <SelectTrigger className="h-10">
-                          <SelectValue placeholder="Select category" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {MAINTENANCE_CATEGORIES.map((category) => (
-                            <SelectItem key={category.id} value={category.id}>
-                              {category.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-1">
-                      <Label htmlFor="location" className="text-sm font-medium">Location *</Label>
-                      <Select
-                        value={formData.maintenanceData?.location || ''}
-                        onValueChange={(value) => handleMaintenanceDataChange('location', value)}
-                      >
-                        <SelectTrigger className="h-10">
-                          <SelectValue placeholder="Select location" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {MAINTENANCE_LOCATIONS.map((location) => (
-                            <SelectItem key={location.id} value={location.id}>
-                              {location.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-1">
-                      <Label htmlFor="preferred_visit_time" className="text-sm font-medium">Visit Time</Label>
-                      <Select
-                        value={formData.maintenanceData?.preferred_visit_time || ''}
-                        onValueChange={(value) => handleMaintenanceDataChange('preferred_visit_time', value)}
-                      >
-                        <SelectTrigger className="h-10">
-                          <SelectValue placeholder="Select time" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {VISIT_TIMES.map((time) => (
-                            <SelectItem key={time.id} value={time.id}>
-                              {time.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="access_permission"
-                      checked={formData.maintenanceData?.access_permission || false}
-                      onCheckedChange={(checked) => handleMaintenanceDataChange('access_permission', checked)}
-                    />
-                    <Label htmlFor="access_permission" className="text-sm cursor-pointer">
-  I grant permission for staff to enter my room when I'm away if needed                    </Label>
-                  </div>
+              {/* Conditional rendering for Maintenance Request - UPDATED with masters */}
+{formData.request_type === 'maintenance' && (
+  <div className="space-y-4 p-4 border border-gray-200 rounded-lg">
+    <h3 className="font-semibold text-lg">Maintenance Request Details</h3>
+    
+    <div>
+      <Label htmlFor="issue_category">Issue Category *</Label>
+      <Select
+        value={formData.maintenanceData?.issue_category || ''}
+        onValueChange={(value) => handleMaintenanceDataChange('issue_category', value)}
+        disabled={maintenanceCategories.length === 0}
+      >
+        <SelectTrigger className="h-12">
+          <SelectValue placeholder={maintenanceCategories.length === 0 ? "Loading categories..." : "Select issue category"} />
+        </SelectTrigger>
+        <SelectContent>
+          {maintenanceCategories.length > 0 ? (
+            maintenanceCategories.map((category) => (
+              <SelectItem key={category.id} value={category.value}>
+                <div className="flex flex-col">
+                  <span className="font-medium">{category.value}</span>
+                  {category.description && (
+                    <span className="text-xs text-gray-500">{category.description}</span>
+                  )}
                 </div>
-              )}
+              </SelectItem>
+            ))
+          ) : (
+            <div className="px-2 py-4 text-center text-gray-500">
+              <Loader2 className="h-4 w-4 animate-spin mx-auto mb-2" />
+              <span className="text-xs">Loading categories...</span>
+            </div>
+          )}
+        </SelectContent>
+      </Select>
+    </div>
+
+    <div>
+      <Label htmlFor="location">Location *</Label>
+      <Select
+        value={formData.maintenanceData?.location || ''}
+        onValueChange={(value) => handleMaintenanceDataChange('location', value)}
+        disabled={maintenanceLocations.length === 0}
+      >
+        <SelectTrigger className="h-12">
+          <SelectValue placeholder={maintenanceLocations.length === 0 ? "Loading locations..." : "Select location"} />
+        </SelectTrigger>
+        <SelectContent>
+          {maintenanceLocations.length > 0 ? (
+            maintenanceLocations.map((location) => (
+              <SelectItem key={location.id} value={location.value}>
+                <div className="flex flex-col">
+                  <span className="font-medium">{location.value}</span>
+                  {location.description && (
+                    <span className="text-xs text-gray-500">{location.description}</span>
+                  )}
+                </div>
+              </SelectItem>
+            ))
+          ) : (
+            <div className="px-2 py-4 text-center text-gray-500">
+              <Loader2 className="h-4 w-4 animate-spin mx-auto mb-2" />
+              <span className="text-xs">Loading locations...</span>
+            </div>
+          )}
+        </SelectContent>
+      </Select>
+    </div>
+
+    <div>
+      <Label htmlFor="preferred_visit_time">Preferred Visit Time</Label>
+      <Select
+        value={formData.maintenanceData?.preferred_visit_time || ''}
+        onValueChange={(value) => handleMaintenanceDataChange('preferred_visit_time', value)}
+        disabled={visitTimes.length === 0}
+      >
+        <SelectTrigger className="h-12">
+          <SelectValue placeholder={visitTimes.length === 0 ? "Loading visit times..." : "Select preferred time"} />
+        </SelectTrigger>
+        <SelectContent>
+          {visitTimes.length > 0 ? (
+            visitTimes.map((time) => (
+              <SelectItem key={time.id} value={time.value}>
+                <div className="flex flex-col">
+                  <span className="font-medium">{time.value}</span>
+                  {time.description && (
+                    <span className="text-xs text-gray-500">{time.description}</span>
+                  )}
+                </div>
+              </SelectItem>
+            ))
+          ) : (
+            <div className="px-2 py-4 text-center text-gray-500">
+              <Loader2 className="h-4 w-4 animate-spin mx-auto mb-2" />
+              <span className="text-xs">Loading visit times...</span>
+            </div>
+          )}
+        </SelectContent>
+      </Select>
+    </div>
+
+    <div className="flex items-center space-x-2">
+      <Checkbox
+        id="access_permission"
+        checked={formData.maintenanceData?.access_permission || false}
+        onCheckedChange={(checked) => handleMaintenanceDataChange('access_permission', checked)}
+      />
+      <Label htmlFor="access_permission" className="cursor-pointer">
+        I grant permission for staff to enter my room when I'm away if needed
+      </Label>
+    </div>
+  </div>
+)}
 
               {/* Conditional rendering for Complaint Request */}
               {formData.request_type === 'complaint' && (

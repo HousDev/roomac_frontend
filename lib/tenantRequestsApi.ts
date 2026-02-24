@@ -270,7 +270,7 @@ export async function createTenantRequest(data: any) {
     }
 
     console.log('✅ Request created successfully:', res);
-    return res.data;
+    return res;
   } catch (error: any) {
     console.error('❌ Error creating tenant request:', error);
     
@@ -829,33 +829,40 @@ export const getAvailableRooms = async (propertyId: number): Promise<Room[]> => 
   }
 };
 
-// Get change bed reasons
-export const getChangeBedReasons = async (): Promise<ChangeReason[]> => {
+// Get change bed reasons from Rooms tab
+export const getChangeBedReasonsFromMasters = async (): Promise<any[]> => {
   try {
-    const res = await tenantApiRequest<{
-      success: boolean;
-      data: ChangeReason[];
-    }>("/api/tenant-requests/change-reasons", {
-      method: "GET",
-    });
-
-    if (res.success && Array.isArray(res.data)) {
-      return res.data;
+    const masters = await getMasterValuesByTab('Rooms');
+    
+    // Try different possible type names for change bed reasons
+    const changeBedReasons = masters['Change Reason'] || 
+                             masters['ChangeReason'] || 
+                             masters['Change Bed'] || 
+                             masters['Bed Change Reason'] || 
+                             [];
+    
+    if (changeBedReasons.length > 0) {
+      console.log(`✅ Found ${changeBedReasons.length} change bed reasons from Rooms tab`);
+      return changeBedReasons;
     }
     
-    // Fallback reasons
+    console.log('⚠️ No change bed reasons found in Rooms tab. Available types:', Object.keys(masters));
+    
+    // Fallback change bed reasons
     return [
-      { id: 1, value: 'Need larger room', description: 'Need more space', display_order: 1, is_active: true, reason_code: 'LARGER_ROOM' },
-      { id: 2, value: 'Need smaller room', description: 'Want to reduce rent', display_order: 2, is_active: true, reason_code: 'SMALLER_ROOM' },
-      { id: 3, value: 'Roommate issues', description: 'Issues with current roommates', display_order: 3, is_active: true, reason_code: 'ROOMMATE_ISSUES' },
-      { id: 4, value: 'Noise concerns', description: 'Too much noise in current room', display_order: 4, is_active: true, reason_code: 'NOISE_CONCERNS' },
-      { id: 5, value: 'Medical reasons', description: 'Health-related requirements', display_order: 5, is_active: true, reason_code: 'MEDICAL' },
-      { id: 6, value: 'Privacy concerns', description: 'Need more privacy', display_order: 6, is_active: true, reason_code: 'PRIVACY' },
-      { id: 7, value: 'Change floor', description: 'Prefer different floor', display_order: 7, is_active: true, reason_code: 'CHANGE_FLOOR' },
-      { id: 8, value: 'Other personal reasons', description: 'Other personal requirements', display_order: 8, is_active: true, reason_code: 'OTHER' }
+      { id: 1, value: 'Need larger room', description: 'Need more space', reason_code: 'LARGER_ROOM' },
+      { id: 2, value: 'Need smaller room', description: 'Want to reduce rent', reason_code: 'SMALLER_ROOM' },
+      { id: 3, value: 'Roommate issues', description: 'Issues with current roommates', reason_code: 'ROOMMATE_ISSUES' },
+      { id: 4, value: 'Noise concerns', description: 'Too much noise in current room', reason_code: 'NOISE_CONCERNS' },
+      { id: 5, value: 'Medical reasons', description: 'Health-related requirements', reason_code: 'MEDICAL' },
+      { id: 6, value: 'Privacy concerns', description: 'Need more privacy', reason_code: 'PRIVACY' },
+      { id: 7, value: 'Change floor', description: 'Prefer different floor', reason_code: 'CHANGE_FLOOR' },
+      { id: 8, value: 'Better view', description: 'Want room with better view', reason_code: 'BETTER_VIEW' },
+      { id: 9, value: 'Closer to amenities', description: 'Want to be closer to facilities', reason_code: 'CLOSER_AMENITIES' },
+      { id: 10, value: 'Other personal reasons', description: 'Other personal requirements', reason_code: 'OTHER' }
     ];
   } catch (error) {
-    console.error('❌ Error getting change bed reasons:', error);
+    console.error('❌ Error getting change bed reasons from masters:', error);
     return [];
   }
 };
@@ -925,95 +932,244 @@ export const getVacateReasons = async (): Promise<any[]> => {
   }
 };
 
-// Get leave types
-export const getLeaveTypes = async (): Promise<LeaveType[]> => {
+// Get leave types from Requests tab
+export const getLeaveTypesFromMasters = async (): Promise<any[]> => {
   try {
-    const res = await tenantApiRequest<{
-      success: boolean;
-      data: LeaveType[];
-    }>("/api/tenant-requests/leave-types", {
-      method: "GET",
-    });
-
-    if (res.success && Array.isArray(res.data)) {
-      return res.data;
+    const masters = await getMasterValuesByTab('Requests');
+    
+    // Try different possible type names for leave types
+    const leaveTypes = masters['Leave Type'] || 
+                       masters['LeaveType'] || 
+                       masters['Leave'] || 
+                       [];
+    
+    if (leaveTypes.length > 0) {
+      console.log(`✅ Found ${leaveTypes.length} leave types from Requests tab`);
+      return leaveTypes;
     }
+    
+    // If no leave types found, log all available types for debugging
+    console.log('⚠️ No leave types found in Requests tab. Available types:', Object.keys(masters));
     
     // Fallback leave types
     return [
-      { id: 1, value: 'Personal Leave', description: 'For personal reasons', display_order: 1, is_active: true, type_code: 'PERSONAL' },
-      { id: 2, value: 'Vacation', description: 'Annual vacation leave', display_order: 2, is_active: true, type_code: 'VACATION' },
-      { id: 3, value: 'Emergency Leave', description: 'Family or personal emergency', display_order: 3, is_active: true, type_code: 'EMERGENCY' },
-      { id: 4, value: 'Medical Leave', description: 'Health-related leave', display_order: 4, is_active: true, type_code: 'MEDICAL' },
-      { id: 5, value: 'Family Reasons', description: 'Family functions or emergencies', display_order: 5, is_active: true, type_code: 'FAMILY' },
-      { id: 6, value: 'Other', description: 'Other reasons not listed', display_order: 6, is_active: true, type_code: 'OTHER' }
+      { id: 1, value: 'Personal Leave', description: 'For personal reasons', type_code: 'PERSONAL' },
+      { id: 2, value: 'Vacation', description: 'Annual vacation leave', type_code: 'VACATION' },
+      { id: 3, value: 'Emergency Leave', description: 'Family or personal emergency', type_code: 'EMERGENCY' },
+      { id: 4, value: 'Medical Leave', description: 'Health-related leave', type_code: 'MEDICAL' },
+      { id: 5, value: 'Family Reasons', description: 'Family functions or emergencies', type_code: 'FAMILY' },
+      { id: 6, value: 'Other', description: 'Other reasons not listed', type_code: 'OTHER' }
     ];
   } catch (error) {
-    console.error('❌ Error getting leave types:', error);
+    console.error('❌ Error getting leave types from masters:', error);
     return [];
   }
 };
 
-// lib/tenantRequestsApi.ts - CORRECTED
-export const getComplaintCategories = async (): Promise<ComplaintCategory[]> => {
-  try {
-    console.log('🔍 Fetching complaint categories...');
-    
-    const response = await tenantApiRequest("/api/tenant-requests/complaint-categories", {
-      method: "GET",
-    });
 
-    console.log('📊 Complaint categories response:', response);
+// Get complaint categories from Requests tab
+export const getComplaintCategoriesFromMasters = async (): Promise<any[]> => {
+  try {
+    const masters = await getMasterValuesByTab('Requests');
     
-    // Check if response is an object with data property
-    if (response && typeof response === 'object') {
-      if (response.success && Array.isArray(response.data)) {
-        console.log(`✅ Found ${response.data.length} complaint categories`);
-        return response.data;
-      }
-      // If backend returns array directly (not wrapped in success/data)
-      else if (Array.isArray(response)) {
-        console.log(`✅ Found ${response.length} complaint categories (direct array)`);
-        return response;
-      }
+    // Try different possible type names for complaint categories
+    const complaintCategories = masters['Complaint Category'] || 
+                                masters['ComplaintCategory'] || 
+                                masters['Complaint'] || 
+                                [];
+    
+    if (complaintCategories.length > 0) {
+      console.log(`✅ Found ${complaintCategories.length} complaint categories from Requests tab`);
+      return complaintCategories;
     }
     
-    console.warn('⚠️ No complaint categories found in response');
-    return [];
+    console.log('⚠️ No complaint categories found in Requests tab. Available types:', Object.keys(masters));
+    
+    // Fallback complaint categories
+    return [
+      { id: 1, value: 'Staff Behavior', name: 'Staff Behavior', description: 'Issues with staff conduct' },
+      { id: 2, value: 'Maintenance', name: 'Maintenance', description: 'Issues with room maintenance' },
+      { id: 3, value: 'Cleanliness', name: 'Cleanliness', description: 'Issues with cleanliness' },
+      { id: 4, value: 'Noise', name: 'Noise', description: 'Noise complaints' },
+      { id: 5, value: 'Food', name: 'Food', description: 'Issues with food quality' },
+      { id: 6, value: 'Security', name: 'Security', description: 'Security concerns' },
+      { id: 7, value: 'Billing', name: 'Billing', description: 'Issues with billing or payments' },
+      { id: 8, value: 'Other', name: 'Other', description: 'Other complaints' }
+    ];
   } catch (error) {
-    console.error('❌ Error getting complaint categories:', error);
+    console.error('❌ Error getting complaint categories from masters:', error);
     return [];
   }
 };
 
-// In lib/tenantRequestsApi.ts, add this function if it doesn't exist
-export const getComplaintReasons = async (categoryId: number): Promise<ComplaintReason[]> => {
+// Get complaint reasons for a specific category from Requests tab
+export const getComplaintReasonsFromMasters = async (categoryId: number): Promise<any[]> => {
   try {
-    console.log(`🔍 Fetching complaint reasons for category ID: ${categoryId}`);
+    // First get all complaint reasons
+    const masters = await getMasterValuesByTab('Requests');
     
-    const response = await tenantApiRequest(`/api/tenant-requests/complaint-categories/${categoryId}/reasons`, {
-      method: "GET",
-    });
-
-    console.log('📊 Complaint reasons response:', response);
+    // Try different possible type names for complaint reasons
+    const complaintReasons = masters['Complaint Reason'] || 
+                             masters['ComplaintReason'] || 
+                             masters['Reason'] || 
+                             [];
     
-    // Check if response is an object with data property
-    if (response && typeof response === 'object') {
-      if (response.success && Array.isArray(response.data)) {
-        console.log(`✅ Found ${response.data.length} complaint reasons for category ${categoryId}`);
-        return response.data;
+    if (complaintReasons.length > 0) {
+      console.log(`✅ Found ${complaintReasons.length} complaint reasons from Requests tab`);
+      
+      // If categoryId is provided, filter reasons by category
+      // Note: This assumes your master data has a way to link reasons to categories
+      // You might need to adjust this based on your actual data structure
+      if (categoryId) {
+        const filteredReasons = complaintReasons.filter((reason: any) => 
+          reason.category_id === categoryId || 
+          reason.master_type_id === categoryId ||
+          reason.parent_id === categoryId
+        );
+        
+        if (filteredReasons.length > 0) {
+          return filteredReasons;
+        }
       }
-      // If backend returns array directly (not wrapped in success/data)
-      else if (Array.isArray(response)) {
-        console.log(`✅ Found ${response.length} complaint reasons for category ${categoryId} (direct array)`);
-        return response;
-      }
+      
+      return complaintReasons;
     }
     
-    console.warn(`⚠️ No complaint reasons found for category ${categoryId}`);
-    return [];
+    console.log('⚠️ No complaint reasons found in Requests tab. Available types:', Object.keys(masters));
+    
+    // Fallback complaint reasons based on category
+    const fallbackReasons: Record<number, any[]> = {
+      1: [ // Staff Behavior
+        { id: 101, value: 'Rude Behavior', description: 'Staff was rude or unprofessional' },
+        { id: 102, value: 'Unresponsive', description: 'Staff not responding to requests' },
+        { id: 103, value: 'Late Service', description: 'Service was delayed' }
+      ],
+      2: [ // Maintenance
+        { id: 201, value: 'Electrical Issue', description: 'Problems with lights, fans, etc.' },
+        { id: 202, value: 'Plumbing Issue', description: 'Leaking pipes, clogged drains' },
+        { id: 203, value: 'Furniture Broken', description: 'Damaged furniture' }
+      ],
+      3: [ // Cleanliness
+        { id: 301, value: 'Room Not Clean', description: 'Room was not cleaned properly' },
+        { id: 302, value: 'Bathroom Dirty', description: 'Bathroom needs cleaning' },
+        { id: 303, value: 'Common Areas Dirty', description: 'Hallways or common areas unclean' }
+      ],
+      4: [ // Noise
+        { id: 401, value: 'Loud Music', description: 'Loud music from other rooms' },
+        { id: 402, value: 'Construction Noise', description: 'Noise from construction' },
+        { id: 403, value: 'Late Night Parties', description: 'Parties late at night' }
+      ]
+    };
+    
+    return fallbackReasons[categoryId] || [
+      { id: 901, value: 'Other', description: 'Other reason not listed' }
+    ];
   } catch (error) {
-    console.error(`❌ Error getting complaint reasons for category ${categoryId}:`, error);
+    console.error('❌ Error getting complaint reasons from masters:', error);
+    return [];
+  }
+};
+
+
+
+// Get maintenance categories from Requests tab
+export const getMaintenanceCategoriesFromMasters = async (): Promise<any[]> => {
+  try {
+    const masters = await getMasterValuesByTab('Requests');
+    
+    // Try different possible type names for maintenance categories
+    const maintenanceCategories = masters['Maintenance Category'] || 
+                                  masters['MaintenanceCategory'] || 
+                                  masters['Maintenance'] || 
+                                  [];
+    
+    if (maintenanceCategories.length > 0) {
+      console.log(`✅ Found ${maintenanceCategories.length} maintenance categories from Requests tab`);
+      return maintenanceCategories;
+    }
+    
+    console.log('⚠️ No maintenance categories found in Requests tab. Available types:', Object.keys(masters));
+    
+    // Fallback maintenance categories
+    return [
+      { id: 1, value: 'Electrical', description: 'Issues with lights, fans, switches, etc.' },
+      { id: 2, value: 'Plumbing', description: 'Leaking pipes, clogged drains, faucet issues' },
+      { id: 3, value: 'Furniture', description: 'Broken bed, table, chair, wardrobe' },
+      { id: 4, value: 'Appliances', description: 'AC, fridge, TV, geyser not working' },
+      { id: 5, value: 'Structural', description: 'Wall cracks, paint, flooring issues' },
+      { id: 6, value: 'Pest Control', description: 'Insects, rodents, pest infestation' },
+      { id: 7, value: 'Internet/WiFi', description: 'Connectivity issues, slow speed' },
+      { id: 8, value: 'Other', description: 'Other maintenance issues' }
+    ];
+  } catch (error) {
+    console.error('❌ Error getting maintenance categories from masters:', error);
+    return [];
+  }
+};
+
+// Get maintenance locations from Requests tab
+export const getMaintenanceLocationsFromMasters = async (): Promise<any[]> => {
+  try {
+    const masters = await getMasterValuesByTab('Requests');
+    
+    // Try different possible type names for maintenance locations
+    const maintenanceLocations = masters['Maintenance Location'] || 
+                                 masters['MaintenanceLocation'] || 
+                                 masters['Location'] || 
+                                 [];
+    
+    if (maintenanceLocations.length > 0) {
+      console.log(`✅ Found ${maintenanceLocations.length} maintenance locations from Requests tab`);
+      return maintenanceLocations;
+    }
+    
+    console.log('⚠️ No maintenance locations found in Requests tab. Available types:', Object.keys(masters));
+    
+    // Fallback maintenance locations
+    return [
+      { id: 1, value: 'Bedroom', description: 'Inside the bedroom' },
+      { id: 2, value: 'Bathroom', description: 'Attached or common bathroom' },
+      { id: 3, value: 'Balcony', description: 'Balcony area' },
+      { id: 4, value: 'Common Area', description: 'Hallway, living room, common spaces' },
+      { id: 5, value: 'Kitchen', description: 'Kitchen area (if applicable)' },
+      { id: 6, value: 'Entrance', description: 'Main door, entrance area' },
+      { id: 7, value: 'Window', description: 'Window, curtains, blinds' },
+      { id: 8, value: 'Other', description: 'Other location' }
+    ];
+  } catch (error) {
+    console.error('❌ Error getting maintenance locations from masters:', error);
+    return [];
+  }
+};
+
+// Get visit time preferences from Requests tab
+export const getVisitTimesFromMasters = async (): Promise<any[]> => {
+  try {
+    const masters = await getMasterValuesByTab('Requests');
+    
+    // Try different possible type names for visit times
+    const visitTimes = masters['Visit Time'] || 
+                       masters['VisitTime'] || 
+                       masters['Time Slot'] || 
+                       masters['TimeSlot'] || 
+                       [];
+    
+    if (visitTimes.length > 0) {
+      console.log(`✅ Found ${visitTimes.length} visit time preferences from Requests tab`);
+      return visitTimes;
+    }
+    
+    console.log('⚠️ No visit times found in Requests tab. Available types:', Object.keys(masters));
+    
+    // Fallback visit times
+    return [
+      { id: 1, value: 'Morning (9 AM - 12 PM)', description: 'Morning hours' },
+      { id: 2, value: 'Afternoon (12 PM - 3 PM)', description: 'Afternoon hours' },
+      { id: 3, value: 'Evening (3 PM - 6 PM)', description: 'Evening hours' },
+      { id: 4, value: 'Anytime', description: 'Any time during working hours' }
+    ];
+  } catch (error) {
+    console.error('❌ Error getting visit times from masters:', error);
     return [];
   }
 };

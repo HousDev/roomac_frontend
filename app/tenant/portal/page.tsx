@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
@@ -18,6 +17,9 @@ import {
   Coffee,
   Users,
   User,
+  UserX,
+  Wrench,
+  RefreshCw,
 } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -52,14 +54,21 @@ import { tenantDetailsApi } from "@/lib/tenantDetailsApi";
 import {
   getMyTenantRequests,
   createTenantRequest,
-  getComplaintCategories,
-  getComplaintReasons,
-  getLeaveTypes,
+  getComplaintCategoriesFromMasters as getComplaintCategories,
+  getComplaintReasonsFromMasters as getComplaintReasons,
+  getLeaveTypesFromMasters,
   type TenantRequest,
   type ComplaintCategory,
   type ComplaintReason,
   type LeaveType,
 } from "@/lib/tenantRequestsApi";
+import {
+  getTenantNotifications,
+  getUnreadNotificationCount,
+  markNotificationAsRead,
+  markAllNotificationsAsRead,
+  type Notification,
+} from "@/lib/tenantNotificationsApi";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 // Assets
@@ -91,15 +100,6 @@ interface Payment {
   due_date?: string;
 }
 
-interface Notification {
-  id: string;
-  title: string;
-  message: string;
-  type: "payment" | "complaint" | "event" | "document" | "general";
-  is_read: boolean;
-  created_at: string;
-}
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const formatDate = (date: string) => {
@@ -108,6 +108,17 @@ const formatDate = (date: string) => {
     day: "2-digit",
     month: "short",
     year: "numeric",
+  });
+};
+
+const formatDateTime = (date: string) => {
+  if (!date) return "—";
+  return new Date(date).toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   });
 };
 
@@ -150,33 +161,6 @@ const MOCK_PAYMENTS: Payment[] = [
   },
 ];
 
-const MOCK_NOTIFICATIONS: Notification[] = [
-  {
-    id: "1",
-    title: "Rent Payment Reminder",
-    message: "Your rent payment of ₹12,000 is due in 7 days",
-    type: "payment",
-    is_read: false,
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: "2",
-    title: "Complaint Update",
-    message: "Your maintenance request #123 is now in progress",
-    type: "complaint",
-    is_read: false,
-    created_at: new Date(Date.now() - 86400000).toISOString(),
-  },
-  {
-    id: "3",
-    title: "Document Verified",
-    message: "Your Aadhar card has been verified successfully",
-    type: "document",
-    is_read: true,
-    created_at: new Date(Date.now() - 172800000).toISOString(),
-  },
-];
-
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function TenantPortalPage() {
@@ -208,11 +192,13 @@ export default function TenantPortalPage() {
   const [loadingTimeout, setLoadingTimeout] = useState(false);
   const [tenant, setTenant] = useState<TenantProfile | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
-  const [notifications, setNotifications] = useState<Notification[]>(MOCK_NOTIFICATIONS);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [complaintCategories, setComplaintCategories] = useState<ComplaintCategory[]>([]);
   const [complaintReasons, setComplaintReasons] = useState<ComplaintReason[]>([]);
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
   const [selectedCategory, setSelectedCategory] = useState("");
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
 
   // Dialogs
   const [showComplaintDialog, setShowComplaintDialog] = useState(false);
@@ -225,7 +211,7 @@ export default function TenantPortalPage() {
     totalPending: 12000,
     pendingCount: 1,
     openComplaints: 2,
-    unreadNotifications: 3,
+    unreadNotifications: 0,
     daysUntilRentDue: 7,
     monthlyRent: 12000,
     occupancyDays: 245,
@@ -259,6 +245,33 @@ export default function TenantPortalPage() {
     return () => clearTimeout(id);
   }, [loading]);
 
+  // Fetch notifications
+// Fetch notifications
+const fetchNotifications = useCallback(async (showLoading = false) => {
+  try {
+    if (showLoading) setLoadingNotifications(true);
+    const [notifs, count] = await Promise.all([
+      getTenantNotifications(50), // Fetch up to 50 notifications
+      getUnreadNotificationCount()
+    ]);
+    
+    // Format notifications to match component expectations - INCLUDE ALL TYPES
+    const formattedNotifs = notifs.map(n => ({
+      ...n,
+      type: n.notification_type as "payment" | "complaint" | "maintenance" | "leave" | "change bed" | "vacate bed" | "account deletion" | "event" | "document" | "general"
+    }));
+    
+    console.log('📋 Fetched notifications:', formattedNotifs); // Add debug log
+    setNotifications(formattedNotifs);
+    setUnreadCount(count);
+    setStats(prev => ({ ...prev, unreadNotifications: count }));
+  } catch (error) {
+    console.error('Error fetching notifications:', error);
+  } finally {
+    if (showLoading) setLoadingNotifications(false);
+  }
+}, []);
+
   // Fetch data
   const fetchAllData = useCallback(async () => {
     setLoading(true);
@@ -271,12 +284,13 @@ export default function TenantPortalPage() {
         return;
       }
 
-      const [profileRes, requestsRes, categoriesRes, leaveTypesRes] =
+      const [profileRes, requestsRes, categoriesRes, leaveTypesRes, notificationsRes] =
         await Promise.allSettled([
           tenantDetailsApi.loadProfile(),
           getMyTenantRequests(),
           getComplaintCategories(),
-          getLeaveTypes(),
+          getLeaveTypesFromMasters(),
+          fetchNotifications(false), // Don't show loading for initial fetch
         ]);
 
       if (profileRes.status === "fulfilled" && profileRes.value?.success) {
@@ -337,9 +351,25 @@ export default function TenantPortalPage() {
     } finally {
       setLoading(false);
     }
-  }, [navigate]);
+  }, [navigate, fetchNotifications]);
 
   useEffect(() => { fetchAllData(); }, [fetchAllData]);
+
+  // Set up polling for real-time notifications
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchNotifications(false);
+    }, 30000); // Poll every 30 seconds
+    
+    return () => clearInterval(interval);
+  }, [fetchNotifications]);
+
+  // Load notifications when tab changes to notifications
+  useEffect(() => {
+    if (activeTab === 'notifications') {
+      fetchNotifications(true);
+    }
+  }, [activeTab, fetchNotifications]);
 
   useEffect(() => {
     if (selectedCategory)
@@ -430,11 +460,70 @@ export default function TenantPortalPage() {
     setNewPayment({ amount: "", description: "", payment_method: "card" });
   }, [newPayment]);
 
-  const handleMarkAllRead = useCallback(() => {
-    setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
-    setStats(prev => ({ ...prev, unreadNotifications: 0 }));
-    toast.success("All notifications marked as read");
+  const handleMarkAllRead = useCallback(async () => {
+    try {
+      const marked = await markAllNotificationsAsRead();
+      if (marked > 0) {
+        setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+        setUnreadCount(0);
+        setStats(prev => ({ ...prev, unreadNotifications: 0 }));
+        toast.success(`${marked} notifications marked as read`);
+      }
+    } catch (error) {
+      console.error('Error marking all as read:', error);
+      toast.error("Failed to mark notifications as read");
+    }
   }, []);
+
+  const handleNotificationClick = useCallback(async (notification: Notification) => {
+    if (!notification.is_read) {
+      try {
+        await markNotificationAsRead(notification.id);
+        setNotifications(prev => 
+          prev.map(n => n.id === notification.id ? { ...n, is_read: true } : n)
+        );
+        setUnreadCount(prev => Math.max(0, prev - 1));
+        setStats(prev => ({ ...prev, unreadNotifications: Math.max(0, prev.unreadNotifications - 1) }));
+      } catch (error) {
+        console.error('Error marking notification as read:', error);
+      }
+    }
+
+    // Navigate based on notification type
+    const type = notification.notification_type || notification.type;
+    if (type === "complaint") {
+    navigate("/tenant/requests");
+  } else if (type === "maintenance") { // Add this
+    navigate("/tenant/requests");
+  } else if (type === "leave") {
+    navigate("/tenant/requests");
+  } else if (type === "change bed") {
+    navigate("/tenant/requests");
+  } else if (type === "vacate bed") {
+    navigate("/tenant/requests");
+  } else if(type === "account deletion") {
+    navigate("/tenant/profile");
+  } else if (type === "payment") {
+    handleTabChange("payments");
+  } else if (type === "document") {
+    navigate("/tenant/documents");
+  }
+  }, [navigate]);
+
+  const getNotificationIcon = (type: string) => {
+    switch (type) {
+      case "payment": return <CreditCard className="h-4 w-4 text-blue-600" />;
+      case "complaint": return <AlertCircle className="h-4 w-4 text-orange-600" />;
+      case "maintenance": return <Wrench className="h-4 w-4 text-purple-600" />;
+      case "leave": return <Users className="h-4 w-4 text-green-600" />;
+      case "change_bed": return <Move className="h-4 w-4 text-teal-600" />;
+      case "vacate bed": return <MapPin className="h-4 w-4 text-red-600" />;
+      case "account deletion": return <UserX className="h-4 w-4 text-gray-600" />;
+      case "document": return <FileText className="h-4 w-4 text-purple-600" />;
+      case "event": return <Calendar className="h-4 w-4 text-green-600" />;
+      default: return <Bell className="h-4 w-4 text-gray-600" />;
+    }
+  };
 
   // ─── Loading ───────────────────────────────────────────────────────────────
 
@@ -589,7 +678,7 @@ export default function TenantPortalPage() {
     </CardContent>
   </Card>
 
-  {/* PG Rating Card — Purple */}
+  {/* Notifications Card — Purple */}
   <Card className="border border-purple-200/50 bg-gradient-to-br from-purple-50 to-white shadow-sm hover:shadow-md transition-all">
     <CardContent className="p-3">
       <div className="flex items-center justify-between mb-2">
@@ -598,29 +687,24 @@ export default function TenantPortalPage() {
             <Bell className="h-4 w-4 text-purple-600" />
           </div>
           <div>
-            <p className="text-xs font-medium text-slate-600">PG Rating</p>
-            <p className="text-lg font-bold text-slate-900">4.8</p>
+            <p className="text-xs font-medium text-slate-600">Notifications</p>
+            <p className="text-lg font-bold text-slate-900">{stats.unreadNotifications}</p>
           </div>
         </div>
-        <Badge className="bg-green-500 hover:bg-green-600 text-xs">↑ +0.5</Badge>
+        {stats.unreadNotifications > 0 && (
+          <Badge className="bg-purple-500 hover:bg-purple-600 text-xs">New</Badge>
+        )}
       </div>
-      <div className="grid grid-cols-3 gap-1">
-        {[
-          { label: "Clean", score: 9,   color: "bg-emerald-400" },
-          { label: "Maint.", score: 8.5, color: "bg-blue-400" },
-          { label: "Commu.", score: 8.7, color: "bg-purple-400" },
-        ].map((item) => (
-          <div key={item.label} className="text-center">
-            <div className="text-xs font-bold text-slate-900">{item.score}</div>
-            <div className="text-[10px] text-slate-600">{item.label}</div>
-            <div className="h-1 rounded-full bg-slate-200 mt-1">
-              <div
-                className={`h-1 rounded-full ${item.color}`}
-                style={{ width: `${item.score * 10}%` }}
-              />
-            </div>
-          </div>
-        ))}
+      <div className="mt-3">
+        <Button
+          size="sm"
+          variant="outline"
+          className="w-full h-7 text-xs border-purple-200 hover:bg-purple-50"
+          onClick={() => handleTabChange("notifications")}
+        >
+          View All
+          <ChevronRight className="h-3 w-3 ml-1" />
+        </Button>
       </div>
     </CardContent>
   </Card>
@@ -628,8 +712,7 @@ export default function TenantPortalPage() {
 </div>
 
 
-      {/* Action Buttons */}
-   {/* Action Buttons - Small height and width as requested */}
+      {/* Action Buttons - Small height and width as requested */}
 <div className="grid grid-cols-4 gap-2 sm:gap-3 mb-6">
   <Button
     variant="outline"
@@ -693,9 +776,9 @@ export default function TenantPortalPage() {
                 className="rounded-md data-[state=active]:bg-[#0149ab] data-[state=active]:text-white data-[state=inactive]:text-slate-600 transition-all text-xs sm:text-sm py-2 sm:py-2.5">
                 <span className="flex items-center gap-1">
                   Notifications
-                  {stats.unreadNotifications > 0 && (
+                  {unreadCount > 0 && (
                     <Badge variant="destructive" className="ml-1 text-[10px] px-1.5 py-0 h-4">
-                      {stats.unreadNotifications}
+                      {unreadCount > 9 ? "9+" : unreadCount}
                     </Badge>
                   )}
                 </span>
@@ -809,27 +892,43 @@ export default function TenantPortalPage() {
             {/* ── Notifications Tab ─────────────────────────────────── */}
             <TabsContent value="notifications" className="space-y-6 mt-4">
               <Card className="border border-slate-200 shadow-sm">
-                <CardHeader className="px-4 sm:px-6">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-base sm:text-lg font-semibold">All Notifications</CardTitle>
-                    {stats.unreadNotifications > 0 && (
-                      <Button variant="ghost" size="sm" className="text-[#0149ab] hover:bg-blue-50 text-xs sm:text-sm" onClick={handleMarkAllRead}>
-                        Mark all as read
-                      </Button>
-                    )}
-                  </div>
-                </CardHeader>
+                {/* In the notifications tab header */}
+<CardHeader className="px-4 sm:px-6">
+  <div className="flex items-center justify-between">
+    <CardTitle className="text-base sm:text-lg font-semibold">All Notifications</CardTitle>
+    <div className="flex items-center gap-2">
+      {unreadCount > 0 && (
+        <Button variant="ghost" size="sm" className="text-[#0149ab] hover:bg-blue-50 text-xs sm:text-sm" onClick={handleMarkAllRead}>
+          Mark all as read
+        </Button>
+      )}
+      <Button variant="outline" size="sm" onClick={() => fetchNotifications(true)} className="text-xs">
+        <RefreshCw className="h-3 w-3 mr-1" />
+        Refresh
+      </Button>
+    </div>
+  </div>
+</CardHeader>
                 <CardContent className="px-4 sm:px-6">
-                  {notifications.length > 0 ? (
+                  {loadingNotifications ? (
+                    <div className="flex justify-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#0149ab] border-t-transparent" />
+                    </div>
+                  ) : notifications.length > 0 ? (
                     <div className="space-y-3">
                       {notifications.map((n) => (
-                        <div key={n.id} className={`p-4 rounded-lg border ${!n.is_read ? "bg-blue-50 border-blue-200" : "bg-white border-slate-200"}`}>
+                        <div 
+                          key={n.id} 
+                          className={`p-4 rounded-lg border cursor-pointer transition-all hover:shadow-md ${
+                            !n.is_read ? "bg-blue-50 border-blue-200" : "bg-white border-slate-200"
+                          }`}
+                          onClick={() => handleNotificationClick(n)}
+                        >
                           <div className="flex items-start gap-3">
-                            <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${n.is_read ? "bg-slate-100" : "bg-blue-100"}`}>
-                              {n.type === "payment" && <CreditCard className="h-4 w-4 text-blue-600" />}
-                              {n.type === "complaint" && <AlertCircle className="h-4 w-4 text-orange-600" />}
-                              {n.type === "document" && <FileText className="h-4 w-4 text-purple-600" />}
-                              {(n.type === "general" || n.type === "event") && <Bell className="h-4 w-4 text-gray-600" />}
+                            <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${
+                              n.is_read ? "bg-slate-100" : "bg-blue-100"
+                            }`}>
+                              {getNotificationIcon(n.notification_type || n.type || 'general')}
                             </div>
                             <div className="flex-1">
                               <div className="flex items-start justify-between">
@@ -837,18 +936,33 @@ export default function TenantPortalPage() {
                                 {!n.is_read && <div className="h-2 w-2 bg-blue-600 rounded-full mt-1" />}
                               </div>
                               <p className="text-sm text-slate-600 mt-1">{n.message}</p>
-                              <p className="text-xs text-slate-400 mt-2">
-                                {new Date(n.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
-                              </p>
+                              <div className="flex items-center justify-between mt-2">
+                                <p className="text-xs text-slate-400">
+                                  {formatDateTime(n.created_at)}
+                                </p>
+                                {n.related_entity_type === 'complaint' && (
+                                  <Badge variant="outline" className="text-[10px] bg-orange-50 text-orange-700 border-orange-200">
+                                    Complaint #{n.related_entity_id}
+                                  </Badge>
+                                )}
+                                {n.related_entity_type === 'maintenance' && (
+  <Badge variant="outline" className="text-[10px] bg-purple-50 text-purple-700 border-purple-200">
+    Maintenance #{n.related_entity_id}
+  </Badge>
+)}
+                              </div>
                             </div>
                           </div>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <div className="text-center py-8">
+                    <div className="text-center py-12">
                       <Bell className="h-12 w-12 text-slate-300 mx-auto mb-3" />
                       <p className="text-slate-500 text-sm">No notifications</p>
+                      <p className="text-xs text-slate-400 mt-1">
+                        When you have notifications, they'll appear here
+                      </p>
                     </div>
                   )}
                 </CardContent>
@@ -859,38 +973,7 @@ export default function TenantPortalPage() {
 
         {/* Right Column */}
         <div className="space-y-6">
-          {/* Accommodation */}
-          {/* <Card className="bg-[#0149ab] text-white border-none shadow-lg">
-            <CardHeader className="pb-2 px-4 sm:px-6">
-              <CardTitle className="text-base sm:text-lg font-semibold flex items-center gap-2 text-white">
-                <Building className="h-4 w-4 sm:h-5 sm:w-5" />
-                Your Accommodation
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="px-4 sm:px-6 space-y-4">
-              <div>
-                <p className="font-semibold text-base sm:text-xl">{tenant?.property_name || "Roomac Heights"}</p>
-                <p className="text-xs sm:text-sm text-blue-100 flex items-center gap-1 mt-1">
-                  <MapPin className="h-3 w-3 shrink-0" />
-                  <span className="truncate">{tenant?.property_address || "45, Linking Road, Bandra"}, {tenant?.property_city || "Mumbai"}</span>
-                </p>
-              </div>
-              <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                {[
-                  { label: "ROOM NO.", value: tenant?.room_number || "204" },
-                  { label: "BED NO.", value: tenant?.bed_number || "1" },
-                  { label: "RENT/MONTH", value: formatCurrency(stats.monthlyRent) },
-                  { label: "FLOOR", value: `Floor ${tenant?.floor || "3"}` },
-                ].map(({ label, value }) => (
-                  <div key={label} className="bg-blue-600/20 rounded-lg p-2 sm:p-3">
-                    <p className="text-[10px] sm:text-xs text-blue-200">{label}</p>
-                    <p className="text-lg sm:text-2xl font-bold">{value}</p>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card> */}
-
+        
           {/* Contract Details */}
           <Card className="border border-slate-200 shadow-sm">
             <CardHeader className="pb-2 px-4 sm:px-6">

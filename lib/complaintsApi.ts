@@ -230,14 +230,15 @@ export async function getComplaintCategories(): Promise<ComplaintCategory[]> {
 export async function updateComplaintStatus(
   id: number,
   status: string,
-  admin_notes?: string
+  adminNotes?: string // Add adminNotes parameter
 ): Promise<any> {
   try {
     const token = getAdminToken();
 
     const body: any = { status };
-    if (admin_notes) body.admin_notes = admin_notes;
+    if (adminNotes) body.admin_notes = adminNotes;
     
+    console.log(`📝 Updating complaint ${id} status to ${status} with notes:`, adminNotes);
     
     const response = await request(`/api/admin/complaints/${id}`, {
       method: "PUT",

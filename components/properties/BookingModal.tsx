@@ -1,4 +1,5 @@
 // components/properties/BookingModal.tsx
+// components/properties/BookingModal.tsx
 "use client";
 
 import { useState, useCallback, useEffect, memo, useRef } from 'react';
@@ -9,9 +10,10 @@ import {
   Home, Grid, ChevronRight, MapPin, Hash, Layers, UserCircle,
   AlertCircle, CheckCircle, XCircle, ArrowLeft, Sparkles
 } from 'lucide-react';
-
+import { Badge } from '@/components/ui/badge';
 import { listRoomsByProperty } from "@/lib/roomsApi";
 import { createRazorpayOrder } from "../../lib/paymentApi";
+import { consumeMasters } from "@/lib/masterApi";
 
 interface BookingModalProps {
   isOpen: boolean;
@@ -27,18 +29,24 @@ interface Room {
   id: number;
   room_number: string;
   room_type: string;
-  sharing_type: string; // 'single', 'double', 'triple', 'other'
+  sharing_type: string;
   monthly_rent: number;
   daily_rate: number;
   is_available: boolean;
   floor: string;
   total_beds: number;
   available_beds: number;
+  occupied_beds: number;
   amenities?: string[];
-  gender_preference?: string[]; // ['male_only', 'female_only', 'couples', 'both']
+  gender_preference?: string[];
   current_occupants_gender?: string[];
   room_gender_preference?: string[];
-  occupied_beds?: number;
+}
+
+interface MasterValue {
+  id: number;
+  name: string;
+  isactive: number;
 }
 
 interface BookingData {
@@ -313,14 +321,11 @@ const isRoomAllowedForGender = (room: any, gender: string): boolean => {
   if (!gender || gender === 'all' || gender === '') return true;
   
   const preferences = room.gender_preference || [];
-  if (preferences.length === 0) return true; // No preferences means any gender
+  if (preferences.length === 0) return true;
   
   const normalizedGender = gender.toLowerCase();
   
-  
-  // For male selection
   if (normalizedGender === 'male') {
-    // Room must have male_only OR both/mixed OR couples to show
     const hasMaleOnly = preferences.some((p: string) => 
       p.toLowerCase() === 'male_only' || p.toLowerCase() === 'male'
     );
@@ -328,22 +333,18 @@ const isRoomAllowedForGender = (room: any, gender: string): boolean => {
       p.toLowerCase() === 'both' || p.toLowerCase() === 'any' || p.toLowerCase() === 'mixed'
     );
     const hasCouples = preferences.some((p: string) => p.toLowerCase() === 'couples');
-    
-    // If room has female_only only, don't show
     const hasFemaleOnly = preferences.some((p: string) => 
       p.toLowerCase() === 'female_only' || p.toLowerCase() === 'female'
     );
     
     if (hasFemaleOnly && !hasMaleOnly && !hasBoth && !hasCouples) {
-      return false; // Female-only room should not show for male
+      return false;
     }
     
     return hasMaleOnly || hasBoth || hasCouples;
   }
   
-  // For female selection
   if (normalizedGender === 'female') {
-    // Room must have female_only OR both/mixed OR couples to show
     const hasFemaleOnly = preferences.some((p: string) => 
       p.toLowerCase() === 'female_only' || p.toLowerCase() === 'female'
     );
@@ -351,26 +352,22 @@ const isRoomAllowedForGender = (room: any, gender: string): boolean => {
       p.toLowerCase() === 'both' || p.toLowerCase() === 'any' || p.toLowerCase() === 'mixed'
     );
     const hasCouples = preferences.some((p: string) => p.toLowerCase() === 'couples');
-    
-    // If room has male_only only, don't show
     const hasMaleOnly = preferences.some((p: string) => 
       p.toLowerCase() === 'male_only' || p.toLowerCase() === 'male'
     );
     
     if (hasMaleOnly && !hasFemaleOnly && !hasBoth && !hasCouples) {
-      return false; // Male-only room should not show for female
+      return false;
     }
     
     return hasFemaleOnly || hasBoth || hasCouples;
   }
   
-  // For 'other' gender selection, show rooms with no restrictions or mixed/both
   return preferences.some((p: string) => 
     p.toLowerCase() === 'both' || p.toLowerCase() === 'any' || p.toLowerCase() === 'mixed'
   ) || preferences.length === 0;
 };
 
-// Helper function to format sharing type for display
 const formatSharingType = (type: string): string => {
   switch (type?.toLowerCase()) {
     case 'single': return 'Private Room';
@@ -381,7 +378,6 @@ const formatSharingType = (type: string): string => {
   }
 };
 
-// Helper function to get sharing icon
 const getSharingIcon = (type: string) => {
   switch (type?.toLowerCase()) {
     case 'single': return <User className="w-3.5 h-3.5" />;
@@ -392,36 +388,14 @@ const getSharingIcon = (type: string) => {
   }
 };
 
-// Helper function to get sharing capacity
 const getSharingCapacity = (type: string): number => {
   switch (type?.toLowerCase()) {
     case 'single': return 1;
     case 'double': return 2;
     case 'triple': return 3;
-    case 'other': return 4; // Default for other
+    case 'other': return 4;
     default: return 2;
   }
-};
-
-// Helper function to format gender preference for display
-const formatGenderPreference = (preferences: string[]) => {
-  if (!preferences || preferences.length === 0) return null;
-  
-  const prefLower = preferences.map(p => p.toLowerCase());
-  
-  if (prefLower.includes('male_only') || prefLower.includes('male')) {
-    return { label: '♂ Male Only', color: 'bg-blue-100 text-blue-700' };
-  }
-  if (prefLower.includes('female_only') || prefLower.includes('female')) {
-    return { label: '♀ Female Only', color: 'bg-pink-100 text-pink-700' };
-  }
-  if (prefLower.includes('couples')) {
-    return { label: '💑 Couples Only', color: 'bg-red-100 text-red-700' };
-  }
-  if (prefLower.includes('both') || prefLower.includes('any') || prefLower.includes('mixed')) {
-    return { label: '👥 Mixed', color: 'bg-purple-100 text-purple-700' };
-  }
-  return null;
 };
 
 const BookingModal = memo(function BookingModal({
@@ -435,8 +409,8 @@ const BookingModal = memo(function BookingModal({
 }: BookingModalProps) {
   const [bookingStep, setBookingStep] = useState(1);
   const [loading, setLoading] = useState(false);
-const [allRooms, setAllRooms] = useState<any[]>([]); // Store all rooms
-const [rooms, setRooms] = useState<any[]>([]); // Filtered rooms for display
+  const [allRooms, setAllRooms] = useState<any[]>([]);
+  const [rooms, setRooms] = useState<any[]>([]);
   const [roomsLoading, setRoomsLoading] = useState(false);
   const [roomsError, setRoomsError] = useState('');
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
@@ -446,8 +420,16 @@ const [rooms, setRooms] = useState<any[]>([]); // Filtered rooms for display
   const [showOTPModal, setShowOTPModal] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [confirmationData, setConfirmationData] = useState<any>(null);
+  const [selectedSharingType, setSelectedSharingType] = useState<string>('all');
+  const [selectedRoomType, setSelectedRoomType] = useState<string>('all');
+  const [showFilters, setShowFilters] = useState(false);
+  
+  // Masters data
+  const [roomsMasters, setRoomsMasters] = useState<Record<string, MasterValue[]>>({});
+  const [loadingMasters, setLoadingMasters] = useState(false);
   
   const preselectionAttempted = useRef(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const [formData, setFormData] = useState({
     salutation: 'Mr.',
@@ -487,6 +469,162 @@ const [rooms, setRooms] = useState<any[]>([]); // Filtered rooms for display
     });
   }, []);
 
+  // Fetch rooms masters
+  const fetchRoomsMasters = async () => {
+    setLoadingMasters(true);
+    try {
+      const res = await consumeMasters({ tab: "Rooms" });
+      if (res?.success && res.data) {
+        const grouped: Record<string, MasterValue[]> = {};
+        res.data.forEach((item: any) => {
+          const type = item.type_name;
+          if (!grouped[type]) {
+            grouped[type] = [];
+          }
+          grouped[type].push({
+            id: item.value_id,
+            name: item.value_name,
+            isactive: 1,
+          });
+        });
+        setRoomsMasters(grouped);
+      }
+    } catch (error) {
+      console.error("Failed to fetch rooms masters:", error);
+    } finally {
+      setLoadingMasters(false);
+    }
+  };
+
+  // Fetch rooms function with reset filters option
+  const fetchRooms = async (resetFilters = true) => {
+    if (!propertyData?.id) return;
+
+    setRoomsLoading(true);
+    setRoomsError('');
+
+    try {
+      const response: any = await listRoomsByProperty(Number(propertyData.id));
+      
+      let roomsData = [];
+
+      if (response.success && response.data) {
+        if (Array.isArray(response.data)) {
+          roomsData = response.data;
+        } else if (response.data.data && Array.isArray(response.data.data)) {
+          roomsData = response.data.data;
+        } else if (response.data.items && Array.isArray(response.data.items)) {
+          roomsData = response.data.items;
+        } else if (typeof response.data === 'object' && response.data !== null) {
+          roomsData = Object.values(response.data);
+        }
+      }
+
+      if (roomsData.length > 0) {
+        const transformedRooms = roomsData.map((room: any) => {
+          let availableBeds = 0;
+          let occupiedBeds = 0;
+          
+          if (room.bed_assignments && Array.isArray(room.bed_assignments)) {
+            availableBeds = room.bed_assignments.filter((bed: any) => bed.is_available === 1 || bed.is_available === true).length;
+            occupiedBeds = room.bed_assignments.filter((bed: any) => bed.is_available === 0 || bed.is_available === false).length;
+          } else if (room.bed_assignments_json && Array.isArray(room.bed_assignments_json)) {
+            availableBeds = room.bed_assignments_json.filter((bed: any) => bed.is_available === 1 || bed.is_available === true).length;
+            occupiedBeds = room.bed_assignments_json.filter((bed: any) => bed.is_available === 0 || bed.is_available === false).length;
+          } else {
+            availableBeds = Number(room.total_bed || 1) - Number(room.occupied_beds || 0);
+            occupiedBeds = Number(room.occupied_beds || 0);
+          }
+
+          const genderPreference = room.room_gender_preference || [];
+
+          return {
+            id: room.id,
+            room_number: room.room_number?.toString() || `Room ${room.id}`,
+            room_type: room.room_type || '',
+            sharing_type: room.sharing_type || 'double',
+            monthly_rent: Number(room.rent_per_bed || 0),
+            daily_rate: Number(room.daily_rate || Math.round(Number(room.rent_per_bed || 0) / 30) || 500),
+            is_available: room.is_active === 1 || room.is_active === true,
+            floor: room.floor?.toString() || 'Ground',
+            total_beds: Number(room.total_bed || 1),
+            available_beds: availableBeds,
+            occupied_beds: occupiedBeds,
+            amenities: room.amenities || [],
+            gender_preference: genderPreference,
+            current_occupants_gender: room.current_occupants_gender || [],
+            room_gender_preference: genderPreference
+          };
+        });
+
+        // Filter only available rooms
+        const availableRooms = transformedRooms.filter((room: any) => room.is_available === true);
+        
+        // Store all available rooms
+        setAllRooms(availableRooms);
+        
+        // Reset filters if requested
+        if (resetFilters) {
+          setSelectedSharingType('all');
+          setSelectedRoomType('all');
+        }
+        
+        // Apply current filters
+        let filteredRooms = [...availableRooms];
+        
+        if (formData.gender) {
+          filteredRooms = filteredRooms.filter((room: any) => isRoomAllowedForGender(room, formData.gender));
+        }
+        
+        if (selectedSharingType && selectedSharingType !== 'all') {
+          filteredRooms = filteredRooms.filter((room: any) => 
+            room.sharing_type?.toLowerCase() === selectedSharingType.toLowerCase()
+          );
+        }
+
+        if (selectedRoomType && selectedRoomType !== 'all') {
+          filteredRooms = filteredRooms.filter((room: any) => 
+            room.room_type?.toLowerCase() === selectedRoomType.toLowerCase()
+          );
+        }
+        
+        setRooms(filteredRooms);
+
+        if (filteredRooms.length === 0) {
+          setRoomsError('No rooms match your filters');
+        } else {
+          setRoomsError('');
+        }
+      } else {
+        setRoomsError('No rooms found');
+      }
+
+    } catch (error) {
+      console.error('Error fetching rooms:', error);
+      setRoomsError('Unable to load rooms');
+    } finally {
+      setRoomsLoading(false);
+    }
+  };
+
+  // Clear filters function
+  const clearFilters = () => {
+    setSelectedSharingType('all');
+    setSelectedRoomType('all');
+    
+    // Re-apply filters (which will now show all rooms)
+    if (allRooms && allRooms.length > 0) {
+      let filtered = [...allRooms];
+      
+      if (formData.gender) {
+        filtered = filtered.filter(room => isRoomAllowedForGender(room, formData.gender));
+      }
+      
+      setRooms(filtered);
+      setRoomsError(filtered.length === 0 ? 'No rooms match your gender preference' : '');
+    }
+  };
+
   // Reset state when modal opens/closes
   useEffect(() => {
     if (isOpen) {
@@ -499,9 +637,16 @@ const [rooms, setRooms] = useState<any[]>([]); // Filtered rooms for display
       setShowConfirmation(false);
       setConfirmationData(null);
       setShowOTPModal(false);
+      setSelectedSharingType('all');
+      setSelectedRoomType('all');
+      setShowFilters(false);
       preselectionAttempted.current = false;
 
-      // Reset form data but keep gender if it was preselected
+      // Scroll to top when step changes
+      if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollTop = 0;
+      }
+
       setFormData(prev => ({
         ...prev,
         salutation: 'Mr.',
@@ -523,7 +668,8 @@ const [rooms, setRooms] = useState<any[]>([]); // Filtered rooms for display
       }));
 
       if (propertyData?.id) {
-        fetchRooms();
+        fetchRooms(true);
+        fetchRoomsMasters();
       }
     } else {
       setBookingStep(1);
@@ -535,6 +681,9 @@ const [rooms, setRooms] = useState<any[]>([]); // Filtered rooms for display
       setShowConfirmation(false);
       setConfirmationData(null);
       setShowOTPModal(false);
+      setSelectedSharingType('all');
+      setSelectedRoomType('all');
+      setShowFilters(false);
       setFormData({
         salutation: 'Mr.',
         fullName: '',
@@ -557,6 +706,13 @@ const [rooms, setRooms] = useState<any[]>([]); // Filtered rooms for display
     }
   }, [isOpen, propertyData?.id]);
 
+  // Scroll to top when step changes
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = 0;
+    }
+  }, [bookingStep]);
+
   // Handle preselected room when rooms are loaded
   useEffect(() => {
     if (preselectedRoomId && rooms.length > 0 && !selectedRoom && !preselectionAttempted.current) {
@@ -565,11 +721,8 @@ const [rooms, setRooms] = useState<any[]>([]); // Filtered rooms for display
       
       if (room) {
         preselectionAttempted.current = true;
-        
-        // Set the selected room
         setSelectedRoom(room);
         
-        // Auto-select gender based on room preference
         const genderPref = room.gender_preference || [];
         let autoGender = '';
         
@@ -578,7 +731,7 @@ const [rooms, setRooms] = useState<any[]>([]); // Filtered rooms for display
         } else if (genderPref.includes('female_only') || genderPref.includes('female')) {
           autoGender = 'female';
         } else if (genderPref.includes('couples')) {
-          autoGender = 'male'; // Default for couples, user can change
+          autoGender = 'male';
         }
         
         setFormData(prev => ({
@@ -589,138 +742,60 @@ const [rooms, setRooms] = useState<any[]>([]); // Filtered rooms for display
           monthlyRent: room.monthly_rent,
           dailyRate: room.daily_rate,
           floor: room.floor || 'Ground',
-          gender: autoGender || prev.gender // Preselect gender if not already set
+          gender: autoGender || prev.gender
         }));
       }
     }
   }, [preselectedRoomId, rooms, selectedRoom]);
 
-  // Filter rooms based on selected gender
-// Filter rooms based on selected gender
-useEffect(() => {
-  if (allRooms.length > 0 && formData.gender) {
-    const filteredRooms = allRooms.filter(room => isRoomAllowedForGender(room, formData.gender));
-    setRooms(filteredRooms);
-    
-    // If current selected room is not allowed for this gender, deselect it
-    if (selectedRoom && !isRoomAllowedForGender(selectedRoom, formData.gender)) {
-      setSelectedRoom(null);
-      setFormData(prev => ({
-        ...prev,
-        roomId: '',
-        roomNumber: '',
-        sharingType: '',
-        monthlyRent: 0,
-        dailyRate: 0,
-        floor: ''
-      }));
-    }
+  // Filter rooms effect
+  useEffect(() => {
+    if (allRooms && allRooms.length > 0) {
+      let filtered = [...allRooms];
 
-    if (filteredRooms.length === 0) {
-      setRoomsError(`No rooms available for ${formData.gender === 'male' ? 'male' : 'female'} preference`);
-    } else {
-      setRoomsError('');
-    }
-  }
-}, [formData.gender, allRooms]);
+      if (formData.gender) {
+        filtered = filtered.filter(room => isRoomAllowedForGender(room, formData.gender));
+      }
 
-const fetchRooms = async () => {
-  if (!propertyData?.id) return;
+      if (selectedSharingType && selectedSharingType !== 'all') {
+        filtered = filtered.filter(room => 
+          room.sharing_type?.toLowerCase() === selectedSharingType.toLowerCase()
+        );
+      }
 
-  setRoomsLoading(true);
-  setRoomsError('');
+      if (selectedRoomType && selectedRoomType !== 'all') {
+        filtered = filtered.filter(room => 
+          room.room_type?.toLowerCase() === selectedRoomType.toLowerCase()
+        );
+      }
 
-  try {
-    const response: any = await listRoomsByProperty(Number(propertyData.id));
-    
-    let roomsData = [];
+      setRooms(filtered);
 
-    if (response.success && response.data) {
-      if (Array.isArray(response.data)) {
-        roomsData = response.data;
-      } else if (response.data.data && Array.isArray(response.data.data)) {
-        roomsData = response.data.data;
-      } else if (response.data.items && Array.isArray(response.data.items)) {
-        roomsData = response.data.items;
-      } else if (typeof response.data === 'object' && response.data !== null) {
-        roomsData = Object.values(response.data);
+      if (selectedRoom && !filtered.some(r => r.id === selectedRoom.id)) {
+        setSelectedRoom(null);
+        setFormData(prev => ({
+          ...prev,
+          roomId: '',
+          roomNumber: '',
+          sharingType: '',
+          monthlyRent: 0,
+          dailyRate: 0,
+          floor: ''
+        }));
+      }
+
+      if (filtered.length === 0) {
+        setRoomsError('No rooms match your filters');
+      } else {
+        setRoomsError('');
       }
     }
+  }, [formData.gender, allRooms, selectedSharingType, selectedRoomType, selectedRoom]);
 
-
-    if (roomsData.length > 0) {
-      const transformedRooms = roomsData.map((room: any) => {
-        // Calculate available beds from bed_assignments
-        let availableBeds = 0;
-        let occupiedBeds = 0;
-        
-        if (room.bed_assignments && Array.isArray(room.bed_assignments)) {
-          availableBeds = room.bed_assignments.filter((bed: any) => bed.is_available === 1 || bed.is_available === true).length;
-          occupiedBeds = room.bed_assignments.filter((bed: any) => bed.is_available === 0 || bed.is_available === false).length;
-        } else if (room.bed_assignments_json && Array.isArray(room.bed_assignments_json)) {
-          availableBeds = room.bed_assignments_json.filter((bed: any) => bed.is_available === 1 || bed.is_available === true).length;
-          occupiedBeds = room.bed_assignments_json.filter((bed: any) => bed.is_available === 0 || bed.is_available === false).length;
-        } else {
-          availableBeds = Number(room.total_bed || 1) - Number(room.occupied_beds || 0);
-          occupiedBeds = Number(room.occupied_beds || 0);
-        }
-
-        // Get current occupant genders
-        let currentGenders: string[] = [];
-        if (room.current_occupants_gender && Array.isArray(room.current_occupants_gender)) {
-          currentGenders = room.current_occupants_gender;
-        }
-
-        // IMPORTANT: Preserve the original gender preference array
-        const genderPreference = room.room_gender_preference || [];
-        
-
-        return {
-          id: room.id,
-          room_number: room.room_number?.toString() || `Room ${room.id}`,
-          room_type: room.room_type || 'Standard',
-          sharing_type: room.sharing_type || 'double',
-          monthly_rent: Number(room.rent_per_bed || 0),
-          daily_rate: Number(room.daily_rate || Math.round(Number(room.rent_per_bed || 0) / 30) || 500),
-          is_available: room.is_active === 1 || room.is_active === true,
-          floor: room.floor?.toString() || 'Ground',
-          total_beds: Number(room.total_bed || 1),
-          available_beds: availableBeds,
-          occupied_beds: occupiedBeds,
-          amenities: room.amenities || [],
-          gender_preference: genderPreference, // Store the full array
-          current_occupants_gender: currentGenders,
-          room_gender_preference: genderPreference // Keep original for reference
-        };
-      });
-
-      // Filter only available rooms
-      const availableRooms = transformedRooms.filter((room: any) => room.is_available === true);
-      
-      // Store all available rooms
-      setAllRooms(availableRooms);
-      
-      // If user has selected a gender, filter rooms by that gender preference
-      const filteredRooms = formData.gender 
-        ? availableRooms.filter((room: any) => isRoomAllowedForGender(room, formData.gender))
-        : availableRooms;
-      
-      setRooms(filteredRooms);
-
-      if (filteredRooms.length === 0) {
-        setRoomsError(`No rooms available for ${formData.gender === 'male' ? 'male' : 'female'} preference`);
-      }
-    } else {
-      setRoomsError('No rooms found');
-    }
-
-  } catch (error) {
-    console.error('Error fetching rooms:', error);
-    setRoomsError('Unable to load rooms');
-  } finally {
-    setRoomsLoading(false);
-  }
-};
+  useEffect(() => {
+    setSelectedSharingType('all');
+    setSelectedRoomType('all');
+  }, [formData.gender]);
 
   const validatePhone = (phone: string) => {
     const phoneRegex = /^[0-9]{10}$/;
@@ -739,38 +814,33 @@ const fetchRooms = async () => {
     }
   }, []);
 
-const handleRoomSelect = useCallback((room: Room) => {
-  setSelectedRoom(room);
-  
-  // Get gender preferences
-  const genderPref = room.gender_preference || [];
-  
-  // Auto-select gender based on room preference
-  let autoGender = formData.gender;
-  
-  if (genderPref.includes('male_only') || genderPref.includes('male')) {
-    autoGender = 'male';
-  } else if (genderPref.includes('female_only') || genderPref.includes('female')) {
-    autoGender = 'female';
-  } else if (genderPref.includes('couples')) {
-    // For couples, keep existing or default to male
-    autoGender = formData.gender || 'male';
-  } else if (genderPref.includes('both') || genderPref.includes('any') || genderPref.includes('mixed')) {
-    // For mixed rooms, keep existing gender selection
-    autoGender = formData.gender || 'male';
-  }
-  
-  setFormData(prev => ({
-    ...prev,
-    roomId: room.id.toString(),
-    roomNumber: room.room_number,
-    sharingType: room.sharing_type || '',
-    monthlyRent: room.monthly_rent,
-    dailyRate: room.daily_rate,
-    floor: room.floor || 'Ground',
-    gender: autoGender // Auto-set gender based on room preference
-  }));
-}, [formData.gender]);
+  const handleRoomSelect = useCallback((room: Room) => {
+    setSelectedRoom(room);
+    
+    const genderPref = room.gender_preference || [];
+    let autoGender = formData.gender;
+    
+    if (genderPref.includes('male_only') || genderPref.includes('male')) {
+      autoGender = 'male';
+    } else if (genderPref.includes('female_only') || genderPref.includes('female')) {
+      autoGender = 'female';
+    } else if (genderPref.includes('couples')) {
+      autoGender = formData.gender || 'male';
+    } else if (genderPref.includes('both') || genderPref.includes('any') || genderPref.includes('mixed')) {
+      autoGender = formData.gender || 'male';
+    }
+    
+    setFormData(prev => ({
+      ...prev,
+      roomId: room.id.toString(),
+      roomNumber: room.room_number,
+      sharingType: room.sharing_type || '',
+      monthlyRent: room.monthly_rent,
+      dailyRate: room.daily_rate,
+      floor: room.floor || 'Ground',
+      gender: autoGender
+    }));
+  }, [formData.gender]);
 
   const calculateRent = useCallback(() => {
     if (bookingType === 'short') {
@@ -787,8 +857,7 @@ const handleRoomSelect = useCallback((room: Room) => {
   }, [bookingType, selectedRoom, formData, propertyData]);
 
   const calculateTotal = useCallback(() => {
-    let rentAmount = calculateRent();
-    return rentAmount;
+    return calculateRent();
   }, [calculateRent]);
 
   const calculateTotalPayable = useCallback(() => {
@@ -1009,9 +1078,10 @@ const handleRoomSelect = useCallback((room: Room) => {
   return (
     <>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-3 bg-black/60 backdrop-blur-sm">
-        <div className="bg-white rounded-xl sm:rounded-2xl w-full max-w-2xl max-h-[94vh] overflow-hidden shadow-2xl">
+        <div className="bg-white rounded-xl sm:rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col">
 
-          <div className="bg-gradient-to-r from-blue-600 to-cyan-600 px-3 sm:px-4 py-2.5 flex items-center justify-between">
+          {/* Header - Fixed */}
+          <div className="bg-gradient-to-r from-blue-600 to-cyan-600 px-3 sm:px-4 py-2.5 flex items-center justify-between flex-shrink-0">
             <div className="flex items-center gap-2 flex-1 min-w-0">
               <div className="bg-white/20 p-1.5 rounded-lg flex-shrink-0">
                 <Building2 className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
@@ -1032,7 +1102,7 @@ const handleRoomSelect = useCallback((room: Room) => {
           </div>
 
           {bookingStep === 1 && (
-            <div className="px-3 sm:px-4 pt-2.5">
+            <div className="px-3 sm:px-4 pt-2.5 flex-shrink-0">
               <div className="flex bg-gray-100 rounded-lg p-0.5">
                 <button
                   onClick={() => setBookingType('long')}
@@ -1052,7 +1122,8 @@ const handleRoomSelect = useCallback((room: Room) => {
             </div>
           )}
 
-          <div className="flex justify-center w-full mt-2 mb-3 px-2">
+          {/* Progress Steps - Fixed */}
+          <div className="flex justify-center w-full mt-2 mb-3 px-2 flex-shrink-0">
             <div className="flex items-center justify-center gap-3 sm:gap-6 w-full max-w-xs sm:max-w-md mx-auto">
               {[
                 { step: 1, label: 'Details', icon: User },
@@ -1097,8 +1168,9 @@ const handleRoomSelect = useCallback((room: Room) => {
             </div>
           </div>
 
+          {/* Verified/Selected Badges - Fixed */}
           {(verified || (selectedRoom && bookingStep > 2)) && (
-            <div className="px-3 sm:px-4 pt-2.5">
+            <div className="px-3 sm:px-4 pt-2.5 flex-shrink-0">
               <div className="flex gap-2">
                 {verified && (
                   <div className="flex-1 bg-green-50 border border-green-200 rounded-lg p-2 flex items-center gap-2 min-w-0">
@@ -1140,559 +1212,717 @@ const handleRoomSelect = useCallback((room: Room) => {
             </div>
           )}
 
-          <div className="overflow-y-auto max-h-[calc(92vh-120px)]">
-            <div className="p-3 sm:p-4">
-              <form onSubmit={handleBookingSubmit} className="space-y-3">
+          {/* Scrollable Content Area */}
+          <div 
+            ref={scrollContainerRef}
+            className="flex-1 overflow-y-auto min-h-0 px-3 sm:px-4 py-2"
+            style={{ maxHeight: 'calc(90vh - 180px)' }}
+          >
+            <form onSubmit={handleBookingSubmit} className="space-y-3 pb-4">
+              {/* STEP 1 */}
+              {bookingStep === 1 && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-1.5 pb-1.5 border-b-2 border-gray-200">
+                    <User className="w-4 h-4 text-blue-600" />
+                    <h3 className="text-sm font-bold text-gray-900">Personal Info</h3>
+                  </div>
 
-                {/* STEP 1 */}
-                {bookingStep === 1 && (
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-1.5 pb-1.5 border-b-2 border-gray-200">
-                      <User className="w-4 h-4 text-blue-600" />
-                      <h3 className="text-sm font-bold text-gray-900">Personal Info</h3>
+                  <div className="space-y-2.5">
+                    <div className="grid grid-cols-4 gap-2">
+                      <div>
+                        <label className="block text-[10px] sm:text-xs font-semibold text-gray-700 mb-1">
+                          Title <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                          value={formData.salutation}
+                          onChange={(e) => handleInputChange('salutation', e.target.value)}
+                          className="w-full px-2 sm:px-3 py-2 text-[11px] sm:text-xs border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none bg-white"
+                        >
+                          {SALUTATIONS.map(sal => <option key={sal} value={sal}>{sal}</option>)}
+                        </select>
+                      </div>
+                      <div className="col-span-3">
+                        <label className="block text-[10px] sm:text-xs font-semibold text-gray-700 mb-1">
+                          Full Name <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={formData.fullName}
+                          onChange={(e) => handleInputChange('fullName', e.target.value)}
+                          className="w-full px-2 sm:px-3 py-2 text-[11px] sm:text-xs border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none"
+                          placeholder="Enter your full name"
+                        />
+                      </div>
                     </div>
 
-                    <div className="space-y-2.5">
-                      <div className="grid grid-cols-4 gap-2">
-                        <div>
-                          <label className="block text-[10px] sm:text-xs font-semibold text-gray-700 mb-1">
-                            Title <span className="text-red-500">*</span>
-                          </label>
-                          <select
-                            value={formData.salutation}
-                            onChange={(e) => handleInputChange('salutation', e.target.value)}
-                            className="w-full px-2 sm:px-3 py-2 text-[11px] sm:text-xs border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none bg-white"
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[10px] sm:text-xs font-semibold text-gray-700 mb-1">
+                          Phone <span className="text-red-500">*</span>
+                        </label>
+                        <div className="flex">
+                          <span className="inline-flex items-center px-2 py-2 text-[11px] sm:text-xs border-2 border-r-0 border-gray-300 rounded-l-lg bg-gray-50 text-gray-600 font-semibold">
+                            +91
+                          </span>
+                          <input
+                            type="tel"
+                            required
+                            maxLength={10}
+                            value={formData.phone}
+                            onChange={(e) => {
+                              const value = e.target.value.replace(/\D/g, '');
+                              handleInputChange('phone', value);
+                            }}
+                            className={`flex-1 px-2 sm:px-3 py-2 text-[11px] sm:text-xs border-2 ${phoneError ? 'border-red-500' : 'border-gray-300'} rounded-r-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none`}
+                            placeholder="98765 43210"
+                          />
+                        </div>
+                        {phoneError && (
+                          <p className="text-[9px] sm:text-[10px] text-red-600 mt-0.5 flex items-center gap-0.5">
+                            <AlertCircle className="w-2.5 h-2.5 flex-shrink-0" />
+                            {phoneError}
+                          </p>
+                        )}
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] sm:text-xs font-semibold text-gray-700 mb-1">
+                          Email <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="email"
+                          required
+                          value={formData.email}
+                          onChange={(e) => handleInputChange('email', e.target.value)}
+                          className="w-full px-2 sm:px-3 py-2 text-[11px] sm:text-xs border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none"
+                          placeholder="your@email.com"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] sm:text-xs font-semibold text-gray-700 mb-1">
+                        Gender <span className="text-red-500">*</span>
+                      </label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {['male', 'female', 'other'].map((gender) => (
+                          <label
+                            key={gender}
+                            className={`flex items-center justify-center gap-1 p-2 border-2 rounded-lg cursor-pointer transition-all capitalize ${
+                              formData.gender === gender
+                                ? gender === 'male' ? 'border-blue-500 bg-blue-50 shadow' :
+                                  gender === 'female' ? 'border-pink-500 bg-pink-50 shadow' :
+                                    'border-purple-500 bg-purple-50 shadow'
+                                : 'border-gray-300 hover:border-gray-400'
+                            }`}
                           >
-                            {SALUTATIONS.map(sal => <option key={sal} value={sal}>{sal}</option>)}
-                          </select>
-                        </div>
-                        <div className="col-span-3">
-                          <label className="block text-[10px] sm:text-xs font-semibold text-gray-700 mb-1">
-                            Full Name <span className="text-red-500">*</span>
-                          </label>
-                          <input
-                            type="text"
-                            required
-                            value={formData.fullName}
-                            onChange={(e) => handleInputChange('fullName', e.target.value)}
-                            className="w-full px-2 sm:px-3 py-2 text-[11px] sm:text-xs border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none"
-                            placeholder="Enter your full name"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        <div>
-                          <label className="block text-[10px] sm:text-xs font-semibold text-gray-700 mb-1">
-                            Phone <span className="text-red-500">*</span>
-                          </label>
-                          <div className="flex">
-                            <span className="inline-flex items-center px-2 py-2 text-[11px] sm:text-xs border-2 border-r-0 border-gray-300 rounded-l-lg bg-gray-50 text-gray-600 font-semibold">
-                              +91
-                            </span>
                             <input
-                              type="tel"
-                              required
-                              maxLength={10}
-                              value={formData.phone}
+                              type="radio"
+                              name="gender"
+                              value={gender}
+                              checked={formData.gender === gender}
                               onChange={(e) => {
-                                const value = e.target.value.replace(/\D/g, '');
-                                handleInputChange('phone', value);
+                                const newGender = e.target.value;
+                                handleInputChange('gender', newGender);
+                                
+                                if (allRooms.length > 0) {
+                                  const filtered = allRooms.filter(room => 
+                                    isRoomAllowedForGender(room, newGender)
+                                  );
+                                  setRooms(filtered);
+                                  
+                                  if (selectedRoom && !isRoomAllowedForGender(selectedRoom, newGender)) {
+                                    setSelectedRoom(null);
+                                    setFormData(prev => ({
+                                      ...prev,
+                                      roomId: '',
+                                      roomNumber: '',
+                                      sharingType: '',
+                                      monthlyRent: 0,
+                                      dailyRate: 0,
+                                      floor: ''
+                                    }));
+                                  }
+                                }
                               }}
-                              className={`flex-1 px-2 sm:px-3 py-2 text-[11px] sm:text-xs border-2 ${phoneError ? 'border-red-500' : 'border-gray-300'} rounded-r-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none`}
-                              placeholder="98765 43210"
+                              className="sr-only"
                             />
-                          </div>
-                          {phoneError && (
-                            <p className="text-[9px] sm:text-[10px] text-red-600 mt-0.5 flex items-center gap-0.5">
-                              <AlertCircle className="w-2.5 h-2.5 flex-shrink-0" />
-                              {phoneError}
-                            </p>
-                          )}
-                        </div>
-
-                        <div>
-                          <label className="block text-[10px] sm:text-xs font-semibold text-gray-700 mb-1">
-                            Email <span className="text-red-500">*</span>
+                            <span className="text-base sm:text-lg">
+                              {gender === 'male' ? '👨' : gender === 'female' ? '👩' : '⚧️'}
+                            </span>
+                            <span className="text-[10px] sm:text-xs font-semibold">{gender}</span>
                           </label>
-                          <input
-                            type="email"
-                            required
-                            value={formData.email}
-                            onChange={(e) => handleInputChange('email', e.target.value)}
-                            className="w-full px-2 sm:px-3 py-2 text-[11px] sm:text-xs border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none"
-                            placeholder="your@email.com"
-                          />
-                        </div>
+                        ))}
                       </div>
+                    </div>
 
-                      {/* Gender Selection - This will be auto-selected when clicking a room */}
-                      {/* Gender Selection - Fixed version */}
-<div>
-  <label className="block text-[10px] sm:text-xs font-semibold text-gray-700 mb-1">
-    Gender <span className="text-red-500">*</span>
-  </label>
-  <div className="grid grid-cols-3 gap-2">
-    {['male', 'female', 'other'].map((gender) => (
-      <label
-        key={gender}
-        className={`flex items-center justify-center gap-1 p-2 border-2 rounded-lg cursor-pointer transition-all capitalize ${
-          formData.gender === gender
-            ? gender === 'male' ? 'border-blue-500 bg-blue-50 shadow' :
-              gender === 'female' ? 'border-pink-500 bg-pink-50 shadow' :
-                'border-purple-500 bg-purple-50 shadow'
-            : 'border-gray-300 hover:border-gray-400'
-        }`}
-      >
-        <input
-          type="radio"
-          name="gender"
-          value={gender}
-          checked={formData.gender === gender}
-          onChange={(e) => {
-            const newGender = e.target.value;
-            handleInputChange('gender', newGender);
-            
-            // Filter the existing rooms based on new gender selection
-            if (allRooms.length > 0) {
-              const filtered = allRooms.filter(room => 
-                isRoomAllowedForGender(room, newGender)
-              );
-              setRooms(filtered);
-              
-              // Clear selected room if it doesn't match new gender
-              if (selectedRoom && !isRoomAllowedForGender(selectedRoom, newGender)) {
-                setSelectedRoom(null);
-                setFormData(prev => ({
-                  ...prev,
-                  roomId: '',
-                  roomNumber: '',
-                  sharingType: '',
-                  monthlyRent: 0,
-                  dailyRate: 0,
-                  floor: ''
-                }));
-              }
-            }
-          }}
-          className="sr-only"
-        />
-        <span className="text-base sm:text-lg">
-          {gender === 'male' ? '👨' : gender === 'female' ? '👩' : '⚧️'}
-        </span>
-        <span className="text-[10px] sm:text-xs font-semibold">{gender}</span>
-      </label>
-    ))}
-  </div>
-</div>
-
-                      {bookingType === 'long' ? (
+                    {bookingType === 'long' ? (
+                      <div>
+                        <label className="block text-[10px] sm:text-xs font-semibold text-gray-700 mb-1">
+                          Move-in Date <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="date"
+                          required
+                          value={formData.moveInDate}
+                          onChange={(e) => handleInputChange('moveInDate', e.target.value)}
+                          min={new Date().toISOString().split('T')[0]}
+                          className="w-full px-2 sm:px-3 py-2 text-[11px] sm:text-xs border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none"
+                        />
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-2">
                         <div>
                           <label className="block text-[10px] sm:text-xs font-semibold text-gray-700 mb-1">
-                            Move-in Date <span className="text-red-500">*</span>
+                            Check-in <span className="text-red-500">*</span>
                           </label>
                           <input
                             type="date"
                             required
-                            value={formData.moveInDate}
-                            onChange={(e) => handleInputChange('moveInDate', e.target.value)}
                             min={new Date().toISOString().split('T')[0]}
+                            value={formData.checkInDate}
+                            onChange={(e) => handleInputChange('checkInDate', e.target.value)}
                             className="w-full px-2 sm:px-3 py-2 text-[11px] sm:text-xs border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none"
                           />
                         </div>
-                      ) : (
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <label className="block text-[10px] sm:text-xs font-semibold text-gray-700 mb-1">
-                              Check-in <span className="text-red-500">*</span>
-                            </label>
-                            <input
-                              type="date"
-                              required
-                              min={new Date().toISOString().split('T')[0]}
-                              value={formData.checkInDate}
-                              onChange={(e) => handleInputChange('checkInDate', e.target.value)}
-                              className="w-full px-2 sm:px-3 py-2 text-[11px] sm:text-xs border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-[10px] sm:text-xs font-semibold text-gray-700 mb-1">
-                              Check-out <span className="text-red-500">*</span>
-                            </label>
-                            <input
-                              type="date"
-                              required
-                              min={formData.checkInDate || new Date().toISOString().split('T')[0]}
-                              value={formData.checkOutDate}
-                              onChange={(e) => handleInputChange('checkOutDate', e.target.value)}
-                              className="w-full px-2 sm:px-3 py-2 text-[11px] sm:text-xs border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none"
-                            />
-                          </div>
+                        <div>
+                          <label className="block text-[10px] sm:text-xs font-semibold text-gray-700 mb-1">
+                            Check-out <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="date"
+                            required
+                            min={formData.checkInDate || new Date().toISOString().split('T')[0]}
+                            value={formData.checkOutDate}
+                            onChange={(e) => handleInputChange('checkOutDate', e.target.value)}
+                            className="w-full px-2 sm:px-3 py-2 text-[11px] sm:text-xs border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none"
+                          />
                         </div>
-                      )}
-
-                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 flex items-start gap-1.5">
-                        <Shield className="w-3 h-3 text-blue-600 mt-0.5 flex-shrink-0" />
-                        <p className="text-[9px] sm:text-[10px] text-blue-900">
-                          Secure & encrypted. Phone verification in next step.
-                        </p>
                       </div>
+                    )}
+
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 flex items-start gap-1.5">
+                      <Shield className="w-3 h-3 text-blue-600 mt-0.5 flex-shrink-0" />
+                      <p className="text-[9px] sm:text-[10px] text-blue-900">
+                        Secure & encrypted. Phone verification in next step.
+                      </p>
                     </div>
                   </div>
-                )}
+                </div>
+              )}
 
-                {/* STEP 2 - ROOM SELECTION WITH GENDER PREFERENCES */}
-                {bookingStep === 2 && (
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-1.5 pb-1.5 border-b-2 border-gray-200">
-                      <DoorOpen className="w-4 h-4 text-blue-600" />
-                      <h3 className="text-sm font-bold text-gray-900">Select Room</h3>
+              {/* STEP 2 - ROOM SELECTION WITH MASTERS FILTERS */}
+              {bookingStep === 2 && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-1.5 pb-1.5 border-b-2 border-gray-200">
+                    <DoorOpen className="w-4 h-4 text-blue-600" />
+                    <h3 className="text-sm font-bold text-gray-900">Select Room</h3>
+                  </div>
+
+                  {roomsLoading ? (
+                    <div className="flex flex-col items-center justify-center py-8">
+                      <div className="w-9 h-9 border-4 border-gray-300 border-t-blue-600 rounded-full animate-spin"></div>
+                      <span className="text-xs text-gray-600 mt-2.5">Loading rooms...</span>
                     </div>
-
-                    {roomsLoading ? (
-                      <div className="flex flex-col items-center justify-center py-8">
-                        <div className="w-9 h-9 border-4 border-gray-300 border-t-blue-600 rounded-full animate-spin"></div>
-                        <span className="text-xs text-gray-600 mt-2.5">Loading rooms...</span>
-                      </div>
-                    ) : roomsError ? (
-                      <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4 text-center">
-                        <Home className="w-9 h-9 text-red-400 mx-auto mb-2" />
-                        <p className="text-xs font-bold text-gray-900 mb-1">Unable to load</p>
-                        <p className="text-[10px] text-red-600 mb-3">{roomsError}</p>
+                  ) : roomsError ? (
+                    <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4 text-center">
+                      <Home className="w-9 h-9 text-red-400 mx-auto mb-2" />
+                      <p className="text-xs font-bold text-gray-900 mb-1">No rooms available</p>
+                      <p className="text-[10px] text-red-600 mb-3">{roomsError}</p>
+                      <div className="flex gap-2 justify-center">
                         <button
                           type="button"
-                          onClick={() => fetchRooms()}
+                          onClick={clearFilters}
+                          className="px-4 py-2 bg-gray-600 text-white text-xs font-semibold rounded-lg hover:bg-gray-700"
+                        >
+                          Clear Filters
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => fetchRooms(true)}
                           className="px-4 py-2 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700"
                         >
                           Try Again
                         </button>
                       </div>
-                    ) : rooms.length === 0 ? (
-                      <div className="bg-yellow-50 border-2 border-yellow-200 rounded-lg p-4 text-center">
-                        <Home className="w-9 h-9 text-yellow-500 mx-auto mb-2" />
-                        <p className="text-xs font-bold text-gray-900">No rooms available</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-2.5">
-                        <div className="flex items-center justify-between">
-                          <p className="text-xs font-semibold text-gray-700">
-                            {rooms.length} room{rooms.length > 1 ? 's' : ''} available
-                          </p>
-                          <p className="text-[10px] text-gray-500">
-                            {bookingType === 'long' ? 'Monthly' : 'Daily'}
-                          </p>
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-72 overflow-y-auto pr-1">
-{rooms.map((room) => {
-  const isPreselected = preselectedRoomId && String(room.id) === String(preselectedRoomId);
-  const genderPreferences = room.gender_preference || [];
-  const totalCapacity = getSharingCapacity(room.sharing_type);
-  const occupiedCount = room.occupied_beds || (room.total_beds - room.available_beds);
-  const availableCount = room.available_beds;
-  
-  // Determine room status
-  let status = 'available';
-  let statusColor = 'text-green-600';
-  let statusBg = 'bg-green-50';
-  
-  if (availableCount === 0) {
-    status = 'occupied';
-    statusColor = 'text-red-600';
-    statusBg = 'bg-red-50';
-  } else if (occupiedCount > 0 && availableCount > 0) {
-    status = 'partially-available';
-    statusColor = 'text-orange-600';
-    statusBg = 'bg-orange-50';
-  }
-  
-  return (
-    <label
-      key={room.id}
-      className={`border-2 rounded-lg p-2.5 cursor-pointer transition-all hover:shadow ${
-        selectedRoom?.id === room.id 
-          ? 'border-blue-500 bg-blue-50 shadow ring-1 ring-blue-200' 
-          : isPreselected && !selectedRoom
-          ? 'border-blue-300 bg-blue-50/50 ring-2 ring-blue-300 ring-offset-1'
-          : 'border-gray-200 bg-white hover:border-gray-300'
-      }`}
-    >
-      <input
-        type="radio"
-        name="room"
-        value={room.id}
-        checked={selectedRoom?.id === room.id}
-        onChange={() => handleRoomSelect(room)}
-        className="sr-only"
-      />
-
-      <div className="flex items-start justify-between mb-2">
-        <div className="flex items-center gap-1.5">
-          <div className="w-7 h-7 bg-gradient-to-br from-blue-100 to-blue-200 rounded flex items-center justify-center flex-shrink-0">
-            <BedDouble className="w-3.5 h-3.5 text-blue-600" />
-          </div>
-          <div>
-            <p className="text-xs font-bold text-gray-900">Room {room.room_number}</p>
-            <p className="text-[10px] text-gray-500">Floor {room.floor || 'G'}</p>
-          </div>
-        </div>
-        {selectedRoom?.id === room.id && (
-          <CheckCircle className="w-4 h-4 text-blue-600" />
-        )}
-        {isPreselected && !selectedRoom && (
-          <span className="text-[8px] bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded-full font-medium">
-            Selected
-          </span>
-        )}
-      </div>
-
-      <div className="space-y-1 mb-2">
-        <div className="flex items-center gap-1 text-[10px] text-gray-600">
-          {getSharingIcon(room.sharing_type)}
-          <span className="font-medium">{formatSharingType(room.sharing_type)}</span>
-          <span className="text-[9px] text-gray-500 ml-1">
-            ({totalCapacity} {totalCapacity === 1 ? 'bed' : 'beds'})
-          </span>
-        </div>
-
-        {/* Gender Preference Badges - Show ALL preferences */}
-        {genderPreferences.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-1">
-            {genderPreferences.map((pref: string) => {
-              const prefLower = pref.toLowerCase();
-              let badgeClass = '';
-              let icon = '';
-              
-              if (prefLower === 'male_only' || prefLower === 'male') {
-                badgeClass = 'bg-blue-100 text-blue-700';
-                icon = '♂';
-              } else if (prefLower === 'female_only' || prefLower === 'female') {
-                badgeClass = 'bg-pink-100 text-pink-700';
-                icon = '♀';
-              } else if (prefLower === 'couples') {
-                badgeClass = 'bg-red-100 text-red-700';
-                icon = '💑';
-              } else if (prefLower === 'both' || prefLower === 'any' || prefLower === 'mixed') {
-                badgeClass = 'bg-purple-100 text-purple-700';
-                icon = '👥';
-              } else {
-                badgeClass = 'bg-gray-100 text-gray-700';
-              }
-              
-              return (
-                <span key={pref} className={`text-[9px] px-1.5 py-0.5 rounded-full ${badgeClass}`}>
-                  {icon} {pref === 'male_only' ? 'Male Only' : 
-                           pref === 'female_only' ? 'Female Only' : 
-                           pref === 'couples' ? 'Couples' : 
-                           pref === 'both' ? 'Mixed' : pref}
-                </span>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Occupancy Status */}
-        <div className="flex items-center gap-1 text-[9px] mt-1">
-          <div className={`px-1.5 py-0.5 rounded-full ${statusBg} ${statusColor} font-medium`}>
-            {status === 'available' && '✨ Available'}
-            {status === 'partially-available' && '🟡 Partially Available'}
-            {status === 'occupied' && '🔴 Fully Occupied'}
-          </div>
-        </div>
-
-        {/* Bed Availability */}
-        {availableCount > 0 && (
-          <div className="flex items-center gap-1 text-[9px] text-gray-500">
-            <Users className="w-3 h-3" />
-            <span>
-              {availableCount} bed{availableCount > 1 ? 's' : ''} available 
-              {occupiedCount > 0 && ` • ${occupiedCount} occupied`}
-            </span>
-          </div>
-        )}
-      </div>
-
-      <div className="pt-2 border-t border-gray-200">
-        <span className="text-sm font-bold text-gray-900">
-          ₹{bookingType === 'long' ? room.monthly_rent.toLocaleString() : room.daily_rate.toLocaleString()}
-        </span>
-        <span className="text-[9px] text-gray-500 ml-0.5">
-          /{bookingType === 'long' ? 'mo' : 'day'}
-        </span>
-      </div>
-    </label>
-  );
-})}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* STEP 3 - PAYMENT */}
-                {bookingStep === 3 && selectedRoom && (
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-1.5 pb-1.5 border-b-2 border-gray-200">
-                      <CreditCard className="w-4 h-4 text-blue-600" />
-                      <h3 className="text-sm font-bold text-gray-900">Payment</h3>
                     </div>
-
-                    <div className="bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 rounded-lg p-2.5">
-                      <div className="flex items-center gap-2">
-                        <div className="w-9 h-9 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                          <UserCircle className="w-4 h-4 text-blue-600" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-bold text-gray-900 truncate">
-                            {formData.salutation} {formData.fullName}
-                          </p>
-                          <p className="text-[10px] text-gray-600 truncate">
-                            {formData.email} • +91 {formData.phone} • {formData.gender}
-                          </p>
-                        </div>
-                      </div>
+                  ) : allRooms.length === 0 ? (
+                    <div className="bg-yellow-50 border-2 border-yellow-200 rounded-lg p-4 text-center">
+                      <Home className="w-9 h-9 text-yellow-500 mx-auto mb-2" />
+                      <p className="text-xs font-bold text-gray-900">No rooms available</p>
+                      <button
+                        type="button"
+                        onClick={() => fetchRooms(true)}
+                        className="mt-3 px-4 py-2 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700"
+                      >
+                        Refresh
+                      </button>
                     </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-700 mb-2">
-                        Payment Method
-                      </label>
-                      <div className="grid grid-cols-2 gap-2">
-                        <label className={`flex items-center gap-2 p-2.5 border-2 rounded-lg cursor-pointer transition-all ${paymentMethod === 'online' ? 'border-blue-500 bg-blue-50 shadow' : 'border-gray-300'
-                          }`}>
-                          <input type="radio" name="paymentMethod" value="online" checked={paymentMethod === 'online'} onChange={(e) => setPaymentMethod(e.target.value as 'online')} className="sr-only" />
-                          <div className="w-9 h-9 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                            <Wallet className="w-4 h-4 text-blue-600" />
+                  ) : (
+                    <div className="space-y-2.5">
+                      {/* Filter Toggle Button */}
+                      <button
+                        type="button"
+                        onClick={() => setShowFilters(!showFilters)}
+                        className="w-full flex items-center justify-between p-2 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className="p-1 bg-blue-100 rounded">
+                            <svg className="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                            </svg>
                           </div>
-                          <div className="flex-1">
-                            <p className="text-xs font-bold text-gray-900">Online</p>
-                            <p className="text-[9px] text-gray-500">UPI, Card</p>
-                          </div>
-                          {paymentMethod === 'online' && <CheckCircle className="w-4 h-4 text-blue-600" />}
-                        </label>
-
-                        <label className={`flex items-center gap-2 p-2.5 border-2 rounded-lg cursor-pointer transition-all ${paymentMethod === 'inperson' ? 'border-gray-800 bg-gray-50 shadow' : 'border-gray-300'
-                          }`}>
-                          <input type="radio" name="paymentMethod" value="inperson" checked={paymentMethod === 'inperson'} onChange={(e) => setPaymentMethod(e.target.value as 'inperson')} className="sr-only" />
-                          <div className="w-9 h-9 bg-gray-200 rounded-lg flex items-center justify-center flex-shrink-0">
-                            <Building2 className="w-4 h-4 text-gray-700" />
-                          </div>
-                          <div className="flex-1">
-                            <p className="text-xs font-bold text-gray-900">In Person</p>
-                            <p className="text-[9px] text-gray-500">At Property</p>
-                          </div>
-                          {paymentMethod === 'inperson' && <CheckCircle className="w-4 h-4 text-gray-800" />}
-                        </label>
-                      </div>
-                    </div>
-
-                    <div className="bg-gradient-to-br from-blue-50 to-cyan-50 border border-blue-200 rounded-lg p-3">
-                      <h4 className="text-xs font-bold text-gray-900 mb-2.5 flex items-center gap-1">
-                        <Sparkles className="w-3 h-3 text-blue-600" />
-                        Summary
-                      </h4>
-
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-center">
-                          <span className="text-[10px] sm:text-xs text-gray-700">
-                            {bookingType === 'long' ? 'Monthly Rent' : 'Stay Charges'}
-                          </span>
-                          <span className="text-xs font-bold text-gray-900">₹{calculateRent().toLocaleString()}</span>
-                        </div>
-
-                        {bookingType === 'short' && formData.checkInDate && formData.checkOutDate && (
-                          <div className="flex justify-between items-center text-[9px] text-gray-600">
-                            <span>Duration</span>
-                            <span>
-                              {Math.ceil((new Date(formData.checkOutDate).getTime() - new Date(formData.checkInDate).getTime()) / (1000 * 60 * 60 * 24))} days × ₹{selectedRoom.daily_rate}/day
-                            </span>
-                          </div>
-                        )}
-
-                        {bookingType === 'long' && (
-                          <div className="flex justify-between items-center pt-2 border-t border-blue-200">
-                            <span className="text-[10px] sm:text-xs text-gray-700">Security Deposit</span>
-                            <span className="text-xs font-bold text-gray-900">₹{(propertyData?.securityDeposit || 0).toLocaleString()}</span>
-                          </div>
-                        )}
-
-                        <div className="border-t-2 border-blue-300 pt-2.5 mt-2">
-                          <div className="flex justify-between items-center">
-                            <span className="text-xs sm:text-sm font-bold text-gray-900">
-                              {bookingType === 'long' ? 'Total Payable' : 'Total'}
-                            </span>
-                            <span className="text-lg sm:text-xl font-bold text-blue-600">
-                              ₹{calculateTotalPayable().toLocaleString()}
-                            </span>
-                          </div>
-                          {bookingType === 'short' && (
-                            <p className="text-[9px] text-gray-600 mt-1 text-right">No deposit for short stays</p>
+                          <span className="text-xs font-medium text-gray-700">Filter Rooms</span>
+                          {(selectedSharingType !== 'all' || selectedRoomType !== 'all') && (
+                            <Badge className="bg-blue-100 text-blue-800 text-[8px] px-1.5 py-0">
+                              {selectedSharingType !== 'all' && selectedRoomType !== 'all' ? '2' : '1'} active
+                            </Badge>
                           )}
                         </div>
+                        <ChevronRight className={`w-4 h-4 text-gray-500 transition-transform ${showFilters ? 'rotate-90' : ''}`} />
+                      </button>
+
+                      {/* Filter Options */}
+                      {showFilters && (
+                        <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg space-y-3">
+                          {/* Sharing Type Filter from Masters */}
+                          {roomsMasters["Sharing Type"] && roomsMasters["Sharing Type"].length > 0 && (
+                            <div>
+                              <label className="block text-[9px] font-medium text-gray-700 mb-1.5">
+                                Sharing Type
+                              </label>
+                              <div className="flex flex-wrap gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedSharingType('all')}
+                                  className={`px-2 py-1 text-[9px] rounded-full border transition-all ${
+                                    selectedSharingType === 'all'
+                                      ? 'bg-blue-600 text-white border-blue-600'
+                                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
+                                  }`}
+                                >
+                                  All
+                                </button>
+                                {roomsMasters["Sharing Type"].map((type) => {
+                                  const typeName = type.name.toLowerCase();
+                                  const capacity = typeName.includes('single') ? 1 :
+                                                  typeName.includes('double') ? 2 :
+                                                  typeName.includes('triple') ? 3 : 2;
+                                  return (
+                                    <button
+                                      key={type.id}
+                                      type="button"
+                                      onClick={() => setSelectedSharingType(typeName)}
+                                      className={`px-2 py-1 text-[9px] rounded-full border transition-all flex items-center gap-1 ${
+                                        selectedSharingType === typeName
+                                          ? 'bg-blue-600 text-white border-blue-600'
+                                          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
+                                      }`}
+                                    >
+                                      {typeName === 'single' && '👤'}
+                                      {typeName === 'double' && '👥'}
+                                      {typeName === 'triple' && '👥👥'}
+                                      {type.name} ({capacity})
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Room Type Filter from Masters */}
+                          {roomsMasters["Room Type"] && roomsMasters["Room Type"].length > 1 && (
+                            <div>
+                              <label className="block text-[9px] font-medium text-gray-700 mb-1.5">
+                                Room Type
+                              </label>
+                              <div className="flex flex-wrap gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedRoomType('all')}
+                                  className={`px-2 py-1 text-[9px] rounded-full border transition-all ${
+                                    selectedRoomType === 'all'
+                                      ? 'bg-blue-600 text-white border-blue-600'
+                                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
+                                  }`}
+                                >
+                                  All
+                                </button>
+                                {roomsMasters["Room Type"].map((type) => (
+                                  <button
+                                    key={type.id}
+                                    type="button"
+                                    onClick={() => setSelectedRoomType(type.name.toLowerCase())}
+                                    className={`px-2 py-1 text-[9px] rounded-full border transition-all capitalize ${
+                                      selectedRoomType === type.name.toLowerCase()
+                                        ? 'bg-blue-600 text-white border-blue-600'
+                                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
+                                    }`}
+                                  >
+                                    {type.name}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Active Filters Summary */}
+                          {(selectedSharingType !== 'all' || selectedRoomType !== 'all') && (
+                            <div className="pt-2 border-t border-gray-200">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[8px] text-gray-500">Active filters:</span>
+                                <button
+                                  type="button"
+                                  onClick={clearFilters}
+                                  className="text-[8px] text-red-600 hover:text-red-800 font-medium"
+                                >
+                                  Clear all
+                                </button>
+                              </div>
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {selectedSharingType !== 'all' && (
+                                  <Badge className="bg-blue-100 text-blue-800 text-[7px] px-1.5 py-0">
+                                    {selectedSharingType}
+                                  </Badge>
+                                )}
+                                {selectedRoomType !== 'all' && (
+                                  <Badge className="bg-purple-100 text-purple-800 text-[7px] px-1.5 py-0">
+                                    {selectedRoomType}
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Room Count */}
+                      <div className="flex items-center justify-between px-1">
+                        <p className="text-xs font-semibold text-gray-700">
+                          {rooms.length} room{rooms.length > 1 ? 's' : ''} available
+                        </p>
+                        <p className="text-[9px] text-gray-500">
+                          {bookingType === 'long' ? 'Monthly' : 'Daily'}
+                        </p>
+                      </div>
+
+                      {/* Rooms Grid - Scrollable */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-80 overflow-y-auto pr-1 pb-2">
+                        {rooms.map((room) => {
+                          const isPreselected = preselectedRoomId && String(room.id) === String(preselectedRoomId);
+                          const genderPreferences = room.gender_preference || [];
+                          const totalCapacity = getSharingCapacity(room.sharing_type);
+                          const occupiedCount = room.occupied_beds || 0;
+                          const availableCount = room.available_beds || 0;
+                          
+                          let status = 'available';
+                          let statusColor = 'text-green-600';
+                          let statusBg = 'bg-green-50';
+                          
+                          if (availableCount === 0) {
+                            status = 'occupied';
+                            statusColor = 'text-red-600';
+                            statusBg = 'bg-red-50';
+                          } else if (occupiedCount > 0 && availableCount > 0) {
+                            status = 'partially-available';
+                            statusColor = 'text-orange-600';
+                            statusBg = 'bg-orange-50';
+                          }
+                          
+                          return (
+                            <label
+                              key={room.id}
+                              className={`border-2 rounded-lg p-2.5 cursor-pointer transition-all hover:shadow ${
+                                selectedRoom?.id === room.id 
+                                  ? 'border-blue-500 bg-blue-50 shadow ring-1 ring-blue-200' 
+                                  : isPreselected && !selectedRoom
+                                  ? 'border-blue-300 bg-blue-50/50 ring-2 ring-blue-300 ring-offset-1'
+                                  : 'border-gray-200 bg-white hover:border-gray-300'
+                              }`}
+                            >
+                              <input
+                                type="radio"
+                                name="room"
+                                value={room.id}
+                                checked={selectedRoom?.id === room.id}
+                                onChange={() => handleRoomSelect(room)}
+                                className="sr-only"
+                              />
+
+                              <div className="flex items-start justify-between mb-2">
+                                <div className="flex items-center gap-1.5">
+                                  <div className="w-7 h-7 bg-gradient-to-br from-blue-100 to-blue-200 rounded flex items-center justify-center flex-shrink-0">
+                                    <BedDouble className="w-3.5 h-3.5 text-blue-600" />
+                                  </div>
+                                  <div>
+                                    <p className="text-xs font-bold text-gray-900">Room {room.room_number}</p>
+                                    <p className="text-[9px] text-gray-500">Floor {room.floor || 'G'}</p>
+                                  </div>
+                                </div>
+                                {selectedRoom?.id === room.id && (
+                                  <CheckCircle className="w-4 h-4 text-blue-600" />
+                                )}
+                                {isPreselected && !selectedRoom && (
+                                  <span className="text-[8px] bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded-full font-medium">
+                                    Selected
+                                  </span>
+                                )}
+                              </div>
+
+                              <div className="space-y-1 mb-2">
+                                <div className="flex items-center gap-1 text-[9px] text-gray-600">
+                                  {getSharingIcon(room.sharing_type)}
+                                  <span className="font-medium">{formatSharingType(room.sharing_type)}</span>
+                                  {room.room_type && room.room_type !== 'null' && room.room_type !== 'undefined' && (
+                                    <>
+                                      <span className="text-gray-400">•</span>
+                                      <span className="capitalize">{room.room_type}</span>
+                                    </>
+                                  )}
+                                  <span className="text-[8px] text-gray-500 ml-1">
+                                    ({totalCapacity} {totalCapacity === 1 ? 'bed' : 'beds'})
+                                  </span>
+                                </div>
+
+                                {genderPreferences.length > 0 && (
+                                  <div className="flex flex-wrap gap-1 mt-1">
+                                    {genderPreferences.map((pref: string) => {
+                                      const prefLower = pref.toLowerCase();
+                                      let badgeClass = '';
+                                      let icon = '';
+                                      
+                                      if (prefLower === 'male_only' || prefLower === 'male') {
+                                        badgeClass = 'bg-blue-100 text-blue-700';
+                                        icon = '♂';
+                                      } else if (prefLower === 'female_only' || prefLower === 'female') {
+                                        badgeClass = 'bg-pink-100 text-pink-700';
+                                        icon = '♀';
+                                      } else if (prefLower === 'couples') {
+                                        badgeClass = 'bg-red-100 text-red-700';
+                                        icon = '💑';
+                                      } else if (prefLower === 'both' || prefLower === 'any' || prefLower === 'mixed') {
+                                        badgeClass = 'bg-purple-100 text-purple-700';
+                                        icon = '👥';
+                                      } else {
+                                        badgeClass = 'bg-gray-100 text-gray-700';
+                                      }
+                                      
+                                      return (
+                                        <span key={pref} className={`text-[8px] px-1.5 py-0.5 rounded-full ${badgeClass}`}>
+                                          {icon} {pref === 'male_only' ? 'Male Only' : 
+                                                   pref === 'female_only' ? 'Female Only' : 
+                                                   pref === 'couples' ? 'Couples' : 
+                                                   pref === 'both' ? 'Mixed' : pref}
+                                        </span>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+
+                                <div className="flex items-center gap-1 text-[8px] mt-1">
+                                  <div className={`px-1.5 py-0.5 rounded-full ${statusBg} ${statusColor} font-medium`}>
+                                    {status === 'available' && '✨ Available'}
+                                    {status === 'partially-available' && '🟡 Partially Available'}
+                                    {status === 'occupied' && '🔴 Fully Occupied'}
+                                  </div>
+                                </div>
+
+                                {availableCount > 0 && (
+                                  <div className="flex items-center gap-1 text-[8px] text-gray-500">
+                                    <Users className="w-2.5 h-2.5" />
+                                    <span>
+                                      {availableCount} bed{availableCount > 1 ? 's' : ''} available 
+                                      {occupiedCount > 0 && ` • ${occupiedCount} occupied`}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="pt-2 border-t border-gray-200">
+                                <span className="text-sm font-bold text-gray-900">
+                                  ₹{bookingType === 'long' ? room.monthly_rent.toLocaleString() : room.daily_rate.toLocaleString()}
+                                </span>
+                                <span className="text-[8px] text-gray-500 ml-0.5">
+                                  /{bookingType === 'long' ? 'mo' : 'day'}
+                                </span>
+                              </div>
+                            </label>
+                          );
+                        })}
                       </div>
                     </div>
-
-                    <label className="flex items-start gap-2 p-2.5 bg-gray-50 border-2 border-gray-200 rounded-lg cursor-pointer hover:bg-gray-100">
-                      <input
-                        type="checkbox"
-                        checked={formData.agreeToTerms}
-                        onChange={(e) => handleInputChange('agreeToTerms', e.target.checked)}
-                        className="w-4 h-4 mt-0.5 text-blue-600 border-gray-300 rounded focus:ring-blue-600 flex-shrink-0"
-                        required
-                      />
-                      <div className="text-[10px] text-gray-700">
-                        I agree to <span className="text-blue-600 font-semibold">terms & conditions</span>, cancellation policy, and house rules.
-                      </div>
-                    </label>
-                  </div>
-                )}
-
-                <div className="flex gap-2 pt-3 border-t-2 border-gray-200">
-                  {bookingStep > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => setBookingStep(bookingStep - 1)}
-                      className="flex items-center justify-center gap-1 px-4 py-2.5 border-2 border-gray-300 text-gray-700 text-xs font-semibold rounded-lg hover:bg-gray-50"
-                    >
-                      <ArrowLeft className="w-3.5 h-3.5" />
-                      Back
-                    </button>
                   )}
-                  <button
-                    type="submit"
-                    disabled={loading || (bookingStep === 2 && (roomsLoading || !selectedRoom))}
-                    className={`flex-1 py-2.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 shadow ${
-                      bookingStep === 3 ? 'bg-gradient-to-r from-green-500 to-green-600 text-white' : 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white'
-                    } disabled:opacity-50`}
-                  >
-                    {loading ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                        <span className="hidden sm:inline">Processing...</span>
-                      </>
-                    ) : bookingStep === 1 ? (
-                        <>
-                          Verify & Continue
-                          <ChevronRight className="w-4 h-4" />
-                        </>
-                    ) : bookingStep === 2 ? (
-                          selectedRoom ? (
-                            <>
-                              Continue
-                              <ChevronRight className="w-4 h-4" />
-                            </>
-                          ) : (
-                            'Select Room'
-                          )
-                        ) : (
-                          <>
-                            {paymentMethod === 'online' ? `Pay ₹${calculateTotalPayable().toLocaleString()}` : 'Confirm Booking'}
-                            <Check className="w-4 h-4" />
-                          </>
-                    )}
-                  </button>
                 </div>
-              </form>
-            </div>
+              )}
+
+              {/* STEP 3 - PAYMENT */}
+              {bookingStep === 3 && selectedRoom && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-1.5 pb-1.5 border-b-2 border-gray-200">
+                    <CreditCard className="w-4 h-4 text-blue-600" />
+                    <h3 className="text-sm font-bold text-gray-900">Payment</h3>
+                  </div>
+
+                  <div className="bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 rounded-lg p-2.5">
+                    <div className="flex items-center gap-2">
+                      <div className="w-9 h-9 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                        <UserCircle className="w-4 h-4 text-blue-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-gray-900 truncate">
+                          {formData.salutation} {formData.fullName}
+                        </p>
+                        <p className="text-[10px] text-gray-600 truncate">
+                          {formData.email} • +91 {formData.phone} • {formData.gender}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-2">
+                      Payment Method
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <label className={`flex items-center gap-2 p-2.5 border-2 rounded-lg cursor-pointer transition-all ${paymentMethod === 'online' ? 'border-blue-500 bg-blue-50 shadow' : 'border-gray-300'
+                        }`}>
+                        <input type="radio" name="paymentMethod" value="online" checked={paymentMethod === 'online'} onChange={(e) => setPaymentMethod(e.target.value as 'online')} className="sr-only" />
+                        <div className="w-9 h-9 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <Wallet className="w-4 h-4 text-blue-600" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-xs font-bold text-gray-900">Online</p>
+                          <p className="text-[9px] text-gray-500">UPI, Card</p>
+                        </div>
+                        {paymentMethod === 'online' && <CheckCircle className="w-4 h-4 text-blue-600" />}
+                      </label>
+
+                      <label className={`flex items-center gap-2 p-2.5 border-2 rounded-lg cursor-pointer transition-all ${paymentMethod === 'inperson' ? 'border-gray-800 bg-gray-50 shadow' : 'border-gray-300'
+                        }`}>
+                        <input type="radio" name="paymentMethod" value="inperson" checked={paymentMethod === 'inperson'} onChange={(e) => setPaymentMethod(e.target.value as 'inperson')} className="sr-only" />
+                        <div className="w-9 h-9 bg-gray-200 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <Building2 className="w-4 h-4 text-gray-700" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-xs font-bold text-gray-900">In Person</p>
+                          <p className="text-[9px] text-gray-500">At Property</p>
+                        </div>
+                        {paymentMethod === 'inperson' && <CheckCircle className="w-4 h-4 text-gray-800" />}
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="bg-gradient-to-br from-blue-50 to-cyan-50 border border-blue-200 rounded-lg p-3">
+                    <h4 className="text-xs font-bold text-gray-900 mb-2.5 flex items-center gap-1">
+                      <Sparkles className="w-3 h-3 text-blue-600" />
+                      Summary
+                    </h4>
+
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[10px] sm:text-xs text-gray-700">
+                          {bookingType === 'long' ? 'Monthly Rent' : 'Stay Charges'}
+                        </span>
+                        <span className="text-xs font-bold text-gray-900">₹{calculateRent().toLocaleString()}</span>
+                      </div>
+
+                      {bookingType === 'short' && formData.checkInDate && formData.checkOutDate && (
+                        <div className="flex justify-between items-center text-[9px] text-gray-600">
+                          <span>Duration</span>
+                          <span>
+                            {Math.ceil((new Date(formData.checkOutDate).getTime() - new Date(formData.checkInDate).getTime()) / (1000 * 60 * 60 * 24))} days × ₹{selectedRoom.daily_rate}/day
+                          </span>
+                        </div>
+                      )}
+
+                      {bookingType === 'long' && (
+                        <div className="flex justify-between items-center pt-2 border-t border-blue-200">
+                          <span className="text-[10px] sm:text-xs text-gray-700">Security Deposit</span>
+                          <span className="text-xs font-bold text-gray-900">₹{(propertyData?.securityDeposit || 0).toLocaleString()}</span>
+                        </div>
+                      )}
+
+                      <div className="border-t-2 border-blue-300 pt-2.5 mt-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs sm:text-sm font-bold text-gray-900">
+                            {bookingType === 'long' ? 'Total Payable' : 'Total'}
+                          </span>
+                          <span className="text-lg sm:text-xl font-bold text-blue-600">
+                            ₹{calculateTotalPayable().toLocaleString()}
+                          </span>
+                        </div>
+                        {bookingType === 'short' && (
+                          <p className="text-[9px] text-gray-600 mt-1 text-right">No deposit for short stays</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <label className="flex items-start gap-2 p-2.5 bg-gray-50 border-2 border-gray-200 rounded-lg cursor-pointer hover:bg-gray-100">
+                    <input
+                      type="checkbox"
+                      checked={formData.agreeToTerms}
+                      onChange={(e) => handleInputChange('agreeToTerms', e.target.checked)}
+                      className="w-4 h-4 mt-0.5 text-blue-600 border-gray-300 rounded focus:ring-blue-600 flex-shrink-0"
+                      required
+                    />
+                    <div className="text-[10px] text-gray-700">
+                      I agree to <span className="text-blue-600 font-semibold">terms & conditions</span>, cancellation policy, and house rules.
+                    </div>
+                  </label>
+                </div>
+              )}
+            </form>
+          </div>
+
+          {/* Footer Buttons - Fixed */}
+          <div className="flex gap-2 p-3 sm:p-4 border-t-2 border-gray-200 bg-white flex-shrink-0">
+            {bookingStep > 1 && (
+              <button
+                type="button"
+                onClick={() => setBookingStep(bookingStep - 1)}
+                className="flex items-center justify-center gap-1 px-4 py-2.5 border-2 border-gray-300 text-gray-700 text-xs font-semibold rounded-lg hover:bg-gray-50"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                Back
+              </button>
+            )}
+            <button
+              type="submit"
+              form="booking-form"
+              disabled={loading || (bookingStep === 2 && (roomsLoading || !selectedRoom))}
+              className={`flex-1 py-2.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 shadow ${
+                bookingStep === 3 ? 'bg-gradient-to-r from-green-500 to-green-600 text-white' : 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white'
+              } disabled:opacity-50`}
+              onClick={handleBookingSubmit}
+            >
+              {loading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  <span className="hidden sm:inline">Processing...</span>
+                </>
+              ) : bookingStep === 1 ? (
+                  <>
+                    Verify & Continue
+                    <ChevronRight className="w-4 h-4" />
+                  </>
+              ) : bookingStep === 2 ? (
+                    selectedRoom ? (
+                      <>
+                        Continue
+                        <ChevronRight className="w-4 h-4" />
+                      </>
+                    ) : (
+                      'Select Room'
+                    )
+                  ) : (
+                    <>
+                      {paymentMethod === 'online' ? `Pay ₹${calculateTotalPayable().toLocaleString()}` : 'Confirm Booking'}
+                      <Check className="w-4 h-4" />
+                    </>
+              )}
+            </button>
           </div>
         </div>
       </div>

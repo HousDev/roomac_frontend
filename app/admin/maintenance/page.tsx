@@ -54,6 +54,7 @@ export default function MaintenancePage() {
   const [selectedStaffId, setSelectedStaffId] = useState<string>("");
   const [sortField, setSortField] = useState<keyof MaintenanceRequest>('created_at');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [adminNotes, setAdminNotes] = useState("");
   
   // Search filters for all columns
   const [searchFilters, setSearchFilters] = useState({
@@ -118,22 +119,24 @@ export default function MaintenancePage() {
     }
   };
 
-  const handleUpdateStatus = async (id: number, status: string) => {
-    try {
-      setUpdating(true);
-      await updateMaintenanceStatus(id, status);
-      toast.success(`Status updated to ${status}`);
-      await loadRequests();
-      setShowStatusDialog(false);
-      setSelectedActionRequest(null);
-      setNewStatus("");
-    } catch (err: any) {
-      console.error('Error updating status:', err);
-      toast.error(err.message || "Failed to update status");
-    } finally {
-      setUpdating(false);
-    }
-  };
+// Update the handleUpdateStatus function
+const handleUpdateStatus = async (id: number, status: string) => {
+  try {
+    setUpdating(true);
+    await updateMaintenanceStatus(id, status, adminNotes); // Pass admin notes
+    toast.success(`Status updated to ${status}${adminNotes ? ' with notes' : ''}`);
+    await loadRequests();
+    setShowStatusDialog(false);
+    setSelectedActionRequest(null);
+    setNewStatus("");
+    setAdminNotes(""); // Reset admin notes
+  } catch (err: any) {
+    console.error('Error updating status:', err);
+    toast.error(err.message || "Failed to update status");
+  } finally {
+    setUpdating(false);
+  }
+};
 
   const handleAssignStaff = async (requestId: number, staffId: string) => {
     if (staffId === "no_staff" || !staffId) return;
@@ -1034,122 +1037,148 @@ export default function MaintenancePage() {
       </Dialog>
 
       {/* Update Status Dialog */}
-      <Dialog open={showStatusDialog} onOpenChange={setShowStatusDialog}>
-        <DialogContent className="max-w-2xl w-[95vw] p-0 gap-0 rounded-xl overflow-hidden">
-          <DialogHeader className="bg-gradient-to-r from-blue-500 to-cyan-500 px-4 py-3">
-            <div className="flex items-center justify-between">
-              <DialogTitle className="flex items-center gap-2 text-white text-sm sm:text-base font-semibold">
-                <Settings className="h-4 w-4" />
-                Update Status
-              </DialogTitle>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={() => setShowStatusDialog(false)}
-                className="h-7 w-7 text-white hover:bg-white/20"
-              >
-                <X className="h-4 w-4" />
-              </Button>
+      {/* Update Status Dialog with Admin Notes */}
+<Dialog open={showStatusDialog} onOpenChange={setShowStatusDialog}>
+  <DialogContent className="max-w-2xl w-[95vw] p-0 gap-0 rounded-xl overflow-hidden">
+    <DialogHeader className="bg-gradient-to-r from-blue-500 to-cyan-500 px-4 py-3">
+      <div className="flex items-center justify-between">
+        <DialogTitle className="flex items-center gap-2 text-white text-sm sm:text-base font-semibold">
+          <Settings className="h-4 w-4" />
+          Update Status
+        </DialogTitle>
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          onClick={() => {
+            setShowStatusDialog(false);
+            setAdminNotes(""); // Reset admin notes
+          }}
+          className="h-7 w-7 text-white hover:bg-white/20"
+        >
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
+      <DialogDescription className="text-blue-50 text-xs">
+        Update status for request #{selectedActionRequest?.id}
+      </DialogDescription>
+    </DialogHeader>
+    
+    {selectedActionRequest && (
+      <div className="p-4 sm:p-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Current Status */}
+          <div className="space-y-2">
+            <h4 className="font-medium text-xs text-gray-700">Current Status</h4>
+            <div className="bg-gray-50 p-3 rounded-lg">
+              <div className="flex items-center gap-2">
+                {getStatusIcon(selectedActionRequest.status)}
+                {getStatusBadge(selectedActionRequest.status)}
+              </div>
             </div>
-            <DialogDescription className="text-blue-50 text-xs">
-              Update status for request #{selectedActionRequest?.id}
-            </DialogDescription>
-          </DialogHeader>
-          
-          {selectedActionRequest && (
-            <div className="p-4 sm:p-5">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Current Status */}
-                <div className="space-y-2">
-                  <h4 className="font-medium text-xs text-gray-700">Current Status</h4>
-                  <div className="bg-gray-50 p-3 rounded-lg">
-                    <div className="flex items-center gap-2">
-                      {getStatusIcon(selectedActionRequest.status)}
-                      {getStatusBadge(selectedActionRequest.status)}
-                    </div>
+          </div>
+
+          {/* New Status */}
+          <div className="space-y-2">
+            <h4 className="font-medium text-xs text-gray-700">Select New Status</h4>
+            <Select
+              value={newStatus}
+              onValueChange={setNewStatus}
+              disabled={updating}
+            >
+              <SelectTrigger className="h-9 text-xs">
+                <SelectValue placeholder="Select status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pending">
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-3.5 w-3.5" />
+                    <span className="text-xs">Pending</span>
                   </div>
-                </div>
+                </SelectItem>
+                <SelectItem value="in_progress">
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="h-3.5 w-3.5" />
+                    <span className="text-xs">In Progress</span>
+                  </div>
+                </SelectItem>
+                <SelectItem value="resolved">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-3.5 w-3.5" />
+                    <span className="text-xs">Resolved</span>
+                  </div>
+                </SelectItem>
+                <SelectItem value="closed">
+                  <div className="flex items-center gap-2">
+                    <XCircle className="h-3.5 w-3.5" />
+                    <span className="text-xs">Closed</span>
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
 
-                {/* New Status */}
-                <div className="space-y-2">
-                  <h4 className="font-medium text-xs text-gray-700">Select New Status</h4>
-                  <Select
-                    value={newStatus}
-                    onValueChange={setNewStatus}
-                    disabled={updating}
-                  >
-                    <SelectTrigger className="h-9 text-xs">
-                      <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pending">
-                        <div className="flex items-center gap-2">
-                          <Clock className="h-3.5 w-3.5" />
-                          <span className="text-xs">Pending</span>
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="in_progress">
-                        <div className="flex items-center gap-2">
-                          <Loader2 className="h-3.5 w-3.5" />
-                          <span className="text-xs">In Progress</span>
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="resolved">
-                        <div className="flex items-center gap-2">
-                          <CheckCircle className="h-3.5 w-3.5" />
-                          <span className="text-xs">Resolved</span>
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="closed">
-                        <div className="flex items-center gap-2">
-                          <XCircle className="h-3.5 w-3.5" />
-                          <span className="text-xs">Closed</span>
-                        </div>
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-
-                  {newStatus && newStatus !== selectedActionRequest.status && (
-                    <div className="bg-blue-50 p-2 rounded-lg mt-2">
-                      <p className="text-[10px] text-blue-600 mb-0.5">New Status Preview:</p>
-                      <div className="flex items-center gap-1">
-                        {newStatus === 'pending' && <Clock className="h-3 w-3" />}
-                        {newStatus === 'in_progress' && <Loader2 className="h-3 w-3 animate-spin" />}
-                        {newStatus === 'resolved' && <CheckCircle className="h-3 w-3" />}
-                        {newStatus === 'closed' && <XCircle className="h-3 w-3" />}
-                        <span className="text-xs font-medium capitalize">{newStatus.replace('_', ' ')}</span>
-                      </div>
-                    </div>
-                  )}
+            {newStatus && newStatus !== selectedActionRequest.status && (
+              <div className="bg-blue-50 p-2 rounded-lg mt-2">
+                <p className="text-[10px] text-blue-600 mb-0.5">New Status Preview:</p>
+                <div className="flex items-center gap-1">
+                  {newStatus === 'pending' && <Clock className="h-3 w-3" />}
+                  {newStatus === 'in_progress' && <Loader2 className="h-3 w-3 animate-spin" />}
+                  {newStatus === 'resolved' && <CheckCircle className="h-3 w-3" />}
+                  {newStatus === 'closed' && <XCircle className="h-3 w-3" />}
+                  <span className="text-xs font-medium capitalize">{newStatus.replace('_', ' ')}</span>
                 </div>
               </div>
+            )}
+          </div>
+        </div>
 
-              <DialogFooter className="mt-4 flex justify-end gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowStatusDialog(false)}
-                  className="h-8 text-xs px-4"
-                  disabled={updating}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={() => handleUpdateStatus(selectedActionRequest.id, newStatus)}
-                  disabled={updating || !newStatus || newStatus === selectedActionRequest.status}
-                  className="h-8 text-xs px-4 bg-gradient-to-r from-blue-500 to-cyan-500"
-                >
-                  {updating ? (
-                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                  ) : (
-                    <Settings className="h-3 w-3 mr-1" />
-                  )}
-                  Update
-                </Button>
-              </DialogFooter>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+        {/* Admin Notes Section - NEW */}
+        <div className="mt-4 space-y-2">
+          <h4 className="font-medium text-xs text-gray-700 flex items-center gap-2">
+            <MessageSquare className="h-3.5 w-3.5 text-blue-500" />
+            Admin Notes
+          </h4>
+          <Textarea
+            value={adminNotes}
+            onChange={(e) => setAdminNotes(e.target.value)}
+            placeholder="Add notes about this status update (optional but recommended)"
+            rows={3}
+            className="w-full text-xs border-gray-200 focus:border-blue-400 focus:ring-blue-400"
+          />
+          <p className="text-[10px] text-gray-500">
+            These notes will be visible to the tenant and help them understand the status change.
+          </p>
+        </div>
+
+        <DialogFooter className="mt-4 flex justify-end gap-2">
+          <Button
+            variant="outline"
+            onClick={() => {
+              setShowStatusDialog(false);
+              setAdminNotes("");
+              setNewStatus("");
+            }}
+            className="h-8 text-xs px-4"
+            disabled={updating}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={() => handleUpdateStatus(selectedActionRequest.id, newStatus)}
+            disabled={updating || !newStatus || newStatus === selectedActionRequest.status}
+            className="h-8 text-xs px-4 bg-gradient-to-r from-blue-500 to-cyan-500"
+          >
+            {updating ? (
+              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+            ) : (
+              <Settings className="h-3 w-3 mr-1" />
+            )}
+            Update
+          </Button>
+        </DialogFooter>
+      </div>
+    )}
+  </DialogContent>
+</Dialog>
     </div>
   );
 }
