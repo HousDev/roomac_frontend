@@ -1,3 +1,4 @@
+// lib/roomsApi.ts
 import { request } from "@/lib/api";
 
 /* ---------- TYPES ---------- */

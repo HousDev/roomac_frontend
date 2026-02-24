@@ -1,5 +1,6 @@
+// components/admin/rooms/RoomDetailsDialog.tsx (updated section)
 
-
+// components/admin/rooms/RoomDetailsDialog.tsx
 "use client";
 
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -13,14 +14,35 @@ import {
   Calendar, Wifi, Tv, Droplets, Shield, Coffee,
   Car, Dumbbell, TreePine, Waves, Thermometer, UsersRound, PersonStanding,
   BadgeIndianRupee,
-  X
+  X, Phone, Mail, Hash, UserPlus, Loader2
 } from 'lucide-react';
-import type { RoomResponse } from '@/lib/roomsApi';
+import { useState, useEffect } from 'react';
+import { request } from '@/lib/api';
+import type { RoomResponse, BedAssignment } from '@/lib/roomsApi';
+import { toast } from "sonner";
 
 interface RoomDetailsDialogProps {
   room: any;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+}
+
+interface TenantDetails {
+  id: number;
+  full_name: string;
+  email: string;
+  phone: string;
+  gender: string;
+  is_active: boolean;
+  portal_access_enabled: boolean;
+  couple_id?: number;
+  emergency_contact_name?: string;
+  emergency_contact_phone?: string;
+  address?: string;
+  occupation?: string;
+  date_of_birth?: string;
+  aadhar_number?: string;
+  pan_number?: string;
 }
 
 // Amenities options for display
@@ -49,7 +71,7 @@ const AMENITIES_OPTIONS = [
 
 // Gender icon component
 const GenderIcon = ({ gender, size = "h-4 w-4" }: { gender: string; size?: string }) => {
-  switch (gender.toLowerCase()) {
+  switch (gender?.toLowerCase()) {
     case 'male':
     case 'male_only':
       return <UserRound className={`${size} text-blue-600`} />;
@@ -65,6 +87,10 @@ const GenderIcon = ({ gender, size = "h-4 w-4" }: { gender: string; size?: strin
 };
 
 export function RoomDetailsDialog({ room, open, onOpenChange }: RoomDetailsDialogProps) {
+  const [tenants, setTenants] = useState<TenantDetails[]>([]);
+  const [loadingTenants, setLoadingTenants] = useState(false);
+  const [errorTenants, setErrorTenants] = useState<string | null>(null);
+
   const YesNoIcon = ({ value }: { value: boolean }) => {
     return value ? (
       <CheckCircle className="h-3 w-3 md:h-4 md:w-4 text-green-600" />
@@ -78,37 +104,107 @@ export function RoomDetailsDialog({ room, open, onOpenChange }: RoomDetailsDialo
     ? room.room_gender_preference 
     : [room.room_gender_preference];
 
+  // Get occupied beds with tenant details from bed_assignments
+  const occupiedBeds = room.bed_assignments?.filter((bed: any) => bed.tenant_id) || [];
+
+  // Fetch all tenants when dialog opens
+  const loadAllTenants = async () => {
+    try {
+      setLoadingTenants(true);
+      setErrorTenants(null);
+      
+      const response: any = await request('/api/tenants?is_active=true&portal_access_enabled=true');
+      
+      let tenantsList: TenantDetails[] = [];
+      
+      if (Array.isArray(response)) {
+        tenantsList = response;
+      } else if (response.data && Array.isArray(response.data)) {
+        tenantsList = response.data;
+      }
+      
+      setTenants(tenantsList);
+    } catch (error: any) {
+      console.error('Error loading tenants:', error);
+      setErrorTenants(error.message || 'Failed to load tenants');
+      toast.error('Failed to load tenant details');
+    } finally {
+      setLoadingTenants(false);
+    }
+  };
+
+  useEffect(() => {
+    if (open) {
+      loadAllTenants();
+    }
+  }, [open]);
+
+  // Helper to get tenant details by ID
+  const getTenantDetails = (tenantId: number) => {
+    return tenants.find(t => t.id === tenantId);
+  };
+
+  // Format date from bed_assignments.created_at
+  const formatAssignmentDate = (dateString: string) => {
+    if (!dateString) return 'N/A';
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-IN', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch {
+      return 'N/A';
+    }
+  };
+
+  // Calculate days since assignment from bed_assignments.created_at
+  const getDaysSinceAssignment = (dateString: string) => {
+    if (!dateString) return null;
+    try {
+      const assignmentDate = new Date(dateString);
+      const today = new Date();
+      const diffTime = Math.abs(today.getTime() - assignmentDate.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return diffDays;
+    } catch {
+      return null;
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[calc(100vw-1rem)] sm:max-w-[calc(100vw-2rem)] md:max-w-3xl lg:max-w-4xl max-h-[90vh] md:max-h-[90vh] overflow-hidden p-0 border-0 flex flex-col">
         <div className="sticky top-0 z-10 bg-gradient-to-r from-blue-600 to-cyan-600 text-white px-3 py-2 md:px-4 md:py-3 flex-shrink-0">
           <DialogHeader className="space-y-0.5 md:space-y-1">
-    <div className="flex items-center justify-between">
-      <DialogTitle className="text-sm md:text-base lg:text-lg font-bold flex items-center gap-2 flex-wrap">
-        <Eye className="h-4 w-4 md:h-5 md:w-5 flex-shrink-0" />
-        <span className="flex-1">Room {room.room_number}</span>
-        <Badge 
-          variant={room.is_active ? "default" : "secondary"} 
-          className="text-[9px] md:text-[10px] px-1.5 py-0.5 bg-white text-blue-600"
-        >
-          {room.is_active ? 'Active' : 'Inactive'}
-        </Badge>
-      </DialogTitle>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-6 w-6 md:h-7 md:w-7 text-white hover:bg-white/20 rounded-full -mr-1"
-        onClick={() => onOpenChange(false)}
-      >
-        <X className="h-3 w-3 md:h-4 md:w-4" />
-      </Button>
-    </div>
-    <div className="flex items-center gap-1.5 text-[10px] md:text-xs text-blue-100 flex-wrap">
-      <Building className="h-3 w-3 md:h-3.5 md:w-3.5 flex-shrink-0" />
-      <span className="truncate">{room.property_name}</span>
-    </div>
-  </DialogHeader>
-
+            <div className="flex items-center justify-between">
+              <DialogTitle className="text-sm md:text-base lg:text-lg font-bold flex items-center gap-2 flex-wrap">
+                <Eye className="h-4 w-4 md:h-5 md:w-5 flex-shrink-0" />
+                <span className="flex-1">Room {room.room_number}</span>
+                <Badge 
+                  variant={room.is_active ? "default" : "secondary"} 
+                  className="text-[9px] md:text-[10px] px-1.5 py-0.5 bg-white text-blue-600"
+                >
+                  {room.is_active ? 'Active' : 'Inactive'}
+                </Badge>
+              </DialogTitle>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 md:h-7 md:w-7 text-white hover:bg-white/20 rounded-full -mr-1"
+                onClick={() => onOpenChange(false)}
+              >
+                <X className="h-3 w-3 md:h-4 md:w-4" />
+              </Button>
+            </div>
+            <div className="flex items-center gap-1.5 text-[10px] md:text-xs text-blue-100 flex-wrap">
+              <Building className="h-3 w-3 md:h-3.5 md:w-3.5 flex-shrink-0" />
+              <span className="truncate">{room.property_name}</span>
+            </div>
+          </DialogHeader>
         </div>
 
         <div className="px-3 py-2 md:px-4 md:py-2.5 overflow-y-auto flex-1 min-h-0">
@@ -280,6 +376,140 @@ export function RoomDetailsDialog({ room, open, onOpenChange }: RoomDetailsDialo
               </CardContent>
             </Card>
 
+            {/* Current Occupants - COMPACT VERSION WITH PROPER ASSIGNMENT DATE */}
+            <Card className="border">
+              <CardHeader className="pb-2 px-2.5 pt-2.5 md:px-4 md:pt-3">
+                <CardTitle className="text-xs md:text-sm flex items-center gap-1.5">
+                  <UsersRound className="h-3.5 w-3.5 md:h-4 md:w-4" />
+                  Current Occupants ({occupiedBeds.length}/{room.total_bed})
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-2.5 pb-2.5 md:px-4 md:pb-3">
+                {loadingTenants ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="h-5 w-5 animate-spin text-gray-500" />
+                    <span className="ml-2 text-xs text-gray-500">Loading tenants...</span>
+                  </div>
+                ) : errorTenants ? (
+                  <div className="bg-red-50 p-3 rounded-lg text-center">
+                    <p className="text-xs text-red-600">{errorTenants}</p>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      className="mt-2 h-7 text-xs"
+                      onClick={loadAllTenants}
+                    >
+                      Retry
+                    </Button>
+                  </div>
+                ) : occupiedBeds.length > 0 ? (
+                  <div className="space-y-2">
+                    {occupiedBeds.map((bed: any, index: number) => {
+                      const tenantDetail = getTenantDetails(bed.tenant_id);
+                      
+                      // Get assignment date from bed_assignments.created_at
+                      const assignmentDate = bed.created_at;
+                      const daysSince = getDaysSinceAssignment(assignmentDate);
+                      const formattedDate = formatAssignmentDate(assignmentDate);
+                      
+                      const isCouple = bed.tenant_gender?.toLowerCase() === 'couple' || tenantDetail?.couple_id != null;
+                      const isMale = bed.tenant_gender?.toLowerCase() === 'male' || tenantDetail?.gender?.toLowerCase() === 'male';
+                      const isFemale = bed.tenant_gender?.toLowerCase() === 'female' || tenantDetail?.gender?.toLowerCase() === 'female';
+
+                      return (
+                        <div 
+                          key={bed.id || index}
+                          className="p-2 md:p-3 rounded-lg border hover:shadow-sm transition-shadow"
+                          style={{
+                            background: isCouple ? 'linear-gradient(135deg, #fce7f3 0%, #dbeafe 100%)'
+                                     : isMale ? 'linear-gradient(135deg, #dbeafe 0%, #93c5fd 100%)'
+                                     : isFemale ? 'linear-gradient(135deg, #fce7f3 0%, #f9a8d4 100%)'
+                                     : 'linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)',
+                            borderColor: isCouple ? '#c084fc' : isMale ? '#3b82f6' : isFemale ? '#db2777' : '#9ca3af',
+                          }}
+                        >
+                          {/* Header Row */}
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <div className="p-1 rounded-lg bg-white/80">
+                                <Bed className="h-3.5 w-3.5 text-green-600" />
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <h4 className="font-semibold text-xs md:text-sm">Bed #{bed.bed_number}</h4>
+                                  <Badge variant="outline" className="bg-white/80 text-[8px] px-1.5 py-0">
+                                    Occupied
+                                  </Badge>
+                                  {daysSince && (
+                                    <Badge className="bg-blue-100 text-blue-800 text-[8px] px-1.5 py-0">
+                                      {daysSince} days
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                          </div>
+
+                          {/* Tenant Info Grid - Compact */}
+                          <div className="grid grid-cols-2 gap-2 text-xs">
+                            {/* Left Column */}
+                            <div>
+                              <p className="font-medium truncate">
+                                {tenantDetail?.full_name || bed.tenant_name || 'Unknown'}
+                              </p>
+                              <div className="flex items-center gap-1 mt-0.5">
+                                <GenderIcon gender={tenantDetail?.gender || bed.tenant_gender || 'other'} size="h-3 w-3" />
+                                <span className="text-[9px] capitalize">
+                                  {tenantDetail?.gender || bed.tenant_gender || 'N/A'}
+                                  {tenantDetail?.couple_id && ' (Couple)'}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Right Column - Contact */}
+                            <div className="space-y-0.5">
+                              {tenantDetail?.email && (
+                                <div className="flex items-center gap-1 text-[9px] text-gray-600 truncate">
+                                  <Mail className="h-2.5 w-2.5 flex-shrink-0" />
+                                  <span className="truncate">{tenantDetail.email}</span>
+                                </div>
+                              )}
+                              {tenantDetail?.phone && (
+                                <div className="flex items-center gap-1 text-[9px] text-gray-600">
+                                  <Phone className="h-2.5 w-2.5 flex-shrink-0" />
+                                  <span>{tenantDetail.phone}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Footer Row - Assignment Details from bed_assignments */}
+                          <div className="mt-2 pt-1 border-t border-white/50 flex items-center justify-between text-[8px] text-gray-600">
+                            <div className="flex items-center gap-2">
+                              <span>ID: {bed.tenant_id}</span>
+                              <span>•</span>
+                              <span className="flex items-center gap-1">
+                                <Calendar className="h-2.5 w-2.5" />
+                                {formattedDate}
+                              </span>
+                            </div>
+                            
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-4 bg-gray-50 rounded-lg border border-dashed">
+                    <UserRound className="h-5 w-5 mx-auto text-gray-400 mb-1" />
+                    <span className="text-xs text-gray-500">No occupants</span>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Rest of the sections remain the same */}
             {/* Amenities */}
             <Card className="border">
               <CardHeader className="pb-2 px-2.5 pt-2.5 md:px-4 md:pt-3">

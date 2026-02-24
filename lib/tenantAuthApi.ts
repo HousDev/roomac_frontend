@@ -16,6 +16,7 @@ export type TenantLoginResponse = {
 };
 
 export type TenantProfile = {
+  salutation?: string;
   id: number | string;
   full_name: string;
   email: string;
@@ -57,6 +58,18 @@ export type TenantProfile = {
     status: string;
     created_at: string;
   }>;
+  property_name?: string;
+  room_number?: string;
+  bed_number?: string;
+  check_in_date?: string;
+  amenities?:any[];
+  property_manager_name?: string;
+  property_manager_phone?: string;
+  notice_period_days ?: any;
+  lockin_period_months ?: any;
+  property_city?: any;
+  rent_per_bed?: any;
+  floor?: any;
 };
 
 /* ================= TOKEN HELPERS ================= */

@@ -335,7 +335,7 @@ export function AdminHeader({
               <Button
                 variant="outline"
                 size="sm"
-                className="hidden md:flex items-center gap-2 px-3 py-2 text-white bg-blue-600 hover:bg-blue-700 border-blue-600"
+                className="hidden md:flex items-center gap-2 px-3 py-2 text-white bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] hover:bg-blue-700 border-blue-600"
               >
                 <Home className="h-4 w-4" />
                 <span className="hidden lg:inline">Visit Website</span>

@@ -429,7 +429,10 @@ export async function bulkUpdateValuesStatus(valueIds: number[], isactive: numbe
     // Since we don't have a bulk update endpoint, we'll do multiple updates
     const results = await Promise.allSettled(
       valueIds.map(id => 
-        updateMasterValue(id, { isactive })
+        updateMasterValue(id, {
+          isactive,
+          name: ""
+        })
       )
     );
     

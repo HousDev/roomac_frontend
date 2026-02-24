@@ -1,4 +1,3 @@
-
 // components/tenant/layout/TenantLayout.tsx
 "use client";
 
@@ -9,25 +8,43 @@ import {
   LogOut, User, Settings, FolderOpen,
   Menu, Sun, ChevronRight, ChevronLeft,
   HelpCircle, MessageSquare, X, AlertCircle,
-  Calendar, Building, MapPin,
+  Calendar, Building, MapPin, Loader2,
+  UserX,
+  Users,
+  Wrench,
+  RefreshCw,
+  Move
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { logoutTenant, type TenantProfile } from "@/lib/tenantAuthApi";
 import { tenantDetailsApi } from "@/lib/tenantDetailsApi";
+import {
+  getTenantNotifications,
+  getUnreadNotificationCount,
+  markNotificationAsRead,
+  markAllNotificationsAsRead,
+  type Notification
+} from "@/lib/tenantNotificationsApi";
 import roomacLogo from "@/app/src/assets/images/roomaclogo.webp";
 import { useAuth } from "@/context/authContext";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+// Update Notification type to match API
 interface Notification {
   id: string;
   title: string;
   message: string;
-  type: "payment" | "complaint" | "event" | "document" | "general";
+  notification_type: string;
+  related_entity_type: string;
+  related_entity_id: number;
   is_read: boolean;
+  read_at: string | null;
+  priority: 'low' | 'medium' | 'high' | 'urgent';
   created_at: string;
+  type?: string; // For backward compatibility
   metadata?: any;
 }
 
@@ -40,6 +57,7 @@ function NotificationPopup({
   onNotificationClick,
   onClose,
   onViewAll,
+  loading = false,
 }: {
   notifications: Notification[];
   unreadCount: number;
@@ -47,6 +65,7 @@ function NotificationPopup({
   onNotificationClick: (n: Notification) => void;
   onClose: () => void;
   onViewAll: () => void;
+  loading?: boolean;
 }) {
   const popupRef = useRef<HTMLDivElement>(null);
 
@@ -62,6 +81,11 @@ function NotificationPopup({
     switch (type) {
       case "payment":   return <CreditCard className="h-4 w-4 text-blue-600" />;
       case "complaint": return <AlertCircle className="h-4 w-4 text-orange-600" />;
+      case "maintenance": return <Wrench className="h-4 w-4 text-purple-600" />;
+        case "leave": return <Users className="h-4 w-4 text-green-600" />;
+        case "change_bed": return <Move className="h-4 w-4 text-teal-600" />;
+        case "vacate bed": return <MapPin className="h-4 w-4 text-red-600" />;
+        case "account deletion": return <UserX className="h-4 w-4 text-gray-600" />;
       case "event":     return <Calendar className="h-4 w-4 text-green-600" />;
       case "document":  return <FileText className="h-4 w-4 text-purple-600" />;
       default:          return <Bell className="h-4 w-4 text-gray-600" />;
@@ -77,6 +101,7 @@ function NotificationPopup({
         <div className="flex items-center gap-2">
           <Bell className="h-4 w-4 text-blue-600" />
           <p className="font-semibold text-sm">Notifications</p>
+          
           {unreadCount > 0 && (
             <Badge variant="destructive" className="text-xs px-1.5 py-0 h-5">
               {unreadCount}
@@ -91,30 +116,38 @@ function NotificationPopup({
       </div>
 
       <div className="max-h-96 overflow-y-auto">
-        {notifications.length > 0 ? (
-          notifications.slice(0, 5).map((n) => (
-            <div
-              key={n.id}
-              className={`p-3 border-b border-slate-100 last:border-b-0 cursor-pointer hover:bg-slate-50 transition-colors ${!n.is_read ? "bg-blue-50/50" : ""}`}
-              onClick={() => onNotificationClick(n)}
-            >
-              <div className="flex items-start gap-2.5">
-                <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${n.is_read ? "bg-slate-100" : "bg-blue-100"}`}>
-                  {getIcon(n.type)}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="font-medium text-sm text-slate-900 leading-tight">{n.title}</p>
-                    {!n.is_read && <div className="h-1.5 w-1.5 bg-blue-600 rounded-full mt-1 shrink-0" />}
+        {loading ? (
+          <div className="p-4 text-center">
+            <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2 text-blue-600" />
+            <p className="text-xs text-gray-500">Loading notifications...</p>
+          </div>
+        ) : notifications.length > 0 ? (
+          notifications.slice(0, 5).map((n) => {
+            const notificationType = n.type || n.notification_type || 'general';
+            return (
+              <div
+                key={n.id}
+                className={`p-3 border-b border-slate-100 last:border-b-0 cursor-pointer hover:bg-slate-50 transition-colors ${!n.is_read ? "bg-blue-50/50" : ""}`}
+                onClick={() => onNotificationClick(n)}
+              >
+                <div className="flex items-start gap-2.5">
+                  <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${n.is_read ? "bg-slate-100" : "bg-blue-100"}`}>
+                    {getIcon(notificationType)}
                   </div>
-                  <p className="text-xs text-slate-600 mt-1 leading-relaxed">{n.message}</p>
-                  <p className="text-[10px] text-slate-400 mt-2">
-                    {new Date(n.created_at).toLocaleDateString()}
-                  </p>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="font-medium text-sm text-slate-900 leading-tight">{n.title}</p>
+                      {!n.is_read && <div className="h-1.5 w-1.5 bg-blue-600 rounded-full mt-1 shrink-0" />}
+                    </div>
+                    <p className="text-xs text-slate-600 mt-1 leading-relaxed line-clamp-2">{n.message}</p>
+                    <p className="text-[10px] text-slate-400 mt-2">
+                      {new Date(n.created_at).toLocaleDateString()}
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))
+            );
+          })
         ) : (
           <div className="p-4 text-center text-sm text-slate-500">No notifications</div>
         )}
@@ -142,7 +175,7 @@ const NAV_ITEMS = [
   { id: "documents",     label: "Documents",      icon: FileText,      path: "/tenant/documents" },
   { id: "my-documents",  label: "My Documents",   icon: FolderOpen,    path: "/tenant/my-documents" },
   { id: "request",       label: "Request",        icon: HelpCircle,    path: "/tenant/requests" },
-  { id: "notifications", label: "Notifications",  icon: Bell,          path: "/tenant/portal#notifications" },
+  { id: "notifications", label: "Notifications",  icon: Bell,          path: "/tenant/portal/#notifications" },
   { id: "profile",       label: "Profile",        icon: User,          path: "/tenant/profile" },
   { id: "settings",      label: "Settings",       icon: Settings,      path: "/tenant/settings" },
   { id: "support",       label: "Support",        icon: MessageSquare, path: "/tenant/support" },
@@ -449,6 +482,7 @@ function TenantHeader({
   onNavigate,
   onMarkNotificationRead,
   onMarkAllRead,
+  loadingNotifications = false,
 }: {
   tenant: TenantProfile | null;
   notificationCount: number;
@@ -458,6 +492,7 @@ function TenantHeader({
   onNavigate: (path: string) => void;
   onMarkNotificationRead: (id: string) => void;
   onMarkAllRead: () => void;
+  loadingNotifications?: boolean;
 }) {
   const [profileOpen, setProfileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -478,10 +513,13 @@ function TenantHeader({
   const handleNotificationClick = (n: Notification) => {
     if (!n.is_read) onMarkNotificationRead(n.id);
     setNotificationsOpen(false);
-    if (n.type === "payment")        onNavigate("/tenant/portal#payments");
-    else if (n.type === "complaint") onNavigate("/tenant/requests");
-    else if (n.type === "document")  onNavigate("/tenant/documents");
-    else                             onNavigate("/tenant/notifications");
+    
+    const notificationType = n.type || n.notification_type || 'general';
+    
+    if (notificationType === "payment")        onNavigate("/tenant/portal#payments");
+    else if (notificationType === "complaint") onNavigate("/tenant/requests");
+    else if (notificationType === "document")  onNavigate("/tenant/documents");
+    else                                        onNavigate("/tenant/portal/#notifications");
   };
 
   return (
@@ -509,8 +547,6 @@ function TenantHeader({
 
         {/* Right */}
         <div className="flex items-center gap-2 sm:gap-3">
-          
-
           {/* Bell */}
           <div className="relative" ref={notificationsRef}>
             <Button
@@ -538,8 +574,9 @@ function TenantHeader({
                 onClose={() => setNotificationsOpen(false)}
                 onViewAll={() => {
                   setNotificationsOpen(false);
-                  onNavigate("/tenant/notifications");
+                  onNavigate("/tenant/portal/#notifications");
                 }}
+                loading={loadingNotifications}
               />
             )}
           </div>
@@ -599,46 +636,10 @@ function TenantHeader({
   );
 }
 
-// ─── Mock Notifications ───────────────────────────────────────────────────────
-
-const MOCK_NOTIFICATIONS: Notification[] = [
-  {
-    id: "1",
-    title: "Rent Payment Reminder",
-    message: "Your rent payment of ₹12,000 is due in 7 days",
-    type: "payment",
-    is_read: false,
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: "2",
-    title: "Complaint Update",
-    message: "Your maintenance request #123 is now in progress",
-    type: "complaint",
-    is_read: false,
-    created_at: new Date(Date.now() - 86400000).toISOString(),
-  },
-  {
-    id: "3",
-    title: "Document Verified",
-    message: "Your Aadhar card has been verified successfully",
-    type: "document",
-    is_read: true,
-    created_at: new Date(Date.now() - 172800000).toISOString(),
-  },
-  {
-    id: "4",
-    title: "WiFi Maintenance",
-    message: "Scheduled maintenance on March 1st from 2-4 AM",
-    type: "event",
-    is_read: false,
-    created_at: new Date(Date.now() - 259200000).toISOString(),
-  },
-];
-
 // ─── Main Layout ──────────────────────────────────────────────────────────────
 
 export default function TenantLayout() {
+  
   const navigate = useNavigate();
   const location = useLocation();
   const { logout } = useAuth();
@@ -646,7 +647,19 @@ export default function TenantLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [tenant, setTenant] = useState<TenantProfile | null>(null);
-  const [notifications, setNotifications] = useState<Notification[]>(MOCK_NOTIFICATIONS);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notificationCount, setNotificationCount] = useState(0);
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
+
+  useEffect(() => {
+    const currentPath = location.pathname + location.hash;
+
+    // Don't store login pages
+    if (currentPath !== "/login" && currentPath !== "/tenant") {
+      localStorage.setItem("lastVisitedPath", currentPath);
+    }
+  }, [location.pathname, location.hash]);
 
   // Load profile
   useEffect(() => {
@@ -660,7 +673,49 @@ export default function TenantLayout() {
       .catch(() => {});
   }, []);
 
-  const unreadCount = notifications.filter((n) => !n.is_read).length;
+  // Load notifications
+  const loadNotifications = async (showLoading = true) => {
+    try {
+      if (showLoading) setLoadingNotifications(true);
+      const [notifs, count] = await Promise.all([
+        getTenantNotifications(10),
+        getUnreadNotificationCount()
+      ]);
+      
+      // Transform API notifications to match component format
+      const formattedNotifs = notifs.map(n => ({
+        ...n,
+        type: n.notification_type // Add type for backward compatibility
+      }));
+      
+      setNotifications(formattedNotifs);
+      setNotificationCount(count);
+    } catch (error) {
+      console.error('Error loading notifications:', error);
+    } finally {
+      if (showLoading) setLoadingNotifications(false);
+      setInitialLoadDone(true);
+    }
+  };
+
+  // Load notifications on mount
+  useEffect(() => {
+    loadNotifications(true);
+    
+    // Set up polling for real-time updates (every 30 seconds)
+    const interval = setInterval(() => {
+      loadNotifications(false);
+    }, 30000);
+    
+    return () => clearInterval(interval);
+  }, []);
+
+  // Load notifications when notification popup opens
+  const handleNotificationsOpen = () => {
+    if (!initialLoadDone) {
+      loadNotifications(true);
+    }
+  };
 
   const getActiveId = () => {
     const path = location.pathname;
@@ -687,12 +742,28 @@ export default function TenantLayout() {
     navigate("/login");
   };
 
-  const handleMarkNotificationRead = (id: string) => {
-    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, is_read: true } : n)));
+  const handleMarkNotificationRead = async (id: string) => {
+    try {
+      await markNotificationAsRead(id);
+      setNotifications((prev) => 
+        prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
+      );
+      setNotificationCount(prev => Math.max(0, prev - 1));
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
   };
 
-  const handleMarkAllRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+  const handleMarkAllRead = async () => {
+    try {
+      const marked = await markAllNotificationsAsRead();
+      if (marked > 0) {
+        setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+        setNotificationCount(0);
+      }
+    } catch (error) {
+      console.error('Error marking all as read:', error);
+    }
   };
 
   return (
@@ -703,7 +774,7 @@ export default function TenantLayout() {
         onToggle={() => setCollapsed(!collapsed)}
         activeId={getActiveId()}
         onNavigate={navigate}
-        notificationCount={unreadCount}
+        notificationCount={notificationCount}
         tenant={tenant}
       />
 
@@ -714,7 +785,7 @@ export default function TenantLayout() {
         activeId={getActiveId()}
         onNavigate={navigate}
         onLogout={handleLogout}
-        notificationCount={unreadCount}
+        notificationCount={notificationCount}
         tenant={tenant}
       />
 
@@ -726,13 +797,17 @@ export default function TenantLayout() {
       >
         <TenantHeader
           tenant={tenant}
-          notificationCount={unreadCount}
+          notificationCount={notificationCount}
           notifications={notifications}
-          onMenuClick={() => setMobileOpen(true)}
+          onMenuClick={() => {
+            setMobileOpen(true);
+            handleNotificationsOpen();
+          }}
           onLogout={handleLogout}
           onNavigate={navigate}
           onMarkNotificationRead={handleMarkNotificationRead}
           onMarkAllRead={handleMarkAllRead}
+          loadingNotifications={loadingNotifications}
         />
 
         <main className="flex-1">

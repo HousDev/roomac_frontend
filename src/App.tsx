@@ -1,6 +1,6 @@
   
 
-
+// src/App.tsx
 import { Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "../context/authContext";
 import ProtectedRoute from "../components/routes/ProtectedRoute";
@@ -120,18 +120,17 @@ function App() {
           </Route>
 
         </Route>
-        <Route element={<PublicRoute />}>
+        {/* <Route element={<PublicRoute />}>
           <Route index element={<Navigate to="login" replace />} />
           <Route path="login" element={<TenantLoginPage />} />
-        </Route>
+        </Route> */}
+        <Route path="/login" element={<PublicRoute />}>
+  <Route index element={<TenantLoginPage />} />
+</Route>
 
         {/* 🔐 TENANT ROUTES — TenantLayout provides sidebar + header */}
-        <Route path="/tenant" element={<TenantLayout />}>
+        {/* <Route path="/tenant" element={<TenantLayout />}>
 
-          {/* TENANT LOGIN */}
-
-
-          {/* TENANT PROTECTED */}
           <Route element={<ProtectedRoute />}>
             <Route path="portal" element={<TenantPortalPage />} />
             <Route path="dashboard" element={<TenantPortalPage />} />
@@ -143,7 +142,20 @@ function App() {
             <Route path="support" element={<SupportPage />} />
           </Route>
 
-        </Route>
+        </Route> */}
+
+        <Route element={<ProtectedRoute />}>
+  <Route path="/tenant" element={<TenantLayout />}>
+    <Route path="portal" element={<TenantPortalPage />} />
+    <Route path="dashboard" element={<TenantPortalPage />} />
+    <Route path="profile" element={<TenantProfilePage />} />
+    <Route path="documents" element={<TenantDocumentsPage />} />
+    <Route path="my-documents" element={<TenantMyDocumentsPage />} />
+    <Route path="requests" element={<TenantRequestsPage />} />
+    <Route path="settings" element={<TenantSettingsPage />} />
+    <Route path="support" element={<SupportPage />} />
+  </Route>
+</Route>
 
       </Routes>
     </AuthProvider>
