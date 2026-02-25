@@ -398,7 +398,7 @@ const handleUpdateStatus = async (id: number, status: string) => {
       </div>
 
       {/* Main Table Card */}
-      <Card className="shadow-lg border-0 overflow-hidden  mb-6  sticky top-52 z-10">
+      <Card className="shadow-lg border-0  sticky top-52 z-10">
        
         <CardContent className="p-0">
           {requests.length === 0 ? (
@@ -414,9 +414,9 @@ const handleUpdateStatus = async (id: number, status: string) => {
           ) : (
             <div className="relative">
               {/* Scrollable Table - No horizontal scroll */}
-              <div className="overflow-y-auto max-h-[490px] md:max-h-[510px] rounded-b-lg">
+              <div className="overflow-y-auto max-h-[470px] md:max-h-[540px] rounded-b-lg">
                 <Table className="w-full ">
-                  <TableHeader className="sticky top-0 z-10 bg-gradient-to-r from-gray-50 to-white shadow-sm">
+                  <TableHeader className=" bg-gradient-to-r from-gray-50 to-white shadow-sm">
                     <TableRow className="hover:bg-transparent">
                       {/* ID Column */}
                       <TableHead className="w-[80px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">

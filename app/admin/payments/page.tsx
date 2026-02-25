@@ -583,12 +583,12 @@ Thank you for your payment!
   );
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className=" bg-slate-50">
       {/* <AdminHeader title="Payments" /> */}
 
-      <div className="p-2 sm:p-3 md:p-4 space-y-2 sm:space-y-3">
+      <div className="p-0 sm:p-0 md:p-0 space-y-2 sm:space-y-3">
         {/* Compact Stats Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 sticky top-24 z-10">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 sticky top-16 z-10">
           <StatCard
             title="Collected"
             value={`₹${stats?.total_collected?.toLocaleString() || '0'}`}
@@ -622,7 +622,7 @@ Thank you for your payment!
         {/* Tabs Container - Now properly wrapping everything */}
         <Tabs defaultValue="payments" className="w-full">
           {/* Tabs Header Row */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2 sticky top-32 z-10">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2 sticky top-28 z-10">
             <TabsList className="h-8 w-full sm:w-auto grid grid-cols-2 sm:inline-flex">
               <TabsTrigger value="payments" className="text-xs px-3 py-1">Payments</TabsTrigger>
               <TabsTrigger value="receipts" className="text-xs px-3 py-1">Receipts</TabsTrigger>
@@ -792,12 +792,24 @@ Thank you for your payment!
                 </div>
               </div>
 
-              <DialogFooter className="p-4 bg-slate-50 rounded-b-lg">
-                <Button variant="outline" size="sm" onClick={() => setIsAddPaymentOpen(false)}>Cancel</Button>
-                <Button size="sm" onClick={handleAddPayment} className="bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white">
-                  Add Payment
-                </Button>
-              </DialogFooter>
+             <DialogFooter className="p-4 bg-slate-50 rounded-b-lg grid grid-cols-2 gap-2 sm:flex sm:justify-end">
+  <Button
+    variant="outline"
+    size="sm"
+    onClick={() => setIsAddPaymentOpen(false)}
+    className="w-full sm:w-auto"
+  >
+    Cancel
+  </Button>
+
+  <Button
+    size="sm"
+    onClick={handleAddPayment}
+    className="w-full sm:w-auto bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white"
+  >
+    Add Payment
+  </Button>
+</DialogFooter>
             </DialogContent>
           </Dialog>
 
@@ -927,22 +939,34 @@ Thank you for your payment!
                 </div>
               </div>
 
-              <DialogFooter className="p-4 bg-slate-50 rounded-b-lg">
-                <Button variant="outline" size="sm" onClick={() => setIsDemandPaymentOpen(false)}>Cancel</Button>
-                <Button size="sm" onClick={handleDemandPayment} className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white">
-                  <Send className="h-3.5 w-3.5 mr-1" />
-                  Send Demand
-                </Button>
-              </DialogFooter>
+             <DialogFooter className="p-4 bg-slate-50 rounded-b-lg grid grid-cols-2 gap-2 sm:flex sm:justify-end">
+  <Button
+    variant="outline"
+    size="sm"
+    onClick={() => setIsDemandPaymentOpen(false)}
+    className="w-full sm:w-auto"
+  >
+    Cancel
+  </Button>
+
+  <Button
+    size="sm"
+    onClick={handleDemandPayment}
+    className="w-full sm:w-auto bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white"
+  >
+    <Send className="h-3.5 w-3.5 mr-1" />
+    Send Demand
+  </Button>
+</DialogFooter>
             </DialogContent>
           </Dialog>
 
           {/* Payments Tab Content */}
           <TabsContent value="payments" className="space-y-2 mt-0">
-            <Card className="overflow-hidden border-0 shadow-sm">
+            <Card className=" border-0 shadow-sm">
               <div className="relative">
                 {/* Sticky Header Table */}
-                <div className="overflow-auto max-h-[calc(100vh-310px)] md:max-h-[calc(100vh-280px)]">
+                <div className="overflow-auto max-h-[calc(100vh-320px)] md:max-h-[calc(100vh-240px)]">
                   <Table>
                     <TableHeader className="sticky top-0 z-20 bg-white">
                       {/* Column Headers */}

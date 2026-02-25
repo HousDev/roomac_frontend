@@ -311,10 +311,10 @@ const handleUpdateStatus = async (id: number, status: string) => {
   }
 
   return (
-    <div className="p-0 bg-gradient-to-br from-blue-50/50 to-cyan-50/50 min-h-screen">
+    <div className="p-0 bg-gradient-to-br from-blue-50/50 to-cyan-50/50 ">
      
 
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 mb-4 -mt-5 md:-mt-2">
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 mb-4 -mt-5 md:-mt-2 sticky top-20 z-10">
 
   {/* Total Complaints */}
   <Card className="bg-gradient-to-br from-slate-50 to-slate-100 border-0 shadow-sm">
@@ -394,7 +394,7 @@ const handleUpdateStatus = async (id: number, status: string) => {
 
 </div>
 
-      <Card className="shadow-lg border-0 overflow-hidden">
+      <Card className="shadow-lg border-0  sticky top-44 z-10">
   <CardContent className="p-0">
     {complaints.length === 0 ? (
       <div className="text-center py-16 bg-gray-50 m-6 rounded-lg">
@@ -407,9 +407,9 @@ const handleUpdateStatus = async (id: number, status: string) => {
     ) : (
       <div className="relative">
         {/* Sticky Header Table */}
-        <div className="overflow-auto max-h-[600px] rounded-b-lg">
+        <div className="overflow-auto max-h-[480px] md:max-h-[550px] rounded-b-lg">
           <Table className="relative">
-            <TableHeader className="sticky top-0 z-20 bg-gradient-to-r from-gray-50 to-white shadow-sm">
+            <TableHeader className="sticky top-0 z-10 bg-gradient-to-r from-gray-50 to-white shadow-sm">
               <TableRow className="hover:bg-transparent">
                 {/* ID Column with Search */}
                 <TableHead className="min-w-[100px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">

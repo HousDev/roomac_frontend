@@ -230,7 +230,7 @@ export default function PropertyHeader({
 
   // Mobile Header - Compact version
   const MobileHeader = () => (
-    <div className="md:hidden sticky top-0 z-30 bg-gradient-to-r from-blue-600 via-blue-500 to-blue-500 text-white py-1.5 rounded-xl">
+    <div className="md:hidden sticky top-0 z-10  bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]  text-white py-1.5 rounded-xl">
       <div className="px-2">
         {/* Top Compact Row */}
         <div className="flex items-center justify-between mb-1">

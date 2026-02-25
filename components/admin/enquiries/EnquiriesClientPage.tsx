@@ -78,9 +78,7 @@ export default function EnquiriesClientPage({
     created: ""
   });
 
-  // FIX: hasFetchedOnMount prevents the initial double-call from React 18
-  // Strict Mode (which intentionally mounts→unmounts→remounts in dev).
-  // This ref is never reset so the very first real mount only fires once.
+  
   const hasFetchedOnMount = useRef(false);
 
   // Add new enquiry form state
@@ -470,9 +468,9 @@ export default function EnquiriesClientPage({
 
   return (
     <div className="w-full  bg-gray-50">
-      <div className="p-3 sm:p-4 md:p-6 lg:p-8">
+      <div className="p-0 sm:p-0 md:p-0 lg:p-0">
         {/* Header */}
-        <div className="flex flex-col gap-4 mb-6 -mt-10">
+        <div className="flex flex-col gap-4 mb-6 -mt-10 sticky top-20 z-10">
           <div className="flex flex-col sm:flex-row justify-end items-end sm:items-end gap-4">
            
 
@@ -583,7 +581,7 @@ export default function EnquiriesClientPage({
 
         
         {stats && (
-          <div className="mb-4 mt-0">
+          <div className="mb-9 mt-0 sticky top-32 z-10 ">
            
             <div className="enquiries-stats-compact">
               <EnquiriesStats stats={stats} />
@@ -602,7 +600,7 @@ export default function EnquiriesClientPage({
         </div>
 
         {/* Enquiries Table */}
-        <Card className=" border rounded-lg md:-mt-6">
+        <Card className=" border rounded-lg md:-mt-6 sticky top-80 z-10">
 <CardHeader className="bg-white border-b p-2 sm:p-4">
   <div className="flex flex-row justify-between items-center gap-2">
     
@@ -633,7 +631,7 @@ export default function EnquiriesClientPage({
 
           <CardContent className="p-0">
            
-<div className="max-h-[calc(100vh-460px)] md:max-h-[calc(100vh-380px)] overflow-y-auto overflow-x-auto">
+<div className="max-h-[calc(100vh-490px)] md:max-h-[calc(100vh-365px)] overflow-y-auto overflow-x-auto">
               <div className="min-w-[1200px] lg:min-w-full">
                 <Table>
   <TableHeader className="bg-gray-50 sticky top-0 z-10">
