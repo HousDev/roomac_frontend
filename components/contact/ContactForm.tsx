@@ -1,3 +1,4 @@
+// components/contact/ContactForm.tsx
 'use client';
 
 import { Card, CardContent } from '@/components/ui/card';
@@ -53,47 +54,41 @@ export default function ContactForm({ initialData, properties = [] }: ContactFor
   };
 
   // Function to create notification for admin
-  const createEnquiryNotification = async (enquiryId: string, propertyName: string) => {
-    try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-      
-      // Since we don't have a direct notification creation endpoint,
-      // we'll use the test-notification endpoint which exists in your API
-      const response = await fetch(`${apiUrl}/api/admin/test-notification`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+const createEnquiryNotification = async (enquiryId: string, propertyName: string) => {
+  try {
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+    
+    const response = await fetch(`${apiUrl}/api/admin/notifications/enquiry`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        enquiryData: {
+          id: enquiryId,
+          tenant_name: formData.name,
+          tenant_email: formData.email,
+          tenant_phone: formData.phone,
+          property_id: formData.propertyInterest,
+          budget_range: formData.budgetRange,
+          move_in_date: formData.preferredMoveInDate,
+          message: formData.message
         },
-        body: JSON.stringify({
-          title: '🏢 New Enquiry Received',
-          message: `${formData.name} has shown interest in ${propertyName}`,
-          metadata: {
-            enquiry_id: enquiryId,
-            tenant_name: formData.name,
-            tenant_email: formData.email,
-            tenant_phone: formData.phone,
-            property_name: propertyName,
-            property_id: formData.propertyInterest,
-            budget_range: formData.budgetRange || 'Not specified',
-            move_in_date: formData.preferredMoveInDate || 'Not specified',
-            message: formData.message,
-            source: 'website_contact_form',
-            timestamp: new Date().toISOString()
-          }
-        }),
-      });
+        propertyName: propertyName
+      }),
+    });
 
-      const data = await response.json();
-      
-      if (data.success) {
-      } else {
-        console.warn('⚠️ Notification created but response indicated failure:', data);
-      }
-    } catch (error) {
-      // Don't throw error - notification failure shouldn't block form submission
-      console.error('❌ Error creating notification:', error);
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
     }
-  };
+
+    const data = await response.json();
+    console.log('✅ Enquiry notification created:', data);
+    
+  } catch (error) {
+    console.error('❌ Error creating notification:', error);
+  }
+};
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();

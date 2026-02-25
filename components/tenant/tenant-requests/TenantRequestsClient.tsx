@@ -726,6 +726,8 @@ const loadAllData = useCallback(async () => {
           notes: formData.changeBedData.notes || '',
           preferred_bed_number: formData.changeBedData.preferred_bed_number
         };
+        console.log('📤 Change bed request data:', requestData.change_bed_data);
+  console.log('📤 Change reason ID:', formData.changeBedData.change_reason_id);
       }
 
       if (formData.request_type === 'leave' && formData.leaveData) {

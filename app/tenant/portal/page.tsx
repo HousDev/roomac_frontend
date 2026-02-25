@@ -1,3 +1,4 @@
+// app/tenant/portal/page.tsx
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
@@ -20,6 +21,7 @@ import {
   UserX,
   Wrench,
   RefreshCw,
+  Move,
 } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
