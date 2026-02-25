@@ -15,7 +15,8 @@ import {
   ChevronDown,
   Sliders,
   Link2,
-  Search
+  Search,
+  Package
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState, useEffect, useRef } from 'react';
@@ -220,7 +221,7 @@ function CollapsedSidebarItem({
       {content}
       {showTooltip && !sidebarOpen && (
         <div className="absolute left-full top-1/2 -translate-y-1/2 ml-3 z-50 pointer-events-none">
-          <div className="bg-[#0A1F5C] border border-[#F5C000]/30 text-white text-sm px-3 py-2 rounded-md shadow-xl whitespace-nowrap">
+          <div className="bg-[#0A1F5C] border border-[#F5C000]/30 text-white text-sm px-3 py-2 rounded-md  whitespace-nowrap">
             {item.label}
             <div className="absolute right-full top-1/2 -translate-y-1/2 border-8 border-transparent border-r-[#0A1F5C]"></div>
           </div>
@@ -324,9 +325,11 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
     { href: '/admin/templates', label: 'Templates', icon: Layout },
     { href: '/admin/enquiries', label: 'Enquiries', icon: Mail },
     { href: '/admin/notifications', label: 'Notifications', icon: Bell },
-    { href: '/admin/staff', label: 'Staff', icon: UserCog },
+    { href: '/admin/staff', label: 'Staffs', icon: UserCog },
     { href: '/admin/offers', label: 'Offers', icon: Tag },
     { href: '/admin/add-ons', label: 'Add-ons', icon: PlusCircle },
+    { href: '/admin/inventory', label: 'Inventory Management', icon: Package },  // ← ADD THIS LINE
+
     { href: '/admin/masters', label: 'Masters', icon: LayoutGrid },
     { href: '/admin/settings', label: 'Settings', icon: Settings },
     { href: '/admin/profile', label: 'Profile', icon: UserCircle },
@@ -407,7 +410,7 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
     return (
       <button
         onClick={() => setSidebarOpen(!sidebarOpen)}
-        className="hidden lg:flex absolute -right-3 top-7 z-10 w-6 h-6 bg-[#1B4FD8] border border-[#F5C000]/50 rounded-full items-center justify-center text-white hover:bg-[#F5C000] hover:text-[#0A1F5C] transition-all duration-200 shadow-lg"
+        className="hidden lg:flex absolute -right-3 top-7 z-10 w-6 h-6 bg-[#1B4FD8] border border-[#F5C000]/50 rounded-full items-center justify-center text-white hover:bg-[#F5C000] hover:text-[#0A1F5C] transition-all duration-200 "
       >
         {sidebarOpen ? (
           <ChevronRight className="w-3 h-3" />
@@ -425,7 +428,7 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
     const isRequestActive = requestItems.some(req => isActive(req.href));
     const isSettingsActive = settingsItems.some(setting => isActive(setting.href));
     const isNotificationsItem = index === 9;
-    const isSettingsItem = index === 14;
+    const isSettingsItem = index === 15;
 
     if (!sidebarOpen) {
       if (isNotificationsItem) {
@@ -649,21 +652,23 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
   return (
     <>
       {/* Mobile Toggle */}
-      <Button
-        variant="ghost"
-        size="icon"
-        className="fixed top-4 left-4 z-50 md:hidden text-white bg-[#1B4FD8] hover:bg-[#F5C000] hover:text-[#0A1F5C] backdrop-blur transition-all duration-200"
-        onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
-      >
-        {mobileSidebarOpen ? <X /> : <Menu />}
-      </Button>
+     {!mobileSidebarOpen && (
+  <Button
+    variant="ghost"
+    size="icon"
+    className="fixed top-4 left-4 z-50 md:hidden text-white bg-[#1B4FD8] hover:bg-[#F5C000] hover:text-[#0A1F5C] backdrop-blur transition-all duration-200"
+    onClick={() => setMobileSidebarOpen(true)}
+  >
+    <Menu />
+  </Button>
+)}
 
-      {mobileSidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/60 z-40 md:hidden backdrop-blur-sm"
-          onClick={() => setMobileSidebarOpen(false)}
-        />
-      )}
+{mobileSidebarOpen && (
+  <div
+    className="fixed inset-0 bg-black/60 z-40 md:hidden backdrop-blur-sm"
+    onClick={() => setMobileSidebarOpen(false)}
+  />
+)}
 
       {/* Sidebar */}
       <aside

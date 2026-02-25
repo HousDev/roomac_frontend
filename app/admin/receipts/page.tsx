@@ -1117,7 +1117,7 @@ export default function ReceiptsPage() {
             <div className="relative">
               {/* Scrollable Table */}
               <div className="overflow-auto max-h-[470px] md:max-h-[520px] rounded-b-lg">
-                <Table className="min-w-[1200px] md:min-w-full table-fixed">
+                <Table className="min-w-[1000px] md:min-w-full table-fixed">
                   <TableHeader className="sticky top-0 z-20 bg-gradient-to-r from-gray-50 to-white shadow-sm">
                     <TableRow className="hover:bg-transparent">
                       {/* ID Column */}
@@ -1256,7 +1256,7 @@ export default function ReceiptsPage() {
                       </TableHead>
                       
                       {/* Actions Column - Stay as is */}
-                      <TableHead className="w-[180px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
+                      <TableHead className="w-[100px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
                         <span className="font-semibold text-gray-700 text-xs">Actions</span>
                       </TableHead>
                     </TableRow>

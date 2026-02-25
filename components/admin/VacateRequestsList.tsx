@@ -1909,7 +1909,7 @@ export default function VacateRequestsList() {
   }
 
   return (
-    <div className="p-0 bg-gradient-to-br from-blue-50/50 to-cyan-50/50 min-h-screen">
+    <div className="p-0 bg-gradient-to-br from-blue-50/50 to-cyan-50/50 ">
       
       {/* Stats Cards - Responsive Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 sm:gap-2 mb-2 px-0 sticky top-24 z-10">
@@ -2010,7 +2010,7 @@ export default function VacateRequestsList() {
       </div>
 
       {/* Actions Bar */}
-      <div className="flex items-center justify-between mb-3 px-0 sticky top-40 z-10">
+      <div className="flex items-center justify-between mb-3 px-0 sticky top-32 z-10">
         <div className="flex items-center gap-2">
          
           
