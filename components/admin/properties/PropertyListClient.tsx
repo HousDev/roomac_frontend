@@ -1191,7 +1191,7 @@ const handleFormSubmit = useCallback(async (
         />
 
         {/* Content */}
-        <div className="max-h-[calc(100vh-315px)] md:max-h-[calc(100vh-280px)] overflow-y-auto scrollbar-thin scrollbar-thumb-blue-400 scrollbar-track-blue-100">
+        <div className="max-h-[376px]  md:max-h-[calc(100vh-280px)] overflow-y-auto scrollbar-thin scrollbar-thumb-blue-400 scrollbar-track-blue-100">
           <CardContent className="p-4">
             <Tabs value={viewMode} className="w-full" onValueChange={(value) => setViewMode(value as "table" | "card")}>
               <TabsList className="grid w-full max-w-md grid-cols-2 mb-4">

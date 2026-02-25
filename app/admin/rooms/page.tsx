@@ -96,7 +96,7 @@ export default function RoomsPage() {
   if (loading) return <RoomsLoading />;
   return (
     <div className=" bg-gray-50">
-      <div className="container mx-auto p-1 md:p-4">
+      <div className="container mx-auto p-1 md:p-0">
         <RoomsClient initialRooms={data.rooms} initialProperties={data.properties} />
       </div>
     </div>

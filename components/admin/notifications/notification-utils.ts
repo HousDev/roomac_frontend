@@ -13,11 +13,11 @@ export class NotificationRedirectHandler {
         case 'receipt':
           return `/admin/receipts/${related_entity_id}`;
         case 'leave':
-          return `/admin/leave-requests/${related_entity_id}`;
+          return `/admin/leave-requests`;
         case 'vacate_bed':
           return `/admin/vacate-requests/${related_entity_id}`;
         case 'change_bed':
-          return `/admin/change-bed-requests/${related_entity_id}`;
+          return `/admin/change-bed-requests`;
         default:
           switch (related_entity_type?.toLowerCase()) {
             case 'complaint':
@@ -27,11 +27,11 @@ export class NotificationRedirectHandler {
             case 'receipt':
               return `/admin/receipts/${related_entity_id}`;
             case 'leave_request':
-              return `/admin/leave-requests/${related_entity_id}`;
+              return `/admin/leave-requests`;
             case 'vacate_request':
               return `/admin/vacate-requests/${related_entity_id}`;
             case 'change_bed_request':
-              return `/admin/change-bed-requests/${related_entity_id}`;
+              return `/admin/change-bed-requests`;
             default:
               return this.determineRedirectFromContent(notification);
           }

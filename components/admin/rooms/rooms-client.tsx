@@ -662,7 +662,7 @@ export default function RoomsClient({ initialRooms, initialProperties }: RoomsCl
   return (
     <div className=" ">
       {/* Stats Overview */}
-      <div className="sticky top-20 z-10 py-0 md:py-2 px-0 mb-4">
+      <div className="sticky top-20 z-10 py-0 md:py-0 px-0 md:px-0 mb-4">
         <div className="max-w-7xl mx-auto">
           <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-2">
             {/* Total Rooms */}
@@ -721,7 +721,7 @@ export default function RoomsClient({ initialRooms, initialProperties }: RoomsCl
       </div>
 
       {/* Main Content Card */}
-      <Card className="max-h-[calc(100vh-230px)] md:max-h-[calc(100vh-210px)] overflow-y-auto relative">
+      <Card className="max-h-[calc(100vh-250px)] md:max-h-[calc(100vh-180px)] overflow-y-auto relative">
         {/* Desktop Header - Hidden on mobile */}
         <CardHeader className="hidden md:block bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white sticky top-0 z-50 -translate-y-1 pt-2 rounded-xl">
           <div className="py-2  px-0  ">
@@ -819,7 +819,7 @@ export default function RoomsClient({ initialRooms, initialProperties }: RoomsCl
         </CardHeader>
 
         {/* Mobile Header - Only visible on mobile */}
-        <CardHeader className="md:hidden bg-gradient-to-r from-blue-600 via-blue-500 to-blue-500  text-white sticky top-0 z-30 py-1.5 rounded-xl">
+        <CardHeader className="md:hidden bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]  text-white sticky top-0 z-30 py-1.5 rounded-xl">
           <div className="px-2">
             {/* Top Compact Row */}
             <div className="flex items-center justify-between mb-1">

@@ -458,7 +458,7 @@ export default function StaffClientPage({
 
   return (
     <div className="p-4 md:p-6 -mt-9">
-      <div className="flex flex-col sm:flex-row justify-end items-end sm:items- gap-4 mb-6">
+      <div className="flex flex-col sm:flex-row justify-end items-end sm:items- gap-4 mb-6 sticky top-20 z-10">
         {/* <div>
           <h1 className="text-2xl sm:text-3xl font-bold">Staff Management</h1>
           <p className="text-gray-600 text-sm sm:text-base">
@@ -544,8 +544,8 @@ export default function StaffClientPage({
       </div>
 
       
-        <CardHeader className="pb-3 -mt-9 px-0 md:px-0">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <CardHeader className="pb-3 -mt-9 px-0 md:px-0 sticky top-28 z-10">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 ">
            <div>
   <CardTitle className="text-lg sm:text-xl">
     All Staff Members
@@ -566,7 +566,7 @@ export default function StaffClientPage({
           </div>
         </CardHeader>
         
-        <CardContent className="px-0 md:px-0">
+        <CardContent className="px-0 md:px-0 sticky top-56 z-10">
           <StaffTable
             staff={filteredStaff}
             loading={loading}

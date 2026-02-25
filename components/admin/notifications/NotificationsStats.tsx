@@ -1,5 +1,5 @@
 import { Card, CardContent } from '@/components/ui/card';
-import { Bell, AlertCircle, AlertTriangle} from 'lucide-react';
+import { Mail, MessageCircle, Flame, Inbox } from 'lucide-react';
 
 interface NotificationsStatsProps {
   stats: {
@@ -8,66 +8,108 @@ interface NotificationsStatsProps {
     urgent: number;
     tenant_requests: number;
   };
+  className?: string;
 }
 
-export default function NotificationsStats({ stats }: NotificationsStatsProps) {
+// Compact Stat Card Component
+function StatCard({
+  title,
+  value,
+  icon: Icon,
+  color,
+  bgColor,
+}: {
+  title: string;
+  value: number | string;
+  icon: any;
+  color: string;
+  bgColor: string;
+}) {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-      <Card>
-        <CardContent className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Total</p>
-              <p className="text-2xl font-bold">{stats.total}</p>
-            </div>
-            <div className="p-3 bg-blue-100 rounded-full">
-              <Bell className="h-6 w-6 text-blue-600" />
-            </div>
+    <Card className="border-0 shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-0.5">
+      <CardContent
+        className={`
+          p-2 sm:p-3   
+          ${bgColor}
+        `}
+      >
+        <div className="flex items-center justify-between">
+          <div className="space-y-0">
+            <p className="text-[10px] sm:text-xs text-gray-600 font-medium">
+              {title}
+            </p>
+
+            <p className="text-sm sm:text-lg font-bold text-gray-800 leading-tight">
+              {typeof value === 'number'
+                ? value.toLocaleString()
+                : value}
+            </p>
           </div>
-        </CardContent>
-      </Card>
-      
-      <Card>
-        <CardContent className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Unread</p>
-              <p className="text-2xl font-bold text-blue-600">{stats.unread}</p>
-            </div>
-            <div className="p-3 bg-red-100 rounded-full">
-              <AlertCircle className="h-6 w-6 text-red-600" />
-            </div>
+
+          <div
+            className={`
+              p-1.5 sm:p-2   
+              rounded-full
+              ${color}
+              bg-opacity-20
+            `}
+          >
+            <Icon
+              className={`
+                h-3 w-3
+                sm:h-4 sm:w-4
+                ${color.replace('bg-', 'text-')}
+              `}
+            />
           </div>
-        </CardContent>
-      </Card>
-      
-      <Card>
-        <CardContent className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Urgent</p>
-              <p className="text-2xl font-bold text-red-600">{stats.urgent}</p>
-            </div>
-            <div className="p-3 bg-red-100 rounded-full">
-              <AlertTriangle className="h-6 w-6 text-red-600" />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-      
-      <Card>
-        <CardContent className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Requests</p>
-              <p className="text-2xl font-bold text-green-600">{stats.tenant_requests}</p>
-            </div>
-            <div className="p-3 bg-green-100 rounded-full">
-              <AlertCircle className="h-6 w-6 text-green-600" />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+export default function NotificationsStats({
+  stats,
+  className = '',
+}: NotificationsStatsProps) {
+  return (
+    <div
+      className={`
+        grid grid-cols-2
+        sm:grid-cols-4
+        gap-2
+        mb-4 sm:mb-5 sm:-mt-8 md:mt-0
+        ${className}
+      `}
+    >
+      <StatCard
+        title="Total"
+        value={stats.total}
+        icon={Inbox}
+        color="bg-blue-600"
+        bgColor="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl"
+      />
+      <StatCard
+        title="Unread"
+        value={stats.unread}
+        icon={MessageCircle}
+        color="bg-amber-600"
+        bgColor="bg-gradient-to-br from-amber-50 to-amber-100 rounded-xl"
+      />
+      <StatCard
+        title="Urgent"
+        value={stats.urgent}
+        icon={Flame}
+        color="bg-rose-600"
+        bgColor="bg-gradient-to-br from-rose-50 to-rose-100 rounded-xl"
+      />
+      <StatCard
+        title="Requests"
+        value={stats.tenant_requests}
+        icon={Mail}
+        color="bg-emerald-600"
+        bgColor="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-xl"
+      />
     </div>
   );
 }

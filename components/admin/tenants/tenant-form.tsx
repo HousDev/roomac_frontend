@@ -53,6 +53,7 @@ import {
   type Tenant,
   type PreferredOptions,
   type OptionType,
+  getPreferredOptions,
 } from "@/lib/tenantApi";
 import { consumeMasters } from "@/lib/masterApi";
 
