@@ -662,7 +662,7 @@ export default function RoomsClient({ initialRooms, initialProperties }: RoomsCl
   return (
     <div className=" ">
       {/* Stats Overview */}
-      <div className="sticky top-20 z-10 py-0 md:py-0 px-0 md:px-0 mb-4">
+      <div className="sticky top-20 z-10 py-0 md:py-0  md:px-0 mb-4">
         <div className="max-w-7xl mx-auto">
           <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-2">
             {/* Total Rooms */}

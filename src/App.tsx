@@ -38,6 +38,8 @@ import AdminNotificationsPage from "../app/admin/notifications/page";
 import AdminStaffPage from "../app/admin/staff/page";
 import AdminOffersPage from "../app/admin/offers/page";
 import AdminAddOnsPage from "../app/admin/add-ons/page";
+import AdminInventoryPage from "../app/admin/inventory/page";
+
 import AdminMastersPage from "../app/admin/masters/page";
 import AdminMastersValues from "../app/admin/masters/[itemId]/page";
 import AdminSettingsPage from "../app/admin/settings/page";
@@ -104,6 +106,8 @@ function App() {
             <Route path="staff" element={<AdminStaffPage />} />
             <Route path="offers" element={<AdminOffersPage />} />
             <Route path="add-ons" element={<AdminAddOnsPage />} />
+            <Route path="inventory" element={<AdminInventoryPage />} />
+
             <Route path="masters" element={<AdminMastersPage />} />
             <Route path="masters/:itemId" element={<AdminMastersValues />} />
             <Route path="settings" element={<AdminSettingsPage />} />

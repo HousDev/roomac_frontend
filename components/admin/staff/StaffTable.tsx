@@ -444,10 +444,10 @@ const StaffTable = ({
   }
 
   return (
-    <div className="px-0">
-      <div className="rounded-md border  sticky top-56 z-10">
-        <div className="max-h-[430px] md:max-h-[490px] overflow-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
-          <Table className="relative text-xs">
+    <div className="px-0 ">
+      <div className="rounded-md border  ">
+        <div className="max-h-[500px] md:max-h-[520px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 sticky top-60 z-10">
+          <Table className="relative text-xs ">
             <TableHeader className="">
               {/* Column Headers */}
               <TableRow className="bg-white shadow-sm">
@@ -577,7 +577,7 @@ const StaffTable = ({
                     </TableCell>
 
                     {/* Role */}
-                    <TableCell className="align-top py-1.5 px-2 w-[90px]">
+                    <TableCell className="align-top py-1.5 px-2 w-[200px] max-w-[200px]">
                       <Badge
                         variant="outline"
                         className={`${getRoleBadgeColor(member.role)} flex items-center gap-0.5 whitespace-nowrap text-[9px] px-1.5 py-0 h-5`}
@@ -711,10 +711,7 @@ const StaffTable = ({
         </div>
       </div>
 
-      {/* Mobile hint */}
-      <div className="md:hidden mt-2 text-[10px] text-gray-400 text-center">
-        Scroll horizontally to see more →
-      </div>
+     
     </div>
   );
 };

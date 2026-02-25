@@ -682,13 +682,12 @@ export default function OffersClientPage({
   }, [properties]);
 
   return (
-    <div className="min-h-screen bg-slate-50 -mt-8 px-0 md:px-0">
-      {/* <AdminHeader title="Offers" description={""} /> */}
+    <div className=" bg-slate-50 -mt-3 px-0 md:px-0">
 
-      <div className="p-6">
-        <Card className="border-0 shadow-xl bg-white">
+      <div className="p-0">
+        <Card className="border-0 shadow-xl bg-white sticky top-36 z-10 max-h-[650px]" >
         <CardHeader
-  className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-t-lg p-4 sm:p-6"
+  className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]  text-white rounded-t-lg p-4 sm:p-6"
 >
   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
     

@@ -485,7 +485,7 @@ export default function AdminLeaveRequestsPage() {
     <div className="p-0 bg-gradient-to-br from-blue-50/50 to-cyan-50/50 ">
       
       {/* Stats Cards - Responsive Grid */}
-<div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 mb-2 px-0 sticky top-14 sm:top-16 md:top-20 lg:top-24 xl:top-28 z-10 bg-gradient-to-br from-blue-50/50 to-cyan-50/50 pt-1 pb-1">    {/* Total Requests */}
+<div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 mb-2 px-0 sticky top-14 sm:top-20 md:top-20 lg:top-20 xl:top-28 z-10 bg-gradient-to-br from-blue-50/50 to-cyan-50/50 pt-1 pb-1">    {/* Total Requests */}
         <Card className="bg-gradient-to-br from-slate-50 to-slate-100 border-0 shadow-sm">
           <CardContent className="p-2 sm:p-3">
             <div className="flex items-center justify-between">
@@ -563,7 +563,7 @@ export default function AdminLeaveRequestsPage() {
       </div>
 
       {/* Actions Bar */}
-<div className="flex items-end justify-end mb-3 px-0 sticky top-[110px] sm:top-[120px] md:top-[150px] lg:top-[170px] xl:top-[190px] z-10 bg-gradient-to-br from-blue-50/50 to-cyan-50/50 py-1">  
+<div className="flex items-end justify-end mb-3 px-0 sticky top-[110px] sm:top-[180px] md:top-[180px] lg:top-[170px] xl:top-[190px] z-10 bg-gradient-to-br from-blue-50/50 to-cyan-50/50 py-1">  
   {/* Also update the buttons inside */}
   <div className="flex items-center gap-2 bg-gradient-to-br from-blue-50/50 to-cyan-50/50 px-2 py-1 rounded-lg">
     <Button variant="outline" size="sm" onClick={refreshData} disabled={refreshing} className="h-8 sm:h-9 text-xs sm:text-sm">
@@ -594,9 +594,9 @@ export default function AdminLeaveRequestsPage() {
               </Button>
             </div>
           ) : (
-            <div className="relative">
+            <div className="relative ">
               {/* Scrollable Table */}
-              <div className="overflow-y-auto max-h-[390px] md:max-h-[460px] rounded-b-lg">
+              <div className="overflow-y-auto max-h-[420px] md:max-h-[445px] rounded-b-lg sticky top-48 z-10">
                 <Table className="w-full">
 <TableHeader className="sticky top-0 z-20 bg-gradient-to-r from-gray-50 to-white shadow-sm">                    <TableRow className="hover:bg-transparent">
                       {/* ID Column */}
@@ -1141,12 +1141,7 @@ export default function AdminLeaveRequestsPage() {
                           <span className="text-xs">Completed</span>
                         </div>
                       </SelectItem>
-                      {/* <SelectItem value="cancelled">
-                        <div className="flex items-center gap-2">
-                          <XCircle className="h-3.5 w-3.5" />
-                          <span className="text-xs">Cancelled</span>
-                        </div>
-                      </SelectItem> */}
+                     
                     </SelectContent>
                   </Select>
                 </div>

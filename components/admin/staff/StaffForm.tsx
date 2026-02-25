@@ -145,6 +145,7 @@ const StaffForm = ({
             value={formData.phone}
             onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
             required
+            maxLength={10}
           />
         </div>
 

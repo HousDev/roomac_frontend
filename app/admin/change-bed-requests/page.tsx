@@ -382,11 +382,11 @@ export default function AdminChangeBedRequestsPage() {
   }
 
   return (
-    <div className="p-0 bg-gradient-to-br from-blue-50/50 to-cyan-50/50 min-h-screen">
+    <div className="p-0 bg-gradient-to-br from-blue-50/50 to-cyan-50/50 ">
       
       {/* Stats Cards - Responsive Grid */}
       {stats && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 mb-2 px-0 sticky top-24 z-10">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 mb-2 px-0 sticky top-20 z-10">
           {/* Total Requests */}
           <Card className="bg-gradient-to-br from-slate-50 to-slate-100 border-0 shadow-sm">
             <CardContent className="p-2 sm:p-3">
@@ -466,60 +466,105 @@ export default function AdminChangeBedRequestsPage() {
       )}
 
       {/* Actions Bar */}
-      <div className="flex items-center justify-between mb-3 px-0">
-        <div className="flex items-center gap-2">
-          <div className="relative w-64">
-            <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <Input
-              placeholder="Search requests..."
-              value={filters.search}
-              onChange={(e) => handleFilterChange('search', e.target.value)}
-              className="pl-8 h-9 text-sm"
-            />
-          </div>
-          <Select value={filters.status} onValueChange={(value) => handleFilterChange('status', value)}>
-            <SelectTrigger className="w-32 h-9 text-sm">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="approved">Approved</SelectItem>
-              <SelectItem value="rejected">Rejected</SelectItem>
-              <SelectItem value="processed">Processed</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={filters.sort_by} onValueChange={(value) => handleFilterChange('sort_by', value)}>
-            <SelectTrigger className="w-32 h-9 text-sm">
-              <SelectValue placeholder="Sort by" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="created_at">Created Date</SelectItem>
-              <SelectItem value="shifting_date">Shifting Date</SelectItem>
-              <SelectItem value="priority">Priority</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={filters.sort_order} onValueChange={(value) => handleFilterChange('sort_order', value)}>
-            <SelectTrigger className="w-32 h-9 text-sm">
-              <SelectValue placeholder="Order" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="desc">Descending</SelectItem>
-              <SelectItem value="asc">Ascending</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={refreshData} disabled={refreshing} className="h-9">
-            <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-          <Button variant="outline" size="sm" className="h-9">
-            <Download className="h-4 w-4 mr-2" />
-            Export
-          </Button>
-        </div>
+<div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-3 px-0 gap-3 lg:gap-0 sticky top-36 z-10">
+  
+  {/* LEFT SECTION */}
+  <div className="flex flex-col gap-2 w-full lg:flex-row lg:flex-wrap lg:items-center lg:w-auto">
+
+    {/* Row 1 → Search + Status (Mobile Grid) */}
+    <div className="grid grid-cols-2 gap-2 w-full lg:flex lg:w-auto">
+      
+      {/* Search */}
+      <div className="relative w-full lg:w-64 col-span-1">
+        <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <Input
+          placeholder="Search requests..."
+          value={filters.search}
+          onChange={(e) => handleFilterChange('search', e.target.value)}
+          className="pl-8 h-9 text-sm w-full"
+        />
       </div>
+
+      {/* Status */}
+      <Select
+        value={filters.status}
+        onValueChange={(value) => handleFilterChange('status', value)}
+      >
+        <SelectTrigger className="w-full h-9 text-sm">
+          <SelectValue placeholder="Status" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All Status</SelectItem>
+          <SelectItem value="pending">Pending</SelectItem>
+          <SelectItem value="approved">Approved</SelectItem>
+          <SelectItem value="rejected">Rejected</SelectItem>
+          <SelectItem value="processed">Processed</SelectItem>
+        </SelectContent>
+      </Select>
+
+    </div>
+
+    {/* Row 2 → Created Date + Descending (Mobile Grid) */}
+    <div className="grid grid-cols-2 gap-2 w-full lg:flex lg:w-auto">
+
+      {/* Sort By */}
+      <Select
+        value={filters.sort_by}
+        onValueChange={(value) => handleFilterChange('sort_by', value)}
+      >
+        <SelectTrigger className="w-full h-9 text-sm">
+          <SelectValue placeholder="Sort by" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="created_at">Created Date</SelectItem>
+          <SelectItem value="shifting_date">Shifting Date</SelectItem>
+          <SelectItem value="priority">Priority</SelectItem>
+        </SelectContent>
+      </Select>
+
+      {/* Sort Order */}
+      <Select
+        value={filters.sort_order}
+        onValueChange={(value) => handleFilterChange('sort_order', value)}
+      >
+        <SelectTrigger className="w-full h-9 text-sm">
+          <SelectValue placeholder="Order" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="desc">Descending</SelectItem>
+          <SelectItem value="asc">Ascending</SelectItem>
+        </SelectContent>
+      </Select>
+
+    </div>
+
+  </div>
+
+  {/* RIGHT SECTION (Already Grid for Mobile) */}
+  <div className="grid grid-cols-2 gap-2 w-full sm:flex sm:w-auto sm:items-center">
+
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={refreshData}
+      disabled={refreshing}
+      className="h-9 w-full sm:w-auto"
+    >
+      <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+      Refresh
+    </Button>
+
+    <Button
+      variant="outline"
+      size="sm"
+      className="h-9 w-full sm:w-auto"
+    >
+      <Download className="h-4 w-4 mr-2" />
+      Export
+    </Button>
+
+  </div>
+</div>
 
       {/* Main Table Card */}
       <Card className="shadow-lg border-0 overflow-hidden mb-6">
