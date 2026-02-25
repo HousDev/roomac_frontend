@@ -8,7 +8,7 @@ import {
   Check, CalendarDays, IndianRupee, Shield,
   Smartphone, Wallet, Building2, Lock, DoorOpen, BedDouble,
   Home, Grid, ChevronRight, MapPin, Hash, Layers, UserCircle,
-  AlertCircle, CheckCircle, XCircle, ArrowLeft, Sparkles
+  AlertCircle, CheckCircle, XCircle, ArrowLeft, Sparkles, Heart
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { listRoomsByProperty } from "@/lib/roomsApi";
@@ -55,6 +55,7 @@ interface BookingData {
   email: string;
   phone: string;
   gender: string;
+  isCouple: boolean;
   moveInDate: string;
   checkInDate: string;
   checkOutDate: string;
@@ -317,14 +318,40 @@ const ConfirmationModal = ({
 
 const SALUTATIONS = ['Mr.', 'Mrs.', 'Ms.', 'Dr.', 'Prof.', 'Adv.', 'Er.', 'Miss'];
 
-const isRoomAllowedForGender = (room: any, gender: string): boolean => {
-  if (!gender || gender === 'all' || gender === '') return true;
+const isRoomAllowedForGender = (room: any, gender: string, isCouple: boolean): boolean => {
+  // Gender is always mandatory
+  if (!gender) return false;
   
   const preferences = room.gender_preference || [];
   if (preferences.length === 0) return true;
   
   const normalizedGender = gender.toLowerCase();
   
+  // For couple bookings
+  if (isCouple) {
+    // Check if room allows couples OR both/mixed
+    const hasCouples = preferences.some((p: string) => 
+      p.toLowerCase() === 'couples'
+    );
+    const hasBoth = preferences.some((p: string) => 
+      p.toLowerCase() === 'both' || p.toLowerCase() === 'any' || p.toLowerCase() === 'mixed'
+    );
+    
+    // Also need to check if the room allows the individual's gender
+    const genderAllowed = preferences.some((p: string) => {
+      const prefLower = p.toLowerCase();
+      if (normalizedGender === 'male') {
+        return prefLower === 'male_only' || prefLower === 'male' || prefLower === 'both' || prefLower === 'mixed' || prefLower === 'couples';
+      } else if (normalizedGender === 'female') {
+        return prefLower === 'female_only' || prefLower === 'female' || prefLower === 'both' || prefLower === 'mixed' || prefLower === 'couples';
+      }
+      return false;
+    });
+    
+    return (hasCouples || hasBoth) && genderAllowed;
+  }
+  
+  // Individual booking logic
   if (normalizedGender === 'male') {
     const hasMaleOnly = preferences.some((p: string) => 
       p.toLowerCase() === 'male_only' || p.toLowerCase() === 'male'
@@ -363,9 +390,7 @@ const isRoomAllowedForGender = (room: any, gender: string): boolean => {
     return hasFemaleOnly || hasBoth || hasCouples;
   }
   
-  return preferences.some((p: string) => 
-    p.toLowerCase() === 'both' || p.toLowerCase() === 'any' || p.toLowerCase() === 'mixed'
-  ) || preferences.length === 0;
+  return false;
 };
 
 const formatSharingType = (type: string): string => {
@@ -437,6 +462,7 @@ const BookingModal = memo(function BookingModal({
     email: '',
     phone: '',
     gender: '',
+    isCouple: false,
     moveInDate: '',
     checkInDate: '',
     checkOutDate: '',
@@ -573,7 +599,9 @@ const BookingModal = memo(function BookingModal({
         let filteredRooms = [...availableRooms];
         
         if (formData.gender) {
-          filteredRooms = filteredRooms.filter((room: any) => isRoomAllowedForGender(room, formData.gender));
+          filteredRooms = filteredRooms.filter((room: any) => 
+            isRoomAllowedForGender(room, formData.gender, formData.isCouple)
+          );
         }
         
         if (selectedSharingType && selectedSharingType !== 'all') {
@@ -613,15 +641,15 @@ const BookingModal = memo(function BookingModal({
     setSelectedRoomType('all');
     
     // Re-apply filters (which will now show all rooms)
-    if (allRooms && allRooms.length > 0) {
+    if (allRooms && allRooms.length > 0 && formData.gender) {
       let filtered = [...allRooms];
       
-      if (formData.gender) {
-        filtered = filtered.filter(room => isRoomAllowedForGender(room, formData.gender));
-      }
+      filtered = filtered.filter(room => 
+        isRoomAllowedForGender(room, formData.gender, formData.isCouple)
+      );
       
       setRooms(filtered);
-      setRoomsError(filtered.length === 0 ? 'No rooms match your gender preference' : '');
+      setRoomsError(filtered.length === 0 ? 'No rooms match your selection' : '');
     }
   };
 
@@ -664,7 +692,9 @@ const BookingModal = memo(function BookingModal({
         dailyRate: 0,
         floor: '',
         couponCode: '',
-        agreeToTerms: false
+        agreeToTerms: false,
+        gender: '',
+        isCouple: false
       }));
 
       if (propertyData?.id) {
@@ -690,6 +720,7 @@ const BookingModal = memo(function BookingModal({
         email: '',
         phone: '',
         gender: '',
+        isCouple: false,
         moveInDate: '',
         checkInDate: '',
         checkOutDate: '',
@@ -725,13 +756,19 @@ const BookingModal = memo(function BookingModal({
         
         const genderPref = room.gender_preference || [];
         let autoGender = '';
+        let autoIsCouple = false;
         
+        if (genderPref.includes('couples')) {
+          autoIsCouple = true;
+        }
+        
+        // Auto-select gender based on room preference
         if (genderPref.includes('male_only') || genderPref.includes('male')) {
           autoGender = 'male';
         } else if (genderPref.includes('female_only') || genderPref.includes('female')) {
           autoGender = 'female';
-        } else if (genderPref.includes('couples')) {
-          autoGender = 'male';
+        } else if (genderPref.includes('both') || genderPref.includes('mixed')) {
+          autoGender = 'male'; // Default to male for mixed rooms
         }
         
         setFormData(prev => ({
@@ -742,7 +779,8 @@ const BookingModal = memo(function BookingModal({
           monthlyRent: room.monthly_rent,
           dailyRate: room.daily_rate,
           floor: room.floor || 'Ground',
-          gender: autoGender || prev.gender
+          gender: autoGender || prev.gender,
+          isCouple: autoIsCouple
         }));
       }
     }
@@ -750,12 +788,12 @@ const BookingModal = memo(function BookingModal({
 
   // Filter rooms effect
   useEffect(() => {
-    if (allRooms && allRooms.length > 0) {
+    if (allRooms && allRooms.length > 0 && formData.gender) {
       let filtered = [...allRooms];
 
-      if (formData.gender) {
-        filtered = filtered.filter(room => isRoomAllowedForGender(room, formData.gender));
-      }
+      filtered = filtered.filter(room => 
+        isRoomAllowedForGender(room, formData.gender, formData.isCouple)
+      );
 
       if (selectedSharingType && selectedSharingType !== 'all') {
         filtered = filtered.filter(room => 
@@ -790,12 +828,7 @@ const BookingModal = memo(function BookingModal({
         setRoomsError('');
       }
     }
-  }, [formData.gender, allRooms, selectedSharingType, selectedRoomType, selectedRoom]);
-
-  useEffect(() => {
-    setSelectedSharingType('all');
-    setSelectedRoomType('all');
-  }, [formData.gender]);
+  }, [formData.gender, formData.isCouple, allRooms, selectedSharingType, selectedRoomType, selectedRoom]);
 
   const validatePhone = (phone: string) => {
     const phoneRegex = /^[0-9]{10}$/;
@@ -819,15 +852,35 @@ const BookingModal = memo(function BookingModal({
     
     const genderPref = room.gender_preference || [];
     let autoGender = formData.gender;
+    let autoIsCouple = formData.isCouple;
     
-    if (genderPref.includes('male_only') || genderPref.includes('male')) {
-      autoGender = 'male';
-    } else if (genderPref.includes('female_only') || genderPref.includes('female')) {
-      autoGender = 'female';
-    } else if (genderPref.includes('couples')) {
-      autoGender = formData.gender || 'male';
-    } else if (genderPref.includes('both') || genderPref.includes('any') || genderPref.includes('mixed')) {
-      autoGender = formData.gender || 'male';
+    // Auto-adjust based on room preferences
+    if (genderPref.includes('couples')) {
+      autoIsCouple = true;
+    }
+    
+    // Keep existing gender if valid for this room
+    if (formData.gender) {
+      const isGenderAllowed = genderPref.some((p: string) => {
+        const prefLower = p.toLowerCase();
+        if (formData.gender === 'male') {
+          return prefLower === 'male_only' || prefLower === 'male' || prefLower === 'both' || prefLower === 'mixed' || prefLower === 'couples';
+        } else if (formData.gender === 'female') {
+          return prefLower === 'female_only' || prefLower === 'female' || prefLower === 'both' || prefLower === 'mixed' || prefLower === 'couples';
+        }
+        return false;
+      });
+      
+      if (!isGenderAllowed) {
+        // Default to room's preferred gender
+        if (genderPref.includes('male_only') || genderPref.includes('male')) {
+          autoGender = 'male';
+        } else if (genderPref.includes('female_only') || genderPref.includes('female')) {
+          autoGender = 'female';
+        } else {
+          autoGender = 'male'; // Default
+        }
+      }
     }
     
     setFormData(prev => ({
@@ -838,9 +891,10 @@ const BookingModal = memo(function BookingModal({
       monthlyRent: room.monthly_rent,
       dailyRate: room.daily_rate,
       floor: room.floor || 'Ground',
-      gender: autoGender
+      gender: autoGender,
+      isCouple: autoIsCouple
     }));
-  }, [formData.gender]);
+  }, [formData.gender, formData.isCouple]);
 
   const calculateRent = useCallback(() => {
     if (bookingType === 'short') {
@@ -850,9 +904,13 @@ const BookingModal = memo(function BookingModal({
       if (isNaN(checkIn.getTime()) || isNaN(checkOut.getTime())) return 0;
 
       const days = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
-      return days * (selectedRoom.daily_rate || propertyData?.dailyRate || 500);
+      // For couple bookings, multiply rent by 2
+      const rentMultiplier = formData.isCouple ? 2 : 1;
+      return days * (selectedRoom.daily_rate || propertyData?.dailyRate || 500) * rentMultiplier;
     } else {
-      return selectedRoom?.monthly_rent || propertyData?.monthly_rent || propertyData?.price || 0;
+      // For long stay, couple bookings multiply by 2
+      const rentMultiplier = formData.isCouple ? 2 : 1;
+      return (selectedRoom?.monthly_rent || propertyData?.monthly_rent || propertyData?.price || 0) * rentMultiplier;
     }
   }, [bookingType, selectedRoom, formData, propertyData]);
 
@@ -889,6 +947,7 @@ const BookingModal = memo(function BookingModal({
       email: formData.email,
       phone: formData.phone,
       gender: formData.gender,
+      isCouple: formData.isCouple,
       moveInDate: formData.moveInDate,
       checkInDate: formData.checkInDate,
       checkOutDate: formData.checkOutDate,
@@ -920,6 +979,8 @@ const BookingModal = memo(function BookingModal({
         ...prepareBookingData(),
         paymentStatus,
         bookingStatus: paymentStatus === "paid" ? "confirmed" : "pending",
+        gender: formData.gender, // Make sure gender is included
+      isCouple: formData.isCouple // Add isCouple field
       };
 
       const response = await fetch(`${import.meta.env.VITE_API_URL}/api/bookings`, {
@@ -935,6 +996,7 @@ const BookingModal = memo(function BookingModal({
           roomNumber: selectedRoom?.room_number,
           totalAmount: calculateTotalPayable(),
           paymentMethod,
+           isCouple: formData.isCouple,
         });
         setShowConfirmation(true);
 
@@ -991,7 +1053,9 @@ const BookingModal = memo(function BookingModal({
         notes: {
           property_id: propertyData?.id,
           room_id: selectedRoom?.id,
-          booking_type: bookingType
+          booking_type: bookingType,
+          is_couple: formData.isCouple,
+          gender: formData.gender
         },
         theme: { color: "#2563eb" },
         modal: {
@@ -1013,8 +1077,12 @@ const BookingModal = memo(function BookingModal({
     e.preventDefault();
 
     if (bookingStep === 1) {
-      if (!formData.fullName || !formData.email || !formData.phone || !formData.gender) {
+      if (!formData.fullName || !formData.email || !formData.phone) {
         alert('Please fill all required fields');
+        return;
+      }
+      if (!formData.gender) {
+        alert('Please select gender');
         return;
       }
       if (!validatePhone(formData.phone)) {
@@ -1192,6 +1260,7 @@ const BookingModal = memo(function BookingModal({
                         </p>
                         <p className="text-[10px] text-gray-600 truncate">
                           {formatSharingType(selectedRoom.sharing_type)}
+                          {formData.isCouple && ' • 👫 Couple'}
                         </p>
                       </div>
                     </div>
@@ -1301,19 +1370,19 @@ const BookingModal = memo(function BookingModal({
                       </div>
                     </div>
 
+                    {/* Gender Selection - Male/Female only (mandatory) */}
                     <div>
                       <label className="block text-[10px] sm:text-xs font-semibold text-gray-700 mb-1">
                         Gender <span className="text-red-500">*</span>
                       </label>
-                      <div className="grid grid-cols-3 gap-2">
-                        {['male', 'female', 'other'].map((gender) => (
+                      <div className="grid grid-cols-2 gap-2">
+                        {['male', 'female'].map((gender) => (
                           <label
                             key={gender}
                             className={`flex items-center justify-center gap-1 p-2 border-2 rounded-lg cursor-pointer transition-all capitalize ${
                               formData.gender === gender
                                 ? gender === 'male' ? 'border-blue-500 bg-blue-50 shadow' :
-                                  gender === 'female' ? 'border-pink-500 bg-pink-50 shadow' :
-                                    'border-purple-500 bg-purple-50 shadow'
+                                  'border-pink-500 bg-pink-50 shadow'
                                 : 'border-gray-300 hover:border-gray-400'
                             }`}
                           >
@@ -1325,36 +1394,31 @@ const BookingModal = memo(function BookingModal({
                               onChange={(e) => {
                                 const newGender = e.target.value;
                                 handleInputChange('gender', newGender);
-                                
-                                if (allRooms.length > 0) {
-                                  const filtered = allRooms.filter(room => 
-                                    isRoomAllowedForGender(room, newGender)
-                                  );
-                                  setRooms(filtered);
-                                  
-                                  if (selectedRoom && !isRoomAllowedForGender(selectedRoom, newGender)) {
-                                    setSelectedRoom(null);
-                                    setFormData(prev => ({
-                                      ...prev,
-                                      roomId: '',
-                                      roomNumber: '',
-                                      sharingType: '',
-                                      monthlyRent: 0,
-                                      dailyRate: 0,
-                                      floor: ''
-                                    }));
-                                  }
-                                }
                               }}
                               className="sr-only"
                             />
                             <span className="text-base sm:text-lg">
-                              {gender === 'male' ? '👨' : gender === 'female' ? '👩' : '⚧️'}
+                              {gender === 'male' ? '👨' : '👩'}
                             </span>
                             <span className="text-[10px] sm:text-xs font-semibold">{gender}</span>
                           </label>
                         ))}
                       </div>
+                    </div>
+
+                    {/* Couple Booking Checkbox (optional) */}
+                    <div className="flex items-center gap-2 p-2 bg-red-50 border border-red-200 rounded-lg">
+                      <input
+                        type="checkbox"
+                        id="isCouple"
+                        checked={formData.isCouple}
+                        onChange={(e) => handleInputChange('isCouple', e.target.checked)}
+                        className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+                      />
+                      <label htmlFor="isCouple" className="flex items-center gap-1 text-xs font-medium text-gray-700 cursor-pointer">
+                        <Heart className="w-4 h-4 text-red-500" />
+                        Booking for Couple
+                      </label>
                     </div>
 
                     {bookingType === 'long' ? (
@@ -1461,6 +1525,19 @@ const BookingModal = memo(function BookingModal({
                     </div>
                   ) : (
                     <div className="space-y-2.5">
+                      {/* Selection Summary */}
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 flex items-center gap-2">
+                        {formData.gender === 'male' && <span className="text-base">👨</span>}
+                        {formData.gender === 'female' && <span className="text-base">👩</span>}
+                        <span className="text-xs font-medium text-gray-700 capitalize">{formData.gender}</span>
+                        {formData.isCouple && (
+                          <>
+                            <Heart className="w-4 h-4 text-red-500" />
+                            <span className="text-xs font-medium text-gray-700">Couple Booking</span>
+                          </>
+                        )}
+                      </div>
+
                       {/* Filter Toggle Button */}
                       <button
                         type="button"
@@ -1629,6 +1706,11 @@ const BookingModal = memo(function BookingModal({
                             statusColor = 'text-orange-600';
                             statusBg = 'bg-orange-50';
                           }
+
+                          // Check if room is couple-friendly
+                          const isCoupleFriendly = genderPreferences.some(p => 
+                            p.toLowerCase() === 'couples' || p.toLowerCase() === 'both' || p.toLowerCase() === 'mixed'
+                          );
                           
                           return (
                             <label
@@ -1720,6 +1802,16 @@ const BookingModal = memo(function BookingModal({
                                   </div>
                                 )}
 
+                                {/* Couple-friendly badge */}
+                                {isCoupleFriendly && (
+                                  <div className="flex items-center gap-1 mt-1">
+                                    <Badge className="bg-red-100 text-red-700 text-[7px] px-1.5 py-0">
+                                      <Heart className="w-2 h-2 mr-0.5" />
+                                      Couple Friendly
+                                    </Badge>
+                                  </div>
+                                )}
+
                                 <div className="flex items-center gap-1 text-[8px] mt-1">
                                   <div className={`px-1.5 py-0.5 rounded-full ${statusBg} ${statusColor} font-medium`}>
                                     {status === 'available' && '✨ Available'}
@@ -1746,6 +1838,11 @@ const BookingModal = memo(function BookingModal({
                                 <span className="text-[8px] text-gray-500 ml-0.5">
                                   /{bookingType === 'long' ? 'mo' : 'day'}
                                 </span>
+                                {formData.isCouple && (
+                                  <span className="ml-2 text-[8px] text-green-600 font-semibold">
+                                    (×2 persons)
+                                  </span>
+                                )}
                               </div>
                             </label>
                           );
@@ -1774,7 +1871,7 @@ const BookingModal = memo(function BookingModal({
                           {formData.salutation} {formData.fullName}
                         </p>
                         <p className="text-[10px] text-gray-600 truncate">
-                          {formData.email} • +91 {formData.phone} • {formData.gender}
+                          {formData.email} • +91 {formData.phone} • {formData.gender} {formData.isCouple ? '(Couple)' : ''}
                         </p>
                       </div>
                     </div>
@@ -1823,6 +1920,7 @@ const BookingModal = memo(function BookingModal({
                       <div className="flex justify-between items-center">
                         <span className="text-[10px] sm:text-xs text-gray-700">
                           {bookingType === 'long' ? 'Monthly Rent' : 'Stay Charges'}
+                          {/* {formData.isCouple && ' (2 persons)'} */}
                         </span>
                         <span className="text-xs font-bold text-gray-900">₹{calculateRent().toLocaleString()}</span>
                       </div>
@@ -1832,6 +1930,7 @@ const BookingModal = memo(function BookingModal({
                           <span>Duration</span>
                           <span>
                             {Math.ceil((new Date(formData.checkOutDate).getTime() - new Date(formData.checkInDate).getTime()) / (1000 * 60 * 60 * 24))} days × ₹{selectedRoom.daily_rate}/day
+                            {formData.isCouple && ' × 2 persons'}
                           </span>
                         </div>
                       )}

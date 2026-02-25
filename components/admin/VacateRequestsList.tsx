@@ -2740,7 +2740,7 @@ export default function VacateRequestsList() {
                   <SelectItem value="under_review">Under Review</SelectItem>
                   <SelectItem value="approved">Approve</SelectItem>
                   <SelectItem value="rejected">Reject</SelectItem>
-                  <SelectItem value="cancelled">Cancel</SelectItem>
+                  {/* <SelectItem value="cancelled">Cancel</SelectItem> */}
                   <SelectItem value="completed">Mark as Completed</SelectItem>
                 </SelectContent>
               </Select>

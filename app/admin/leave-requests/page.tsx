@@ -1,5 +1,5 @@
 
-
+// app/admin/leave-requests/page.tsx
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -66,7 +66,7 @@ interface LeaveRequest {
   title: string;
   description: string;
   priority: 'low' | 'medium' | 'high' | 'urgent';
-  status: 'pending' | 'in_progress' | 'approved' | 'rejected' | 'completed' | 'cancelled';
+  status: 'pending' | 'in_progress' | 'approved' | 'rejected' | 'completed' ;
   admin_notes: string | null;
   assigned_to: number | null;
   assigned_to_name?: string;
@@ -87,7 +87,7 @@ interface LeaveRequest {
 }
 
 interface UpdateLeaveStatusPayload {
-  status: 'approved' | 'rejected' | 'in_progress' | 'completed' | 'cancelled';
+  status: 'approved' | 'rejected' | 'in_progress' | 'completed' ;
   admin_notes?: string;
   assigned_to?: number;
 }
@@ -195,7 +195,7 @@ export default function AdminLeaveRequestsPage() {
     rejected: 0,
     completed: 0,
     in_progress: 0,
-    cancelled: 0
+    // cancelled: 0
   });
   const [sortField, setSortField] = useState<keyof LeaveRequest>('created_at');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
@@ -410,7 +410,7 @@ export default function AdminLeaveRequestsPage() {
       approved: { variant: 'default', icon: CheckCircle },
       rejected: { variant: 'destructive', icon: XCircle },
       completed: { variant: 'default', icon: CheckCircle },
-      cancelled: { variant: 'secondary', icon: XCircle }
+      // cancelled: { variant: 'secondary', icon: XCircle }
     };
 
     const config = variants[status] || variants.pending;
@@ -451,7 +451,7 @@ export default function AdminLeaveRequestsPage() {
       case 'approved': return <CheckCircle className="h-3 w-3" />;
       case 'rejected': return <XCircle className="h-3 w-3" />;
       case 'completed': return <CheckCircle className="h-3 w-3" />;
-      case 'cancelled': return <XCircle className="h-3 w-3" />;
+      // case 'cancelled': return <XCircle className="h-3 w-3" />;
       default: return <Clock className="h-3 w-3" />;
     }
   };
@@ -1141,12 +1141,12 @@ export default function AdminLeaveRequestsPage() {
                           <span className="text-xs">Completed</span>
                         </div>
                       </SelectItem>
-                      <SelectItem value="cancelled">
+                      {/* <SelectItem value="cancelled">
                         <div className="flex items-center gap-2">
                           <XCircle className="h-3.5 w-3.5" />
                           <span className="text-xs">Cancelled</span>
                         </div>
-                      </SelectItem>
+                      </SelectItem> */}
                     </SelectContent>
                   </Select>
                 </div>
