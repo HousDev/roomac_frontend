@@ -56,8 +56,8 @@ import { tenantDetailsApi } from "@/lib/tenantDetailsApi";
 import {
   getMyTenantRequests,
   createTenantRequest,
-  getComplaintCategoriesFromMasters as getComplaintCategories,
-  getComplaintReasonsFromMasters as getComplaintReasons,
+   getComplaintCategories,
+   getComplaintReasons,
   getLeaveTypesFromMasters,
   type TenantRequest,
   type ComplaintCategory,

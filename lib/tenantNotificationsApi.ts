@@ -24,8 +24,21 @@ export const getTenantNotifications = async (limit: number = 20): Promise<Notifi
       method: "GET",
     });
 
-    if (res.success && Array.isArray(res.data)) {
-      return res.data;
+     if (res.success && Array.isArray(res.data)) {
+      // Map the data to match your Notification type
+      return res.data.map(n => ({
+        id: n.id.toString(),
+        title: n.title,
+        message: n.message,
+        notification_type: n.notification_type,
+        type: n.notification_type,
+        is_read: n.is_read === 1,
+        created_at: n.created_at,
+        related_entity_type: n.related_entity_type,
+        related_entity_id: n.related_entity_id,
+        priority: n.priority,
+        read_at: n.read_at
+      }));
     }
     return [];
   } catch (error) {

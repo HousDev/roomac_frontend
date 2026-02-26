@@ -18,7 +18,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { logoutTenant, type TenantProfile } from "@/lib/tenantAuthApi";
+import { getTenantId, logoutTenant, type TenantProfile } from "@/lib/tenantAuthApi";
 import { tenantDetailsApi } from "@/lib/tenantDetailsApi";
 import {
   getTenantNotifications,
@@ -78,6 +78,7 @@ function NotificationPopup({
   }, [onClose]);
 
   const getIcon = (type: string) => {
+    console.log("🎨 Getting icon for type: ", type)
     switch (type) {
       case "payment":   return <CreditCard className="h-4 w-4 text-blue-600" />;
       case "complaint": return <AlertCircle className="h-4 w-4 text-orange-600" />;
@@ -518,6 +519,8 @@ function TenantHeader({
     
     if (notificationType === "payment")        onNavigate("/tenant/portal#payments");
     else if (notificationType === "complaint") onNavigate("/tenant/requests");
+     else if (notificationType === "maintenance") onNavigate("/tenant/requests");
+  else if (notificationType === "change_bed") onNavigate("/tenant/requests"); // Add this
     else if (notificationType === "document")  onNavigate("/tenant/documents");
     else                                        onNavigate("/tenant/portal/#notifications");
   };
@@ -565,6 +568,8 @@ function TenantHeader({
                 </Badge>
               )}
             </Button>
+
+            
             {notificationsOpen && (
               <NotificationPopup
                 notifications={notifications}
@@ -580,6 +585,7 @@ function TenantHeader({
               />
             )}
           </div>
+          
 
           {/* Profile Dropdown */}
           <div className="relative" ref={profileRef}>
@@ -674,30 +680,57 @@ export default function TenantLayout() {
   }, []);
 
   // Load notifications
-  const loadNotifications = async (showLoading = true) => {
-    try {
-      if (showLoading) setLoadingNotifications(true);
-      const [notifs, count] = await Promise.all([
-        getTenantNotifications(10),
-        getUnreadNotificationCount()
-      ]);
-      
-      // Transform API notifications to match component format
-      const formattedNotifs = notifs.map(n => ({
+// Load notifications
+const loadNotifications = async (showLoading = true) => {
+  try {
+    if (showLoading) setLoadingNotifications(true);
+    
+    console.log('🔍 ===== FETCHING NOTIFICATIONS =====');
+    console.log('👤 Current tenant ID from getTenantId():', getTenantId());
+    
+    // Also check localStorage directly
+    const localTenantId = localStorage.getItem('tenant_id');
+    console.log('👤 Tenant ID from localStorage:', localTenantId);
+    
+    const [notifs, count] = await Promise.all([
+      getTenantNotifications(20),
+      getUnreadNotificationCount()
+    ]);
+    
+    // console.log('📦 Raw notifications from API:', JSON.stringify(notifs, null, 2));
+    // console.log('🔢 Unread count from API:', count);
+    
+    // Check if any change_bed notifications exist
+    const changeBedNotifs = notifs.filter(n => n.notification_type === 'change_bed');
+    console.log('🛏️ Change bed notifications found:', changeBedNotifs.length);
+    
+    if (changeBedNotifs.length > 0) {
+      console.log('📋 First change bed notification:', changeBedNotifs[0]);
+    } else {
+      console.log('❌ No change bed notifications found!');
+    }
+    
+    // Transform API notifications to match component format
+    const formattedNotifs = notifs.map(n => {
+      return {
         ...n,
         type: n.notification_type // Add type for backward compatibility
-      }));
-      
-      setNotifications(formattedNotifs);
-      setNotificationCount(count);
-    } catch (error) {
-      console.error('Error loading notifications:', error);
-    } finally {
-      if (showLoading) setLoadingNotifications(false);
-      setInitialLoadDone(true);
-    }
-  };
-
+      };
+    });
+    
+    setNotifications(formattedNotifs);
+    setNotificationCount(count);
+    
+    console.log('✅ Notifications state updated, total:', formattedNotifs.length);
+    console.log('🔚 ===== FETCH NOTIFICATIONS COMPLETE =====');
+    
+  } catch (error) {
+    console.error('❌ Error loading notifications:', error);
+  } finally {
+    if (showLoading) setLoadingNotifications(false);
+    setInitialLoadDone(true);
+  }
+};
   // Load notifications on mount
   useEffect(() => {
     loadNotifications(true);

@@ -22,6 +22,7 @@ import { RequestFilters } from './RequestFilters';
 import { RequestCard } from './RequestCard';
 import { ChangeBedForm } from './ChangeBedForm';
 import { QUICK_REQUESTS, type RequestFormData } from './requestConfig';
+import { getDisplayStatus, getStatusConfig } from './requestStatusMapper';
 
 // Import API functions
 import {
@@ -34,9 +35,9 @@ import {
   getAvailableRooms,
   getAvailableBedsForRoom,
   getLeaveTypesFromMasters,
-  getComplaintCategoriesFromMasters as getComplaintCategories,
-  getComplaintReasonsFromMasters as getComplaintReasons,
-   getMaintenanceCategoriesFromMasters,
+  getComplaintCategories,
+  getComplaintReasons,
+  getMaintenanceCategoriesFromMasters,
   getMaintenanceLocationsFromMasters,
   getVisitTimesFromMasters,
   type TenantRequest,
@@ -256,18 +257,22 @@ const loadAllData = useCallback(async () => {
     }
 
     // Handle vacate reasons - FIXED VERSION
-    if (results[5].status === 'fulfilled') {
-      const response:any = results[5].value;
-      console.log('📋 Vacate reasons response:', response);
-      
-      if (response && response.success && Array.isArray(response.data)) {
-        setVacateReasons(response.data);
-      } else if (Array.isArray(response)) {
-        setVacateReasons(response);
-      } else {
-        setVacateReasons([]);
-      }
-    }
+    // Handle vacate reasons
+if (results[5].status === 'fulfilled') {
+  const response: any = results[5].value;
+  console.log('📋 Vacate reasons response:', response);
+  
+  if (response && Array.isArray(response)) {
+    setVacateReasons(response);
+    console.log('✅ Vacate reasons set:', response);
+  } else if (response && response.success && Array.isArray(response.data)) {
+    setVacateReasons(response.data);
+    console.log('✅ Vacate reasons set from data:', response.data);
+  } else {
+    console.warn('⚠️ Unexpected vacate reasons format:', response);
+    setVacateReasons([]);
+  }
+}
 
     // Handle leave types
     if (results[6].status === 'fulfilled') {
@@ -354,28 +359,38 @@ const loadAllData = useCallback(async () => {
   }, [loadAllData]);
 
   // Memoized values
-  const filteredRequests = useMemo(() => {
-    if (activeFilter === 'all') return requests;
-    return requests.filter(req => req.status === activeFilter);
-  }, [requests, activeFilter]);
+// Update the filteredRequests memo
+const filteredRequests = useMemo(() => {
+  if (activeFilter === 'all') return requests;
+  
+  return requests.filter(req => {
+    const displayStatus = getDisplayStatus(req);
+    return displayStatus === activeFilter;
+  });
+}, [requests, activeFilter]);
 
-  const requestCounts = useMemo(() => {
-    const counts: Record<string, number> = {
-      all: requests.length,
-      pending: 0,
-      in_progress: 0,
-      resolved: 0,
-      closed: 0
-    };
+// Update the requestCounts calculation
+const requestCounts = useMemo(() => {
+  const counts: Record<string, number> = {
+    all: requests.length,
+    pending: 0,
+    in_progress: 0,
+    approved: 0,
+    rejected: 0,
+    completed: 0,
+    resolved: 0,
+    closed: 0
+  };
 
-    requests.forEach(req => {
-      if (req.status in counts) {
-        counts[req.status]++;
-      }
-    });
+  requests.forEach(req => {
+    const displayStatus = getDisplayStatus(req);
+    if (displayStatus in counts) {
+      counts[displayStatus]++;
+    }
+  });
 
-    return counts;
-  }, [requests]);
+  return counts;
+}, [requests]);
 
   // Event handlers
   const handleQuickRequest = useCallback((type: string) => {
@@ -889,7 +904,7 @@ const loadAllData = useCallback(async () => {
                   ) : (
                     <div className="space-y-4">
                       {filteredRequests.map((request) => (
-                        <RequestCard key={request.id} request={request} />
+                        <RequestCard key={request.id} request={request} vacateReasons={vacateReasons} />
                       ))}
                     </div>
                   )}

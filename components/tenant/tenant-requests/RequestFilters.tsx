@@ -1,3 +1,4 @@
+// components/tenant/tenant-requests/RequestFilters.tsx
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface RequestFiltersProps {
@@ -7,17 +8,21 @@ interface RequestFiltersProps {
 }
 
 export function RequestFilters({ filter, onFilterChange, counts }: RequestFiltersProps) {
+  // Define all possible display statuses
   const tabs = [
     { value: 'all', label: 'All' },
     { value: 'pending', label: 'Pending' },
     { value: 'in_progress', label: 'In Progress' },
+    { value: 'approved', label: 'Approved' },
+    { value: 'rejected', label: 'Rejected' },
+    { value: 'completed', label: 'Completed' },
     { value: 'resolved', label: 'Resolved' },
     { value: 'closed', label: 'Closed' }
   ];
 
   return (
     <Tabs value={filter} onValueChange={onFilterChange}>
-      <TabsList className="grid w-full grid-cols-5">
+      <TabsList className="grid w-full grid-cols-8">
         {tabs.map((tab) => (
           <TabsTrigger key={tab.value} value={tab.value}>
             {tab.label} ({counts[tab.value] || 0})
