@@ -466,81 +466,79 @@ export default function StaffClientPage({
           </p>
         </div> */}
 
-        <Dialog
-          open={showDialog}
-          onOpenChange={(open) => {
-            setShowDialog(open);
-            if (!open) resetForm();
-          }}
-        >
-          <DialogTrigger asChild>
-<Button className="w-28 sm:w-30 mt-3">
-  <Plus className="mr-2 h-4 w-4" />
-  Add Staff
-</Button>
+      <Dialog
+  open={showDialog}
+  onOpenChange={(open) => {
+    setShowDialog(open);
+    if (!open) resetForm();
+  }}
+>
+  <DialogTrigger asChild>
+    <Button className="w-24 sm:w-28 md:w-30 h-8 sm:h-9 text-xs sm:text-sm mt-3">
+      <Plus className="mr-1 sm:mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" />
+      <span className="hidden xs:inline">Add</span> Staff
+    </Button>
+  </DialogTrigger>
 
-          </DialogTrigger>
+  <DialogContent className="max-w-full sm:max-w-3xl md:max-w-4xl lg:max-w-6xl w-[95vw] sm:w-full max-h-[95vh] sm:max-h-[97vh] overflow-hidden p-0 rounded-lg sm:rounded-xl">
+    {/* Gradient Header - Compact on mobile */}
+    <div className="bg-gradient-to-r from-blue-700 to-blue-600 text-white px-3 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4 flex items-center justify-between rounded-t-lg">
+      <div>
+        <h2 className="text-sm sm:text-base md:text-lg lg:text-xl font-semibold">
+          {editingStaff ? "Edit Staff Member" : "Add New Staff Member"}
+        </h2>
+        <p className="text-[10px] sm:text-xs md:text-sm text-blue-100">
+          Fill in the details below to {editingStaff ? "update" : "add"} staff information
+        </p>
+      </div>
 
-          <DialogContent className="max-w-6xl max-h-[97vh] overflow-hidden p-0">
-
-  {/* Gradient Header */}
-  <div className="bg-gradient-to-r from-blue-700 to-blue-600 text-white px-6 py-4 flex items-center justify-between rounded-t-lg">
-    <div>
-      <h2 className="text-xl font-semibold">
-        {editingStaff ? "Edit Staff Member" : "Add New Staff Member"}
-      </h2>
-      <p className="text-sm text-blue-100">
-        Fill in the details below to {editingStaff ? "update" : "add"} staff information
-      </p>
+      <DialogClose asChild>
+        <button className="p-1 sm:p-1.5 md:p-2 rounded-full hover:bg-white/20 transition">
+          <X className="h-4 w-4 sm:h-5 sm:w-5" />
+        </button>
+      </DialogClose>
     </div>
 
-    <DialogClose asChild>
-      <button className="p-2 rounded-full hover:bg-white/20 transition">
-        <X className="h-5 w-5" />
-      </button>
-    </DialogClose>
-  </div>
+    {/* Scrollable Body - Compact */}
+    <div className="p-3 sm:p-4 md:p-6 overflow-y-auto max-h-[70vh] sm:max-h-[65vh] md:max-h-[70vh]">
+      <StaffForm
+        formData={formData}
+        setFormData={setFormData}
+        editingStaff={editingStaff}
+        handleFileUpload={handleFileUpload}
+        handleRemoveDocument={handleRemoveDocument}
+      />
+    </div>
 
-  {/* Body */}
-  <div className="p-6 overflow-y-auto max-h-[70vh]">
-    <StaffForm
-      formData={formData}
-      setFormData={setFormData}
-      editingStaff={editingStaff}
-      handleFileUpload={handleFileUpload}
-      handleRemoveDocument={handleRemoveDocument}
-    />
-  </div>
+    {/* Footer - Compact */}
+    <div className="flex justify-end gap-2 sm:gap-3 p-3 sm:p-4 md:p-6 pt-2 sm:pt-3 md:pt-4 border-t bg-gray-50">
+      <Button
+        variant="outline"
+        onClick={() => {
+          setShowDialog(false);
+          resetForm();
+        }}
+        disabled={submitting}
+        className="h-8 sm:h-9 md:h-10 px-3 sm:px-4 text-xs sm:text-sm"
+      >
+        Cancel
+      </Button>
 
-  {/* Footer */}
-  <div className="flex justify-end gap-3 p-6 pt-4 border-t bg-gray-50">
-    <Button
-      variant="outline"
-      onClick={() => {
-        setShowDialog(false);
-        resetForm();
-      }}
-      disabled={submitting}
-    >
-      Cancel
-    </Button>
-
-    <Button 
-      onClick={handleSubmit} 
-      className="min-w-[120px] bg-blue-600 hover:bg-blue-700"
-      disabled={submitting}
-    >
-      {submitting ? (
-        <>
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          {editingStaff ? "Updating..." : "Adding..."}
-        </>
-      ) : editingStaff ? "Update Staff" : "Add Staff"}
-    </Button>
-  </div>
-
-</DialogContent>
-        </Dialog>
+      <Button 
+        onClick={handleSubmit} 
+        className="min-w-[80px] sm:min-w-[100px] md:min-w-[120px] h-8 sm:h-9 md:h-10 px-3 sm:px-4 text-xs sm:text-sm bg-blue-600 hover:bg-blue-700"
+        disabled={submitting}
+      >
+        {submitting ? (
+          <>
+            <Loader2 className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
+            <span className="hidden xs:inline">{editingStaff ? "Updating..." : "Adding..."}</span>
+          </>
+        ) : editingStaff ? "Update" : "Add"}
+      </Button>
+    </div>
+  </DialogContent>
+</Dialog>
       </div>
 
       
