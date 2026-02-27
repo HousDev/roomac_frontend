@@ -65,6 +65,30 @@ export type ListOptions = {
   _t ?: any;
 };
 
+export type PropertyAnalytics = {
+  totalViews: number;
+  totalShortlists: number;
+  todayViews: number;
+  weekViews: number;
+  isShortlisted: boolean;
+};
+
+export type ShortlistResponse = {
+  success: boolean;
+  data: {
+    isShortlisted: boolean;
+    totalShortlists: number;
+  };
+};
+
+export type ViewResponse = {
+  success: boolean;
+  data: {
+    totalViews: number;
+    isNewView: boolean;
+  };
+};
+
 /** GET /api/properties */
 export async function listProperties(opts: ListOptions = {}) {
   const params = new URLSearchParams();
@@ -253,5 +277,137 @@ export async function getPropertiesForFilter(): Promise<Array<{ id: number; name
   } catch (error) {
     console.error('Error fetching properties for filter:', error);
     return [];
+  }
+}
+
+
+/**
+ * Generate or get session ID from localStorage
+ */
+function getSessionId(): string {
+  if (typeof window === 'undefined') return '';
+  
+  let sessionId = localStorage.getItem('property_session_id');
+  if (!sessionId) {
+    sessionId = Math.random().toString(36).substring(2) + Date.now().toString(36);
+    localStorage.setItem('property_session_id', sessionId);
+  }
+  return sessionId;
+}
+
+/**
+ * Increment view count for a property
+ */
+export async function incrementPropertyView(propertyId: number | string): Promise<ViewResponse> {
+  try {
+    const sessionId = getSessionId();
+    
+    const res = await fetch(`/api/properties/${propertyId}/view`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-session-id': sessionId
+      }
+    });
+    
+    return await res.json();
+  } catch (error) {
+    console.error('Error incrementing view:', error);
+    return { success: false, data: { totalViews: 0, isNewView: false } };
+  }
+}
+
+/**
+ * Toggle shortlist for a property
+ */
+export async function togglePropertyShortlist(propertyId: number | string): Promise<ShortlistResponse> {
+  try {
+    const sessionId = getSessionId();
+    
+    const res = await fetch(`/api/properties/${propertyId}/shortlist`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-session-id': sessionId
+      }
+    });
+    
+    return await res.json();
+  } catch (error) {
+    console.error('Error toggling shortlist:', error);
+    return { success: false, data: { isShortlisted: false, totalShortlists: 0 } };
+  }
+}
+
+/**
+ * Get full analytics for a property
+ */
+export async function getPropertyAnalytics(propertyId: number | string): Promise<{ success: boolean; data: PropertyAnalytics }> {
+  try {
+    const sessionId = getSessionId();
+    
+    const res = await fetch(`/api/properties/${propertyId}/analytics`, {
+      headers: {
+        'x-session-id': sessionId
+      }
+    });
+    
+    return await res.json();
+  } catch (error) {
+    console.error('Error getting analytics:', error);
+    return { 
+      success: false, 
+      data: { 
+        totalViews: 0, 
+        totalShortlists: 0, 
+        todayViews: 0, 
+        weekViews: 0, 
+        isShortlisted: false 
+      } 
+    };
+  }
+}
+
+/**
+ * Check if current user has shortlisted a property
+ */
+export async function checkShortlistStatus(propertyId: number | string): Promise<{ success: boolean; data: { isShortlisted: boolean } }> {
+  try {
+    const sessionId = getSessionId();
+    
+    const res = await fetch(`/api/properties/${propertyId}/shortlist-status`, {
+      headers: {
+        'x-session-id': sessionId
+      }
+    });
+    
+    return await res.json();
+  } catch (error) {
+    console.error('Error checking shortlist:', error);
+    return { success: false, data: { isShortlisted: false } };
+  }
+}
+
+/**
+ * Get analytics for multiple properties at once
+ */
+export async function getBulkPropertyAnalytics(propertyIds: (number | string)[]): Promise<{ 
+  success: boolean; 
+  data: Record<string, { totalViews: number; totalShortlists: number; isShortlisted: boolean }> 
+}> {
+  try {
+    const sessionId = getSessionId();
+    const ids = propertyIds.join(',');
+    
+    const res = await fetch(`/api/properties/analytics/bulk?ids=${ids}`, {
+      headers: {
+        'x-session-id': sessionId
+      }
+    });
+    
+    return await res.json();
+  } catch (error) {
+    console.error('Error getting bulk analytics:', error);
+    return { success: false, data: {} };
   }
 }

@@ -63,11 +63,13 @@ import TenantMyDocumentsPage from "../app/tenant/my-documents/page";
 import TenantRequestsPage from "../app/tenant/requests/page";
 import TenantSettingsPage from "../app/tenant/settings/page";
 import SupportPage from "../app/tenant/support/page";
+import { HelmetProvider } from 'react-helmet-async';
 
 
 function App() {
   return (
-    <AuthProvider>
+    <HelmetProvider>
+<AuthProvider>
       <Toaster position="top-right" richColors />
 
       <Routes>
@@ -163,6 +165,7 @@ function App() {
 
       </Routes>
     </AuthProvider>
+    </HelmetProvider>
   );
 }
 

@@ -1,5 +1,5 @@
 
-
+// components/properties/propertyTransformers.ts
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
 export const getImageUrl = (imagePath: string | null | undefined) => {
@@ -23,15 +23,40 @@ export const transformPropertyData = (property: any) => {
     ? `${API_URL}/uploads/staff-documents/${property.manager_photo_url.replace(/^\//, '')}`
     : `${API_URL}/uploads/staff/default.png`;
   
+
+ // IMPORTANT: Extract tags from property - check multiple possible locations
+  let propertyTags: string[] = [];
+  
+  // Check where tags might be coming from
+  if (property.tags && Array.isArray(property.tags)) {
+    propertyTags = property.tags;
+  } else if (property.property_tags && Array.isArray(property.property_tags)) {
+    propertyTags = property.property_tags;
+  } else if (property.category_tags && Array.isArray(property.category_tags)) {
+    propertyTags = property.category_tags;
+  } else if (property.labels && Array.isArray(property.labels)) {
+    propertyTags = property.labels;
+  } else if (property.tag_list && Array.isArray(property.tag_list)) {
+    propertyTags = property.tag_list;
+  }
+  
+  // // Log to see what tags are coming from backend
+  // console.log('Property ID:', property.id, 'Tags from backend:', propertyTags);
   
   // Test fetch if in browser
   
+  const nearbyNames = property.nearbyPlaces?.map((p: any) => p.name) || [];
 
   return {
     name: property.name || "Luxury PG Accommodation",
     location: property.area || "Koramangala, Bangalore",
+    area: property.area,
+    city: property.city,
     address: property.address || "123 Main Street, Koramangala 5th Block, Bangalore - 560095",
-    tags: ["New Listing", "Premium", "Featured"],
+    property_type: property.property_type || "PG",
+    nearby_places: property.nearbyPlaces || [],
+    nearby_names: nearbyNames,
+    tags: propertyTags,
     images: property.photo_urls && property.photo_urls.length > 0 
       ? property.photo_urls.map((url: string) => getImageUrl(url))
       : defaultImages,

@@ -488,43 +488,85 @@ export default function TenantProfileClientPage({
   /* API */
   /* ------------------------------------------------------------------ */
 
-  const loadTenantProfile = useCallback(async () => {
-    try {
-      setLoading(true);
-      const res = await tenantDetailsApi.loadProfile();
-      if (!res.success || !res.data) {
-        toast.error("Failed to load profile");
-        return;
-      }
-
-      setProfile(res.data);
-      setFormData({
-        full_name: res.data.full_name || "",
-        email: res.data.email || "",
-        phone: res.data.phone || "",
-        country_code: res.data.country_code || "+91",
-        date_of_birth: res.data.date_of_birth || "",
-        gender: res.data.gender || "",
-        occupation: res.data.occupation || "",
-        occupation_category: res.data.occupation_category || "",
-        exact_occupation: res.data.exact_occupation || "",
-        address: res.data.address || "",
-        city: res.data.city || "",
-        state: res.data.state || "",
-        pincode: res.data.pincode || "",
-        preferred_sharing: res.data.preferred_sharing || "",
-        preferred_room_type: res.data.preferred_room_type || "",
-        emergency_contact_name: res.data.emergency_contact_name || "",
-        emergency_contact_phone: res.data.emergency_contact_phone || "",
-        emergency_contact_relation:
-          res.data.emergency_contact_relation || "",
-      });
-    } catch (err: any) {
-      toast.error(err.message || "Error loading profile");
-    } finally {
-      setLoading(false);
+// Add this function inside your component, before the useEffect
+const loadTenantProfile = useCallback(async () => {
+  try {
+    setLoading(true);
+    console.log('📞 Calling tenantDetailsApi.loadProfile()...');
+    
+    const res = await tenantDetailsApi.loadProfile();
+    console.log('📥 Raw API Response in component:', res);
+    
+    if (!res.success || !res.data) {
+      console.error('❌ Profile load failed:', res);
+      toast.error("Failed to load profile");
+      return;
     }
-  }, []);
+
+    console.log('✅ Profile data received in component:', {
+      room_id: res.data.room_id,
+      room_number: res.data.room_number,
+      bed_number: res.data.bed_number,
+      property_name: res.data.property_name,
+      property_manager_name: res.data.property_manager_name,
+    });
+
+    setProfile(res.data);
+    setFormData({
+      full_name: res.data.full_name || "",
+      email: res.data.email || "",
+      phone: res.data.phone || "",
+      country_code: res.data.country_code || "+91",
+      date_of_birth: res.data.date_of_birth || "",
+      gender: res.data.gender || "",
+      occupation: res.data.occupation || "",
+      occupation_category: res.data.occupation_category || "",
+      exact_occupation: res.data.exact_occupation || "",
+      address: res.data.address || "",
+      city: res.data.city || "",
+      state: res.data.state || "",
+      pincode: res.data.pincode || "",
+      preferred_sharing: res.data.preferred_sharing || "",
+      preferred_room_type: res.data.preferred_room_type || "",
+      emergency_contact_name: res.data.emergency_contact_name || "",
+      emergency_contact_phone: res.data.emergency_contact_phone || "",
+      emergency_contact_relation: res.data.emergency_contact_relation || "",
+    });
+  } catch (err: any) {
+    console.error('❌ Error in loadTenantProfile:', err);
+    toast.error(err.message || "Error loading profile");
+  } finally {
+    setLoading(false);
+  }
+}, []);
+
+// Call loadTenantProfile when component mounts
+useEffect(() => {
+  loadTenantProfile();
+}, [loadTenantProfile]);
+
+// Remove the duplicate loadTenantProfile function at the bottom of the file
+// Delete this line: function loadTenantProfile() { throw new Error("Function not implemented."); }
+
+// Add this useEffect to test the API directly
+useEffect(() => {
+  const testAPI = async () => {
+    try {
+      console.log('🧪 Testing API directly...');
+      const response = await fetch('http://localhost:3001/api/tenant-details/profile', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('tenant_token')}`
+        }
+      });
+      const data = await response.json();
+      console.log('🧪 Direct API response:', data);
+    } catch (error) {
+      console.error('🧪 Direct API error:', error);
+    }
+  };
+  
+  testAPI();
+}, []);
 
   const handleSave = useCallback(async () => {
     if (!profile?.id) return;
@@ -751,4 +793,8 @@ export default function TenantProfileClientPage({
       />
     </>
   );
+}
+
+function loadTenantProfile() {
+  throw new Error("Function not implemented.");
 }

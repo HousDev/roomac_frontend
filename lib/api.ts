@@ -73,7 +73,6 @@ export async function request<T = any>(
   options: RequestInit = {}
 ): Promise<T> {
   const url = `${API_BASE_URL}${path}`;
-  console.log("API →", url);
 
   const token = getAuthToken();
   const isFormData = options.body instanceof FormData;

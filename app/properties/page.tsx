@@ -40,8 +40,6 @@ export default function PropertiesPage() {
       const city = params.get('city');
       const price = params.get('price');
       
-      console.log('URL Search Params from window:', { search, city, price });
-      
       // Set states from URL params
       if (search) setSearchArea(decodeURIComponent(search));
       if (city && city !== 'pune') setSelectedCity(decodeURIComponent(city));

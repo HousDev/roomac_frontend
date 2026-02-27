@@ -1,12 +1,10 @@
-
-// lib/tenantDetailsApi.ts 
+// lib/tenantDetailsApi.ts
 import { ReactNode } from 'react';
 import { getTenantToken, getTenantId } from './tenantAuthApi';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 const API_BASE_PATH = '/api/tenant-details';
 
-// Update the tenantRequest function in tenantDetailsApi.ts:
 async function tenantRequest<T = any>(
   path: string,
   options: RequestInit = {}
@@ -14,11 +12,6 @@ async function tenantRequest<T = any>(
   const url = `${API_BASE_URL}${path}`;
   const token = getTenantToken();
   const isFormData = options.body instanceof FormData;
-
- 
-  if (options.body) {
-    console.log('📦 Request body:', options.body);
-  }
 
   const headers: Record<string, string> = {
     ...(options.headers as Record<string, string>),
@@ -32,16 +25,14 @@ async function tenantRequest<T = any>(
     headers["Authorization"] = `Bearer ${token}`;
   }
 
-
   try {
     const res = await fetch(url, {
       ...options,
       headers,
     });
 
-    
     const text = await res.text();
-    console.log('🔐 Response text:', text.substring(0, 500)); // Show first 500 chars
+    console.log('🔐 Response text:', text.substring(0, 500));
     
     let data: any = {};
     let errorMessage = `API request failed: ${res.status} ${res.statusText}`;
@@ -62,7 +53,6 @@ async function tenantRequest<T = any>(
 
     if (!res.ok) {
       if (res.status === 401) {
-        // Clear tenant tokens on 401
         localStorage.removeItem("tenant_token");
         localStorage.removeItem("tenant_id");
         localStorage.removeItem("tenant_logged_in");
@@ -95,11 +85,12 @@ async function tenantRequest<T = any>(
   }
 }
 
-// Tenant Profile API
 export const tenantDetailsApi = {
   async getProfile() {
     try {
-      return await tenantRequest(`${API_BASE_PATH}/profile`);
+      const response = await tenantRequest(`${API_BASE_PATH}/profile`);
+      console.log('📥 getProfile raw response:', response);
+      return response;
     } catch (error) {
       console.error('Error fetching profile:', error);
       throw error;
@@ -108,7 +99,9 @@ export const tenantDetailsApi = {
 
   async getProfileById(tenantId: string) {
     try {
-      return await tenantRequest(`${API_BASE_PATH}/profile/${tenantId}`);
+      const response = await tenantRequest(`${API_BASE_PATH}/profile/${tenantId}`);
+      console.log('📥 getProfileById response:', response);
+      return response;
     } catch (error) {
       console.error('Error fetching profile by ID:', error);
       throw error;
@@ -152,153 +145,94 @@ export const tenantDetailsApi = {
     }
   },
 
-  
-
-  // Update the loadProfile function in tenantDetailsApi
-// async loadProfile() {
-//   try {
-//     console.log('🚀 Starting profile load...');
-
-//     const tenantId = getTenantId();
-//     const token = getTenantToken();
-
-//     console.log('🔑 Tenant ID:', tenantId);
-
-//     if (!tenantId) {
-//       throw new Error('No tenant ID found');
-//     }
-
-//     // Get profile data
-//     let profileData;
-//     try {
-//       profileData = await this.getProfile();
-//       console.log('✅ Profile loaded via authenticated endpoint');
-//     } catch (authError) {
-//       console.log('⚠️ Authenticated endpoint failed, trying ID-based endpoint...');
-      
-//       try {
-//         profileData = await this.getProfileById(tenantId);
-//       } catch (idError) {
-//         console.error('❌ Both endpoints failed:', idError);
-//         throw new Error('Failed to load profile');
-//       }
-//     }
-
-//     // Get deletion request status
-//     try {
-//       const deletionStatus = await this.getDeletionStatus();
-//       if (deletionStatus.success && deletionStatus.data) {
-//         profileData.data.deletion_request = deletionStatus.data;
-//       }
-//     } catch (error) {
-//       profileData.data.deletion_request = {
-//         status: 'none'
-//       };
-//     }
-
-//     return profileData;
-//   } catch (error: any) {
-//     console.error('❌ Failed to load profile:', error);
-    
-//     if (error.message?.includes('401') || error.message?.includes('Session expired')) {
-//       // Clear tokens and redirect
-//       localStorage.removeItem("tenant_token");
-//       localStorage.removeItem("tenant_id");
-//       localStorage.removeItem("tenant_logged_in");
-      
-//       // Show toast and redirect after delay
-//       setTimeout(() => {
-//         if (typeof window !== 'undefined') {
-//           window.location.href = '/login';
-//         }
-//       }, 2000);
-//     }
-    
-//     throw error;
-//   }
-// },
-async loadProfile() {
-  try {
-    console.log('🚀 Starting profile load...');
-
-    const tenantId = getTenantId();
-    const token = getTenantToken();
-
-    console.log('🔑 Tenant ID:', tenantId);
-    console.log('🔐 Token exists:', !!token);
-
-    if (!tenantId) {
-      console.error('No tenant ID found');
-      throw new Error('No tenant ID found');
-    }
-
-    if (!token) {
-      console.error('No token found');
-      throw new Error('No authentication token found');
-    }
-
-    // Get profile data
-    let profileData;
+  async loadProfile() {
     try {
-      console.log('Attempting to fetch profile via authenticated endpoint...');
-      profileData = await this.getProfile();
-      console.log('✅ Profile loaded via authenticated endpoint:', profileData);
-    } catch (authError) {
-      console.log('⚠️ Authenticated endpoint failed, trying ID-based endpoint...', authError);
-      
+      console.log('🚀 Starting profile load...');
+
+      const tenantId = getTenantId();
+      const token = getTenantToken();
+
+      console.log('🔑 Tenant ID:', tenantId);
+      console.log('🔐 Token exists:', !!token);
+
+      if (!tenantId) {
+        console.error('No tenant ID found');
+        throw new Error('No tenant ID found');
+      }
+
+      if (!token) {
+        console.error('No token found');
+        throw new Error('No authentication token found');
+      }
+
+      // Get profile data
+      let response;
       try {
-        profileData = await this.getProfileById(tenantId);
-        console.log('✅ Profile loaded via ID-based endpoint:', profileData);
-      } catch (idError) {
-        console.error('❌ Both endpoints failed:', idError);
-        throw new Error('Failed to load profile');
-      }
-    }
-
-    // Ensure profileData has the expected structure
-    if (!profileData) {
-      throw new Error('No profile data received');
-    }
-
-    // Get deletion request status
-    try {
-      console.log('Fetching deletion status...');
-      const deletionStatus = await this.getDeletionStatus();
-      if (deletionStatus.success && deletionStatus.data) {
-        profileData.data = profileData.data || {};
-        profileData.data.deletion_request = deletionStatus.data;
-        console.log('✅ Deletion status added to profile');
-      }
-    } catch (error) {
-      console.warn('Could not fetch deletion status:', error);
-      profileData.data = profileData.data || {};
-      profileData.data.deletion_request = {
-        status: 'none'
-      };
-    }
-
-    return profileData;
-  } catch (error: any) {
-    console.error('❌ Failed to load profile:', error);
-    
-    if (error.message?.includes('401') || error.message?.includes('Session expired')) {
-      // Clear tokens and redirect
-      localStorage.removeItem("tenant_token");
-      localStorage.removeItem("tenant_id");
-      localStorage.removeItem("tenant_logged_in");
-      
-      // Show toast and redirect after delay
-      setTimeout(() => {
-        if (typeof window !== 'undefined') {
-          window.location.href = '/login';
+        console.log('Attempting to fetch profile via authenticated endpoint...');
+        response = await this.getProfile();
+        console.log('✅ Profile loaded via authenticated endpoint:', response);
+      } catch (authError) {
+        console.log('⚠️ Authenticated endpoint failed, trying ID-based endpoint...', authError);
+        
+        try {
+          response = await this.getProfileById(tenantId);
+          console.log('✅ Profile loaded via ID-based endpoint:', response);
+        } catch (idError) {
+          console.error('❌ Both endpoints failed:', idError);
+          throw new Error('Failed to load profile');
         }
-      }, 2000);
+      }
+
+      if (!response) {
+        throw new Error('No profile data received');
+      }
+
+      console.log('📦 Response from API:', response);
+      
+      // Get deletion request status
+      try {
+        console.log('Fetching deletion status...');
+        const deletionStatus = await this.getDeletionStatus();
+        if (deletionStatus.success && deletionStatus.data && response.data) {
+          response.data.deletion_request = deletionStatus.data;
+          console.log('✅ Deletion status added to profile');
+        }
+      } catch (error) {
+        console.warn('Could not fetch deletion status:', error);
+        if (response.data) {
+          response.data.deletion_request = { status: 'none' };
+        }
+      }
+
+      // CRITICAL: Log what we're returning
+      console.log('📤 FINAL DATA BEING SENT TO COMPONENT:', {
+        room_id: response.data?.room_id,
+        room_number: response.data?.room_number,
+        bed_number: response.data?.bed_number,
+        property_name: response.data?.property_name,
+        property_manager_name: response.data?.property_manager_name,
+      });
+
+      return response;
+    } catch (error: any) {
+      console.error('❌ Failed to load profile:', error);
+      
+      if (error.message?.includes('401') || error.message?.includes('Session expired')) {
+        localStorage.removeItem("tenant_token");
+        localStorage.removeItem("tenant_id");
+        localStorage.removeItem("tenant_logged_in");
+        
+        setTimeout(() => {
+          if (typeof window !== 'undefined') {
+            window.location.href = '/login';
+          }
+        }, 2000);
+      }
+      
+      throw error;
     }
-    
-    throw error;
-  }
-},
-// Add this new method for deletion status
+  },
+
   async getDeletionStatus() {
     try {
       const token = getTenantToken();
@@ -314,7 +248,6 @@ async loadProfile() {
         },
       });
 
-      // Handle response
       const text = await response.text();
       let data: any = {};
       
@@ -348,8 +281,6 @@ async loadProfile() {
   },
 };
 
-
-
 // Types for additional documents
 export interface AdditionalDocument {
   filename: string;
@@ -363,11 +294,9 @@ export interface TenantProfile {
   deleted_at: string;
   delete_reason: ReactNode;
   payments: any;
-  // Personal Information
   id: number;
   full_name: string;
   salutation?: string;
-
   email: string;
   phone: string;
   country_code: string;
@@ -376,52 +305,33 @@ export interface TenantProfile {
   occupation: string;
   occupation_category: string;
   exact_occupation: string;
-  
-  // Status
   is_active: boolean;
   portal_access_enabled: boolean;
-  
-  // Address
   address: string;
   city: string;
   state: string;
   pincode: string;
-  
-  // Emergency Contact
   emergency_contact_name?: string;
   emergency_contact_phone?: string;
   emergency_contact_relation?: string;
-  
-  // Documents
   id_proof_url: string;
   address_proof_url: string;
   photo_url: string;
-  
-  // Additional Documents
   additional_documents?: AdditionalDocument[];
-  
-  // Preferences
   preferred_sharing: string;
   preferred_room_type: string;
   preferred_property_id: number | null;
-  
-  // Timestamps
   created_at: string;
   updated_at: string;
-  
-  // Bed Assignment
   room_id: number | null;
   bed_number: number | null;
   tenant_gender: string | null;
   is_available: boolean | null;
   bed_assigned_at: string | null;
-  
-  // Room Details
   room_number: string | null;
   floor: string | null;
   room_type: string | null;
   rent_per_bed: number | null;
-   // CONTRACT TERMS - ADD THESE
   check_in_date: string;
   lockin_period_months: number | null;
   lockin_penalty_amount: number | null;
@@ -431,8 +341,6 @@ export interface TenantProfile {
   notice_penalty_type: string | null;
   bed_id: number | null;
   monthly_rent: number | null;
-  
-  // Property Details
   property_id: number | null;
   property_name: string | null;
   property_address: string | null;
@@ -446,12 +354,8 @@ export interface TenantProfile {
   property_rules: string | null;
   property_active: boolean | null;
   property_rating: number | null;
-  
-  // Aliases
   manager_name?: string;
   manager_phone?: string;
-
-  // Add deletion status fields
   deletion_request?: {
     status: 'none' | 'pending' | 'approved' | 'rejected' | 'cancelled';
     reason?: string;
@@ -462,7 +366,6 @@ export interface TenantProfile {
   };
 }
 
-// Form data interface
 export interface TenantFormData {
   full_name: string;
   phone: string;
@@ -481,7 +384,7 @@ export interface TenantFormData {
   emergency_contact_name?: string;
   emergency_contact_phone?: string;
   emergency_contact_relation?: string;
-  email:string
+  email: string;
 }
 
 export interface ApiResponse<T = any> {

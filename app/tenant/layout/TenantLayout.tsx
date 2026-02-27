@@ -184,12 +184,36 @@ const NAV_ITEMS = [
 
 // ─── Sidebar Accommodation + Next Payment Card (combined) ────────────────────
 
+// In TenantLayout.tsx - Update SidebarAccommodationCard
+
 function SidebarAccommodationCard({ tenant }: { tenant: TenantProfile | null }) {
   const daysLeft = 7;
   const dueDate = new Date(Date.now() + daysLeft * 86400000).toLocaleDateString("en-IN", {
     day: "2-digit",
     month: "short",
   });
+
+  // Debug log
+  console.log('🏠 Sidebar tenant data:', {
+    property_name: tenant?.property_name,
+    property_address: tenant?.property_address,
+    property_city: tenant?.property_city,
+    room_number: tenant?.room_number,
+    bed_number: tenant?.bed_number,
+    floor: tenant?.floor,
+    rent_per_bed: tenant?.rent_per_bed,
+    is_active: tenant?.is_active
+  });
+
+  // Check if tenant has accommodation - check multiple possible fields
+  const hasAccommodation = tenant?.room_id !== null && tenant?.room_id !== undefined;
+  
+  // Get display values with fallbacks
+  const propertyDisplay = tenant?.property_name || "Roomac PG";
+  const locationDisplay = tenant?.property_city || 
+                          tenant?.city || 
+                          (tenant?.property_address ? tenant.property_address.split(',').pop()?.trim() : "Pune");
+  const rentAmount = tenant?.rent_per_bed || tenant?.monthly_rent || 12000;
 
   return (
     <div className="mx-3 mb-4">
@@ -203,37 +227,60 @@ function SidebarAccommodationCard({ tenant }: { tenant: TenantProfile | null }) 
         <div className="absolute -top-4 -right-4 h-20 w-20 rounded-full bg-white/10" />
         <div className="absolute -bottom-3 -left-3 h-14 w-14 rounded-full bg-white/10" />
 
-        {/* Header */}
-        <div className="flex items-center gap-1.5 mb-0.5 relative z-10">
-          <Building className="h-3 w-3 text-blue-100" />
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-blue-100">
-            Your Accommodation
-          </p>
+        {/* Header with Active Status */}
+        <div className="flex items-center justify-between mb-1 relative z-10">
+          <div className="flex items-center gap-1.5">
+            <Building className="h-3 w-3 text-blue-100" />
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-blue-100">
+              Your Accommodation
+            </p>
+          </div>
+          {(tenant?.is_active === 1 || tenant?.is_active === true) ? (
+            <Badge className="bg-green-500 text-white border-0 text-[8px] h-4 px-1.5">
+              Active
+            </Badge>
+          ) : (
+            <Badge variant="destructive" className="text-[8px] h-4 px-1.5">
+              Inactive
+            </Badge>
+          )}
         </div>
-        <p className="font-bold text-sm text-white truncate relative z-10">
-          {tenant?.property_name || "Roomac PG"}
-        </p>
-        <p className="text-[10px] text-blue-100 truncate relative z-10 mb-2.5 flex items-center gap-1">
-          <MapPin className="h-2.5 w-2.5 shrink-0" />
-          {tenant?.property_city || "Pune"}
-        </p>
+        
+        {hasAccommodation ? (
+          <>
+            <p className="font-bold text-sm text-white truncate relative z-10">
+              {propertyDisplay}
+            </p>
+            <p className="text-[10px] text-blue-100 truncate relative z-10 mb-2.5 flex items-center gap-1">
+              <MapPin className="h-2.5 w-2.5 shrink-0" />
+              {tenant?.property_address || locationDisplay || "Pune"}
+            </p>
 
-        {/* Room details grid */}
-        <div className="grid grid-cols-2 gap-1.5 relative z-10">
-          {[
-            { label: "ROOM NO.",   value: tenant?.room_number || "—" },
-            { label: "BED NO.",    value: tenant?.bed_number  || "1" },
-            { label: "RENT/MONTH", value: `₹${(tenant?.rent_per_bed || 12000).toLocaleString("en-IN")}` },
-            { label: "FLOOR",      value: tenant?.floor ? `Floor ${tenant.floor}` : "—" },
-          ].map(({ label, value }) => (
-            <div key={label} className="bg-white/15 rounded-lg px-2 py-1.5 backdrop-blur-sm">
-              <p className="text-[8px] font-semibold text-blue-100 uppercase leading-none tracking-wide">{label}</p>
-              <p className="text-xs font-bold text-white mt-0.5 leading-tight truncate">{value}</p>
+            {/* Room details grid */}
+            <div className="grid grid-cols-2 gap-1.5 relative z-10">
+              {[
+                { label: "ROOM NO.",   value: tenant?.room_number || "—" },
+                { label: "BED NO.",    value: tenant?.bed_number?.toString() || "—" },
+                { label: "RENT/MONTH", value: `₹${Number(rentAmount).toLocaleString("en-IN")}` },
+                { label: "FLOOR",      value: tenant?.floor ? `Floor ${tenant.floor}` : "—" },
+              ].map(({ label, value }) => (
+                <div key={label} className="bg-white/15 rounded-lg px-2 py-1.5 backdrop-blur-sm">
+                  <p className="text-[8px] font-semibold text-blue-100 uppercase leading-none tracking-wide">{label}</p>
+                  <p className="text-xs font-bold text-white mt-0.5 leading-tight truncate">{value}</p>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          </>
+        ) : (
+          <div className="py-3 text-center relative z-10">
+            <p className="text-sm text-blue-100 mb-2">No accommodation assigned</p>
+            <Badge variant="outline" className="bg-white/20 text-white border-white/30">
+              Pending Assignment
+            </Badge>
+          </div>
+        )}
 
-        {/* ── Next Payment mini section ── */}
+        {/* Next Payment section */}
         <div className="mt-2.5 relative z-10 rounded-lg overflow-hidden"
           style={{ background: "rgba(255,255,255,0.12)" }}
         >
@@ -244,7 +291,7 @@ function SidebarAccommodationCard({ tenant }: { tenant: TenantProfile | null }) 
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-black text-white leading-none">
-                  ₹{(tenant?.rent_per_bed || 12000).toLocaleString("en-IN")}
+                  ₹{Number(rentAmount).toLocaleString("en-IN")}
                 </p>
                 <p className="text-[9px] text-blue-200 mt-0.5">Monthly Rent</p>
               </div>
