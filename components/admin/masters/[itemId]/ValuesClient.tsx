@@ -354,7 +354,7 @@ export default function ValuesClient({ masterItem, initialValues }: ValuesClient
   // ========== RENDER ==========
   
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className=" bg-gray-50">
       <Header
         masterItem={masterItem}
         loading={loading || importing}

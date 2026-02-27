@@ -686,99 +686,228 @@ export default function OffersClientPage({
 
       <div className="p-0">
         <Card className="border-0 shadow-xl bg-white sticky top-36 z-10 max-h-[650px]" >
-        <CardHeader
-  className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]  text-white rounded-t-lg p-4 sm:p-6"
+     <CardHeader
+  className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white rounded-t-lg p-3 sm:p-4"
 >
-  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
+  <div className="flex flex-col gap-3">
     
-    <div>
-      <CardTitle className="flex items-start sm:items-center gap-2 sm:gap-3 text-lg sm:text-2xl">
-        
+    {/* Top row with icon, search (mobile) and create button */}
+    <div className="flex items-center justify-between">
+      <div className="flex items-center gap-2">
         <div className="bg-white/20 p-1.5 sm:p-2 rounded-lg">
-          <Tag className="h-5 w-5 sm:h-7 sm:w-7" />
+          <Tag className="h-5 w-5 sm:h-6 sm:w-6" />
+        </div>
+        
+        {/* Mobile: Search bar - now in top row with create button */}
+        <div className="relative md:hidden" style={{ width: 'calc(100vw - 180px)' }}>
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-blue-200" />
+          <Input
+            placeholder="Search offers..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-7 h-8 text-xs bg-white/20 text-white placeholder:text-white border-white/30 focus:border-white/50"
+          />
         </div>
 
-        <div>
-          <div className="leading-tight">Offer Management</div>
-          <CardDescription className="text-blue-100 text-xs sm:text-sm mt-1 sm:mt-0">
-            Create and manage promotional offers for properties and rooms
-          </CardDescription>
+        {/* Desktop: Search + Filters (visible on md and above) */}
+        <div className="hidden md:flex items-center gap-2">
+          {/* Search bar */}
+          <div className="relative flex-1 max-w-xs">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-200" />
+            <Input
+              placeholder="Search offers..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-7 sm:pl-8 h-8 sm:h-9 text-xs sm:text-sm bg-white/20 text-white placeholder-blue-200 border-white/30 focus:border-white/50"
+            />
+          </div>
+
+          {/* Type Filter */}
+          <div className="relative min-w-[130px]">
+            <Filter className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-blue-200 z-10" />
+            <Select value={filterType} onValueChange={setFilterType}>
+              <SelectTrigger className="pl-7 h-8 sm:h-9 text-xs sm:text-sm bg-white/20 text-white border-white/30 focus:border-white/50">
+                <SelectValue placeholder="All Types" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="general">General</SelectItem>
+                <SelectItem value="seasonal">Seasonal</SelectItem>
+                <SelectItem value="student">Student</SelectItem>
+                <SelectItem value="corporate">Corporate</SelectItem>
+                <SelectItem value="referral">Referral</SelectItem>
+                <SelectItem value="early_booking">Early Booking</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Property Filter */}
+          <div className="relative min-w-[150px]">
+            <Building className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-blue-200 z-10" />
+            <Select value={filterProperty} onValueChange={setFilterProperty}>
+              <SelectTrigger className="pl-7 h-8 sm:h-9 text-xs sm:text-sm bg-white/20 text-white border-white/30 focus:border-white/50">
+                <SelectValue placeholder="All Properties" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Properties</SelectItem>
+                <SelectItem value="general">General Offers</SelectItem>
+                {properties.map((property) => (
+                  <SelectItem key={property.id} value={property.id.toString()}>
+                    {property.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Clear filters button when filters are applied */}
+          {(filterType !== 'all' || filterProperty !== 'all' || searchQuery) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setFilterType('all');
+                setFilterProperty('all');
+                setSearchQuery('');
+              }}
+              className="h-8 text-xs text-white hover:bg-white/20"
+            >
+              Clear
+            </Button>
+          )}
         </div>
+      </div>
 
-      </CardTitle>
-    </div>
-
-    <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-      <DialogTrigger asChild>
+      {/* Create Offer Button */}
+      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <DialogTrigger asChild>
         <Button
-          size="sm"
-          className="bg-white text-blue-600 hover:bg-blue-50 hover:text-blue-700 border-0 font-semibold w-full sm:w-auto"
-        >
-          <Plus className="h-4 w-4 sm:h-5 sm:w-5 mr-1 sm:mr-2" />
-          <span className="text-xs sm:text-sm">
-            Create New Offer
-          </span>
-        </Button>
-      </DialogTrigger>
+  size="sm"
+  className="bg-white text-blue-600 hover:bg-blue-50 hover:text-blue-700 border-0 font-semibold h-8 sm:h-9 text-xs sm:text-sm whitespace-nowrap"
+>
+  <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+  
+  {/* Mobile */}
+  <span className="md:hidden">Create</span>
+  
+  {/* Desktop */}
+  <span className="hidden md:inline">Create New Offer</span>
+</Button>
+        </DialogTrigger>
 
-    <DialogContent className="max-w-3xl max-h-[96vh] overflow-hidden p-0">
-  {/* Gradient Header */}
-  <div className="bg-gradient-to-r from-blue-700 to-blue-600 text-white px-4 py-2.5 flex items-center justify-between rounded-t-lg">
-    <div>
-      <h2 className="text-base font-semibold flex items-center gap-1.5">
-        <Megaphone className="h-4 w-4" />
-        Create New Offer
-      </h2>
-      <p className="text-[10px] text-blue-100">
-        Fill in the details below to create an attractive promotional offer
-      </p>
+        <DialogContent className="w-[95vw] sm:max-w-2xl md:max-w-3xl max-h-[95vh] sm:max-h-[96vh] overflow-hidden p-0 rounded-lg sm:rounded-xl">
+          {/* Dialog content remains the same */}
+          <div className="bg-gradient-to-r from-blue-700 to-blue-600 text-white px-3 sm:px-4 py-2 sm:py-2.5 flex items-center justify-between rounded-t-lg">
+            <div>
+              <h2 className="text-sm sm:text-base font-semibold flex items-center gap-1 sm:gap-1.5">
+                <Megaphone className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                Create New Offer
+              </h2>
+              <p className="text-[9px] sm:text-[10px] text-blue-100">
+                Fill in the details below to create an attractive promotional offer
+              </p>
+            </div>
+            <DialogClose asChild>
+              <button className="p-1 rounded-full hover:bg-white/20 transition">
+                <X className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              </button>
+            </DialogClose>
+          </div>
+
+          <div className="p-3 sm:p-4 overflow-y-auto max-h-[calc(90vh-100px)]">
+            <OfferForm
+              formData={formData}
+              setFormData={setFormData}
+              existingCodes={existingOfferCodes}
+              properties={properties}
+              rooms={rooms}
+              loadingRooms={loadingRooms}
+              onPropertyChange={handlePropertyChange}
+              onGenerateCode={handleGenerateCode}
+              isGeneratingCode={isGeneratingCode}
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 p-3 sm:p-4 pt-2 sm:pt-3 border-t bg-gray-50">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setIsAddDialogOpen(false);
+                resetForm();
+              }}
+              className="h-7 sm:h-8 text-[10px] sm:text-xs px-3 sm:px-4"
+            >
+              Cancel
+            </Button>
+            <Button 
+              size="sm"
+              onClick={handleAdd}
+              className="h-7 sm:h-8 text-[10px] sm:text-xs px-3 sm:px-4 bg-gradient-to-r from-blue-600 to-cyan-600"
+            >
+              Create Offer
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
-    <DialogClose asChild>
-      <button className="p-1 rounded-full hover:bg-white/20 transition">
-        <X className="h-3.5 w-3.5" />
-      </button>
-    </DialogClose>
-  </div>
 
-  {/* Scrollable Body */}
-  <div className="p-4 overflow-y-auto max-h-[calc(90vh-100px)]">
-    <OfferForm
-      formData={formData}
-      setFormData={setFormData}
-      existingCodes={existingOfferCodes}
-      properties={properties}
-      rooms={rooms}
-      loadingRooms={loadingRooms}
-      onPropertyChange={handlePropertyChange}
-      onGenerateCode={handleGenerateCode}
-      isGeneratingCode={isGeneratingCode}
-    />
-  </div>
+    {/* Mobile: Filters Row (visible below md) */}
+    <div className="flex md:hidden items-center gap-2">
+      {/* Type Filter */}
+      <div className="relative flex-1">
+        <Filter className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-blue-200 z-10" />
+        <Select value={filterType} onValueChange={setFilterType}>
+          <SelectTrigger className="pl-7 h-8 text-xs bg-white/20 text-white border-white/30 focus:border-white/50 w-full">
+            <SelectValue placeholder="All Types" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Types</SelectItem>
+            <SelectItem value="general">General</SelectItem>
+            <SelectItem value="seasonal">Seasonal</SelectItem>
+            <SelectItem value="student">Student</SelectItem>
+            <SelectItem value="corporate">Corporate</SelectItem>
+            <SelectItem value="referral">Referral</SelectItem>
+            <SelectItem value="early_booking">Early Booking</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
-  {/* Footer */}
-  <div className="flex justify-end gap-2 p-4 pt-3 border-t bg-gray-50">
-    <Button
-      variant="outline"
-      size="sm"
-      onClick={() => {
-        setIsAddDialogOpen(false);
-        resetForm();
-      }}
-      className="h-7 text-[10px] px-3"
-    >
-      Cancel
-    </Button>
-    <Button 
-      size="sm"
-      onClick={handleAdd}
-      className="h-7 text-[10px] px-3 bg-gradient-to-r from-blue-600 to-cyan-600"
-    >
-      Create Offer
-    </Button>
-  </div>
-</DialogContent>
-    </Dialog>
+      {/* Property Filter */}
+      <div className="relative flex-1">
+        <Building className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-blue-200 z-10" />
+        <Select value={filterProperty} onValueChange={setFilterProperty}>
+          <SelectTrigger className="pl-7 h-8 text-xs bg-white/20 text-white border-white/30 focus:border-white/50 w-full">
+            <SelectValue placeholder="All Properties" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Properties</SelectItem>
+            <SelectItem value="general">General Offers</SelectItem>
+            {properties.map((property) => (
+              <SelectItem key={property.id} value={property.id.toString()}>
+                {property.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
+      {/* Clear button on mobile - only show when filters active */}
+      {(filterType !== 'all' || filterProperty !== 'all' || searchQuery) && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            setFilterType('all');
+            setFilterProperty('all');
+            setSearchQuery('');
+          }}
+          className="h-8 text-xs text-white hover:bg-white/20 shrink-0"
+        >
+          Clear
+        </Button>
+      )}
+    </div>
   </div>
 </CardHeader>
 
@@ -786,7 +915,7 @@ export default function OffersClientPage({
           <CardContent className="p-6 ">
 
   {/* Hide only filters on mobile */}
-  <div className="hidden lg:block">
+  {/* <div className="hidden lg:block">
     <OffersFilters
       searchQuery={searchQuery}
       setSearchQuery={setSearchQuery}
@@ -799,7 +928,7 @@ export default function OffersClientPage({
       properties={properties}
       pagination={pagination}
     />
-  </div>
+  </div> */}
 
   {/* Table will still show on all devices */}
  

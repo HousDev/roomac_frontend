@@ -33,105 +33,135 @@ export default function NotificationsTab({
     onNotificationSettingsChange({ ...notificationSettings, [field]: checked });
   };
 
+  const Switch = ({ checked, onChange, disabled }: { checked: boolean; onChange: (checked: boolean) => void; disabled?: boolean }) => (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      disabled={disabled}
+      className={`
+        relative inline-flex h-5 w-9 sm:h-6 sm:w-11 items-center rounded-full 
+        transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
+        ${checked ? 'bg-blue-600' : 'bg-slate-200'}
+        ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+      `}
+    >
+      <span
+        className={`
+          inline-block h-3 w-3 sm:h-4 sm:w-4 transform rounded-full bg-white transition-transform
+          ${checked ? 'translate-x-5 sm:translate-x-6' : 'translate-x-1'}
+        `}
+      />
+    </button>
+  );
+
   return (
-    <Card>
-      <CardHeader className='bg-blue-50 mb-2'>
-        <CardTitle className="flex items-center gap-2">
-          <Bell className="h-5 w-5" /> Notification Preferences
+    <Card className="overflow-hidden">
+      <CardHeader className="bg-blue-50 p-4 sm:p-6">
+        <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+          <Bell className="h-4 w-4 sm:h-5 sm:w-5" /> Notification Preferences
         </CardTitle>
-        <CardDescription>Choose how you want to receive notifications</CardDescription>
+        <CardDescription className="text-sm">
+          Choose how you want to receive notifications
+        </CardDescription>
       </CardHeader>
 
-      <CardContent className="space-y-6">
-        <div className="space-y-4">
-          <div className="flex items-center justify-between p-4 border rounded-lg">
-            <div>
-              <h4 className="font-medium">Email Notifications</h4>
-              <p className="text-sm text-slate-500">Receive notifications via email</p>
+      <CardContent className="space-y-6 p-4 sm:p-6">
+        {/* Main Notification Channels */}
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold text-slate-700 mb-2">Notification Channels</h3>
+          
+          {/* Email Notifications */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 border rounded-lg gap-2 sm:gap-4">
+            <div className="flex-1">
+              <h4 className="font-medium text-sm sm:text-base">Email Notifications</h4>
+              <p className="text-xs sm:text-sm text-slate-500">Receive notifications via email</p>
             </div>
-            <input 
-              type="checkbox" 
-              checked={notificationSettings.email_notifications} 
-              onChange={(e) => handleToggle('email_notifications', e.target.checked)}
+            <Switch
+              checked={notificationSettings.email_notifications}
+              onChange={(checked) => handleToggle('email_notifications', checked)}
               disabled={loading}
-              className="h-5 w-5 rounded"
             />
           </div>
 
-          <div className="flex items-center justify-between p-4 border rounded-lg">
-            <div>
-              <h4 className="font-medium">SMS Notifications</h4>
-              <p className="text-sm text-slate-500">Receive notifications via SMS</p>
+          {/* SMS Notifications */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 border rounded-lg gap-2 sm:gap-4">
+            <div className="flex-1">
+              <h4 className="font-medium text-sm sm:text-base">SMS Notifications</h4>
+              <p className="text-xs sm:text-sm text-slate-500">Receive notifications via SMS</p>
             </div>
-            <input 
-              type="checkbox" 
-              checked={notificationSettings.sms_notifications} 
-              onChange={(e) => handleToggle('sms_notifications', e.target.checked)}
+            <Switch
+              checked={notificationSettings.sms_notifications}
+              onChange={(checked) => handleToggle('sms_notifications', checked)}
               disabled={loading}
-              className="h-5 w-5 rounded"
             />
           </div>
 
-          <div className="flex items-center justify-between p-4 border rounded-lg">
-            <div>
-              <h4 className="font-medium">WhatsApp Notifications</h4>
-              <p className="text-sm text-slate-500">Receive notifications via WhatsApp</p>
+          {/* WhatsApp Notifications */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 border rounded-lg gap-2 sm:gap-4">
+            <div className="flex-1">
+              <h4 className="font-medium text-sm sm:text-base">WhatsApp Notifications</h4>
+              <p className="text-xs sm:text-sm text-slate-500">Receive notifications via WhatsApp</p>
             </div>
-            <input 
-              type="checkbox" 
-              checked={notificationSettings.whatsapp_notifications} 
-              onChange={(e) => handleToggle('whatsapp_notifications', e.target.checked)}
+            <Switch
+              checked={notificationSettings.whatsapp_notifications}
+              onChange={(checked) => handleToggle('whatsapp_notifications', checked)}
               disabled={loading}
-              className="h-5 w-5 rounded"
             />
           </div>
         </div>
 
-        <div className="border-t pt-6 space-y-4">
-          <div className="flex items-center justify-between">
-            <Label>Payment Alerts</Label>
-            <input 
-              type="checkbox" 
-              checked={notificationSettings.payment_alerts} 
-              onChange={(e) => handleToggle('payment_alerts', e.target.checked)}
-              disabled={loading}
-              className="h-5 w-5 rounded"
-            />
-          </div>
-          <div className="flex items-center justify-between">
-            <Label>Booking Alerts</Label>
-            <input 
-              type="checkbox" 
-              checked={notificationSettings.booking_alerts} 
-              onChange={(e) => handleToggle('booking_alerts', e.target.checked)}
-              disabled={loading}
-              className="h-5 w-5 rounded"
-            />
-          </div>
-          <div className="flex items-center justify-between">
-            <Label>Maintenance Alerts</Label>
-            <input 
-              type="checkbox" 
-              checked={notificationSettings.maintenance_alerts} 
-              onChange={(e) => handleToggle('maintenance_alerts', e.target.checked)}
-              disabled={loading}
-              className="h-5 w-5 rounded"
-            />
+        {/* Alert Types */}
+        <div className="border-t pt-6">
+          <h3 className="text-sm font-semibold text-slate-700 mb-4">Alert Types</h3>
+          <div className="space-y-4">
+            {/* Payment Alerts */}
+            <div className="flex items-center justify-between">
+              <Label className="text-sm sm:text-base cursor-pointer">Payment Alerts</Label>
+              <Switch
+                checked={notificationSettings.payment_alerts}
+                onChange={(checked) => handleToggle('payment_alerts', checked)}
+                disabled={loading}
+              />
+            </div>
+
+            {/* Booking Alerts */}
+            <div className="flex items-center justify-between">
+              <Label className="text-sm sm:text-base cursor-pointer">Booking Alerts</Label>
+              <Switch
+                checked={notificationSettings.booking_alerts}
+                onChange={(checked) => handleToggle('booking_alerts', checked)}
+                disabled={loading}
+              />
+            </div>
+
+            {/* Maintenance Alerts */}
+            <div className="flex items-center justify-between">
+              <Label className="text-sm sm:text-base cursor-pointer">Maintenance Alerts</Label>
+              <Switch
+                checked={notificationSettings.maintenance_alerts}
+                onChange={(checked) => handleToggle('maintenance_alerts', checked)}
+                disabled={loading}
+              />
+            </div>
           </div>
         </div>
 
-        <div className="flex justify-end gap-3">
+        {/* Action Buttons - Stack on mobile */}
+        <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-6">
           <Button 
             variant="outline" 
             onClick={onReset} 
             disabled={loading}
+            className="w-full sm:w-auto"
           >
             Reset Defaults
           </Button>
           <Button 
             onClick={onSave} 
             disabled={loading} 
-            className="bg-blue-600 hover:bg-blue-700"
+            className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto"
           >
             {loading ? 'Saving...' : 'Save Preferences'}
           </Button>

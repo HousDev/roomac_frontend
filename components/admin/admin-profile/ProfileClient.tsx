@@ -1,3 +1,5 @@
+
+
 "use client";
 
 import { useState, useCallback, useMemo, useEffect } from "react";
@@ -39,7 +41,6 @@ export default function ProfileClient({ initialProfile, initialNotifications }: 
   
   // State for profile data
   const [profileData, setProfileData] = useState<ProfileData>(() => {
-    // Get email from localStorage on client side
     const email = typeof window !== 'undefined' ? localStorage.getItem('admin_email') || '' : '';
     return {
       ...initialProfile,
@@ -257,16 +258,20 @@ export default function ProfileClient({ initialProfile, initialNotifications }: 
   }, []);
 
   return (
-    <div className="min-h-screen bg-slate-100 p-1">
-      <div className="max-w-6xl mx-auto">
-        <div className="flex flex-col lg:flex-row gap-6">
+    <div className="min-h-screen bg-slate-100 p-2 sm:p-0 lg:p-3">
+      <div className="max-w-9xl mx-auto">
+        <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
           
-          <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
+          {/* Sidebar - Full width on mobile, sticky on desktop */}
+          <div className="w-full lg:w-64 lg:sticky lg:top-4 lg:self-start">
+            <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
+          </div>
           
-          <div className="flex-1">
+          {/* Main Content - Full width */}
+          <div className="flex-1 min-w-0">
             {loading && activeTab === "profile" ? (
-              <div className="flex justify-center items-center h-64">
-                <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-blue-600" />
+              <div className="flex justify-center items-center h-48 sm:h-64">
+                <div className="h-6 w-6 sm:h-8 sm:w-8 animate-spin rounded-full border-2 border-b-2 border-blue-600" />
               </div>
             ) : (
               <>

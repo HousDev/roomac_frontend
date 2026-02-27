@@ -1,4 +1,6 @@
 
+
+
 "use client";
 
 import { AdminSidebar } from '@/components/admin/sidebar';
@@ -125,7 +127,7 @@ export default function AdminLayout() {
         
         {/* Main Content - Scrollable area with padding for fixed header */}
         <div className={`flex-1 transition-all duration-300 ${
-          sidebarOpen ? 'md:ml-64' : 'md:ml-20'
+          sidebarOpen ? 'md:ml-48' : 'md:ml-[60px]'
         }`}>
           <div className="px-3 pt-24 pb-6 -z-20">
             <Outlet />

@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from 'next/link';
@@ -70,7 +69,7 @@ function SubmenuItemWithTooltip({ reqItem, reqActive, sidebarOpen }: {
       <Link
         href={reqItem.href}
         className={`
-          relative group flex items-center gap-3 w-[200px] px-2 py-2 pl-8 rounded-xl transition-all duration-200
+          relative group flex items-center gap-2 w-[155px] px-2 py-1.5 pl-5 rounded-xl transition-all duration-200
           ${reqActive
             ? 'bg-[#F5C000]/20 text-[#F5C000]'
             : 'text-blue-100 hover:bg-white/10 hover:text-white'
@@ -80,33 +79,22 @@ function SubmenuItemWithTooltip({ reqItem, reqActive, sidebarOpen }: {
         onMouseLeave={handleMouseLeave}
       >
         {reqActive && (
-          // FIXED: Reduced white bar width from w-1 to w-0.5
           <span className="absolute left-0 top-2 bottom-2 w-0.5 rounded-full bg-[#F5C000]" />
         )}
         <div
           className={`
-            h-5 w-5 rounded-lg flex items-center justify-center transition-all p-1 flex-shrink-0
+            h-4 w-4 rounded-md flex items-center justify-center transition-all p-0.5 flex-shrink-0
             ${reqActive
               ? 'bg-[#F5C000]/20 text-[#F5C000]'
               : 'bg-white/10 text-blue-200 group-hover:text-white'
             }
           `}
         >
-          <ReqIcon className="h-3 w-3" />
+          <ReqIcon className="h-2.5 w-2.5" />
         </div>
-        <span className="text-sm font-medium tracking-wide whitespace-nowrap overflow-hidden text-ellipsis flex-1">
+        <span className="text-xs font-normal tracking-wide whitespace-nowrap overflow-hidden text-ellipsis flex-1">
           {reqItem.label}
         </span>
-        
-        {/* Tooltip for long text */}
-        {/* {showTooltip && sidebarOpen && (
-          <div className="absolute left-full top-1/2 -translate-y-1/2 ml-3 z-50 pointer-events-none">
-            <div className="bg-[#0A1F5C] border border-[#F5C000]/30 text-white text-sm px-3 py-2 rounded-md shadow-xl whitespace-nowrap">
-              {reqItem.label}
-              <div className="absolute right-full top-1/2 -translate-y-1/2 border-8 border-transparent border-r-[#0A1F5C]"></div>
-            </div>
-          </div>
-        )} */}
       </Link>
     </li>
   );
@@ -159,7 +147,7 @@ function CollapsedSidebarItem({
     <div
       onClick={onClick}
       className={`
-        relative group flex items-center justify-center p-2.5 rounded-xl transition-all duration-200 cursor-pointer
+        relative group flex items-center justify-center p-2 rounded-xl transition-all duration-200 cursor-pointer
         ${active
           ? 'bg-[#F5C000]/20 text-[#F5C000]'
           : 'text-blue-200 hover:bg-white/10 hover:text-white'
@@ -174,14 +162,14 @@ function CollapsedSidebarItem({
       )}
       <div
         className={`
-          h-9 w-9 rounded-xl flex items-center justify-center transition-all
+          h-8 w-8 rounded-xl flex items-center justify-center transition-all
           ${active
             ? 'bg-[#F5C000]/20 text-[#F5C000]'
             : 'bg-white/10 text-blue-200 group-hover:bg-white/15 group-hover:text-white'
           }
         `}
       >
-        <Icon className="h-5 w-5" />
+        <Icon className="h-4 w-4" />
       </div>
     </div>
   ) : (
@@ -189,7 +177,7 @@ function CollapsedSidebarItem({
       href={item.href}
       onClick={(e) => handleIconClick(e, item.href)}
       className={`
-        relative group flex items-center justify-center p-2.5 rounded-xl transition-all duration-200
+        relative group flex items-center justify-center p-2 rounded-xl transition-all duration-200
         ${active
           ? 'bg-[#F5C000]/20 text-[#F5C000]'
           : 'text-blue-200 hover:bg-white/10 hover:text-white'
@@ -204,14 +192,14 @@ function CollapsedSidebarItem({
       )}
       <div
         className={`
-          h-9 w-9 rounded-xl flex items-center justify-center transition-all
+          h-8 w-8 rounded-xl flex items-center justify-center transition-all
           ${active
             ? 'bg-[#F5C000]/20 text-[#F5C000]'
             : 'bg-white/10 text-blue-200 group-hover:bg-white/15 group-hover:text-white'
           }
         `}
       >
-        <Icon className="h-5 w-5" />
+        <Icon className="h-4 w-4" />
       </div>
     </Link>
   );
@@ -221,7 +209,7 @@ function CollapsedSidebarItem({
       {content}
       {showTooltip && !sidebarOpen && (
         <div className="absolute left-full top-1/2 -translate-y-1/2 ml-3 z-50 pointer-events-none">
-          <div className="bg-[#0A1F5C] border border-[#F5C000]/30 text-white text-sm px-3 py-2 rounded-md  whitespace-nowrap">
+          <div className="bg-[#0A1F5C] border border-[#F5C000]/30 text-white text-xs px-3 py-2 rounded-md whitespace-nowrap">
             {item.label}
             <div className="absolute right-full top-1/2 -translate-y-1/2 border-8 border-transparent border-r-[#0A1F5C]"></div>
           </div>
@@ -328,8 +316,7 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
     { href: '/admin/staff', label: 'Staffs', icon: UserCog },
     { href: '/admin/offers', label: 'Offers', icon: Tag },
     { href: '/admin/add-ons', label: 'Add-ons', icon: PlusCircle },
-    { href: '/admin/inventory', label: 'Inventory Management', icon: Package },  // ← ADD THIS LINE
-
+    { href: '/admin/inventory', label: 'Inventory Management', icon: Package },
     { href: '/admin/masters', label: 'Masters', icon: LayoutGrid },
     { href: '/admin/settings', label: 'Settings', icon: Settings },
     { href: '/admin/profile', label: 'Profile', icon: UserCircle },
@@ -410,7 +397,7 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
     return (
       <button
         onClick={() => setSidebarOpen(!sidebarOpen)}
-        className="hidden lg:flex absolute -right-3 top-7 z-10 w-6 h-6 bg-[#1B4FD8] border border-[#F5C000]/50 rounded-full items-center justify-center text-white hover:bg-[#F5C000] hover:text-[#0A1F5C] transition-all duration-200 "
+        className="hidden lg:flex absolute -right-3 top-7 z-10 w-6 h-6 bg-[#1B4FD8] border border-[#F5C000]/50 rounded-full items-center justify-center text-white hover:bg-[#F5C000] hover:text-[#0A1F5C] transition-all duration-200"
       >
         {sidebarOpen ? (
           <ChevronRight className="w-3 h-3" />
@@ -500,7 +487,7 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
           <Link
             href={item.href}
             className={`
-              relative group flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200
+              relative group flex items-center gap-2.5 px-2.5 py-2 rounded-xl transition-all duration-200
               ${active
                 ? 'bg-[#F5C000]/15 text-[#F5C000]'
                 : 'text-blue-100 hover:bg-white/10 hover:text-white'
@@ -510,11 +497,11 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
             {active && (
               <span className="absolute left-0 top-2 bottom-2 w-1 rounded-full bg-[#F5C000]" />
             )}
-            <div className={`h-9 w-9 rounded-xl flex items-center justify-center transition-all flex-shrink-0
+            <div className={`h-8 w-8 rounded-xl flex items-center justify-center transition-all flex-shrink-0
               ${active ? 'bg-[#F5C000]/20 text-[#F5C000]' : 'bg-white/10 text-blue-200 group-hover:bg-white/15 group-hover:text-white'}`}>
-              <Icon className="h-5 w-5" />
+              <Icon className="h-4 w-4" />
             </div>
-            <span className="font-medium tracking-wide whitespace-nowrap overflow-hidden text-ellipsis text-sm">
+            <span className="font-normal tracking-wide whitespace-nowrap overflow-hidden text-ellipsis text-xs">
               {item.label}
             </span>
           </Link>
@@ -523,7 +510,7 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
             <button
               onClick={() => setRequestsOpen(!requestsOpen)}
               className={`
-                relative group flex items-center justify-between w-full px-3 py-2.5 rounded-xl transition-all duration-200
+                relative group flex items-center justify-between w-full px-2.5 py-2 rounded-xl transition-all duration-200
                 ${isRequestActive
                   ? 'bg-[#F5C000]/15 text-[#F5C000]'
                   : 'text-blue-100 hover:bg-white/10 hover:text-white'
@@ -531,20 +518,19 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
               `}
             >
               {isRequestActive && (
-                // FIXED: Reduced white bar width from w-1 to w-0.5 for the main Requests button when active
                 <span className="absolute left-0 top-2 bottom-2 w-0.5 rounded-full bg-[#F5C000]" />
               )}
-              <div className="flex items-center gap-3">
-                <div className={`h-9 w-9 rounded-xl flex items-center justify-center transition-all flex-shrink-0
+              <div className="flex items-center gap-2.5">
+                <div className={`h-8 w-8 rounded-xl flex items-center justify-center transition-all flex-shrink-0
                   ${isRequestActive ? 'bg-[#F5C000]/20 text-[#F5C000]' : 'bg-white/10 text-blue-200 group-hover:bg-white/15 group-hover:text-white'}`}>
-                  <AlertCircle className="h-5 w-5" />
+                  <AlertCircle className="h-4 w-4" />
                 </div>
-                <span className="font-medium tracking-wide whitespace-nowrap text-sm">Requests</span>
+                <span className="font-normal tracking-wide whitespace-nowrap text-xs">Requests</span>
               </div>
               {requestsOpen ? (
-                <ChevronDown className="h-4 w-4 flex-shrink-0 text-blue-300" />
+                <ChevronDown className="h-3.5 w-3.5 flex-shrink-0 text-blue-300" />
               ) : (
-                <ChevronRight className="h-4 w-4 flex-shrink-0 text-blue-300" />
+                <ChevronRight className="h-3.5 w-3.5 flex-shrink-0 text-blue-300" />
               )}
             </button>
 
@@ -574,7 +560,7 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
           <button
             onClick={() => setSettingsOpen(!settingsOpen)}
             className={`
-              relative group flex items-center justify-between w-full px-3 py-2.5 rounded-xl transition-all duration-200
+              relative group flex items-center justify-between w-full px-2.5 py-2 rounded-xl transition-all duration-200
               ${isSettingsActive
                 ? 'bg-[#F5C000]/15 text-[#F5C000]'
                 : 'text-blue-100 hover:bg-white/10 hover:text-white'
@@ -582,20 +568,19 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
             `}
           >
             {isSettingsActive && (
-              // FIXED: Reduced white bar width from w-1 to w-0.5 for the main Settings button when active
               <span className="absolute left-0 top-2 bottom-2 w-0.5 rounded-full bg-[#F5C000]" />
             )}
-            <div className="flex items-center gap-3">
-              <div className={`h-9 w-9 rounded-xl flex items-center justify-center transition-all flex-shrink-0
+            <div className="flex items-center gap-2.5">
+              <div className={`h-8 w-8 rounded-xl flex items-center justify-center transition-all flex-shrink-0
                 ${isSettingsActive ? 'bg-[#F5C000]/20 text-[#F5C000]' : 'bg-white/10 text-blue-200 group-hover:bg-white/15 group-hover:text-white'}`}>
-                <Icon className="h-5 w-5" />
+                <Icon className="h-4 w-4" />
               </div>
-              <span className="font-medium tracking-wide whitespace-nowrap text-sm">{item.label}</span>
+              <span className="font-normal tracking-wide whitespace-nowrap text-xs">{item.label}</span>
             </div>
             {settingsOpen ? (
-              <ChevronDown className="h-4 w-4 flex-shrink-0 text-blue-300" />
+              <ChevronDown className="h-3.5 w-3.5 flex-shrink-0 text-blue-300" />
             ) : (
-              <ChevronRight className="h-4 w-4 flex-shrink-0 text-blue-300" />
+              <ChevronRight className="h-3.5 w-3.5 flex-shrink-0 text-blue-300" />
             )}
           </button>
 
@@ -624,7 +609,7 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
           <Link
             href={item.href}
             className={`
-              relative group flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200
+              relative group flex items-center gap-2.5 px-2.5 py-2 rounded-xl transition-all duration-200
               ${active
                 ? 'bg-[#F5C000]/15 text-[#F5C000]'
                 : 'text-blue-100 hover:bg-white/10 hover:text-white'
@@ -634,11 +619,11 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
             {active && (
               <span className="absolute left-0 top-2 bottom-2 w-1 rounded-full bg-[#F5C000]" />
             )}
-            <div className={`h-9 w-9 rounded-xl flex items-center justify-center transition-all flex-shrink-0
+            <div className={`h-8 w-8 rounded-xl flex items-center justify-center transition-all flex-shrink-0
               ${active ? 'bg-[#F5C000]/20 text-[#F5C000]' : 'bg-white/10 text-blue-200 group-hover:bg-white/15 group-hover:text-white'}`}>
-              <Icon className="h-5 w-5" />
+              <Icon className="h-4 w-4" />
             </div>
-            <span className="font-medium tracking-wide whitespace-nowrap overflow-hidden text-ellipsis text-sm">
+            <span className="font-normal tracking-wide whitespace-nowrap overflow-hidden text-ellipsis text-xs">
               {item.label}
             </span>
           </Link>
@@ -652,23 +637,23 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
   return (
     <>
       {/* Mobile Toggle */}
-     {!mobileSidebarOpen && (
-  <Button
-    variant="ghost"
-    size="icon"
-    className="fixed top-4 left-4 z-50 md:hidden text-white bg-[#1B4FD8] hover:bg-[#F5C000] hover:text-[#0A1F5C] backdrop-blur transition-all duration-200"
-    onClick={() => setMobileSidebarOpen(true)}
-  >
-    <Menu />
-  </Button>
-)}
+      {!mobileSidebarOpen && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="fixed top-4 left-4 z-50 md:hidden text-white bg-[#1B4FD8] hover:bg-[#F5C000] hover:text-[#0A1F5C] backdrop-blur transition-all duration-200"
+          onClick={() => setMobileSidebarOpen(true)}
+        >
+          <Menu />
+        </Button>
+      )}
 
-{mobileSidebarOpen && (
-  <div
-    className="fixed inset-0 bg-black/60 z-40 md:hidden backdrop-blur-sm"
-    onClick={() => setMobileSidebarOpen(false)}
-  />
-)}
+      {mobileSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/60 z-40 md:hidden backdrop-blur-sm"
+          onClick={() => setMobileSidebarOpen(false)}
+        />
+      )}
 
       {/* Sidebar */}
       <aside
@@ -678,7 +663,7 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
           transition-all duration-300 ease-in-out
           ${mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
           md:translate-x-0
-          ${sidebarOpen ? 'w-64' : 'w-[72px]'}
+          ${sidebarOpen ? 'w-48' : 'w-[60px]'}
         `}
         style={{
           background: 'linear-gradient(180deg, #0A1F5C 0%, #0d2870 50%, #0A1F5C 100%)',
@@ -690,17 +675,17 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
         <DesktopToggleButton />
 
         {/* ── Logo Area ── */}
-       <div
-  className={`
-    flex items-center justify-center flex-shrink-0
-    transition-all duration-300
-    bg-blue-50
-    ${sidebarOpen ? 'h-[76px] px-4' : 'h-[68px] px-2'}
-  `}
-  style={{
-    borderBottom: '1px solid rgba(0,0,0,0.08)',
-  }}
->
+        <div
+          className={`
+            flex items-center justify-center flex-shrink-0
+            transition-all duration-300
+            bg-blue-50
+            ${sidebarOpen ? 'h-[68px] px-3' : 'h-[60px] px-2'}
+          `}
+          style={{
+            borderBottom: '1px solid rgba(0,0,0,0.08)',
+          }}
+        >
           <Link
             href="/admin/dashboard"
             className="flex items-center justify-center w-full h-full"
@@ -711,7 +696,7 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
               alt={getSiteName()}
               className={`
                 w-auto object-contain transition-all duration-300
-                ${sidebarOpen ? 'h-16 max-w-[190px]' : 'h-10 max-w-[52px]'}
+                ${sidebarOpen ? 'h-12 max-w-[160px]' : 'h-9 max-w-[44px]'}
               `}
               onError={(e) => {
                 (e.target as HTMLImageElement).src = roomacLogo;
@@ -722,15 +707,15 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
 
         {/* ── Search Bar (expanded) ── */}
         {sidebarOpen && (
-          <div className="px-3 pt-3 pb-1 flex-shrink-0">
+          <div className="px-2.5 pt-2.5 pb-1 flex-shrink-0">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-blue-300/70 pointer-events-none" />
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-blue-300/70 pointer-events-none" />
               <input
                 type="text"
                 placeholder="Search menu..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-8 pr-8 py-2 text-sm rounded-xl outline-none transition-all duration-200 text-white placeholder-blue-300/50"
+                className="w-full pl-7 pr-7 py-1.5 text-xs rounded-xl outline-none transition-all duration-200 text-white placeholder-blue-300/50"
                 style={{
                   background: 'rgba(255,255,255,0.07)',
                   border: '1px solid rgba(27,79,216,0.45)',
@@ -747,9 +732,9 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-blue-300 hover:text-[#F5C000] transition-colors"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-blue-300 hover:text-[#F5C000] transition-colors"
                 >
-                  <X className="h-3.5 w-3.5" />
+                  <X className="h-3 w-3" />
                 </button>
               )}
             </div>
@@ -772,14 +757,14 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
                       key={item.href}
                       href={item.href}
                       onClick={() => setSearchQuery('')}
-                      className={`flex items-center gap-3 px-3 py-2.5 transition-all duration-150
+                      className={`flex items-center gap-2.5 px-2.5 py-2 transition-all duration-150
                         ${active ? 'bg-[#F5C000]/15 text-[#F5C000]' : 'text-blue-100 hover:bg-white/10 hover:text-white'}`}
                     >
-                      <div className={`h-7 w-7 rounded-lg flex items-center justify-center flex-shrink-0
+                      <div className={`h-6 w-6 rounded-lg flex items-center justify-center flex-shrink-0
                         ${active ? 'bg-[#F5C000]/20 text-[#F5C000]' : 'bg-white/10 text-blue-300'}`}>
-                        <Icon className="h-3.5 w-3.5" />
+                        <Icon className="h-3 w-3" />
                       </div>
-                      <span className="text-sm font-medium">{item.label}</span>
+                      <span className="text-xs font-normal">{item.label}</span>
                     </Link>
                   );
                 })}
@@ -791,7 +776,7 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
                 className="mt-1.5 rounded-xl px-3 py-3 text-center"
                 style={{ background: 'rgba(10,31,92,0.97)', border: '1px solid rgba(27,79,216,0.4)' }}
               >
-                <p className="text-sm text-blue-300">No results found</p>
+                <p className="text-xs text-blue-300">No results found</p>
               </div>
             )}
           </div>
@@ -802,20 +787,20 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
           <div className="flex justify-center pt-2 pb-1 flex-shrink-0">
             <button
               onClick={() => setSidebarOpen && setSidebarOpen(true)}
-              className="h-9 w-9 rounded-xl flex items-center justify-center bg-white/10 text-blue-200 hover:bg-[#F5C000]/20 hover:text-[#F5C000] transition-all duration-200"
+              className="h-8 w-8 rounded-xl flex items-center justify-center bg-white/10 text-blue-200 hover:bg-[#F5C000]/20 hover:text-[#F5C000] transition-all duration-200"
               title="Search menu"
             >
-              <Search className="h-4 w-4" />
+              <Search className="h-3.5 w-3.5" />
             </button>
           </div>
         )}
 
         {/* Gold divider */}
-        <div className="mx-3 my-1.5 h-px flex-shrink-0"
+        <div className="mx-2.5 my-1 h-px flex-shrink-0"
           style={{ background: 'linear-gradient(90deg, transparent, rgba(245,192,0,0.25), transparent)' }} />
 
         {/* ── Navigation Menu ── */}
-        <nav className="flex-1 overflow-y-auto overflow-x-hidden px-2 py-1
+        <nav className="flex-1 overflow-y-auto overflow-x-hidden px-1.5 py-1
           [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] z-50">
           <ul className="space-y-0.5">
             {mainMenuItems.map((item, index) => renderMenuItem(item, index))}
@@ -823,15 +808,15 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
         </nav>
 
         {/* Gold divider above footer */}
-        <div className="mx-3 h-px flex-shrink-0"
+        <div className="mx-2.5 h-px flex-shrink-0"
           style={{ background: 'linear-gradient(90deg, transparent, rgba(245,192,0,0.25), transparent)' }} />
 
         {/* ── Footer – Logout ── */}
-        <div className="p-3 flex-shrink-0">
+        <div className="p-2.5 flex-shrink-0">
           {sidebarOpen ? (
             <button
               onClick={handleLogout}
-              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-bold text-sm transition-all duration-200"
+              className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl font-semibold text-xs transition-all duration-200"
               style={{
                 background: 'linear-gradient(135deg, #F5C000 0%, #e6b400 100%)',
                 color: '#0A1F5C',
@@ -844,14 +829,14 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
                 (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 14px rgba(245,192,0,0.25)';
               }}
             >
-              <LogOut className="h-4 w-4" />
+              <LogOut className="h-3.5 w-3.5" />
               Logout
             </button>
           ) : (
             <div className="flex justify-center">
               <button
                 onClick={handleLogout}
-                className="h-9 w-9 rounded-xl flex items-center justify-center transition-all duration-200"
+                className="h-8 w-8 rounded-xl flex items-center justify-center transition-all duration-200"
                 title="Logout"
                 style={{ background: 'rgba(245,192,0,0.15)', color: '#F5C000' }}
                 onMouseEnter={(e) => {
@@ -863,7 +848,7 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
                   (e.currentTarget as HTMLButtonElement).style.color = '#F5C000';
                 }}
               >
-                <LogOut className="h-4 w-4" />
+                <LogOut className="h-3.5 w-3.5" />
               </button>
             </div>
           )}
