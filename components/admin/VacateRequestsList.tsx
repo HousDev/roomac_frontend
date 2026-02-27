@@ -98,10 +98,12 @@ import {
   updateVacateRequestStatus, 
   sendTenantNotification,
   getPropertiesList,
+  bulkDeleteVacateRequests,
   getMasterValues,
   type AdminVacateRequest,
   type StatusUpdatePayload
 } from '@/lib/tenantRequestsApi';
+import { Checkbox } from "@/components/ui/checkbox";
 import { listProperties, Property } from '@/lib/propertyApi';
 import router from 'next/router';
 
@@ -191,6 +193,10 @@ export default function VacateRequestsList() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [activeTab, setActiveTab] = useState('all');
   const [vacateReasons, setVacateReasons] = useState<VacateReason[]>([]);
+  // Add these state variables for bulk actions
+const [selectedRequests, setSelectedRequests] = useState<Set<number>>(new Set());
+const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
+const [bulkActionLoading, setBulkActionLoading] = useState(false);
   const [statusUpdateData, setStatusUpdateData] = useState<StatusUpdateData>({
     status: 'under_review',
     admin_notes: ''
@@ -278,6 +284,7 @@ export default function VacateRequestsList() {
     initData();
   }, [fetchVacateRequests]);
 
+  
   const fetchVacateReasonsData = async () => {
     try {
       const data = await getMasterValues('VACATE_REASON');
@@ -288,6 +295,7 @@ export default function VacateRequestsList() {
     }
   };
 
+  
   // Filter requests based on active tab
   const getFilteredByTab = () => {
     if (activeTab === 'all') return filteredRequests;
@@ -378,6 +386,48 @@ export default function VacateRequestsList() {
     setSearchFilters(prev => ({ ...prev, [field]: value }));
     setCurrentPage(1);
   };
+
+  // Add handler for checkbox selection
+const handleSelectAll = () => {
+  if (selectedRequests.size === currentItems.length) {
+    setSelectedRequests(new Set());
+  } else {
+    setSelectedRequests(new Set(currentItems.map(r => r.vacate_request_id)));
+  }
+};
+
+const handleSelectRequest = (id: number) => {
+  const newSelected = new Set(selectedRequests);
+  if (newSelected.has(id)) {
+    newSelected.delete(id);
+  } else {
+    newSelected.add(id);
+  }
+  setSelectedRequests(newSelected);
+};
+
+// Add bulk delete handler
+const handleBulkDelete = async () => {
+  if (selectedRequests.size === 0) return;
+  
+  try {
+    setBulkActionLoading(true);
+    const result = await bulkDeleteVacateRequests(Array.from(selectedRequests));
+    if (result.success) {
+      toast.success(`Successfully deleted ${selectedRequests.size} vacate requests`);
+      setSelectedRequests(new Set());
+      setShowBulkDeleteDialog(false);
+      await fetchVacateRequests(); // Refresh the list
+    } else {
+      toast.error(result.message || "Failed to delete vacate requests");
+    }
+  } catch (error: any) {
+    console.error('Error deleting vacate requests:', error);
+    toast.error(error.message || "Failed to delete vacate requests");
+  } finally {
+    setBulkActionLoading(false);
+  }
+};
 
   const handleStatusUpdate = async () => {
     if (!selectedRequest) return;
@@ -612,7 +662,7 @@ export default function VacateRequestsList() {
 
   if (loading && requests.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen gap-4 bg-gradient-to-br from-blue-50 to-cyan-50">
+      <div className="flex flex-col items-center justify-center  gap-4 bg-gradient-to-br from-blue-50 to-cyan-50">
         <Loader2 className="h-12 w-12 animate-spin text-blue-600" />
         <p className="text-gray-600">Loading vacate requests...</p>
       </div>
@@ -719,9 +769,39 @@ export default function VacateRequestsList() {
           </CardContent>
         </Card>
       </div>
+      {/* Bulk Actions Bar */}
+{selectedRequests.size > 0 && (
+  <div className="sticky top-36 z-20 mb-3 bg-white rounded-lg shadow-lg border border-blue-200 p-3 flex items-center justify-between animate-in slide-in-from-top-2">
+    <div className="flex items-center gap-3">
+      <Badge variant="secondary" className="bg-blue-100 text-blue-700">
+        {selectedRequests.size} {selectedRequests.size === 1 ? 'request' : 'requests'} selected
+      </Badge>
+      <Button 
+        variant="ghost" 
+        size="sm" 
+        onClick={() => setSelectedRequests(new Set())}
+        className="text-gray-500 hover:text-gray-700"
+      >
+        <X className="h-4 w-4 mr-1" />
+        Clear
+      </Button>
+    </div>
+    <div className="flex gap-2">
+      <Button 
+        variant="destructive" 
+        size="sm"
+        onClick={() => setShowBulkDeleteDialog(true)}
+        className="bg-red-600 hover:bg-red-700"
+      >
+        <XCircle className="h-4 w-4 mr-1" />
+        Delete Selected
+      </Button>
+    </div>
+  </div>
+)}
 
       {/* Actions Bar */}
-      <div className="flex items-center justify-between mb-3 px-0 sticky top-32 z-10">
+      {/* <div className="flex items-center justify-between mb-3 px-0 sticky top-40 z-10">
         <div className="flex items-center gap-2">
          
           
@@ -731,10 +811,10 @@ export default function VacateRequestsList() {
             Export
           </Button>
         </div>
-      </div>
+      </div> */}
 
       {/* Main Table Card */}
-      <Card className="shadow-lg border-0  mb-6 sticky top-52 z-10 ">
+      <Card className="shadow-lg border-0  sticky top-60 z-10 ">
         <CardHeader className="pb-2">
 <Tabs
   defaultValue="all"
@@ -749,6 +829,7 @@ export default function VacateRequestsList() {
         md:grid-cols-6
         gap-1
         w-max md:w-full
+        sticky top-72 z-10
       "
     >
       <TabsTrigger value="all" className="text-xs sm:text-sm px-3 py-1.5 whitespace-nowrap">
@@ -797,10 +878,23 @@ export default function VacateRequestsList() {
           ) : (
             <div className="relative">
               {/* Scrollable Table */}
-              <div className="overflow-y-auto max-h-[490px] md:max-h-[510px] rounded-b-lg">
-                <Table className="w-full">
+<div className={`overflow-y-auto rounded-b-lg transition-all duration-300 ${
+  selectedRequests.size > 0
+    ? 'max-h-[260px] md:max-h-[335px]'
+    : 'max-h-[335px] md:max-h-[400px]'
+}`}>                <Table className="w-full">
                   <TableHeader className="sticky top-0 z-10 bg-gradient-to-r from-gray-50 to-white shadow-sm">
                     <TableRow className="hover:bg-transparent">
+                      {/* Checkbox Column */}
+<TableHead className="w-[50px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
+  <div className="py-2 flex justify-center">
+    <Checkbox 
+      checked={selectedRequests.size === currentItems.length && currentItems.length > 0}
+      onCheckedChange={handleSelectAll}
+      aria-label="Select all"
+    />
+  </div>
+</TableHead>
                       {/* ID Column */}
                       <TableHead className="w-[80px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
                         <div className="space-y-1 py-1">
@@ -965,6 +1059,16 @@ export default function VacateRequestsList() {
                             index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'
                           }`}
                         >
+                          {/* Checkbox Cell */}
+<TableCell className="w-[50px]">
+  <div className="flex justify-center">
+    <Checkbox 
+      checked={selectedRequests.has(request.vacate_request_id)}
+      onCheckedChange={() => handleSelectRequest(request.vacate_request_id)}
+      aria-label={`Select request ${request.vacate_request_id}`}
+    />
+  </div>
+</TableCell>
                           <TableCell className="font-mono text-xs font-medium text-blue-600 truncate">
                             <div className="flex items-center gap-1">
                               <span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
@@ -1073,7 +1177,7 @@ export default function VacateRequestsList() {
 
               {/* Pagination */}
               {currentItems.length > 0 && (
-                <div className="flex items-center justify-between px-4 py-3 border-t bg-white">
+                <div className="flex items-center justify-between px-4 py-3 border-t bg-white rounded-xl">
                   <div className="text-xs text-gray-500">
                     Showing {startIndex + 1} to {Math.min(endIndex, sortedRequests.length)} of {sortedRequests.length} entries
                   </div>
@@ -1543,6 +1647,70 @@ export default function VacateRequestsList() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Bulk Delete Confirmation Dialog */}
+<Dialog open={showBulkDeleteDialog} onOpenChange={setShowBulkDeleteDialog}>
+  <DialogContent className="max-w-md">
+    <DialogHeader>
+      <DialogTitle className="flex items-center gap-2 text-red-600">
+        <AlertCircle className="h-5 w-5" />
+        Confirm Bulk Delete
+      </DialogTitle>
+      <DialogDescription>
+        Are you sure you want to delete {selectedRequests.size} {selectedRequests.size === 1 ? 'vacate request' : 'vacate requests'}? 
+        This action cannot be undone.
+      </DialogDescription>
+    </DialogHeader>
+    
+    <div className="bg-red-50 p-3 rounded-md my-2 max-h-40 overflow-y-auto">
+      <p className="text-xs font-medium text-red-800 mb-2">Selected requests:</p>
+      <ul className="text-xs text-red-700 space-y-1">
+        {Array.from(selectedRequests).slice(0, 5).map(id => {
+          const request = requests.find(r => r.vacate_request_id === id);
+          return (
+            <li key={id} className="flex items-center gap-2">
+              <span className="font-mono">#{id}</span>
+              <span className="truncate">- {request?.tenant_name || 'Unknown'}</span>
+            </li>
+          );
+        })}
+        {selectedRequests.size > 5 && (
+          <li className="text-red-600 font-medium">
+            ...and {selectedRequests.size - 5} more
+          </li>
+        )}
+      </ul>
+    </div>
+    
+    <DialogFooter className="flex gap-2 sm:gap-0">
+      <Button
+        variant="outline"
+        onClick={() => setShowBulkDeleteDialog(false)}
+        disabled={bulkActionLoading}
+      >
+        Cancel
+      </Button>
+      <Button
+        variant="destructive"
+        onClick={handleBulkDelete}
+        disabled={bulkActionLoading}
+        className="bg-red-600 hover:bg-red-700"
+      >
+        {bulkActionLoading ? (
+          <>
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            Deleting...
+          </>
+        ) : (
+          <>
+            <XCircle className="h-4 w-4 mr-2" />
+            Delete {selectedRequests.size} {selectedRequests.size === 1 ? 'Request' : 'Requests'}
+          </>
+        )}
+      </Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
     </div>
   );
 }
@@ -1551,3 +1719,6 @@ function sendNotificationToTenant(tenant_id: number, status: string) {
   // Implementation here
   console.log('Sending notification to tenant', tenant_id, 'about status', status);
 }
+
+
+

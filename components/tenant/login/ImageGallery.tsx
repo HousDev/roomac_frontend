@@ -23,7 +23,7 @@ export default function ImageGallery({ images, exitAnimation, slideDirection }: 
         : ""
     }`}>
       {/* Animated Gradient Background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-blue-500 via-blue-400 to-blue-500 animate-gradient"></div>
+      <div className="absolute inset-0 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] animate-gradient"></div>
       
       {/* Decorative Animated Circles */}
       <div className="absolute top-10 left-10 w-32 h-32 bg-blue-400 rounded-full opacity-20 blur-3xl animate-float"></div>

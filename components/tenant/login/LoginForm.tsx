@@ -49,9 +49,9 @@ export default function LoginForm({
   return (
     <div className={`relative bg-white
       rounded-[30px] rounded-tr-[100px] rounded-bl-[100px]
-      p-7 border border-gray-200
-      shadow-[0_30px_60px_rgba(0,0,0,0.20)]
-      hover:shadow-[0_45px_90px_rgba(0,0,0,0.25)]
+      p-7 border border-blue-200
+     
+      
       transition-all duration-300
       overflow-hidden ${exitAnimation ? "animate-out fade-out-50 slide-out-to-bottom" : ""}`}
     >
@@ -136,7 +136,7 @@ export default function LoginForm({
           type="submit"
           disabled={loading}
           className="w-full h-12 rounded-full
-            bg-gradient-to-r from-blue-600 via-blue-500 to-blue-600
+           bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]
             hover:from-blue-700 hover:to-blue-700
             text-white font-bold tracking-wide
             active:scale-[0.97]
@@ -157,7 +157,7 @@ export default function LoginForm({
               variant="outline"
               className="w-full h-11 rounded-full
                 border-purple-300 text-purple-700
-                hover:bg-blue-600 hover:text-white
+                hover:bg-blue-700 hover:text-white
                 shadow-sm hover:shadow-md transition"
             >
               <Mail className="w-4 h-4 mr-2" />

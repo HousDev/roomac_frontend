@@ -85,6 +85,8 @@ export async function getAdminReceiptRequests(): Promise<ReceiptRequest[]> {
   }
 }
 
+
+
 export async function getAccountingStaff(): Promise<StaffMember[]> {
   try {
     const allStaff = await getAllStaff();
@@ -109,6 +111,29 @@ export async function getAccountingStaff(): Promise<StaffMember[]> {
   } catch (error) {
     console.error('Error fetching accounting staff:', error);
     return [];
+  }
+}
+
+export async function bulkDeleteReceiptRequests(ids: number[]): Promise<any> {
+  try {
+    const token = getAdminToken();
+    if (!token) throw new Error("No admin token found");
+    
+    console.log(`🗑️ Bulk deleting receipt requests:`, ids);
+    
+    const response = await request(`/api/admin/receipts/bulk-delete`, {
+      method: "POST",
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ ids }),
+    });
+    
+    return response;
+  } catch (error: any) {
+    console.error('❌ Error bulk deleting receipt requests:', error.message);
+    throw error;
   }
 }
 
