@@ -200,9 +200,6 @@ export async function bulkUpdateStatus(ids: number[], is_active: boolean) {
 }
 
 /** BULK TAGS UPDATE /api/properties/bulk-tags */
-// lib/propertyApi.ts में
-
-/** BULK TAGS UPDATE /api/properties/bulk-tags */
 export async function bulkUpdateTags(ids: number[], tags: string[], operation: 'add' | 'remove' | 'set' = 'add') {
   try {
     console.log(`🏷️ Sending BULK TAGS UPDATE for ${ids.length} properties`);

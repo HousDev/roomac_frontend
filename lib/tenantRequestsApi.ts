@@ -44,6 +44,7 @@ export type TenantRequest = {
   resolution_details: string | null;
   vacate_data?: {
     primary_reason_id?: number;
+    primary_reason?: string;  // Add this field
     secondary_reasons?: string[];
     overall_rating?: number;
     food_rating?: number;
@@ -306,20 +307,21 @@ export const getMasterValuesByTab = async (tab: string): Promise<Record<string, 
     console.log(`📊 Master values response for tab ${tab}:`, res);
     
     if (res?.success && res.data) {
-      // Group by type_name
+      // Group by type_name (which comes from master_items.name)
       const grouped: Record<string, any[]> = {};
       res.data.forEach((item: any) => {
-        const type = item.type_name;
+        const type = item.type_name; // This should be 'Vacate Reason'
         if (!grouped[type]) {
           grouped[type] = [];
         }
         grouped[type].push({
-          id: item.value_id,
-          value: item.value_name,
+          id: item.value_id,        // This is master_item_values.id
+          value: item.value_name,    // This is master_item_values.name
           name: item.value_name,
           description: item.description || '',
           display_order: item.display_order || 0,
-          is_active: item.is_active === 1 || item.is_active === true
+          is_active: item.is_active === 1 || item.is_active === true,
+          master_item_id: item.master_item_id // Keep this for reference if needed
         });
       });
       
@@ -335,30 +337,33 @@ export const getMasterValuesByTab = async (tab: string): Promise<Record<string, 
 };
 
 // Get vacate reasons from Rooms tab
+// Get vacate reasons from Rooms tab
 export const getVacateReasonsFromMasters = async (): Promise<any[]> => {
   try {
     const masters = await getMasterValuesByTab('Rooms');
     
-    // Look for vacate reasons in the masters data
-    // You might need to adjust the type name based on your actual master data structure
-    const vacateReasons = masters['Vacate Reason'] || masters['VacateReason'] || masters['Vacate'] || [];
+    console.log('📊 Masters from Rooms tab:', masters);
+    
+    // Look for the 'Vacate Reason' type in the masters object
+    // The keys in masters are the type names from master_items
+    const vacateReasons = masters['Vacate Reason'] || [];
     
     if (vacateReasons.length > 0) {
-      console.log(`✅ Found ${vacateReasons.length} vacate reasons from masters`);
+      console.log(`✅ Found ${vacateReasons.length} vacate reasons from masters:`, vacateReasons);
       return vacateReasons;
     }
     
+    console.log('⚠️ No vacate reasons found in masters. Available types:', Object.keys(masters));
+    
     // Fallback reasons if not found
-    console.log('⚠️ No vacate reasons found in masters, using fallback');
     return [
-      { id: 1, value: 'Job Change/Relocation', description: 'Changing job or moving to new location' },
-      { id: 2, value: 'Personal Reasons', description: 'Personal or family-related reasons' },
-      { id: 3, value: 'Financial Issues', description: 'Budget constraints or financial difficulties' },
-      { id: 4, value: 'Found Better Accommodation', description: 'Found better or cheaper accommodation' },
-      { id: 5, value: 'Completing Studies', description: 'Education completed or leaving the city' },
-      { id: 6, value: 'Medical Reasons', description: 'Health-related issues' },
-      { id: 7, value: 'Family Reasons', description: 'Family commitments or issues' },
-      { id: 8, value: 'Dissatisfied with Services', description: 'Not satisfied with the services provided' }
+      { id: 57, value: 'Health issues', description: 'Health-related reasons' },
+      { id: 58, value: 'Job relocation', description: 'Changing job or moving to new location' },
+      { id: 59, value: 'Financial Issues', description: 'Budget constraints or financial difficulties' },
+      { id: 60, value: 'Found Better Accommodation', description: 'Found better or cheaper accommodation' },
+      { id: 61, value: 'Completing Studies', description: 'Education completed or leaving the city' },
+      { id: 62, value: 'Family Reasons', description: 'Family commitments or issues' },
+      { id: 63, value: 'Dissatisfied with Services', description: 'Not satisfied with the services provided' }
     ];
   } catch (error) {
     console.error('❌ Error getting vacate reasons from masters:', error);
@@ -967,108 +972,108 @@ export const getLeaveTypesFromMasters = async (): Promise<any[]> => {
 };
 
 
-// Get complaint categories from Requests tab
-export const getComplaintCategoriesFromMasters = async (): Promise<any[]> => {
-  try {
-    const masters = await getMasterValuesByTab('Requests');
+// // Get complaint categories from Requests tab
+// export const getComplaintCategoriesFromMasters = async (): Promise<any[]> => {
+//   try {
+//     const masters = await getMasterValuesByTab('Requests');
     
-    // Try different possible type names for complaint categories
-    const complaintCategories = masters['Complaint Category'] || 
-                                masters['ComplaintCategory'] || 
-                                masters['Complaint'] || 
-                                [];
+//     // Try different possible type names for complaint categories
+//     const complaintCategories = masters['Complaint Category'] || 
+//                                 masters['ComplaintCategory'] || 
+//                                 masters['Complaint'] || 
+//                                 [];
     
-    if (complaintCategories.length > 0) {
-      console.log(`✅ Found ${complaintCategories.length} complaint categories from Requests tab`);
-      return complaintCategories;
-    }
+//     if (complaintCategories.length > 0) {
+//       console.log(`✅ Found ${complaintCategories.length} complaint categories from Requests tab`);
+//       return complaintCategories;
+//     }
     
-    console.log('⚠️ No complaint categories found in Requests tab. Available types:', Object.keys(masters));
+//     console.log('⚠️ No complaint categories found in Requests tab. Available types:', Object.keys(masters));
     
-    // Fallback complaint categories
-    return [
-      { id: 1, value: 'Staff Behavior', name: 'Staff Behavior', description: 'Issues with staff conduct' },
-      { id: 2, value: 'Maintenance', name: 'Maintenance', description: 'Issues with room maintenance' },
-      { id: 3, value: 'Cleanliness', name: 'Cleanliness', description: 'Issues with cleanliness' },
-      { id: 4, value: 'Noise', name: 'Noise', description: 'Noise complaints' },
-      { id: 5, value: 'Food', name: 'Food', description: 'Issues with food quality' },
-      { id: 6, value: 'Security', name: 'Security', description: 'Security concerns' },
-      { id: 7, value: 'Billing', name: 'Billing', description: 'Issues with billing or payments' },
-      { id: 8, value: 'Other', name: 'Other', description: 'Other complaints' }
-    ];
-  } catch (error) {
-    console.error('❌ Error getting complaint categories from masters:', error);
-    return [];
-  }
-};
+//     // Fallback complaint categories
+//     return [
+//       { id: 1, value: 'Staff Behavior', name: 'Staff Behavior', description: 'Issues with staff conduct' },
+//       { id: 2, value: 'Maintenance', name: 'Maintenance', description: 'Issues with room maintenance' },
+//       { id: 3, value: 'Cleanliness', name: 'Cleanliness', description: 'Issues with cleanliness' },
+//       { id: 4, value: 'Noise', name: 'Noise', description: 'Noise complaints' },
+//       { id: 5, value: 'Food', name: 'Food', description: 'Issues with food quality' },
+//       { id: 6, value: 'Security', name: 'Security', description: 'Security concerns' },
+//       { id: 7, value: 'Billing', name: 'Billing', description: 'Issues with billing or payments' },
+//       { id: 8, value: 'Other', name: 'Other', description: 'Other complaints' }
+//     ];
+//   } catch (error) {
+//     console.error('❌ Error getting complaint categories from masters:', error);
+//     return [];
+//   }
+// };
 
 // Get complaint reasons for a specific category from Requests tab
-export const getComplaintReasonsFromMasters = async (categoryId: number): Promise<any[]> => {
-  try {
-    // First get all complaint reasons
-    const masters = await getMasterValuesByTab('Requests');
+// export const getComplaintReasonsFromMasters = async (categoryId: number): Promise<any[]> => {
+//   try {
+//     // First get all complaint reasons
+//     const masters = await getMasterValuesByTab('Requests');
     
-    // Try different possible type names for complaint reasons
-    const complaintReasons = masters['Complaint Reason'] || 
-                             masters['ComplaintReason'] || 
-                             masters['Reason'] || 
-                             [];
+//     // Try different possible type names for complaint reasons
+//     const complaintReasons = masters['Complaint Reason'] || 
+//                              masters['ComplaintReason'] || 
+//                              masters['Reason'] || 
+//                              [];
     
-    if (complaintReasons.length > 0) {
-      console.log(`✅ Found ${complaintReasons.length} complaint reasons from Requests tab`);
+//     if (complaintReasons.length > 0) {
+//       console.log(`✅ Found ${complaintReasons.length} complaint reasons from Requests tab`);
       
-      // If categoryId is provided, filter reasons by category
-      // Note: This assumes your master data has a way to link reasons to categories
-      // You might need to adjust this based on your actual data structure
-      if (categoryId) {
-        const filteredReasons = complaintReasons.filter((reason: any) => 
-          reason.category_id === categoryId || 
-          reason.master_type_id === categoryId ||
-          reason.parent_id === categoryId
-        );
+//       // If categoryId is provided, filter reasons by category
+//       // Note: This assumes your master data has a way to link reasons to categories
+//       // You might need to adjust this based on your actual data structure
+//       if (categoryId) {
+//         const filteredReasons = complaintReasons.filter((reason: any) => 
+//           reason.category_id === categoryId || 
+//           reason.master_type_id === categoryId ||
+//           reason.parent_id === categoryId
+//         );
         
-        if (filteredReasons.length > 0) {
-          return filteredReasons;
-        }
-      }
+//         if (filteredReasons.length > 0) {
+//           return filteredReasons;
+//         }
+//       }
       
-      return complaintReasons;
-    }
+//       return complaintReasons;
+//     }
     
-    console.log('⚠️ No complaint reasons found in Requests tab. Available types:', Object.keys(masters));
+//     console.log('⚠️ No complaint reasons found in Requests tab. Available types:', Object.keys(masters));
     
-    // Fallback complaint reasons based on category
-    const fallbackReasons: Record<number, any[]> = {
-      1: [ // Staff Behavior
-        { id: 101, value: 'Rude Behavior', description: 'Staff was rude or unprofessional' },
-        { id: 102, value: 'Unresponsive', description: 'Staff not responding to requests' },
-        { id: 103, value: 'Late Service', description: 'Service was delayed' }
-      ],
-      2: [ // Maintenance
-        { id: 201, value: 'Electrical Issue', description: 'Problems with lights, fans, etc.' },
-        { id: 202, value: 'Plumbing Issue', description: 'Leaking pipes, clogged drains' },
-        { id: 203, value: 'Furniture Broken', description: 'Damaged furniture' }
-      ],
-      3: [ // Cleanliness
-        { id: 301, value: 'Room Not Clean', description: 'Room was not cleaned properly' },
-        { id: 302, value: 'Bathroom Dirty', description: 'Bathroom needs cleaning' },
-        { id: 303, value: 'Common Areas Dirty', description: 'Hallways or common areas unclean' }
-      ],
-      4: [ // Noise
-        { id: 401, value: 'Loud Music', description: 'Loud music from other rooms' },
-        { id: 402, value: 'Construction Noise', description: 'Noise from construction' },
-        { id: 403, value: 'Late Night Parties', description: 'Parties late at night' }
-      ]
-    };
+//     // Fallback complaint reasons based on category
+//     const fallbackReasons: Record<number, any[]> = {
+//       1: [ // Staff Behavior
+//         { id: 101, value: 'Rude Behavior', description: 'Staff was rude or unprofessional' },
+//         { id: 102, value: 'Unresponsive', description: 'Staff not responding to requests' },
+//         { id: 103, value: 'Late Service', description: 'Service was delayed' }
+//       ],
+//       2: [ // Maintenance
+//         { id: 201, value: 'Electrical Issue', description: 'Problems with lights, fans, etc.' },
+//         { id: 202, value: 'Plumbing Issue', description: 'Leaking pipes, clogged drains' },
+//         { id: 203, value: 'Furniture Broken', description: 'Damaged furniture' }
+//       ],
+//       3: [ // Cleanliness
+//         { id: 301, value: 'Room Not Clean', description: 'Room was not cleaned properly' },
+//         { id: 302, value: 'Bathroom Dirty', description: 'Bathroom needs cleaning' },
+//         { id: 303, value: 'Common Areas Dirty', description: 'Hallways or common areas unclean' }
+//       ],
+//       4: [ // Noise
+//         { id: 401, value: 'Loud Music', description: 'Loud music from other rooms' },
+//         { id: 402, value: 'Construction Noise', description: 'Noise from construction' },
+//         { id: 403, value: 'Late Night Parties', description: 'Parties late at night' }
+//       ]
+//     };
     
-    return fallbackReasons[categoryId] || [
-      { id: 901, value: 'Other', description: 'Other reason not listed' }
-    ];
-  } catch (error) {
-    console.error('❌ Error getting complaint reasons from masters:', error);
-    return [];
-  }
-};
+//     return fallbackReasons[categoryId] || [
+//       { id: 901, value: 'Other', description: 'Other reason not listed' }
+//     ];
+//   } catch (error) {
+//     console.error('❌ Error getting complaint reasons from masters:', error);
+//     return [];
+//   }
+// };
 
 
 
@@ -1103,6 +1108,70 @@ export const getMaintenanceCategoriesFromMasters = async (): Promise<any[]> => {
     ];
   } catch (error) {
     console.error('❌ Error getting maintenance categories from masters:', error);
+    return [];
+  }
+};
+
+// lib/tenantRequestsApi.ts - CORRECTED
+export const getComplaintCategories = async (): Promise<ComplaintCategory[]> => {
+  try {
+    console.log('🔍 Fetching complaint categories...');
+    
+    const response = await tenantApiRequest("/api/tenant-requests/complaint-categories", {
+      method: "GET",
+    });
+
+    console.log('📊 Complaint categories response:', response);
+    
+    // Check if response is an object with data property
+    if (response && typeof response === 'object') {
+      if (response.success && Array.isArray(response.data)) {
+        console.log(`✅ Found ${response.data.length} complaint categories`);
+        return response.data;
+      }
+      // If backend returns array directly (not wrapped in success/data)
+      else if (Array.isArray(response)) {
+        console.log(`✅ Found ${response.length} complaint categories (direct array)`);
+        return response;
+      }
+    }
+    
+    console.warn('⚠️ No complaint categories found in response');
+    return [];
+  } catch (error) {
+    console.error('❌ Error getting complaint categories:', error);
+    return [];
+  }
+};
+
+// In lib/tenantRequestsApi.ts, add this function if it doesn't exist
+export const getComplaintReasons = async (categoryId: number): Promise<ComplaintReason[]> => {
+  try {
+    console.log(`🔍 Fetching complaint reasons for category ID: ${categoryId}`);
+    
+    const response = await tenantApiRequest(`/api/tenant-requests/complaint-categories/${categoryId}/reasons`, {
+      method: "GET",
+    });
+
+    console.log('📊 Complaint reasons response:', response);
+    
+    // Check if response is an object with data property
+    if (response && typeof response === 'object') {
+      if (response.success && Array.isArray(response.data)) {
+        console.log(`✅ Found ${response.data.length} complaint reasons for category ${categoryId}`);
+        return response.data;
+      }
+      // If backend returns array directly (not wrapped in success/data)
+      else if (Array.isArray(response)) {
+        console.log(`✅ Found ${response.length} complaint reasons for category ${categoryId} (direct array)`);
+        return response;
+      }
+    }
+    
+    console.warn(`⚠️ No complaint reasons found for category ${categoryId}`);
+    return [];
+  } catch (error) {
+    console.error(`❌ Error getting complaint reasons for category ${categoryId}:`, error);
     return [];
   }
 };
