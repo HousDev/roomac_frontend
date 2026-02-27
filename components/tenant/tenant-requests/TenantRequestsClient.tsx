@@ -719,6 +719,8 @@ const requestCounts = useMemo(() => {
       if (formData.request_type === 'vacate_bed' && formData.vacateData) {
         requestData.vacate_data = {
           ...formData.vacateData,
+    primary_reason_name: formData.vacateData.primary_reason_text, // CHANGE THIS LINE
+
           secondary_reasons: secondaryReasonsInput
             .split(',')
             .map(r => r.trim())
@@ -938,8 +940,8 @@ const requestCounts = useMemo(() => {
           setShowCustomReason(false);
         }
       }}>
-        <DialogContent className="max-w-3xl w-[98vw] p-0 max-h-[90vh] overflow-hidden">
-        <DialogHeader className="bg-gradient-to-r from-blue-600 to-cyan-600 px-4 py-3 sticky top-0 z-10">
+        <DialogContent className="max-w-3xl w-[98vw] p-0 max-h-[95vh] overflow-hidden rounded-2xl">
+        <DialogHeader className="bg-gradient-to-r from-blue-600 to-cyan-600 px-4 py-3 sticky top-0 z-10 ">
   <DialogTitle className="text-white text-lg">Create New Request</DialogTitle>
   <DialogDescription className="text-blue-50 text-sm">
     Fill in the details below to submit your request
@@ -1176,24 +1178,31 @@ const requestCounts = useMemo(() => {
                       />
                     </div>
 
-                    <div className="space-y-1">
-                      <Label htmlFor="primary_reason" className="text-sm font-medium">Primary Reason *</Label>
-                      <Select
-                        value={formData.vacateData?.primary_reason_id?.toString() || ''}
-                        onValueChange={(value) => handleVacateDataChange('primary_reason_id', parseInt(value))}
-                      >
-                        <SelectTrigger className="h-10">
-                          <SelectValue placeholder="Select primary reason" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Array.isArray(vacateReasons) && vacateReasons.map((reason) => (
-                            <SelectItem key={reason.id} value={reason.id.toString()}>
-                              {reason.value}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+<div className="space-y-1">
+  <Label htmlFor="primary_reason" className="text-sm font-medium">Primary Reason *</Label>
+  <Select
+    value={formData.vacateData?.primary_reason_id?.toString() || ''}
+    onValueChange={(value) => {
+      // Find the selected reason object
+      const selectedReason = vacateReasons.find(r => r.id.toString() === value);
+      
+      // Update both ID and text
+      handleVacateDataChange('primary_reason_id', parseInt(value));
+      handleVacateDataChange('primary_reason_text', selectedReason?.value || '');
+    }}
+  >
+    <SelectTrigger className="h-10">
+      <SelectValue placeholder="Select primary reason" />
+    </SelectTrigger>
+    <SelectContent>
+      {Array.isArray(vacateReasons) && vacateReasons.map((reason) => (
+        <SelectItem key={reason.id} value={reason.id.toString()}>
+          {reason.value}
+        </SelectItem>
+      ))}
+    </SelectContent>
+  </Select>
+</div>
 
                     <div className="space-y-1">
                       <Label htmlFor="secondary_reasons" className="text-sm font-medium">Secondary</Label>
@@ -1594,33 +1603,43 @@ const requestCounts = useMemo(() => {
               )}
             </div>
 
-            <DialogFooter className="mt-4 pt-3 border-t border-gray-200 flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setIsDialogOpen(false)}
-                disabled={submitting}
-                className="flex-1 h-10"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSubmitRequest}
-                className="flex-1 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 h-10"
-                disabled={submitting}
-              >
-                {submitting ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Submitting...
-                  </>
-                ) : (
-                  <>
-                    <Send className="h-4 w-4 mr-2" />
-                    Submit
-                  </>
-                )}
-              </Button>
-            </DialogFooter>
+           <DialogFooter className="mt-4 pt-3 border-t border-gray-200 flex flex-row gap-2">
+
+  <Button
+    variant="outline"
+    onClick={() => setIsDialogOpen(false)}
+    disabled={submitting}
+    className="flex-1 
+               h-8 sm:h-10 
+               text-xs sm:text-sm"
+  >
+    Cancel
+  </Button>
+
+  <Button
+    onClick={handleSubmitRequest}
+    disabled={submitting}
+    className="flex-1 
+               h-8 sm:h-10 
+               text-xs sm:text-sm
+               bg-gradient-to-r 
+               from-blue-600 to-cyan-600 
+               hover:from-blue-700 hover:to-cyan-700"
+  >
+    {submitting ? (
+      <>
+        <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 animate-spin" />
+        Submitting...
+      </>
+    ) : (
+      <>
+        <Send className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+        Submit
+      </>
+    )}
+  </Button>
+
+</DialogFooter>
           </div>
         </DialogContent>
       </Dialog>

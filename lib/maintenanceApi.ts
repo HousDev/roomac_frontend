@@ -40,6 +40,27 @@ function getAdminToken(): string | null {
   return localStorage.getItem("auth_token") || localStorage.getItem("token");
 }
 
+export async function bulkDeleteMaintenanceRequests(ids: number[]): Promise<any> {
+  try {
+    const token = getAdminToken();
+    
+    console.log(`🗑️ Bulk deleting maintenance requests:`, ids);
+    
+    const response = await request(`/api/admin/maintenance/bulk-delete`, {
+      method: "POST",
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ ids }),
+    });
+    
+    return response;
+  } catch (error: any) {
+    console.error('❌ Error bulk deleting maintenance requests:', error.message);
+    throw error;
+  }
+}
 /* ================= API CALLS ================= */
 
 export async function getAdminMaintenanceRequests(): Promise<MaintenanceRequest[]> {

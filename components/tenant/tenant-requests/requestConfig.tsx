@@ -135,6 +135,8 @@ export interface RequestFormData {
   priority: string;
   vacateData?: {
     primary_reason_id?: string;
+        primary_reason_text?: string; // Add this
+
     secondary_reasons?: string[];
     overall_rating?: number;
     food_rating?: number;

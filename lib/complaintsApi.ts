@@ -140,6 +140,28 @@ export async function getAdminComplaints(): Promise<Complaint[]> {
   }
 }
 
+export async function bulkDeleteComplaints(ids: number[]): Promise<any> {
+  try {
+    const token = getAdminToken();
+    
+    console.log(`🗑️ Bulk deleting complaints:`, ids);
+    
+    const response = await request(`/api/admin/complaints/bulk-delete`, {
+      method: "POST",
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ ids }),
+    });
+    
+    return response;
+  } catch (error: any) {
+    console.error('❌ Error bulk deleting complaints:', error.message);
+    throw error;
+  }
+}
+
 export async function getComplaintById(id: number): Promise<Complaint | null> {
   try {
     const token = getAdminToken();

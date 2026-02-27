@@ -241,6 +241,44 @@ export const getMyTenantRequests = async (): Promise<TenantRequest[]> => {
 };
 
 
+// Add this function with your other API functions (around line 250)
+export const bulkDeleteVacateRequests = async (ids: number[]) => {
+  try {
+    const token = localStorage.getItem('auth_token') || localStorage.getItem('token');
+    
+    if (!token) {
+      throw new Error('No authentication token found');
+    }
+    
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/vacate-requests/bulk-delete`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ ids }),
+    });
+
+    const responseText = await response.text();
+    
+    if (!response.ok) {
+      let errorMessage = `HTTP ${response.status}`;
+      try {
+        const errorData = JSON.parse(responseText);
+        errorMessage = errorData.message || errorData.error || errorMessage;
+      } catch {
+        errorMessage = responseText || errorMessage;
+      }
+      throw new Error(errorMessage);
+    }
+
+    const result = JSON.parse(responseText);
+    return result;
+  } catch (error) {
+    console.error('Error bulk deleting vacate requests:', error);
+    throw error;
+  }
+};
 
 export async function createTenantRequest(data: any) {
   try {
@@ -1111,6 +1149,8 @@ export const getMaintenanceCategoriesFromMasters = async (): Promise<any[]> => {
     return [];
   }
 };
+
+
 
 // lib/tenantRequestsApi.ts - CORRECTED
 export const getComplaintCategories = async (): Promise<ComplaintCategory[]> => {

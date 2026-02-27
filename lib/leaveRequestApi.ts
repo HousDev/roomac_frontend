@@ -133,7 +133,42 @@ export async function getLeaveRequests(params: GetLeaveRequestsParams = {}): Pro
   }
 }
 
+// Add this function for bulk delete
+export async function bulkDeleteLeaveRequests(ids: number[]): Promise<{ success: boolean; message: string }> {
+  try {
+    const token = localStorage.getItem('adminToken');
+    
+    if (!token) {
+      throw new Error('Authentication required. Please log in.');
+    }
+    
+    console.log(`🗑️ Bulk deleting leave requests:`, ids);
+    
+    const response = await fetch(`${API_BASE_URL}/api/admin/leave-requests/bulk-delete`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ ids }),
+    });
 
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: 'Failed to delete leave requests' }));
+      throw new Error(errorData.message || `Failed to delete: ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    return {
+      success: true,
+      message: result.message || `Successfully deleted ${ids.length} leave requests`
+    };
+
+  } catch (error) {
+    console.error('API Error in bulkDeleteLeaveRequests:', error);
+    throw error;
+  }
+}
 
 // Format response from backend
 function formatLeaveRequestsResponse(data: any): PaginatedResponse<LeaveRequest> {

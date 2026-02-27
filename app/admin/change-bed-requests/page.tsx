@@ -53,8 +53,11 @@ import {
   getAdminChangeBedRequestById,
   getChangeBedStatistics,
   type AdminChangeBedRequest,
-  type ChangeBedStatusUpdate
+  type ChangeBedStatusUpdate,
+    bulkDeleteChangeBedRequests 
+
 } from "@/lib/changeBedRequestApi";
+
 import {
   Table,
   TableBody,
@@ -72,8 +75,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Separator } from "@/components/ui/separator";
-import { Checkbox } from '@radix-ui/react-checkbox';
-
+import { Checkbox } from "@/components/ui/checkbox";
 export default function AdminChangeBedRequestsPage() {
   const router = useRouter();
   const [requests, setRequests] = useState<AdminChangeBedRequest[]>([]);
@@ -82,7 +84,10 @@ export default function AdminChangeBedRequestsPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [updating, setUpdating] = useState<number | null>(null);
   const [stats, setStats] = useState<any>(null);
-  
+  // Add these state variables for bulk actions
+const [selectedRequests, setSelectedRequests] = useState<Set<number>>(new Set());
+const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
+const [bulkActionLoading, setBulkActionLoading] = useState(false);
   // Filters and pagination
   const [filters, setFilters] = useState({
     status: '',
@@ -254,6 +259,47 @@ export default function AdminChangeBedRequestsPage() {
     }
   };
 
+  // Add handler for checkbox selection
+const handleSelectAll = () => {
+  if (selectedRequests.size === currentItems.length) {
+    setSelectedRequests(new Set());
+  } else {
+    setSelectedRequests(new Set(currentItems.map(r => r.id)));
+  }
+};
+
+const handleSelectRequest = (id: number) => {
+  const newSelected = new Set(selectedRequests);
+  if (newSelected.has(id)) {
+    newSelected.delete(id);
+  } else {
+    newSelected.add(id);
+  }
+  setSelectedRequests(newSelected);
+};
+
+// Add bulk delete handler
+const handleBulkDelete = async () => {
+  if (selectedRequests.size === 0) return;
+  
+  try {
+    setBulkActionLoading(true);
+    const result = await bulkDeleteChangeBedRequests(Array.from(selectedRequests));
+    if (result.success) {
+      toast.success(`Successfully deleted ${selectedRequests.size} change bed requests`);
+      setSelectedRequests(new Set());
+      setShowBulkDeleteDialog(false);
+      await loadRequests(); // Refresh the list
+    } else {
+      toast.error(result.message || "Failed to delete requests");
+    }
+  } catch (error: any) {
+    console.error('Error deleting requests:', error);
+    toast.error(error.message || "Failed to delete requests");
+  } finally {
+    setBulkActionLoading(false);
+  }
+};
   const handleSearchChange = (field: string, value: string) => {
     setSearchFilters(prev => ({ ...prev, [field]: value }));
     setPagination(prev => ({ ...prev, page: 1 }));
@@ -386,7 +432,7 @@ export default function AdminChangeBedRequestsPage() {
       
       {/* Stats Cards - Responsive Grid */}
       {stats && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 mb-2 px-0 sticky top-20 z-10">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 mb-3 px-0 sticky top-20 z-10">
           {/* Total Requests */}
           <Card className="bg-gradient-to-br from-slate-50 to-slate-100 border-0 shadow-sm">
             <CardContent className="p-2 sm:p-3">
@@ -465,109 +511,119 @@ export default function AdminChangeBedRequestsPage() {
         </div>
       )}
 
-      {/* Actions Bar */}
-<div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-3 px-0 gap-3 lg:gap-0 sticky top-36 z-10">
-  
-  {/* LEFT SECTION */}
-  <div className="flex flex-col gap-2 w-full lg:flex-row lg:flex-wrap lg:items-center lg:w-auto">
+{/* Combined Actions Bar */}
+<div className="sticky top-36 z-10 mb-2">
+  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
 
-    {/* Row 1 → Search + Status (Mobile Grid) */}
-    <div className="grid grid-cols-2 gap-2 w-full lg:flex lg:w-auto">
-      
-      {/* Search */}
-      <div className="relative w-full lg:w-64 col-span-1">
-        <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-        <Input
-          placeholder="Search requests..."
-          value={filters.search}
-          onChange={(e) => handleFilterChange('search', e.target.value)}
-          className="pl-8 h-9 text-sm w-full"
-        />
+    {/* LEFT SIDE – Filters */}
+    <div className="flex flex-col gap-2 w-full lg:flex-row lg:flex-wrap lg:items-center lg:w-auto">
+
+      <div className="grid grid-cols-2 gap-2 w-full lg:flex lg:w-auto">
+        {/* <div className="relative w-full lg:w-64 col-span-1">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            placeholder="Search requests..."
+            value={filters.search}
+            onChange={(e) => handleFilterChange('search', e.target.value)}
+            className="pl-8 h-9 text-sm w-full"
+          />
+        </div> */}
+
+        <Select value={filters.status} onValueChange={(value) => handleFilterChange('status', value)}>
+          <SelectTrigger className="w-full h-9 text-sm">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Status</SelectItem>
+            <SelectItem value="pending">Pending</SelectItem>
+            <SelectItem value="approved">Approved</SelectItem>
+            <SelectItem value="rejected">Rejected</SelectItem>
+            <SelectItem value="processed">Processed</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
-      {/* Status */}
-      <Select
-        value={filters.status}
-        onValueChange={(value) => handleFilterChange('status', value)}
-      >
-        <SelectTrigger className="w-full h-9 text-sm">
-          <SelectValue placeholder="Status" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All Status</SelectItem>
-          <SelectItem value="pending">Pending</SelectItem>
-          <SelectItem value="approved">Approved</SelectItem>
-          <SelectItem value="rejected">Rejected</SelectItem>
-          <SelectItem value="processed">Processed</SelectItem>
-        </SelectContent>
-      </Select>
+      <div className="grid grid-cols-2 gap-2 w-full lg:flex lg:w-auto">
+        <Select value={filters.sort_by} onValueChange={(value) => handleFilterChange('sort_by', value)}>
+          <SelectTrigger className="w-full h-9 text-sm">
+            <SelectValue placeholder="Sort by" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="created_at">Created Date</SelectItem>
+            <SelectItem value="shifting_date">Shifting Date</SelectItem>
+            <SelectItem value="priority">Priority</SelectItem>
+          </SelectContent>
+        </Select>
 
+        {/* <Select value={filters.sort_order} onValueChange={(value) => handleFilterChange('sort_order', value)}>
+          <SelectTrigger className="w-full h-9 text-sm">
+            <SelectValue placeholder="Order" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="desc">Descending</SelectItem>
+            <SelectItem value="asc">Ascending</SelectItem>
+          </SelectContent>
+        </Select> */}
+      </div>
     </div>
 
-    {/* Row 2 → Created Date + Descending (Mobile Grid) */}
-    <div className="grid grid-cols-2 gap-2 w-full lg:flex lg:w-auto">
+    {/* RIGHT SIDE – Actions */}
+    <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
 
-      {/* Sort By */}
-      <Select
-        value={filters.sort_by}
-        onValueChange={(value) => handleFilterChange('sort_by', value)}
-      >
-        <SelectTrigger className="w-full h-9 text-sm">
-          <SelectValue placeholder="Sort by" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="created_at">Created Date</SelectItem>
-          <SelectItem value="shifting_date">Shifting Date</SelectItem>
-          <SelectItem value="priority">Priority</SelectItem>
-        </SelectContent>
-      </Select>
+      {selectedRequests.size > 0 && (
+        <>
+          <Badge className="bg-blue-100 text-blue-700 text-xs h-9 px-3 flex items-center">
+            {selectedRequests.size} selected
+          </Badge>
 
-      {/* Sort Order */}
-      <Select
-        value={filters.sort_order}
-        onValueChange={(value) => handleFilterChange('sort_order', value)}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setSelectedRequests(new Set())}
+            className="h-9"
+          >
+            <X className="h-4 w-4 mr-1" />
+            Clear
+          </Button>
+
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => setShowBulkDeleteDialog(true)}
+            className="h-9"
+          >
+            <XCircle className="h-4 w-4 mr-2" />
+            Delete Selected
+          </Button>
+        </>
+      )}
+
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={refreshData}
+        disabled={refreshing}
+        className="h-9"
       >
-        <SelectTrigger className="w-full h-9 text-sm">
-          <SelectValue placeholder="Order" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="desc">Descending</SelectItem>
-          <SelectItem value="asc">Ascending</SelectItem>
-        </SelectContent>
-      </Select>
+        <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+        Refresh
+      </Button>
+
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-9"
+      >
+        <Download className="h-4 w-4 mr-2" />
+        Export
+      </Button>
 
     </div>
-
-  </div>
-
-  {/* RIGHT SECTION (Already Grid for Mobile) */}
-  <div className="grid grid-cols-2 gap-2 w-full sm:flex sm:w-auto sm:items-center">
-
-    <Button
-      variant="outline"
-      size="sm"
-      onClick={refreshData}
-      disabled={refreshing}
-      className="h-9 w-full sm:w-auto"
-    >
-      <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-      Refresh
-    </Button>
-
-    <Button
-      variant="outline"
-      size="sm"
-      className="h-9 w-full sm:w-auto"
-    >
-      <Download className="h-4 w-4 mr-2" />
-      Export
-    </Button>
 
   </div>
 </div>
-
       {/* Main Table Card */}
-      <Card className="shadow-lg border-0 overflow-hidden mb-6">
+      <Card className="shadow-lg border-0 overflow-hidden mb-2">
         <CardHeader className="pb-2">
           <CardTitle className="text-base">Change Bed Requests</CardTitle>
           <CardDescription className="text-xs">
@@ -590,10 +646,23 @@ export default function AdminChangeBedRequestsPage() {
           ) : (
             <div className="relative">
               {/* Scrollable Table */}
-              <div className="overflow-y-auto max-h-[490px] md:max-h-[510px] rounded-b-lg">
-                <Table className="w-full">
+<div className={`overflow-y-auto rounded-b-lg transition-all duration-300 ${
+  selectedRequests.size > 0
+    ? 'max-h-[280px] md:max-h-[410px]'
+    : 'max-h-[310px] md:max-h-[410px]'
+}`}>                <Table className="w-full">
                   <TableHeader className="sticky top-0 z-10 bg-gradient-to-r from-gray-50 to-white shadow-sm">
                     <TableRow className="hover:bg-transparent">
+                      {/* Checkbox Column */}
+<TableHead className="w-[50px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
+  <div className="py-2 flex justify-center">
+    <Checkbox 
+      checked={selectedRequests.size === currentItems.length && currentItems.length > 0}
+      onCheckedChange={handleSelectAll}
+      aria-label="Select all"
+    />
+  </div>
+</TableHead>
                       {/* ID Column */}
                       <TableHead className="w-[90px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
                         <div className="space-y-1 py-1">
@@ -751,6 +820,16 @@ export default function AdminChangeBedRequestsPage() {
                           index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'
                         }`}
                       >
+                        {/* Checkbox Cell */}
+<TableCell className="w-[50px]">
+  <div className="flex justify-center">
+    <Checkbox 
+      checked={selectedRequests.has(request.id)}
+      onCheckedChange={() => handleSelectRequest(request.id)}
+      aria-label={`Select request ${request.id}`}
+    />
+  </div>
+</TableCell>
                         <TableCell className="font-mono text-xs font-medium text-blue-600 truncate">
                           <div className="flex items-center gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
@@ -1313,6 +1392,69 @@ export default function AdminChangeBedRequestsPage() {
           <>
             <Save className="h-3 w-3 mr-1" />
             Update
+          </>
+        )}
+      </Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
+{/* Bulk Delete Confirmation Dialog */}
+<Dialog open={showBulkDeleteDialog} onOpenChange={setShowBulkDeleteDialog}>
+  <DialogContent className="max-w-md">
+    <DialogHeader>
+      <DialogTitle className="flex items-center gap-2 text-red-600">
+        <AlertCircle className="h-5 w-5" />
+        Confirm Bulk Delete
+      </DialogTitle>
+      <DialogDescription>
+        Are you sure you want to delete {selectedRequests.size} {selectedRequests.size === 1 ? 'change bed request' : 'change bed requests'}? 
+        This action cannot be undone.
+      </DialogDescription>
+    </DialogHeader>
+    
+    <div className="bg-red-50 p-3 rounded-md my-2 max-h-40 overflow-y-auto">
+      <p className="text-xs font-medium text-red-800 mb-2">Selected requests:</p>
+      <ul className="text-xs text-red-700 space-y-1">
+        {Array.from(selectedRequests).slice(0, 5).map(id => {
+          const request = requests.find(r => r.id === id);
+          return (
+            <li key={id} className="flex items-center gap-2">
+              <span className="font-mono">#{request?.tenant_request_id || id}</span>
+              <span className="truncate">- {request?.tenant_name || 'Unknown'}</span>
+            </li>
+          );
+        })}
+        {selectedRequests.size > 5 && (
+          <li className="text-red-600 font-medium">
+            ...and {selectedRequests.size - 5} more
+          </li>
+        )}
+      </ul>
+    </div>
+    
+    <DialogFooter className="flex gap-2 sm:gap-0">
+      <Button
+        variant="outline"
+        onClick={() => setShowBulkDeleteDialog(false)}
+        disabled={bulkActionLoading}
+      >
+        Cancel
+      </Button>
+      <Button
+        variant="destructive"
+        onClick={handleBulkDelete}
+        disabled={bulkActionLoading}
+        className="bg-red-600 hover:bg-red-700"
+      >
+        {bulkActionLoading ? (
+          <>
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            Deleting...
+          </>
+        ) : (
+          <>
+            <XCircle className="h-4 w-4 mr-2" />
+            Delete {selectedRequests.size} {selectedRequests.size === 1 ? 'Request' : 'Requests'}
           </>
         )}
       </Button>

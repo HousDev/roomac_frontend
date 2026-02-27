@@ -77,6 +77,33 @@ const getAdminToken = (): string => {
   return token;
 };
 
+// Add bulk delete function
+export const bulkDeleteChangeBedRequests = async (ids: number[]): Promise<{ success: boolean; message: string }> => {
+  try {
+    const token = getAdminToken();
+    
+    const res = await request<{
+      success: boolean;
+      message: string;
+    }>(`/api/admin/change-bed-requests/bulk-delete`, {
+      method: "POST",
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ ids }),
+    });
+
+    if (!res.success) {
+      throw new Error(res.message || "Failed to delete requests");
+    }
+
+    return res;
+  } catch (error: any) {
+    console.error('❌ Error bulk deleting change bed requests:', error);
+    throw error;
+  }
+};
 // Get all change bed requests (Admin)
 export const getAdminChangeBedRequests = async (
   params?: {

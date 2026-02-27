@@ -87,6 +87,22 @@ export const adminDeletionApi = {
     }
   },
 
+
+  // Add bulk delete function
+async bulkDeleteRequests(ids: number[]): Promise<ApiResult> {
+  try {
+    return await request<ApiResult>("/api/admin/deletion-requests/bulk-delete", {
+      method: "POST",
+      body: JSON.stringify({ ids }),
+    });
+  } catch (error: any) {
+    console.error("Error bulk deleting deletion requests:", error);
+    return {
+      success: false,
+      message: error.message || "Failed to delete requests",
+    };
+  }
+},
   // Approve deletion request
   async approveRequest(
     requestId: number,
