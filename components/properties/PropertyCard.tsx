@@ -2,7 +2,7 @@
 
 
 
-
+// components/properties/PropertyCard.tsx
 "use client";
 
 import { useState, useCallback, memo, useEffect } from 'react';
@@ -39,6 +39,7 @@ import {
 import { BsWhatsapp } from 'react-icons/bs';
 import { FaFacebookF, FaTwitter, FaLinkedinIn, FaTelegramPlane } from 'react-icons/fa';
 import { MdEmail } from 'react-icons/md';
+import { getOrCreateTrackingId } from '@/lib/slugUtils';
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
@@ -61,6 +62,7 @@ interface PropertyCardProps {
   onWhatsAppClick?: (phone: string, name: string, location: string) => void;
   onCallClick?: (phone: string) => void;
   onHeartClick?: (propertyId: number, event: React.MouseEvent) => void;
+  
 }
 
 const PropertyCard = memo(function PropertyCard({ 
@@ -74,7 +76,11 @@ const PropertyCard = memo(function PropertyCard({
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [imageError, setImageError] = useState(false);
   const [fallbackIndex] = useState(() => Math.floor(Math.random() * FALLBACK_IMAGES.length));
-  const [sharePopup, setSharePopup] = useState<{ isOpen: boolean; property: any | null }>({ 
+  const [sharePopup, setSharePopup] = useState<{
+    id: any;
+    slug: any;
+    seoSlug: any; isOpen: boolean; property: any | null 
+}>({ 
     isOpen: false, 
     property: null 
   });
@@ -104,14 +110,39 @@ const PropertyCard = memo(function PropertyCard({
     ? `${API_URL}${propertyImages[currentImageIndex]}` 
     : FALLBACK_IMAGES[fallbackIndex];
 
-  // Extract tags
-  const propertyTags = (() => {
-    if (property.tags && Array.isArray(property.tags) && property.tags.length > 0) return property.tags;
-    if (property.property_tags && Array.isArray(property.property_tags)) return property.property_tags;
-    if (property.category_tags && Array.isArray(property.category_tags)) return property.category_tags;
-    if (property.labels && Array.isArray(property.labels)) return property.labels;
-    return ["premium", "verified"];
-  })();
+
+// Then extract tags with a more comprehensive approach:
+const propertyTags = (() => {
+  // Try multiple paths to find tags
+  const possibleTagSources = [
+    property.transformedData?.tags,
+    property.tags,
+    property.property_tags,
+    property.category_tags,
+    property.labels,
+    property.tag_list
+  ];
+  
+  for (const source of possibleTagSources) {
+    if (source && Array.isArray(source) && source.length > 0) {
+      return source;
+    }
+  }
+  
+  // Also check if tags are in the transformedData but with different property name
+  if (property.transformedData) {
+    // Check all keys in transformedData that might contain tags
+    const possibleKeys = ['tags', 'propertyTags', 'property_tags', 'categories', 'labels'];
+    for (const key of possibleKeys) {
+      if (property.transformedData[key] && Array.isArray(property.transformedData[key]) && property.transformedData[key].length > 0) {
+        return property.transformedData[key];
+      }
+    }
+  }
+  
+  return [];
+})();
+
 
   // Extract amenities
   const amenities = (() => {
@@ -143,15 +174,35 @@ const PropertyCard = memo(function PropertyCard({
   const propertyType = property.property_type || property.type || '';
 
   // Handle card click - navigate to details page
- const handleCardClick = useCallback((e: React.MouseEvent) => {
+const handleCardClick = useCallback((e: React.MouseEvent) => {
   const target = e.target as HTMLElement;
-  const isInteractive = target.closest('button') || target.closest('a') || target.closest('input') || target.closest('select');
+  const isInteractive = target.closest('button') || target.closest('a');
   
   if (!isInteractive) {
-    window.scrollTo(0, 0); // ADD THIS
-    router.push(`/properties/${property.slug || property.id}`);
+    window.scrollTo(0, 0);
+    
+    // Generate or get tracking ID for this property
+    const trackingId = getOrCreateTrackingId(property.id);
+    
+    // Use seoSlug if available
+    const slug = property.seoSlug || property.slug || property.id;
+    
+    // Navigate with tracking parameter
+    router.push(`/properties/${slug}?tf=${trackingId}`);
   }
-}, [router, property.slug, property.id]);
+}, [router, property.seoSlug, property.slug, property.id]);
+
+// Update the Details button click handler
+const handleDetailsClick = useCallback((e: React.MouseEvent) => {
+  e.preventDefault();
+  e.stopPropagation();
+  window.scrollTo(0, 0);
+  
+  const trackingId = getOrCreateTrackingId(property.id);
+  const slug = property.seoSlug || property.slug || property.id;
+  
+  router.push(`/properties/${slug}?tf=${trackingId}`);
+}, [router, property.seoSlug, property.slug, property.id]);
 
   // Image navigation handlers - with stopPropagation to prevent card click
   const nextImage = useCallback((e: React.MouseEvent) => {
@@ -262,11 +313,19 @@ const PropertyCard = memo(function PropertyCard({
   }, [onCallClick, property.phone, property.contact_number]);
 
   // Handle share click
-  const handleShareClick = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setSharePopup({ isOpen: true, property });
-  }, [property]);
+// In PropertyCard.tsx, update the share functionality
+const handleShareClick = useCallback((e: React.MouseEvent) => {
+  e.preventDefault();
+  e.stopPropagation();
+  
+  const trackingId = getOrCreateTrackingId(property.id);
+  const slug = property.seoSlug || property.slug || property.id;
+  const shareUrl = `${window.location.origin}/properties/${slug}?tf=${trackingId}`;
+  
+  setSharePopup({ isOpen: true, property, shareUrl });
+}, [property]);
+
+// In the share popup, use the shareUrl with tracking
 
   // Close share popup
   const closeSharePopup = useCallback(() => {
@@ -276,7 +335,8 @@ const PropertyCard = memo(function PropertyCard({
 
   // Handle copy link
   const handleCopyLink = useCallback(() => {
-    const shareUrl = `${window.location.origin}/properties/${sharePopup.property?.slug || sharePopup.property?.id}`;
+    // In the share popup, update the share URL
+const shareUrl = `${window.location.origin}/properties/${sharePopup.seoSlug || sharePopup.slug || sharePopup.id}`;
     navigator.clipboard.writeText(shareUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -517,19 +577,14 @@ const PropertyCard = memo(function PropertyCard({
             <div className="border-t border-slate-200 mt-auto pt-3">
               {/* WhatsApp, Call, View Details - ALL IN ONE LINE */}
               <div className="flex items-center gap-2">
-                <button
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                        window.scrollTo(0, 0); // ADD THIS
-
-                    router.push(`/properties/${property.slug || property.id}`);
-                  }}
-                  className="flex-1 px-2 py-2.5 bg-[#0249a8] hover:bg-[#023a88] text-white text-xs font-semibold rounded-lg shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 flex items-center justify-center gap-1"
-                >
-                  <span>Details</span>
-                  <ArrowRight className="h-3 w-3" />
-                </button>
+                {/* Update the Details button */}
+<button
+  onClick={handleDetailsClick}
+  className="flex-1 px-2 py-2.5 bg-[#0249a8] hover:bg-[#023a88] text-white text-xs font-semibold rounded-lg shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 flex items-center justify-center gap-1"
+>
+  <span>Details</span>
+  <ArrowRight className="h-3 w-3" />
+</button>
                 <button
                   onClick={handleWhatsAppClick}
                   className="flex-1 flex items-center justify-center gap-1 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 rounded-lg text-xs font-medium transition-all hover:scale-105"

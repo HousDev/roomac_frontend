@@ -11,7 +11,6 @@ export function useSettings() {
   const loadSettings = async () => {
     try {
       const response = await fetch('/api/settings');
-      console.log("res",response)
       const result = await response.json();
 
       if (result.success) {

@@ -77,6 +77,7 @@ import {
 import roomacLogo from "@/app/src/assets/images/roomaclogo.webp";
 import { useAuth } from "@/context/authContext";
 import router from "@/src/compat/next-router";
+import { getProperty } from "@/lib/propertyApi";
 
 interface DashboardStats {
   totalPaid: number;
@@ -275,85 +276,111 @@ const fetchNotifications = useCallback(async (showLoading = false) => {
 }, []);
 
   // Fetch data
-  const fetchAllData = useCallback(async () => {
-    setLoading(true);
-    setLoadingTimeout(false);
-    try {
-      const token = getTenantToken();
-      const tenantId = getTenantId();
-      if (!token || !tenantId) {
-        router.push('/login');
-        return;
-      }
+// Fetch data
+// In app/tenant/portal/page.tsx, update the fetchAllData function:
 
-      const [profileRes, requestsRes, categoriesRes, leaveTypesRes, notificationsRes] =
-        await Promise.allSettled([
-          tenantDetailsApi.loadProfile(),
-          getMyTenantRequests(),
-          getComplaintCategories(),
-          getLeaveTypesFromMasters(),
-          fetchNotifications(false), // Don't show loading for initial fetch
-        ]);
-
-      if (profileRes.status === "fulfilled" && profileRes.value?.success) {
-        const d = profileRes.value.data;
-        setTenant(d);
-
-        const totalPaid = d.payments?.filter((p: any) => p.status === "completed")
-          .reduce((s: number, p: any) => s + p.amount, 0) ?? 24500;
-        const totalPending = d.payments?.filter((p: any) => p.status === "pending")
-          .reduce((s: number, p: any) => s + p.amount, 0) ?? 12000;
-        const pendingCount = d.payments?.filter((p: any) => p.status === "pending").length ?? 1;
-
-        let daysUntilRentDue = 7;
-        let nextDueDate = new Date(Date.now() + 7 * 86400000).toISOString();
-        if (d.check_in_date) {
-          const dueDay = new Date(d.check_in_date).getDate();
-          const today = new Date();
-          let nextDue = new Date(today.getFullYear(), today.getMonth(), dueDay);
-          if (today.getDate() > dueDay)
-            nextDue = new Date(today.getFullYear(), today.getMonth() + 1, dueDay);
-          daysUntilRentDue = Math.ceil((nextDue.getTime() - today.getTime()) / (1000 * 3600 * 24));
-          nextDueDate = nextDue.toISOString();
-        }
-
-        const occupancyDays = d.check_in_date
-          ? Math.ceil((Date.now() - new Date(d.check_in_date).getTime()) / (1000 * 3600 * 24))
-          : 245;
-
-        setStats(prev => ({
-          ...prev,
-          totalPaid, totalPending, pendingCount,
-          daysUntilRentDue,
-          monthlyRent: d.monthly_rent ?? 12000,
-          occupancyDays, nextDueDate,
-        }));
-      }
-
-      if (requestsRes.status === "fulfilled" && requestsRes.value) {
-        const data: TenantRequest[] = requestsRes.value;
-        const c = data.filter(r => r.request_type === "complaint" || r.request_type === "maintenance");
-        setStats(prev => ({
-          ...prev,
-          openComplaints: c.filter(x => x.status === "pending" || x.status === "in_progress").length,
-          urgentComplaints: c.filter(x => x.priority === "urgent" && x.status !== "resolved").length,
-          inProgressComplaints: c.filter(x => x.status === "in_progress").length,
-        }));
-      }
-
-      if (categoriesRes.status === "fulfilled" && categoriesRes.value)
-        setComplaintCategories(categoriesRes.value);
-      if (leaveTypesRes.status === "fulfilled" && leaveTypesRes.value)
-        setLeaveTypes(leaveTypesRes.value);
-
-      setPayments(MOCK_PAYMENTS);
-    } catch {
-      toast.error("Failed to load dashboard data");
-      setPayments(MOCK_PAYMENTS);
-    } finally {
-      setLoading(false);
+const fetchAllData = useCallback(async () => {
+  setLoading(true);
+  setLoadingTimeout(false);
+  try {
+    const token = getTenantToken();
+    const tenantId = getTenantId();
+    if (!token || !tenantId) {
+      router.push('/login');
+      return;
     }
-  }, [navigate, fetchNotifications]);
+
+    const [profileRes, requestsRes, categoriesRes, leaveTypesRes] =
+      await Promise.allSettled([
+        tenantDetailsApi.loadProfile(),
+        getMyTenantRequests(),
+        getComplaintCategories(),
+        getLeaveTypesFromMasters(),
+      ]);
+
+    if (profileRes.status === "fulfilled" && profileRes.value?.success) {
+      const d = profileRes.value.data;
+      setTenant(d);
+
+      // If the tenant has a property_id, fetch the property details to get manager info
+      if (d.property_id) {
+        try {
+          const propertyRes = await getProperty(d.property_id);
+          if (propertyRes.success && propertyRes.data) {
+            // Update tenant with property manager info from property
+            setTenant(prev => ({
+              ...prev!,
+              property_manager_name: propertyRes.data.property_manager_name,
+              property_manager_phone: propertyRes.data.property_manager_phone,
+              property_manager_email: propertyRes.data.property_manager_email,
+              // If the staff has salutation, we might need to fetch staff details separately
+              // For now, we'll just use the name as is
+            }));
+          }
+        } catch (error) {
+          console.error('Error fetching property details:', error);
+        }
+      }
+
+      const totalPaid = d.payments?.filter((p: any) => p.status === "completed")
+        .reduce((s: number, p: any) => s + p.amount, 0) ?? 24500;
+      const totalPending = d.payments?.filter((p: any) => p.status === "pending")
+        .reduce((s: number, p: any) => s + p.amount, 0) ?? 12000;
+      const pendingCount = d.payments?.filter((p: any) => p.status === "pending").length ?? 1;
+
+      let daysUntilRentDue = 7;
+      let nextDueDate = new Date(Date.now() + 7 * 86400000).toISOString();
+      if (d.check_in_date) {
+        const dueDay = new Date(d.check_in_date).getDate();
+        const today = new Date();
+        let nextDue = new Date(today.getFullYear(), today.getMonth(), dueDay);
+        if (today.getDate() > dueDay)
+          nextDue = new Date(today.getFullYear(), today.getMonth() + 1, dueDay);
+        daysUntilRentDue = Math.ceil((nextDue.getTime() - today.getTime()) / (1000 * 3600 * 24));
+        nextDueDate = nextDue.toISOString();
+      }
+
+      const occupancyDays = d.check_in_date
+        ? Math.ceil((Date.now() - new Date(d.check_in_date).getTime()) / (1000 * 3600 * 24))
+        : 245;
+
+      setStats(prev => ({
+        ...prev,
+        totalPaid, totalPending, pendingCount,
+        daysUntilRentDue,
+        monthlyRent: d.monthly_rent ?? 12000,
+        occupancyDays, nextDueDate,
+      }));
+    }
+
+    if (requestsRes.status === "fulfilled" && requestsRes.value) {
+      const data: TenantRequest[] = requestsRes.value;
+      const c = data.filter(r => r.request_type === "complaint" || r.request_type === "maintenance");
+      setStats(prev => ({
+        ...prev,
+        openComplaints: c.filter(x => x.status === "pending" || x.status === "in_progress").length,
+        urgentComplaints: c.filter(x => x.priority === "urgent" && x.status !== "resolved").length,
+        inProgressComplaints: c.filter(x => x.status === "in_progress").length,
+      }));
+    }
+
+    if (categoriesRes.status === "fulfilled" && categoriesRes.value)
+      setComplaintCategories(categoriesRes.value);
+    if (leaveTypesRes.status === "fulfilled" && leaveTypesRes.value)
+      setLeaveTypes(leaveTypesRes.value);
+
+    // Fetch notifications separately
+    fetchNotifications(false);
+    
+    setPayments(MOCK_PAYMENTS);
+  } catch (error) {
+    console.error('Error fetching dashboard data:', error);
+    toast.error("Failed to load dashboard data");
+    setPayments(MOCK_PAYMENTS);
+  } finally {
+    setLoading(false);
+  }
+}, [navigate, fetchNotifications]);
 
   useEffect(() => { fetchAllData(); }, [fetchAllData]);
 
@@ -551,15 +578,16 @@ const fetchNotifications = useCallback(async (showLoading = false) => {
     <div className="p-4 sm:p-6">
       {/* Welcome Banner */}
     {/* Welcome Banner - Compact & Moved Up */}
+{/* Welcome Banner - Compact & Moved Up */}
 <div className="mb-4 bg-white border border-slate-200 rounded-lg p-3 text-slate-900 shadow-sm">
- <h1 className="text-xl font-semibold text-slate-900">
-              Welcome back,{" "}
-              <span className="text-[#0149ab]">
-                {tenant?.salutation
-                  ? `${tenant.salutation} ${tenant?.full_name?.split(" ")[0]}`
-                  : tenant?.full_name?.split(" ")[0] || "Tenant"}!👋
-              </span>
-            </h1>
+  <h1 className="text-xl font-semibold text-slate-900">
+    Welcome back,{" "}
+    <span className="text-[#0149ab]">
+      {tenant?.salutation
+        ? `${tenant.salutation} ${tenant?.full_name?.split(" ")[0]}`
+        : tenant?.full_name?.split(" ")[0] || "Tenant"}!👋
+    </span>
+  </h1>
   <p className="text-slate-500 text-xs sm:text-sm flex items-center gap-1.5 mt-0.5">
     <Building className="h-3.5 w-3.5 shrink-0 text-slate-400" />
     <span className="truncate">
@@ -1001,38 +1029,45 @@ const fetchNotifications = useCallback(async (showLoading = false) => {
             </CardContent>
           </Card>
 
-          {/* Property Manager */}
-          <Card className="border border-slate-200 shadow-sm">
-            <CardHeader className="pb-2 px-4 sm:px-6">
-              <CardTitle className="text-sm sm:text-base font-semibold flex items-center gap-2">
-                <User className="h-4 w-4 sm:h-5 sm:w-5 text-[#0149ab]" />
-                Property Manager
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="px-4 sm:px-6">
-              <div className="space-y-3">
-                <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
-                  <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-[#0149ab]/10 flex items-center justify-center">
-                    <User className="h-4 w-4 sm:h-5 sm:w-5 text-[#0149ab]" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-sm text-slate-900">{tenant?.property_manager_name || "Neha Sharma"}</p>
-                    <p className="text-xs text-slate-500">Property Manager</p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
-                  <div className="flex items-center gap-2 text-xs sm:text-sm">
-                    <Phone className="h-3 w-3 sm:h-4 sm:w-4 text-[#0149ab] shrink-0" />
-                    <span className="truncate">{tenant?.property_manager_phone || "8765432190"}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs sm:text-sm">
-                    <Mail className="h-3 w-3 sm:h-4 sm:w-4 text-[#0149ab] shrink-0" />
-                    <span className="truncate">manager@roomac.com</span>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+{/* Property Manager */}
+<Card className="border border-slate-200 shadow-sm">
+  <CardHeader className="pb-2 px-4 sm:px-6">
+    <CardTitle className="text-sm sm:text-base font-semibold flex items-center gap-2">
+      <User className="h-4 w-4 sm:h-5 sm:w-5 text-[#0149ab]" />
+      Property Manager
+    </CardTitle>
+  </CardHeader>
+  <CardContent className="px-4 sm:px-6">
+    <div className="space-y-3">
+      <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
+        <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-[#0149ab]/10 flex items-center justify-center">
+          <User className="h-4 w-4 sm:h-5 sm:w-5 text-[#0149ab]" />
+        </div>
+        
+        <div>
+          <p className="font-medium text-sm text-slate-900">
+            {tenant?.property_manager_name || "Neha Sharma"}
+          </p>
+          <p className="text-xs text-slate-500">
+            {tenant?.property_manager_role || "Property Manager"}
+          </p>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+        <div className="flex items-center gap-2 text-xs sm:text-sm">
+          <Phone className="h-3 w-3 sm:h-4 sm:w-4 text-[#0149ab] shrink-0" />
+          <span className="truncate">{tenant?.property_manager_phone || "8765432190"}</span>
+        </div>
+        <div className="flex items-center gap-2 text-xs sm:text-sm">
+          <Mail className="h-3 w-3 sm:h-4 sm:w-4 text-[#0149ab] shrink-0" />
+          <span className="truncate">
+            {tenant?.property_manager_email || "manager@roomac.com"}
+          </span>
+        </div>
+      </div>
+    </div>
+  </CardContent>
+</Card>
         </div>
       </div>
 

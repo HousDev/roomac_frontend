@@ -14,6 +14,12 @@ import {
   Maximize2, Coffee as CoffeeIcon, Bath as BathIcon, Coffee, Link2, CheckCircle
 } from 'lucide-react';
 import BookingModal from './BookingModal';
+import { 
+  incrementPropertyView, 
+  togglePropertyShortlist, 
+  getPropertyAnalytics,
+  checkShortlistStatus 
+} from '@/lib/propertyApi';
 
 const Icons = {
   Wifi, Wind, Utensils, Shield, Zap, Home, Building2, Bus, ShoppingCart, Heart, Film,
@@ -190,6 +196,12 @@ const PropertyDetailView = memo(function PropertyDetailView({ propertyData, offe
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [showCopyMessage, setShowCopyMessage] = useState(false);
   const [preselectedRoomId, setPreselectedRoomId] = useState<number | undefined>(undefined);
+  // Analytics states
+const [viewCount, setViewCount] = useState(0);
+const [shortlistCount, setShortlistCount] = useState(0);
+const [isShortlisted, setIsShortlisted] = useState(false);
+const [isLoadingShortlist, setIsLoadingShortlist] = useState(false);
+const [analyticsLoaded, setAnalyticsLoaded] = useState(false);
 
   // Transform amenities from API
   const transformedAmenities = useMemo(() => {
@@ -200,6 +212,98 @@ const PropertyDetailView = memo(function PropertyDetailView({ propertyData, offe
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  // Add this right after your component starts
+useEffect(() => {
+  // console.log('PropertyDetailView - tags from backend:', propertyData.tags);
+}, [propertyData.tags]);
+
+  // Load analytics and increment view count
+useEffect(() => {
+  if (!propertyData?.id || analyticsLoaded) return;
+
+  const loadAnalytics = async () => {
+    try {
+      const propertyId = propertyData.id;
+      
+      // Check if already viewed in this session (optional)
+      const viewedKey = `property_${propertyId}_viewed`;
+      const hasViewed = sessionStorage.getItem(viewedKey);
+      
+      // Always increment view on page load (backend handles duplicate prevention)
+      const viewResult = await incrementPropertyView(propertyId);
+      if (viewResult.success) {
+        setViewCount(viewResult.data.totalViews);
+        // Mark as viewed in this session
+        sessionStorage.setItem(viewedKey, 'true');
+      }
+
+      // Get full analytics (includes shortlist status and counts)
+      const analyticsResult = await getPropertyAnalytics(propertyId);
+      if (analyticsResult.success) {
+        setViewCount(analyticsResult.data.totalViews);
+        setShortlistCount(analyticsResult.data.totalShortlists);
+        setIsShortlisted(analyticsResult.data.isShortlisted);
+      }
+
+      setAnalyticsLoaded(true);
+    } catch (error) {
+      console.error('Error loading analytics:', error);
+      // Fallback to propertyData values
+      setViewCount(propertyData.activity?.totalViews || 0);
+      setShortlistCount(propertyData.activity?.shortlistedBy || 0);
+    }
+  };
+
+  loadAnalytics();
+}, [propertyData?.id, analyticsLoaded]);
+
+// Handle shortlist button click
+const handleShortlistClick = async () => {
+  if (isLoadingShortlist || !propertyData?.id) return;
+  
+  setIsLoadingShortlist(true);
+  
+  // Optimistic update
+  const wasShortlisted = isShortlisted;
+  const previousCount = shortlistCount;
+  
+  setIsShortlisted(!wasShortlisted);
+  setShortlistCount(prev => wasShortlisted ? prev - 1 : prev + 1);
+
+  try {
+    const result = await togglePropertyShortlist(propertyData.id);
+    
+    if (result.success) {
+      // Update with actual server values
+      setIsShortlisted(result.data.isShortlisted);
+      setShortlistCount(result.data.totalShortlists);
+      
+      // // Show feedback (optional)
+      // if (result.data.isShortlisted) {
+      //   // You could show a toast notification here
+      //   console.log('Added to shortlist');
+      // } else {
+      //   console.log('Removed from shortlist');
+      // }
+    } else {
+      // Revert on error
+      setIsShortlisted(wasShortlisted);
+      setShortlistCount(previousCount);
+      
+      // Show error message (optional)
+      alert('Failed to update shortlist. Please try again.');
+    }
+  } catch (error) {
+    // Revert on error
+    setIsShortlisted(wasShortlisted);
+    setShortlistCount(previousCount);
+    console.error('Error toggling shortlist:', error);
+    alert('Failed to update shortlist. Please try again.');
+  } finally {
+    setIsLoadingShortlist(false);
+  }
+};
 
 
   useEffect(() => {
@@ -388,6 +492,25 @@ const PropertyDetailView = memo(function PropertyDetailView({ propertyData, offe
     );
   }
 
+  // Add this function inside your PropertyDetailView component
+const getTagColor = (tag: string) => {
+  const t = tag.toLowerCase();
+  if (t.includes('male') || t.includes('boys') || t.includes('men')) return 'bg-gradient-to-r from-blue-600 to-blue-800 text-white';
+  if (t.includes('female') || t.includes('girls') || t.includes('women')) return 'bg-gradient-to-r from-pink-600 to-rose-600 text-white';
+  if (t.includes('couple') || t.includes('married')) return 'bg-gradient-to-r from-purple-600 to-purple-800 text-white';
+  if (t.includes('family')) return 'bg-gradient-to-r from-green-600 to-green-800 text-white';
+  if (t.includes('working') || t.includes('professional')) return 'bg-gradient-to-r from-amber-600 to-amber-800 text-white';
+  if (t.includes('student')) return 'bg-gradient-to-r from-indigo-600 to-indigo-800 text-white';
+  if (t.includes('new') || t.includes('latest')) return 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white';
+  if (t.includes('premium') || t.includes('luxury') || t.includes('featured')) return 'bg-gradient-to-r from-yellow-500 to-amber-500 text-black';
+  if (t.includes('discount') || t.includes('offer')) return 'bg-gradient-to-r from-red-500 to-pink-500 text-white';
+  if (t.includes('verified')) return 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white';
+  if (t.includes('ac') || t.includes('air conditioned')) return 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white';
+  if (t.includes('wifi') || t.includes('internet')) return 'bg-gradient-to-r from-purple-500 to-indigo-500 text-white';
+  if (t.includes('food') || t.includes('meal')) return 'bg-gradient-to-r from-orange-500 to-red-500 text-white';
+  return 'bg-gradient-to-r from-slate-600 to-slate-800 text-white';
+};
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-violet-50 via-purple-50 to-pink-50">
       {/* Floating Action Buttons */}
@@ -561,17 +684,30 @@ const PropertyDetailView = memo(function PropertyDetailView({ propertyData, offe
           <div className="bg-white rounded-xl p-3 md:p-4 shadow-lg md:shadow-xl relative">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4">
               <div className="flex-1 min-w-0">
-                <div className="flex flex-wrap items-center gap-1 md:gap-2 mb-1">
-                  <h1 className="text-lg md:text-2xl font-black gradient-text truncate">
-                    {propertyData.name}
-                  </h1>
-                  {propertyData.isFeatured && (
-                    <span className="px-1.5 md:px-2 py-0.5 md:py-1 bg-gradient-to-r from-amber-400 to-orange-500 text-white rounded-full text-[10px] md:text-xs font-bold whitespace-nowrap">
-                      <Star className="w-2 h-2 md:w-3 md:h-3 inline mr-0.5" />
-                      Featured
-                    </span>
-                  )}
-                </div>
+<div className="flex flex-wrap items-center gap-1 md:gap-2 mb-1">
+  <h1 className="text-lg md:text-2xl font-black gradient-text truncate">
+    {propertyData.name}
+  </h1>
+  
+  {/* Display ONLY tags from backend - NO static/featured tags */}
+  {propertyData.tags && propertyData.tags.length > 0 ? (
+    <div className="flex flex-wrap gap-1 ml-2">
+      {propertyData.tags.slice(0, 3).map((tag: string, index: number) => (
+        <span
+          key={index}
+          className={`px-1.5 md:px-2 py-0.5 md:py-1 rounded-full text-[10px] md:text-xs font-bold whitespace-nowrap ${getTagColor(tag)}`}
+        >
+          {tag}
+        </span>
+      ))}
+      {propertyData.tags.length > 3 && (
+        <span className="px-1.5 md:px-2 py-0.5 md:py-1 bg-gray-200 text-gray-700 rounded-full text-[10px] md:text-xs font-bold">
+          +{propertyData.tags.length - 3}
+        </span>
+      )}
+    </div>
+  ) : null}
+</div>
 
                 <div className="flex items-center gap-1 md:gap-2 text-gray-600 mb-1">
                   <MapPin className="w-3 h-3 md:w-4 md:h-4 text-blue-600 flex-shrink-0" />
@@ -640,15 +776,35 @@ const PropertyDetailView = memo(function PropertyDetailView({ propertyData, offe
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
 
                 <div className="absolute top-3 md:top-6 left-3 md:left-6 flex gap-1.5 md:gap-3">
-                  <div className="glass-dark px-2 py-1.5 md:px-4 md:py-3 rounded-lg md:rounded-xl backdrop-blur-md flex items-center gap-1 md:gap-2 shadow-lg">
-                    <Eye className="w-3 h-3 md:w-5 md:h-5 text-white" />
-                    <span className="font-black text-xs md:text-base text-white">{propertyData.activity?.totalViews || 0}</span>
-                  </div>
-                  <div className="glass-dark px-2 py-1.5 md:px-4 md:py-3 rounded-lg md:rounded-xl backdrop-blur-md flex items-center gap-1 md:gap-2 shadow-lg">
-                    <Heart className="w-3 h-3 md:w-5 md:h-5 text-rose-400" />
-                    <span className="font-black text-xs md:text-base text-white">{propertyData.activity?.shortlistedBy || 0}</span>
-                  </div>
-                </div>
+  {/* Views - Static display (no interaction) */}
+  <div className="glass-dark px-2 py-1.5 md:px-4 md:py-3 rounded-lg md:rounded-xl backdrop-blur-md flex items-center gap-1 md:gap-2 shadow-lg">
+    <Eye className="w-3 h-3 md:w-5 md:h-5 text-white" />
+    <span className="font-black text-xs md:text-base text-white">
+      {viewCount.toLocaleString()}
+    </span>
+  </div>
+
+  {/* Heart Button - Interactive */}
+  <button
+    onClick={handleShortlistClick}
+    disabled={isLoadingShortlist}
+    className={`glass-dark px-2 py-1.5 md:px-4 md:py-3 rounded-lg md:rounded-xl backdrop-blur-md flex items-center gap-1 md:gap-2 shadow-lg transition-all transform hover:scale-105 ${
+      isShortlisted ? 'bg-rose-500/20' : ''
+    } ${isLoadingShortlist ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+    title={isShortlisted ? 'Remove from shortlist' : 'Add to shortlist'}
+  >
+    <Heart 
+      className={`w-3 h-3 md:w-5 md:h-5 transition-all ${
+        isShortlisted 
+          ? 'text-rose-500 fill-rose-500 animate-pulse' 
+          : 'text-rose-400 hover:text-rose-500'
+      }`} 
+    />
+    <span className="font-black text-xs md:text-base text-white">
+      {shortlistCount.toLocaleString()}
+    </span>
+  </button>
+</div>
 
                 <button onClick={prevImage} className="absolute left-2 md:left-6 top-1/2 -translate-y-1/2 glass-dark p-2 md:p-4 rounded-lg md:rounded-2xl text-white transition-all hover:scale-105 md:hover:scale-110">
                   <ChevronLeft className="w-4 h-4 md:w-6 md:h-6" />

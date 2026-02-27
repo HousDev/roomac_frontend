@@ -1,7 +1,10 @@
+// components/properties/PropertyGrid.tsx
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import PropertyCard from './PropertyCard';
+import { generatePropertySlug } from '@/lib/slugUtils';
+import { transformPropertyData } from './propertyTransformers';
 
 interface PropertyGridProps {
   initialProperties: any;
@@ -18,20 +21,40 @@ export default function PropertyGrid({ initialProperties }: PropertyGridProps) {
   const [selectedType, setSelectedType] = useState("");
   const [budgetRange, setBudgetRange] = useState<[number, number]>([5000, 15000]);
 
-  // Initialize properties from server data
-  useEffect(() => {
-    if (initialProperties?.success && Array.isArray(initialProperties.data)) {
-      setProperties(initialProperties.data);
-      setFilteredProperties(initialProperties.data);
+useEffect(() => {
+  if (initialProperties?.success && Array.isArray(initialProperties.data)) {
+    // Transform each property first
+    const transformedProperties = initialProperties.data.map((property: any) => {
+      const transformed = transformPropertyData(property);
       
-      const initialIndices: { [key: string]: number } = {};
-      initialProperties.data.forEach((property: any) => {
-        initialIndices[property.id] = 0;
-      });
-      setCurrentImageIndex(initialIndices);
-    }
-    setLoading(false);
-  }, [initialProperties]);
+      console.log('Property ID:', property.id, 'Original tags:', property.tags);
+      console.log('Property ID:', property.id, 'Transformed tags:', transformed.tags);
+      
+      return {
+        ...property,
+        transformedData: transformed, // Store transformed data
+        seoSlug: generatePropertySlug({
+          name: transformed.name,
+          area: transformed.area,
+          city: transformed.city,
+          id: property.id
+        })
+      };
+    });
+    
+    console.log('All properties with transformed data:', transformedProperties);
+    setProperties(transformedProperties);
+    setFilteredProperties(transformedProperties);
+    
+    const initialIndices: { [key: string]: number } = {};
+    transformedProperties.forEach((property: any) => {
+      initialIndices[property.id] = 0;
+    });
+    setCurrentImageIndex(initialIndices);
+  }
+  setLoading(false);
+}, [initialProperties]);
+
 
   // Filter properties
   useEffect(() => {
