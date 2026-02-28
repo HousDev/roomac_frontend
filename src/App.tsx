@@ -7,6 +7,7 @@ import ProtectedRoute from "../components/routes/ProtectedRoute";
 import PublicRoute from "../components/routes/PublicRoute";
 import { Toaster } from "sonner";
 
+
 import RootLayout from "../app/layout";
 import AdminLayout from "../app/admin/layout";
 import TenantLayout from "../app/tenant/layout/TenantLayout"

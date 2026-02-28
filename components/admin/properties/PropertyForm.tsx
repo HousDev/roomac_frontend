@@ -2567,138 +2567,145 @@ export default function PropertyForm({
   };
 
   // Initialize form when selectedProperty changes
-  useEffect(() => {
-    if (selectedProperty && editMode) {
-      const photoUrls = Array.isArray(selectedProperty.photo_urls)
-        ? selectedProperty.photo_urls
-        : [];
+// Initialize form when selectedProperty changes
+useEffect(() => {
+  if (selectedProperty && editMode) {
+    const photoUrls = Array.isArray(selectedProperty.photo_urls)
+      ? selectedProperty.photo_urls
+      : [];
 
-      // Parse property_rules
-      let parsedPropertyRules = [];
-      if (selectedProperty.property_rules) {
-        try {
-          parsedPropertyRules = JSON.parse(selectedProperty.property_rules);
-        } catch {
-          parsedPropertyRules = Array.isArray(selectedProperty.property_rules)
-            ? selectedProperty.property_rules
-            : selectedProperty.property_rules ? [selectedProperty.property_rules] : [];
-        }
+    // CRITICAL FIX: Remove duplicates from photo URLs
+    const uniquePhotoUrls = [...new Set(photoUrls)];
+
+    // Parse property_rules
+    let parsedPropertyRules = [];
+    if (selectedProperty.property_rules) {
+      try {
+        parsedPropertyRules = JSON.parse(selectedProperty.property_rules);
+      } catch {
+        parsedPropertyRules = Array.isArray(selectedProperty.property_rules)
+          ? selectedProperty.property_rules
+          : selectedProperty.property_rules ? [selectedProperty.property_rules] : [];
       }
-
-      // Parse additional_terms
-      let parsedAdditionalTerms = [];
-      if (selectedProperty.additional_terms) {
-        try {
-          parsedAdditionalTerms = JSON.parse(selectedProperty.additional_terms);
-        } catch {
-          parsedAdditionalTerms = Array.isArray(selectedProperty.additional_terms)
-            ? selectedProperty.additional_terms
-            : selectedProperty.additional_terms ? [selectedProperty.additional_terms] : [];
-        }
-      }
-
-      // Map lock-in period value
-      let lockinPeriodValue = "";
-      if (selectedProperty.lockin_period_months) {
-        const lockinPeriodNum = Number(selectedProperty.lockin_period_months);
-        const matchingOption = propertiesMasters["Lock-in Period"]?.find(option => {
-          const optionNum = parseInt(option.name);
-          return optionNum === lockinPeriodNum;
-        });
-        lockinPeriodValue = matchingOption ? matchingOption.name : String(selectedProperty.lockin_period_months);
-      }
-
-      // Map notice period value
-      let noticePeriodValue = "";
-      if (selectedProperty.notice_period_days) {
-        const noticePeriodNum = Number(selectedProperty.notice_period_days);
-        const matchingOption = propertiesMasters["Notice Period"]?.find(option => {
-          const optionNum = parseInt(option.name);
-          return optionNum === noticePeriodNum;
-        });
-        noticePeriodValue = matchingOption ? matchingOption.name : String(selectedProperty.notice_period_days);
-      }
-
-      const initialFormData = {
-        name: selectedProperty.name || "",
-        city_id: selectedProperty.city_id || "",
-        state: selectedProperty.state || "",
-        area: selectedProperty.area || "",
-        address: selectedProperty.address || "",
-        total_rooms: selectedProperty.total_rooms || 0,
-        total_beds: selectedProperty.total_beds || 0,
-        floor: selectedProperty.floor || 0,
-        starting_price: selectedProperty.starting_price || 0,
-        security_deposit: selectedProperty.security_deposit || 0,
-        description: selectedProperty.description || "",
-        property_manager_name: selectedProperty.property_manager_name || "",
-        property_manager_phone: selectedProperty.property_manager_phone || "",
-        property_manager_email: selectedProperty.property_manager_email || "",
-        property_manager_role: selectedProperty.property_manager_role || "",
-        staff_id: selectedProperty.staff_id ? String(selectedProperty.staff_id) : "",
-        amenities: Array.isArray(selectedProperty.amenities) ? selectedProperty.amenities : [],
-        services: Array.isArray(selectedProperty.services) ? selectedProperty.services : [],
-        photo_urls: photoUrls,
-        property_rules: parsedPropertyRules,
-        lockin_period_months: lockinPeriodValue,
-        lockin_penalty_amount: selectedProperty.lockin_penalty_amount || 0,
-        lockin_penalty_type: selectedProperty.lockin_penalty_type || "fixed",
-        notice_period_days: noticePeriodValue,
-        notice_penalty_amount: selectedProperty.notice_penalty_amount || 0,
-        notice_penalty_type: selectedProperty.notice_penalty_type || "fixed",
-        terms_conditions: selectedProperty.terms_conditions || "",
-        additional_terms: parsedAdditionalTerms,
-        custom_terms: [],
-      };
-
-      setFormData(initialFormData);
-      setExistingPhotoUrls(photoUrls);
-      setSelectedRules(parsedPropertyRules);
-      setSelectedAdditionalTerms(parsedAdditionalTerms);
-      setPhotoPreviews(
-        photoUrls.map((url: string) => {
-          if (url.startsWith("http") || url.startsWith("blob:")) return url;
-          const apiUrl = import.meta.env.VITE_API_URL || "";
-          const cleanUrl = url.startsWith("/") ? url.substring(1) : url;
-          return `${apiUrl}/${cleanUrl}`;
-        }),
-      );
-
-      const existingTerms = selectedProperty.terms_conditions || "";
-      const customTermsList = existingTerms
-        .split("\n")
-        .filter(
-          (term: string) =>
-            term.trim() &&
-            !TERMS_TEMPLATES.some(
-              (template) =>
-                term.includes(template.header) ||
-                existingTerms.includes(template.detailedContent(selectedProperty)),
-            ),
-        );
-      setCustomTerms(customTermsList);
-      setSelectedTerms([]);
-      setError(null);
-
-      const matchingStaff =
-        staffList.find((s) => String(s.id) === String(selectedProperty.staff_id)) ||
-        staffList.find((s) => s.name === selectedProperty.property_manager_name);
-
-      if (matchingStaff) {
-        setSelectedStaff(matchingStaff);
-        setSelectedStaffId(String(matchingStaff.id));
-        setManagerRole(matchingStaff.role || "");
-        setManagerEmail(matchingStaff.email || "");
-      } else {
-        setSelectedStaff(null);
-        setSelectedStaffId(selectedProperty.staff_id ? String(selectedProperty.staff_id) : "");
-        setManagerRole(selectedProperty.property_manager_role || "");
-        setManagerEmail(selectedProperty.property_manager_email || "");
-      }
-    } else {
-      resetForm();
     }
-  }, [selectedProperty, editMode, staffList, propertiesMasters]);
+
+    // Parse additional_terms
+    let parsedAdditionalTerms = [];
+    if (selectedProperty.additional_terms) {
+      try {
+        parsedAdditionalTerms = JSON.parse(selectedProperty.additional_terms);
+      } catch {
+        parsedAdditionalTerms = Array.isArray(selectedProperty.additional_terms)
+          ? selectedProperty.additional_terms
+          : selectedProperty.additional_terms ? [selectedProperty.additional_terms] : [];
+      }
+    }
+
+    // Map lock-in period value
+    let lockinPeriodValue = "";
+    if (selectedProperty.lockin_period_months) {
+      const lockinPeriodNum = Number(selectedProperty.lockin_period_months);
+      const matchingOption = propertiesMasters["Lock-in Period"]?.find(option => {
+        const optionNum = parseInt(option.name);
+        return optionNum === lockinPeriodNum;
+      });
+      lockinPeriodValue = matchingOption ? matchingOption.name : String(selectedProperty.lockin_period_months);
+    }
+
+    // Map notice period value
+    let noticePeriodValue = "";
+    if (selectedProperty.notice_period_days) {
+      const noticePeriodNum = Number(selectedProperty.notice_period_days);
+      const matchingOption = propertiesMasters["Notice Period"]?.find(option => {
+        const optionNum = parseInt(option.name);
+        return optionNum === noticePeriodNum;
+      });
+      noticePeriodValue = matchingOption ? matchingOption.name : String(selectedProperty.notice_period_days);
+    }
+
+    const initialFormData = {
+      name: selectedProperty.name || "",
+      city_id: selectedProperty.city_id || "",
+      state: selectedProperty.state || "",
+      area: selectedProperty.area || "",
+      address: selectedProperty.address || "",
+      total_rooms: selectedProperty.total_rooms || 0,
+      total_beds: selectedProperty.total_beds || 0,
+      floor: selectedProperty.floor || 0,
+      starting_price: selectedProperty.starting_price || 0,
+      security_deposit: selectedProperty.security_deposit || 0,
+      description: selectedProperty.description || "",
+      property_manager_name: selectedProperty.property_manager_name || "",
+      property_manager_phone: selectedProperty.property_manager_phone || "",
+      property_manager_email: selectedProperty.property_manager_email || "",
+      property_manager_role: selectedProperty.property_manager_role || "",
+      staff_id: selectedProperty.staff_id ? String(selectedProperty.staff_id) : "",
+      amenities: Array.isArray(selectedProperty.amenities) ? selectedProperty.amenities : [],
+      services: Array.isArray(selectedProperty.services) ? selectedProperty.services : [],
+      photo_urls: uniquePhotoUrls, // Use unique URLs
+      property_rules: parsedPropertyRules,
+      lockin_period_months: lockinPeriodValue,
+      lockin_penalty_amount: selectedProperty.lockin_penalty_amount || 0,
+      lockin_penalty_type: selectedProperty.lockin_penalty_type || "fixed",
+      notice_period_days: noticePeriodValue,
+      notice_penalty_amount: selectedProperty.notice_penalty_amount || 0,
+      notice_penalty_type: selectedProperty.notice_penalty_type || "fixed",
+      terms_conditions: selectedProperty.terms_conditions || "",
+      additional_terms: parsedAdditionalTerms,
+      custom_terms: [],
+    };
+
+    setFormData(initialFormData);
+    setExistingPhotoUrls(uniquePhotoUrls); // Use unique URLs
+    
+    // CRITICAL FIX: Reset photoFiles when editing to prevent duplicates
+    setPhotoFiles([]);
+    setRemovedPhotoUrls([]);
+    
+    setPhotoPreviews(
+      uniquePhotoUrls.map((url: string) => {
+        if (url.startsWith("http") || url.startsWith("blob:")) return url;
+        const apiUrl = import.meta.env.VITE_API_URL || "";
+        const cleanUrl = url.startsWith("/") ? url.substring(1) : url;
+        return `${apiUrl}/${cleanUrl}`;
+      }),
+    );
+
+    const existingTerms = selectedProperty.terms_conditions || "";
+    const customTermsList = existingTerms
+      .split("\n")
+      .filter(
+        (term: string) =>
+          term.trim() &&
+          !TERMS_TEMPLATES.some(
+            (template) =>
+              term.includes(template.header) ||
+              existingTerms.includes(template.detailedContent(selectedProperty)),
+          ),
+      );
+    setCustomTerms(customTermsList);
+    setSelectedTerms([]);
+    setError(null);
+
+    const matchingStaff =
+      staffList.find((s) => String(s.id) === String(selectedProperty.staff_id)) ||
+      staffList.find((s) => s.name === selectedProperty.property_manager_name);
+
+    if (matchingStaff) {
+      setSelectedStaff(matchingStaff);
+      setSelectedStaffId(String(matchingStaff.id));
+      setManagerRole(matchingStaff.role || "");
+      setManagerEmail(matchingStaff.email || "");
+    } else {
+      setSelectedStaff(null);
+      setSelectedStaffId(selectedProperty.staff_id ? String(selectedProperty.staff_id) : "");
+      setManagerRole(selectedProperty.property_manager_role || "");
+      setManagerEmail(selectedProperty.property_manager_email || "");
+    }
+  } else {
+    resetForm();
+  }
+}, [selectedProperty, editMode, staffList, propertiesMasters]);
 
   // Update period values when masters load
   useEffect(() => {
@@ -2848,43 +2855,50 @@ export default function PropertyForm({
     onOpenChange(false);
   };
 
-  const handleSubmit = async () => {
-    const ruleNames = selectedRules.length > 0
-      ? selectedRules
-      : formData.property_rules;
+const handleSubmit = async () => {
+  const ruleNames = selectedRules.length > 0
+    ? selectedRules
+    : formData.property_rules;
 
-    const termNames = selectedAdditionalTerms.length > 0
-      ? selectedAdditionalTerms
-      : formData.additional_terms;
+  const termNames = selectedAdditionalTerms.length > 0
+    ? selectedAdditionalTerms
+    : formData.additional_terms;
 
-    const templateTerms = selectedTerms
-      .map((termId) => {
-        const template = TERMS_TEMPLATES.find((t) => t.id === termId);
-        if (!template) return "";
-        return `${template.header}\n${template.detailedContent(formData)}`;
-      })
-      .filter(Boolean);
+  const templateTerms = selectedTerms
+    .map((termId) => {
+      const template = TERMS_TEMPLATES.find((t) => t.id === termId);
+      if (!template) return "";
+      return `${template.header}\n${template.detailedContent(formData)}`;
+    })
+    .filter(Boolean);
 
-    const allTerms = [
-      ...templateTerms,
-      ...customTerms.map((term) => `📝 Custom Term\n${term}`),
-      formData.additional_terms?.length ? `✏️ Custom Notes\n${formData.additional_terms.join('\n')}` : "",
-    ]
-      .filter(Boolean)
-      .join("\n\n");
+  const allTerms = [
+    ...templateTerms,
+    ...customTerms.map((term) => `📝 Custom Term\n${term}`),
+  ]
+    .filter(Boolean)
+    .join("\n\n");
 
-    const submitData = {
-      ...formData,
-      property_rules: ruleNames,
-      additional_terms: termNames,
-      terms_conditions: allTerms,
-      rule_ids: selectedRules,
-      term_ids: selectedAdditionalTerms,
-      custom_terms: customTerms,
-    };
-
-    await onSubmit(submitData, photoFiles, removedPhotoUrls);
+  const submitData = {
+    ...formData,
+    property_rules: ruleNames,
+    additional_terms: termNames,
+    terms_conditions: allTerms,
+    rule_ids: selectedRules,
+    term_ids: selectedAdditionalTerms,
+    custom_terms: customTerms,
   };
+
+  await onSubmit(submitData, photoFiles, removedPhotoUrls);
+  
+  // CRITICAL FIX: Clean up after successful submission
+  // This prevents old previews from persisting
+  photoPreviews.forEach(preview => {
+    if (preview.startsWith('blob:')) {
+      URL.revokeObjectURL(preview);
+    }
+  });
+};
 
   const handlePhotosUpload = (files: File[]) => {
     const previews = files.map((f) => URL.createObjectURL(f));

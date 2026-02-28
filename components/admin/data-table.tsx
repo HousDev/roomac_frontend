@@ -24,6 +24,7 @@ import {
   ChevronRight,
   RefreshCw
 } from 'lucide-react';
+import MySwal from '@/app/utils/swal';
 
 export interface Column<T> {
   key: string;
@@ -152,11 +153,21 @@ export function DataTable<T extends { id: string | number }>({
     }
   };
 
-  const handleBulkAction = (action: BulkAction) => {
+  const handleBulkAction = async (action: BulkAction) => {
     if (selectedRows.length === 0) return;
 
     if (action.confirmMessage) {
-      if (!confirm(action.confirmMessage)) return;
+      const result = await MySwal.fire({
+      title: "Delete Item?",
+      text: "This action cannot be undone",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#C62828",
+      cancelButtonColor: "#6b7280",
+      confirmButtonText: "Delete",
+    });
+
+    if (!result.isConfirmed) return;
     }
 
     action.action(selectedRows);

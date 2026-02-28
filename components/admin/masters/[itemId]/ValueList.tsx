@@ -341,7 +341,7 @@ export default function ValueList({
                       )}
                     </button>
                   </td>
-                  <td className="py-2 px-4 text-sm font-medium">{value.name}</td>
+                  <td className="py-2 px-4 text-sm font-normal">{value.name}</td>
                   <td className="py-2 px-4">
                     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs ${
                       value.isactive === 1 

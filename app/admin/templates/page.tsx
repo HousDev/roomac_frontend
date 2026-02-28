@@ -25,6 +25,7 @@ import {
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { useRouter } from '@/src/compat/next-navigation';
+import MySwal from '@/app/utils/swal';
 
 interface TemplateField {
   name: string;
@@ -173,9 +174,20 @@ export default function TemplateManagementPage() {
   };
 
   const handleDeleteTemplate = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this template?')) return;
+    
 
     try {
+      const result = await MySwal.fire({
+            title: "Delete Item?",
+            text: "This action cannot be undone",
+            icon: "warning",
+            showCancelButton: true,
+            confirmButtonColor: "#C62828",
+            cancelButtonColor: "#6b7280",
+            confirmButtonText: "Delete",
+          });
+      
+          if (!result.isConfirmed) return;
       const res = await fetch(`${apiBase}/${id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Failed to delete template');
       toast.success('Template deleted successfully');

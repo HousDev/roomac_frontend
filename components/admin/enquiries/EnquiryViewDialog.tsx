@@ -21,7 +21,11 @@ import {
   DollarSign,
   MessageSquare,
   Clock,
+  X,
+  Trash2,
+  IndianRupee,
 } from "lucide-react";
+import MySwal from "@/app/utils/swal";
 
 interface EnquiryViewDialogProps {
   enquiry: Enquiry | null;
@@ -48,184 +52,176 @@ const EnquiryViewDialog = ({
 }: EnquiryViewDialogProps) => {
   if (!enquiry) return null;
 
+const handleDeleteClick = async () => {
+  
+  // Close the view dialog first
+  onClose();
+  
+  // Small delay to ensure dialog is closed before SweetAlert opens
+  setTimeout(async () => {
+    const result = await MySwal.fire({
+      title: "Delete Enquiry?",
+      text: "Are you sure you want to delete this enquiry? This action cannot be undone.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#C62828",
+      cancelButtonColor: "#6b7280",
+      confirmButtonText: "Delete",
+      cancelButtonText: "Cancel",
+      reverseButtons: true,
+      focusCancel: true,
+    });
+
+    if (result.isConfirmed) {
+      onDelete(enquiry.id);
+    }
+  }, 100);
+};
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md w-[95vw] p-4 md:p-5 text-sm">
+  <DialogContent className="max-w-sm w-[95vw] p-0 rounded-xl border-0 shadow-2xl overflow-hidden">
 
-        {/* Header */}
-        <DialogHeader className="pb-2">
-          <DialogTitle className="flex items-center justify-between text-base md:text-lg">
-            <span>Enquiry Details</span>
-            {getStatusBadge(enquiry.status || "new")}
-          </DialogTitle>
-        </DialogHeader>
+    {/* ── Header ── */}
+    <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] hover:bg-blue-700 border-blue-600 px-4 py-3 flex items-start justify-between">
+      <div className="flex-1 min-w-0">
+        <p className="text-[10px] font-medium text-slate-800 uppercase tracking-wider mb-0.5">Enquiry Details</p>
+        <h2 className="text-sm font-semibold text-white truncate">{enquiry.tenant_name}</h2>
+      </div>
+      <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+        {getStatusBadge(enquiry.status || "new")}
+        <button
+          onClick={onClose}
+          className="p-1 rounded-md hover:bg-white/15 text-slate-800 hover:text-white transition ml-1"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
 
-        <div className="space-y-3">
+    <div className="overflow-y-auto max-h-[80vh] divide-y divide-slate-100">
 
-          {/* Contact Info */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-sm md:text-base">
-                {enquiry.tenant_name}
-              </h3>
-              <span className="text-xs text-gray-500">
-                {formatDateForDisplay(enquiry.created_at || "")}
-              </span>
-            </div>
-
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-2 text-xs md:text-sm">
-                <Phone className="h-3.5 w-3.5 text-gray-500" />
-                <span className="font-medium">{enquiry.phone}</span>
-              </div>
-
-              {enquiry.email && (
-                <div className="flex items-center gap-2 text-xs md:text-sm">
-                  <Mail className="h-3.5 w-3.5 text-gray-500" />
-                  <span>{enquiry.email}</span>
-                </div>
-              )}
-
-              <div className="flex items-center gap-2 text-xs md:text-sm">
-                <MapPin className="h-3.5 w-3.5 text-gray-500" />
-                <span>
-                  {enquiry.property_full_name ||
-                    enquiry.property_name ||
-                    "-"}
-                </span>
-              </div>
-
-              <div className="flex items-center gap-2 text-xs md:text-sm">
-                <Calendar className="h-3.5 w-3.5 text-gray-500" />
-                <span>
-                  Move-in:{" "}
-                  {formatDateForDisplay(
-                    enquiry.preferred_move_in_date
-                  )}
-                </span>
-              </div>
-
-              {enquiry.budget_range && (
-                <div className="flex items-center gap-2 text-xs md:text-sm">
-                  <DollarSign className="h-3.5 w-3.5 text-gray-500" />
-                  <span>Budget: {enquiry.budget_range}</span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <Separator />
-
-          {/* Message */}
-          {enquiry.message && (
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-2 text-xs md:text-sm">
-                <MessageSquare className="h-3.5 w-3.5 text-gray-500" />
-                <Label className="text-xs md:text-sm">Message</Label>
-              </div>
-              <p className="text-xs md:text-sm text-gray-600 p-2 bg-gray-50 rounded border leading-snug">
-                {enquiry.message}
-              </p>
-            </div>
-          )}
-
-          {/* Followups */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-xs md:text-sm">
-              <Clock className="h-3.5 w-3.5 text-gray-500" />
-              <Label className="font-medium text-xs md:text-sm">
-                Followups
-              </Label>
-              <Badge
-                variant="secondary"
-                className="ml-auto text-[10px] px-2 py-0.5"
-              >
-                {enquiry.followups?.length || 0}
-              </Badge>
-            </div>
-
-            <div className="space-y-1.5 max-h-32 overflow-y-auto">
-              {enquiry.followups &&
-              enquiry.followups.length > 0 ? (
-                enquiry.followups.map(
-                  (followup: Followup) => (
-                    <Card
-                      key={followup.id}
-                      className="p-2 text-xs md:text-sm"
-                    >
-                      <p>{followup.note}</p>
-                      <p className="text-[10px] text-gray-500 mt-1">
-                        {formatDateForDisplay(
-                          followup.timestamp
-                        )}{" "}
-                        • {followup.created_by}
-                      </p>
-                    </Card>
-                  )
-                )
-              ) : (
-                <p className="text-xs text-gray-500 text-center py-1">
-                  No followups yet
-                </p>
-              )}
-            </div>
-
-            {/* Add Followup */}
-            <div className="space-y-1.5">
-              <Textarea
-                placeholder="Add a followup..."
-                value={followupText}
-                onChange={(e) =>
-                  setFollowupText(e.target.value)
-                }
-                rows={2}
-                className="text-xs md:text-sm"
-              />
-              <Button
-                onClick={onAddFollowup}
-                size="sm"
-                className="w-full h-8 text-xs md:text-sm"
-                disabled={!followupText.trim()}
-              >
-                Add Followup
-              </Button>
-            </div>
-          </div>
-
-          <Separator />
-
-          {/* Actions */}
-          <div className="flex justify-end gap-2 pt-1">
-            <Button
-              variant="destructive"
-              size="sm"
-              className="h-8 text-xs md:text-sm"
-              onClick={() => {
-                if (
-                  confirm(
-                    "Are you sure you want to delete this enquiry?"
-                  )
-                ) {
-                  onDelete(enquiry.id);
-                }
-              }}
-            >
-              Delete
-            </Button>
-
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 text-xs md:text-sm"
-              onClick={onClose}
-            >
-              Close
-            </Button>
-          </div>
-
+      {/* ── Contact Info ── */}
+      <div className="px-4 py-3 space-y-1.5">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-800">Contact</span>
+          <span className="text-[10px] text-slate-800">{formatDateForDisplay(enquiry.created_at || "")}</span>
         </div>
-      </DialogContent>
-    </Dialog>
+
+        <div className="flex items-center gap-2">
+          <Phone className="h-3 w-3 text-slate-800 flex-shrink-0" />
+          <span className="text-xs font-semibold text-slate-800">{enquiry.phone}</span>
+        </div>
+
+        {enquiry.email && (
+          <div className="flex items-center gap-2">
+            <Mail className="h-3 w-3 text-slate-800 flex-shrink-0" />
+            <span className="text-xs text-slate-600 truncate">{enquiry.email}</span>
+          </div>
+        )}
+
+        <div className="flex items-start gap-2">
+          <MapPin className="h-3 w-3 text-slate-800 flex-shrink-0 mt-0.5" />
+          <span className="text-xs text-slate-600 leading-relaxed">
+            {enquiry.property_full_name || enquiry.property_name || "—"}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Calendar className="h-3 w-3 text-slate-800 flex-shrink-0" />
+          <span className="text-xs text-slate-600">
+            Move-in: <span className="font-medium text-slate-700">{formatDateForDisplay(enquiry.preferred_move_in_date)}</span>
+          </span>
+        </div>
+
+        {enquiry.budget_range && (
+          <div className="flex items-center gap-2">
+            <IndianRupee className="h-3 w-3 text-slate-800 flex-shrink-0" />
+            <span className="text-xs text-slate-600">Budget: <span className="font-medium text-slate-700">{enquiry.budget_range}</span></span>
+          </div>
+        )}
+      </div>
+
+      {/* ── Message ── */}
+      {enquiry.message && (
+        <div className="px-4 py-3">
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <MessageSquare className="h-3 w-3 text-slate-800" />
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-800">Message</span>
+          </div>
+          <p className="text-xs text-slate-600 bg-slate-50 rounded-lg p-2.5 border border-slate-100 leading-relaxed">
+            {enquiry.message}
+          </p>
+        </div>
+      )}
+
+      {/* ── Followups ── */}
+      <div className="px-4 py-3">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-1.5">
+            <Clock className="h-3 w-3 text-slate-800" />
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-800">Followups</span>
+          </div>
+          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600">
+            {enquiry.followups?.length || 0}
+          </span>
+        </div>
+
+        {/* Followup list */}
+        <div className="space-y-1.5 max-h-28 overflow-y-auto mb-2.5 scrollbar-thin scrollbar-thumb-slate-200">
+          {enquiry.followups?.length > 0 ? (
+            enquiry.followups.map((followup: Followup) => (
+              <div key={followup.id} className="bg-slate-50 rounded-lg px-2.5 py-2 border border-slate-100">
+                <p className="text-[11px] text-slate-700 leading-relaxed">{followup.note}</p>
+                <p className="text-[9px] text-slate-800 mt-1">
+                  {formatDateForDisplay(followup.timestamp)} · {followup.created_by}
+                </p>
+              </div>
+            ))
+          ) : (
+            <p className="text-[11px] text-slate-800 text-center py-2">No followups yet</p>
+          )}
+        </div>
+
+        {/* Add followup */}
+        <div className="space-y-1.5">
+          <textarea
+            placeholder="Add a followup note…"
+            value={followupText}
+            onChange={e => setFollowupText(e.target.value)}
+            rows={2}
+            className="w-full text-xs border border-slate-200 rounded-lg px-3 py-2 bg-white resize-none focus:outline-none focus:ring-1 focus:ring-slate-400 placeholder:text-slate-300 transition"
+          />
+          <button
+            onClick={onAddFollowup}
+            disabled={!followupText.trim()}
+            className="w-full h-7 text-[11px] font-semibold bg-indigo-900 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg transition"
+          >
+            Add Followup
+          </button>
+        </div>
+      </div>
+
+      {/* ── Actions ── */}
+      <div className="px-4 py-3 bg-slate-50 flex items-center justify-between">
+        <button
+          onClick={handleDeleteClick}
+          className="flex items-center gap-1.5 text-[11px] font-medium text-red-500 hover:text-red-700 transition"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+          Delete
+        </button>
+        <button
+          onClick={onClose}
+          className="text-[11px] font-medium text-slate-600 hover:text-slate-800 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-white transition"
+        >
+          Close
+        </button>
+      </div>
+
+    </div>
+  </DialogContent>
+</Dialog>
   );
 };
 
