@@ -21,11 +21,9 @@ export function RequestFilters({ filter, onFilterChange, counts }: RequestFilter
   ];
 
   return (
-    <Tabs value={filter} onValueChange={onFilterChange}>
-      <TabsList className="grid w-full grid-cols-8">
-        {tabs.map((tab) => (
-          <TabsTrigger key={tab.value} value={tab.value}>
-            {tab.label} ({counts[tab.value] || 0})
+<Tabs value={filter} onValueChange={onFilterChange} className="w-full overflow-x-auto">
+<TabsList className="flex w-max md:w-full overflow-x-auto scrollbar-none justify-start md:justify-evenly">  {tabs.map((tab) => (
+<TabsTrigger key={tab.value} value={tab.value} className="shrink-0 text-xs px-2">            {tab.label} ({counts[tab.value] || 0})
           </TabsTrigger>
         ))}
       </TabsList>

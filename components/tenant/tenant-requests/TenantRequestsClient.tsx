@@ -839,8 +839,8 @@ const requestCounts = useMemo(() => {
   return (
     <div>
       {/* <TenantHeader /> */}
-      <div className="min-h-screen bg-gray-50">
-        <div className="max-w-7xl mx-auto p-6">
+      <div className=" bg-gray-50">
+        <div className="max-w-7xl mx-auto p-3">
           {/* Header */}
         <div className="mb-4 sm:mb-6">
 
@@ -885,7 +885,7 @@ const requestCounts = useMemo(() => {
                   counts={requestCounts}
                 />
 
-                <TabsContent value={activeFilter} className="mt-6">
+                <TabsContent value={activeFilter} className="mt-3">
                   {filteredRequests.length === 0 ? (
                     <div className="text-center py-12">
                       <FileText className="h-16 w-16 mx-auto mb-4 text-gray-400" />
@@ -904,7 +904,7 @@ const requestCounts = useMemo(() => {
                       </Button>
                     </div>
                   ) : (
-                    <div className="space-y-4">
+                   <div className="space-y-2 md:space-y-4 max-h-[50vh] overflow-y-auto pr-1">
                       {filteredRequests.map((request) => (
                         <RequestCard key={request.id} request={request} vacateReasons={vacateReasons} />
                       ))}
