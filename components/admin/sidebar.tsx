@@ -325,7 +325,7 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
   const requestItems = [
     { href: '/admin/complaints', label: 'Complaints', icon: AlertCircle },
     { href: '/admin/maintenance', label: 'Maintenance', icon: Wrench },
-    { href: '/admin/receipts', label: 'Receipts', icon: Receipt },
+    { href: '/admin/receipts', label: 'Receipts', icon: FileText },
     { href: '/admin/leave-requests', label: 'Leave Requests', icon: Calendar },
     { href: '/admin/vacate-requests', label: 'Vacate Requests', icon: AlertCircle },
     { href: '/admin/change-bed-requests', label: 'Change Bed Requests', icon: Users },

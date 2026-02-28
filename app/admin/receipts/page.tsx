@@ -365,7 +365,7 @@ const handleBulkDelete = async () => {
                 </p>
               </div>
               <div className="p-1.5 rounded-lg bg-slate-600">
-                <Receipt className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
+                <FileText className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
               </div>
             </div>
           </CardContent>
@@ -465,7 +465,7 @@ const handleBulkDelete = async () => {
         <CardContent className="p-0">
           {requests.length === 0 ? (
             <div className="text-center py-12 bg-gray-50 m-4 rounded-lg">
-              <Receipt className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+              <FileText className="h-12 w-12 mx-auto text-gray-400 mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">No receipt requests found</h3>
               <p className="text-gray-500 mb-4">No receipt requests have been submitted yet.</p>
               <Button onClick={refreshData} variant="outline" size="sm">
@@ -800,7 +800,7 @@ const handleBulkDelete = async () => {
                                     }}
                                     className="cursor-pointer text-xs"
                                   >
-                                    <Receipt className="h-3.5 w-3.5 mr-2" />
+                                    <FileText className="h-3.5 w-3.5 mr-2" />
                                     Generate Receipt
                                   </DropdownMenuItem>
                                 )}
@@ -824,7 +824,7 @@ const handleBulkDelete = async () => {
           <DialogHeader className="bg-gradient-to-r from-blue-500 to-cyan-500 px-4 py-3">
             <div className="flex items-center justify-between">
               <DialogTitle className="flex items-center gap-2 text-white text-sm sm:text-base font-semibold">
-                <Receipt className="h-4 w-4" />
+                <FileText className="h-4 w-4" />
                 Receipt Request Details - #{selectedRequest?.id}
               </DialogTitle>
               <Button 

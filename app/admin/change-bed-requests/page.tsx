@@ -512,24 +512,20 @@ const handleBulkDelete = async () => {
       )}
 
 {/* Combined Actions Bar */}
-<div className="sticky top-36 z-10 mb-2">
+<div className="sticky top-40 z-10 mb-2">
   <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
 
     {/* LEFT SIDE – Filters */}
     <div className="flex flex-col gap-2 w-full lg:flex-row lg:flex-wrap lg:items-center lg:w-auto">
 
+      {/* ✅ MOBILE: Status + Sort in ONE ROW */}
       <div className="grid grid-cols-2 gap-2 w-full lg:flex lg:w-auto">
-        {/* <div className="relative w-full lg:w-64 col-span-1">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <Input
-            placeholder="Search requests..."
-            value={filters.search}
-            onChange={(e) => handleFilterChange('search', e.target.value)}
-            className="pl-8 h-9 text-sm w-full"
-          />
-        </div> */}
 
-        <Select value={filters.status} onValueChange={(value) => handleFilterChange('status', value)}>
+        {/* Status */}
+        <Select
+          value={filters.status}
+          onValueChange={(value) => handleFilterChange('status', value)}
+        >
           <SelectTrigger className="w-full h-9 text-sm">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
@@ -541,12 +537,14 @@ const handleBulkDelete = async () => {
             <SelectItem value="processed">Processed</SelectItem>
           </SelectContent>
         </Select>
-      </div>
 
-      <div className="grid grid-cols-2 gap-2 w-full lg:flex lg:w-auto">
-        <Select value={filters.sort_by} onValueChange={(value) => handleFilterChange('sort_by', value)}>
+        {/* Created Date (Sort By) */}
+        <Select
+          value={filters.sort_by}
+          onValueChange={(value) => handleFilterChange('sort_by', value)}
+        >
           <SelectTrigger className="w-full h-9 text-sm">
-            <SelectValue placeholder="Sort by" />
+            <SelectValue placeholder="Created Date" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="created_at">Created Date</SelectItem>
@@ -555,16 +553,8 @@ const handleBulkDelete = async () => {
           </SelectContent>
         </Select>
 
-        {/* <Select value={filters.sort_order} onValueChange={(value) => handleFilterChange('sort_order', value)}>
-          <SelectTrigger className="w-full h-9 text-sm">
-            <SelectValue placeholder="Order" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="desc">Descending</SelectItem>
-            <SelectItem value="asc">Ascending</SelectItem>
-          </SelectContent>
-        </Select> */}
       </div>
+
     </div>
 
     {/* RIGHT SIDE – Actions */}
