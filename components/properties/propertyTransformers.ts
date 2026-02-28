@@ -1,6 +1,19 @@
-
 // components/properties/propertyTransformers.ts
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
+
+const toArray = (val: any): string[] => {
+  if (!val) return [];
+  if (Array.isArray(val)) return val;
+  if (typeof val === 'string') {
+    try {
+      const parsed = JSON.parse(val);
+      return Array.isArray(parsed) ? parsed : [val];
+    } catch {
+      return val.split('\n').filter(Boolean);
+    }
+  }
+  return [];
+};
 
 export const getImageUrl = (imagePath: string | null | undefined) => {
   if (!imagePath) return "/placeholder-image.jpg";
@@ -16,18 +29,14 @@ export const transformPropertyData = (property: any) => {
     "https://images.unsplash.com/photo-1540518614846-7eded433c457?w=800"
   ];
   
-  
-  
   // Construct avatar URL
   const avatarUrl = property.manager_photo_url
     ? `${API_URL}/uploads/staff-documents/${property.manager_photo_url.replace(/^\//, '')}`
     : `${API_URL}/uploads/staff/default.png`;
-  
 
- // IMPORTANT: Extract tags from property - check multiple possible locations
+  // Extract tags from property
   let propertyTags: string[] = [];
   
-  // Check where tags might be coming from
   if (property.tags && Array.isArray(property.tags)) {
     propertyTags = property.tags;
   } else if (property.property_tags && Array.isArray(property.property_tags)) {
@@ -40,12 +49,168 @@ export const transformPropertyData = (property: any) => {
     propertyTags = property.tag_list;
   }
   
-  // // Log to see what tags are coming from backend
-  // console.log('Property ID:', property.id, 'Tags from backend:', propertyTags);
-  
-  // Test fetch if in browser
-  
   const nearbyNames = property.nearbyPlaces?.map((p: any) => p.name) || [];
+
+  // Log raw data for debugging
+  console.log('Raw property terms data:', {
+    terms_conditions: property.terms_conditions,
+    property_rules: property.property_rules,
+    additional_terms: property.additional_terms,
+    terms_json: property.terms_json
+  });
+
+  // Parse property_rules - these come from MultiSelect in Photos tab
+  let propertyRules = [];
+  if (property.property_rules) {
+    try {
+      propertyRules = typeof property.property_rules === 'string' 
+        ? JSON.parse(property.property_rules) 
+        : property.property_rules;
+      
+      // Ensure it's an array
+      if (!Array.isArray(propertyRules)) {
+        propertyRules = [propertyRules];
+      }
+    } catch (e) {
+      // If not JSON, treat as array of strings
+      propertyRules = Array.isArray(property.property_rules) 
+        ? property.property_rules 
+        : [property.property_rules];
+    }
+  }
+
+  // Parse additional_terms - these come from MultiSelect in Photos tab
+  let additionalTerms = [];
+  if (property.additional_terms) {
+    try {
+      additionalTerms = typeof property.additional_terms === 'string'
+        ? JSON.parse(property.additional_terms)
+        : property.additional_terms;
+      
+      // Ensure it's an array
+      if (!Array.isArray(additionalTerms)) {
+        additionalTerms = [additionalTerms];
+      }
+    } catch (e) {
+      // If not JSON, treat as array of strings
+      additionalTerms = Array.isArray(property.additional_terms) 
+        ? property.additional_terms 
+        : [property.additional_terms];
+    }
+  }
+
+  // Parse terms_conditions - this comes from the Terms tab with template format
+  let generalTerms = [];
+  let customTerms = []; // For custom terms added by user with 📝 header
+  
+  if (property.terms_conditions) {
+    // Split by double newlines to separate sections
+    const sections = property.terms_conditions.split('\n\n');
+    console.log('Sections:', sections);
+    
+    for (const section of sections) {
+      const lines = section.split('\n').filter(line => line.trim() !== '');
+      if (lines.length === 0) continue;
+      
+      // Get the first line which might be a header
+      const firstLine = lines[0].trim();
+      console.log('Processing section with header:', firstLine);
+      
+      // Check if this is a Custom Term section
+      if (firstLine.includes('📝 Custom Term')) {
+        console.log('Found Custom Term section');
+        // This is a custom term section - extract everything after the header
+        for (let i = 1; i < lines.length; i++) {
+          const line = lines[i].trim();
+          if (line && !line.includes('📝')) {
+            console.log('Adding custom term:', line);
+            customTerms.push(line);
+          }
+        }
+      } 
+      // Template sections with emoji headers (Lock-in, Notice, etc.)
+      else if (firstLine.includes('🔒') || firstLine.includes('📅') || firstLine.includes('💰') || 
+               firstLine.includes('⚠️') || firstLine.includes('⚡') || firstLine.includes('🔧') ||
+               firstLine.includes('📋') || firstLine.includes('💵') || firstLine.includes('🏢') ||
+               firstLine.includes('🧾')) {
+        console.log('Found template section:', firstLine);
+        // This is a template section - extract numbered items
+        for (let i = 1; i < lines.length; i++) {
+          const line = lines[i].trim();
+          if (line && line.match(/^\d+\./)) {
+            // Remove the number and add to general terms
+            generalTerms.push(line.replace(/^\d+\.\s*/, ''));
+          }
+        }
+      } 
+      // For any other format, check if it's a numbered item or custom content
+      else {
+        console.log('Found other section:', firstLine);
+        for (const line of lines) {
+          const trimmedLine = line.trim();
+          if (trimmedLine.match(/^\d+\./)) {
+            generalTerms.push(trimmedLine.replace(/^\d+\.\s*/, ''));
+          } else if (trimmedLine && !trimmedLine.includes('📝') && !trimmedLine.includes('🔒') && 
+                     !trimmedLine.includes('📅') && !trimmedLine.includes('💰') &&
+                     !trimmedLine.includes('⚠️') && !trimmedLine.includes('⚡') && 
+                     !trimmedLine.includes('🔧') && !trimmedLine.includes('📋') && 
+                     !trimmedLine.includes('💵') && !trimmedLine.includes('🏢') && 
+                     !trimmedLine.includes('🧾')) {
+            // Treat as custom term if it's not empty and not a header
+            console.log('Adding as custom term (other):', trimmedLine);
+            customTerms.push(trimmedLine);
+          }
+        }
+      }
+    }
+    
+    // Fallback: If still no custom terms found, try a direct approach
+    if (customTerms.length === 0 && property.terms_conditions.includes('📝 Custom Term')) {
+      console.log('Using fallback extraction for custom terms');
+      const lines = property.terms_conditions.split('\n');
+      let foundCustomSection = false;
+      
+      for (const line of lines) {
+        const trimmedLine = line.trim();
+        
+        if (trimmedLine.includes('📝 Custom Term')) {
+          foundCustomSection = true;
+          continue;
+        }
+        
+        if (foundCustomSection && trimmedLine && !trimmedLine.includes('📝') && 
+            !trimmedLine.match(/^\d+\./)) {
+          console.log('Fallback adding custom term:', trimmedLine);
+          customTerms.push(trimmedLine);
+          break; // Only take the first line after the header
+        }
+      }
+    }
+  }
+  
+  // If still no general terms, try terms_json as fallback
+  if (generalTerms.length === 0 && property.terms_json) {
+    try {
+      const parsed = typeof property.terms_json === 'string' 
+        ? JSON.parse(property.terms_json) 
+        : property.terms_json;
+      
+      if (Array.isArray(parsed)) {
+        generalTerms = parsed.map((item: any) => 
+          typeof item === 'object' ? (item.text || item.content || JSON.stringify(item)) : item
+        );
+      }
+    } catch (e) {
+      console.error('Error parsing terms_json:', e);
+    }
+  }
+
+  console.log('Transformed terms:', {
+    generalTerms,
+    propertyRules,
+    additionalTerms,
+    customTerms
+  });
 
   return {
     name: property.name || "Luxury PG Accommodation",
@@ -127,51 +292,48 @@ export const transformPropertyData = (property: any) => {
         features: ["Save ₹1000/month", "VIP benefits", "Free upgrades"]
       }
     ],
-    termsAndConditions: [
-      "Minimum 3-month lock-in period for all bookings",
-      "Security deposit refundable within 30 days of checkout",
-      "1 month advance rent required at the time of booking",
-      "Guests not allowed after 10 PM",
-      "Smoking and alcohol strictly prohibited"
-    ],
 
+    // Now properly separated based on your form structure
+    propertyRules: propertyRules, // From MultiSelect in Photos tab
+    additionalTerms: additionalTerms, // From MultiSelect in Photos tab
+    termsAndConditions: generalTerms, // Numbered items from template sections in Terms tab
+    customTerms: customTerms, // Custom terms from the "📝 Custom Term" section in Terms tab
 
-manager: (() => {
-  const salutationMap: Record<string, string> = {
-    mr: 'Mr.', mrs: 'Mrs.', miss: 'Miss', dr: 'Dr.', prof: 'Prof.'
-  };
-  const salutation = property.manager_salutation
-    ? (salutationMap[property.manager_salutation.toLowerCase()] || '')
-    : '';
+    manager: (() => {
+      const salutationMap: Record<string, string> = {
+        mr: 'Mr.', mrs: 'Mrs.', miss: 'Miss', dr: 'Dr.', prof: 'Prof.'
+      };
+      const salutation = property.manager_salutation
+        ? (salutationMap[property.manager_salutation.toLowerCase()] || '')
+        : '';
 
-  // staff_id hai toh live staff data use karo, warna property table ka data
-  const managerName = property.staff_id 
-    ? (property.staff_name || property.property_manager_name || "Manager")
-    : (property.property_manager_name || "Manager");
-  
-  const managerPhone = property.staff_id
-    ? (property.staff_phone || property.property_manager_phone || "")
-    : (property.property_manager_phone || "");
+      const managerName = property.staff_id 
+        ? (property.staff_name || property.property_manager_name || "Manager")
+        : (property.property_manager_name || "Manager");
+      
+      const managerPhone = property.staff_id
+        ? (property.staff_phone || property.property_manager_phone || "")
+        : (property.property_manager_phone || "");
 
-  const managerEmail = property.staff_id
-    ? (property.staff_email || property.property_manager_email || "")
-    : (property.property_manager_email || "");
+      const managerEmail = property.staff_id
+        ? (property.staff_email || property.property_manager_email || "")
+        : (property.property_manager_email || "");
 
-  const rawRole = property.staff_id
-    ? (property.staff_role || property.property_manager_role || "Manager")
-    : (property.property_manager_role || "Manager");
+      const rawRole = property.staff_id
+        ? (property.staff_role || property.property_manager_role || "Manager")
+        : (property.property_manager_role || "Manager");
 
-  const formattedRole = rawRole.charAt(0).toUpperCase() + rawRole.slice(1).toLowerCase();
+      const formattedRole = rawRole.charAt(0).toUpperCase() + rawRole.slice(1).toLowerCase();
 
-  return {
-    name: salutation ? `${salutation} ${managerName}` : managerName,
-    phone: managerPhone,
-    email: managerEmail,
-    role: formattedRole,
-    avatar: avatarUrl,
-    rating: 4.8
-  };
-})(),
+      return {
+        name: salutation ? `${salutation} ${managerName}` : managerName,
+        phone: managerPhone,
+        email: managerEmail,
+        role: formattedRole,
+        avatar: avatarUrl,
+        rating: 4.8
+      };
+    })(),
     
     reviews: [
       {
@@ -199,7 +361,6 @@ manager: (() => {
 };
 
 export const transformRoomData = (room: any) => {
-  
   let gender = 'mixed';
   if (room.room_gender_preference && Array.isArray(room.room_gender_preference)) {
     const prefs = room.room_gender_preference.map((p: string) => p.toLowerCase());
@@ -235,7 +396,7 @@ export const transformRoomData = (room: any) => {
   const price = room.rent_per_bed || 5000;
   const ac = room.has_ac === true || room.has_ac === 'true';
   
-  const transformedRoom = {
+  return {
     id: room.id.toString(),
     name: room.room_number || `Room ${room.id}`,
     sharingType: sharingType,
@@ -262,6 +423,4 @@ export const transformRoomData = (room: any) => {
     isActive: room.is_active || true,
     bedAssignments: room.bed_assignments || []
   };
-  
-  return transformedRoom;
 };

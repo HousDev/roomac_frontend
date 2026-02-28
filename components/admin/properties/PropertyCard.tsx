@@ -96,7 +96,7 @@ export default function PropertyCard({
             <span className="text-sm">{property.total_beds}</span>
           </div>
           <div className="text-center">
-            <IndianRupee className="h-4 w-4 mx-auto mb-1 text-green-600" />
+            {/* <IndianRupee className="h-4 w-4 mx-auto mb-1 text-green-600" /> */}
             <span className="text-sm">₹{property.starting_price}</span>
           </div>
         </div>

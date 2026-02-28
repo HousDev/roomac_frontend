@@ -11,6 +11,12 @@ export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [settings, setSettings] = useState<SettingsData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [role , setRole] = useState('');
+  useEffect(() =>{
+    if(localStorage.getItem('auth_role')){
+      setRole(localStorage.getItem('auth_role') || "");
+    }
+  },[])
 
   // Fetch settings on component mount
   useEffect(() => {
@@ -121,17 +127,16 @@ export function Header() {
               Call Us
             </Button>
           </a>
-          <Link href="/login" className="transition-all duration-300 hover:scale-105">
-            {/* <Button variant="outline" size="sm" className="gap-2">
-              <User className="h-4 w-4" />
-              Tenant Portal
-            </Button> */}
-          </Link>
-          <Link href="/admin" className="transition-all duration-300 hover:scale-105">
+          
+          {role === "admin" ? <Link href="/admin" className="transition-all duration-300 hover:scale-105">
             <Button size="sm" className="bg-primary hover:bg-primary/90">
-              Login
+              {role.length === 0 ? "Login" : "Dashboard"}
             </Button>
-          </Link>
+          </Link>: <Link href="/tenant/portal" className="transition-all duration-300 hover:scale-105">
+            <Button size="sm" className="bg-primary hover:bg-primary/90">
+              {role.length === 0 ? "Login" : "Dashboard"}
+            </Button>
+          </Link>}
         </div>
 
         {/* Mobile Menu Button */}

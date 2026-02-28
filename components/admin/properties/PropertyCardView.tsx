@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "@/src/compat/next-navigation";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
@@ -26,8 +26,39 @@ import {
   Check,
   PlusCircle,
 } from "lucide-react";
-import { deleteProperty, Property } from "@/lib/propertyApi";
+import { deleteProperty } from "@/lib/propertyApi";
 import PropertyForm from "@/components/admin/properties/PropertyForm";
+
+// Define Property type locally to ensure it has all fields
+type Property = {
+  id: string;
+  name: string;
+  city_id?: string;
+  area: string;
+  address: string;
+  total_rooms: number;
+  total_beds: number;
+  occupied_beds: number; // Make sure this is included
+  starting_price: number;
+  security_deposit: number;
+  description?: string;
+  property_manager_name: string;
+  property_manager_phone: string;
+  amenities: string[];
+  services: string[];
+  photo_urls: string[];
+  property_rules?: string;
+  is_active: boolean;
+  lockin_period_months: number;
+  lockin_penalty_amount: number;
+  lockin_penalty_type: string;
+  notice_period_days: number;
+  notice_penalty_amount: number;
+  notice_penalty_type: string;
+  terms_conditions?: string;
+  additional_terms?: string;
+  tags: string[];
+};
 
 interface PropertyCardViewProps {
   properties: Property[];
@@ -41,23 +72,14 @@ export default function PropertyCardView({ properties }: PropertyCardViewProps) 
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [formSubmitting, setFormSubmitting] = useState(false);
 
- 
-  
+  // Log the first property to see what data we have
   if (properties && properties.length > 0) {
-    
+    console.log('📊 PropertyCardView - First property:', {
+      id: properties[0].id,
+      name: properties[0].name,
+      occupied_beds: properties[0].occupied_beds
+    });
   }
-  
-  // Log all unique tag values across all properties
-  const allTags = properties?.flatMap(p => {
-    if (Array.isArray(p.tags)) {
-      return p.tags;
-    } else if (typeof p.tags === 'string') {
-      return [p.tags];
-    }
-    return [];
-  }) || [];
-  
-  // ============ END DEBUGGING ============
 
   const handleCardSelect = (propertyId: string) => {
     setSelectedCardIds(prev =>
@@ -99,6 +121,7 @@ export default function PropertyCardView({ properties }: PropertyCardViewProps) 
   };
 
   const handleFormSubmit = async (formData: any, photoFiles: File[], removedPhotos: string[]) => {
+    // Handle form submit
   };
 
   const handleFormReset = () => {
@@ -110,21 +133,18 @@ export default function PropertyCardView({ properties }: PropertyCardViewProps) 
   const extractTags = (property: Property): string[] => {
     if (!property) return [];
     
-    
     // Case 1: tags is already an array of strings
     if (Array.isArray(property.tags)) {
-      // Check if it's an array of objects with name/title property
       if (property.tags.length > 0 && typeof property.tags[0] === 'object') {
         const extracted = property.tags.map((t: any) => {
           return t.name || t.title || t.value || t.label || JSON.stringify(t);
         });
         return extracted.filter(Boolean);
       }
-      // It's already an array of strings
       return property.tags.filter(t => t && t.trim() !== '');
     }
     
-    // Case 2: tags is a string (comma-separated or JSON)
+    // Case 2: tags is a string
     if (typeof property.tags === 'string') {
       const tagString = property.tags.trim();
       
@@ -141,29 +161,19 @@ export default function PropertyCardView({ properties }: PropertyCardViewProps) 
             return extracted.filter(Boolean);
           }
         } catch (e) {
+          console.error('Error parsing tags JSON:', e);
         }
       }
       
       // Split by comma
       if (tagString.includes(',')) {
-        const split = tagString.split(',').map(t => t.trim()).filter(Boolean);
-        return split;
+        return tagString.split(',').map(t => t.trim()).filter(Boolean);
       }
       
       // Single tag
       if (tagString) {
-        console.log(`📦 Single tag:`, [tagString]);
         return [tagString];
       }
-    }
-    
-    // Case 3: property has tag_list or property_tags
-    if ((property as any).tag_list && Array.isArray((property as any).tag_list)) {
-      return (property as any).tag_list.filter(Boolean);
-    }
-    
-    if ((property as any).property_tags && Array.isArray((property as any).property_tags)) {
-      return (property as any).property_tags.filter(Boolean);
     }
     
     return [];
@@ -205,9 +215,14 @@ export default function PropertyCardView({ properties }: PropertyCardViewProps) 
   const PropertyCard = ({ property }: { property: Property }) => {
     const isSelected = selectedCardIds.includes(property.id);
     
-    // Extract tags using our universal extractor
+    // Extract tags
     const tags = extractTags(property);
     
+    // Log property data for debugging
+    console.log(`🏠 Rendering ${property.name}:`, {
+      occupied_beds: property.occupied_beds,
+      total_beds: property.total_beds
+    });
 
     const maxVisibleTags = 3;
     const visibleTags = tags.slice(0, maxVisibleTags);
@@ -237,6 +252,10 @@ export default function PropertyCardView({ properties }: PropertyCardViewProps) 
               src={property.photo_urls[0]}
               alt={property.name}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2UyZThmMCIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIiBmaWxsPSIjNjQ3NDhiIj5ObyBJbWFnZTwvdGV4dD48L3N2Zz4=';
+              }}
             />
           ) : (
             <div className="text-center">
@@ -258,7 +277,7 @@ export default function PropertyCardView({ properties }: PropertyCardViewProps) 
             </Badge>
           </div>
 
-          {/* DEBUG: Show tag count on image */}
+          {/* Tag count badge */}
           <div className="absolute bottom-2 left-2 z-20 bg-black/50 text-white text-xs px-2 py-1 rounded-full">
             Tags: {tags.length}
           </div>
@@ -278,23 +297,21 @@ export default function PropertyCardView({ properties }: PropertyCardViewProps) 
               </p>
             </div>
 
-            {/* TAGS SECTION - WITH HIGH VISIBILITY */}
+            {/* TAGS SECTION */}
             <div className="pt-2">
               <div className="flex items-center gap-1 mb-2">
                 <TagIcon className="h-4 w-4 text-blue-600" />
                 <span className="text-xs font-semibold text-gray-700">Tags ({tags.length})</span>
               </div>
               
-              {/* Tags Container - Always visible */}
+              {/* Tags Container */}
               <div className="flex flex-wrap gap-1.5 min-h-[32px] p-2 bg-gray-50 rounded-md border border-gray-200">
                 {tags.length > 0 ? (
                   <>
-                    {/* Visible Tags */}
                     {visibleTags.map((tag, index) => (
                       <TagBadge key={`${property.id}-tag-${index}`} tag={tag} />
                     ))}
                     
-                    {/* Remaining Tags Counter */}
                     {remainingTagsCount > 0 && (
                       <Badge
                         variant="outline"
@@ -327,7 +344,7 @@ export default function PropertyCardView({ properties }: PropertyCardViewProps) 
               </div>
             </div>
 
-            {/* Property Stats */}
+            {/* Property Stats - This is where occupied_beds should show */}
             <div className="grid grid-cols-3 gap-1 pt-3 border-t">
               <div className="text-center">
                 <div className="flex items-center justify-center gap-1 text-blue-600">
@@ -350,6 +367,11 @@ export default function PropertyCardView({ properties }: PropertyCardViewProps) 
                 </div>
                 <p className="text-xs text-gray-500">Occupied</p>
               </div>
+            </div>
+
+            {/* Debug display - shows the actual value */}
+            <div className="text-[8px] text-gray-400 text-center border-t pt-1">
+              Debug: occupied_beds = {property.occupied_beds}
             </div>
 
             {/* Pricing */}

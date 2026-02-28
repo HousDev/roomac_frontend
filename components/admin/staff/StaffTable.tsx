@@ -451,12 +451,12 @@ const StaffTable = ({
             <TableHeader className="">
               {/* Column Headers */}
               <TableRow className="bg-white shadow-sm">
-                <TableHead className="font-semibold whitespace-nowrap bg-white py-2 text-xs w-[200px] max-w-[200px]">Staff Member</TableHead>
-                <TableHead className="font-semibold whitespace-nowrap bg-white py-2 text-xs w-[90px]">Role</TableHead>
-                <TableHead className="font-semibold whitespace-nowrap bg-white py-2 text-xs">Contact</TableHead>
-                <TableHead className="font-semibold whitespace-nowrap bg-white py-2 text-xs">Salary & Dept.</TableHead>
-                <TableHead className="font-semibold whitespace-nowrap bg-white py-2 text-xs w-[80px]">Status</TableHead>
-                <TableHead className="font-semibold whitespace-nowrap text-right bg-white py-2 text-xs">Actions</TableHead>
+                <TableHead className="font-semibold whitespace-nowrap bg-white py-2 text-xs w-[200px] max-w-[200px] px-10">Staff Member</TableHead>
+                <TableHead className="font-semibold whitespace-nowrap bg-white py-2 text-xs w-[90px] ">Role</TableHead>
+                <TableHead className="font-semibold whitespace-nowrap bg-white py-2 text-xs ">Contact</TableHead>
+                <TableHead className="font-semibold whitespace-nowrap bg-white py-2 text-xs ">Salary & Dept.</TableHead>
+                <TableHead className="font-semibold whitespace-nowrap bg-white py-2 text-xs w-[80px] ">Status</TableHead>
+                <TableHead className="font-semibold whitespace-nowrap text-right bg-white py-2 text-xs ">Actions</TableHead>
               </TableRow>
 
               {/* Search Filter Row */}
@@ -531,7 +531,7 @@ const StaffTable = ({
                 filteredStaff.map((member) => (
                   <TableRow key={member.id} className="hover:bg-gray-50/50">
                     {/* Staff Member */}
-                    <TableCell className="align-top py-1.5 px-2 w-[200px] max-w-[200px]">
+                    <TableCell className="align-top py-1.5 px-10 w-[400px] max-w-[600px]">
                       <div className="flex items-start gap-2 min-w-[160px] md:min-w-[190px]">
                         {member.photo_url ? (
                           <img
@@ -577,19 +577,21 @@ const StaffTable = ({
                     </TableCell>
 
                     {/* Role */}
-                    <TableCell className="align-top py-1.5 px-2 w-[200px] max-w-[200px]">
-                      <Badge
-                        variant="outline"
-                        className={`${getRoleBadgeColor(member.role)} flex items-center gap-0.5 whitespace-nowrap text-[9px] px-1.5 py-0 h-5`}
-                      >
-                        {roleIcons[member.role] || <User className="h-2.5 w-2.5" />}
-                        <span className="capitalize">{member.role}</span>
-                      </Badge>
-                    </TableCell>
+                    <TableCell className="py-1.5 px-2 w-[200px] max-w-[200px]">
+  <div className="flex">
+    <Badge
+      variant="outline"
+      className={`${getRoleBadgeColor(member.role)} flex items-center gap-0.5 whitespace-nowrap text-[9px] px-6 py-0 h-5`}
+    >
+      {roleIcons[member.role] || <User className="h-2.5 w-2.5" />}
+      <span className="capitalize">{member.role}</span>
+    </Badge>
+  </div>
+</TableCell>
 
                     {/* Contact */}
-                    <TableCell className="align-top py-1.5 px-2">
-                      <div className="flex flex-col gap-0.5 min-w-[120px]">
+                    <TableCell className="flex py-1.5 px-2 w-[100px] max-w-[200px]">
+                      <div className="flex flex-col gap-0.5 min-w-[100px]">
                         <div className="flex items-center gap-1">
                           <Phone className="h-2.5 w-2.5 text-gray-500 flex-shrink-0" />
                           <span className="text-[10px] truncate">{member.phone || "No phone"}</span>
@@ -610,7 +612,7 @@ const StaffTable = ({
                     </TableCell>
 
                     {/* Salary & Department */}
-                    <TableCell className="align-top py-1.5 px-2">
+                    <TableCell className="align-center py-1.5 px-2 w-[200px] max-w-[200px]">
                       <div className="flex flex-col gap-0.5 min-w-[110px]">
                         <div className="font-medium text-[11px] whitespace-nowrap">{formatSalary(member.salary)}</div>
                         {member.department && (
@@ -640,27 +642,28 @@ const StaffTable = ({
                     </TableCell>
 
                     {/* Status */}
-                    <TableCell className="align-top py-1.5 px-2 w-[80px]">
-                      <div className="flex flex-col gap-0.5">
-                        <Badge
-                          className={
-                            member.is_active
-                              ? "bg-green-100 text-green-800 hover:bg-green-100 border-green-200 whitespace-nowrap text-[9px] px-1.5 py-0 h-4"
-                              : "bg-gray-100 text-gray-800 hover:bg-gray-100 border-gray-200 whitespace-nowrap text-[9px] px-1.5 py-0 h-4"
-                          }
-                        >
-                          {member.is_active ? "Active" : "Inactive"}
-                        </Badge>
-                        {member.assigned_requests > 0 && (
-                          <div className="text-[9px] text-blue-600 whitespace-nowrap">
-                            {member.assigned_requests} req{member.assigned_requests !== 1 ? "s" : ""}
-                          </div>
-                        )}
-                      </div>
-                    </TableCell>
+                    <TableCell className="py-1.5 px-2 w-[80px] align-center">
+  <div className="flex flex-col items-center gap-0.5">
+    <Badge
+      className={
+        member.is_active
+          ? "bg-green-100 text-green-800 hover:bg-green-100 border-green-200 whitespace-nowrap text-[9px] px-1.5 py-0 h-4"
+          : "bg-gray-100 text-gray-800 hover:bg-gray-100 border-gray-200 whitespace-nowrap text-[9px] px-1.5 py-0 h-4"
+      }
+    >
+      {member.is_active ? "Active" : "Inactive"}
+    </Badge>
+
+    {member.assigned_requests > 0 && (
+      <div className="text-[9px] text-blue-600 whitespace-nowrap text-center">
+        {member.assigned_requests} req{member.assigned_requests !== 1 ? "s" : ""}
+      </div>
+    )}
+  </div>
+</TableCell>
 
                     {/* Actions */}
-                    <TableCell className="align-top py-1.5 px-2">
+                    <TableCell className="align-center py-1.5 px-2">
                       <div className="flex justify-end items-center gap-0.5 whitespace-nowrap">
                         {member.aadhar_document_url && (
                           <Button

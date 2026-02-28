@@ -1,6 +1,4 @@
-
-
-// components/admin/properties/PropertyListClient.tsx - FIXED VERSION
+// components/admin/properties/PropertyListClient.tsx
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -51,13 +49,13 @@ import {
   bulkUpdateStatus,
   bulkUpdateTags,
   getProperty,
+  getPropertyOccupancyStats,
 } from "@/lib/propertyApi";
 
 import PropertyHeader from "./PropertyHeader";
 import PropertyFilters from "./PropertyFilters";
-import { columns, filters, getBulkActions, getActions, TagBadge } from "./table-config";
+import { columns, filters, getBulkActions, getActions } from "./table-config";
 
-// Your existing types remain the same
 type Property = {
   id: string;
   name: string;
@@ -66,7 +64,7 @@ type Property = {
   address: string;
   total_rooms: number;
   total_beds: number;
-  occupied_beds?: number;
+  occupied_beds: number; // Make it required, not optional
   starting_price: number;
   security_deposit: number;
   description?: string;
@@ -122,8 +120,8 @@ interface PropertyListClientProps {
 
 export default function PropertyListClient({ initialProperties }: PropertyListClientProps) {
   const router = useRouter();
-  const [properties, setProperties] = useState<Property[]>(initialProperties);
-  const [loading, setLoading] = useState(false);
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
@@ -136,7 +134,7 @@ export default function PropertyListClient({ initialProperties }: PropertyListCl
   const [statusFilter, setStatusFilter] = useState("all");
   const [tagFilter, setTagFilter] = useState("all");
   const [viewMode, setViewMode] = useState<"table" | "card">("card");
-  const [filteredProperties, setFilteredProperties] = useState<Property[]>(initialProperties);
+  const [filteredProperties, setFilteredProperties] = useState<Property[]>([]);
   const [showBulkActions, setShowBulkActions] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedTableIds, setSelectedTableIds] = useState<string[]>([]);
@@ -179,74 +177,113 @@ export default function PropertyListClient({ initialProperties }: PropertyListCl
     calculateStats(properties);
   }, [properties, calculateStats]);
 
-  // FIX: Use useCallback to prevent infinite re-renders
-  const loadProperties = useCallback(async (forceRefresh = false) => {
-    setLoading(true);
-    try {
-      const cacheBuster = forceRefresh ? Date.now() : loadTimestamp.current;
-      const res = await listProperties({ 
-        page: 1, 
-        pageSize: 200,
-        _t: cacheBuster
-      });
-      
-      if (res && res.success) {
-        const propertiesData = Array.isArray(res.data)
-          ? res.data.map((p: any) => ({
-              ...p,
+  // Load properties function
+// components/admin/properties/PropertyListClient.tsx
+// Update the loadProperties function
+
+// Add this debug useEffect
+useEffect(() => {
+  console.log('🔍 Current properties in state:', properties.map(p => ({
+    id: p.id,
+    name: p.name,
+    occupied_beds: p.occupied_beds
+  })));
+}, [properties]);
+
+const loadProperties = useCallback(async (forceRefresh = false) => {
+  setLoading(true);
+  try {
+    const cacheBuster = forceRefresh ? Date.now() : loadTimestamp.current;
+    const res = await listProperties({ 
+      page: 1, 
+      pageSize: 200,
+      _t: cacheBuster
+    });
+    
+    if (res && res.success) {
+      const propertiesData = Array.isArray(res.data)
+        ? await Promise.all(res.data.map(async (p: any) => {
+            // First check if the property already has occupied_beds from the list endpoint
+            let occupiedBeds = p.occupied_beds || 0;
+            
+            // If not, fetch it separately
+            if (occupiedBeds === 0 && p.total_beds > 0) {
+              try {
+                const statsRes = await getPropertyOccupancyStats(p.id);
+                
+                if (statsRes.success) {
+                  occupiedBeds = statsRes.data.occupied_beds || 0;
+                  console.log(`📊 Property ${p.id} - ${p.name}:`, statsRes.data);
+                }
+              } catch (error) {
+                console.error(`Error fetching occupancy for property ${p.id}:`, error);
+              }
+            }
+            
+            // Return property with all fields including occupied_beds
+            return {
               id: String(p.id || ''),
               name: p.name || '',
               area: p.area || '',
-              property_manager_name: p.property_manager_name || '',
-              description: p.description || '',
               address: p.address || '',
+              city_id: p.city_id || '',
               total_rooms: Number(p.total_rooms) || 0,
               total_beds: Number(p.total_beds) || 0,
-              occupied_beds: Number(p.occupied_beds) || 0,
+              occupied_beds: occupiedBeds,
               starting_price: Number(p.starting_price) || 0,
               security_deposit: Number(p.security_deposit) || 0,
-              is_active: Boolean(p.is_active),
-              lockin_period_months: p.lockin_period_months || 0,
-              lockin_penalty_amount: p.lockin_penalty_amount || 0,
-              lockin_penalty_type: p.lockin_penalty_type || "fixed",
-              notice_period_days: p.notice_period_days || 0,
-              notice_penalty_amount: p.notice_penalty_amount || 0,
-              notice_penalty_type: p.notice_penalty_type || "fixed",
-              terms_conditions: p.terms_conditions || "",
-              additional_terms: p.additional_terms || "",
+              description: p.description || '',
+              property_manager_name: p.property_manager_name || '',
+              property_manager_phone: p.property_manager_phone || '',
               amenities: Array.isArray(p.amenities) ? p.amenities : [],
               services: Array.isArray(p.services) ? p.services : [],
               photo_urls: Array.isArray(p.photo_urls) ? p.photo_urls : [],
-              property_rules: p.property_rules || "",
-              property_manager_phone: p.property_manager_phone || "",
+              property_rules: p.property_rules || '',
+              is_active: Boolean(p.is_active),
+              lockin_period_months: Number(p.lockin_period_months) || 0,
+              lockin_penalty_amount: Number(p.lockin_penalty_amount) || 0,
+              lockin_penalty_type: p.lockin_penalty_type || "fixed",
+              notice_period_days: Number(p.notice_period_days) || 0,
+              notice_penalty_amount: Number(p.notice_penalty_amount) || 0,
+              notice_penalty_type: p.notice_penalty_type || "fixed",
+              terms_conditions: p.terms_conditions || "",
+              additional_terms: p.additional_terms || "",
               tags: Array.isArray(p.tags) 
-                ? p.tags.filter((t: any) => t != null && t !== '' && typeof t === 'string')
+                ? p.tags.filter((t: any) => t != null && t !== '')
                 : (p.tags && typeof p.tags === 'string' && p.tags !== '' ? [p.tags] : []),
-            }))
-          : [];
-        
-        setProperties(propertiesData);
-        loadTimestamp.current = Date.now();
-      } else {
-        toast.error(res?.message || "Failed to load properties");
-      }
-    } catch (err) {
-      console.error("loadProperties error:", err);
-      toast.error("Failed to load properties");
-    } finally {
-      setLoading(false);
+            };
+          }))
+        : [];
+      
+      // Set properties state
+      setProperties(propertiesData);
+      setFilteredProperties(propertiesData);
+      
+      // Log to verify
+      console.log('✅ Properties loaded with occupancy:', propertiesData.map(p => ({
+        id: p.id,
+        name: p.name,
+        occupied: p.occupied_beds
+      })));
+      
+      loadTimestamp.current = Date.now();
+    } else {
+      toast.error(res?.message || "Failed to load properties");
     }
-  }, []);
+  } catch (err) {
+    console.error("loadProperties error:", err);
+    toast.error("Failed to load properties");
+  } finally {
+    setLoading(false);
+  }
+}, []);
 
-  // FIX: Initialize with initialProperties only once
+  // Load properties on component mount - only once
   useEffect(() => {
-    if (initialProperties.length > 0) {
-      setProperties(initialProperties);
-      setFilteredProperties(initialProperties);
-    }
-  }, [initialProperties]);
+    loadProperties();
+  }, []); // Empty dependency array - only run once
 
-  // FIX: Filter properties - prevent infinite loop
+  // Filter properties when search/filters change
   useEffect(() => {
     let filtered = [...properties];
 
@@ -290,13 +327,10 @@ export default function PropertyListClient({ initialProperties }: PropertyListCl
       });
     }
 
-    // Only update if changed
-    if (JSON.stringify(filtered) !== JSON.stringify(filteredProperties)) {
-      setFilteredProperties(filtered);
-    }
+    setFilteredProperties(filtered);
   }, [properties, searchQuery, statusFilter, tagFilter]);
 
-  // FIX: Update showBulkActions
+  // Update showBulkActions
   useEffect(() => {
     setShowBulkActions(selectedCardIds.length > 0);
   }, [selectedCardIds]);
@@ -305,80 +339,68 @@ export default function PropertyListClient({ initialProperties }: PropertyListCl
     setShowBulkActions(selectedTableIds.length > 0);
   }, [selectedTableIds]);
 
-const handleFormSubmit = useCallback(async (
-  formData: PropertyFormData,
-  photoFiles: File[],
-  removedPhotos: string[]
-) => {
-  try {
-    setFormSubmitting(true);
-    
-   
-
-    if (!formData.name.trim()) {
-      toast.error("Property name is required");
-      return;
-    }
-    if (!formData.city_id.trim()) {
-      toast.error("City is required");
-      return;
-    }
-    if (!formData.area.trim()) {
-      toast.error("Area is required");
-      return;
-    }
-
-    const slug = formData.name.trim().toLowerCase().replace(/\s+/g, "-");
-    const payload = {
-      ...formData,
-      slug,
-      tags: formData.tags || [],
-    };
-
-
-    let res;
-    if (editMode && selectedProperty) {
+  const handleFormSubmit = useCallback(async (
+    formData: PropertyFormData,
+    photoFiles: File[],
+    removedPhotos: string[]
+  ) => {
+    try {
+      setFormSubmitting(true);
       
-      // DEBUG: First check if property exists
-      try {
-        const checkRes = await getProperty(selectedProperty.id);
-      } catch (checkError) {
-        console.error("❌ Property check failed:", checkError);
+      if (!formData.name.trim()) {
+        toast.error("Property name is required");
+        return;
       }
-      
-      res = await updateProperty(
-        selectedProperty.id,
-        payload,
-        photoFiles.length > 0 ? photoFiles : undefined,
-        removedPhotos.length > 0 ? removedPhotos : undefined
+      if (!formData.city_id.trim()) {
+        toast.error("City is required");
+        return;
+      }
+      if (!formData.area.trim()) {
+        toast.error("Area is required");
+        return;
+      }
+
+      const slug = formData.name.trim().toLowerCase().replace(/\s+/g, "-");
+      const payload = {
+        ...formData,
+        slug,
+        tags: formData.tags || [],
+      };
+
+      let res;
+      if (editMode && selectedProperty) {
+        res = await updateProperty(
+          selectedProperty.id,
+          payload,
+          photoFiles.length > 0 ? photoFiles : undefined,
+          removedPhotos.length > 0 ? removedPhotos : undefined
+        );
+      } else {
+        res = await createProperty(
+          payload,
+          photoFiles.length > 0 ? photoFiles : undefined
+        );
+      }
+
+      if (!res || !res.success) {
+        console.error("❌ API Error:", res?.message);
+        toast.error(res?.message || "Failed to save property");
+        return;
+      }
+
+      toast.success(
+        editMode ? "Property updated successfully" : "Property created successfully"
       );
-      
-    } else {
-      res = await createProperty(
-        payload,
-        photoFiles.length > 0 ? photoFiles : undefined
-      );
+
+      setDialogOpen(false);
+      await loadProperties(true);
+    } catch (err) {
+      console.error("❌ Form submit error:", err);
+      toast.error("Failed to save property");
+    } finally {
+      setFormSubmitting(false);
     }
-
-    if (!res || !res.success) {
-      console.error("❌ API Error:", res?.message);
-      toast.error(res?.message || "Failed to save property");
-      return;
-    }
-
-    toast.success(
-      editMode ? "Property updated successfully" : "Property created successfully"
-    );
-
-    setDialogOpen(false);
-    await loadProperties(true);
-  } catch (err) {
-    console.error("❌ Form submit error:", err);
-    toast.error("Failed to save property");
-  } finally {
-    setFormSubmitting(false);
-  }
-}, [editMode, selectedProperty, loadProperties]);
+  }, [editMode, selectedProperty, loadProperties]);
 
   const handleEdit = useCallback((property: Property) => {
     setSelectedProperty(property);
@@ -591,12 +613,13 @@ const handleFormSubmit = useCallback(async (
 
   const handleExportToExcel = useCallback(async () => {
     try {
-      const headers = ["Name", "Area", "Rooms", "Beds", "Starting Price", "Status", "Tags"];
+      const headers = ["Name", "Area", "Rooms", "Beds", "Occupied Beds", "Starting Price", "Status", "Tags"];
       const rows = filteredProperties.map(property => [
         property.name,
         property.area,
         property.total_rooms,
         property.total_beds,
+        property.occupied_beds,
         property.starting_price,
         property.is_active ? "Active" : "Inactive",
         Array.isArray(property.tags) ? property.tags.join(", ") : ""
@@ -625,20 +648,18 @@ const handleFormSubmit = useCallback(async (
   }, [filteredProperties]);
 
   const handleImport = useCallback(() => {
-  // Create a file input element
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.accept = '.csv,.xlsx,.xls';
-  input.onchange = (e) => {
-    const file = (e.target as HTMLInputElement).files?.[0];
-    if (file) {
-      toast.info(`Importing ${file.name}...`);
-      // Add your actual import logic here
-      console.log('Importing file:', file);
-    }
-  };
-  input.click();
-}, []);
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.csv,.xlsx,.xls';
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) {
+        toast.info(`Importing ${file.name}...`);
+        console.log('Importing file:', file);
+      }
+    };
+    input.click();
+  }, []);
 
   const handleFormReset = useCallback(() => {
     setEditMode(false);
@@ -654,94 +675,97 @@ const handleFormSubmit = useCallback(async (
     )
   );
 
-  // Stats Cards Component - Like second image, above header
+  // Stats Cards Component
   const StatsCards = () => (
-<div className="sticky top-20 z-10 py-0 md:py-2 px-0  mb-4">
-  <div className="max-w-7xl mx-auto">
-    <div className="grid grid-cols-3 md:grid-cols-3 lg:grid-cols-6 gap-2
-">
+    <div className="sticky top-20 z-10 py-0 md:py-2 px-0 mb-4">
+      <div className="max-w-7xl mx-auto">
+        <div className="grid grid-cols-3 md:grid-cols-3 lg:grid-cols-5 gap-2">
+          {/* Total Properties */}
+          <div className="bg-white rounded-lg p-2 shadow-sm border border-gray-200 h-[56px] md:h-auto flex items-center gap-2">
+            <div className="p-1 bg-blue-100 rounded-md">
+              <Building2 className="h-3.5 w-3.5 text-blue-600" />
+            </div>
+            <div className="leading-tight">
+              <p className="text-[9px] text-gray-500 font-medium">Total Properties</p>
+              <p className="text-xs md:text-lg font-bold text-gray-900">{stats.totalProperties}</p>
+            </div>
+          </div>
 
-      {/* Total Properties */}
-      <div className="bg-white rounded-lg p-2 shadow-sm border border-gray-200 h-[56px] md:h-auto flex items-center gap-2">
-        <div className="p-1 bg-blue-100 rounded-md">
-          <Building2 className="h-3.5 w-3.5 text-blue-600" />
-        </div>
-        <div className="leading-tight">
-          <p className="text-[9px] text-gray-500 font-medium">Total Properties</p>
-          <p className="text-xs md:text-lg font-bold text-gray-900">{stats.totalProperties}</p>
+          {/* Active */}
+          <div className="bg-white rounded-lg p-2 shadow-sm border border-gray-200 h-[56px] md:h-auto flex items-center gap-2">
+            <div className="p-1 bg-green-100 rounded-md">
+              <Hotel className="h-3.5 w-3.5 text-green-600" />
+            </div>
+            <div className="leading-tight">
+              <p className="text-[9px] text-gray-500 font-medium">Active</p>
+              <p className="text-xs md:text-lg font-bold text-gray-900">{stats.activeProperties}</p>
+            </div>
+          </div>
+
+          {/* Total Rooms */}
+          <div className="bg-white rounded-lg p-2 shadow-sm border border-gray-200 h-[56px] md:h-auto flex items-center gap-2">
+            <div className="p-1 bg-purple-100 rounded-md">
+              <DoorOpen className="h-3.5 w-3.5 text-purple-600" />
+            </div>
+            <div className="leading-tight">
+              <p className="text-[9px] text-gray-500 font-medium">Total Rooms</p>
+              <p className="text-xs md:text-lg font-bold text-gray-900">{stats.totalRooms}</p>
+            </div>
+          </div>
+
+          {/* Total Beds */}
+          <div className="bg-white rounded-lg p-2 shadow-sm border border-gray-200 h-[56px] md:h-auto flex items-center gap-2">
+            <div className="p-1 bg-orange-100 rounded-md">
+              <Bed className="h-3.5 w-3.5 text-orange-600" />
+            </div>
+            <div className="leading-tight">
+              <p className="text-[9px] text-gray-500 font-medium">Total Beds</p>
+              <p className="text-xs md:text-lg font-bold text-gray-900">{stats.totalBeds}</p>
+            </div>
+          </div>
+
+          {/* Available Beds */}
+          <div className="bg-white rounded-lg p-2 shadow-sm border border-gray-200 h-[56px] md:h-auto flex items-center gap-2">
+            <div className="p-1 bg-teal-100 rounded-md">
+              <Users className="h-3.5 w-3.5 text-teal-600" />
+            </div>
+            <div className="leading-tight">
+              <p className="text-[9px] text-gray-500 font-medium">Available Beds</p>
+              <p className="text-xs md:text-lg font-bold text-gray-900">{stats.availableBeds}</p>
+            </div>
+          </div>
+
+          {/* Occupancy */}
+          {/* <div className="bg-white rounded-lg p-2 shadow-sm border border-gray-200 h-[56px] md:h-auto flex items-center gap-2">
+            <div className="p-1 bg-pink-100 rounded-md">
+              <TrendingUp className="h-3.5 w-3.5 text-pink-600" />
+            </div>
+            <div className="leading-tight">
+              <p className="text-[9px] text-gray-500 font-medium">Occupancy</p>
+              <p className="text-xs md:text-lg font-bold text-gray-900">{stats.occupancyRate}%</p>
+            </div>
+          </div> */}
         </div>
       </div>
-
-      {/* Active */}
-      <div className="bg-white rounded-lg p-2 shadow-sm border border-gray-200 h-[56px] md:h-auto flex items-center gap-2">
-        <div className="p-1 bg-green-100 rounded-md">
-          <Hotel className="h-3.5 w-3.5 text-green-600" />
-        </div>
-        <div className="leading-tight">
-          <p className="text-[9px] text-gray-500 font-medium">Active</p>
-          <p className="text-xs md:text-lg font-bold text-gray-900">{stats.activeProperties}</p>
-        </div>
-      </div>
-
-      {/* Total Rooms */}
-      <div className="bg-white rounded-lg p-2 shadow-sm border border-gray-200 h-[56px] md:h-auto flex items-center gap-2">
-        <div className="p-1 bg-purple-100 rounded-md">
-          <DoorOpen className="h-3.5 w-3.5 text-purple-600" />
-        </div>
-        <div className="leading-tight">
-          <p className="text-[9px] text-gray-500 font-medium">Total Rooms</p>
-          <p className="text-xs md:text-lg font-bold text-gray-900">{stats.totalRooms}</p>
-        </div>
-      </div>
-
-      {/* Total Beds */}
-      <div className="bg-white rounded-lg p-2 shadow-sm border border-gray-200 h-[56px] md:h-auto flex items-center gap-2">
-        <div className="p-1 bg-orange-100 rounded-md">
-          <Bed className="h-3.5 w-3.5 text-orange-600" />
-        </div>
-        <div className="leading-tight">
-          <p className="text-[9px] text-gray-500 font-medium">Total Beds</p>
-          <p className="text-xs md:text-lg font-bold text-gray-900">{stats.totalBeds}</p>
-        </div>
-      </div>
-
-      {/* Available Beds */}
-      <div className="bg-white rounded-lg p-2 shadow-sm border border-gray-200 h-[56px] md:h-auto flex items-center gap-2">
-        <div className="p-1 bg-teal-100 rounded-md">
-          <Users className="h-3.5 w-3.5 text-teal-600" />
-        </div>
-        <div className="leading-tight">
-          <p className="text-[9px] text-gray-500 font-medium">Available Beds</p>
-          <p className="text-xs md:text-lg font-bold text-gray-900">{stats.availableBeds}</p>
-        </div>
-      </div>
-
-      {/* Occupancy */}
-      <div className="bg-white rounded-lg p-2 shadow-sm border border-gray-200 h-[56px] md:h-auto flex items-center gap-2">
-        <div className="p-1 bg-pink-100 rounded-md">
-          <TrendingUp className="h-3.5 w-3.5 text-pink-600" />
-        </div>
-        <div className="leading-tight">
-          <p className="text-[9px] text-gray-500 font-medium">Occupancy</p>
-          <p className="text-xs md:text-lg font-bold text-gray-900">{stats.occupancyRate}%</p>
-        </div>
-      </div>
-
     </div>
-  </div>
-</div>
-
-
-
-
   );
 
-  // FIX: PropertyCard as separate component to prevent re-renders
+  // PropertyCard component
   const PropertyCard = useCallback(({ property }: { property: Property }) => {
     const isSelected = selectedCardIds.includes(property.id);
     
+    // More detailed log
+  console.log(`🏠 Rendering Property ${property.id} - ${property.name}:`, {
+    id: property.id,
+    name: property.name,
+    total_rooms: property.total_rooms,
+    total_beds: property.total_beds,
+    occupied_beds: property.occupied_beds,
+    has_occupied: property.hasOwnProperty('occupied_beds')
+  });
+    
     return (
-      <Card className={`  border transition-all duration-300 group relative
+      <Card className={`border transition-all duration-300 group relative
         ${isSelected 
           ? 'border-blue-500 shadow-lg ring-2 ring-blue-500/20' 
           : 'border-gray-200 hover:border-blue-300 hover:shadow-md'
@@ -765,9 +789,13 @@ const handleFormSubmit = useCallback(async (
           <div className="h-40 bg-gradient-to-br from-blue-50 to-cyan-50 flex items-center justify-center relative overflow-hidden">
             {property.photo_urls && property.photo_urls.length > 0 ? (
               <img 
-                src={`${import.meta.env.VITE_API_URL+property.photo_urls[0]}`} 
+                src={`${import.meta.env.VITE_API_URL}${property.photo_urls[0]}`} 
                 alt={property.name}
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.src = 'https://via.placeholder.com/400x200?text=No+Image';
+                }}
               />
             ) : (
               <div className="text-center">
@@ -820,7 +848,7 @@ const handleFormSubmit = useCallback(async (
               </div>
 
               {/* Property Stats */}
-              <div className="grid grid-cols-3 gap-1 pt-2 border-t">
+              <div className="flex justify-between px-4 gap-1 pt-2 border-t">
                 <div className="text-center">
                   <div className="flex items-center justify-center gap-1 text-blue-600">
                     <Home className="h-3 w-3" />
@@ -835,13 +863,13 @@ const handleFormSubmit = useCallback(async (
                   </div>
                   <p className="text-xs text-gray-500">Beds</p>
                 </div>
-                <div className="text-center">
+                {/* <div className="text-center">
                   <div className="flex items-center justify-center gap-1 text-amber-600">
                     <Users className="h-3 w-3" />
-                    <span className="font-semibold text-sm">{property.occupied_beds || 0}</span>
+                    <span className="font-semibold text-sm">{property.occupied_beds}</span>
                   </div>
                   <p className="text-xs text-gray-500">Occupied</p>
-                </div>
+                </div> */}
               </div>
 
               {/* Pricing */}
@@ -911,7 +939,7 @@ const handleFormSubmit = useCallback(async (
     );
   }, [selectedCardIds, viewMode, handleCardSelect, handleEdit, handleDelete, router]);
 
-  // FIX: CardView component
+  // CardView component
   const CardView = useCallback(() => {
     if (loading && properties.length === 0) {
       return (
@@ -962,176 +990,146 @@ const handleFormSubmit = useCallback(async (
     return (
       <>
         {/* Bulk Actions Bar */}
-   {showBulkActions && (
-  <>
-    {/* ================= MOBILE + TABLET ================= */}
-    <div className="md:hidden  mb-3 
-                    bg-gradient-to-r from-blue-500 to-cyan-500 
-                    rounded-md px-2 py-2 shadow-md">
+        {showBulkActions && (
+          <>
+            {/* Mobile */}
+            <div className="md:hidden mb-3 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-md px-2 py-2 shadow-md">
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2 text-white text-xs">
+                  <Check className="h-3 w-3" />
+                  <span className="font-medium leading-none">
+                    {selectedCardIds.length} selected
+                  </span>
+                </div>
+                <div className="flex flex-wrap items-center gap-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2 text-xs bg-white/20 text-white border-white/30"
+                    onClick={handleSelectAllCards}
+                  >
+                    {selectedCardIds.length === filteredProperties.length ? "All ✕" : "All"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2 text-xs bg-white/20 text-white border-white/30"
+                    onClick={() => handleBulkStatusChange(selectedCardIds, true)}
+                  >
+                    <CheckCircle className="h-3 w-3 mr-1" />
+                    On
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2 text-xs bg-white/20 text-white border-white/30"
+                    onClick={() => handleBulkStatusChange(selectedCardIds, false)}
+                  >
+                    <XSquare className="h-3 w-3 mr-1" />
+                    Off
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2 text-xs bg-white/20 text-white border-white/30"
+                    onClick={() => setTagsModalOpen(true)}
+                  >
+                    <Tag className="h-3 w-3 mr-1" />
+                    Tags
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => handleBulkDelete(selectedCardIds)}
+                  >
+                    <Trash2 className="h-3 w-3 mr-1" />
+                    Del
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 w-7 p-0 text-white"
+                    onClick={() => setSelectedCardIds([])}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              </div>
+            </div>
 
-      <div className="flex flex-col gap-2">
-
-        {/* Left */}
-        <div className="flex items-center gap-2 text-white text-xs">
-          <Check className="h-3 w-3" />
-          <span className="font-medium leading-none">
-            {selectedCardIds.length} selected
-          </span>
-        </div>
-
-        {/* Buttons */}
-        <div className="flex flex-wrap items-center gap-1">
-
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-7 px-2 text-xs bg-white/20 text-white border-white/30"
-            onClick={handleSelectAllCards}
-          >
-            {selectedCardIds.length === filteredProperties.length ? "All ✕" : "All"}
-          </Button>
-
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-7 px-2 text-xs bg-white/20 text-white border-white/30"
-            onClick={() => handleBulkStatusChange(selectedCardIds, true)}
-          >
-            <CheckCircle className="h-3 w-3 mr-1" />
-            On
-          </Button>
-
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-7 px-2 text-xs bg-white/20 text-white border-white/30"
-            onClick={() => handleBulkStatusChange(selectedCardIds, false)}
-          >
-            <XSquare className="h-3 w-3 mr-1" />
-            Off
-          </Button>
-
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-7 px-2 text-xs bg-white/20 text-white border-white/30"
-            onClick={() => setTagsModalOpen(true)}
-          >
-            <Tag className="h-3 w-3 mr-1" />
-            Tags
-          </Button>
-
-          <Button
-            size="sm"
-            variant="destructive"
-            className="h-7 px-2 text-xs"
-            onClick={() => handleBulkDelete(selectedCardIds)}
-          >
-            <Trash2 className="h-3 w-3 mr-1" />
-            Del
-          </Button>
-
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-7 w-7 p-0 text-white"
-            onClick={() => setSelectedCardIds([])}
-          >
-            <X className="h-3 w-3" />
-          </Button>
-
-        </div>
-      </div>
-    </div>
-
-
-    {/* ================= DESKTOP ================= */}
-    <div className="hidden md:block  mb-4 
-                    bg-gradient-to-r from-blue-500 to-cyan-500 
-                    rounded-lg p-3 shadow-lg">
-
-      <div className="flex items-center justify-between">
-
-        {/* Left */}
-        <div className="flex items-center gap-3 text-white">
-          <div className="p-1 bg-white/20 rounded">
-            <Check className="h-4 w-4" />
-          </div>
-          <span className="font-medium text-base">
-            {selectedCardIds.length} property
-            {selectedCardIds.length !== 1 ? "s" : ""} selected
-          </span>
-        </div>
-
-        {/* Buttons */}
-        <div className="flex items-center gap-2">
-
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 bg-white/20 text-white border-white/30"
-            onClick={handleSelectAllCards}
-          >
-            {selectedCardIds.length === filteredProperties.length
-              ? "Deselect All"
-              : "Select All"}
-          </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 bg-white/20 text-white border-white/30"
-            onClick={() => handleBulkStatusChange(selectedCardIds, true)}
-          >
-            <CheckCircle className="h-4 w-4 mr-2" />
-            Active
-          </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 bg-white/20 text-white border-white/30"
-            onClick={() => handleBulkStatusChange(selectedCardIds, false)}
-          >
-            <XSquare className="h-4 w-4 mr-2" />
-            Deactive
-          </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 bg-white/20 text-white border-white/30"
-            onClick={() => setTagsModalOpen(true)}
-          >
-            <Tag className="h-4 w-4 mr-2" />
-            Manage Tags
-          </Button>
-
-          <Button
-            variant="destructive"
-            size="sm"
-            className="h-8"
-            onClick={() => handleBulkDelete(selectedCardIds)}
-          >
-            <Trash2 className="h-4 w-4 mr-2" />
-            Delete
-          </Button>
-
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 text-white"
-            onClick={() => setSelectedCardIds([])}
-          >
-            <X className="h-4 w-4" />
-          </Button>
-
-        </div>
-      </div>
-    </div>
-  </>
-)}
-
+            {/* Desktop */}
+            <div className="hidden md:block mb-4 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg p-3 shadow-lg">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3 text-white">
+                  <div className="p-1 bg-white/20 rounded">
+                    <Check className="h-4 w-4" />
+                  </div>
+                  <span className="font-medium text-base">
+                    {selectedCardIds.length} property
+                    {selectedCardIds.length !== 1 ? "s" : ""} selected
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 bg-white/20 text-white border-white/30"
+                    onClick={handleSelectAllCards}
+                  >
+                    {selectedCardIds.length === filteredProperties.length
+                      ? "Deselect All"
+                      : "Select All"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 bg-white/20 text-white border-white/30"
+                    onClick={() => handleBulkStatusChange(selectedCardIds, true)}
+                  >
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Active
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 bg-white/20 text-white border-white/30"
+                    onClick={() => handleBulkStatusChange(selectedCardIds, false)}
+                  >
+                    <XSquare className="h-4 w-4 mr-2" />
+                    Deactive
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 bg-white/20 text-white border-white/30"
+                    onClick={() => setTagsModalOpen(true)}
+                  >
+                    <Tag className="h-4 w-4 mr-2" />
+                    Manage Tags
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="h-8"
+                    onClick={() => handleBulkDelete(selectedCardIds)}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 text-white"
+                    onClick={() => setSelectedCardIds([])}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
 
         {/* Properties Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -1158,10 +1156,10 @@ const handleFormSubmit = useCallback(async (
 
   return (
     <div>
-      {/* Stats Cards - Above everything like second image */}
+      {/* Stats Cards */}
       <StatsCards />
       
-      <Card className="border-0 shadow-xl bg-gradient-to-br from-white via-blue-50/30 to-purple-50/30 backdrop-blur-xl  ">
+      <Card className="border-0 shadow-xl bg-gradient-to-br from-white via-blue-50/30 to-purple-50/30 backdrop-blur-xl">
         {/* Header Component */}
         <PropertyHeader
           searchQuery={searchQuery}
@@ -1169,8 +1167,7 @@ const handleFormSubmit = useCallback(async (
           onRefresh={() => loadProperties(true)}
           onFilterClick={() => setSidebarOpen(true)}
           onExport={handleExportToExcel}
-            onImport={handleImport}
-
+          onImport={handleImport}
           onAddProperty={() => {
             handleFormReset();
             setDialogOpen(true);
@@ -1191,7 +1188,7 @@ const handleFormSubmit = useCallback(async (
         />
 
         {/* Content */}
-        <div className="max-h-[376px]  md:max-h-[calc(100vh-280px)] overflow-y-auto scrollbar-thin scrollbar-thumb-blue-400 scrollbar-track-blue-100">
+        <div className="max-h-[376px] md:max-h-[calc(100vh-280px)] overflow-y-auto scrollbar-thin scrollbar-thumb-blue-400 scrollbar-track-blue-100">
           <CardContent className="p-4">
             <Tabs value={viewMode} className="w-full" onValueChange={(value) => setViewMode(value as "table" | "card")}>
               <TabsList className="grid w-full max-w-md grid-cols-2 mb-4">

@@ -411,3 +411,17 @@ export async function getBulkPropertyAnalytics(propertyIds: (number | string)[])
     return { success: false, data: {} };
   }
 }
+
+// lib/propertyApi.ts
+
+// lib/propertyApi.ts
+export const getPropertyOccupancyStats = async (propertyId: string) => {
+  try {
+    const response = await fetch(`/api/properties/${propertyId}/occupancy-stats`);
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("Error fetching occupancy stats:", error);
+    return { success: false, data: { occupied_beds: 0 } };
+  }
+};

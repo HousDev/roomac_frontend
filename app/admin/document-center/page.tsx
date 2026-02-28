@@ -21,6 +21,7 @@ import { format } from 'date-fns';
 import { DocumentData, downloadPDF, printPDF, sharePDF } from '@/lib/pdf-generator';
 import { toast } from 'sonner';
 import { TrendingUp } from "lucide-react";
+import MySwal from '@/app/utils/swal';
 
 
 interface SavedDocument {
@@ -310,9 +311,19 @@ export default function AdminDocumentCenter() {
   };
 
   const handleDeleteDocument = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this document?')) return;
-
+    
     try {
+      const result = await MySwal.fire({
+            title: "Delete Item?",
+            text: "This action cannot be undone",
+            icon: "warning",
+            showCancelButton: true,
+            confirmButtonColor: "#C62828",
+            cancelButtonColor: "#6b7280",
+            confirmButtonText: "Delete",
+          });
+      
+          if (!result.isConfirmed) return;
       await safeFetch(`/documents/${id}`, { method: 'DELETE' });
       toast.success('Document deleted');
       loadData();

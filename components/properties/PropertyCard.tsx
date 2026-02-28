@@ -1,7 +1,3 @@
-
-
-
-
 // components/properties/PropertyCard.tsx
 "use client";
 
@@ -39,7 +35,7 @@ import {
 import { BsWhatsapp } from 'react-icons/bs';
 import { FaFacebookF, FaTwitter, FaLinkedinIn, FaTelegramPlane } from 'react-icons/fa';
 import { MdEmail } from 'react-icons/md';
-import { getOrCreateTrackingId } from '@/lib/slugUtils';
+import { getOrCreateTrackingId, generatePropertySlug } from '@/lib/slugUtils';
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
@@ -62,7 +58,6 @@ interface PropertyCardProps {
   onWhatsAppClick?: (phone: string, name: string, location: string) => void;
   onCallClick?: (phone: string) => void;
   onHeartClick?: (propertyId: number, event: React.MouseEvent) => void;
-  
 }
 
 const PropertyCard = memo(function PropertyCard({ 
@@ -77,12 +72,13 @@ const PropertyCard = memo(function PropertyCard({
   const [imageError, setImageError] = useState(false);
   const [fallbackIndex] = useState(() => Math.floor(Math.random() * FALLBACK_IMAGES.length));
   const [sharePopup, setSharePopup] = useState<{
-    id: any;
-    slug: any;
-    seoSlug: any; isOpen: boolean; property: any | null 
-}>({ 
+    isOpen: boolean;
+    property: any | null;
+    shareUrl: string;
+  }>({ 
     isOpen: false, 
-    property: null 
+    property: null,
+    shareUrl: ''
   });
   const [copied, setCopied] = useState(false);
   
@@ -110,39 +106,34 @@ const PropertyCard = memo(function PropertyCard({
     ? `${API_URL}${propertyImages[currentImageIndex]}` 
     : FALLBACK_IMAGES[fallbackIndex];
 
-
-// Then extract tags with a more comprehensive approach:
-const propertyTags = (() => {
-  // Try multiple paths to find tags
-  const possibleTagSources = [
-    property.transformedData?.tags,
-    property.tags,
-    property.property_tags,
-    property.category_tags,
-    property.labels,
-    property.tag_list
-  ];
-  
-  for (const source of possibleTagSources) {
-    if (source && Array.isArray(source) && source.length > 0) {
-      return source;
-    }
-  }
-  
-  // Also check if tags are in the transformedData but with different property name
-  if (property.transformedData) {
-    // Check all keys in transformedData that might contain tags
-    const possibleKeys = ['tags', 'propertyTags', 'property_tags', 'categories', 'labels'];
-    for (const key of possibleKeys) {
-      if (property.transformedData[key] && Array.isArray(property.transformedData[key]) && property.transformedData[key].length > 0) {
-        return property.transformedData[key];
+  // Extract tags
+  const propertyTags = (() => {
+    const possibleTagSources = [
+      property.transformedData?.tags,
+      property.tags,
+      property.property_tags,
+      property.category_tags,
+      property.labels,
+      property.tag_list
+    ];
+    
+    for (const source of possibleTagSources) {
+      if (source && Array.isArray(source) && source.length > 0) {
+        return source;
       }
     }
-  }
-  
-  return [];
-})();
-
+    
+    if (property.transformedData) {
+      const possibleKeys = ['tags', 'propertyTags', 'property_tags', 'categories', 'labels'];
+      for (const key of possibleKeys) {
+        if (property.transformedData[key] && Array.isArray(property.transformedData[key]) && property.transformedData[key].length > 0) {
+          return property.transformedData[key];
+        }
+      }
+    }
+    
+    return [];
+  })();
 
   // Extract amenities
   const amenities = (() => {
@@ -174,35 +165,52 @@ const propertyTags = (() => {
   const propertyType = property.property_type || property.type || '';
 
   // Handle card click - navigate to details page
-const handleCardClick = useCallback((e: React.MouseEvent) => {
-  const target = e.target as HTMLElement;
-  const isInteractive = target.closest('button') || target.closest('a');
-  
-  if (!isInteractive) {
+  const handleCardClick = useCallback((e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    const isInteractive = target.closest('button') || target.closest('a');
+    
+    if (!isInteractive) {
+      window.scrollTo(0, 0);
+      
+      // Generate or get tracking ID for this property
+      const trackingId = getOrCreateTrackingId(property.id);
+      
+      // Generate SEO-friendly slug
+      const seoSlug = generatePropertySlug({
+        name: propertyName,
+        area: property.area || property.location,
+        city: property.city,
+        id: property.id
+      });
+      
+      // Use seoSlug if available
+      const slug = seoSlug || property.seoSlug || property.slug || property.id;
+      
+      // Navigate with tracking parameter
+      router.push(`/properties/${slug}?tf=${trackingId}`);
+    }
+  }, [router, property, propertyName]);
+
+  // Update the Details button click handler
+  const handleDetailsClick = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     window.scrollTo(0, 0);
     
-    // Generate or get tracking ID for this property
     const trackingId = getOrCreateTrackingId(property.id);
     
-    // Use seoSlug if available
-    const slug = property.seoSlug || property.slug || property.id;
+    // Generate SEO-friendly slug
+    const seoSlug = generatePropertySlug({
+      name: propertyName,
+      area: property.area || property.location,
+      city: property.city,
+      id: property.id
+    });
     
-    // Navigate with tracking parameter
+    const slug = seoSlug || property.seoSlug || property.slug || property.id;
+    
     router.push(`/properties/${slug}?tf=${trackingId}`);
-  }
-}, [router, property.seoSlug, property.slug, property.id]);
-
-// Update the Details button click handler
-const handleDetailsClick = useCallback((e: React.MouseEvent) => {
-  e.preventDefault();
-  e.stopPropagation();
-  window.scrollTo(0, 0);
-  
-  const trackingId = getOrCreateTrackingId(property.id);
-  const slug = property.seoSlug || property.slug || property.id;
-  
-  router.push(`/properties/${slug}?tf=${trackingId}`);
-}, [router, property.seoSlug, property.slug, property.id]);
+  }, [router, property, propertyName]);
 
   // Image navigation handlers - with stopPropagation to prevent card click
   const nextImage = useCallback((e: React.MouseEvent) => {
@@ -291,17 +299,14 @@ const handleDetailsClick = useCallback((e: React.MouseEvent) => {
 
   // Handle WhatsApp click
   const handleWhatsAppClick = useCallback((e?: React.MouseEvent) => {
-  e?.preventDefault();
-  e?.stopPropagation();
+    e?.preventDefault();
+    e?.stopPropagation();
 
-  const phone = "9923953933"; 
-
-  const message = `Hi, I'm interested in ${propertyName} located at ${fullLocation}`;
-  
-  const url = `https://wa.me/91${phone}?text=${encodeURIComponent(message)}`;
-  window.open(url, "_blank");
-}, [propertyName, fullLocation]);
-
+    const phone = "9923953933"; 
+    const message = `Hi, I'm interested in ${propertyName} located at ${fullLocation}`;
+    const url = `https://wa.me/91${phone}?text=${encodeURIComponent(message)}`;
+    window.open(url, "_blank");
+  }, [propertyName, fullLocation]);
 
   // Handle call click
   const handleCallClick = useCallback((e: React.MouseEvent) => {
@@ -312,68 +317,79 @@ const handleDetailsClick = useCallback((e: React.MouseEvent) => {
     }
   }, [onCallClick, property.phone, property.contact_number]);
 
-  // Handle share click
-// In PropertyCard.tsx, update the share functionality
-const handleShareClick = useCallback((e: React.MouseEvent) => {
-  e.preventDefault();
-  e.stopPropagation();
-  
-  const trackingId = getOrCreateTrackingId(property.id);
-  const slug = property.seoSlug || property.slug || property.id;
-  const shareUrl = `${window.location.origin}/properties/${slug}?tf=${trackingId}`;
-  
-  setSharePopup({ isOpen: true, property, shareUrl });
-}, [property]);
-
-// In the share popup, use the shareUrl with tracking
+  // Handle share click - Updated to use SEO-friendly slug with tracking
+  const handleShareClick = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const trackingId = getOrCreateTrackingId(property.id);
+    
+    // Generate SEO-friendly slug
+    const seoSlug = generatePropertySlug({
+      name: propertyName,
+      area: property.area || property.location,
+      city: property.city,
+      id: property.id
+    });
+    
+    const slug = seoSlug || property.seoSlug || property.slug || property.id;
+    const shareUrl = `${window.location.origin}/properties/${slug}?tf=${trackingId}`;
+    
+    setSharePopup({ 
+      isOpen: true, 
+      property: property,
+      shareUrl: shareUrl 
+    });
+  }, [property, propertyName]);
 
   // Close share popup
   const closeSharePopup = useCallback(() => {
-    setSharePopup({ isOpen: false, property: null });
+    setSharePopup({ isOpen: false, property: null, shareUrl: '' });
     setCopied(false);
   }, []);
 
-  // Handle copy link
+  // Handle copy link - Updated to use the shareUrl from state
   const handleCopyLink = useCallback(() => {
-    // In the share popup, update the share URL
-const shareUrl = `${window.location.origin}/properties/${sharePopup.seoSlug || sharePopup.slug || sharePopup.id}`;
-    navigator.clipboard.writeText(shareUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }, [sharePopup.property]);
+    if (sharePopup.shareUrl) {
+      navigator.clipboard.writeText(sharePopup.shareUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  }, [sharePopup.shareUrl]);
 
-  // Handle social share
+  // Handle social share - Updated to use the shareUrl from state
   const handleSocialShare = useCallback((platform: string) => {
-    const shareUrl = `${window.location.origin}/properties/${sharePopup.property?.slug || sharePopup.property?.id}`;
-    const propertyName = sharePopup.property?.name || sharePopup.property?.property_name || 'Premium Property';
+    if (!sharePopup.shareUrl || !sharePopup.property) return;
+    
+    const propertyName = sharePopup.property.name || sharePopup.property.property_name || 'Premium Property';
     const shareText = `Check out this property: ${propertyName}`;
 
     let url = '';
     switch (platform) {
       case 'whatsapp':
-        url = `https://wa.me/?text=${encodeURIComponent(shareText + ' ' + shareUrl)}`;
+        url = `https://wa.me/?text=${encodeURIComponent(shareText + ' ' + sharePopup.shareUrl)}`;
         break;
       case 'facebook':
-        url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`;
+        url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(sharePopup.shareUrl)}`;
         break;
       case 'twitter':
-        url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`;
+        url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(sharePopup.shareUrl)}`;
         break;
       case 'linkedin':
-        url = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`;
+        url = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(sharePopup.shareUrl)}`;
         break;
       case 'telegram':
-        url = `https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareText)}`;
+        url = `https://t.me/share/url?url=${encodeURIComponent(sharePopup.shareUrl)}&text=${encodeURIComponent(shareText)}`;
         break;
       case 'email':
-        url = `mailto:?subject=${encodeURIComponent(propertyName)}&body=${encodeURIComponent(shareText + '\n\n' + shareUrl)}`;
+        url = `mailto:?subject=${encodeURIComponent(propertyName)}&body=${encodeURIComponent(shareText + '\n\n' + sharePopup.shareUrl)}`;
         break;
     }
     
     if (url) {
       window.open(url, '_blank', 'width=600,height=400');
     }
-  }, [sharePopup.property]);
+  }, [sharePopup]);
 
   // Reset image error when property changes
   useEffect(() => {
@@ -401,7 +417,7 @@ const shareUrl = `${window.location.origin}/properties/${sharePopup.seoSlug || s
               onError={handleImageError}
             />
             
-            {/* Watermark - Center (Like RealEstateVin) */}
+            {/* Watermark - Center */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[5] pointer-events-none">
               <div
                 className="text-white/40 text-sm sm:text-base md:text-lg lg:text-3xl font-semibold tracking-wide select-none whitespace-nowrap"
@@ -415,7 +431,7 @@ const shareUrl = `${window.location.origin}/properties/${sharePopup.seoSlug || s
               </div>
             </div>
             
-            {/* Image navigation arrows - only show if multiple images and no error */}
+            {/* Image navigation arrows */}
             {totalImages > 1 && !imageError && (
               <>
                 <button
@@ -433,13 +449,13 @@ const shareUrl = `${window.location.origin}/properties/${sharePopup.seoSlug || s
               </>
             )}
 
-            {/* Rating pill — top left */}
+            {/* Rating pill */}
             <div className="absolute top-3 left-3 z-10 flex items-center gap-1.5 bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-full shadow-lg">
               <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
               <span className="text-xs font-bold text-slate-800">{rating}</span>
             </div>
 
-            {/* Share & Heart — top right */}
+            {/* Share & Heart */}
             <div className="absolute top-3 right-3 z-10 flex gap-2">
               <button
                 onClick={handleShareClick}
@@ -492,8 +508,6 @@ const shareUrl = `${window.location.origin}/properties/${sharePopup.seoSlug || s
                 <Building2 className="h-12 w-12 text-slate-400" />
               </div>
             )}
-
-          *
           </div>
 
           {/* Card body */}
@@ -575,16 +589,15 @@ const shareUrl = `${window.location.origin}/properties/${sharePopup.seoSlug || s
 
             {/* Divider and Actions */}
             <div className="border-t border-slate-200 mt-auto pt-3">
-              {/* WhatsApp, Call, View Details - ALL IN ONE LINE */}
+              {/* WhatsApp, Call, View Details */}
               <div className="flex items-center gap-2">
-                {/* Update the Details button */}
-<button
-  onClick={handleDetailsClick}
-  className="flex-1 px-2 py-2.5 bg-[#0249a8] hover:bg-[#023a88] text-white text-xs font-semibold rounded-lg shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 flex items-center justify-center gap-1"
->
-  <span>Details</span>
-  <ArrowRight className="h-3 w-3" />
-</button>
+                <button
+                  onClick={handleDetailsClick}
+                  className="flex-1 px-2 py-2.5 bg-[#0249a8] hover:bg-[#023a88] text-white text-xs font-semibold rounded-lg shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 flex items-center justify-center gap-1"
+                >
+                  <span>Details</span>
+                  <ArrowRight className="h-3 w-3" />
+                </button>
                 <button
                   onClick={handleWhatsAppClick}
                   className="flex-1 flex items-center justify-center gap-1 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 rounded-lg text-xs font-medium transition-all hover:scale-105"
@@ -680,7 +693,7 @@ const shareUrl = `${window.location.origin}/properties/${sharePopup.seoSlug || s
                     <input
                       type="text"
                       readOnly
-                      value={`${typeof window !== 'undefined' ? window.location.origin : ''}/properties/${prop.slug || prop.id}`}
+                      value={sharePopup.shareUrl}
                       className="flex-1 bg-transparent text-xs text-slate-600 outline-none truncate"
                     />
                     <button
@@ -702,10 +715,10 @@ const shareUrl = `${window.location.origin}/properties/${sharePopup.seoSlug || s
                   </div>
                 </div>
 
-                {/* Social Share Buttons - 3 columns */}
+                {/* Social Share Buttons */}
                 <div className="grid grid-cols-3 gap-2.5">
                   <button
-                    onClick={() => {handleWhatsAppClick()}}
+                    onClick={() => handleSocialShare('whatsapp')}
                     className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-gradient-to-br from-emerald-50 to-green-50 hover:from-emerald-100 hover:to-green-100 border border-emerald-200 transition-all hover:scale-105 group"
                   >
                     <div className="h-10 w-10 rounded-full bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow">

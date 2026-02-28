@@ -34,6 +34,7 @@ import EnquiriesStats from "./EnquiriesStats";
 import EnquiryForm from "./EnquiryForm";
 import EnquiryViewDialog from "./EnquiryViewDialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import MySwal from "@/app/utils/swal";
 
 // Types for initial props
 interface EnquiriesClientPageProps {
@@ -104,6 +105,9 @@ export default function EnquiriesClientPage({
     message: "",
     status: "new"
   });
+
+  
+  
 
   // Helper function to format date for input field (YYYY-MM-DD)
   const formatDateForInput = useCallback((dateString: string) => {
@@ -394,23 +398,22 @@ export default function EnquiriesClientPage({
     }
   }, [followupText, selectedEnquiry, loadData]);
 
-  const handleDeleteEnquiry = useCallback(async (id: string) => {
-    if (!confirm("Are you sure you want to delete this enquiry?")) return;
+const handleDeleteEnquiry = useCallback(async (id: string) => {
+  try {
+    
+    await deleteEnquiry(id);
+    toast.success("Enquiry deleted successfully");
 
-    try {
-      await deleteEnquiry(id);
-      toast.success("Enquiry deleted successfully");
+    setShowViewDialog(false);
+    setShowEditDialog(false);
 
-      setShowViewDialog(false);
-      setShowEditDialog(false);
-
-      // Refresh data after deletion
-      await loadData(true);
-    } catch (error) {
-      console.error("Error deleting enquiry:", error);
-      toast.error("Failed to delete enquiry");
-    }
-  }, [loadData]);
+    // Refresh data after deletion
+    await loadData(true);
+  } catch (error) {
+    console.error("Error deleting enquiry:", error);
+    toast.error("Failed to delete enquiry");
+  }
+}, [loadData]);
 
   // Format date for display
   const formatDateForDisplay = useCallback((dateString: string) => {
@@ -559,24 +562,6 @@ export default function EnquiriesClientPage({
               </Dialog>
             </div>
           </div>
-
-          {/* Mobile Filters Panel */}
-          {/* {mobileFiltersOpen && (
-            <div className="lg:hidden bg-white p-4 rounded-lg border">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="font-semibold">Filters</h3>
-                <Button variant="ghost" size="sm" onClick={() => setMobileFiltersOpen(false)}>
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-              <EnquiriesFilters
-                searchTerm={searchTerm}
-                setSearchTerm={setSearchTerm}
-                statusFilter={statusFilter}
-                setStatusFilter={setStatusFilter}
-              />
-            </div>
-          )} */}
         </div>
 
         
@@ -704,9 +689,16 @@ export default function EnquiriesClientPage({
       filteredEnquiries.map((enquiry) => (
         <TableRow key={enquiry.id} className="hover:bg-gray-50">
           {/* Name */}
-          <TableCell className="px-2 sm:px-4 py-2 sm:py-3 font-medium text-xs sm:text-sm">
-            {enquiry.tenant_name}
-          </TableCell>
+          {/* Name - Clickable */}
+<TableCell 
+  className="px-2 sm:px-4 py-2 sm:py-3 font-medium text-xs sm:text-sm cursor-pointer hover:text-blue-600 hover:underline transition-colors"
+  onClick={() => {
+    setSelectedEnquiry(enquiry);
+    setShowViewDialog(true);
+  }}
+>
+  {enquiry.tenant_name}
+</TableCell>
 
           {/* Contact */}
           <TableCell className="px-2 sm:px-4 py-2 sm:py-3">
