@@ -56,6 +56,24 @@ import PropertyHeader from "./PropertyHeader";
 import PropertyFilters from "./PropertyFilters";
 import { columns, filters, getBulkActions, getActions } from "./table-config";
 
+
+// Add Unsplash fallback images array for properties
+const UNSPLASH_PROPERTY_FALLBACKS = [
+  'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=500&auto=format', // Modern building
+  'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=500&auto=format', // Apartment building
+  'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=500&auto=format', // Luxury apartment
+  'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=500&auto=format', // Modern apartment
+  'https://images.unsplash.com/photo-1570129477492-45c003edd2be?w=500&auto=format', // Building exterior
+  'https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=500&auto=format', // House
+  'https://images.unsplash.com/photo-1575517111839-3a3843ee7f5d?w=500&auto=format', // Building with pool
+  'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=500&auto=format', // Modern building
+];
+
+// Helper function to get random fallback
+const getRandomPropertyFallback = () => {
+  return UNSPLASH_PROPERTY_FALLBACKS[Math.floor(Math.random() * UNSPLASH_PROPERTY_FALLBACKS.length)];
+};
+// Your existing types remain the same
 type Property = {
   id: string;
   name: string;

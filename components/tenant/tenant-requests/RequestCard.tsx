@@ -32,13 +32,13 @@ export function RequestCard({ request }: RequestCardProps) {
 
   return (
     <Card key={request.id} className="overflow-hidden">
-      <CardContent className="p-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+     <CardContent className="p-2 md:p-2">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 md:gap-4">
           <div className="flex-1">
-            <div className="flex items-center gap-3 mb-2">
-              <RequestIcon className="h-5 w-5" />
-              <h3 className="font-semibold text-lg">{request.title}</h3>
-              <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-1.5 md:gap-3 mb-1.5 md:mb-2">
+              <RequestIcon className="h-3.5 w-3.5 md:h-5 md:w-5 shrink-0" />
+              <h3 className="font-semibold text-sm md:text-lg">{request.title}</h3>
+              <div className="flex items-center gap-1 md:gap-2">
                 {/* Use the mapped display status badge */}
                 <Badge 
                   variant={statusConfig.variant} 
@@ -52,15 +52,14 @@ export function RequestCard({ request }: RequestCardProps) {
               </div>
             </div>
             
-            <p className="text-gray-600 mb-4">{request.description}</p>
-            
-            <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
+<p className="text-gray-600 text-xs md:text-sm mb-2 md:mb-4 line-clamp-2 md:line-clamp-none">{request.description}</p>            
+           <div className="flex flex-wrap items-center gap-2 md:gap-4 text-xs md:text-sm text-gray-500">
               <div className="flex items-center gap-1">
-                <Calendar className="h-4 w-4" />
+                <Calendar className="h-3 w-3 md:h-4 md:w-4" />
                 <span>Created: {format(new Date(request.created_at), 'dd MMM yyyy')}</span>
               </div>
               <div className="flex items-center gap-1">
-                <Clock className="h-4 w-4" />
+                <Clock className="h-3 w-3 md:h-4 md:w-4" />
                 <span>Updated: {format(new Date(request.updated_at), 'dd MMM yyyy')}</span>
               </div>
               
@@ -124,9 +123,9 @@ function VacateRequestDetails({
   if (!request.vacate_data) return null;
 
   return (
-    <div className="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
-      <h4 className="font-medium text-sm mb-2">Vacate Details:</h4>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+    <div className="mt-2 md:mt-4 p-2 md:p-3 bg-gray-50 rounded-lg border border-gray-200">
+      <h4 className="font-medium text-xs md:text-sm mb-1.5 md:mb-2">Vacate Details:</h4>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5 md:gap-3 text-xs md:text-sm">
         {/* Show the original vacate status */}
         {request.vacate_data.status && (
           <div className="col-span-2 mb-2">

@@ -348,6 +348,8 @@ export interface TenantProfile {
   property_state: string | null;
   property_manager_name: string | null;
   property_manager_phone: string | null;
+  property_manager_email?: string | null;
+
   amenities: string | null;
   services: string | null;
   property_photos: string | null;
