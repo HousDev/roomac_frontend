@@ -63,18 +63,20 @@
 // context/authContext.tsx
 "use client";
 
+import axios from "axios";
 import React, { createContext, useContext, useEffect, useState } from "react";
 
 type User = {
   email: string;
-  role: "admin" | "tenant";
+  role: string;
   loginSource: "admin" | "tenant"; // ✅ NEW
 };
 
 type AuthContextType = {
-  user: User | null;
+  user: any;
   isAuthenticated: boolean;
   loading: boolean;
+  setUser:any;
   login: (
     email: string,
     role: "admin" | "tenant",
@@ -87,21 +89,32 @@ type AuthContextType = {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-
+  
+  const fetchUser = async () => {try{
+const user = await axios.get(import.meta.env.VITE_API_URL+"/api/auth/get-user-details/"+localStorage.getItem('auth_email'))
+console.log(user.data.user)
+    setUser(user.data.user)
+}catch(error){
+  console.log(error)
+}
+  }
   const login = (
     email: string,
-    role: "admin" | "tenant",
+    role: string ,
     token: string,
     loginSource: "admin" | "tenant"
   ) => {
+    console.log(role)
     localStorage.setItem("auth_token", token);
     localStorage.setItem("auth_email", email);
     localStorage.setItem("auth_role", role);
     localStorage.setItem("auth_login_source", loginSource); // ✅ NEW
 
-    setUser({ email, role, loginSource });
+    // setUser({ email, role, loginSource });
+    fetchUser();
+    setLoading(false)
   };
 
   const logout = () => {
@@ -143,6 +156,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     <AuthContext.Provider
       value={{
         user,
+        setUser,
         isAuthenticated: !!user,
         loading,
         login,

@@ -1,5 +1,5 @@
 
-
+// components/admin/admin-profile/ProfileClient.tsx
 "use client";
 
 import { useState, useCallback, useMemo, useEffect } from "react";
@@ -18,6 +18,7 @@ import {
   updateNotificationSettings,
   uploadAvatar,
 } from "@/lib/adminProfileApi";
+import { useAuth } from "@/context/authContext";
 
 interface ProfileData {
   full_name: string;
@@ -38,15 +39,20 @@ export default function ProfileClient({ initialProfile, initialNotifications }: 
   const [activeTab, setActiveTab] = useState<"profile" | "security" | "notifications">("profile");
   const [loading, setLoading] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
+
+  
+  const {user} = useAuth();
+  console.log(user,"")
   
   // State for profile data
-  const [profileData, setProfileData] = useState<ProfileData>(() => {
-    const email = typeof window !== 'undefined' ? localStorage.getItem('admin_email') || '' : '';
-    return {
-      ...initialProfile,
-      email
-    };
-  });
+  const [profileData, setProfileData] = useState<ProfileData>(
+   { full_name: user.name,
+  email: user.email,
+  phone: user.phone,
+  role: user.role_name,
+  address: user.current_address,
+  bio: user.bio,
+  avatar_url: user.photo_url});
   
   // State for password change
   const [passwordData, setPasswordData] = useState({
@@ -58,6 +64,15 @@ export default function ProfileClient({ initialProfile, initialNotifications }: 
   // State for notifications
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>(initialNotifications);
 
+  useEffect(() => {
+setProfileData( { full_name: user.name,
+  email: user.email,
+  phone: user.phone,
+  role: user.role_name,
+  address: user.current_address,
+  bio: user.bio,
+  avatar_url: user.photo_url})
+  },[user])
   // Fetch fresh profile data
   const fetchProfile = useCallback(async () => {
     

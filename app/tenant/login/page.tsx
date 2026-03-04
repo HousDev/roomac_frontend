@@ -1,3 +1,4 @@
+// login/page.tsx
 import { useState, useEffect } from "react";
 import { listProperties } from "@/lib/propertyApi";
 import LoginClient from "@/components/tenant/login/LoginClient";

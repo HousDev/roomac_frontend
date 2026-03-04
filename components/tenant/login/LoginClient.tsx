@@ -8,15 +8,21 @@ import LoginConfirmation from "./LoginConfirmation";
 import ImageGallery from "./ImageGallery";
 import LoginForm from "./LoginForm";
 import QuickLoginAccounts from "./QuickLoginAccounts";
-import { loginTenant, sendTenantOTP, verifyTenantOTP } from "@/lib/tenantAuthApi";
+import {
+  loginTenant,
+  sendTenantOTP,
+  verifyTenantOTP,
+} from "@/lib/tenantAuthApi";
 
 interface LoginClientProps {
   initialPropertyImages: string[];
 }
 
-export default function LoginClient({ initialPropertyImages }: LoginClientProps) {
+export default function LoginClient({
+  initialPropertyImages,
+}: LoginClientProps) {
   const router = useRouter();
-  const { login } = useAuth(); 
+  const { login } = useAuth();
 
   const [loading, setLoading] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
@@ -30,136 +36,151 @@ export default function LoginClient({ initialPropertyImages }: LoginClientProps)
 
   const [credentials, setCredentials] = useState({
     email: "",
-    password: ""
+    password: "",
   });
 
   const [otpData, setOtpData] = useState({
     email: "",
-    otp: ""
+    otp: "",
   });
 
-  const handleSuccessfulLogin = useCallback((role: string) => {
-    setSlideDirection("slide-out-right-bottom");
-    setExitAnimation(true);
+  const handleSuccessfulLogin = useCallback(
+    (role: string) => {
+      setSlideDirection("slide-out-right-bottom");
+      setExitAnimation(true);
 
-    setTimeout(() => {
-      setShowConfirmation(true);
-    }, 300);
- if(role === "admin") router.push("/admin/dashboard");
-      else if(role === "tenant")
-      router.push("/tenant/portal");
-    setTimeout(() => {
-    
-    }, 2500);
-  }, [router]);
+      setTimeout(() => {
+        setShowConfirmation(true);
+      }, 300);
+      console.log("roleeeeeeeeeee", role);
+
+      if (role === "tenant") router.push("/tenant/portal");
+      else {
+        router.push("/admin/dashboard");
+      }
+      setTimeout(() => {}, 2500);
+    },
+    [router],
+  );
 
   // ✅ UPDATED with auth context
-  const handlePasswordLogin = useCallback(async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
+  const handlePasswordLogin = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      setLoading(true);
 
-    try {
-      const result:any = await loginTenant(credentials.email, credentials.password);
+      try {
+        const result: any = await loginTenant(
+          credentials.email,
+          credentials.password,
+        );
+        console.log("login role , token ", result);
 
-      if (result.success && result.token) {
-         
+        if (result.success && result.token) {
+          login(credentials.email, result.role, result.token);
+          if (result.role === "tenant") {
+            if (rememberMe) {
+              localStorage.setItem("tenant_token", result.token);
+              if (result.tenant_id != null)
+                localStorage.setItem("tenant_id", String(result.tenant_id));
+              else localStorage.setItem("tenant_id", "me");
+              localStorage.setItem("tenant_email", credentials.email);
+            } else {
+              sessionStorage.setItem("tenant_token", result.token);
+              if (result.tenant_id != null)
+                sessionStorage.setItem("tenant_id", String(result.tenant_id));
+              else sessionStorage.setItem("tenant_id", "me");
+              sessionStorage.setItem("tenant_email", credentials.email);
+            }
+          }
 
-        
-           login(credentials.email, result.role, result.token);
-           if(result.role==="tenant"){
-        if (rememberMe) {
-          localStorage.setItem("tenant_token", result.token);
-          if (result.tenant_id != null) localStorage.setItem("tenant_id", String(result.tenant_id));
-          else localStorage.setItem("tenant_id", "me");
-          localStorage.setItem("tenant_email", credentials.email);
+          toast.success("Login successful", {
+            duration: 3000,
+          });
+          handleSuccessfulLogin(result.role);
         } else {
-          sessionStorage.setItem("tenant_token", result.token);
-          if (result.tenant_id != null) sessionStorage.setItem("tenant_id", String(result.tenant_id));
-          else sessionStorage.setItem("tenant_id", "me");
-          sessionStorage.setItem("tenant_email", credentials.email);
+          toast.error(result.error || result.message || "Invalid credentials");
         }
-      
+      } catch (error: any) {
+        toast.error(error.message || "Login failed. Please try again.");
+      } finally {
+        setLoading(false);
       }
-       
-        
-
-        toast.success("Login successful", {
-          duration: 3000,
-        }); 
-        handleSuccessfulLogin(result.role);
-      } else {
-        toast.error(result.error || result.message || "Invalid credentials");
-      }
-    } catch (error: any) {
-      toast.error(error.message || "Login failed. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  }, [credentials, rememberMe, login, handleSuccessfulLogin]); // ✅ ADDED login dependency
+    },
+    [credentials, rememberMe, login, handleSuccessfulLogin],
+  ); // ✅ ADDED login dependency
 
   // ✅ UPDATED - removed test OTP display
-  const handleSendOTP = useCallback(async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!otpData.email) {
-      toast.error("Please enter your email");
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const result = await sendTenantOTP(otpData.email);
-
-      if (result.success) {
-        setOtpSent(true);
-        setGeneratedOtp(result.otp || "123456");
-        toast.success(`OTP sent! For testing: ${result.otp}`); // Keep test OTP display
-      } else {
-        toast.error(result.error || result.message || "Failed to send OTP");
+  const handleSendOTP = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!otpData.email) {
+        toast.error("Please enter your email");
+        return;
       }
-    } catch (error: any) {
-      toast.error(error.message || "Failed to send OTP");
-    } finally {
-      setLoading(false);
-    }
-  }, [otpData.email]);
+
+      setLoading(true);
+      try {
+        const result = await sendTenantOTP(otpData.email);
+
+        if (result.success) {
+          setOtpSent(true);
+          setGeneratedOtp(result.otp || "123456");
+          toast.success(`OTP sent! For testing: ${result.otp}`); // Keep test OTP display
+        } else {
+          toast.error(result.error || result.message || "Failed to send OTP");
+        }
+      } catch (error: any) {
+        toast.error(error.message || "Failed to send OTP");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [otpData.email],
+  );
 
   // ✅ UPDATED with auth context
-  const handleVerifyOTP = useCallback(async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
+  const handleVerifyOTP = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      setLoading(true);
 
-    try {
-      const result: any = await verifyTenantOTP(otpData.email, otpData.otp);
+      try {
+        const result: any = await verifyTenantOTP(otpData.email, otpData.otp);
 
-      if (result.success && result.token) {
-        // ✅ Use auth context
-        login(otpData.email, result.token);
+        if (result.success && result.token) {
+          // ✅ Use auth context
+          login(otpData.email, result.token);
 
-        if (rememberMe) {
-          localStorage.setItem("tenant_token", result.token);
-          if (result.tenant_id != null) localStorage.setItem("tenant_id", String(result.tenant_id));
-          else localStorage.setItem("tenant_id", "me");
-          localStorage.setItem("tenant_email", otpData.email);
+          if (rememberMe) {
+            localStorage.setItem("tenant_token", result.token);
+            if (result.tenant_id != null)
+              localStorage.setItem("tenant_id", String(result.tenant_id));
+            else localStorage.setItem("tenant_id", "me");
+            localStorage.setItem("tenant_email", otpData.email);
+          } else {
+            sessionStorage.setItem("tenant_token", result.token);
+            if (result.tenant_id != null)
+              sessionStorage.setItem("tenant_id", String(result.tenant_id));
+            else sessionStorage.setItem("tenant_id", "me");
+            sessionStorage.setItem("tenant_email", otpData.email);
+          }
+
+          toast.success("Login successful", {
+            duration: 3000,
+          }); // ✅ ADDED
+          handleSuccessfulLogin(result.role);
         } else {
-          sessionStorage.setItem("tenant_token", result.token);
-          if (result.tenant_id != null) sessionStorage.setItem("tenant_id", String(result.tenant_id));
-          else sessionStorage.setItem("tenant_id", "me");
-          sessionStorage.setItem("tenant_email", otpData.email);
+          toast.error(result.error || result.message || "Invalid OTP");
         }
-
-        toast.success("Login successful", {
-          duration: 3000,
-        }); // ✅ ADDED
-        handleSuccessfulLogin(result.role);
-      } else {
-        toast.error(result.error || result.message || "Invalid OTP");
+      } catch (error: any) {
+        toast.error(error.message || "OTP verification failed");
+      } finally {
+        setLoading(false);
       }
-    } catch (error: any) {
-      toast.error(error.message || "OTP verification failed");
-    } finally {
-      setLoading(false);
-    }
-  }, [otpData, rememberMe, login, handleSuccessfulLogin]); // ✅ ADDED login dependency
+    },
+    [otpData, rememberMe, login, handleSuccessfulLogin],
+  ); // ✅ ADDED login dependency
 
   const handleQuickLogin = useCallback((email: string, password: string) => {
     setCredentials({ email, password });
@@ -167,36 +188,47 @@ export default function LoginClient({ initialPropertyImages }: LoginClientProps)
     toast.success("Credentials loaded! Now click Login button");
   }, []);
 
-  const handleInputChange = useCallback((field: keyof typeof credentials, value: string) => {
-    setCredentials(prev => ({ ...prev, [field]: value }));
-  }, []);
+  const handleInputChange = useCallback(
+    (field: keyof typeof credentials, value: string) => {
+      setCredentials((prev) => ({ ...prev, [field]: value }));
+    },
+    [],
+  );
 
-  const handleOtpChange = useCallback((field: keyof typeof otpData, value: string) => {
-    setOtpData(prev => ({ ...prev, [field]: value }));
-  }, []);
+  const handleOtpChange = useCallback(
+    (field: keyof typeof otpData, value: string) => {
+      setOtpData((prev) => ({ ...prev, [field]: value }));
+    },
+    [],
+  );
 
   if (showConfirmation) {
     return <LoginConfirmation />;
   }
 
   return (
-    <div className={`h-screen flex overflow-hidden bg-white relative ${exitAnimation ? "overflow-hidden" : ""}`}>
+    <div
+      className={`h-screen flex overflow-hidden bg-white relative ${exitAnimation ? "overflow-hidden" : ""}`}
+    >
       <ImageGallery
         images={propertyImages}
         exitAnimation={exitAnimation}
         slideDirection={slideDirection}
       />
 
-      <div className={`flex-1 flex items-center justify-center p-6 bg-white relative transition-all duration-500 ${exitAnimation ?
-          slideDirection === "slide-out-right-bottom" ?
-            "translate-x-[100%] -translate-y-[100%] rotate-[45deg] opacity-0 scale-50"
+      <div
+        className={`flex-1 flex items-center justify-center p-6 bg-white relative transition-all duration-500 ${
+          exitAnimation
+            ? slideDirection === "slide-out-right-bottom"
+              ? "translate-x-[100%] -translate-y-[100%] rotate-[45deg] opacity-0 scale-50"
+              : ""
             : ""
-          : ""
-        }`}>
+        }`}
+      >
         <div className="w-full max-w-md flex flex-col justify-center">
           <div className="text-center mb-6">
             <h2 className="relative text-4xl md:text-5xl font-serif font-extrabold tracking-wide text-blue-900 text-center">
-               Login
+              Login
               <span className="absolute -bottom-2 left-0 w-20 h-1 bg-yellow-400 rounded-full animate-pulse"></span>
               <span className="absolute -bottom-2 right-0 w-20 h-1 bg-yellow-400 rounded-full animate-pulse"></span>
             </h2>
@@ -244,22 +276,22 @@ const testAccounts = [
     email: "amit.sharma@example.com",
     password: "password123",
     avatar: "AS",
-    color: "from-blue-500 to-blue-600"
+    color: "from-blue-500 to-blue-600",
   },
   {
     name: "Priya Singh",
     email: "priya.singh@example.com",
     password: "password123",
     avatar: "PS",
-    color: "from-pink-500 to-pink-600"
+    color: "from-pink-500 to-pink-600",
   },
   {
     name: "Rahul Verma",
     email: "rahul.verma@example.com",
     password: "password123",
     avatar: "RV",
-    color: "from-purple-500 to-purple-600"
-  }
+    color: "from-purple-500 to-purple-600",
+  },
 ];
 
 function ExitAnimationOverlay() {
@@ -281,12 +313,13 @@ function ExitAnimationOverlay() {
       </div>
 
       <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute w-full h-1 bg-gradient-to-r from-blue-500 to-yellow-400 animate-pulse"
+        <div
+          className="absolute w-full h-1 bg-gradient-to-r from-blue-500 to-yellow-400 animate-pulse"
           style={{
-            transform: 'rotate(-45deg)',
-            top: '50%',
-            left: '-50%',
-            animationDuration: '1s',
+            transform: "rotate(-45deg)",
+            top: "50%",
+            left: "-50%",
+            animationDuration: "1s",
           }}
         />
       </div>

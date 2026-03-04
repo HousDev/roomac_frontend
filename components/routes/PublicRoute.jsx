@@ -19,11 +19,14 @@ export default function PublicRoute() {
   if (loading) return null; // ⬅️ VERY IMPORTANT
 
   if (isAuthenticated) {
-    if (user?.role === "admin") {
-      return <Navigate to="/admin/dashboard" replace />;
-    }
+    // if (user?.role === "admin") {
+    //   return <Navigate to="/admin/dashboard" replace />;
+    // }
     if (user?.role === "tenant") {
       return <Navigate to="/tenant/portal" replace />;
+    }
+    else{
+      return <Navigate to="/admin/dashboard" replace />;
     }
   }
 

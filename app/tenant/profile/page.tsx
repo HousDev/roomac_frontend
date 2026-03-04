@@ -5,6 +5,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
 import { getTenantProfile } from '@/lib/tenantAuthApi';
 import TenantProfileClientPage from '@/components/tenant/profile/TenantProfileClientPage';
+import { useAuth } from '@/context/authContext';
 
 export const metadata: Metadata = {
   title: 'My Profile - Tenant Portal',
@@ -16,6 +17,8 @@ export default function TenantProfilePage() {
   useEffect(() => {
     getTenantProfile().then(setInitialProfile);
   }, []);
+
+  
   if (!initialProfile)
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">

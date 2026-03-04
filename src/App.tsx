@@ -2,7 +2,7 @@
 
 // src/App.tsx
 import { Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider } from "../context/authContext";
+import { AuthProvider, useAuth } from "../context/authContext";
 import ProtectedRoute from "../components/routes/ProtectedRoute";
 import PublicRoute from "../components/routes/PublicRoute";
 import { Toaster } from "sonner";
@@ -65,12 +65,28 @@ import TenantRequestsPage from "../app/tenant/requests/page";
 import TenantSettingsPage from "../app/tenant/settings/page";
 import SupportPage from "../app/tenant/support/page";
 import { HelmetProvider } from 'react-helmet-async';
+import { apiGet } from "@/lib/api";
+import { useEffect } from "react";
+import axios from "axios";
 
 
 function App() {
+  const {setUser} =useAuth()
+  const fetchUser = async () => {try{
+const user = await axios.get(import.meta.env.VITE_API_URL+"/api/auth/get-user-details/"+localStorage.getItem('auth_email'))
+console.log(user)
+    setUser(user.data.user)
+}catch(error){
+  console.log(error)
+}
+  }
+
+  useEffect( () => {
+    fetchUser()
+  }, [])
   return (
     <HelmetProvider>
-<AuthProvider>
+
       <Toaster position="top-right" richColors />
 
       <Routes>
@@ -135,22 +151,6 @@ function App() {
   <Route index element={<TenantLoginPage />} />
 </Route>
 
-        {/* 🔐 TENANT ROUTES — TenantLayout provides sidebar + header */}
-        {/* <Route path="/tenant" element={<TenantLayout />}>
-
-          <Route element={<ProtectedRoute />}>
-            <Route path="portal" element={<TenantPortalPage />} />
-            <Route path="dashboard" element={<TenantPortalPage />} />
-            <Route path="profile" element={<TenantProfilePage />} />
-            <Route path="documents" element={<TenantDocumentsPage />} />
-            <Route path="my-documents" element={<TenantMyDocumentsPage />} />
-            <Route path="requests" element={<TenantRequestsPage />} />
-            <Route path="settings" element={<TenantSettingsPage />} />
-            <Route path="support" element={<SupportPage />} />
-          </Route>
-
-        </Route> */}
-
         <Route element={<ProtectedRoute />}>
   <Route path="/tenant" element={<TenantLayout />}>
     <Route path="portal" element={<TenantPortalPage />} />
@@ -165,7 +165,6 @@ function App() {
 </Route>
 
       </Routes>
-    </AuthProvider>
     </HelmetProvider>
   );
 }

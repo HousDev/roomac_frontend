@@ -1,3 +1,4 @@
+// lib/masterApi.ts
 import { request } from "@/lib/api";
 import * as XLSX from 'xlsx';
 
@@ -7,6 +8,9 @@ export const STATIC_TABS = [
   { id: 'properties', name: 'Properties', icon: 'Home' },
   { id: 'rooms', name: 'Rooms', icon: 'Door' },
   { id: 'requests', name: 'Requests', icon: 'MessageSquare' },
+  // Add these new tabs
+  { id: 'roles', name: 'Roles', icon: 'Users' },
+  { id: 'departments', name: 'Departments', icon: 'Building2' },
 ] as const;
 
 export type TabName = typeof STATIC_TABS[number]['name'];
