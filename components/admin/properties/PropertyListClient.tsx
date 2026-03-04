@@ -783,178 +783,176 @@ const loadProperties = useCallback(async (forceRefresh = false) => {
   });
     
     return (
-      <Card className={`border transition-all duration-300 group relative
-        ${isSelected 
-          ? 'border-blue-500 shadow-lg ring-2 ring-blue-500/20' 
-          : 'border-gray-200 hover:border-blue-300 hover:shadow-md'
-        }`}>
-        
-        {/* Selection Checkbox */}
-        {viewMode === 'card' && (
-          <div className={`absolute top-3 left-3 z-10 transition-all duration-200
-            ${isSelected ? 'opacity-100 scale-100' : 'opacity-0 group-hover:opacity-100 scale-95 group-hover:scale-100'}`}>
-            <div
-              onClick={() => handleCardSelect(property.id)}
-              className="h-5 w-5 border-2 border-white shadow-lg bg-white rounded flex items-center justify-center cursor-pointer"
-            >
-              {isSelected && <Check className="h-3 w-3 text-blue-600" />}
-            </div>
+  <div
+    className={`group relative bg-white rounded-2xl overflow-hidden transition-all duration-300 cursor-pointer
+      ${isSelected
+        ? 'ring-2 ring-[#90b6e8] shadow-xl shadow-[#004AAD]/10'
+        : 'ring-1 ring-gray-200 hover:ring-[#004AAD]/40 hover:shadow-xl hover:shadow-[#004AAD]/8 hover:-translate-y-0.5'
+      }`}
+  >
+    {/* ── Selection checkbox ── */}
+    {viewMode === 'card' && (
+      <div
+        className={`absolute top-3 left-3 z-20 transition-all duration-200
+          ${isSelected ? 'opacity-100 scale-100' : 'opacity-0 group-hover:opacity-100 scale-90 group-hover:scale-100'}`}
+      >
+        <div
+          onClick={() => handleCardSelect(property.id)}
+          className={`h-5 w-5 rounded-md shadow-md flex items-center justify-center cursor-pointer transition-colors duration-200
+            ${isSelected ? 'bg-[#004AAD] border-2 border-[#004AAD]' : 'bg-white border-2 border-white'}`}
+        >
+          {isSelected && <Check className="h-3 w-3 text-white" />}
+        </div>
+      </div>
+    )}
+
+    {/* ── Image ── */}
+  {/* ── Image ── */}
+<div className="relative h-44 overflow-hidden bg-gradient-to-br from-blue-50 to-cyan-50">
+  {property.photo_urls && property.photo_urls.length > 0 ? (
+    <img
+      src={`${import.meta.env.VITE_API_URL}${property.photo_urls[0]}`}
+      alt={property.name}
+      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+      onError={(e) => {
+        const target = e.target as HTMLImageElement;
+        // Use the random fallback instead of placeholder
+        target.src = getRandomPropertyFallback();
+      }}
+    />
+  ) : (
+    // Also update the no-image fallback
+    <img
+      src={getRandomPropertyFallback()}
+      alt={property.name}
+      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+    />
+  )}
+
+  {/* Dark gradient overlay at bottom */}
+  <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
+
+  {/* Status badge */}
+  <div className="absolute top-3 right-3">
+    <span
+      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm
+        ${property.is_active
+          ? 'bg-emerald-500 text-white'
+          : 'bg-gray-500 text-white'
+        }`}
+    >
+      <span className={`w-1.5 h-1.5 rounded-full ${property.is_active ? 'bg-white' : 'bg-gray-300'}`} />
+      {property.is_active ? 'Active' : 'Inactive'}
+    </span>
+  </div>
+
+  {/* Tags */}
+  {property.tags && property.tags.length > 0 && (
+    <div className="absolute bottom-2.5 left-2.5 flex flex-wrap gap-1">
+      {property.tags.slice(0, 2).map((tag, index) => (
+        <span
+          key={index}
+          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-white/90 backdrop-blur-sm text-gray-700 border border-white/60"
+        >
+          <Tag className="h-2.5 w-2.5" />
+          {tag}
+        </span>
+      ))}
+    </div>
+  )}
+</div>
+
+    {/* ── Body ── */}
+    <div className="p-4">
+
+      {/* Name + Location */}
+      <div className="mb-3">
+        <h3 className="font-black text-gray-900 text-sm leading-snug line-clamp-1 group-hover:text-[#004AAD] transition-colors duration-200">
+          {property.name}
+        </h3>
+        <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
+          <MapPin className="h-3 w-3 text-[#004AAD] flex-shrink-0" />
+          <span className="line-clamp-1">{property.area}</span>
+        </p>
+      </div>
+
+      {/* Stats row */}
+      <div className="grid grid-cols-2 gap-2 mb-3">
+        <div className="flex items-center gap-2 bg-blue-50 rounded-xl px-3 py-2">
+          <div className="w-6 h-6 rounded-lg bg-[#004AAD] flex items-center justify-center flex-shrink-0">
+            <Home className="h-3 w-3 text-white" />
           </div>
-        )}
-
-        <div className="relative">
-          {/* Property Image/Placeholder */}
-          <div className="h-40 bg-gradient-to-br from-blue-50 to-cyan-50 flex items-center justify-center relative overflow-hidden">
-            {property.photo_urls && property.photo_urls.length > 0 ? (
-              <img 
-                src={`${import.meta.env.VITE_API_URL}${property.photo_urls[0]}`} 
-                alt={property.name}
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  target.src = 'https://via.placeholder.com/400x200?text=No+Image';
-                }}
-              />
-            ) : (
-              <div className="text-center">
-                <Building2 className="h-12 w-12 text-blue-300 mx-auto" />
-                <p className="text-xs text-blue-400 mt-1">No image</p>
-              </div>
-            )}
-            
-            {/* Status Badge */}
-            <div className="absolute top-3 right-3">
-              <div
-                className={`font-medium px-3 py-1 text-xs shadow-sm rounded-md ${
-                  property.is_active
-                    ? "bg-gradient-to-r from-green-500 to-emerald-500 text-white"
-                    : "bg-gradient-to-r from-gray-500 to-slate-500 text-white"
-                }`}
-              >
-                {property.is_active ? "Active" : "Inactive"}
-              </div>
-            </div>
-
-            {/* Tags */}
-            {property.tags && property.tags.length > 0 && (
-              <div className="absolute bottom-2 left-2 flex flex-wrap gap-1">
-                {property.tags.slice(0, 2).map((tag, index) => (
-                  <div
-                    key={index}
-                    className="font-medium px-2 py-0.5 flex items-center gap-1 text-xs border rounded-full bg-white/90"
-                  >
-                    <Tag className="h-2.5 w-2.5" />
-                    {tag}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Property Details */}
-          <CardContent className="p-4">
-            <div className="space-y-3">
-              {/* Title and Location */}
-              <div>
-                <h3 className="font-semibold text-base text-gray-900 line-clamp-1">
-                  {property.name}
-                </h3>
-                <p className="text-xs text-gray-600 flex items-center gap-1 mt-1">
-                  <MapPin className="h-3 w-3 flex-shrink-0" />
-                  <span className="line-clamp-1">{property.area}</span>
-                </p>
-              </div>
-
-              {/* Property Stats */}
-              <div className="flex justify-between px-4 gap-1 pt-2 border-t">
-                <div className="text-center">
-                  <div className="flex items-center justify-center gap-1 text-blue-600">
-                    <Home className="h-3 w-3" />
-                    <span className="font-semibold text-sm">{property.total_rooms}</span>
-                  </div>
-                  <p className="text-xs text-gray-500">Rooms</p>
-                </div>
-                <div className="text-center">
-                  <div className="flex items-center justify-center gap-1 text-purple-600">
-                    <Bed className="h-3 w-3" />
-                    <span className="font-semibold text-sm">{property.total_beds}</span>
-                  </div>
-                  <p className="text-xs text-gray-500">Beds</p>
-                </div>
-                {/* <div className="text-center">
-                  <div className="flex items-center justify-center gap-1 text-amber-600">
-                    <Users className="h-3 w-3" />
-                    <span className="font-semibold text-sm">{property.occupied_beds}</span>
-                  </div>
-                  <p className="text-xs text-gray-500">Occupied</p>
-                </div> */}
-              </div>
-
-              {/* Pricing */}
-              <div className="pt-2 border-t">
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-1">
-                    <IndianRupee className="h-3.5 w-3.5 text-green-600" />
-                    <span className="font-bold text-base text-gray-900">
-                      ₹{property.starting_price?.toLocaleString()}
-                    </span>
-                  </div>
-                  <span className="text-xs text-gray-500">/month</span>
-                </div>
-                <div className="text-xs text-gray-500 mt-1">
-                  Deposit: ₹{property.security_deposit?.toLocaleString()}
-                </div>
-              </div>
-
-              {/* Terms Summary */}
-              <div className="flex items-center justify-between pt-2 border-t text-xs text-gray-600">
-                <div className="flex items-center gap-1">
-                  <CalendarDays className="h-3 w-3 text-blue-500" />
-                  <span>{property.lockin_period_months || 0}m lock-in</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Clock3 className="h-3 w-3 text-amber-500" />
-                  <span>{property.notice_period_days || 0}d notice</span>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-
-          {/* Card Footer with Actions */}
-          <div className="px-4 pb-4 pt-2 border-t bg-gray-50/50">
-            <div className="flex justify-between items-center">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 text-xs px-2"
-                onClick={() => router.push(`/admin/properties/${property.id}`)}
-              >
-                <Eye className="h-3 w-3 mr-1" />
-                View
-              </Button>
-              <div className="flex gap-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 w-7 p-0"
-                  onClick={() => handleEdit(property)}
-                >
-                  <Edit className="h-3 w-3" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                  onClick={() => handleDelete(property)}
-                >
-                  <Trash2 className="h-3 w-3" />
-                </Button>
-              </div>
-            </div>
+          <div>
+            <p className="font-black text-gray-900 text-sm leading-none">{property.total_rooms}</p>
+            <p className="text-[10px] text-gray-500 mt-0.5">Rooms</p>
           </div>
         </div>
-      </Card>
-    );
+        <div className="flex items-center gap-2 bg-amber-50 rounded-xl px-3 py-2">
+          <div className="w-6 h-6 rounded-lg bg-[#FFC107] flex items-center justify-center flex-shrink-0">
+            <Bed className="h-3 w-3 text-white" />
+          </div>
+          <div>
+            <p className="font-black text-gray-900 text-sm leading-none">{property.total_beds}</p>
+            <p className="text-[10px] text-gray-500 mt-0.5">Beds</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Price */}
+      <div className="flex items-end justify-between mb-3 pb-3 border-b border-gray-100">
+        <div>
+          <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">Starting from</p>
+          <p className="font-black text-[#004AAD] text-lg leading-tight">
+            ₹{property.starting_price?.toLocaleString()}
+            <span className="text-xs font-normal text-gray-400 ml-1">/mo</span>
+          </p>
+        </div>
+        <div className="text-right">
+          <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">Deposit</p>
+          <p className="font-semibold text-gray-700 text-sm">₹{property.security_deposit?.toLocaleString()}</p>
+        </div>
+      </div>
+
+      {/* Terms */}
+      <div className="flex items-center gap-3 mb-4">
+        <div className="flex items-center gap-1.5 text-xs text-gray-500">
+          <CalendarDays className="h-3.5 w-3.5 text-[#004AAD]" />
+          <span>{property.lockin_period_months || 0}m lock-in</span>
+        </div>
+        <div className="w-px h-3 bg-gray-200" />
+        <div className="flex items-center gap-1.5 text-xs text-gray-500">
+          <Clock3 className="h-3.5 w-3.5 text-[#FFC107]" />
+          <span>{property.notice_period_days || 0}d notice</span>
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+        <button
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#004AAD] hover:bg-[#004AAD]/8 px-2.5 py-1.5 rounded-lg transition-colors duration-200"
+          onClick={() => router.push(`/admin/properties/${property.id}`)}
+        >
+          <Eye className="h-3.5 w-3.5" />
+          View Details
+        </button>
+        <div className="flex items-center gap-1">
+          <button
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-[#004AAD] hover:bg-[#004AAD]/8 transition-all duration-200"
+            onClick={() => handleEdit(property)}
+          >
+            <Edit className="h-3.5 w-3.5" />
+          </button>
+          <button
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all duration-200"
+            onClick={() => handleDelete(property)}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+);
   }, [selectedCardIds, viewMode, handleCardSelect, handleEdit, handleDelete, router]);
 
   // CardView component

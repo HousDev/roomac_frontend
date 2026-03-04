@@ -925,7 +925,6 @@ const PropertyDetailsClient = ({ initialProperty }: PropertyDetailsClientProps) 
                                 </div>
                             )}
 
-                            {/* Terms & Conditions Section */}
 {hasTerms && (
     <div className="mt-6 space-y-4">
         <h3 className="font-bold text-base text-slate-900 flex items-center gap-2 border-b pb-2">
@@ -933,60 +932,71 @@ const PropertyDetailsClient = ({ initialProperty }: PropertyDetailsClientProps) 
             Terms & Conditions
         </h3>
 
-        {/* Terms & Conditions with Headers - This now includes Custom Term */}
-        {termsConditions.map((section, idx) => (
-            <div 
-                key={idx} 
-                className={`rounded-xl p-4 border-l-4 ${getTermHeaderColor(section.header)}`}
-            >
-                <h4 className="font-bold text-sm mb-3 flex items-center gap-1.5">
-                    {getTermHeaderIcon(section.header)}
-                    {section.header}
-                </h4>
-                <div className="space-y-2">
-                    {section.content.map((item, itemIdx) => (
-                        <div key={itemIdx} className="flex items-start gap-2 text-xs text-slate-700">
-                            <div className="w-1.5 h-1.5 rounded-full bg-current mt-1.5 flex-shrink-0" />
-                            <span>{item}</span>
-                        </div>
-                    ))}
+        {/* Terms & Conditions in Two Columns */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Terms & Conditions with Headers - This now includes Custom Term */}
+            {termsConditions.map((section, idx) => (
+                <div 
+                    key={idx} 
+                    className={`rounded-xl p-4 border-l-4 ${getTermHeaderColor(section.header)}`}
+                >
+                    <h4 className="font-bold text-sm mb-3 flex items-center gap-1.5">
+                        {getTermHeaderIcon(section.header)}
+                        <span className="truncate">{section.header}</span>
+                    </h4>
+                    <div className="space-y-2">
+                        {section.content.map((item, itemIdx) => (
+                            <div key={itemIdx} className="flex items-start gap-2 text-xs text-slate-700">
+                                <div className="w-1.5 h-1.5 rounded-full bg-current mt-1.5 flex-shrink-0" />
+                                <span className="break-words">{item}</span>
+                            </div>
+                        ))}
+                    </div>
                 </div>
-            </div>
-        ))}
+            ))}
 
-        {/* Property Rules */}
-        {propertyRules.length > 0 && (
-            <div className="bg-amber-50 rounded-xl p-4 border border-amber-200">
-                <h4 className="font-bold text-sm text-amber-800 mb-3 flex items-center gap-1.5">
-                    <BookOpen className="h-4 w-4" />
-                    Property Rules
-                </h4>
-                <div className="space-y-2">
-                    {propertyRules.map((rule, idx) => (
-                        <div key={idx} className="flex items-start gap-2 text-xs text-slate-700">
-                            <div className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1.5 flex-shrink-0" />
-                            <span>{rule}</span>
-                        </div>
-                    ))}
+            {/* Property Rules */}
+            {propertyRules.length > 0 && (
+                <div className="bg-amber-50 rounded-xl p-4 border border-amber-200">
+                    <h4 className="font-bold text-sm text-amber-800 mb-3 flex items-center gap-1.5">
+                        <BookOpen className="h-4 w-4" />
+                        <span className="truncate">Property Rules</span>
+                    </h4>
+                    <div className="space-y-2">
+                        {propertyRules.map((rule, idx) => (
+                            <div key={idx} className="flex items-start gap-2 text-xs text-slate-700">
+                                <div className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1.5 flex-shrink-0" />
+                                <span className="break-words">{rule}</span>
+                            </div>
+                        ))}
+                    </div>
                 </div>
-            </div>
-        )}
+            )}
 
-        {/* Additional Terms */}
-        {additionalTerms.length > 0 && (
-            <div className="bg-purple-50 rounded-xl p-4 border border-purple-200">
-                <h4 className="font-bold text-sm text-purple-800 mb-3 flex items-center gap-1.5">
-                    <FileText className="h-4 w-4" />
-                    Additional Terms
-                </h4>
-                <div className="space-y-2">
-                    {additionalTerms.map((term, idx) => (
-                        <div key={idx} className="flex items-start gap-2 text-xs text-slate-700">
-                            <div className="w-1.5 h-1.5 rounded-full bg-purple-500 mt-1.5 flex-shrink-0" />
-                            <span>{term}</span>
-                        </div>
-                    ))}
+            {/* Additional Terms */}
+            {additionalTerms.length > 0 && (
+                <div className="bg-purple-50 rounded-xl p-4 border border-purple-200">
+                    <h4 className="font-bold text-sm text-purple-800 mb-3 flex items-center gap-1.5">
+                        <FileText className="h-4 w-4" />
+                        <span className="truncate">Additional Terms</span>
+                    </h4>
+                    <div className="space-y-2">
+                        {additionalTerms.map((term, idx) => (
+                            <div key={idx} className="flex items-start gap-2 text-xs text-slate-700">
+                                <div className="w-1.5 h-1.5 rounded-full bg-purple-500 mt-1.5 flex-shrink-0" />
+                                <span className="break-words">{term}</span>
+                            </div>
+                        ))}
+                    </div>
                 </div>
+            )}
+        </div>
+        
+        {/* Show message if no terms sections exist */}
+        {termsConditions.length === 0 && propertyRules.length === 0 && additionalTerms.length === 0 && (
+            <div className="text-center py-8 bg-slate-50 rounded-xl">
+                <FileText className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+                <p className="text-sm text-slate-500">No terms and conditions available</p>
             </div>
         )}
     </div>
@@ -1022,13 +1032,13 @@ const PropertyDetailsClient = ({ initialProperty }: PropertyDetailsClientProps) 
                                 </div>
                             </div>
 
-                            <button 
+                            {/* <button 
                                 onClick={handleCallClick}
                                 className="w-full bg-white text-blue-600 font-bold py-3 rounded-xl hover:bg-blue-50 transition-all shadow-lg hover:shadow-xl hover:scale-105 flex items-center justify-center gap-2 text-sm"
                             >
                                 <Phone className="h-4 w-4" />
                                 Call Now
-                            </button>
+                            </button> */}
                         </div>
 
                         {/* Address Card */}
@@ -1128,7 +1138,7 @@ const PropertyDetailsClient = ({ initialProperty }: PropertyDetailsClientProps) 
                                 )}
                             </div>
 
-                            {property.property_manager_phone && (
+                            {/* {property.property_manager_phone && (
                                 <button 
                                     onClick={handleCallClick}
                                     className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold py-2.5 rounded-xl transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 text-sm"
@@ -1136,7 +1146,7 @@ const PropertyDetailsClient = ({ initialProperty }: PropertyDetailsClientProps) 
                                     <Phone className="h-4 w-4" />
                                     Call Manager
                                 </button>
-                            )}
+                            )} */}
                         </div>
 
                         {/* Lock-in & Notice Period Card */}
@@ -1229,3 +1239,1450 @@ const PropertyDetailsClient = ({ initialProperty }: PropertyDetailsClientProps) 
 };
 
 export default PropertyDetailsClient;
+
+
+// // components/admin/properties/PropertyDetailsClient.tsx - CONSOLIDATED CARDS VERSION
+// "use client";
+
+// import { useEffect, useState, useCallback } from 'react';
+// import { useParams, useRouter } from '@/src/compat/next-navigation';
+// import {
+//     ArrowLeft,
+//     Building2,
+//     MapPin,
+//     Bed,
+//     DoorOpen,
+//     IndianRupee,
+//     Shield,
+//     User,
+//     Phone,
+//     Calendar,
+//     CheckCircle2,
+//     X,
+//     ChevronLeft,
+//     ChevronRight,
+//     Loader2,
+//     Mail,
+//     Clock,
+//     Wifi,
+//     Utensils,
+//     Car,
+//     Share2,
+//     Heart,
+//     Star,
+//     TrendingUp,
+//     AlertCircle,
+//     Copy,
+//     Check,
+//     FileText,
+//     Lock,
+//     Bell,
+//     Receipt,
+//     Wrench,
+//     BookOpen,
+//     BadgeIndianRupee,
+//     AlertTriangle,
+//     Sparkles,
+//     Award,
+//     Users,
+//     Zap,
+//     Coffee,
+//     Tv,
+//     Thermometer,
+//     Dumbbell,
+//     WashingMachine,
+//     ChevronDown,
+//     ChevronUp,
+//     Grid,
+//     Layers,
+//     Maximize2,
+//     Minimize2,
+//     Gift,
+//     Sun,
+//     Wind,
+//     Key,
+//     Droplets,
+//     Battery,
+//     Music,
+//     Gamepad2,
+//     Film,
+//     TreePine,
+//     Bike,
+//     Bus,
+//     Train,
+//     Plane,
+//     ShoppingBag,
+//     PawPrint,
+//     Baby,
+//     WifiOff,
+//     Fan,
+//     Refrigerator,
+//     Microwave,
+//     Sofa,
+//     Armchair,
+//     Table,
+//     Lamp,
+//     ChefHat,
+//     Pizza,
+//     Sandwich,
+//     Apple,
+//     GlassWater,
+//     Beer,
+//     Wine,
+//     Hospital,
+//     Pill,
+//     School,
+//     Church,
+//     Store,
+//     Landmark,
+//     CreditCard,
+//     Camera,
+//     Fingerprint,
+//     ScanFace,
+//     ShieldCheck,
+//     Laptop,
+//     Printer,
+//     AirVent,
+//     Flame,
+//     ArrowUp,
+//     Home,
+//     Volume2,
+//     VolumeX,
+//     Fence,
+//     Sprout,
+//     Leaf,
+//     Cloud,
+//     Umbrella,
+//     ThermometerSun,
+//     Waves,
+//     Anchor,
+//     Ship,
+//     Luggage,
+//     Briefcase,
+//     Wallet,
+//     Gem,
+//     Crown,
+//     Rocket,
+//     Telescope,
+//     Compass,
+//     Globe,
+//     Mountain,
+//     Sunrise,
+//     Sunset,
+//     Moon
+// } from 'lucide-react';
+// import { toast } from 'sonner';
+// import { getProperty } from '@/lib/propertyApi';
+// import { getOrCreateTrackingId, generatePropertySlug } from '@/lib/slugUtils';
+// import { getAllStaff, type StaffMember } from '@/lib/staffApi';
+// import { BsWhatsapp } from 'react-icons/bs';
+// import { FaFacebookF, FaTwitter, FaLinkedinIn, FaTelegramPlane } from 'react-icons/fa';
+// import { MdEmail } from 'react-icons/md';
+
+// type Property = {
+//     id: string;
+//     name: string;
+//     city_id?: string | null;
+//     area: string;
+//     address: string;
+//     total_rooms: number;
+//     total_beds: number;
+//     occupied_beds?: number;
+//     starting_price: number;
+//     security_deposit: number;
+//     description?: string;
+//     property_manager_name: string;
+//     property_manager_phone: string;
+//     property_manager_email?: string;
+//     property_manager_role?: string;
+//     staff_id?: string | number;
+//     amenities: string[];
+//     services: string[];
+//     photo_urls: string[];
+//     property_rules?: string | null;
+//     is_active: boolean;
+//     created_at?: string;
+//     updated_at?: string | null;
+//     lockin_period_months?: number;
+//     lockin_penalty_amount?: number;
+//     lockin_penalty_type?: string;
+//     notice_period_days?: number;
+//     notice_penalty_amount?: number;
+//     notice_penalty_type?: string;
+//     terms_conditions?: string | null;
+//     additional_terms?: string | null;
+//     tags?: string[];
+// };
+
+// interface PropertyDetailsClientProps {
+//     initialProperty: Property | null;
+// }
+
+// // Helper function to get salutation display
+// const getSalutationDisplay = (salutation: string): string => {
+//     const salutations: Record<string, string> = {
+//         mr: "Mr.",
+//         mrs: "Mrs.",
+//         miss: "Miss",
+//         dr: "Dr.",
+//         prof: "Prof.",
+//     };
+//     return salutations[salutation?.toLowerCase()] || "";
+// };
+
+// // Helper function to get full photo URL
+// const getFullPhotoUrl = (photoUrl: string | null): string | null => {
+//     if (!photoUrl) return null;
+//     if (photoUrl.startsWith("http") || photoUrl.startsWith("blob:")) return photoUrl;
+//     const apiUrl = import.meta.env.VITE_API_URL || "";
+//     const cleanUrl = photoUrl.startsWith("/") ? photoUrl.substring(1) : photoUrl;
+//     return `${apiUrl}/${cleanUrl}`;
+// };
+
+// // Helper function to parse JSON strings or handle string arrays
+// const parseJsonField = (field: string | null | undefined): string[] => {
+//     if (!field) return [];
+    
+//     if (Array.isArray(field)) return field;
+    
+//     try {
+//         const parsed = JSON.parse(field);
+//         if (Array.isArray(parsed)) {
+//             return parsed;
+//         }
+//         return [String(parsed)];
+//     } catch {
+//         if (field.includes(',')) {
+//             return field.split(',').map(item => item.trim());
+//         }
+//         return [field];
+//     }
+// };
+
+// // Helper function to parse terms and conditions with headers
+// const parseTermsWithHeaders = (termsString: string | null | undefined): { header: string; content: string[] }[] => {
+//     if (!termsString) return [];
+    
+//     const sections: { header: string; content: string[] }[] = [];
+//     const lines = termsString.split('\n').filter(line => line.trim() !== '');
+    
+//     let currentHeader = '';
+//     let currentContent: string[] = [];
+    
+//     const headerPatterns = [
+//         '🔒 Minimum Lock-in Period',
+//         '💰 Security Deposit',
+//         '📅 Notice Period',
+//         '⚡ Electricity & Utilities',
+//         '🔧 Maintenance',
+//         '📋 Property Rules',
+//         '💵 Rent Includes',
+//         '⚠️ Damage & Liability',
+//         '🏢 Management Rights',
+//         '🧾 Taxes & Government Dues',
+//         '📝 Custom Term'
+//     ];
+    
+//     lines.forEach(line => {
+//         const trimmedLine = line.trim();
+        
+//         const isHeader = headerPatterns.some(pattern => trimmedLine.includes(pattern));
+        
+//         if (isHeader) {
+//             if (currentHeader && currentContent.length > 0) {
+//                 sections.push({ header: currentHeader, content: [...currentContent] });
+//             }
+//             currentHeader = trimmedLine;
+//             currentContent = [];
+//         } else if (currentHeader) {
+//             const cleanLine = trimmedLine.replace(/^\d+\.\s*/, '').trim();
+//             if (cleanLine) {
+//                 currentContent.push(cleanLine);
+//             }
+//         }
+//     });
+    
+//     if (currentHeader && currentContent.length > 0) {
+//         sections.push({ header: currentHeader, content: currentContent });
+//     }
+    
+//     if (sections.length === 0 && lines.length > 0) {
+//         sections.push({ 
+//             header: '📝 Terms', 
+//             content: lines.map(line => line.replace(/^\d+\.\s*/, '').trim()).filter(Boolean)
+//         });
+//     }
+    
+//     return sections;
+// };
+
+// // Helper function to get icon for amenity
+// const getAmenityIcon = (amenity: string, className: string = "h-5 w-5") => {
+//     const lower = amenity.toLowerCase();
+    
+//     // Connectivity
+//     if (lower.includes('wifi') || lower.includes('internet')) return <Wifi className={className} />;
+//     if (lower.includes('wifi off') || lower.includes('no wifi')) return <WifiOff className={className} />;
+    
+//     // Food & Dining
+//     if (lower.includes('food') || lower.includes('meal') || lower.includes('restaurant')) return <Utensils className={className} />;
+//     if (lower.includes('coffee') || lower.includes('cafe')) return <Coffee className={className} />;
+//     if (lower.includes('tea')) return <Coffee className={className} />;
+//     if (lower.includes('pizza')) return <Pizza className={className} />;
+//     if (lower.includes('burger') || lower.includes('hamburger')) return <Sandwich className={className} />;
+//     if (lower.includes('sandwich')) return <Sandwich className={className} />;
+//     if (lower.includes('fruit')) return <Apple className={className} />;
+//     if (lower.includes('water') || lower.includes('drink')) return <GlassWater className={className} />;
+//     if (lower.includes('beer')) return <Beer className={className} />;
+//     if (lower.includes('wine')) return <Wine className={className} />;
+//     if (lower.includes('kitchen')) return <ChefHat className={className} />;
+//     if (lower.includes('cooking')) return <Flame className={className} />;
+//     if (lower.includes('microwave')) return <Microwave className={className} />;
+//     if (lower.includes('refrigerator') || lower.includes('fridge')) return <Refrigerator className={className} />;
+    
+//     // Parking & Transport
+//     if (lower.includes('parking')) return <Car className={className} />;
+//     if (lower.includes('bike') || lower.includes('bicycle')) return <Bike className={className} />;
+//     if (lower.includes('bus')) return <Bus className={className} />;
+//     if (lower.includes('train')) return <Train className={className} />;
+//     if (lower.includes('metro')) return <Train className={className} />;
+//     if (lower.includes('airport') || lower.includes('flight')) return <Plane className={className} />;
+    
+//     // Security
+//     if (lower.includes('security') || lower.includes('cctv')) return <Shield className={className} />;
+//     if (lower.includes('guard')) return <ShieldCheck className={className} />;
+//     if (lower.includes('fingerprint')) return <Fingerprint className={className} />;
+//     if (lower.includes('face recognition')) return <ScanFace className={className} />;
+//     if (lower.includes('camera')) return <Camera className={className} />;
+    
+//     // Climate Control
+//     if (lower.includes('ac') || lower.includes('air condition') || lower.includes('cooling')) return <AirVent className={className} />;
+//     if (lower.includes('heater') || lower.includes('heating')) return <Flame className={className} />;
+//     if (lower.includes('fan')) return <Fan className={className} />;
+//     if (lower.includes('ventilation')) return <Wind className={className} />;
+    
+//     // Furniture
+//     if (lower.includes('bed') || lower.includes('mattress')) return <Bed className={className} />;
+//     if (lower.includes('sofa') || lower.includes('couch')) return <Sofa className={className} />;
+//     if (lower.includes('chair')) return <Armchair className={className} />;
+//     if (lower.includes('table') || lower.includes('desk')) return <Table className={className} />;
+//     if (lower.includes('lamp') || lower.includes('light')) return <Lamp className={className} />;
+//     if (lower.includes('wardrobe') || lower.includes('closet')) return <DoorOpen className={className} />;
+    
+//     // Electronics
+//     if (lower.includes('tv') || lower.includes('television')) return <Tv className={className} />;
+//     if (lower.includes('fridge') || lower.includes('refrigerator')) return <Refrigerator className={className} />;
+//     if (lower.includes('washing machine')) return <WashingMachine className={className} />;
+//     if (lower.includes('dryer')) return <Wind className={className} />;
+//     if (lower.includes('microwave')) return <Microwave className={className} />;
+//     if (lower.includes('computer') || lower.includes('laptop')) return <Laptop className={className} />;
+//     if (lower.includes('printer')) return <Printer className={className} />;
+    
+//     // Fitness
+//     if (lower.includes('gym') || lower.includes('fitness')) return <Dumbbell className={className} />;
+//     if (lower.includes('yoga')) return <Heart className={className} />;
+//     if (lower.includes('swimming') || lower.includes('pool')) return <Droplets className={className} />;
+    
+//     // Entertainment
+//     if (lower.includes('music') || lower.includes('speaker')) return <Music className={className} />;
+//     if (lower.includes('game') || lower.includes('playstation') || lower.includes('xbox')) return <Gamepad2 className={className} />;
+//     if (lower.includes('movie') || lower.includes('cinema')) return <Film className={className} />;
+    
+//     // Outdoor
+//     if (lower.includes('garden') || lower.includes('park')) return <TreePine className={className} />;
+//     if (lower.includes('terrace') || lower.includes('balcony')) return <Sun className={className} />;
+//     if (lower.includes('rooftop')) return <Building2 className={className} />;
+    
+//     // Nearby Places
+//     if (lower.includes('hospital') || lower.includes('clinic')) return <Hospital className={className} />;
+//     if (lower.includes('pharmacy') || lower.includes('medical')) return <Pill className={className} />;
+//     if (lower.includes('school')) return <School className={className} />;
+//     if (lower.includes('college') || lower.includes('university')) return <School className={className} />;
+//     if (lower.includes('temple') || lower.includes('church') || lower.includes('mosque')) return <Church className={className} />;
+//     if (lower.includes('mall') || lower.includes('shopping')) return <ShoppingBag className={className} />;
+//     if (lower.includes('market')) return <Store className={className} />;
+//     if (lower.includes('bank')) return <Landmark className={className} />;
+//     if (lower.includes('atm')) return <CreditCard className={className} />;
+    
+//     // Services
+//     if (lower.includes('cleaning') || lower.includes('housekeeping')) return <Sparkles className={className} />;
+//     if (lower.includes('laundry')) return <WashingMachine className={className} />;
+//     if (lower.includes('maintenance')) return <Wrench className={className} />;
+//     if (lower.includes('lift') || lower.includes('elevator')) return <ArrowUp className={className} />;
+//     if (lower.includes('power backup') || lower.includes('generator')) return <Battery className={className} />;
+    
+//     // Pet Friendly
+//     if (lower.includes('pet') || lower.includes('dog') || lower.includes('cat')) return <PawPrint className={className} />;
+    
+//     // Child Friendly
+//     if (lower.includes('child') || lower.includes('baby') || lower.includes('kids')) return <Baby className={className} />;
+    
+//     // Default
+//     return <CheckCircle2 className={className} />;
+// };
+
+// // Helper function to get icon for term header
+// const getTermHeaderIcon = (header: string) => {
+//     if (header.includes('Lock-in')) return <Lock className="h-4 w-4" />;
+//     if (header.includes('Security Deposit')) return <Shield className="h-4 w-4" />;
+//     if (header.includes('Notice Period')) return <Bell className="h-4 w-4" />;
+//     if (header.includes('Electricity')) return <Zap className="h-4 w-4" />;
+//     if (header.includes('Maintenance')) return <Wrench className="h-4 w-4" />;
+//     if (header.includes('Property Rules')) return <BookOpen className="h-4 w-4" />;
+//     if (header.includes('Rent Includes')) return <Gift className="h-4 w-4" />;
+//     if (header.includes('Damage')) return <AlertTriangle className="h-4 w-4" />;
+//     if (header.includes('Management')) return <Building2 className="h-4 w-4" />;
+//     if (header.includes('Taxes')) return <Receipt className="h-4 w-4" />;
+//     if (header.includes('Custom Term')) return <FileText className="h-4 w-4" />;
+//     return <FileText className="h-4 w-4" />;
+// };
+
+// // Helper function to get color for term header
+// const getTermHeaderColor = (header: string) => {
+//     if (header.includes('Lock-in')) return 'from-blue-50 to-blue-100/50 border-blue-200';
+//     if (header.includes('Security Deposit')) return 'from-emerald-50 to-emerald-100/50 border-emerald-200';
+//     if (header.includes('Notice Period')) return 'from-amber-50 to-amber-100/50 border-amber-200';
+//     if (header.includes('Electricity')) return 'from-yellow-50 to-yellow-100/50 border-yellow-200';
+//     if (header.includes('Maintenance')) return 'from-orange-50 to-orange-100/50 border-orange-200';
+//     if (header.includes('Property Rules')) return 'from-purple-50 to-purple-100/50 border-purple-200';
+//     if (header.includes('Rent Includes')) return 'from-green-50 to-green-100/50 border-green-200';
+//     if (header.includes('Damage')) return 'from-red-50 to-red-100/50 border-red-200';
+//     if (header.includes('Management')) return 'from-indigo-50 to-indigo-100/50 border-indigo-200';
+//     if (header.includes('Taxes')) return 'from-gray-50 to-gray-100/50 border-gray-200';
+//     if (header.includes('Custom')) return 'from-cyan-50 to-cyan-100/50 border-cyan-200';
+//     return 'from-slate-50 to-slate-100/50 border-slate-200';
+// };
+
+// const PropertyDetailsClient = ({ initialProperty }: PropertyDetailsClientProps) => {
+//     const params = useParams();
+//     const router = useRouter();
+//     const [property, setProperty] = useState<Property | null>(initialProperty);
+//     const [loading, setLoading] = useState(!initialProperty);
+//     const [loadingStaff, setLoadingStaff] = useState(false);
+//     const [currentImageIndex, setCurrentImageIndex] = useState(0);
+//     const [isLiked, setIsLiked] = useState(false);
+//     const [isFullscreen, setIsFullscreen] = useState(false);
+//     const [showAllAmenities, setShowAllAmenities] = useState(false);
+    
+//     // Staff data for manager with salutation
+//     const [staffData, setStaffData] = useState<StaffMember | null>(null);
+    
+//     // Parsed fields
+//     const [propertyRules, setPropertyRules] = useState<string[]>([]);
+//     const [termsConditions, setTermsConditions] = useState<{ header: string; content: string[] }[]>([]);
+//     const [additionalTerms, setAdditionalTerms] = useState<string[]>([]);
+    
+//     // Share modal states
+//     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+//     const [copied, setCopied] = useState(false);
+//     const [showCopyMessage, setShowCopyMessage] = useState(false);
+
+//     const propertyId = params.id as string;
+
+//     useEffect(() => {
+//         if (!initialProperty && propertyId) {
+//             loadProperty();
+//         }
+//     }, [propertyId, initialProperty]);
+
+//     // Load staff data when property has staff_id
+//     useEffect(() => {
+//         if (property?.staff_id) {
+//             loadStaffData(property.staff_id);
+//         }
+//     }, [property]);
+
+//     // Parse JSON fields when property changes
+//     useEffect(() => {
+//         if (property) {
+//             setPropertyRules(parseJsonField(property.property_rules));
+//             setTermsConditions(parseTermsWithHeaders(property.terms_conditions));
+//             setAdditionalTerms(parseJsonField(property.additional_terms));
+//         }
+//     }, [property]);
+
+//     const loadStaffData = async (staffId: string | number) => {
+//         setLoadingStaff(true);
+//         try {
+//             const staffList = await getAllStaff();
+//             const staff = staffList.find(s => String(s.id) === String(staffId));
+//             if (staff) {
+//                 setStaffData(staff);
+//             }
+//         } catch (error) {
+//             console.error('Error loading staff data:', error);
+//         } finally {
+//             setLoadingStaff(false);
+//         }
+//     };
+
+//     const loadProperty = async () => {
+//         setLoading(true);
+//         try {
+//             const res = await getProperty(propertyId);
+//             if (res && res.success && res.data) {
+//                 const propertyData = {
+//                     ...res.data,
+//                     id: String(res.data.id || ''),
+//                     name: res.data.name || '',
+//                     area: res.data.area || '',
+//                     address: res.data.address || '',
+//                     total_rooms: Number(res.data.total_rooms) || 0,
+//                     total_beds: Number(res.data.total_beds) || 0,
+//                     occupied_beds: Number(res.data.occupied_beds) || 0,
+//                     starting_price: Number(res.data.starting_price) || 0,
+//                     security_deposit: Number(res.data.security_deposit) || 0,
+//                     description: res.data.description || '',
+//                     property_manager_name: res.data.property_manager_name || '',
+//                     property_manager_phone: res.data.property_manager_phone || '',
+//                     property_manager_email: res.data.property_manager_email || '',
+//                     property_manager_role: res.data.property_manager_role || '',
+//                     staff_id: res.data.staff_id,
+//                     amenities: Array.isArray(res.data.amenities) ? res.data.amenities : [],
+//                     services: Array.isArray(res.data.services) ? res.data.services : [],
+//                     photo_urls: Array.isArray(res.data.photo_urls) ? res.data.photo_urls : [],
+//                     property_rules: res.data.property_rules || '',
+//                     is_active: Boolean(res.data.is_active),
+//                     lockin_period_months: res.data.lockin_period_months || 0,
+//                     lockin_penalty_amount: res.data.lockin_penalty_amount || 0,
+//                     lockin_penalty_type: res.data.lockin_penalty_type || "fixed",
+//                     notice_period_days: res.data.notice_period_days || 0,
+//                     notice_penalty_amount: res.data.notice_penalty_amount || 0,
+//                     notice_penalty_type: res.data.notice_penalty_type || "fixed",
+//                     terms_conditions: res.data.terms_conditions || "",
+//                     additional_terms: res.data.additional_terms || "",
+//                     tags: Array.isArray(res.data.tags)
+//                         ? res.data.tags.filter((t: any) => t != null && t !== '' && typeof t === 'string')
+//                         : [],
+//                 };
+//                 setProperty(propertyData);
+//             } else {
+//                 toast.error(res?.message || "Failed to load property details");
+//                 router.back();
+//             }
+//         } catch (err) {
+//             console.error("loadProperty error:", err);
+//             toast.error("Failed to load property details");
+//             router.back();
+//         } finally {
+//             setLoading(false);
+//         }
+//     };
+
+//     // Generate share URL with SEO-friendly slug and tracking ID
+//     const getShareUrl = useCallback(() => {
+//         if (!property?.id) return '';
+        
+//         const trackingId = getOrCreateTrackingId(property.id);
+        
+//         const seoSlug = generatePropertySlug({
+//             name: property.name,
+//             area: property.area,
+//             city: property.city_id,
+//             id: property.id
+//         });
+        
+//         return `${window.location.origin}/properties/${seoSlug}?tf=${trackingId}`;
+//     }, [property]);
+
+//     // Handle share click
+//     const handleShareClick = useCallback(() => {
+//         setIsShareModalOpen(true);
+//     }, []);
+
+//     // Close share modal
+//     const closeShareModal = useCallback(() => {
+//         setIsShareModalOpen(false);
+//         setCopied(false);
+//         setShowCopyMessage(false);
+//     }, []);
+
+//     // Handle copy link
+//     const handleCopyLink = useCallback(() => {
+//         const shareUrl = getShareUrl();
+//         if (shareUrl) {
+//             navigator.clipboard.writeText(shareUrl);
+//             setCopied(true);
+//             setShowCopyMessage(true);
+//             setTimeout(() => {
+//                 setCopied(false);
+//                 setShowCopyMessage(false);
+//             }, 3000);
+//         }
+//     }, [getShareUrl]);
+
+//     // Handle social share
+//     const handleSocialShare = useCallback((platform: string) => {
+//         const shareUrl = getShareUrl();
+//         if (!shareUrl || !property) return;
+        
+//         const shareText = `Check out this property: ${property.name} - ${property.area}`;
+
+//         let url = '';
+//         switch (platform) {
+//             case 'whatsapp':
+//                 url = `https://wa.me/?text=${encodeURIComponent(shareText + ' ' + shareUrl)}`;
+//                 break;
+//             case 'facebook':
+//                 url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`;
+//                 break;
+//             case 'twitter':
+//                 url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`;
+//                 break;
+//             case 'linkedin':
+//                 url = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`;
+//                 break;
+//             case 'telegram':
+//                 url = `https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareText)}`;
+//                 break;
+//             case 'email':
+//                 url = `mailto:?subject=${encodeURIComponent(property.name)}&body=${encodeURIComponent(shareText + '\n\n' + shareUrl)}`;
+//                 break;
+//         }
+        
+//         if (url) {
+//             window.open(url, '_blank', 'width=600,height=400');
+//         }
+//     }, [property, getShareUrl]);
+
+//     const nextImage = () => {
+//         if (property?.photo_urls.length > 0) {
+//             setCurrentImageIndex((prev) =>
+//                 prev === property.photo_urls.length - 1 ? 0 : prev + 1
+//             );
+//         }
+//     };
+
+//     const prevImage = () => {
+//         if (property?.photo_urls.length > 0) {
+//             setCurrentImageIndex((prev) =>
+//                 prev === 0 ? property.photo_urls.length - 1 : prev - 1
+//             );
+//         }
+//     };
+
+//     const toggleFullscreen = () => {
+//         setIsFullscreen(!isFullscreen);
+//     };
+
+//     if (loading) {
+//         return (
+//             <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center p-4">
+//                 <div className="text-center max-w-md w-full">
+//                     <div className="relative">
+//                         <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full blur-xl opacity-20 animate-pulse"></div>
+//                         <Loader2 className="h-16 w-16 animate-spin text-blue-600 mx-auto mb-6 relative" />
+//                     </div>
+//                     <p className="text-lg text-slate-800 font-semibold mb-2">Loading property details...</p>
+//                     <p className="text-sm text-slate-500">Please wait while we fetch the information</p>
+//                 </div>
+//             </div>
+//         );
+//     }
+
+//     if (!property) {
+//         return (
+//             <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center p-4">
+//                 <div className="text-center max-w-md w-full">
+//                     <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-8 shadow-xl border border-white/50">
+//                         <div className="bg-red-50 rounded-full p-6 w-24 h-24 mx-auto mb-6">
+//                             <AlertCircle className="h-12 w-12 text-red-500" />
+//                         </div>
+//                         <h2 className="text-2xl font-bold text-slate-800 mb-3">Property Not Found</h2>
+//                         <p className="text-slate-600 mb-6">The property you're looking for doesn't exist or has been removed.</p>
+//                         <button
+//                             onClick={() => router.back()}
+//                             className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl"
+//                         >
+//                             <ArrowLeft className="h-5 w-5" />
+//                             Back to Properties
+//                         </button>
+//                     </div>
+//                 </div>
+//             </div>
+//         );
+//     }
+
+//     const occupiedBeds = property.occupied_beds || 0;
+//     const totalBeds = property.total_beds || 1;
+//     const occupancyPercentage = totalBeds > 0 ? (occupiedBeds / totalBeds) * 100 : 0;
+//     const availableBeds = totalBeds - occupiedBeds;
+
+//     const currentPhotoUrl = property.photo_urls && property.photo_urls[currentImageIndex]
+//         ? `${import.meta.env.VITE_API_URL || ''}${property.photo_urls[currentImageIndex]}`
+//         : '';
+
+//     const shareUrl = getShareUrl();
+
+//     // Check if any terms exist
+//     const hasTerms = propertyRules.length > 0 || termsConditions.length > 0 || additionalTerms.length > 0;
+
+//     // Get manager display name with salutation
+//     const getManagerDisplayName = () => {
+//         if (staffData) {
+//             const salutation = getSalutationDisplay(staffData.salutation || '');
+//             return `${salutation} ${staffData.name}`.trim();
+//         }
+//         return property.property_manager_name || 'Not assigned';
+//     };
+
+//     // Get manager role
+//     const getManagerRole = () => {
+//         if (staffData) {
+//             return staffData.role || '';
+//         }
+//         return property.property_manager_role || '';
+//     };
+
+//     // Get manager email
+//     const getManagerEmail = () => {
+//         if (staffData) {
+//             return staffData.email || '';
+//         }
+//         return property.property_manager_email || '';
+//     };
+
+//     // Get manager photo
+//     const getManagerPhoto = () => {
+//         if (staffData?.photo_url) {
+//             return getFullPhotoUrl(staffData.photo_url);
+//         }
+//         return null;
+//     };
+
+//     return (
+//         <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/30">
+//             {/* Fullscreen Image Modal */}
+//             {isFullscreen && property.photo_urls?.length > 0 && (
+//                 <div className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center">
+//                     <button
+//                         onClick={toggleFullscreen}
+//                         className="absolute top-4 right-4 text-white/80 hover:text-white bg-black/20 hover:bg-black/40 rounded-full p-3 transition-all z-10"
+//                     >
+//                         <Minimize2 className="h-6 w-6" />
+//                     </button>
+//                     <button
+//                         onClick={prevImage}
+//                         className="absolute left-4 top-1/2 -translate-y-1/2 text-white/80 hover:text-white bg-black/20 hover:bg-black/40 rounded-full p-3 transition-all"
+//                     >
+//                         <ChevronLeft className="h-6 w-6" />
+//                     </button>
+//                     <button
+//                         onClick={nextImage}
+//                         className="absolute right-4 top-1/2 -translate-y-1/2 text-white/80 hover:text-white bg-black/20 hover:bg-black/40 rounded-full p-3 transition-all"
+//                     >
+//                         <ChevronRight className="h-6 w-6" />
+//                     </button>
+//                     <img
+//                         src={currentPhotoUrl}
+//                         alt={`${property.name} - Fullscreen`}
+//                         className="max-h-[90vh] max-w-[90vw] object-contain"
+//                     />
+//                     <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white bg-black/50 backdrop-blur-sm px-4 py-2 rounded-full text-sm">
+//                         {currentImageIndex + 1} / {property.photo_urls.length}
+//                     </div>
+//                 </div>
+//             )}
+
+//             {/* Share Modal */}
+//             {isShareModalOpen && (
+//                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+//                     <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl animate-in zoom-in duration-200">
+//                         <div className="flex items-center justify-between p-5 border-b border-slate-100">
+//                             <h3 className="text-lg font-semibold text-slate-900">Share Property</h3>
+//                             <button
+//                                 onClick={closeShareModal}
+//                                 className="p-2 hover:bg-slate-100 rounded-xl transition-colors"
+//                             >
+//                                 <X className="w-5 h-5 text-slate-500" />
+//                             </button>
+//                         </div>
+
+//                         <div className="p-5">
+//                             {/* Property Info */}
+//                             <div className="flex items-center gap-3 mb-5 pb-4 border-b border-slate-100">
+//                                 {property.photo_urls && property.photo_urls.length > 0 && (
+//                                     <div className="w-14 h-14 rounded-xl overflow-hidden shadow-md">
+//                                         <img 
+//                                             src={`${import.meta.env.VITE_API_URL || ''}${property.photo_urls[0]}`}
+//                                             alt={property.name}
+//                                             className="w-full h-full object-cover"
+//                                             onError={(e) => {
+//                                                 (e.target as HTMLImageElement).src = 
+//                                                     `https://via.placeholder.com/56/0249a8/ffffff?text=${encodeURIComponent(property.name.charAt(0))}`;
+//                                             }}
+//                                         />
+//                                     </div>
+//                                 )}
+//                                 <div className="flex-1 min-w-0">
+//                                     <p className="font-semibold text-base text-slate-900 truncate">{property.name}</p>
+//                                     <p className="text-sm text-slate-500 truncate flex items-center gap-1 mt-0.5">
+//                                         <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
+//                                         {property.area}
+//                                     </p>
+//                                 </div>
+//                             </div>
+
+//                             {/* Copy Link */}
+//                             <div className="mb-5">
+//                                 <div className="flex items-center gap-2 bg-slate-50 rounded-xl p-2 border border-slate-200">
+//                                     <input
+//                                         type="text"
+//                                         readOnly
+//                                         value={shareUrl}
+//                                         className="flex-1 bg-transparent text-sm text-slate-600 outline-none truncate px-2"
+//                                     />
+//                                     <button
+//                                         onClick={handleCopyLink}
+//                                         className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg text-sm font-medium transition-all hover:scale-105 flex-shrink-0 shadow-md"
+//                                     >
+//                                         {copied ? (
+//                                             <>
+//                                                 <Check className="h-4 w-4" />
+//                                                 <span>Copied!</span>
+//                                             </>
+//                                         ) : (
+//                                             <>
+//                                                 <Copy className="h-4 w-4" />
+//                                                 <span>Copy</span>
+//                                             </>
+//                                         )}
+//                                     </button>
+//                                 </div>
+//                             </div>
+
+//                             {/* Social Share Buttons */}
+//                             <div className="grid grid-cols-3 gap-3">
+//                                 <button
+//                                     onClick={() => handleSocialShare('whatsapp')}
+//                                     className="flex flex-col items-center gap-2 p-3 rounded-xl bg-gradient-to-br from-emerald-50 to-green-50 hover:from-emerald-100 hover:to-green-100 border border-emerald-200 transition-all hover:scale-105 group"
+//                                 >
+//                                     <div className="h-12 w-12 rounded-full bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center shadow-md group-hover:shadow-lg transition-shadow">
+//                                         <BsWhatsapp className="h-6 w-6 text-white" />
+//                                     </div>
+//                                     <span className="text-xs font-medium text-slate-700">WhatsApp</span>
+//                                 </button>
+
+//                                 <button
+//                                     onClick={() => handleSocialShare('facebook')}
+//                                     className="flex flex-col items-center gap-2 p-3 rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 border border-blue-200 transition-all hover:scale-105 group"
+//                                 >
+//                                     <div className="h-12 w-12 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-md group-hover:shadow-lg transition-shadow">
+//                                         <FaFacebookF className="h-6 w-6 text-white" />
+//                                     </div>
+//                                     <span className="text-xs font-medium text-slate-700">Facebook</span>
+//                                 </button>
+
+//                                 <button
+//                                     onClick={() => handleSocialShare('twitter')}
+//                                     className="flex flex-col items-center gap-2 p-3 rounded-xl bg-gradient-to-br from-sky-50 to-blue-50 hover:from-sky-100 hover:to-blue-100 border border-sky-200 transition-all hover:scale-105 group"
+//                                 >
+//                                     <div className="h-12 w-12 rounded-full bg-gradient-to-br from-sky-500 to-blue-500 flex items-center justify-center shadow-md group-hover:shadow-lg transition-shadow">
+//                                         <FaTwitter className="h-6 w-6 text-white" />
+//                                     </div>
+//                                     <span className="text-xs font-medium text-slate-700">Twitter</span>
+//                                 </button>
+
+//                                 <button
+//                                     onClick={() => handleSocialShare('linkedin')}
+//                                     className="flex flex-col items-center gap-2 p-3 rounded-xl bg-gradient-to-br from-blue-50 to-cyan-50 hover:from-blue-100 hover:to-cyan-100 border border-blue-300 transition-all hover:scale-105 group"
+//                                 >
+//                                     <div className="h-12 w-12 rounded-full bg-gradient-to-br from-blue-700 to-cyan-700 flex items-center justify-center shadow-md group-hover:shadow-lg transition-shadow">
+//                                         <FaLinkedinIn className="h-6 w-6 text-white" />
+//                                     </div>
+//                                     <span className="text-xs font-medium text-slate-700">LinkedIn</span>
+//                                 </button>
+
+//                                 <button
+//                                     onClick={() => handleSocialShare('telegram')}
+//                                     className="flex flex-col items-center gap-2 p-3 rounded-xl bg-gradient-to-br from-cyan-50 to-blue-50 hover:from-cyan-100 hover:to-blue-100 border border-cyan-200 transition-all hover:scale-105 group"
+//                                 >
+//                                     <div className="h-12 w-12 rounded-full bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center shadow-md group-hover:shadow-lg transition-shadow">
+//                                         <FaTelegramPlane className="h-6 w-6 text-white" />
+//                                     </div>
+//                                     <span className="text-xs font-medium text-slate-700">Telegram</span>
+//                                 </button>
+
+//                                 <button
+//                                     onClick={() => handleSocialShare('email')}
+//                                     className="flex flex-col items-center gap-2 p-3 rounded-xl bg-gradient-to-br from-slate-50 to-gray-50 hover:from-slate-100 hover:to-gray-100 border border-slate-200 transition-all hover:scale-105 group"
+//                                 >
+//                                     <div className="h-12 w-12 rounded-full bg-gradient-to-br from-slate-600 to-gray-700 flex items-center justify-center shadow-md group-hover:shadow-lg transition-shadow">
+//                                         <MdEmail className="h-6 w-6 text-white" />
+//                                     </div>
+//                                     <span className="text-xs font-medium text-slate-700">Email</span>
+//                                 </button>
+//                             </div>
+
+//                             {showCopyMessage && (
+//                                 <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-xl animate-in slide-in-from-bottom-2">
+//                                     <p className="text-sm text-green-700 font-medium flex items-center gap-2">
+//                                         <Check className="w-5 h-5 text-green-600" />
+//                                         Link copied to clipboard!
+//                                     </p>
+//                                 </div>
+//                             )}
+//                         </div>
+//                     </div>
+//                 </div>
+//             )}
+
+//             {/* Sticky Header */}
+//             <div className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-slate-200/80 shadow-sm">
+//                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+//                     <div className="flex items-center justify-between">
+//                         <button
+//                             onClick={() => router.back()}
+//                             className="flex items-center gap-2 text-slate-700 hover:text-blue-600 transition-colors group"
+//                         >
+//                             <div className="bg-slate-100 group-hover:bg-blue-50 rounded-full p-2 transition-colors">
+//                                 <ArrowLeft className="h-5 w-5 group-hover:-translate-x-1 transition-transform" />
+//                             </div>
+//                             <span className="font-semibold hidden sm:inline">Back</span>
+//                         </button>
+
+//                         <div className="flex items-center gap-2">
+//                             <button
+//                                 onClick={() => setIsLiked(!isLiked)}
+//                                 className="bg-white hover:bg-red-50 rounded-full p-2.5 shadow-md transition-all hover:scale-110 border border-slate-200"
+//                             >
+//                                 <Heart className={`h-5 w-5 ${isLiked ? 'fill-red-500 text-red-500' : 'text-slate-400'}`} />
+//                             </button>
+//                             <button
+//                                 onClick={handleShareClick}
+//                                 className="bg-white hover:bg-blue-50 rounded-full p-2.5 shadow-md transition-all hover:scale-110 border border-slate-200"
+//                             >
+//                                 <Share2 className="h-5 w-5 text-slate-600" />
+//                             </button>
+//                         </div>
+//                     </div>
+//                 </div>
+//             </div>
+
+//             <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-2 py-4 sm:py-6 lg:py-8">
+//                 {/* Hero Section with Image Gallery */}
+//                 <div className="mb-6 sm:mb-8">
+//                     <div className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-slate-200 to-slate-300 shadow-xl group">
+//                         <div className="aspect-[21/9] sm:aspect-[3/1] relative">
+//                             {property.photo_urls && property.photo_urls.length > 0 ? (
+//                                 <>
+//                                     <img
+//                                         src={currentPhotoUrl}
+//                                         alt={`${property.name} - Image ${currentImageIndex + 1}`}
+//                                         className="w-full h-full object-cover"
+//                                         onError={(e) => {
+//                                             (e.target as HTMLImageElement).src =
+//                                                 `https://via.placeholder.com/1920x640/f1f5f9/475569?text=${encodeURIComponent(property.name)}`;
+//                                         }}
+//                                     />
+
+//                                     {/* Gradient Overlay */}
+//                                     <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+
+//                                     {/* Image Navigation */}
+//                                     {property.photo_urls.length > 1 && (
+//                                         <>
+//                                             <button
+//                                                 onClick={prevImage}
+//                                                 className="absolute left-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 hover:bg-black/70 text-white p-3 rounded-full backdrop-blur-sm"
+//                                             >
+//                                                 <ChevronLeft className="h-6 w-6" />
+//                                             </button>
+//                                             <button
+//                                                 onClick={nextImage}
+//                                                 className="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 hover:bg-black/70 text-white p-3 rounded-full backdrop-blur-sm"
+//                                             >
+//                                                 <ChevronRight className="h-6 w-6" />
+//                                             </button>
+//                                         </>
+//                                     )}
+
+//                                     {/* Image Controls */}
+//                                     <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between">
+//                                         <div className="flex gap-2">
+//                                             {property.photo_urls.map((_, idx) => (
+//                                                 <button
+//                                                     key={idx}
+//                                                     onClick={() => setCurrentImageIndex(idx)}
+//                                                     className={`h-1.5 rounded-full transition-all ${
+//                                                         idx === currentImageIndex 
+//                                                             ? 'w-8 bg-white' 
+//                                                             : 'w-2 bg-white/50 hover:bg-white/80'
+//                                                     }`}
+//                                                 />
+//                                             ))}
+//                                         </div>
+//                                         <div className="flex gap-2">
+//                                             <button
+//                                                 onClick={toggleFullscreen}
+//                                                 className="bg-black/50 hover:bg-black/70 text-white p-2 rounded-lg backdrop-blur-sm transition-all"
+//                                             >
+//                                                 <Maximize2 className="h-5 w-5" />
+//                                             </button>
+//                                         </div>
+//                                     </div>
+
+//                                     {/* Status Badge */}
+//                                     <div className="absolute top-4 right-4">
+//                                         <span
+//                                             className={`px-4 py-2 rounded-full text-sm font-bold shadow-lg backdrop-blur-md ${
+//                                                 property.is_active
+//                                                     ? 'bg-emerald-500/90 text-white'
+//                                                     : 'bg-slate-500/90 text-white'
+//                                             }`}
+//                                         >
+//                                             {property.is_active ? '● Active' : '● Inactive'}
+//                                         </span>
+//                                     </div>
+
+//                                     {/* Property Title Overlay */}
+//                                     <div className="absolute bottom-16 left-4 text-white">
+//                                         <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-2">{property.name}</h1>
+//                                         <div className="flex items-center gap-2 text-white/90">
+//                                             <MapPin className="h-5 w-5" />
+//                                             <span className="text-sm sm:text-base">{property.area}, {property.city_id || 'N/A'}</span>
+//                                         </div>
+//                                     </div>
+//                                 </>
+//                             ) : (
+//                                 <div className="w-full h-full flex flex-col items-center justify-center">
+//                                     <Building2 className="h-16 sm:h-24 w-16 sm:w-24 text-slate-400 mb-2 sm:mb-4" />
+//                                     <p className="text-sm sm:text-base text-slate-500 font-medium">
+//                                         No images available
+//                                     </p>
+//                                 </div>
+//                             )}
+//                         </div>
+//                     </div>
+//                 </div>
+
+//                 {/* Main Content Grid */}
+//                 <div className="grid lg:grid-cols-12 gap-6">
+//                     {/* Left Column - Property Details (8 columns) */}
+//                     <div className="lg:col-span-8 space-y-6">
+//                         {/* CONSOLIDATED PROPERTY INFO CARD */}
+//                         <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
+//                             {/* Header with gradient */}
+//                             <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] px-6 py-4">
+//                                 <h2 className="text-xl font-bold text-white flex items-center gap-2">
+//                                     <Building2 className="h-5 w-5" />
+//                                     Property Information
+//                                 </h2>
+//                             </div>
+                            
+//                             <div className="p-6 space-y-6">
+//                                 {/* Quick Stats Grid */}
+//                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+//                                     <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 text-center transform hover:scale-105 transition-transform duration-200">
+//                                         <DoorOpen className="h-6 w-6 text-blue-600 mx-auto mb-2" />
+//                                         <p className="text-2xl font-bold text-slate-900">{property.total_rooms || 0}</p>
+//                                         <p className="text-xs text-slate-600 font-medium">Rooms</p>
+//                                     </div>
+//                                     <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-4 text-center transform hover:scale-105 transition-transform duration-200">
+//                                         <Bed className="h-6 w-6 text-purple-600 mx-auto mb-2" />
+//                                         <p className="text-2xl font-bold text-slate-900">{property.total_beds || 0}</p>
+//                                         <p className="text-xs text-slate-600 font-medium">Total Beds</p>
+//                                     </div>
+//                                     <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-4 text-center transform hover:scale-105 transition-transform duration-200">
+//                                         <CheckCircle2 className="h-6 w-6 text-green-600 mx-auto mb-2" />
+//                                         <p className="text-2xl font-bold text-slate-900">{availableBeds}</p>
+//                                         <p className="text-xs text-slate-600 font-medium">Available</p>
+//                                     </div>
+//                                     <div className="bg-gradient-to-br from-orange-50 to-amber-50 rounded-xl p-4 text-center transform hover:scale-105 transition-transform duration-200">
+//                                         <Users className="h-6 w-6 text-orange-600 mx-auto mb-2" />
+//                                         <p className="text-2xl font-bold text-slate-900">{occupiedBeds}</p>
+//                                         <p className="text-xs text-slate-600 font-medium">Occupied</p>
+//                                     </div>
+//                                 </div>
+
+//                                 {/* Occupancy Bar */}
+//                                 <div className="bg-slate-50 rounded-xl p-4">
+//                                     <div className="flex justify-between items-center mb-2">
+//                                         <span className="text-sm font-medium text-slate-700 flex items-center gap-1">
+//                                             <TrendingUp className="h-4 w-4 text-blue-600" />
+//                                             Occupancy Rate
+//                                         </span>
+//                                         <span className="text-lg font-bold text-blue-600">{occupancyPercentage.toFixed(0)}%</span>
+//                                     </div>
+//                                     <div className="w-full bg-slate-200 rounded-full h-3 overflow-hidden">
+//                                         <div
+//                                             className="bg-gradient-to-r from-blue-500 via-blue-600 to-indigo-600 h-full rounded-full transition-all duration-700"
+//                                             style={{ width: `${occupancyPercentage}%` }}
+//                                         />
+//                                     </div>
+//                                     <div className="flex justify-between mt-2 text-xs text-slate-500">
+//                                         <span>{occupiedBeds} Occupied</span>
+//                                         <span>{availableBeds} Available</span>
+//                                     </div>
+//                                 </div>
+
+//                                 {/* Description */}
+//                                 {property.description && (
+//                                     <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-5">
+//                                         <h3 className="text-md font-semibold text-slate-800 mb-2 flex items-center gap-2">
+//                                             <Sparkles className="h-4 w-4 text-blue-600" />
+//                                             About This Property
+//                                         </h3>
+//                                         <p className="text-sm text-slate-700 leading-relaxed">{property.description}</p>
+//                                     </div>
+//                                 )}
+
+//                                 {/* Tags */}
+//                               {property.tags && property.tags.length > 0 && (
+//   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 col-span-2">
+    
+//     {/* LEFT SIDE — TAGS */}
+//     <div>
+//       <h3 className="text-md font-semibold text-slate-800 mb-3 flex items-center gap-2">
+//         <Award className="h-4 w-4 text-blue-600" />
+//         Property Tags
+//       </h3>
+
+//       <div className="flex flex-wrap gap-2">
+//         {property.tags.map((tag, idx) => (
+//           <span
+//             key={idx}
+//             className="px-3 py-1.5 bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 rounded-full text-xs font-medium border border-blue-200 shadow-sm"
+//           >
+//             {tag}
+//           </span>
+//         ))}
+//       </div>
+//     </div>
+
+//     {/* RIGHT SIDE — ADDRESS */}
+//     <div className="bg-gradient-to-r from-slate-50 to-gray-50 rounded-xl p-4 border border-slate-200">
+//       <h3 className="text-md font-semibold text-slate-800 mb-2 flex items-center gap-2">
+//         <MapPin className="h-4 w-4 text-blue-600" />
+//         Full Address
+//       </h3>
+//       <p className="text-sm text-slate-700">
+//         {property.address || "No address provided."}
+//       </p>
+//     </div>
+
+//   </div>
+// )}
+
+//                                 {/* Services */}
+//                                {property.services && property.services.length > 0 && (
+//   <div>
+//     <h3 className="text-md font-semibold text-slate-800 mb-3 flex items-center gap-2">
+//       <Award className="h-4 w-4 text-blue-600" />
+//       Services Included
+//     </h3>
+
+//     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+//       {property.services.map((service, idx) => (
+//         <div
+//           key={idx}
+//           className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100 hover:border-blue-200 transition-colors"
+//         >
+//           <div className="bg-green-100 rounded-lg p-1.5">
+//             <CheckCircle2 className="h-4 w-4 text-green-600" />
+//           </div>
+//           <span className="text-sm text-slate-700">{service}</span>
+//         </div>
+//       ))}
+//     </div>
+//   </div>
+// )}
+
+//                                 {/* Stay Terms */}
+//                                 {(property.lockin_period_months && property.lockin_period_months > 0) || 
+//                                  (property.notice_period_days && property.notice_period_days > 0) ? (
+//                                     <div>
+//                                         <h3 className="text-md font-semibold text-slate-800 mb-3 flex items-center gap-2">
+//                                             <Clock className="h-4 w-4 text-blue-600" />
+//                                             Stay Terms
+//                                         </h3>
+//                                         <div className="grid sm:grid-cols-2 gap-4">
+//                                             {property.lockin_period_months && property.lockin_period_months > 0 && (
+//                                                 <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100">
+//                                                     <div className="flex items-center gap-2 mb-2">
+//                                                         <Lock className="h-4 w-4 text-blue-600" />
+//                                                         <span className="font-medium text-slate-700">Lock-in Period</span>
+//                                                     </div>
+//                                                     <p className="text-xl font-bold text-slate-900">
+//                                                         {property.lockin_period_months} months
+//                                                     </p>
+//                                                     {property.lockin_penalty_amount > 0 && (
+//                                                         <p className="text-xs text-amber-600 mt-1 bg-amber-50 p-1.5 rounded-lg">
+//                                                             Penalty: ₹{property.lockin_penalty_amount} ({property.lockin_penalty_type})
+//                                                         </p>
+//                                                     )}
+//                                                 </div>
+//                                             )}
+                                            
+//                                             {property.notice_period_days && property.notice_period_days > 0 && (
+//                                                 <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-4 border border-purple-100">
+//                                                     <div className="flex items-center gap-2 mb-2">
+//                                                         <Bell className="h-4 w-4 text-purple-600" />
+//                                                         <span className="font-medium text-slate-700">Notice Period</span>
+//                                                     </div>
+//                                                     <p className="text-xl font-bold text-slate-900">
+//                                                         {property.notice_period_days} days
+//                                                     </p>
+//                                                     {property.notice_penalty_amount > 0 && (
+//                                                         <p className="text-xs text-amber-600 mt-1 bg-amber-50 p-1.5 rounded-lg">
+//                                                             Penalty: ₹{property.notice_penalty_amount} ({property.notice_penalty_type})
+//                                                         </p>
+//                                                     )}
+//                                                 </div>
+//                                             )}
+//                                         </div>
+//                                     </div>
+//                                 ) : null}
+
+//                                 {/* Address */}
+                             
+//                             </div>
+//                         </div>
+//                     </div>
+
+//                     {/* Right Column - Pricing, Manager, Amenities, Terms (4 columns) */}
+//                     <div className="lg:col-span-4 space-y-6">
+//                         {/* Sticky Container */}
+//                         <div className="lg:sticky lg:top-24 space-y-6">
+//                             {/* Pricing Card */}
+//                            <div className="bg-gradient-to-br from-[#2A3F8C] via-[#1E3A8A] to-[#5B4B9A] rounded-2xl shadow-xl p-6 text-white relative overflow-hidden">
+//   {/* Decorative elements */}
+//   <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl"></div>
+//   <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full blur-2xl"></div>
+  
+//   <h3 className="text-lg font-bold mb-4 flex items-center gap-2 relative">
+//     <IndianRupee className="h-5 w-5" />
+//     Pricing Details
+//   </h3>
+
+//   <div className="space-y-3 relative">
+//     <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20 hover:bg-white/15 transition-all">
+//       <p className="text-blue-100 text-xs mb-1">Starting Price</p>
+//       <div className="flex items-baseline gap-1.5">
+//         <IndianRupee className="h-6 w-6 text-white/80" />
+//         <span className="text-2xl font-bold">{property.starting_price.toLocaleString()}</span>
+//         <span className="text-blue-100 text-sm">/month</span>
+//       </div>
+//     </div>
+
+//     <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20 hover:bg-white/15 transition-all">
+//       <p className="text-blue-100 text-xs mb-1">Security Deposit</p>
+//       <div className="flex items-baseline gap-1.5">
+//         <Shield className="h-5 w-5 text-white/80" />
+//         <span className="text-xl font-bold">₹{property.security_deposit.toLocaleString()}</span>
+//       </div>
+//     </div>
+//   </div>
+// </div>
+
+//                             {/* Manager Card */}
+//                             <div className="bg-white rounded-2xl shadow-xl p-6">
+//                                 <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+//                                     <User className="h-5 w-5 text-blue-600" />
+//                                     Property Manager
+//                                 </h3>
+
+//                                 <div className="flex items-center gap-4 mb-4">
+//                                     <div className="relative">
+//                                         {getManagerPhoto() ? (
+//                                             <img
+//                                                 src={getManagerPhoto()!}
+//                                                 alt={getManagerDisplayName()}
+//                                                 className="w-20 h-20 rounded-xl object-cover ring-2 ring-blue-200"
+//                                                 onError={(e) => {
+//                                                     (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(getManagerDisplayName())}&background=0249a8&color=fff&size=80`;
+//                                                 }}
+//                                             />
+//                                         ) : (
+//                                             <div className="w-20 h-20 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center ring-2 ring-blue-200 shadow-lg">
+//                                                 <span className="text-3xl font-bold text-white">
+//                                                     {getManagerDisplayName().charAt(0)}
+//                                                 </span>
+//                                             </div>
+//                                         )}
+//                                         {loadingStaff && (
+//                                             <div className="absolute -top-1 -right-1">
+//                                                 <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+//                                             </div>
+//                                         )}
+//                                     </div>
+//                                     <div className="flex-1">
+//                                         <p className="font-semibold text-lg text-slate-900">{getManagerDisplayName()}</p>
+//                                         <p className="text-sm text-slate-600 flex items-center gap-1 mt-1">
+//                                             <Shield className="h-3.5 w-3.5 text-green-600" />
+//                                             {getManagerRole() || 'Manager'}
+//                                         </p>
+//                                     </div>
+//                                 </div>
+
+//                                 <div className="space-y-3">
+//                                     {property.property_manager_phone && (
+//                                         <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
+//                                             <div className="bg-gradient-to-br from-green-100 to-emerald-200 rounded-lg p-2">
+//                                                 <Phone className="h-4 w-4 text-green-600" />
+//                                             </div>
+//                                             <div className="flex-1">
+//                                                 <p className="text-xs text-slate-500">Phone</p>
+//                                                 <p className="font-semibold text-sm text-slate-900">
+//                                                     {property.property_manager_phone}
+//                                                 </p>
+//                                             </div>
+//                                         </div>
+//                                     )}
+
+//                                     {getManagerEmail() && (
+//                                         <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
+//                                             <div className="bg-gradient-to-br from-blue-100 to-cyan-200 rounded-lg p-2">
+//                                                 <Mail className="h-4 w-4 text-blue-600" />
+//                                             </div>
+//                                             <div className="flex-1 min-w-0">
+//                                                 <p className="text-xs text-slate-500">Email</p>
+//                                                 <p className="font-semibold text-sm text-slate-900 truncate">
+//                                                     {getManagerEmail()}
+//                                                 </p>
+//                                             </div>
+//                                         </div>
+//                                     )}
+//                                 </div>
+//                             </div>
+
+//                             {/* Amenities Card - Original Style */}
+//                          {property.amenities && property.amenities.length > 0 && (
+//   <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
+//     <div className="bg-gradient-to-r from-[#15338d] via-[#123A9A] to-[#1E4ED8]  px-6 py-4">
+//       <h3 className="text-lg font-bold text-white flex items-center gap-2">
+//         <Star className="h-5 w-5" />
+//         Amenities ({property.amenities.length})
+//       </h3>
+//     </div>
+
+//     <div className="p-6">
+//       <div className="grid grid-cols-6 gap-4">
+//         {property.amenities.map((amenity, idx) => (
+//           <div
+//             key={idx}
+//             className="flex flex-col items-center justify-center gap-2 p-3 rounded-xl hover:bg-amber-50 transition group"
+//           >
+//             <div className="text-blue-400 group-hover:scale-110 transition-transform">
+//               {getAmenityIcon(amenity, "h-6 w-6")}
+//             </div>
+//             <span className="text-xs text-slate-600 text-center">
+//               {amenity}
+//             </span>
+//           </div>
+//         ))}
+//       </div>
+//     </div>
+//   </div>
+// )}
+
+                           
+//                         </div>
+//                     </div>
+                    
+                    
+//                 </div>
+//                 {hasTerms && (
+//                     <div className="mt-8 w-full">
+//                         <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
+//                             <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-4">
+//                                 <h3 className="text-lg font-bold text-white flex items-center gap-2">
+//                                     <FileText className="h-5 w-5" />
+//                                     Terms & Conditions
+//                                 </h3>
+//                             </div>
+                            
+//                             <div className="p-6 overflow-x-auto">
+//                                 <div className="flex flex-nowrap gap-4 min-w-max pb-2">
+//                                     {/* Terms with Headers */}
+//                                     {termsConditions.map((section, idx) => (
+//                                         <div 
+//                                             key={idx} 
+//                                             className={`flex-none w-80 bg-gradient-to-r ${getTermHeaderColor(section.header)} rounded-xl p-4 border`}
+//                                         >
+//                                             <h4 className="font-semibold text-sm mb-3 flex items-center gap-2 text-slate-800">
+//                                                 {getTermHeaderIcon(section.header)}
+//                                                 {section.header}
+//                                             </h4>
+//                                             <div className="space-y-2">
+//                                                 {section.content.map((item, itemIdx) => (
+//                                                     <div key={itemIdx} className="flex items-start gap-2 text-xs text-slate-700">
+//                                                         <div className="w-1.5 h-1.5 rounded-full bg-current mt-1.5 flex-shrink-0" />
+//                                                         <span>{item}</span>
+//                                                     </div>
+//                                                 ))}
+//                                             </div>
+//                                         </div>
+//                                     ))}
+
+//                                     {/* Property Rules */}
+//                                     {propertyRules.length > 0 && (
+//                                         <div className="flex-none w-80 bg-gradient-to-r from-amber-50 to-amber-100/50 rounded-xl p-4 border border-amber-200">
+//                                             <h4 className="font-semibold text-sm mb-3 flex items-center gap-2 text-amber-800">
+//                                                 <BookOpen className="h-4 w-4" />
+//                                                 Property Rules
+//                                             </h4>
+//                                             <div className="space-y-2">
+//                                                 {propertyRules.map((rule, idx) => (
+//                                                     <div key={idx} className="flex items-start gap-2 text-xs text-slate-700">
+//                                                         <div className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1.5 flex-shrink-0" />
+//                                                         <span>{rule}</span>
+//                                                     </div>
+//                                                 ))}
+//                                             </div>
+//                                         </div>
+//                                     )}
+
+//                                     {/* Additional Terms */}
+//                                     {additionalTerms.length > 0 && (
+//                                         <div className="flex-none w-80 bg-gradient-to-r from-purple-50 to-purple-100/50 rounded-xl p-4 border border-purple-200">
+//                                             <h4 className="font-semibold text-sm mb-3 flex items-center gap-2 text-purple-800">
+//                                                 <FileText className="h-4 w-4" />
+//                                                 Additional Terms
+//                                             </h4>
+//                                             <div className="space-y-2">
+//                                                 {additionalTerms.map((term, idx) => (
+//                                                     <div key={idx} className="flex items-start gap-2 text-xs text-slate-700">
+//                                                         <div className="w-1.5 h-1.5 rounded-full bg-purple-500 mt-1.5 flex-shrink-0" />
+//                                                         <span>{term}</span>
+//                                                     </div>
+//                                                 ))}
+//                                             </div>
+//                                         </div>
+//                                     )}
+//                                 </div>
+//                             </div>
+                            
+//                             {/* Scroll indicator for mobile */}
+//                             <div className="px-6 pb-4 text-xs text-slate-500 flex items-center gap-1 md:hidden">
+//                                 <ChevronRight className="h-3 w-3 animate-pulse" />
+//                                 Scroll horizontally to see all terms
+//                             </div>
+//                         </div>
+//                     </div>
+//                 )}
+
+//             </div>
+
+//             {/* Add custom scrollbar styles */}
+//             <style jsx>{`
+//                 .scrollbar-thin::-webkit-scrollbar {
+//                     width: 6px;
+//                 }
+//                 .scrollbar-thin::-webkit-scrollbar-track {
+//                     background: #f1f1f1;
+//                     border-radius: 10px;
+//                 }
+//                 .scrollbar-thin::-webkit-scrollbar-thumb {
+//                     background: #cbd5e1;
+//                     border-radius: 10px;
+//                 }
+//                 .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+//                     background: #94a3b8;
+//                 }
+//             `}</style>
+//         </div>
+//     );
+// };
+
+// export default PropertyDetailsClient;

@@ -192,70 +192,7 @@ const OffersTable = ({
 
   return (
     <>
-      {/* Header with Create Button */}
-      {/* <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-        <div>
-          <h2 className="text-lg font-semibold text-gray-800">Offer Management</h2>
-          <p className="text-sm text-gray-500">Create and manage promotional offers for properties and rooms</p>
-        </div>
-        <Button onClick={onCreateNew} className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700">
-          <Plus className="h-4 w-4 mr-2" />
-          Create New Offer
-        </Button>
-      </div> */}
-
-      {/* Global Search and Filters */}
-      {/* <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4 shadow-sm">
-        <div className="flex flex-col lg:flex-row gap-3">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <Input
-              placeholder="Search offers by code, title, property, room, discount..."
-              value={filters.title}
-              onChange={(e) => handleFilterChange("title", e.target.value)}
-              className="pl-9 w-full"
-            />
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Select value={filters.status} onValueChange={(v) => handleFilterChange("status", v)}>
-              <SelectTrigger className="w-[130px]">
-                <SelectValue placeholder="All Types" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="inactive">Inactive</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select defaultValue="all">
-              <SelectTrigger className="w-[130px]">
-                <SelectValue placeholder="All Properties" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Properties</SelectItem>
-                {properties.map((prop) => (
-                  <SelectItem key={prop.id} value={prop.id.toString()}>
-                    {prop.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {hasActiveFilters && (
-              <Button variant="ghost" size="sm" onClick={clearFilters} className="px-3">
-                <X className="h-4 w-4 mr-1" />
-                Clear
-              </Button>
-            )}
-          </div>
-        </div>
-      </div> */}
-
-      {/* Results count */}
-      {/* <div className="flex items-center justify-between mb-3">
-        <p className="text-sm text-gray-600">
-          Showing {filteredOffers.length} of {pagination.totalItems} offers
-        </p>
-      </div> */}
+     
 
       {/* Table Container */}
       <div className="border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm">
