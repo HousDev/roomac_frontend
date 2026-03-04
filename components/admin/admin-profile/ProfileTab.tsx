@@ -1,3 +1,4 @@
+// components/admin/admin-profile/ProfileTab.tsx
 "use client";
 
 import { Card, CardContent } from '@/components/ui/card';
@@ -74,6 +75,7 @@ export default function ProfileTab({
       .toUpperCase()
       .slice(0, 2);
   };
+  console.log("profile dataaaa: ", profileData)
 
   // Determine role based on email if not provided
   const displayRole = profileData.role || 
@@ -103,7 +105,7 @@ export default function ProfileTab({
               <div className="w-full h-full rounded-full overflow-hidden bg-white">
                 <Avatar className="w-full h-full rounded-full">
                   <AvatarImage
-                    src={profileData.avatar_url}
+                    src={import.meta.env.VITE_API_URL+"/uploads/staff-documents/"+profileData.avatar_url}
                     alt={profileData.full_name}
                     className="object-cover w-full h-full"
                   />

@@ -598,6 +598,7 @@
 
 
 
+// components/admin/admin-header.tsx
 "use client";
 
 import { Bell, LogOut, User, Home, Settings, Menu, X, Check, AlertCircle, Wrench, Calendar, Move, MessageSquare, Loader2, RefreshCw, ExternalLink } from 'lucide-react';
@@ -651,7 +652,8 @@ export function AdminHeader({
   const [refreshing, setRefreshing] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [notificationCount] = useState(0); // Added missing variable
-  const { logout } = useAuth();
+  const { logout , user } = useAuth();
+  
 
   // Add custom CSS for pulsing border animation - CLIENT-SIDE ONLY
   useEffect(() => {
@@ -874,6 +876,7 @@ export function AdminHeader({
     }
   }, []);
 
+  
   return (
     <header className={`
       bg-white border-b border-slate-200
@@ -1151,22 +1154,23 @@ export function AdminHeader({
                   className="flex items-center gap-1 h-auto p-1 md:p-2 hover:bg-slate-300"
                 >
                   <Avatar className="h-6 w-6">
-                    <AvatarImage src={profileImage} alt="Admin" />
+                    <AvatarImage src={user?import.meta.env.VITE_API_URL+"/uploads/staff-documents/"+user.photo_url:profileImage} alt="Admin" />
+                    
                     <AvatarFallback className="bg-gradient-to-br from-[#004AAD] to-blue-500 text-white font-semibold">
                       {getInitials()}
                     </AvatarFallback>
                   </Avatar>
                   <div className="hidden md:block text-left">
-                    <p className="text-sm font-medium leading-none">{adminEmail.split('@')[0]}</p>
-                    <p className="text-xs text-slate-500">Administrator</p>
+                    <p className="text-sm font-medium leading-none">{localStorage.getItem('auth_role') === "admin" ?  adminEmail.split('@')[0]: user?.name }</p>
+                    <p className="text-xs text-slate-500">{localStorage.getItem('auth_role')? localStorage.getItem('auth_role'): '--'}</p>
                   </div>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuLabel>
                   <div>
-                    <p className="font-semibold">{adminEmail.split('@')[0]}</p>
-                    <p className="text-xs text-slate-500 font-normal">{adminEmail}</p>
+                    <p className="font-semibold">{localStorage.getItem('auth_role') === "admin" ?  adminEmail.split('@')[0]: user?.name}</p>
+                    <p className="text-xs text-slate-500 font-normal">{localStorage.getItem('auth_email')? localStorage.getItem('auth_email'): '--'}</p>
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />

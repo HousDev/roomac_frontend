@@ -5,6 +5,7 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import '../app/globals.css';
 import { getSettings } from '@/lib/settingsApi';
+import { AuthProvider } from '@/context/authContext';
 
 // One-line approach (actually a few lines but minimal)
 (async () => {
@@ -23,7 +24,9 @@ import { getSettings } from '@/lib/settingsApi';
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <BrowserRouter>
+    <AuthProvider>
       <App />
+    </AuthProvider>
     </BrowserRouter>
   </React.StrictMode>
 );

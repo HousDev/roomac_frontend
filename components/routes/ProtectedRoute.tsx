@@ -16,5 +16,5 @@ export default function ProtectedRoute() {
 
   if (loading) return null;
 
-  return isAuthenticated ? <Outlet /> : <Navigate to="/login" replace />;
+  return isAuthenticated || localStorage.getItem("auth_token") ? <Outlet /> : <Navigate to="/login" replace />;
 }
