@@ -1,48 +1,100 @@
+
+
 'use client';
 
 import { Card, CardContent } from '@/components/ui/card';
 import { useMemo, useEffect, useRef, useState } from 'react';
 import { IconName } from './data';
 
-// ─── NEW: Count-up hook ───────────────────────────────────────────────────────
-function useCountUp(target: string, duration = 1800, delay = 0) {
-  const [display, setDisplay] = useState('0');
+// ─── Count-up hook (starts from 0) ───────────────────────────────────────────
+function useCountUp(
+  target: number,
+  duration: number = 1800,
+  shouldStart: boolean = false
+) {
+  const [count, setCount] = useState(0);
 
   useEffect(() => {
-    // Extract the numeric part and any suffix (e.g. "500+" → 500, "+")
-    const match = target.match(/^([\d,]+)(\D*)$/);
-    if (!match) { setDisplay(target); return; }          // not a plain number → show as-is
+    if (!shouldStart) return;
 
-    const end = parseInt(match[1].replace(/,/g, ''), 10);
-    const suffix = match[2];                              // e.g. "+", "k", "%", ""
+    const start = 0;
+    let startTime: number | null = null;
 
-    let raf: number;
-    const timeout = setTimeout(() => {
-      const startTime = performance.now();
+    const step = (timestamp: number) => {
+      if (!startTime) startTime = timestamp;
 
-      const step = (now: number) => {
-        const elapsed = now - startTime;
-        const progress = Math.min(elapsed / duration, 1);
-        // ease-out cubic
-        const eased = 1 - Math.pow(1 - progress, 3);
-        const current = Math.round(eased * end);
-        // Re-add thousands separator if original had one
-        const formatted = match[1].includes(',')
-          ? current.toLocaleString()
-          : String(current);
-        setDisplay(formatted + suffix);
-        if (progress < 1) raf = requestAnimationFrame(step);
-      };
+      const progress = Math.min((timestamp - startTime) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      const current = start + eased * (target - start);
 
-      raf = requestAnimationFrame(step);
-    }, delay);
+      setCount(current);
 
-    return () => { clearTimeout(timeout); cancelAnimationFrame(raf); };
-  }, [target, duration, delay]);
+      if (progress < 1) {
+        requestAnimationFrame(step);
+      } else {
+        setCount(target);
+      }
+    };
 
-  return display;
+    requestAnimationFrame(step);
+  }, [shouldStart, target, duration]);
+
+  return count;
 }
-// ─────────────────────────────────────────────────────────────────────────────
+
+// ─── Parse "10,000+", "98%", "4.8★" → numeric + suffix ──────────────────────
+function parseNumber(raw: string): {
+  numeric: number;
+  suffix: string;
+  isDecimal: boolean;
+} {
+  const match = raw.match(/^[\d,\.]+/);
+  if (!match) return { numeric: 0, suffix: raw, isDecimal: false };
+
+  const cleaned = match[0].replace(/,/g, '');
+  const numeric = parseFloat(cleaned);
+  const isDecimal = cleaned.includes('.');
+  const suffix = raw.slice(match[0].length);
+
+  return { numeric, suffix, isDecimal };
+}
+
+function formatNumber(
+  n: number,
+  hadCommas: boolean,
+  isDecimal: boolean,
+  original: string
+): string {
+  if (isDecimal) {
+    const decimalPlaces =
+      (original.match(/\.(\d+)/) || ['', ''])[1].length;
+    return n.toFixed(decimalPlaces);
+  }
+
+  return hadCommas
+    ? Math.floor(n).toLocaleString()
+    : String(Math.floor(n));
+}
+
+// ─── Animated number display ──────────────────────────────────────────────────
+function AnimatedNumber({
+  raw,
+  shouldStart,
+}: {
+  raw: string;
+  shouldStart: boolean;
+}) {
+  const { numeric, suffix, isDecimal } = parseNumber(raw);
+  const hadCommas = raw.includes(',');
+  const count = useCountUp(numeric, 1800, shouldStart);
+
+  return (
+    <>
+      {formatNumber(count, hadCommas, isDecimal, raw)}
+      {suffix}
+    </>
+  );
+}
 
 interface StatData {
   number: string;
@@ -52,175 +104,131 @@ interface StatData {
 
 interface QuickStatsProps {
   stats: StatData[];
-  // IconLoader: React.ComponentType<{ name: IconName } & React.SVGProps<SVGSVGElement>>;
   IconLoader: React.ForwardRefExoticComponent<
-  { name: IconName } &
-  React.SVGProps<SVGSVGElement> &
-  React.RefAttributes<SVGSVGElement>
->;
-
+    { name: IconName } &
+    React.SVGProps<SVGSVGElement> &
+    React.RefAttributes<SVGSVGElement>
+  >;
 }
 
-// ─── NEW: Thin wrapper so each card gets its own hook instance ────────────────
+// ─── Stat Card with AboutStats UI ─────────────────────────────────────────────
 function StatCard({
   stat,
   index,
   colors,
   IconLoader,
+  shouldStart,
 }: {
   stat: StatData;
   index: number;
   colors: ReturnType<typeof buildColorConfigs>[number];
   IconLoader: QuickStatsProps['IconLoader'];
+  shouldStart: boolean;
 }) {
-  // delay matches the card's animationDelay so counting starts when card appears
-  const animatedNumber = useCountUp(stat.number, 1800, index * 200);
-
   return (
-    <Card
-      key={index}
-      className="border-0 shadow-xl hover:shadow-2xl transition-all duration-700 hover:-translate-y-3 bg-white overflow-hidden group relative opacity-0 animate-[slideInRight_0.8s_ease-out_forwards] w-full max-w-[350px] md:max-w-[350px] mx-auto "
-      style={{ animationDelay: `${index * 200}ms` }}
+    <div
+      className="opacity-0 -translate-y-full"
+      style={{
+        animation: `slideInFromBottom 0.6s ease-out ${index * 0.15 + 0.2}s forwards`,
+      }}
     >
-      <CardContent className="p-2 md:p-2 text-center relative z-10 group 
-        transform transition-all duration-300
-        scale-90 sm:scale-95 md:scale-100">
+      <Card className="border-0 shadow-xl hover:shadow-2xl transition-all duration-500 group hover:-translate-y-2 overflow-hidden relative bg-white rounded-2xl mx-auto w-[180px] sm:w-[200px] md:w-[250px]">
+        <CardContent className="p-3 text-center relative z-10">
+          {/* Icon with gradient */}
+          <div
+            className={`h-9 w-9 md:h-11 md:w-11 ${colors.iconColor} group-hover:bg-white rounded-full flex items-center justify-center mx-auto group-hover:scale-110 transition-all duration-500 shadow-lg`}
+          >
+            <IconLoader
+              name={stat.iconName}
+              className="h-4 w-4 md:h-5 md:w-5 text-white group-hover:text-[#0148ac] transition-colors duration-500"
+              strokeWidth={1.5}
+            />
+          </div>
 
-        {/* Icon Container */}
-        <div
-          className={`
-            mx-auto mb-2 md:mb-2 rounded-3xl md:rounded-3xl 
-            flex items-center justify-center
-            bg-gradient-to-br ${colors.iconColor}
-            shadow-lg ${colors.shadowColor}
-            relative overflow-hidden transition-transform duration-700
-            group-hover:scale-110 group-hover:-translate-y-1
-            h-12 w-12 sm:h-14 sm:w-14 md:h-16 md:w-16
-          `}
-        >
-          {/* Soft Glow */}
-          <div className={`
-            absolute inset-0 rounded-3xl md:rounded-3xl
-            bg-gradient-to-r from-transparent via-white/20 to-transparent
-            animate-[shimmer_2s_infinite] 
-            pointer-events-none
-          `} />
+          {/* Number */}
+          <h3 className="text-xl md:text-2xl font-bold text-slate-900 group-hover:text-black mb-1 transition-colors duration-500 font-serif">
+            <AnimatedNumber
+              raw={stat.number}
+              shouldStart={shouldStart}
+            />
+          </h3>
 
-          {/* Pulse Ring */}
-          <div className={`
-            absolute inset-0 rounded-3xl md:rounded-3xl 
-            border-2 ${colors.accentColor}
-            scale-100 group-hover:scale-125 opacity-60 group-hover:opacity-20
-            transition-all duration-700
-          `} />
+          {/* Label */}
+          <p className="text-xs md:text-sm font-medium text-slate-600 group-hover:text-black transition-colors duration-500">
+            {stat.label}
+          </p>
 
-          {/* Icon */}
-          <IconLoader
-            name={stat.iconName}
-            className="h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8 
-            text-white relative z-10 drop-shadow-lg 
-            transition-transform duration-500 group-hover:scale-110"
-          />
-        </div>
+          {/* Underline */}
+          <div className="w-16 h-0.5 bg-[#f9bf0f] mx-auto opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+        </CardContent>
 
-        {/* Number — now animated ↓ */}
-        <h3 className="text-2xl sm:text-3xl md:text-4xl 
-          font-extrabold mb-1 text-black 
-          transition-all duration-500 group-hover:text-gray-800 group-hover:scale-105">
-          {animatedNumber}
-        </h3>
-
-        {/* Label */}
-        <p className="text-xs sm:text-sm md:text-sm 
-          text-gray-700 font-semibold 
-          transition-all duration-500 group-hover:text-gray-900 group-hover:tracking-wider">
-          {stat.label}
-        </p>
-
-        {/* Smooth Bottom Line with Dot */}
-        <div className={`
-          absolute bottom-0 left-1/2 -translate-x-1/2 
-          h-0.5 sm:h-0.5 md:h-1 
-          w-0 group-hover:w-2/3 sm:group-hover:w-2/3 md:group-hover:w-3/4
-          ${colors.bottomLineColor} rounded-full transition-all duration-700
-        `}>
-          <div className="absolute top-1/2 left-0 
-            w-1.5 h-1.5 sm:w-1.5 sm:h-1.5 md:w-2 md:h-2 
-            bg-white rounded-full -translate-y-1/2 
-            opacity-0 group-hover:opacity-100 
-            animate-[moveDot_1.5s_linear_infinite]" />
-        </div>
-
-        {/* Soft Background Glow on hover */}
-        <div className={`
-          absolute inset-0 rounded-xl -z-10
-          bg-gradient-to-br
-          ${colors.bgFromColor}
-          to-transparent opacity-0 group-hover:opacity-20 
-          transition-opacity duration-700
-        `} />
-      </CardContent>
-    </Card>
+        {/* Hover Background Overlay */}
+        {/* <div className="absolute inset-0 bg-[#b3cef5] translate-y-full group-hover:translate-y-0 transition-transform duration-500 ease-out rounded-2xl" /> */}
+      </Card>
+    </div>
   );
 }
 
-// ─── Helper so TypeScript can infer the array-element type ───────────────────
+// ─── Color configurations matching AboutStats ─────────────────────────────────
 function buildColorConfigs() {
   return [
     {
-      iconColor: 'from-red-300 to-red-500',
-      accentColor: 'border-red-500',
-      shadowColor: 'shadow-red-900/40',
-      hoverShadowColor: 'group-hover:shadow-red-800/60',
-      bottomLineColor: 'bg-gradient-to-r from-red-600 to-red-800',
-      sideLineColor: 'via-red-700',
-      sideLineRightColor: 'via-red-600',
-      cornerColor: 'border-red-600/0 group-hover:border-red-500/80',
-      bgFromColor: 'from-red-200/20'
+      iconColor: 'bg-gradient-to-br from-amber-400 to-orange-600',
     },
     {
-      iconColor: 'from-blue-600 to-blue-600',
-      accentColor: 'border-blue-500',
-      shadowColor: 'shadow-blue-900/40',
-      hoverShadowColor: 'group-hover:shadow-blue-800/60',
-      bottomLineColor: 'bg-gradient-to-r from-blue-600 to-blue-800',
-      sideLineColor: 'via-blue-700',
-      sideLineRightColor: 'via-blue-600',
-      cornerColor: 'border-blue-600/0 group-hover:border-blue-500/80',
-      bgFromColor: 'from-blue-200/20'
+      iconColor: 'bg-gradient-to-br from-emerald-400 to-teal-600',
     },
     {
-      iconColor: 'from-green-400 to-green-600',
-      accentColor: 'border-green-500',
-      shadowColor: 'shadow-green-900/40',
-      hoverShadowColor: 'group-hover:shadow-green-800/60',
-      bottomLineColor: 'bg-gradient-to-r from-green-600 to-green-800',
-      sideLineColor: 'via-green-700',
-      sideLineRightColor: 'via-green-600',
-      cornerColor: 'border-green-600/0 group-hover:border-green-500/80',
-      bgFromColor: 'from-green-200/20'
+      iconColor: 'bg-gradient-to-br from-blue-400 to-indigo-600',
     },
     {
-      iconColor: 'from-purple-500 to-purple-500',
-      accentColor: 'border-purple-500',
-      shadowColor: 'shadow-purple-900/40',
-      hoverShadowColor: 'group-hover:shadow-purple-800/60',
-      bottomLineColor: 'bg-gradient-to-r from-purple-600 to-purple-800',
-      sideLineColor: 'via-purple-700',
-      sideLineRightColor: 'via-purple-600',
-      cornerColor: 'border-purple-600/0 group-hover:border-purple-500/80',
-      bgFromColor: 'from-purple-200/20'
-    }
+      iconColor: 'bg-gradient-to-br from-purple-400 to-purple-700',
+    },
+    {
+      iconColor: 'bg-gradient-to-br from-pink-400 to-rose-600',
+    },
+    {
+      iconColor: 'bg-gradient-to-br from-cyan-400 to-blue-600',
+    },
+    {
+      iconColor: 'bg-gradient-to-br from-yellow-400 to-amber-600',
+    },
+    {
+      iconColor: 'bg-gradient-to-br from-red-400 to-red-600',
+    },
   ] as const;
 }
 
 export default function QuickStats({ stats, IconLoader }: QuickStatsProps) {
+  const sectionRef = useRef<HTMLElement>(null);
+  const [hasBeenVisible, setHasBeenVisible] = useState(false);
   const colorConfigs = useMemo(() => buildColorConfigs(), []);
 
+  // Fire count-up once when section enters viewport
+  useEffect(() => {
+    if (!sectionRef.current) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setHasBeenVisible(true);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.2 }
+    );
+
+    observer.observe(sectionRef.current);
+    return () => observer.disconnect();
+  }, []);
+
   return (
-    <section className="py-10 -mt-16 relative z-10 ">
+    <section
+      ref={sectionRef}
+      className="py-12 -mt-24 relative z-10 overflow-hidden"
+    >
       <div className="container mx-auto px-4">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-5xl mx-auto">
           {stats.map((stat, index) => {
             const colors = colorConfigs[index % colorConfigs.length];
             return (
@@ -230,10 +238,29 @@ export default function QuickStats({ stats, IconLoader }: QuickStatsProps) {
                 index={index}
                 colors={colors}
                 IconLoader={IconLoader}
+                shouldStart={hasBeenVisible}
               />
             );
           })}
         </div>
+      </div>
+
+      {/* Animation Keyframes */}
+      <div className="hidden">
+        <style>
+          {`
+            @keyframes slideInFromBottom {
+              from {
+                opacity: 0;
+                transform: translateY(100px);
+              }
+              to {
+                opacity: 1;
+                transform: translateY(0);
+              }
+            }
+          `}
+        </style>
       </div>
     </section>
   );
