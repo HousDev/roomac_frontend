@@ -362,8 +362,6 @@ export async function exportItemsToExcel() {
 }
 
 // ========== IMPORT FROM EXCEL ==========
-
-// Parse Excel file and import values
 export async function importValuesFromExcel(file: File, masterItemId: number): Promise<{ success: boolean; created: number; errors: string[] }> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -373,10 +371,12 @@ export async function importValuesFromExcel(file: File, masterItemId: number): P
         const data = new Uint8Array(e.target?.result as ArrayBuffer);
         const workbook = XLSX.read(data, { type: 'array' });
         
-        // Get the first sheet (excluding Instructions sheet)
+        // Get the first sheet (excluding Instructions sheet if present)
         const sheetName = workbook.SheetNames.find(name => name !== 'Instructions') || workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
         const jsonData = XLSX.utils.sheet_to_json(worksheet);
+        
+        console.log('Excel data:', jsonData); // Debug log
         
         const created: any[] = [];
         const errors: string[] = [];
@@ -391,19 +391,64 @@ export async function importValuesFromExcel(file: File, masterItemId: number): P
           return;
         }
         
+        // Get column names from first row
+        const firstRow = jsonData[0] as any;
+        const columnNames = Object.keys(firstRow);
+        console.log('Column names found:', columnNames);
+        
+        // Find the name column (case insensitive)
+        let nameColumn = columnNames.find(col => 
+          col.toLowerCase() === 'name' || 
+          col.toLowerCase() === 'value' || 
+          col.toLowerCase() === 'value name'
+        );
+        
+        // Find the status column (case insensitive)
+        let statusColumn = columnNames.find(col => 
+          col.toLowerCase() === 'status' || 
+          col.toLowerCase() === 'isactive' || 
+          col.toLowerCase() === 'is_active' ||
+          col.toLowerCase() === 'active'
+        );
+        
+        console.log('Name column detected:', nameColumn);
+        console.log('Status column detected:', statusColumn);
+        
         for (let i = 0; i < jsonData.length; i++) {
-          const row = jsonData[i];
+          const row = jsonData[i] as any;
           const rowNumber = i + 2; // +2 because 1-based and header row
           
           try {
-            // Check for required fields (case insensitive)
-            const name = (row as any)['Name'] || (row as any)['name'] || (row as any)['NAME'];
-            const status = (row as any)['Status'] || (row as any)['status'] || (row as any)['STATUS'] || 'Active';
+            // Try to get name from various possible column names
+            let name = null;
             
-            // Validate Name
-            if (!name || name.toString().trim() === '') {
+            if (nameColumn) {
+              name = row[nameColumn];
+            }
+            
+            // If still not found, try all common variations
+            if (!name) {
+              name = row['Name'] || row['name'] || row['NAME'] || 
+                     row['Value'] || row['value'] || row['VALUE'] ||
+                     row['Value Name'] || row['value name'] || row['VALUE NAME'];
+            }
+            
+            // Check if name exists (could be a number, so convert to string)
+            if (name === undefined || name === null || name.toString().trim() === '') {
               errors.push(`Row ${rowNumber}: Name is required`);
               continue;
+            }
+            
+            // Get status - try multiple column names
+            let status = 'Active'; // Default to Active
+            
+            if (statusColumn && row[statusColumn] !== undefined && row[statusColumn] !== null) {
+              status = row[statusColumn].toString();
+            } else {
+              // Try common variations
+              status = row['Status'] || row['status'] || row['STATUS'] ||
+                       row['IsActive'] || row['isactive'] || row['ISACTIVE'] ||
+                       row['Active'] || row['active'] || 'Active';
             }
             
             // Validate Status
@@ -414,22 +459,28 @@ export async function importValuesFromExcel(file: File, masterItemId: number): P
             }
             
             const isactive = statusStr === 'active' ? 1 : 0;
+            const nameValue = name.toString().trim();
+            
+            console.log(`Row ${rowNumber}: Creating value "${nameValue}" with status ${isactive}`);
             
             const response = await createMasterValue({
               master_item_id: masterItemId,
-              name: name.toString().trim(),
+              name: nameValue,
               isactive
             });
             
             if (response?.success) {
               created.push(response.data);
             } else {
-              errors.push(`Row ${rowNumber}: Failed to create "${name}" - ${response?.error || 'Unknown error'}`);
+              errors.push(`Row ${rowNumber}: Failed to create "${nameValue}" - ${response?.error || 'Unknown error'}`);
             }
           } catch (error: any) {
+            console.error(`Error processing row ${rowNumber}:`, error);
             errors.push(`Row ${rowNumber}: Error - ${error.message}`);
           }
         }
+        
+        console.log(`Import complete: ${created.length} created, ${errors.length} errors`);
         
         resolve({
           success: true,
@@ -437,6 +488,7 @@ export async function importValuesFromExcel(file: File, masterItemId: number): P
           errors
         });
       } catch (error: any) {
+        console.error('Failed to parse Excel file:', error);
         reject(new Error(`Failed to parse Excel file: ${error.message}`));
       }
     };

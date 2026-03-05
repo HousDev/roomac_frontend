@@ -46,13 +46,14 @@ export default function ProfileClient({ initialProfile, initialNotifications }: 
   
   // State for profile data
   const [profileData, setProfileData] = useState<ProfileData>(
-   { full_name: user.name,
-  email: user.email,
-  phone: user.phone,
-  role: user.role_name,
-  address: user.current_address,
-  bio: user.bio,
-  avatar_url: user.photo_url});
+  
+   { full_name: user?user.name : localStorage.getItem("auth_role"),
+  email: user?user.email : localStorage.getItem("auth_email"),
+  phone: user?user.phone : "",
+  role: user?user.role_name : localStorage.getItem("auth_role"),
+  address: user?user.current_address : "",
+  bio: user?user.bio : "",
+  avatar_url: user?user.photo_url :""});
   
   // State for password change
   const [passwordData, setPasswordData] = useState({
@@ -65,13 +66,13 @@ export default function ProfileClient({ initialProfile, initialNotifications }: 
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>(initialNotifications);
 
   useEffect(() => {
-setProfileData( { full_name: user.name,
-  email: user.email,
-  phone: user.phone,
-  role: user.role_name,
-  address: user.current_address,
-  bio: user.bio,
-  avatar_url: user.photo_url})
+setProfileData( { full_name: user?user.name : localStorage.getItem("auth_role"),
+  email: user?user.email : localStorage.getItem("auth_email"),
+  phone: user?user.phone : "",
+  role: user?user.role_name : localStorage.getItem("auth_role"),
+  address: user?user.current_address : "",
+  bio: user?user.bio : "",
+  avatar_url: user?user.photo_url :""})
   },[user])
   // Fetch fresh profile data
   const fetchProfile = useCallback(async () => {

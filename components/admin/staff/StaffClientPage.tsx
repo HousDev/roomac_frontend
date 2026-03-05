@@ -1,4 +1,3 @@
-// app/admin/staff/StaffClientPage.tsx
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
@@ -27,6 +26,7 @@ import {
   addStaff,
   updateStaff,
   deleteStaff,
+  deleteStaffDocument,
   createStaffFormData,
   toggleStaffActive,
   StaffMember,
@@ -148,11 +148,13 @@ export default function StaffClientPage({
     // Status
     is_active: true,
   });
+  
   // Add password errors state
   const [passwordErrors, setPasswordErrors] = useState<{
     password?: string;
     confirmPassword?: string;
   }>({});
+  
   // Validate password function
   const validatePassword = (password: string, confirmPassword: string) => {
     const errors: { password?: string; confirmPassword?: string } = {};
@@ -259,9 +261,6 @@ export default function StaffClientPage({
       scroll: false,
     });
   }, [searchTerm, roleFilter]);
-
-  // Handle form submission
-  // In StaffClientPage.tsx, update the handleSubmit function
 
   // Handle form submission
   const handleSubmit = async () => {
@@ -540,16 +539,61 @@ export default function StaffClientPage({
     [],
   );
 
-  // Handle remove document
+  // Handle remove document - UPDATED VERSION
   const handleRemoveDocument = useCallback(
-    (documentType: "aadhar_document" | "pan_document" | "photo") => {
-      setFormData((prev) => ({
-        ...prev,
-        [documentType]: null,
-      }));
-      toast.success(`${documentType.replace("_", " ")} removed`);
+    async (documentType: "aadhar_document" | "pan_document" | "photo") => {
+      try {
+        // If we're editing an existing staff member and there's a document URL
+        if (editingStaff && formData[`${documentType}_url`]) {
+          // Show loading toast
+          const loadingToast = toast.loading(`Removing ${documentType.replace("_", " ")}...`);
+          
+          // Call API to delete document from server
+          await deleteStaffDocument(editingStaff.id, documentType);
+          
+          // Update formData to clear both the file and URL
+          setFormData((prev) => {
+            const newFormData = {
+              ...prev,
+              [documentType]: null,
+              [`${documentType}_url`]: "", // Clear the URL
+            };
+            return newFormData;
+          });
+          
+          // Also update the editingStaff data to reflect the change
+          setEditingStaff((prev) => {
+            if (!prev) return null;
+            return {
+              ...prev,
+              [`${documentType}_url`]: "", // Clear the URL in editingStaff
+            };
+          });
+          
+          // Dismiss loading and show success
+          toast.dismiss(loadingToast);
+          toast.success(`${documentType.replace("_", " ")} removed successfully`);
+          
+          // Reload staff data to reflect changes in the table
+          await loadStaff();
+        } else {
+          // For new staff or if no document URL exists, just clear local state
+          setFormData((prev) => {
+            const newFormData = {
+              ...prev,
+              [documentType]: null,
+              [`${documentType}_url`]: "", // Clear the URL
+            };
+            return newFormData;
+          });
+          toast.success(`${documentType.replace("_", " ")} removed`);
+        }
+      } catch (error: any) {
+        console.error("Error removing document:", error);
+        toast.error(error.message || `Failed to remove ${documentType.replace("_", " ")}`);
+      }
     },
-    [],
+    [editingStaff, loadStaff], // Removed formData from dependencies
   );
 
   // Role badge color
@@ -656,6 +700,7 @@ export default function StaffClientPage({
             {/* Scrollable Body */}
             <div className="p-3 sm:p-4 md:p-6 overflow-y-auto max-h-[70vh] sm:max-h-[65vh] md:max-h-[70vh]">
               <StaffForm
+                key={editingStaff?.id ? `edit-${editingStaff.id}-${Date.now()}` : 'new'} // Dynamic key to force re-render
                 formData={formData}
                 setFormData={setFormData}
                 editingStaff={editingStaff}

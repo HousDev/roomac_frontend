@@ -321,7 +321,7 @@ export default function PropertyForm({
   onReset,
   loading,
 }: PropertyFormProps) {
-  console.log(selectedProperty)
+  console.log("sleelcted prpertiessssssssssssssssssssssssssss",selectedProperty)
   const [activeTab, setActiveTab] = useState("basic");
   const [formData, setFormData] = useState<PropertyFormData>({
     name: "",
@@ -380,6 +380,12 @@ export default function PropertyForm({
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
   const tabs = ["basic", "amenities", "terms", "photos"];
+
+
+  useEffect( () =>{
+    console.log("from useeffect", selectedProperty)
+    console.log("from useeffect",formData)
+  },[formData])
 
   const goToNextTab = () => {
     const currentIndex = tabs.indexOf(activeTab);
@@ -586,16 +592,18 @@ useEffect(() => {
     const matchingStaff =
       staffList.find((s) => String(s.id) === String(selectedProperty.staff_id)) ||
       staffList.find((s) => s.name === selectedProperty.property_manager_name);
+      
 
+      console.log("Select property from property form ", selectedProperty)
     if (matchingStaff) {
       setSelectedStaff(matchingStaff);
       setSelectedStaffId(String(matchingStaff.id));
-      setManagerRole(matchingStaff.role || "");
+      setManagerRole(matchingStaff.role_name || "");
       setManagerEmail(matchingStaff.email || "");
     } else {
       setSelectedStaff(null);
       setSelectedStaffId(selectedProperty.staff_id ? String(selectedProperty.staff_id) : "");
-      setManagerRole(selectedProperty.property_manager_role || "");
+      setManagerRole(selectedProperty.role_name || "");
       setManagerEmail(selectedProperty.property_manager_email || "");
     }
   } else {
@@ -993,7 +1001,7 @@ const initializeFormWithMasters = () => {
   if (matchingStaff) {
     setSelectedStaff(matchingStaff);
     setSelectedStaffId(String(matchingStaff.id));
-    setManagerRole(matchingStaff.role || "");
+    setManagerRole(selectedProperty.role_name || "");
     setManagerEmail(matchingStaff.email || "");
   } else {
     setSelectedStaff(null);
@@ -1032,6 +1040,7 @@ useEffect(() => {
   const handleStaffSelect = (staffId: string) => {
     setSelectedStaffId(staffId);
     const staff = staffList.find((s) => String(s.id) === staffId);
+    console.log("Stafffffffffff",staff)
     if (staff) {
       setSelectedStaff(staff);
       const fullName = staff.name || "";
@@ -1043,7 +1052,7 @@ useEffect(() => {
         property_manager_role: staff.role || "",
         staff_id: staffId,
       }));
-      setManagerRole(staff.role || "");
+      setManagerRole(staff.role_name || "");
       setManagerEmail(staff.email || "");
     }
   };
@@ -1133,8 +1142,7 @@ const handleSubmit = async () => {
     .filter(Boolean);
 
   const allTerms = [
-    ...templateTerms,
-    ...customTerms.map((term) => `📝 Custom Term\n${term}`),
+    templateTerms.length===0?formData.terms_conditions:templateTerms
   ]
     .filter(Boolean)
     .join("\n\n");
@@ -1248,8 +1256,7 @@ const handleSubmit = async () => {
       .filter(Boolean);
 
     const allTerms = [
-      ...templateTerms,
-      ...customTerms.map((term) => `📝 Custom Term\n${term}`),
+      templateTerms
     ].join("\n\n");
     setFormData((prev) => ({ ...prev, terms_conditions: allTerms }));
   };
@@ -1317,7 +1324,7 @@ const handleSubmit = async () => {
           </TabsList>
 
           {/* Basic Info Tab */}
-          <TabsContent value="basic" className="space-y-2 md:space-y-3 mt-0 min-h-[400px] md:min-h-[500px] overflow-y-auto">
+          <TabsContent value="basic" className="space-y-2 md:space-y-3 mt-0 min-h-[400px] md:min-h-[500px]">
             {error && (
               <div className="bg-red-50 border border-red-200 rounded-lg p-2 md:p-2.5 mb-2">
                 <p className="text-[10px] md:text-xs text-red-600 font-medium">{error}</p>

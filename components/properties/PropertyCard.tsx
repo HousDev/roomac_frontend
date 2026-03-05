@@ -110,11 +110,11 @@ const PropertyCard = memo(function PropertyCard({
   const propertyTags = (() => {
     const possibleTagSources = [
       property.transformedData?.tags,
-      property.tags,
       property.property_tags,
       property.category_tags,
       property.labels,
-      property.tag_list
+      property.tag_list,
+      property.tags_mapped
     ];
     
     for (const source of possibleTagSources) {

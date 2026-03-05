@@ -113,6 +113,8 @@ function PropertyDetailsContent({ slug }: { slug: string }) {
             propertyData = transformPropertyData(response.data);
           }
         }
+console.log("property dattaa", propertyData);
+
 
         // METHOD 2: If that fails, try parsing as numeric ID
         if (!cancelled && !propertyData) {
@@ -124,10 +126,13 @@ function PropertyDetailsContent({ slug }: { slug: string }) {
             }
           }
         }
+        
+
 
         // METHOD 3: Try to find by name in the list
         if (!cancelled && !propertyData) {
           const allPropertiesResponse = await listProperties();
+          
           if (allPropertiesResponse.success && allPropertiesResponse.data) {
             const list = Array.isArray((allPropertiesResponse.data as any))
               ? (allPropertiesResponse.data as any)
@@ -143,14 +148,16 @@ function PropertyDetailsContent({ slug }: { slug: string }) {
               (p.name || '').toLowerCase().includes(searchName) ||
               (p.name || '').toLowerCase().replace(/\s+/g, '-') === slug
             );
+
             
             if (foundProperty) {
               const byIdResponse = await getProperty(String(foundProperty.id));
               const fullProperty = byIdResponse.success && byIdResponse.data 
-                ? byIdResponse.data 
-                : foundProperty;
+              ? byIdResponse.data 
+              : foundProperty;
               propertyData = transformPropertyData(fullProperty);
             }
+          
           }
         }
 
