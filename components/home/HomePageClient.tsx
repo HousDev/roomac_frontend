@@ -1607,9 +1607,59 @@ function AboutUsSection() {
 }
 
 function FeaturesSection({ features }: { features: any[] }) {
+  // Light pastel color classes for different features
+  const getFeatureColor = (index: number, title: string) => {
+    const lower = title.toLowerCase();
+    
+    // WiFi - Blue shades
+    if (lower.includes('wifi') || lower.includes('internet'))
+      return "bg-blue-50 text-blue-600";
+    
+    // Food/Meals - Orange/Amber shades
+    if (lower.includes('meal') || lower.includes('food'))
+      return "bg-orange-50 text-orange-600";
+    
+    // Security - Red shades
+    if (lower.includes('security') || lower.includes('safety'))
+      return "bg-red-50 text-red-600";
+    
+    // Housekeeping/Cleaning - Purple shades
+    if (lower.includes('housekeeping') || lower.includes('cleaning'))
+      return "bg-purple-50 text-purple-600";
+    
+    // Parking - Green shades
+    if (lower.includes('parking') || lower.includes('car'))
+      return "bg-green-50 text-green-600";
+    
+    // Power Backup - Amber shades
+    if (lower.includes('power') || lower.includes('backup') || lower.includes('electricity'))
+      return "bg-amber-50 text-amber-600";
+    
+    // Furnished - Pink shades
+    if (lower.includes('furnished') || lower.includes('furniture'))
+      return "bg-pink-50 text-pink-600";
+    
+    // Community/Events - Indigo shades
+    if (lower.includes('community') || lower.includes('event'))
+      return "bg-indigo-50 text-indigo-600";
+    
+    // Default - Cycle through colors based on index
+    const colors = [
+      "bg-blue-50 text-blue-600",
+      "bg-purple-50 text-purple-600",
+      "bg-green-50 text-green-600",
+      "bg-amber-50 text-amber-600",
+      "bg-pink-50 text-pink-600",
+      "bg-indigo-50 text-indigo-600",
+      "bg-cyan-50 text-cyan-600",
+      "bg-orange-50 text-orange-600",
+    ];
+    return colors[index % colors.length];
+  };
+
   return (
     <ScrollAnimation>
-      <section className="relative  sm:py-10 mt-4 mb-0 bg-white px-4 sm:px-6">
+      <section className="relative sm:py-10 mt-4 mb-0 bg-white px-4 sm:px-6">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">
           
           {/* Header Section - Minimal with brand colors */}
@@ -1635,36 +1685,36 @@ function FeaturesSection({ features }: { features: any[] }) {
           
           {/* Features Grid - Clean Cards */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 md:gap-6">
-            {features.map((item, i) => (
-              <ScrollAnimation key={i} delay={i * 0.05}>
-                <FeatureCardMinimal {...item} index={i} />
-              </ScrollAnimation>
-            ))}
+            {features.map((item, i) => {
+              const colorClass = getFeatureColor(i, item.title);
+              
+              return (
+                <ScrollAnimation key={i} delay={i * 0.05}>
+                  <FeatureCardMinimal 
+                    {...item} 
+                    index={i} 
+                    colorClass={colorClass} 
+                  />
+                </ScrollAnimation>
+              );
+            })}
           </div>
-          
-          {/* Subtle view all link */}
-          {/* <div className="flex justify-center mt-12">
-            <Link href="/amenities" className="inline-flex items-center gap-2 text-xs sm:text-sm text-slate-400 hover:text-[#0049b0] transition-colors duration-300 group">
-              View all amenities
-              <ArrowRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" />
-            </Link>
-          </div> */}
         </div>
       </section>
     </ScrollAnimation>
   );
 }
 
-// Minimal Feature Card Component with Brand Colors
-function FeatureCardMinimal({ icon: Icon, title, desc, index }: any) {
+// Update FeatureCardMinimal component to accept colorClass prop
+function FeatureCardMinimal({ icon: Icon, title, desc, index, colorClass }: any) {
   return (
     <div className="group h-full">
       <div className="flex flex-col items-center text-center p-5 sm:p-6 md:p-7 bg-white hover:bg-slate-50 rounded-xl transition-all duration-300 h-full">
         
-        {/* Icon - Clean circle with brand blue */}
+        {/* Icon - Clean circle with dynamic color */}
         <div className="relative mb-4">
-          <div className="w-14 h-14 sm:w-16 sm:h-16 md:w-18 md:h-18 rounded-full bg-[#0049b0]/5 group-hover:bg-[#0049b0] flex items-center justify-center transition-all duration-300">
-            <Icon className="h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8 text-[#0049b0] group-hover:text-white transition-all duration-300" strokeWidth={1.5} />
+          <div className={`w-14 h-14 sm:w-16 sm:h-16 md:w-18 md:h-18 rounded-full flex items-center justify-center transition-all duration-300 ${colorClass} group-hover:scale-105`}>
+            <Icon className="h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8" strokeWidth={1.5} />
           </div>
           
           {/* Small yellow dot accent - appears on every 3rd card */}
