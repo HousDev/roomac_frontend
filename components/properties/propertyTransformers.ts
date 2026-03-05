@@ -22,6 +22,8 @@ export const getImageUrl = (imagePath: string | null | undefined) => {
 };
 
 export const transformPropertyData = (property: any) => {
+  console.log('Raw property from backend:', property);
+  
   const defaultImages = [
     "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800",
     "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=800",
@@ -34,70 +36,40 @@ export const transformPropertyData = (property: any) => {
     ? `${API_URL}/uploads/staff-documents/${property.manager_photo_url.replace(/^\//, '')}`
     : `${API_URL}/uploads/staff/default.png`;
 
-  // Extract tags from property
-  let propertyTags: string[] = [];
-  
-  if (property.tags && Array.isArray(property.tags)) {
-    propertyTags = property.tags;
-  } else if (property.property_tags && Array.isArray(property.property_tags)) {
-    propertyTags = property.property_tags;
-  } else if (property.category_tags && Array.isArray(property.category_tags)) {
-    propertyTags = property.category_tags;
-  } else if (property.labels && Array.isArray(property.labels)) {
-    propertyTags = property.labels;
-  } else if (property.tag_list && Array.isArray(property.tag_list)) {
-    propertyTags = property.tag_list;
-  }
+  // Use mapped values from backend if available, otherwise fallback to original
+  const propertyTags = property.tags_mapped || property.tags || [];
+  const propertyRules = property.property_rules_mapped || property.property_rules || [];
+  const additionalTerms = property.additional_terms_mapped || property.additional_terms || [];
   
   const nearbyNames = property.nearbyPlaces?.map((p: any) => p.name) || [];
 
   // Log raw data for debugging
-  console.log('Raw property terms data:', {
-    terms_conditions: property.terms_conditions,
-    property_rules: property.property_rules,
-    additional_terms: property.additional_terms,
-    terms_json: property.terms_json
+  console.log('Mapped property data:', {
+    tags: propertyTags,
+    property_rules: propertyRules,
+    additional_terms: additionalTerms,
+    original_tags: property.tags_mapped,
+    original_rules: property.property_rules,
+    original_additional: property.additional_terms
   });
 
-  // Parse property_rules - these come from MultiSelect in Photos tab
-  let propertyRules = [];
-  if (property.property_rules) {
+  // Ensure arrays are properly formatted
+  const ensureArray = (data: any): any[] => {
+    if (!data) return [];
+    if (Array.isArray(data)) return data;
     try {
-      propertyRules = typeof property.property_rules === 'string' 
-        ? JSON.parse(property.property_rules) 
-        : property.property_rules;
-      
-      // Ensure it's an array
-      if (!Array.isArray(propertyRules)) {
-        propertyRules = [propertyRules];
-      }
-    } catch (e) {
-      // If not JSON, treat as array of strings
-      propertyRules = Array.isArray(property.property_rules) 
-        ? property.property_rules 
-        : [property.property_rules];
+      const parsed = JSON.parse(data);
+      return Array.isArray(parsed) ? parsed : [parsed];
+    } catch {
+      return typeof data === 'string' ? [data] : [];
     }
-  }
+  };
 
-  // Parse additional_terms - these come from MultiSelect in Photos tab
-  let additionalTerms = [];
-  if (property.additional_terms) {
-    try {
-      additionalTerms = typeof property.additional_terms === 'string'
-        ? JSON.parse(property.additional_terms)
-        : property.additional_terms;
-      
-      // Ensure it's an array
-      if (!Array.isArray(additionalTerms)) {
-        additionalTerms = [additionalTerms];
-      }
-    } catch (e) {
-      // If not JSON, treat as array of strings
-      additionalTerms = Array.isArray(property.additional_terms) 
-        ? property.additional_terms 
-        : [property.additional_terms];
-    }
-  }
+  // Parse property_rules if they're still strings
+  let parsedPropertyRules = ensureArray(propertyRules);
+  
+  // Parse additional_terms if they're still strings
+  let parsedAdditionalTerms = ensureArray(additionalTerms);
 
   // Parse terms_conditions - this comes from the Terms tab with template format
   let generalTerms = [];
@@ -207,9 +179,10 @@ export const transformPropertyData = (property: any) => {
 
   console.log('Transformed terms:', {
     generalTerms,
-    propertyRules,
-    additionalTerms,
-    customTerms
+    propertyRules: parsedPropertyRules,
+    additionalTerms: parsedAdditionalTerms,
+    customTerms,
+    tags: propertyTags
   });
 
   return {
@@ -221,7 +194,8 @@ export const transformPropertyData = (property: any) => {
     property_type: property.property_type || "PG",
     nearby_places: property.nearbyPlaces || [],
     nearby_names: nearbyNames,
-    tags: propertyTags,
+    tags: propertyTags, // Mapped values from backend
+    role_name:property.role_name,
     images: property.photo_urls && property.photo_urls.length > 0 
       ? property.photo_urls.map((url: string) => getImageUrl(url))
       : defaultImages,
@@ -294,8 +268,8 @@ export const transformPropertyData = (property: any) => {
     ],
 
     // Now properly separated based on your form structure
-    propertyRules: propertyRules, // From MultiSelect in Photos tab
-    additionalTerms: additionalTerms, // From MultiSelect in Photos tab
+    propertyRules: parsedPropertyRules, // Mapped values from backend
+    additionalTerms: parsedAdditionalTerms, // Mapped values from backend
     termsAndConditions: generalTerms, // Numbered items from template sections in Terms tab
     customTerms: customTerms, // Custom terms from the "📝 Custom Term" section in Terms tab
 
@@ -356,7 +330,12 @@ export const transformPropertyData = (property: any) => {
     occupiedBeds: property.occupied_beds || 15,
     dailyRate: 500,
     startingPrice: property.starting_price || 5500,
-    id: property.id
+    id: property.id,
+    
+    // Also include original IDs if needed for debugging or other purposes
+    original_tags: property.tags,
+    original_property_rules: property.property_rules,
+    original_additional_terms: property.additional_terms
   };
 };
 

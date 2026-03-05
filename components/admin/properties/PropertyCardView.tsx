@@ -98,6 +98,7 @@ export default function PropertyCardView({ properties }: PropertyCardViewProps) 
   };
 
   const handleEdit = (property: Property) => {
+    console.log("proopertey from handle edit", property)
     setSelectedProperty(property);
     setEditMode(true);
     setDialogOpen(true);

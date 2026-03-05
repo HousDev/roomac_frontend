@@ -1,4 +1,3 @@
-// app/admin/staff/components/StaffForm.tsx
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -727,7 +726,7 @@ const StaffForm = ({
           </div>
         </div>
 
-        {/* Documents Upload Section */}
+        {/* Documents Upload Section - UPDATED WITH BETTER CONDITIONS */}
         <div className="border-t pt-3 sm:pt-4 space-y-2 sm:space-y-3">
           <div className="flex items-center gap-1.5 sm:gap-2">
             <Upload className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-purple-500" />
@@ -744,7 +743,8 @@ const StaffForm = ({
                 onChange={(e) => handleFileUpload(e, 'aadhar_document')}
                 className="cursor-pointer h-8 sm:h-9 md:h-10 text-[10px] sm:text-xs"
               />
-              {(formData.aadhar_document_url || formData.aadhar_document) && (
+              {/* Check if there's either a new file OR an existing URL that's not empty */}
+              {(formData.aadhar_document || (formData.aadhar_document_url && formData.aadhar_document_url.trim() !== '')) && (
                 <div className="flex items-center justify-between text-[10px] sm:text-xs p-1.5 sm:p-2 bg-gray-50 rounded mt-1">
                   <span className="truncate max-w-[150px] sm:max-w-[200px]">
                     {formData.aadhar_document 
@@ -786,7 +786,7 @@ const StaffForm = ({
                 onChange={(e) => handleFileUpload(e, 'pan_document')}
                 className="cursor-pointer h-8 sm:h-9 md:h-10 text-[10px] sm:text-xs"
               />
-              {(formData.pan_document_url || formData.pan_document) && (
+              {(formData.pan_document || (formData.pan_document_url && formData.pan_document_url.trim() !== '')) && (
                 <div className="flex items-center justify-between text-[10px] sm:text-xs p-1.5 sm:p-2 bg-gray-50 rounded mt-1">
                   <span className="truncate max-w-[150px] sm:max-w-[200px]">
                     {formData.pan_document 
@@ -828,7 +828,7 @@ const StaffForm = ({
                 onChange={(e) => handleFileUpload(e, 'photo')}
                 className="cursor-pointer h-8 sm:h-9 md:h-10 text-[10px] sm:text-xs"
               />
-              {(formData.photo_url || formData.photo) && (
+              {(formData.photo || (formData.photo_url && formData.photo_url.trim() !== '')) && (
                 <div className="flex items-center justify-between text-[10px] sm:text-xs p-1.5 sm:p-2 bg-gray-50 rounded mt-1">
                   <span className="truncate max-w-[150px] sm:max-w-[200px]">
                     {formData.photo 
