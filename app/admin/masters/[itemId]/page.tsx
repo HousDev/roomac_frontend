@@ -1,9 +1,7 @@
-
-// app/admin/masters/[itemId]/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useLocation } from "react-router-dom"; // Change imports
 import { getMasterItems, getMasterValues } from "@/lib/masterApi";
 import ValuesClient from "@/components/admin/masters/[itemId]/ValuesClient";
 import Loading from "@/components/admin/masters/[itemId]/loading";
@@ -11,7 +9,12 @@ import ErrorComponent from "@/components/admin/masters/[itemId]/error";
 
 export default function MasterValuesPage() {
   const params = useParams();
+  const location = useLocation(); // Use useLocation instead of useSearchParams
   const itemId = params?.itemId as string;
+  
+  // Parse query params from location
+  const queryParams = new URLSearchParams(location.search);
+  const returnTab = queryParams.get('tab');
   
   const [masterItem, setMasterItem] = useState<any>(null);
   const [initialValues, setInitialValues] = useState<any[]>([]);
@@ -27,7 +30,6 @@ export default function MasterValuesPage() {
 
     const fetchData = async () => {
       try {
-        
         // Get all items and find the one we need
         const itemsRes = await getMasterItems();
         
@@ -62,5 +64,5 @@ export default function MasterValuesPage() {
   if (error) return <ErrorComponent error={error} />;
   if (!masterItem) return <ErrorComponent error={new Error("Master item not found")} />;
   
-  return <ValuesClient masterItem={masterItem} initialValues={initialValues} />;
+  return <ValuesClient masterItem={masterItem} initialValues={initialValues} returnTab={returnTab || undefined} />;
 }

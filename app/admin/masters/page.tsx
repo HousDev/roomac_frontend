@@ -1,8 +1,7 @@
-// app/admin/masters/page.tsx
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useNavigate, useLocation } from "react-router-dom"; // Change this import
 import {
   getMasterItems,
   createMasterItem,
@@ -27,11 +26,18 @@ interface MasterItem {
 }
 
 export default function MasterItemsPage() {
-  const router = useRouter();
+  const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Parse query params from location
+  const queryParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
   
   // State
   const [items, setItems] = useState<MasterItem[]>([]);
-  const [activeTab, setActiveTab] = useState<string>(STATIC_TABS[0].name);
+  // Initialize activeTab from URL query param or default to "Common"
+  const [activeTab, setActiveTab] = useState<string>(
+    queryParams.get('tab') || STATIC_TABS[0].name
+  );
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -49,18 +55,24 @@ export default function MasterItemsPage() {
     isactive: 1,
   });
 
+  // Update URL when tab changes
+  const handleTabChange = (tabName: string) => {
+    setActiveTab(tabName);
+    // Update URL query param without navigating
+    const params = new URLSearchParams(location.search);
+    params.set('tab', tabName);
+    navigate(`/admin/masters?${params.toString()}`, { replace: true }); // Use replace to avoid history stack clutter
+  };
+
   // Load items
   const loadItems = useCallback(async () => {
     setLoading(true);
     try {
       const response = await getMasterItems();
       
-      // Check the response structure from your backend
-      // Your backend returns { success: true, data: [...] }
       if (response?.success && Array.isArray(response.data)) {
         setItems(response.data);
       } else if (Array.isArray(response)) {
-        // If response is directly an array
         setItems(response);
       } else {
         console.error("Unexpected response format:", response);
@@ -100,7 +112,6 @@ export default function MasterItemsPage() {
 
   // Handle create/edit item
   const handleItemSubmit = useCallback(async () => {
-    
     if (!itemFormData.name.trim()) {
       alert("Please enter an item name");
       return;
@@ -111,14 +122,12 @@ export default function MasterItemsPage() {
       let response;
       
       if (itemFormData.id) {
-        // Update existing item
         response = await updateMasterItem(itemFormData.id, {
           name: itemFormData.name.trim(),
           isactive: itemFormData.isactive,
           tab_name: itemFormData.tab_name
         });
       } else {
-        // Create new item
         response = await createMasterItem({
           tab_name: itemFormData.tab_name,
           name: itemFormData.name.trim(),
@@ -126,8 +135,6 @@ export default function MasterItemsPage() {
         });
       }
       
-      
-      // Check response based on your API structure
       if (response?.success) {
         await loadItems();
         setShowItemForm(false);
@@ -196,6 +203,11 @@ export default function MasterItemsPage() {
     setShowItemForm(true);
   };
 
+  // Handle view values - pass current tab to values page
+  const handleViewValues = (id: number, name: string) => {
+    navigate(`/admin/masters/${id}?tab=${encodeURIComponent(activeTab)}&name=${encodeURIComponent(name)}`);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Header
@@ -211,7 +223,7 @@ export default function MasterItemsPage() {
         {/* Horizontal Tabs */}
         <HorizontalTabList
           activeTab={activeTab}
-          onTabClick={setActiveTab}
+          onTabClick={handleTabChange}
           itemCounts={itemCounts}
         />
 
@@ -221,7 +233,7 @@ export default function MasterItemsPage() {
           loading={loading}
           onEditItem={handleEditItem}
           onDeleteItem={handleDeleteClick}
-          onViewValues={(id, name) => router.push(`/admin/masters/${id}?name=${encodeURIComponent(name)}`)}
+          onViewValues={handleViewValues}
           onNewItem={handleNewItem}
         />
       </div>

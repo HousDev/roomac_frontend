@@ -2432,7 +2432,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, RefreshCw, Download, CheckCircle, XCircle, UserX, Trash2, Filter, SlidersHorizontal, MoreVertical, Eye, Edit, Key, Mail, Phone, Building, Bed, MapPin, Users, FileText, IndianRupee, CheckSquare, Square, Search, X, Briefcase, Building2, Globe, LogIn, ShieldCheck, Users2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, } from "lucide-react";
+import { Plus, RefreshCw, Download, CheckCircle, XCircle, UserX, Trash2, Filter, SlidersHorizontal, MoreVertical, Eye, Edit, Key, Mail, Phone, Building, Bed, MapPin, Users, FileText, IndianRupee, CheckSquare, Square, Search, X, Briefcase, Building2, Globe, LogIn, ShieldCheck, Users2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Upload, } from "lucide-react";
 import { toast } from "sonner";
 import { deleteTenant, bulkDeleteTenants, bulkUpdateTenantStatus, bulkUpdateTenantPortalAccess, updateTenantSimple, createCredential, resetCredential, exportTenantsToExcel, listTenants, type Tenant, type TenantFilters, } from "@/lib/tenantApi";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, } from "@/components/ui/select";
@@ -2442,6 +2442,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { DataTable } from "@/components/admin/data-table";
 import type { Column, FilterConfig, BulkAction, ActionButton } from "@/components/admin/data-table";
 import { TenantForm } from "@/components/admin/tenants/tenant-form";
+import TenantImportModal from "./tenant-import-modal";
 
 interface TenantsClientProps {
   initialData: Tenant[];
@@ -2472,6 +2473,10 @@ const [selectedTenantIds, setSelectedTenantIds] = useState<string[]>([]);  const
   const [pageSize, setPageSize] = useState(25);
 
 const filtersRef = useRef<TenantFilters>({});
+
+const [showImportModal, setShowImportModal] = useState(false);
+const [importing, setImporting] = useState(false);
+
 
 const [filters, setFiltersState] = useState<TenantFilters>({});
   // Column search for the header
@@ -2562,6 +2567,47 @@ const [filters, setFiltersState] = useState<TenantFilters>({});
     setFiltersState(newFilters);
     loadTenants(newFilters);
   }, [columnSearch, loadTenants]);
+
+
+  // Add import handler
+const handleImportClick = useCallback(() => {
+  setShowImportModal(true);
+}, []);
+
+// Add import file handler
+const handleImportFile = async (file: File) => {
+  setImporting(true);
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+    const response = await fetch(`${apiUrl}/api/tenants/import`, {
+      method: 'POST',
+      body: formData,
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      toast.success(`Successfully imported ${result.count} tenants`);
+      setShowImportModal(false);
+      await loadTenants(); // Refresh the tenants list
+      
+      if (result.errors && result.errors.length > 0) {
+        console.warn('Import errors:', result.errors);
+        // You could show these in a separate dialog if needed
+      }
+    } else {
+      throw new Error(result.message || 'Import failed');
+    }
+  } catch (error: any) {
+    console.error('Import error:', error);
+    toast.error(error.message || 'Failed to import tenants');
+  } finally {
+    setImporting(false);
+  }
+};
 
   // Handle column search change with debounce
   useEffect(() => {
@@ -3513,6 +3559,16 @@ const columns: Column<Tenant>[] = useMemo(() => [    {
               Export
             </Button>
 
+<Button
+  variant="ghost"
+  size="sm"
+  className="h-7 px-2.5 text-white/80 hover:text-white hover:bg-white/20 rounded-lg text-xs"
+  onClick={handleImportClick}
+>
+  <Upload className="w-3.5 h-3.5 mr-1" />
+  Import
+</Button>
+
             {/* Add Tenant Button */}
             <Button
               size="sm"
@@ -3600,6 +3656,9 @@ const columns: Column<Tenant>[] = useMemo(() => [    {
             </DropdownMenu>
             <Button variant="ghost" size="sm" className="h-7 px-2 text-white/80 hover:bg-white/20 rounded-lg text-xs" onClick={handleExportToExcel}>
               <Download className="w-3 h-3 mr-1" />Export
+            </Button>
+            <Button variant="ghost" size="sm" className="h-7 px-2 text-white/80 hover:bg-white/20 rounded-lg text-xs" onClick={handleImportClick}>
+              <Download className="w-3 h-3 mr-1" />Import
             </Button>
             <Button size="sm" className="h-7 px-2.5 bg-white text-blue-700 hover:bg-blue-50 rounded-lg text-xs font-semibold" onClick={() => setIsAddDialogOpen(true)}>
               <Plus className="w-3 h-3 mr-1" />Add Tenant
@@ -4319,6 +4378,13 @@ const columns: Column<Tenant>[] = useMemo(() => [    {
           </DialogContent>
         </Dialog>
       )}
+
+      <TenantImportModal
+      isOpen={showImportModal}
+      onClose={() => setShowImportModal(false)}
+      onImport={handleImportFile}
+      importing={importing}
+    />
     </Card>
   );
 }

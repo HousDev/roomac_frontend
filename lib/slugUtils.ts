@@ -2,13 +2,16 @@
 import { v4 as uuidv4 } from 'uuid'; // Install: npm install uuid @types/uuid
 
 export function generatePropertySlug(property: {
-  name: string;
+  name?: string | null;
   area?: string | null;
   city?: string | null;
   id: string | number;
 }): string {
   
-  const nameSlug = property.name
+  // Handle case when property or property.name is undefined
+  const propertyName = property?.name || 'property';
+  
+  const nameSlug = propertyName
     .toLowerCase()
     .replace(/[^\w\s-]/g, '')
     .replace(/\s+/g, '-')
@@ -18,13 +21,13 @@ export function generatePropertySlug(property: {
 
   const locationParts = [];
   
-  if (property.area && property.area !== 'null' && property.area.trim() !== '') {
+  if (property?.area && property.area !== 'null' && property.area?.trim() !== '') {
     locationParts.push(property.area.toLowerCase()
       .replace(/\s+/g, '-')
       .replace(/[^\w-]/g, ''));
   }
   
-  if (property.city && property.city !== 'null' && property.city.trim() !== '') {
+  if (property?.city && property.city !== 'null' && property.city?.trim() !== '') {
     locationParts.push(property.city.toLowerCase()
       .replace(/\s+/g, '-')
       .replace(/[^\w-]/g, ''));
@@ -38,12 +41,14 @@ export function generatePropertySlug(property: {
     components.push('pg');
   }
   
-  components.push(property.id.toString());
+  components.push(property?.id?.toString() || '0');
 
   return components.join('-');
 }
 
 export function extractIdFromSlug(slug: string): string | null {
+  if (!slug) return null;
+  
   const parts = slug.split('-');
   const lastPart = parts[parts.length - 1];
   
@@ -61,6 +66,8 @@ export function generateTrackingId(): string {
 
 // Store or retrieve tracking ID from localStorage/session
 export function getOrCreateTrackingId(propertyId: string | number): string {
+  if (!propertyId) return generateTrackingId();
+  
   const storageKey = `property_tracking_${propertyId}`;
   let trackingId = localStorage.getItem(storageKey);
   

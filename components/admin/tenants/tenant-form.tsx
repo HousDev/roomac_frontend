@@ -2299,7 +2299,8 @@ import {
   AlertTriangle,
   Clock3,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Mail 
 } from "lucide-react";
 import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -2383,6 +2384,9 @@ export function TenantForm({ tenant, onSuccess, onCancel }: TenantFormProps) {
   const [additionalFiles, setAdditionalFiles] = useState<File[]>([]);
   const [selectedPropertyDetails, setSelectedPropertyDetails] = useState<Property | null>(null);
   const [useCustomTerms, setUseCustomTerms] = useState(false);
+  // Add these new state variables for password visibility
+const [showPassword, setShowPassword] = useState(false);
+const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Existing files from tenant
   const [existingFiles, setExistingFiles] = useState({
@@ -4306,212 +4310,306 @@ export function TenantForm({ tenant, onSuccess, onCancel }: TenantFormProps) {
           </TabsContent>
 
           {/* Credentials Tab */}
-          <TabsContent value="credentials" className="mt-0 space-y-4">
-            <Card>
-              <CardHeader className="bg-emerald-50 py-3">
-                <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
-                  <Key className="h-4 w-4" />
-                  Login Credentials
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-4">
-                <div className="space-y-4">
-                  {/* Current Credential Status */}
-                  {tenant?.has_credentials ? (
-                    <Alert className="bg-blue-50 border-blue-200 py-2">
-                      <div className="flex items-start gap-2">
-                        <Shield className="h-4 w-4 text-blue-600 mt-0.5" />
-                        <div>
-                          <h4 className="font-medium text-blue-800 text-xs sm:text-sm">Login Already Configured</h4>
-                          <p className="text-[10px] sm:text-xs text-blue-700 mt-0.5">
-                            Tenant already has portal access. To reset password, set a new password below.
-                          </p>
-                          <div className="mt-2 space-y-0.5">
-                            <p className="text-[10px] sm:text-xs">
-                              <span className="font-medium">Email:</span> {tenant.credential_email || tenant.email}
-                            </p>
-                            <p className="text-[10px] sm:text-xs">
-                              <span className="font-medium">Status:</span>{" "}
-                              <Badge variant="outline" className="bg-green-100 text-green-800 text-[10px] sm:text-xs">
-                                Active
-                              </Badge>
-                            </p>
-                            {/* Show existing password with eye toggle */}
-                            <div className="mt-2">
-                              <p className="text-[10px] sm:text-xs font-medium">Current Password:</p>
-                              <div className="flex items-center gap-2 mt-1">
-                                <div className="relative flex-1 max-w-[200px]">
-                                  <Input
-                                    type={showExistingPassword ? "text" : "password"}
-                                    value={existingPassword}
-                                    readOnly
-                                    disabled
-                                    className="h-8 sm:h-9 text-xs sm:text-sm bg-gray-50 pr-8"
-                                  />
-                                  <button
-                                    type="button"
-                                    onClick={() => setShowExistingPassword(!showExistingPassword)}
-                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                                  >
-                                    {showExistingPassword ? (
-                                      <EyeOff className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                                    ) : (
-                                      <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                                    )}
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
+<TabsContent value="credentials" className="mt-0 space-y-4">
+  <Card>
+    <CardHeader className="bg-emerald-50 py-3">
+      <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
+        <Key className="h-4 w-4" />
+        Login Credentials
+      </CardTitle>
+    </CardHeader>
+    <CardContent className="pt-4">
+      <div className="space-y-4">
+        {/* Current Credential Status */}
+        {tenant?.has_credentials ? (
+          <Alert className="bg-blue-50 border-blue-200 py-2">
+            <div className="flex items-start gap-2">
+              <Shield className="h-4 w-4 text-blue-600 mt-0.5" />
+              <div>
+                <h4 className="font-medium text-blue-800 text-xs sm:text-sm">Login Already Configured</h4>
+                <p className="text-[10px] sm:text-xs text-blue-700 mt-0.5">
+                  Tenant already has portal access. To reset password, set a new password below.
+                </p>
+                <div className="mt-2 space-y-0.5">
+                  <p className="text-[10px] sm:text-xs">
+                    <span className="font-medium">Email:</span> {tenant.credential_email || tenant.email}
+                  </p>
+                  <p className="text-[10px] sm:text-xs">
+                    <span className="font-medium">Status:</span>{" "}
+                    <Badge variant="outline" className="bg-green-100 text-green-800 text-[10px] sm:text-xs">
+                      Active
+                    </Badge>
+                  </p>
+                  {/* Show existing password with eye toggle */}
+                  <div className="mt-2">
+                    <p className="text-[10px] sm:text-xs font-medium">Current Password:</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <div className="relative flex-1 max-w-[200px]">
+                        <Input
+                          type={showExistingPassword ? "text" : "password"}
+                          value={existingPassword}
+                          readOnly
+                          disabled
+                          className="h-8 sm:h-9 text-xs sm:text-sm bg-gray-50 pr-8"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowExistingPassword(!showExistingPassword)}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                        >
+                          {showExistingPassword ? (
+                            <EyeOff className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                          ) : (
+                            <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                          )}
+                        </button>
                       </div>
-                    </Alert>
-                  ) : (
-                    <Alert className="bg-blue-50 border-blue-200 py-2">
-                      <div className="flex items-start gap-2">
-                        <Key className="h-4 w-4 text-blue-600 mt-0.5" />
-                        <div>
-                          <h4 className="font-medium text-blue-800 text-xs sm:text-sm">Create Portal Access</h4>
-                          <p className="text-[10px] sm:text-xs text-blue-700 mt-0.5">
-                            Set a password to enable tenant portal access.
-                          </p>
-                        </div>
-                      </div>
-                    </Alert>
-                  )}
-
-                  {/* Enable Credentials Toggle */}
-                  <div className="flex items-center justify-between p-3 border rounded">
-                    <div>
-                      <Label className="font-medium text-xs sm:text-sm">Enable Portal Access</Label>
-                      <p className="text-[10px] sm:text-xs text-gray-500">
-                        Allow tenant to access their portal with login credentials
-                      </p>
                     </div>
-                    <Switch
-                      checked={createCredentials}
-                      onCheckedChange={(checked) => setCreateCredentials(checked)}
-                    />
                   </div>
+                </div>
+              </div>
+            </div>
+          </Alert>
+        ) : (
+          <Alert className="bg-blue-50 border-blue-200 py-2">
+            <div className="flex items-start gap-2">
+              <Key className="h-4 w-4 text-blue-600 mt-0.5" />
+              <div>
+                <h4 className="font-medium text-blue-800 text-xs sm:text-sm">Create Portal Access</h4>
+                <p className="text-[10px] sm:text-xs text-blue-700 mt-0.5">
+                  Set a password to enable tenant portal access.
+                </p>
+              </div>
+            </div>
+          </Alert>
+        )}
 
-                  {createCredentials && (
-                    <>
-                      <div className="space-y-3">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="password" className="text-xs sm:text-sm">
-                              {tenant?.has_credentials ? "New Password (leave blank to keep current)" : "Password"} 
-                              {tenant?.has_credentials ? "" : " *"}
-                            </Label>
-                            <div className="relative">
-                              <Lock className="absolute left-3 top-2.5 h-3.5 w-3.5 sm:h-4 sm:w-4 text-gray-400" />
-                              <Input
-                                id="password"
-                                type="password"
-                                placeholder={tenant?.has_credentials ? "Enter new password to change" : "Enter password"}
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                className="pl-8 sm:pl-10 h-8 sm:h-9 text-xs sm:text-sm"
-                                minLength={6}
-                              />
-                            </div>
-                            
-                            {/* Password Strength Meter */}
-                            {password.length > 0 && (
-                              <div className="space-y-1">
-                                <div className="flex justify-between text-[10px] sm:text-xs">
-                                  <span>Password Strength:</span>
-                                  <span className={
-                                    passwordStrength >= 75 ? "text-green-600" :
-                                    passwordStrength >= 50 ? "text-yellow-600" :
-                                    passwordStrength >= 25 ? "text-orange-600" : "text-red-600"
-                                  }>
-                                    {passwordStrength >= 75 ? "Strong" :
-                                     passwordStrength >= 50 ? "Good" :
-                                     passwordStrength >= 25 ? "Weak" : "Very Weak"}
-                                  </span>
-                                </div>
-                                <Progress 
-                                  value={passwordStrength} 
-                                  className="h-1.5 bg-gray-200 rounded-full"
-                                  style={{
-                                    '--progress-bar-color': passwordStrength >= 75 ? 'rgb(34,197,94)' :
-                                                             passwordStrength >= 50 ? 'rgb(234,179,8)' :
-                                                             passwordStrength >= 25 ? 'rgb(249,115,22)' :
-                                                             'rgb(239,68,68)'
-                                  } as React.CSSProperties}
-                                />
-                              </div>
-                            )}
-                          </div>
+        {/* Enable Credentials Toggle */}
+        <div className="flex items-center justify-between p-3 border rounded">
+          <div>
+            <Label className="font-medium text-xs sm:text-sm">Enable Portal Access</Label>
+            <p className="text-[10px] sm:text-xs text-gray-500">
+              Allow tenant to access their portal with login credentials
+            </p>
+          </div>
+          <Switch
+            checked={createCredentials}
+            onCheckedChange={(checked) => setCreateCredentials(checked)}
+          />
+        </div>
 
-                          <div className="space-y-2">
-                            <Label htmlFor="confirmPassword" className="text-xs sm:text-sm">
-                              Confirm Password
-                              {tenant?.has_credentials && password ? " *" : !tenant?.has_credentials && createCredentials ? " *" : ""}
-                            </Label>
-                            <div className="relative">
-                              <Lock className="absolute left-3 top-2.5 h-3.5 w-3.5 sm:h-4 sm:w-4 text-gray-400" />
-                              <Input
-                                id="confirmPassword"
-                                type="password"
-                                placeholder="Confirm password"
-                                value={confirmPassword}
-                                onChange={(e) => setConfirmPassword(e.target.value)}
-                                className="pl-8 sm:pl-10 h-8 sm:h-9 text-xs sm:text-sm"
-                                minLength={6}
-                              />
-                            </div>
-                            
-                            {password && confirmPassword && (
-                              <div className={`flex items-center gap-1 text-[10px] sm:text-xs ${
-                                password === confirmPassword ? "text-green-600" : "text-red-600"
-                              }`}>
-                                {password === confirmPassword ? (
-                                  <>
-                                    <Check className="h-3.5 w-3.5" />
-                                    <span>Passwords match</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <AlertTriangle className="h-3.5 w-3.5" />
-                                    <span>Passwords don't match</span>
-                                  </>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        </div>
+        {createCredentials && (
+          <>
+            {/* Password Generation and Email Actions */}
+            <div className="flex flex-wrap items-center gap-2 p-3 bg-gray-50 rounded-lg border">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  // Generate password meeting all requirements
+                  const lowercase = "abcdefghijklmnopqrstuvwxyz";
+                  const uppercase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+                  const numbers = "0123456789";
+                  const special = "!@#$%^&*()_+-=[]{}|;:,.<>?";
+                  
+                  // Ensure at least one of each required character type
+                  const requiredChars = [
+                    uppercase[Math.floor(Math.random() * uppercase.length)],
+                    numbers[Math.floor(Math.random() * numbers.length)],
+                    special[Math.floor(Math.random() * special.length)]
+                  ];
+                  
+                  // Fill the rest with random characters from all sets
+                  const allChars = lowercase + uppercase + numbers + special;
+                  const remainingLength = 8 - requiredChars.length; // Generate 8 char password
+                  
+                  let generatedPassword = requiredChars.join('');
+                  for (let i = 0; i < remainingLength; i++) {
+                    generatedPassword += allChars[Math.floor(Math.random() * allChars.length)];
+                  }
+                  
+                  // Shuffle the password to mix required chars
+                  generatedPassword = generatedPassword.split('').sort(() => Math.random() - 0.5).join('');
+                  
+                  setPassword(generatedPassword);
+                  setConfirmPassword(generatedPassword);
+                  toast.success("Password generated successfully!");
+                }}
+                className="h-7 sm:h-8 text-[10px] sm:text-xs"
+              >
+                <Key className="h-3 w-3 mr-1" />
+                Generate Password
+              </Button>
+              
+              {tenant?.email && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (!password && !tenant?.has_credentials) {
+                      toast.error("Please set a password first");
+                      return;
+                    }
+                    
+                    // Here you would call your API to send credentials email
+                    toast.success(`Login credentials will be sent to ${tenant.email}`);
+                    
+                    // Example API call (you'll need to implement this)
+                    // sendTenantCredentials({
+                    //   email: tenant.email,
+                    //   password: password || "existing password",
+                    //   name: tenant.full_name,
+                    //   portalUrl: window.location.origin + "/tenant/login"
+                    // });
+                  }}
+                  className="h-7 sm:h-8 text-[10px] sm:text-xs"
+                >
+                  <Mail className="h-3 w-3 mr-1" />
+                  Send to Email
+                </Button>
+              )}
+            </div>
 
-                        {/* Password Requirements */}
-                        <div className="p-3 border rounded bg-gray-50">
-                          <Label className="font-medium mb-1 block text-xs sm:text-sm">Password Requirements:</Label>
-                          <ul className="space-y-1 text-[10px] sm:text-xs text-gray-600">
-                            <li className={`flex items-center gap-1 ${password.length >= 6 ? "text-green-600" : ""}`}>
-                              <div className={`h-1.5 w-1.5 rounded-full ${password.length >= 6 ? "bg-green-500" : "bg-gray-300"}`} />
-                              Minimum 6 characters
-                            </li>
-                            <li className={`flex items-center gap-1 ${/[A-Z]/.test(password) ? "text-green-600" : ""}`}>
-                              <div className={`h-1.5 w-1.5 rounded-full ${/[A-Z]/.test(password) ? "bg-green-500" : "bg-gray-300"}`} />
-                              At least one uppercase letter
-                            </li>
-                            <li className={`flex items-center gap-1 ${/[0-9]/.test(password) ? "text-green-600" : ""}`}>
-                              <div className={`h-1.5 w-1.5 rounded-full ${/[0-9]/.test(password) ? "bg-green-500" : "bg-gray-300"}`} />
-                              At least one number
-                            </li>
-                            <li className={`flex items-center gap-1 ${/[^A-Za-z0-9]/.test(password) ? "text-green-600" : ""}`}>
-                              <div className={`h-1.5 w-1.5 rounded-full ${/[^A-Za-z0-9]/.test(password) ? "bg-green-500" : "bg-gray-300"}`} />
-                              At least one special character
-                            </li>
-                          </ul>
-                        </div>
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="password" className="text-xs sm:text-sm">
+                    {tenant?.has_credentials ? "New Password (leave blank to keep current)" : "Password"} 
+                    {tenant?.has_credentials ? "" : " *"}
+                  </Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-2.5 h-3.5 w-3.5 sm:h-4 sm:w-4 text-gray-400" />
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder={tenant?.has_credentials ? "Enter new password to change" : "Enter password"}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="pl-8 sm:pl-10 pr-8 h-8 sm:h-9 text-xs sm:text-sm"
+                      minLength={6}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                      ) : (
+                        <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                      )}
+                    </button>
+                  </div>
+                  
+                  {/* Password Strength Meter */}
+                  {password.length > 0 && (
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[10px] sm:text-xs">
+                        <span>Password Strength:</span>
+                        <span className={
+                          passwordStrength >= 75 ? "text-green-600" :
+                          passwordStrength >= 50 ? "text-yellow-600" :
+                          passwordStrength >= 25 ? "text-orange-600" : "text-red-600"
+                        }>
+                          {passwordStrength >= 75 ? "Strong" :
+                           passwordStrength >= 50 ? "Good" :
+                           passwordStrength >= 25 ? "Weak" : "Very Weak"}
+                        </span>
                       </div>
-                    </>
+                      <Progress 
+                        value={passwordStrength} 
+                        className="h-1.5 bg-gray-200 rounded-full"
+                        style={{
+                          '--progress-bar-color': passwordStrength >= 75 ? 'rgb(34,197,94)' :
+                                                   passwordStrength >= 50 ? 'rgb(234,179,8)' :
+                                                   passwordStrength >= 25 ? 'rgb(249,115,22)' :
+                                                   'rgb(239,68,68)'
+                        } as React.CSSProperties}
+                      />
+                    </div>
                   )}
                 </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
+
+                <div className="space-y-2">
+                  <Label htmlFor="confirmPassword" className="text-xs sm:text-sm">
+                    Confirm Password
+                    {tenant?.has_credentials && password ? " *" : !tenant?.has_credentials && createCredentials ? " *" : ""}
+                  </Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-2.5 h-3.5 w-3.5 sm:h-4 sm:w-4 text-gray-400" />
+                    <Input
+                      id="confirmPassword"
+                      type={showConfirmPassword ? "text" : "password"}
+                      placeholder="Confirm password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      className="pl-8 sm:pl-10 pr-8 h-8 sm:h-9 text-xs sm:text-sm"
+                      minLength={6}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                    >
+                      {showConfirmPassword ? (
+                        <EyeOff className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                      ) : (
+                        <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                      )}
+                    </button>
+                  </div>
+                  
+                  {password && confirmPassword && (
+                    <div className={`flex items-center gap-1 text-[10px] sm:text-xs ${
+                      password === confirmPassword ? "text-green-600" : "text-red-600"
+                    }`}>
+                      {password === confirmPassword ? (
+                        <>
+                          <Check className="h-3.5 w-3.5" />
+                          <span>Passwords match</span>
+                        </>
+                      ) : (
+                        <>
+                          <AlertTriangle className="h-3.5 w-3.5" />
+                          <span>Passwords don't match</span>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Password Requirements */}
+              <div className="p-3 border rounded bg-gray-50">
+                <Label className="font-medium mb-1 block text-xs sm:text-sm">Password Requirements:</Label>
+                <ul className="space-y-1 text-[10px] sm:text-xs text-gray-600">
+                  <li className={`flex items-center gap-1 ${password.length >= 6 ? "text-green-600" : ""}`}>
+                    <div className={`h-1.5 w-1.5 rounded-full ${password.length >= 6 ? "bg-green-500" : "bg-gray-300"}`} />
+                    Minimum 6 characters
+                  </li>
+                  <li className={`flex items-center gap-1 ${/[A-Z]/.test(password) ? "text-green-600" : ""}`}>
+                    <div className={`h-1.5 w-1.5 rounded-full ${/[A-Z]/.test(password) ? "bg-green-500" : "bg-gray-300"}`} />
+                    At least one uppercase letter
+                  </li>
+                  <li className={`flex items-center gap-1 ${/[0-9]/.test(password) ? "text-green-600" : ""}`}>
+                    <div className={`h-1.5 w-1.5 rounded-full ${/[0-9]/.test(password) ? "bg-green-500" : "bg-gray-300"}`} />
+                    At least one number
+                  </li>
+                  <li className={`flex items-center gap-1 ${/[^A-Za-z0-9]/.test(password) ? "text-green-600" : ""}`}>
+                    <div className={`h-1.5 w-1.5 rounded-full ${/[^A-Za-z0-9]/.test(password) ? "bg-green-500" : "bg-gray-300"}`} />
+                    At least one special character
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    </CardContent>
+  </Card>
+</TabsContent>
         </div>
       </Tabs>
 

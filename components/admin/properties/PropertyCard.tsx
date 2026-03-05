@@ -44,6 +44,7 @@ export default function PropertyCard({
   }, [onSelect, property.id]);
   
   const handleEdit = useCallback(() => {
+    console.log("hadle edit", property)
     onEdit(property);
   }, [onEdit, property]);
   

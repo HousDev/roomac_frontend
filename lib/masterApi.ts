@@ -372,24 +372,48 @@ export async function importValuesFromExcel(file: File, masterItemId: number): P
       try {
         const data = new Uint8Array(e.target?.result as ArrayBuffer);
         const workbook = XLSX.read(data, { type: 'array' });
-        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-        const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+        
+        // Get the first sheet (excluding Instructions sheet)
+        const sheetName = workbook.SheetNames.find(name => name !== 'Instructions') || workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet);
         
         const created: any[] = [];
         const errors: string[] = [];
         
-        for (const row of jsonData) {
+        // Skip if no data
+        if (jsonData.length === 0) {
+          resolve({
+            success: true,
+            created: 0,
+            errors: ['No data found in file']
+          });
+          return;
+        }
+        
+        for (let i = 0; i < jsonData.length; i++) {
+          const row = jsonData[i];
+          const rowNumber = i + 2; // +2 because 1-based and header row
+          
           try {
-            // Expect columns: Name, Status (optional)
-            const name = (row as any)['Name'] || (row as any)['Value Name'] || (row as any)['name'];
-            const status = (row as any)['Status'] || (row as any)['status'] || 'Active';
+            // Check for required fields (case insensitive)
+            const name = (row as any)['Name'] || (row as any)['name'] || (row as any)['NAME'];
+            const status = (row as any)['Status'] || (row as any)['status'] || (row as any)['STATUS'] || 'Active';
             
-            if (!name) {
-              errors.push(`Missing name in row: ${JSON.stringify(row)}`);
+            // Validate Name
+            if (!name || name.toString().trim() === '') {
+              errors.push(`Row ${rowNumber}: Name is required`);
               continue;
             }
             
-            const isactive = status.toString().toLowerCase() === 'active' ? 1 : 0;
+            // Validate Status
+            const statusStr = status.toString().toLowerCase();
+            if (!['active', 'inactive'].includes(statusStr)) {
+              errors.push(`Row ${rowNumber}: Status must be "Active" or "Inactive" (got "${status}")`);
+              continue;
+            }
+            
+            const isactive = statusStr === 'active' ? 1 : 0;
             
             const response = await createMasterValue({
               master_item_id: masterItemId,
@@ -400,10 +424,10 @@ export async function importValuesFromExcel(file: File, masterItemId: number): P
             if (response?.success) {
               created.push(response.data);
             } else {
-              errors.push(`Failed to create "${name}": ${response?.error || 'Unknown error'}`);
+              errors.push(`Row ${rowNumber}: Failed to create "${name}" - ${response?.error || 'Unknown error'}`);
             }
           } catch (error: any) {
-            errors.push(`Error processing row: ${error.message}`);
+            errors.push(`Row ${rowNumber}: Error - ${error.message}`);
           }
         }
         
@@ -413,7 +437,7 @@ export async function importValuesFromExcel(file: File, masterItemId: number): P
           errors
         });
       } catch (error: any) {
-        reject(error);
+        reject(new Error(`Failed to parse Excel file: ${error.message}`));
       }
     };
     
@@ -513,3 +537,4 @@ export async function bulkCreateValues(master_item_id: number, values: Array<{ n
     throw error;
   }
 }
+

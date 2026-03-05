@@ -1,4 +1,4 @@
-// components/admin/properties/table-config.tsx 
+// components/admin/properties/table-config.tsx
 import React from "react";
 import {
   Building2,
@@ -17,6 +17,13 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { Column, FilterConfig, BulkAction, ActionButton } from "@/components/admin/data-table";
+
+// Define MasterValue type
+interface MasterValue {
+  id: number;
+  name: string;
+  isactive: number;
+}
 
 // Reusable TagBadge component
 export const TagBadge = ({ tag }: { tag: string }) => {
@@ -46,8 +53,34 @@ export const TagBadge = ({ tag }: { tag: string }) => {
   );
 };
 
-// Columns configuration
-export const columns: Column<any>[] = [
+// Helper function to get tag names from IDs
+const getTagNames = (
+  tags: any,
+  propertiesMasters?: Record<string, MasterValue[]>,
+  mastersLoaded?: boolean
+): string[] => {
+  if (!tags || !Array.isArray(tags)) return [];
+  
+  // If masters are not loaded yet, return IDs as strings
+  if (!mastersLoaded || !propertiesMasters || !propertiesMasters["Tags"]) {
+    return tags.map(id => String(id));
+  }
+  
+  // Map IDs to names
+  return tags.map(id => {
+    const numId = Number(id);
+    const matchingTag = propertiesMasters["Tags"].find(
+      tag => tag.id === numId || tag.name === String(id)
+    );
+    return matchingTag ? matchingTag.name : String(id);
+  }).filter(Boolean) as string[];
+};
+
+// Columns configuration - now as a function that accepts masters data
+export const getColumns = (
+  propertiesMasters?: Record<string, MasterValue[]>,
+  mastersLoaded?: boolean
+): Column<any>[] => [
   {
     key: "name",
     label: "Property Name",
@@ -153,14 +186,13 @@ export const columns: Column<any>[] = [
     key: "tags",
     label: "Tags",
     render: (property: any) => {
-      const tags = Array.isArray(property.tags) 
-        ? property.tags.filter((t: string) => t && t.trim() !== '')
-        : [];
+      // Get mapped tag names using masters data
+      const tagNames = getTagNames(property.tags, propertiesMasters, mastersLoaded);
       
       return (
         <div className="flex flex-wrap gap-1 max-w-[200px] min-h-[40px]">
-          {tags.length > 0 ? (
-            tags.map((tag: string, index: number) => (
+          {tagNames.length > 0 ? (
+            tagNames.map((tag: string, index: number) => (
               <TagBadge key={`${property.id}-${index}-${tag}`} tag={tag} />
             ))
           ) : (
@@ -171,6 +203,9 @@ export const columns: Column<any>[] = [
     },
   },
 ];
+
+// Keep the original columns for backward compatibility if needed
+export const columns = getColumns();
 
 // Filters configuration
 export const filters: FilterConfig[] = [
