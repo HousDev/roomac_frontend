@@ -1,3 +1,4 @@
+// components/admin/masters/MasterItemCards.tsx
 "use client";
 
 import { Edit2, Trash2, Eye, Plus, ChevronRight, Tag } from "lucide-react";

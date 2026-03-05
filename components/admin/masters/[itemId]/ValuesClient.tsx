@@ -19,6 +19,7 @@ import ValueList from "./ValueList";
 import ValueFormModal from "./ValueFormModal";
 import DeleteConfirmModal from "./DeleteConfirmModal";
 import BulkActionBar from "./BulkActionBar";
+import ImportModal from "./ImportModal";
 
 interface MasterItem {
   id: number;
@@ -40,9 +41,10 @@ interface MasterValue {
 interface ValuesClientProps {
   masterItem: MasterItem;
   initialValues: MasterValue[];
+  returnTab?: string; // Add this (type as string, not any)
 }
 
-export default function ValuesClient({ masterItem, initialValues }: ValuesClientProps) {
+export default function ValuesClient({ masterItem, initialValues, returnTab }: ValuesClientProps) { // Destructure returnTab here
   const router = useRouter();
   
   // ========== STATE DECLARATIONS ==========
@@ -67,6 +69,7 @@ export default function ValuesClient({ masterItem, initialValues }: ValuesClient
   const [showValueForm, setShowValueForm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<number | null>(null);
   const [fileInput, setFileInput] = useState<HTMLInputElement | null>(null);
+  const [showImportModal, setShowImportModal] = useState(false);
   
   // Form data state
   const [valueFormData, setValueFormData] = useState({
@@ -178,40 +181,35 @@ export default function ValuesClient({ masterItem, initialValues }: ValuesClient
   }, [masterItem]);
 
   // Handle import from Excel
-  const handleImportClick = useCallback(() => {
-    if (!fileInput) {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = '.xlsx,.xls,.csv';
-      input.onchange = async (e) => {
-        const file = (e.target as HTMLInputElement).files?.[0];
-        if (file) {
-          setImporting(true);
-          try {
-            const result = await importValuesFromExcel(file, masterItem.id);
-            if (result.success) {
-              if (result.errors.length > 0) {
-                toast.success(`Import completed: ${result.created} values created, ${result.errors.length} errors`);
-                console.log('Import errors:', result.errors);
-              } else {
-                toast.success(`Successfully imported ${result.created} values`);
-              }
-              await refreshValues();
-            }
-          } catch (error: any) {
-            console.error("Import failed:", error);
-            toast.error(error.message || "Failed to import values");
-          } finally {
-            setImporting(false);
-          }
-        }
-      };
-      setFileInput(input);
-      input.click();
-    } else {
-      fileInput.click();
+// Update the import handler
+const handleImportClick = useCallback(() => {
+  setShowImportModal(true);
+}, []);
+
+// Update the import function to work with the modal
+const handleImportFile = useCallback(async (file: File) => {
+  setImporting(true);
+  try {
+    const result = await importValuesFromExcel(file, masterItem.id);
+    if (result.success) {
+      if (result.errors.length > 0) {
+        toast.success(`Import completed: ${result.created} values created, ${result.errors.length} errors`);
+        console.log('Import errors:', result.errors);
+      } else {
+        toast.success(`Successfully imported ${result.created} values`);
+      }
+      await refreshValues();
+      setShowImportModal(false);
     }
-  }, [fileInput, masterItem.id, refreshValues]);
+  } catch (error: any) {
+    console.error("Import failed:", error);
+    toast.error(error.message || "Failed to import values");
+    throw error; // Re-throw to be caught by the modal
+  } finally {
+    setImporting(false);
+  }
+}, [masterItem.id, refreshValues]);
+
 
   // Toggle value status
   const toggleValueStatus = useCallback(async (id: number, current: number) => {
@@ -351,14 +349,23 @@ export default function ValuesClient({ masterItem, initialValues }: ValuesClient
     );
   }, []);
 
+  // Handle back navigation
+  const handleBack = useCallback(() => {
+    if (returnTab) {
+      router.push(`/admin/masters?tab=${encodeURIComponent(returnTab)}`);
+    } else {
+      router.push("/admin/masters");
+    }
+  }, [returnTab, router]);
+  
   // ========== RENDER ==========
   
   return (
-    <div className=" bg-gray-50">
+    <div className="bg-gray-50">
       <Header
         masterItem={masterItem}
         loading={loading || importing}
-        onBack={() => router.push("/admin/masters")}
+        onBack={handleBack} // Fixed: removed comment syntax
         onRefresh={refreshValues}
         onNewValue={handleNewValue}
         onExport={handleExport}
@@ -418,6 +425,15 @@ export default function ValuesClient({ masterItem, initialValues }: ValuesClient
             resetValueForm();
           }}
         />
+
+        {/* Import Modal */}
+     <ImportModal
+      isOpen={showImportModal}
+      onClose={() => setShowImportModal(false)}
+      onImport={handleImportFile}
+      importing={importing}
+      masterItemName={masterItem.name}
+    />
       </div>
     </div>
   );

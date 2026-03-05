@@ -29,6 +29,7 @@ import { RoomDetailsDialog } from './RoomDetailsDialog';
 // Import new components
 import SideFilter from './side-filter';
 import BulkActions from './bulk-actions'; // Keep this import
+import RoomImportModal from './room-import-modal';
 
 // Types
 interface RoomsClientProps {
@@ -80,6 +81,11 @@ export default function RoomsClient({ initialRooms, initialProperties }: RoomsCl
   const [filterSidebarOpen, setFilterSidebarOpen] = useState(false);
   const [advancedFilters, setAdvancedFilters] = useState<FilterState>();
   const itemsPerPage = 12;
+  const [showImportModal, setShowImportModal] = useState(false);
+const [importing, setImporting] = useState(false);
+
+
+
 
   // Form state
   const [formData, setFormData] = useState({
@@ -171,6 +177,41 @@ export default function RoomsClient({ initialRooms, initialProperties }: RoomsCl
       setLoading(false);
     }
   }, [currentPage, itemsPerPage]);
+
+  const handleImportClick = useCallback(() => {
+  setShowImportModal(true);
+}, []);
+
+
+// Add import file handler
+const handleImportFile = async (file: File) => {
+  setImporting(true);
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+    const response = await fetch(`${apiUrl}/api/rooms/import`, {
+      method: 'POST',
+      body: formData,
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      toast.success(`Successfully imported ${result.count} rooms`);
+      setShowImportModal(false);
+      await handleRefresh(); // Refresh the rooms list
+    } else {
+      throw new Error(result.message || 'Import failed');
+    }
+  } catch (error: any) {
+    console.error('Import error:', error);
+    toast.error(error.message || 'Failed to import rooms');
+  } finally {
+    setImporting(false);
+  }
+};
 
   // Handle filter changes
   const handleFilterChange = useCallback((filters: FilterState) => {
@@ -795,7 +836,8 @@ export default function RoomsClient({ initialRooms, initialProperties }: RoomsCl
                   <Button
                     variant="outline"
                     className="flex items-center gap-2 h-8 bg-white/15 text-white hover:bg-white/25 border-white/30 backdrop-blur-sm shadow-md hover:shadow-lg transition-all duration-200"
-                    onClick={handleImport}
+                    onClick={handleImportClick}
+
                   >
                     <Upload className="h-4 w-4" />
                     Import
@@ -876,7 +918,8 @@ export default function RoomsClient({ initialRooms, initialProperties }: RoomsCl
                   size="icon"
                   variant="ghost"
                   className="h-6 w-6 bg-white/15 text-white hover:bg-white/25 border-white/30 backdrop-blur-sm"
-                  onClick={handleImport}
+                 onClick={handleImportClick}
+
                 >
                   <Upload className="h-3 w-3" />
                 </Button>
@@ -992,6 +1035,13 @@ export default function RoomsClient({ initialRooms, initialProperties }: RoomsCl
         rooms={rooms}
         editingRoomId={editingRoomId}
       />
+
+      <RoomImportModal
+      isOpen={showImportModal}
+      onClose={() => setShowImportModal(false)}
+      onImport={handleImportFile}
+      importing={importing}
+    />
 
       {selectedRoom && (
         <RoomDetailsDialog

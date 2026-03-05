@@ -45,12 +45,14 @@ import {
     Wrench,
     BookOpen,
     BadgeIndianRupee,
-    AlertTriangle
+    AlertTriangle,
+    Tag
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { getProperty } from '@/lib/propertyApi';
 import { getOrCreateTrackingId, generatePropertySlug } from '@/lib/slugUtils';
 import { getAllStaff, type StaffMember } from '@/lib/staffApi';
+import { consumeMasters } from '@/lib/masterApi';
 import { BsWhatsapp } from 'react-icons/bs';
 import { FaFacebookF, FaTwitter, FaLinkedinIn, FaTelegramPlane } from 'react-icons/fa';
 import { MdEmail } from 'react-icons/md';
@@ -92,6 +94,12 @@ type Property = {
 
 interface PropertyDetailsClientProps {
     initialProperty: Property | null;
+}
+
+interface MasterValue {
+    id: number;
+    name: string;
+    isactive: number;
 }
 
 // Helper function to get salutation display
@@ -140,7 +148,24 @@ const parseJsonField = (field: string | null | undefined): string[] => {
     }
 };
 
-// Helper function to parse terms and conditions with headers
+// NEW: Helper function to map IDs to names using masters data
+const mapIdsToNames = (
+    ids: string[],
+    masters: Record<string, MasterValue[]>,
+    masterKey: string
+): string[] => {
+    if (!ids || ids.length === 0) return [];
+    if (!masters[masterKey] || masters[masterKey].length === 0) return ids;
+    
+    return ids.map(id => {
+        const numId = Number(id);
+        const matchingItem = masters[masterKey].find(
+            item => item.id === numId || item.name === String(id)
+        );
+        return matchingItem ? matchingItem.name : String(id);
+    }).filter(Boolean);
+};
+
 // Helper function to parse terms and conditions with headers
 const parseTermsWithHeaders = (termsString: string | null | undefined): { header: string; content: string[] }[] => {
     if (!termsString) return [];
@@ -248,13 +273,19 @@ const PropertyDetailsClient = ({ initialProperty }: PropertyDetailsClientProps) 
     const [isLiked, setIsLiked] = useState(false);
     const [imageFullscreen, setImageFullscreen] = useState(false);
     
+    // NEW: Masters data state
+    const [propertiesMasters, setPropertiesMasters] = useState<Record<string, MasterValue[]>>({});
+    const [mastersLoaded, setMastersLoaded] = useState(false);
+    const [loadingMasters, setLoadingMasters] = useState(false);
+    
     // Staff data for manager with salutation
     const [staffData, setStaffData] = useState<StaffMember | null>(null);
     
-    // Parsed fields
+    // Parsed and mapped fields
     const [propertyRules, setPropertyRules] = useState<string[]>([]);
     const [termsConditions, setTermsConditions] = useState<{ header: string; content: string[] }[]>([]);
     const [additionalTerms, setAdditionalTerms] = useState<string[]>([]);
+    const [mappedTags, setMappedTags] = useState<string[]>([]);
     
     // Share modal states
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
@@ -262,6 +293,39 @@ const PropertyDetailsClient = ({ initialProperty }: PropertyDetailsClientProps) 
     const [showCopyMessage, setShowCopyMessage] = useState(false);
 
     const propertyId = params.id as string;
+
+    // NEW: Fetch masters data
+    const fetchPropertiesMasters = async () => {
+        setLoadingMasters(true);
+        try {
+            const res = await consumeMasters({ tab: "Properties" });
+            if (res?.success && res.data) {
+                const grouped: Record<string, MasterValue[]> = {};
+                res.data.forEach((item: any) => {
+                    const type = item.type_name;
+                    if (!grouped[type]) {
+                        grouped[type] = [];
+                    }
+                    grouped[type].push({
+                        id: item.value_id,
+                        name: item.value_name,
+                        isactive: 1,
+                    });
+                });
+                setPropertiesMasters(grouped);
+                setMastersLoaded(true);
+            }
+        } catch (error) {
+            console.error("Failed to fetch properties masters:", error);
+        } finally {
+            setLoadingMasters(false);
+        }
+    };
+
+    // Load masters on component mount
+    useEffect(() => {
+        fetchPropertiesMasters();
+    }, []);
 
     useEffect(() => {
         if (!initialProperty && propertyId) {
@@ -276,14 +340,30 @@ const PropertyDetailsClient = ({ initialProperty }: PropertyDetailsClientProps) 
         }
     }, [property]);
 
-    // Parse JSON fields when property changes
+    // Parse and map JSON fields when property or masters change
     useEffect(() => {
         if (property) {
-            setPropertyRules(parseJsonField(property.property_rules));
+            // Parse raw fields
+            const rawRules = parseJsonField(property.property_rules);
+            const rawAdditionalTerms = parseJsonField(property.additional_terms);
+            const rawTags = Array.isArray(property.tags) ? property.tags : [];
+            
+            // Map IDs to names using masters data
+            if (mastersLoaded) {
+                setPropertyRules(mapIdsToNames(rawRules, propertiesMasters, "Property Rules"));
+                setAdditionalTerms(mapIdsToNames(rawAdditionalTerms, propertiesMasters, "Additional Terms"));
+                setMappedTags(mapIdsToNames(rawTags, propertiesMasters, "Tags"));
+            } else {
+                // If masters not loaded yet, show IDs
+                setPropertyRules(rawRules);
+                setAdditionalTerms(rawAdditionalTerms);
+                setMappedTags(rawTags);
+            }
+            
+            // Parse terms conditions (these are text-based, not ID-based)
             setTermsConditions(parseTermsWithHeaders(property.terms_conditions));
-            setAdditionalTerms(parseJsonField(property.additional_terms));
         }
-    }, [property]);
+    }, [property, propertiesMasters, mastersLoaded]);
 
     const loadStaffData = async (staffId: string | number) => {
         setLoadingStaff(true);
@@ -336,7 +416,7 @@ const PropertyDetailsClient = ({ initialProperty }: PropertyDetailsClientProps) 
                     terms_conditions: res.data.terms_conditions || "",
                     additional_terms: res.data.additional_terms || "",
                     tags: Array.isArray(res.data.tags)
-                        ? res.data.tags.filter((t: any) => t != null && t !== '' && typeof t === 'string')
+                        ? res.data.tags.filter((t: any) => t != null && t !== '')
                         : [],
                 };
                 setProperty(propertyData);
@@ -438,7 +518,7 @@ const PropertyDetailsClient = ({ initialProperty }: PropertyDetailsClientProps) 
         }
     }, [property]);
 
-    if (loading) {
+    if (loading || (loadingMasters && !mastersLoaded)) {
         return (
             <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 flex items-center justify-center">
                 <div className="text-center">
@@ -840,10 +920,15 @@ const PropertyDetailsClient = ({ initialProperty }: PropertyDetailsClientProps) 
                                 </div>
                             </div>
 
-                            {property.tags && property.tags.length > 0 && (
+                            {/* UPDATED: Tags section with mapped names */}
+                            {mappedTags.length > 0 && (
                                 <div className="flex flex-wrap gap-1.5 mb-4">
-                                    {property.tags.map((tag, idx) => (
-                                        <span key={idx} className="px-2 py-1 bg-gradient-to-r from-blue-50 to-cyan-50 text-blue-700 rounded-full text-[10px] font-semibold border border-blue-200">
+                                    {mappedTags.map((tag, idx) => (
+                                        <span 
+                                            key={idx} 
+                                            className="px-3 py-1.5 bg-gradient-to-r from-blue-50 to-cyan-50 text-blue-700 rounded-full text-xs font-medium border border-blue-200 flex items-center gap-1.5"
+                                        >
+                                            <Tag className="h-3 w-3" />
                                             {tag}
                                         </span>
                                     ))}
@@ -901,29 +986,26 @@ const PropertyDetailsClient = ({ initialProperty }: PropertyDetailsClientProps) 
                             </div>
 
                             {property.amenities && property.amenities.length > 0 && (
-                                <div className="mb-4">
-                                    <h3 className="font-bold text-sm text-slate-900 mb-2 flex items-center gap-1.5">
-                                        <Star className="h-4 w-4 text-amber-500" />
-                                        Amenities
-                                    </h3>
-                                    <div className="grid grid-cols-2 gap-2">
-                                        {property.amenities.slice(0, 4).map((amenity, idx) => (
-                                            <div
-                                                key={idx}
-                                                className="flex items-center gap-2 bg-gradient-to-r from-blue-50 to-cyan-50 border border-blue-100 rounded-lg p-2 hover:shadow-sm transition-all"
-                                            >
-                                                <div className="text-blue-600 flex-shrink-0">
-                                                    {getAmenityIcon(amenity)}
-                                                </div>
-                                                <span className="text-[11px] font-medium text-slate-700 truncate">{amenity}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                    {property.amenities.length > 4 && (
-                                        <p className="text-[10px] text-slate-500 mt-2">+{property.amenities.length - 4} more amenities</p>
-                                    )}
-                                </div>
-                            )}
+    <div className="mb-4">
+        <h3 className="font-bold text-sm text-slate-900 mb-2 flex items-center gap-1.5">
+            <Star className="h-4 w-4 text-amber-500" />
+            Amenities
+        </h3>
+        <div className="grid grid-cols-2 gap-2">
+            {property.amenities.map((amenity, idx) => (
+                <div
+                    key={idx}
+                    className="flex items-center gap-2 bg-gradient-to-r from-blue-50 to-cyan-50 border border-blue-100 rounded-lg p-2 hover:shadow-sm transition-all"
+                >
+                    <div className="text-blue-600 flex-shrink-0">
+                        {getAmenityIcon(amenity)}
+                    </div>
+                    <span className="text-[11px] font-medium text-slate-700 truncate">{amenity}</span>
+                </div>
+            ))}
+        </div>
+    </div>
+)}
 
 {hasTerms && (
     <div className="mt-6 space-y-4">
@@ -955,7 +1037,7 @@ const PropertyDetailsClient = ({ initialProperty }: PropertyDetailsClientProps) 
                 </div>
             ))}
 
-            {/* Property Rules */}
+            {/* UPDATED: Property Rules - showing mapped names */}
             {propertyRules.length > 0 && (
                 <div className="bg-amber-50 rounded-xl p-4 border border-amber-200">
                     <h4 className="font-bold text-sm text-amber-800 mb-3 flex items-center gap-1.5">
@@ -973,7 +1055,7 @@ const PropertyDetailsClient = ({ initialProperty }: PropertyDetailsClientProps) 
                 </div>
             )}
 
-            {/* Additional Terms */}
+            {/* UPDATED: Additional Terms - showing mapped names */}
             {additionalTerms.length > 0 && (
                 <div className="bg-purple-50 rounded-xl p-4 border border-purple-200">
                     <h4 className="font-bold text-sm text-purple-800 mb-3 flex items-center gap-1.5">
@@ -1031,14 +1113,6 @@ const PropertyDetailsClient = ({ initialProperty }: PropertyDetailsClientProps) 
                                     </div>
                                 </div>
                             </div>
-
-                            {/* <button 
-                                onClick={handleCallClick}
-                                className="w-full bg-white text-blue-600 font-bold py-3 rounded-xl hover:bg-blue-50 transition-all shadow-lg hover:shadow-xl hover:scale-105 flex items-center justify-center gap-2 text-sm"
-                            >
-                                <Phone className="h-4 w-4" />
-                                Call Now
-                            </button> */}
                         </div>
 
                         {/* Address Card */}
@@ -1137,16 +1211,6 @@ const PropertyDetailsClient = ({ initialProperty }: PropertyDetailsClientProps) 
                                     </div>
                                 )}
                             </div>
-
-                            {/* {property.property_manager_phone && (
-                                <button 
-                                    onClick={handleCallClick}
-                                    className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold py-2.5 rounded-xl transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 text-sm"
-                                >
-                                    <Phone className="h-4 w-4" />
-                                    Call Manager
-                                </button>
-                            )} */}
                         </div>
 
                         {/* Lock-in & Notice Period Card */}
