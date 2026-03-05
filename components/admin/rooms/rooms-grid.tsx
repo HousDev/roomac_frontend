@@ -581,15 +581,19 @@ const RoomCard = memo(({
   const currentOccupants = room.bed_assignments?.filter(bed => bed.tenant_id) || [];
 
   return (
-    <Card key={room.id} className="group relative border border-gray-200 hover:border-blue-400 hover:shadow-xl transition-all duration-300 bg-white overflow-hidden">
+    <Card 
+      key={room.id} 
+      className="group relative border border-gray-200 hover:border-blue-400 hover:shadow-xl transition-all duration-300 bg-white overflow-hidden cursor-pointer"
+      onClick={() => onViewDetails(room)}
+    >
       {/* Selection Checkbox */}
-      <div className="absolute top-2 left-2 z-10">
-        <Checkbox
-          checked={isSelected}
-          onCheckedChange={(checked) => onSelect(checked as boolean)}
-          className="h-5 w-5  bg-white border-2 border-gray-300 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
-        />
-      </div>
+      <div className="absolute top-2 left-2 z-10" onClick={(e) => e.stopPropagation()}>
+  <Checkbox
+    checked={isSelected}
+    onCheckedChange={(checked) => onSelect(checked as boolean)}
+    className="h-5 w-5 bg-white border-2 border-gray-300 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
+  />
+</div>
 
       {/* IMAGE SECTION WITH OVERLAY - Your original design */}
       <div className="relative h-40 overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200">
@@ -650,14 +654,17 @@ const RoomCard = memo(({
         </div>
 
         {/* GALLERY BUTTON */}
-        <Button
-          size="icon"
-          variant="secondary"
-          className="absolute bottom-2 right-2 h-8 w-8 bg-white/95 hover:bg-white shadow-md backdrop-blur-sm"
-          onClick={() => onOpenGallery(room)}
-        >
-          <ImageIcon className="h-3.5 w-3.5" />
-        </Button>
+       <Button
+  size="icon"
+  variant="secondary"
+  className="absolute bottom-2 right-2 h-8 w-8 bg-white/95 hover:bg-white shadow-md backdrop-blur-sm"
+  onClick={(e) => {
+    e.stopPropagation();
+    onOpenGallery(room);
+  }}
+>
+  <ImageIcon className="h-3.5 w-3.5" />
+</Button>
       </div>
 
       {/* CONTENT SECTION - Your original design */}
@@ -825,8 +832,7 @@ const RoomCard = memo(({
       </div>
 
       {/* ACTION BUTTONS - Your original design */}
-      <div className="px-3 pb-3">
-        <div className="flex gap-1.5">
+<div className="px-3 pb-3" onClick={(e) => e.stopPropagation()}>        <div className="flex gap-1.5">
           <Button
             variant="outline"
             size="sm"
@@ -837,12 +843,15 @@ const RoomCard = memo(({
             <Eye className="h-3.5 w-3.5" />
           </Button>
           
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-7 flex-1 border-blue-300 text-blue-600 hover:bg-blue-50 hover:text-blue-900 text-xs"
-            onClick={() => onBedManagement(room)}
-          >
+     <Button
+  variant="outline"
+  size="sm"
+  className="h-7 flex-1 border-blue-300 text-blue-600 hover:bg-blue-50 hover:text-blue-900 text-xs"
+  onClick={(e) => {
+    e.stopPropagation();
+    onBedManagement(room);
+  }}
+>
             <Bed className="h-3.5 w-3.5 mr-1" />
             Manage
           </Button>
@@ -860,13 +869,16 @@ const RoomCard = memo(({
             <Edit2 className="h-3.5 w-3.5" />
           </Button>
           
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-7 w-7 p-0 border-red-300 text-red-600 hover:bg-red-50 hover:text-red-900"
-            onClick={() => onDelete(room.id.toString())}
-            title="Delete"
-          >
+         <Button
+  variant="outline"
+  size="sm"
+  className="h-7 w-7 p-0 border-red-300 text-red-600 hover:bg-red-50 hover:text-red-900"
+  onClick={(e) => {
+    e.stopPropagation();
+    onDelete(room.id.toString());
+  }}
+  title="Delete"
+>
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
         </div>

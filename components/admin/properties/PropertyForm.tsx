@@ -1431,7 +1431,7 @@ const handleSubmit = async () => {
                   />
                 </div>
 
-                <div className="pt-2 md:pt-5">
+                <div className="pt-2 md:pt-2">
       <div>
         <Label className="text-[10px] md:text-xs font-medium flex items-center gap-1 mb-1.5">
           <span className="text-blue-600">🏷️</span>
@@ -1445,7 +1445,7 @@ const handleSubmit = async () => {
           placeholder="Select property tags..."
           disabled={loadingMasters}
         />
-        {selectedTags.length > 0 && (
+        {/* {selectedTags.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1">
             {selectedTags.map(tag => (
               <Badge key={tag} variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
@@ -1453,7 +1453,7 @@ const handleSubmit = async () => {
               </Badge>
             ))}
           </div>
-        )}
+        )} */}
       </div>
     </div>
               </div>
@@ -1798,196 +1798,241 @@ const handleSubmit = async () => {
           </TabsContent>
 
           {/* Terms Tab */}
-          <TabsContent value="terms" className="space-y-2 md:space-y-3 mt-0 min-h-[400px] md:min-h-[500px] overflow-y-auto">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-3">
-              {/* Lock-in Period Section */}
-              <div className="border border-blue-100 bg-blue-50/50 rounded p-2 md:p-2.5">
-                <h3 className="text-[10px] md:text-xs font-semibold flex items-center gap-1 md:gap-1.5 mb-2">
-                  <CalendarDays className="h-3 w-3 md:h-3.5 md:w-3.5 text-blue-600" />
-                  Lock-in Period
-                  {loadingMasters && <Loader2 className="h-2.5 w-2.5 md:h-3 md:w-3 animate-spin text-blue-500" />}
-                </h3>
-                <div className="space-y-2">
-                  <div>
-                    <Label className="text-[9px] md:text-[10px]">Duration</Label>
-                    <Select
-                      value={formData.lockin_period_months ? String(formData.lockin_period_months) : ""}
-                      onValueChange={(value: string) => setFormData({ ...formData, lockin_period_months: value })}
-                      disabled={loadingMasters}
-                    >
-                      <SelectTrigger className="h-7 md:h-8 text-[10px] md:text-xs mt-0.5">
-                        <SelectValue placeholder="Select lock-in period" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {propertiesMasters["Lock-in Period"]?.length > 0 ? (
-                          propertiesMasters["Lock-in Period"].map((option) => (
-                            <SelectItem key={option.id} value={String(option.name)} className="text-[10px] md:text-xs">
-                              {option.name}
-                            </SelectItem>
-                          ))
-                        ) : (
-                          <div className="px-2 py-1 text-[9px] md:text-[10px] text-gray-500">
-                            {loadingMasters ? "Loading..." : "No options available"}
-                          </div>
-                        )}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-0.5">
-                    <Label className="text-[9px] md:text-[10px]">Penalty for Early Exit</Label>
-                    <div className="grid grid-cols-2 gap-1.5 md:gap-2">
-                      <Input
-                        type="number"
-                        min="0"
-                        value={formData.lockin_penalty_amount || ""}
-                        onChange={(e) =>
-                          setFormData({ ...formData, lockin_penalty_amount: parseFloat(e.target.value) || 0 })
-                        }
-                        placeholder={formData.lockin_penalty_type === "percentage" ? "Percentage" : "Amount"}
-                        className="h-6 md:h-7 text-[10px] md:text-xs"
-                      />
-                      <Select
-                        value={formData.lockin_penalty_type}
-                        onValueChange={(value) => setFormData({ ...formData, lockin_penalty_type: value })}
-                      >
-                        <SelectTrigger className="h-6 md:h-7 text-[10px] md:text-xs">
-                          <SelectValue placeholder="Type" />
-                        </SelectTrigger>
-                        <SelectContent className="text-[10px] md:text-xs">
-                          {PENALTY_TYPE_OPTIONS.filter((option) => option.code !== "rent").map((option) => (
-                            <SelectItem key={option.id} value={option.code}>
-                              {option.value}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
+        <TabsContent value="terms" className="space-y-1.5 md:space-y-2 mt-0 min-h-[400px] md:min-h-[500px] overflow-y-auto">
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5 md:gap-2">
+    {/* Lock-in Period Section */}
+    <div className="border border-blue-100 bg-blue-50/50 rounded p-1.5 md:p-2">
+      <h3 className="text-[10px] md:text-xs font-semibold flex items-center gap-1 md:gap-1.5 mb-1.5">
+        <CalendarDays className="h-3 w-3 md:h-3.5 md:w-3.5 text-blue-600" />
+        Lock-in Period
+        {loadingMasters && <Loader2 className="h-2.5 w-2.5 md:h-3 md:w-3 animate-spin text-blue-500" />}
+      </h3>
+      <div className="space-y-1.5">
+        <div>
+          <Label className="text-[9px] md:text-[10px]">Duration</Label>
+          <Select
+            value={formData.lockin_period_months ? String(formData.lockin_period_months) : ""}
+            onValueChange={(value: string) => setFormData({ ...formData, lockin_period_months: value })}
+            disabled={loadingMasters}
+          >
+            <SelectTrigger className="h-7 md:h-8 text-[10px] md:text-xs mt-0.5">
+              <SelectValue placeholder="Select lock-in period" />
+            </SelectTrigger>
+            <SelectContent>
+              {propertiesMasters["Lock-in Period"]?.length > 0 ? (
+                propertiesMasters["Lock-in Period"].map((option) => (
+                  <SelectItem key={option.id} value={String(option.name)} className="text-[10px] md:text-xs">
+                    {option.name}
+                  </SelectItem>
+                ))
+              ) : (
+                <div className="px-2 py-1 text-[9px] md:text-[10px] text-gray-500">
+                  {loadingMasters ? "Loading..." : "No options available"}
                 </div>
-              </div>
+              )}
+            </SelectContent>
+          </Select>
+        </div>
 
-              {/* Notice Period Section */}
-              <div className="border border-amber-100 bg-amber-50/50 rounded p-2 md:p-2.5">
-                <h3 className="text-[10px] md:text-xs font-semibold flex items-center gap-1 md:gap-1.5 mb-2">
-                  <Clock3 className="h-3 w-3 md:h-3.5 md:w-3.5 text-amber-600" />
-                  Notice Period
-                  {loadingMasters && <Loader2 className="h-2.5 w-2.5 md:h-3 md:w-3 animate-spin text-amber-500" />}
-                </h3>
-                <div className="space-y-2">
-                  <div>
-                    <Label className="text-[9px] md:text-[10px]">Duration</Label>
-                    <Select
-                      value={formData.notice_period_days ? String(formData.notice_period_days) : ""}
-                      onValueChange={(value: string) => setFormData({ ...formData, notice_period_days: value })}
-                      disabled={loadingMasters}
-                    >
-                      <SelectTrigger className="h-7 md:h-8 text-[10px] md:text-xs mt-0.5">
-                        <SelectValue placeholder="Select notice period" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {propertiesMasters["Notice Period"]?.length > 0 ? (
-                          propertiesMasters["Notice Period"].map((option) => (
-                            <SelectItem key={option.id} value={String(option.name)} className="text-[10px] md:text-xs">
-                              {option.name}
-                            </SelectItem>
-                          ))
-                        ) : (
-                          <div className="px-2 py-1 text-[9px] md:text-[10px] text-gray-500">
-                            {loadingMasters ? "Loading..." : "No options available"}
-                          </div>
-                        )}
-                      </SelectContent>
-                    </Select>
-                  </div>
+        <div className="space-y-0.5">
+          <Label className="text-[9px] md:text-[10px]">Penalty for Early Exit</Label>
+          <div className="grid grid-cols-2 gap-1.5 md:gap-2">
+            <Input
+              type="number"
+              min="0"
+              value={formData.lockin_penalty_amount || ""}
+              onChange={(e) =>
+                setFormData({ ...formData, lockin_penalty_amount: parseFloat(e.target.value) || 0 })
+              }
+              placeholder={formData.lockin_penalty_type === "percentage" ? "Percentage" : "Amount"}
+              className="h-6 md:h-7 text-[10px] md:text-xs"
+            />
+            <Select
+              value={formData.lockin_penalty_type}
+              onValueChange={(value) => setFormData({ ...formData, lockin_penalty_type: value })}
+            >
+              <SelectTrigger className="h-6 md:h-7 text-[10px] md:text-xs">
+                <SelectValue placeholder="Type" />
+              </SelectTrigger>
+              <SelectContent className="text-[10px] md:text-xs">
+                {PENALTY_TYPE_OPTIONS.filter((option) => option.code !== "rent").map((option) => (
+                  <SelectItem key={option.id} value={option.code}>
+                    {option.value}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </div>
+    </div>
 
-                  <div className="space-y-0.5">
-                    <Label className="text-[9px] md:text-[10px]">Penalty for Non-Compliance</Label>
-                    <div className="grid grid-cols-2 gap-1.5 md:gap-2">
-                      <Input
-                        type="number"
-                        min="0"
-                        value={formData.notice_penalty_amount || ""}
-                        onChange={(e) =>
-                          setFormData({ ...formData, notice_penalty_amount: parseFloat(e.target.value) || 0 })
-                        }
-                        placeholder={formData.notice_penalty_type === "percentage" ? "Percentage" : "Amount"}
-                        className="h-6 md:h-7 text-[10px] md:text-xs"
-                      />
-                      <Select
-                        value={formData.notice_penalty_type}
-                        onValueChange={(value) => setFormData({ ...formData, notice_penalty_type: value })}
-                      >
-                        <SelectTrigger className="h-6 md:h-7 text-[10px] md:text-xs">
-                          <SelectValue placeholder="Type" />
-                        </SelectTrigger>
-                        <SelectContent className="text-[10px] md:text-xs">
-                          {PENALTY_TYPE_OPTIONS.filter((option) => option.code !== "rent").map((option) => (
-                            <SelectItem key={option.id} value={option.code}>
-                              {option.value}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
+    {/* Notice Period Section */}
+    <div className="border border-amber-100 bg-amber-50/50 rounded p-1.5 md:p-2">
+      <h3 className="text-[10px] md:text-xs font-semibold flex items-center gap-1 md:gap-1.5 mb-1.5">
+        <Clock3 className="h-3 w-3 md:h-3.5 md:w-3.5 text-amber-600" />
+        Notice Period
+        {loadingMasters && <Loader2 className="h-2.5 w-2.5 md:h-3 md:w-3 animate-spin text-amber-500" />}
+      </h3>
+      <div className="space-y-1.5">
+        <div>
+          <Label className="text-[9px] md:text-[10px]">Duration</Label>
+          <Select
+            value={formData.notice_period_days ? String(formData.notice_period_days) : ""}
+            onValueChange={(value: string) => setFormData({ ...formData, notice_period_days: value })}
+            disabled={loadingMasters}
+          >
+            <SelectTrigger className="h-7 md:h-8 text-[10px] md:text-xs mt-0.5">
+              <SelectValue placeholder="Select notice period" />
+            </SelectTrigger>
+            <SelectContent>
+              {propertiesMasters["Notice Period"]?.length > 0 ? (
+                propertiesMasters["Notice Period"].map((option) => (
+                  <SelectItem key={option.id} value={String(option.name)} className="text-[10px] md:text-xs">
+                    {option.name}
+                  </SelectItem>
+                ))
+              ) : (
+                <div className="px-2 py-1 text-[9px] md:text-[10px] text-gray-500">
+                  {loadingMasters ? "Loading..." : "No options available"}
                 </div>
-              </div>
-            </div>
+              )}
+            </SelectContent>
+          </Select>
+        </div>
 
-            <div className="space-y-2 md:space-y-3">
-              <h3 className="text-xs md:text-sm font-semibold flex items-center gap-1 md:gap-1.5">
-                <ListChecks className="h-3 w-3 md:h-3.5 md:w-3.5" />
-                Terms & Conditions Builder
-              </h3>
+        <div className="space-y-0.5">
+          <Label className="text-[9px] md:text-[10px]">Penalty for Non-Compliance</Label>
+          <div className="grid grid-cols-2 gap-1.5 md:gap-2">
+            <Input
+              type="number"
+              min="0"
+              value={formData.notice_penalty_amount || ""}
+              onChange={(e) =>
+                setFormData({ ...formData, notice_penalty_amount: parseFloat(e.target.value) || 0 })
+              }
+              placeholder={formData.notice_penalty_type === "percentage" ? "Percentage" : "Amount"}
+              className="h-6 md:h-7 text-[10px] md:text-xs"
+            />
+            <Select
+              value={formData.notice_penalty_type}
+              onValueChange={(value) => setFormData({ ...formData, notice_penalty_type: value })}
+            >
+              <SelectTrigger className="h-6 md:h-7 text-[10px] md:text-xs">
+                <SelectValue placeholder="Type" />
+              </SelectTrigger>
+              <SelectContent className="text-[10px] md:text-xs">
+                {PENALTY_TYPE_OPTIONS.filter((option) => option.code !== "rent").map((option) => (
+                  <SelectItem key={option.id} value={option.code}>
+                    {option.value}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-3">
-                <div className="border rounded p-2 md:p-2.5">
-                  <h4 className="text-[10px] md:text-xs font-semibold mb-1.5">Template Terms</h4>
-                  <p className="text-[9px] md:text-[10px] text-gray-500 mb-2">Select terms to include</p>
-                  <div className="space-y-1.5 max-h-48 md:max-h-56 overflow-y-auto pr-1">
-                    {TERMS_TEMPLATES.map((template) => (
-                      <div key={template.id} className="flex items-center justify-between p-1.5 md:p-2 border rounded hover:bg-gray-50">
-                        <div className="flex items-center gap-1.5 md:gap-2 flex-1 min-w-0">
-                          <Switch
-                            checked={selectedTerms.includes(template.id)}
-                            onCheckedChange={() => toggleTermTemplate(template.id)}
-                            className="h-3.5 w-6 md:h-4 md:w-7"
-                          />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[9px] md:text-[10px] font-medium truncate">{template.title}</p>
-                            <p className="text-[8px] md:text-[9px] text-gray-500 truncate">{template.content(formData)}</p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
+  {/* Terms & Conditions Builder Section */}
+<div className="space-y-1.5 md:space-y-2">
+  <h3 className="text-xs md:text-sm font-semibold flex items-center gap-1 md:gap-1.5">
+    <ListChecks className="h-3 w-3 md:h-3.5 md:w-3.5" />
+    Terms & Conditions Builder
+  </h3>
 
-              <div>
-                <div className="flex justify-between items-center mb-1.5">
-                  <Label className="text-[10px] md:text-xs font-semibold">Generated Terms & Conditions</Label>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={generateTermsFromTemplates}
-                    disabled={selectedTerms.length === 0}
-                    className="h-6 md:h-7 text-[9px] md:text-[10px] px-2"
-                  >
-                    Generate from Templates
-                  </Button>
-                </div>
-                <Textarea
-                  value={formData.terms_conditions}
-                  onChange={(e) => setFormData({ ...formData, terms_conditions: e.target.value })}
-                  placeholder="Generated terms will appear here..."
-                  rows={4}
-                  className="text-[10px] md:text-xs font-mono"
-                />
+  {/* Two Column Layout - Template Terms (Left) & Generated Terms (Right) */}
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-3">
+    {/* Left Column - Template Terms */}
+    <div className="border rounded p-2 md:p-2.5 bg-white">
+      <h4 className="text-[10px] md:text-xs font-semibold mb-1 flex items-center gap-1">
+        <FileText className="h-3 w-3 text-blue-600" />
+        Template Terms
+      </h4>
+      <p className="text-[9px] md:text-[10px] text-gray-500 mb-2">Select terms to include</p>
+      <div className="space-y-1.5 max-h-48 md:max-h-56 overflow-y-auto pr-1">
+        {TERMS_TEMPLATES.map((template) => (
+          <div key={template.id} className="flex items-center justify-between p-1.5 md:p-2 border rounded hover:bg-gray-50">
+            <div className="flex items-center gap-1.5 md:gap-2 flex-1 min-w-0">
+              <Switch
+                checked={selectedTerms.includes(template.id)}
+                onCheckedChange={() => toggleTermTemplate(template.id)}
+                className="h-3.5 w-6 md:h-4 md:w-7 flex-shrink-0"
+              />
+              <div className="flex-1 min-w-0">
+                <p className="text-[9px] md:text-[10px] font-medium truncate">{template.title}</p>
+                <p className="text-[8px] md:text-[9px] text-gray-500 truncate">{template.content(formData)}</p>
               </div>
             </div>
-          </TabsContent>
+          </div>
+        ))}
+      </div>
+    </div>
+
+    {/* Right Column - Generated Terms & Conditions */}
+    <div className="border rounded p-2 md:p-2.5 bg-white">
+      <div className="flex justify-between items-center mb-2">
+        <h4 className="text-[10px] md:text-xs font-semibold flex items-center gap-1">
+          <FileText className="h-3 w-3 text-green-600" />
+          Generated Terms
+        </h4>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={generateTermsFromTemplates}
+          disabled={selectedTerms.length === 0}
+          className="h-6 md:h-7 text-[9px] md:text-[10px] px-2"
+        >
+          Generate
+        </Button>
+      </div>
+      
+      <div className="max-h-48 md:max-h-56 overflow-y-auto">
+        {formData.terms_conditions ? (
+          <div className="space-y-2">
+            {formData.terms_conditions.split('\n').map((line, index) => {
+              // Check if line is a header (contains emoji or is all caps)
+              const isHeader = line.includes('🔒') || line.includes('📅') || 
+                              (line.trim() && line === line.toUpperCase() && line.length > 5);
+              
+              if (isHeader) {
+                return (
+                  <h5 key={index} className="text-[10px] md:text-xs font-semibold text-gray-800 mt-2 first:mt-0">
+                    {line}
+                  </h5>
+                );
+              } else if (line.trim().match(/^\d+\./)) {
+                // Numbered list items
+                return (
+                  <p key={index} className="text-[9px] md:text-[10px] text-gray-700 pl-3">
+                    {line}
+                  </p>
+                );
+              } else if (line.trim()) {
+                // Regular text
+                return (
+                  <p key={index} className="text-[9px] md:text-[10px] text-gray-600">
+                    {line}
+                  </p>
+                );
+              }
+              return null;
+            })}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center h-32 text-center">
+            <FileText className="h-8 w-8 text-gray-300 mb-2" />
+            <p className="text-[9px] md:text-[10px] text-gray-400">
+              Select terms and click Generate to create terms & conditions
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+</div>
+</TabsContent>
 
           {/* Photos Tab - includes Property Rules and Additional Terms */}
           <TabsContent value="photos" className="space-y-2 md:space-y-3 mt-0 min-h-[400px] md:min-h-[500px] overflow-y-auto">

@@ -405,7 +405,7 @@ const PropertyCard = memo(function PropertyCard({
         className="group block h-full cursor-pointer"
         onClick={handleCardClick}
       >
-        <div className="relative overflow-hidden rounded-2xl bg-[#f0f5f5] shadow-md hover:shadow-2xl transition-all duration-500 group-hover:-translate-y-2 h-[500px] flex flex-col">
+        <div className="relative overflow-hidden rounded-2xl bg-[#f0f5f5] shadow-md hover:shadow-2xl transition-all duration-500 group-hover:-translate-y-2 h-[515px] flex flex-col">
           
           {/* Image area */}
           <div className="relative h-52 sm:h-56 md:h-60 overflow-hidden rounded-t-2xl flex-shrink-0">
