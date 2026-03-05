@@ -699,8 +699,7 @@ export default function StaffClientPage({
 
             {/* Scrollable Body */}
             <div className="p-3 sm:p-4 md:p-6 overflow-y-auto max-h-[70vh] sm:max-h-[65vh] md:max-h-[70vh]">
-              <StaffForm
-                key={editingStaff?.id ? `edit-${editingStaff.id}-${Date.now()}` : 'new'} // Dynamic key to force re-render
+              <StaffForm // Dynamic key to force re-render
                 formData={formData}
                 setFormData={setFormData}
                 editingStaff={editingStaff}
