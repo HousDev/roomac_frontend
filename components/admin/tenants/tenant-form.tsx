@@ -1,4 +1,4 @@
-
+// tenant-form
 // "use client";
 
 // import { useState, useEffect } from "react";
@@ -3659,7 +3659,7 @@ const DocumentPreview = ({ url, type, onRemove }: { url: string; type: string; o
                       />
                     </div>
 
-                    <div className="space-y-1">
+                    {/* <div className="space-y-1">
                       <Label htmlFor="occupation" className="text-xs sm:text-sm">Additional Details</Label>
                       <Input
                         id="occupation"
@@ -3668,11 +3668,11 @@ const DocumentPreview = ({ url, type, onRemove }: { url: string; type: string; o
                         placeholder="Any additional occupation information"
                         className="h-8 sm:h-9 text-xs sm:text-sm"
                       />
-                    </div>
+                    </div> */}
                   </div>
 
                   <div className="space-y-3">
-                    <div className="space-y-1">
+                    {/* <div className="space-y-1">
                       <Label htmlFor="preferred_property_id" className="text-xs sm:text-sm">Preferred Property</Label>
                       <Select
                         value={formData.preferred_property_id?.toString() || ""}
@@ -3698,7 +3698,7 @@ const DocumentPreview = ({ url, type, onRemove }: { url: string; type: string; o
                           ))}
                         </SelectContent>
                       </Select>
-                    </div>
+                    </div> */}
 
                     {/* {formData.gender && formData.preferred_property_id && availableRooms.length > 0 && (
                       <div className="space-y-1">
@@ -3738,7 +3738,7 @@ const DocumentPreview = ({ url, type, onRemove }: { url: string; type: string; o
                     )} */}
 
                     <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1">
+                      {/* <div className="space-y-1">
                         <Label htmlFor="preferred_sharing" className="text-xs sm:text-sm">Preferred Sharing</Label>
                         <Select
                           value={formData.preferred_sharing}
@@ -3770,9 +3770,9 @@ const DocumentPreview = ({ url, type, onRemove }: { url: string; type: string; o
                             )}
                           </SelectContent>
                         </Select>
-                      </div>
+                      </div> */}
 
-                      <div className="space-y-1">
+                      {/* <div className="space-y-1">
                         <Label htmlFor="preferred_room_type" className="text-xs sm:text-sm">Room Type</Label>
                         <Select
                           value={formData.preferred_room_type}
@@ -3805,7 +3805,7 @@ const DocumentPreview = ({ url, type, onRemove }: { url: string; type: string; o
                             )}
                           </SelectContent>
                         </Select>
-                      </div>
+                      </div> */}
 
                       <div className="space-y-1">
                         <Label htmlFor="check_in_date" className="text-xs sm:text-sm">Check-in Date</Label>

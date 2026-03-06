@@ -1,4 +1,4 @@
-// components/admin/TagsBulkModal.tsx (updated with Master API)
+// components/admin/TagsBulkModal.tsx (updated with consumeMasters API)
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
@@ -20,10 +20,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tag, X, Plus, Check, Loader2, Search, AlertCircle, RefreshCw } from "lucide-react";
+import { Tag, X, Check, Loader2, Search, AlertCircle, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-// import { getAllTags, createTag } from "@/lib/masterApi";
+import { consumeMasters } from "@/lib/masterApi";
 
 interface TagsBulkModalProps {
   open: boolean;
@@ -32,6 +32,17 @@ interface TagsBulkModalProps {
   selectedPropertyIds: number[];
   onSubmit: (tags: string[], operation: 'add' | 'remove' | 'set') => Promise<void>;
 }
+
+interface MasterTag {
+  id: number;
+  name: string;
+  type_name: string;
+  value_id: number;
+  value_name: string;
+  isactive: number;
+}
+
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 export function TagsBulkModal({ 
   open, 
@@ -42,110 +53,99 @@ export function TagsBulkModal({
 }: TagsBulkModalProps) {
   const [operation, setOperation] = useState<'add' | 'remove' | 'set'>('add');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [customTag, setCustomTag] = useState("");
   const [loading, setLoading] = useState(false);
-  const [masterTags, setMasterTags] = useState<string[]>([]);
+  const [masterTags, setMasterTags] = useState<MasterTag[]>([]);
   const [loadingMasterTags, setLoadingMasterTags] = useState(false);
-  const [existingTags, setExistingTags] = useState<any>([]);
+  const [existingTags, setExistingTags] = useState<string[]>([]);
   const [loadingExistingTags, setLoadingExistingTags] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Fetch master tags from Master API
+  // Fetch master tags using consumeMasters API
   const fetchMasterTags = useCallback(async () => {
     setLoadingMasterTags(true);
     try {
-      const tags = await getAllTags();
+      console.log("🔍 Fetching tags using consumeMasters API...");
+      const response = await consumeMasters({ tab: "Properties", type: "Tags" });
       
-      if (Array.isArray(tags) && tags.length > 0) {
+      console.log("📥 consumeMasters response:", response);
+      
+      if (response?.success && response.data) {
+        // The data from consumeMasters returns an array of objects with value_id and value_name
+        const tags = response.data.map((item: any) => ({
+          id: item.value_id,
+          name: item.value_name,
+          type_name: item.type_name,
+          value_id: item.value_id,
+          value_name: item.value_name,
+          isactive: item.isactive
+        }));
+        
         setMasterTags(tags);
-        console.log(`✅ Loaded ${tags.length} tags from Master API:`, tags);
+        console.log(`✅ Loaded ${tags.length} tags from master:`, tags);
       } else {
-        // If no tags in master, use default ones
-        const defaultTags = [
-          "featured", 
-          "new listing", 
-          "premium", 
-          "budget", 
-          "luxury", 
-          "pet friendly", 
-          "fully furnished"
-        ];
-        setMasterTags(defaultTags);
-        console.log("⚠️ Using default tags as Master API returned none");
+        console.warn("⚠️ No tags found in master response");
+        setMasterTags([]);
       }
     } catch (error) {
-      console.error("Failed to load tags from Master API:", error);
-      // Fallback to default tags
-      const defaultTags = [
-        "featured", 
-        "new listing", 
-        "premium", 
-        "budget", 
-        "luxury", 
-        "pet friendly", 
-        "fully furnished"
-      ];
-      setMasterTags(defaultTags);
+      console.error("Failed to load tags from master:", error);
+      toast.error("Failed to load master tags");
+      setMasterTags([]);
     } finally {
       setLoadingMasterTags(false);
     }
   }, []);
 
   // Fetch existing tags from selected properties
-
-const fetchExistingTags = useCallback(async () => {
-  if (selectedPropertyIds.length === 0) {
-    console.log("⚠️ No property IDs selected");
-    setExistingTags([]);
-    return;
-  }
-  
-  setLoadingExistingTags(true);
-  try {
-    console.log("🔍 Fetching existing tags for property IDs:", selectedPropertyIds);
+  const fetchExistingTags = useCallback(async () => {
+    if (selectedPropertyIds.length === 0) {
+      console.log("⚠️ No property IDs selected");
+      setExistingTags([]);
+      return;
+    }
     
-    // Correct API URL with port 3001
-    const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-    const url = `${API_BASE}/api/properties/bulk-tags-info?ids=${selectedPropertyIds.join(',')}&_t=${Date.now()}`;
-    
-    console.log("📡 API URL:", url);
-    
-    const response = await fetch(url, {
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-    
-    console.log("📥 API Response status:", response.status);
-    
-    if (response.ok) {
-      const data = await response.json();
-      console.log("📦 API Response data:", data);
+    setLoadingExistingTags(true);
+    try {
+      console.log("🔍 Fetching existing tags for property IDs:", selectedPropertyIds);
       
-      if (data.success && data.tags) {
-        const uniqueTags = Array.from(new Set(data.tags.filter((tag: string) => 
-  tag && typeof tag === 'string' && tag.trim() !== ''
-)));
-
+      const url = `${API_BASE}/api/properties/bulk-tags-info?ids=${selectedPropertyIds.join(',')}&_t=${Date.now()}`;
+      
+      console.log("📡 API URL:", url);
+      
+      const response = await fetch(url, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      console.log("📥 API Response status:", response.status);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log("📦 API Response data:", data);
         
-        console.log(`✅ Found ${uniqueTags.length} unique existing tags:`, uniqueTags);
-        setExistingTags(uniqueTags);
-      } 
-      else {
-        console.log("❌ API response not successful:", data);
+        if (data.success && data.tags) {
+          // Filter out empty or invalid tags
+          const uniqueTags = Array.from(new Set(data.tags.filter((tag: string) => 
+            tag && typeof tag === 'string' && tag.trim() !== ''
+          ))) as string[];
+          
+          console.log(`✅ Found ${uniqueTags.length} unique existing tags:`, uniqueTags);
+          setExistingTags(uniqueTags);
+        } else {
+          console.log("❌ API response not successful:", data);
+          setExistingTags([]);
+        }
+      } else {
+        console.error("❌ API request failed:", response.status);
         setExistingTags([]);
       }
-    } else {
-      console.error("❌ API request failed:", response.status);
+    } catch (error) {
+      console.error("❌ Failed to fetch existing tags:", error);
       setExistingTags([]);
+    } finally {
+      setLoadingExistingTags(false);
     }
-  } catch (error) {
-    console.error("❌ Failed to fetch existing tags:", error);
-    setExistingTags([]);
-  } finally {
-    setLoadingExistingTags(false);
-  }
-}, [selectedPropertyIds]);
+  }, [selectedPropertyIds]);
 
   // Load data when modal opens
   useEffect(() => {
@@ -166,58 +166,12 @@ const fetchExistingTags = useCallback(async () => {
     }
   }, [open, operation, selectedPropertyIds, fetchExistingTags]);
 
-  const handleTagToggle = (tag: string) => {
+  const handleTagToggle = (tagName: string) => {
     setSelectedTags(prev => 
-      prev.includes(tag) 
-        ? prev.filter(t => t !== tag)
-        : [...prev, tag]
+      prev.includes(tagName) 
+        ? prev.filter(t => t !== tagName)
+        : [...prev, tagName]
     );
-  };
-
-  const handleAddCustomTag = async () => {
-    const trimmedTag = customTag.trim();
-    if (!trimmedTag) return;
-
-    if (selectedTags.includes(trimmedTag)) {
-      toast.error(`Tag "${trimmedTag}" is already selected`);
-      return;
-    }
-
-    // Check if tag already exists in master
-    const existingTag = masterTags.find(tag => 
-      tag.toLowerCase() === trimmedTag.toLowerCase()
-    );
-    
-    if (existingTag) {
-      // Tag already exists, just select it
-      toast.info(`Tag "${existingTag}" already exists in master list`);
-      setSelectedTags(prev => [...prev, existingTag]);
-      setCustomTag("");
-      return;
-    }
-
-    // Try to add to master API if not in remove mode
-    if (operation !== 'remove') {
-      try {
-        toast.loading(`Adding "${trimmedTag}" to master tags...`);
-        const response = await createTag(trimmedTag);
-        
-        if (response?.success) {
-          toast.success(`Tag "${trimmedTag}" added to master list`);
-          // Refresh master tags
-          await fetchMasterTags();
-        } else {
-          toast.error(`Failed to add "${trimmedTag}" to master list`);
-        }
-      } catch (error) {
-        console.error("Failed to add tag to master:", error);
-        toast.error("Failed to add tag to master list");
-      }
-    }
-
-    // Add to selected tags
-    setSelectedTags(prev => [...prev, trimmedTag]);
-    setCustomTag("");
   };
 
   const handleRemoveSelectedTag = (tagToRemove: string) => {
@@ -252,7 +206,6 @@ const fetchExistingTags = useCallback(async () => {
 
   const resetModal = () => {
     setSelectedTags([]);
-    setCustomTag("");
     setSearchQuery("");
     setOperation('add');
   };
@@ -268,10 +221,12 @@ const fetchExistingTags = useCallback(async () => {
     
     if (operation === 'remove') {
       // For remove: show existing tags from selected properties
-      tags = existingTags.filter((tag: string) => !selectedTags.includes(tag));
+      tags = existingTags.filter(tag => !selectedTags.includes(tag));
     } else {
-      // For add/set: show master tags not already selected
-      tags = masterTags.filter(tag => !selectedTags.includes(tag));
+      // For add/set: show master tag names not already selected
+      tags = masterTags
+        .map(t => t.value_name) // Get the actual tag names
+        .filter(name => !selectedTags.includes(name));
     }
     
     // Apply search filter
@@ -337,6 +292,17 @@ const fetchExistingTags = useCallback(async () => {
                   : 'Replace all existing tags with new ones'}
               </p>
             </div>
+          </div>
+
+          {/* Search Input */}
+          <div className="relative">
+            <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder={`Search ${operation === 'remove' ? 'existing' : 'master'} tags...`}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-8 h-9"
+            />
           </div>
 
           {/* Loading States */}

@@ -1,3 +1,4 @@
+// components/admin/staff/StaffClientPage.tsx
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
@@ -33,12 +34,14 @@ import {
   fetchRoles,
   fetchDepartments,
   exportStaffToExcel,
+  getStaffById,
 } from "@/lib/staffApi";
 import { useRouter, useSearchParams } from "next/navigation";
 import StaffTable from "./StaffTable";
 import StaffForm from "./StaffForm";
 import StaffDetailsPopup from "./StaffDetailsPopup";
 import { Download } from "lucide-react";
+import MySwal from "@/app/utils/swal"; 
 
 interface StaffClientPageProps {
   initialStaff: StaffMember[];
@@ -101,8 +104,8 @@ export default function StaffClientPage({
     salutation: "mr",
     name: "",
     email: "",
-    password: "", // Add password
-    confirmPassword: "", // Add confirm password
+    password: "",
+    confirmPassword: "",
     phone: "",
     whatsapp_number: "",
     is_whatsapp_same: true,
@@ -114,7 +117,7 @@ export default function StaffClientPage({
 
     // Job Information
     role: "",
-    role_name: "", // Add this for display
+    role_name: "",
     employee_id: "",
     salary: "",
     department: "no-department",
@@ -148,14 +151,12 @@ export default function StaffClientPage({
     // Status
     is_active: true,
   });
-  
-  // Add password errors state
+
   const [passwordErrors, setPasswordErrors] = useState<{
     password?: string;
     confirmPassword?: string;
   }>({});
-  
-  // Validate password function
+
   const validatePassword = (password: string, confirmPassword: string) => {
     const errors: { password?: string; confirmPassword?: string } = {};
 
@@ -172,7 +173,6 @@ export default function StaffClientPage({
     return errors;
   };
 
-  // Load staff data
   const loadStaff = useCallback(async () => {
     try {
       setLoading(true);
@@ -187,7 +187,6 @@ export default function StaffClientPage({
     }
   }, []);
 
-  // Load masters data (roles and departments)
   useEffect(() => {
     const loadMasters = async () => {
       setLoadingMasters(true);
@@ -200,7 +199,6 @@ export default function StaffClientPage({
         setRoles(rolesData);
         setDepartments(deptsData);
 
-        // Set default role if there are roles and no role is selected
         if (rolesData.length > 0 && !formData.role) {
           setFormData((prev) => ({
             ...prev,
@@ -218,7 +216,6 @@ export default function StaffClientPage({
     loadMasters();
   }, []);
 
-  // Filter staff based on search and role
   const filteredStaff = useMemo(() => {
     let filtered = staff;
 
@@ -240,7 +237,6 @@ export default function StaffClientPage({
     return filtered;
   }, [staff, searchTerm, roleFilter]);
 
-  // WhatsApp toggle logic
   useEffect(() => {
     if (formData.is_whatsapp_same) {
       setFormData((prev) => ({
@@ -250,7 +246,6 @@ export default function StaffClientPage({
     }
   }, [formData.phone, formData.is_whatsapp_same]);
 
-  // Handle filter changes with URL updates
   useEffect(() => {
     const params = new URLSearchParams();
     if (searchTerm) params.set("search", searchTerm);
@@ -262,10 +257,8 @@ export default function StaffClientPage({
     });
   }, [searchTerm, roleFilter]);
 
-  // Handle form submission
   const handleSubmit = async () => {
     try {
-      // Validation
       if (!formData.name.trim()) {
         toast.error("Name is required");
         return;
@@ -283,9 +276,7 @@ export default function StaffClientPage({
         return;
       }
 
-      // Validate password for new staff or if changing password in edit mode
       if (!editingStaff) {
-        // New staff - password is required
         const errors = validatePassword(
           formData.password,
           formData.confirmPassword,
@@ -296,7 +287,6 @@ export default function StaffClientPage({
           return;
         }
       } else {
-        // Editing staff - only validate if they want to change password
         if (formData.password || formData.confirmPassword) {
           const errors = validatePassword(
             formData.password,
@@ -313,15 +303,11 @@ export default function StaffClientPage({
       setSubmitting(true);
       setPasswordErrors({});
 
-      // Create FormData
       const formDataObj = createStaffFormData({
         ...formData,
         is_whatsapp_same: formData.is_whatsapp_same ? 1 : 0,
         is_active: formData.is_active ? 1 : 0,
         salary: formData.salary ? parseFloat(formData.salary.toString()) : 0,
-        // Include password only if:
-        // 1. New staff, OR
-        // 2. Editing staff and password field is not empty
         password:
           !editingStaff || (editingStaff && formData.password)
             ? formData.password
@@ -329,8 +315,13 @@ export default function StaffClientPage({
       });
 
       if (editingStaff) {
-        await updateStaff(editingStaff.id, formDataObj);
+        const response = await updateStaff(editingStaff.id, formDataObj);
         toast.success("Staff updated successfully");
+
+        // Update editingStaff with the new data from server
+        if (response && response.data) {
+          setEditingStaff(response.data);
+        }
       } else {
         await addStaff(formDataObj);
         toast.success("Staff added successfully");
@@ -347,79 +338,112 @@ export default function StaffClientPage({
     }
   };
 
-  // Handle edit staff
-  const handleEdit = useCallback((member: StaffMember) => {
-    // Check if WhatsApp number is different from phone number
+const handleEdit = useCallback(async (member: StaffMember) => {
+  try {
+    // Add a cache-busting parameter to ensure fresh data
+    const freshData = await getStaffById(member.id);
+  
     const isWhatsAppSame =
-      member.whatsapp_number === member.phone || !member.whatsapp_number;
+      freshData.whatsapp_number === freshData.phone ||
+      !freshData.whatsapp_number;
 
-    setEditingStaff(member);
+    // CRITICAL: Ensure document URLs are properly set to null if they don't exist
+    setEditingStaff(freshData);
+    
     setFormData({
-      salutation: member.salutation || "mr",
-      name: member.name || "",
-      email: member.email || "",
-      password: "", // Don't show password when editing
-      confirmPassword: "", // Don't show confirm password when editing
-      phone: member.phone || "",
-      whatsapp_number: member.whatsapp_number || "",
+      salutation: freshData.salutation || "mr",
+      name: freshData.name || "",
+      email: freshData.email || "",
+      password: "",
+      confirmPassword: "",
+      phone: freshData.phone || "",
+      whatsapp_number: freshData.whatsapp_number || "",
       is_whatsapp_same: isWhatsAppSame,
-      blood_group: normalizeBloodGroup(member.blood_group),
-      aadhar_number: member.aadhar_number || "",
-      pan_number: member.pan_number || "",
-      role: member.role?.toString() || "",
-      role_name: member.role_name || "",
-      employee_id: member.employee_id || "",
-      salary: member.salary?.toString() || "0",
-      department: member.department?.toString() || "no-department",
-      department_name: member.department_name || "",
+      blood_group: normalizeBloodGroup(freshData.blood_group),
+      aadhar_number: freshData.aadhar_number || "",
+      pan_number: freshData.pan_number || "",
+      role: freshData.role?.toString() || "",
+      role_name: freshData.role_name || "",
+      employee_id: freshData.employee_id || "",
+      salary: freshData.salary?.toString() || "0",
+      department: freshData.department?.toString() || "no-department",
+      department_name: freshData.department_name || "",
       joining_date:
-        member.joining_date?.slice(0, 10) ||
+        freshData.joining_date?.slice(0, 10) ||
         new Date().toISOString().split("T")[0],
-      current_address: member.current_address || "",
-      permanent_address: member.permanent_address || "",
-      emergency_contact_name: member.emergency_contact_name || "",
-      emergency_contact_phone: member.emergency_contact_phone || "",
-      emergency_contact_relation: member.emergency_contact_relation || "",
-      bank_account_holder_name: member.bank_account_holder_name || "",
-      bank_account_number: member.bank_account_number || "",
-      bank_name: member.bank_name || "",
-      bank_ifsc_code: member.bank_ifsc_code || "",
-      upi_id: member.upi_id || "",
+      current_address: freshData.current_address || "",
+      permanent_address: freshData.permanent_address || "",
+      emergency_contact_name: freshData.emergency_contact_name || "",
+      emergency_contact_phone: freshData.emergency_contact_phone || "",
+      emergency_contact_relation: freshData.emergency_contact_relation || "",
+      bank_account_holder_name: freshData.bank_account_holder_name || "",
+      bank_account_number: freshData.bank_account_number || "",
+      bank_name: freshData.bank_name || "",
+      bank_ifsc_code: freshData.bank_ifsc_code || "",
+      upi_id: freshData.upi_id || "",
       aadhar_document: null,
       pan_document: null,
       photo: null,
-      aadhar_document_url: member.aadhar_document_url || "",
-      pan_document_url: member.pan_document_url || "",
-      photo_url: member.photo_url || "",
-      is_active: member.is_active || true,
+      // CRITICAL: Use null, not empty string
+      aadhar_document_url: freshData.aadhar_document_url || null,
+      pan_document_url: freshData.pan_document_url || null,
+      photo_url: freshData.photo_url || null,
+      is_active: freshData.is_active === 1 || freshData.is_active === true,
     });
-    setPasswordErrors({}); // Clear password errors
+    setPasswordErrors({});
     setShowDialog(true);
-  }, []);
+  } catch (error) {
+    console.error("Error fetching staff data:", error);
+    toast.error("Failed to load staff data");
+  }
+}, []);
 
-  // Handle delete staff
-  const handleDelete = useCallback(
-    async (id: number) => {
-      if (
-        !confirm(
-          "Are you sure you want to delete this staff member? This action cannot be undone.",
-        )
-      ) {
-        return;
-      }
+const handleDelete = useCallback(
+  async (id: number) => {
+    // Show SweetAlert confirmation
+    const result = await MySwal.fire({
+      title: "Delete Staff Member?",
+      text: "Are you sure you want to delete this staff member? This action cannot be undone.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#C62828",
+      cancelButtonColor: "#6b7280",
+      confirmButtonText: "Delete",
+      cancelButtonText: "Cancel",
+      reverseButtons: true,
+      focusCancel: true,
+    });
 
+    if (result.isConfirmed) {
       try {
         await deleteStaff(id);
+        
+        // Show success message
+        MySwal.fire({
+          title: "Deleted!",
+          text: "Staff member has been deleted successfully.",
+          icon: "success",
+          timer: 2000,
+          showConfirmButton: false,
+        });
+        
         toast.success("Staff deleted successfully");
         await loadStaff();
       } catch (err: any) {
+        // Show error message
+        MySwal.fire({
+          title: "Error!",
+          text: err.message || "Failed to delete staff",
+          icon: "error",
+          confirmButtonColor: "#C62828",
+        });
         toast.error(err.message || "Failed to delete staff");
       }
-    },
-    [loadStaff],
-  );
+    }
+  },
+  [loadStaff],
+);
 
-  // Handle toggle active status
   const handleToggleActive = useCallback(
     async (id: number, isActive: boolean) => {
       try {
@@ -436,13 +460,11 @@ export default function StaffClientPage({
     [loadStaff],
   );
 
-  // Add view details handler
   const handleViewDetails = useCallback((member: StaffMember) => {
     setSelectedStaff(member);
     setShowDetailsPopup(true);
   }, []);
 
-  // Add export handler
   const handleExport = useCallback(() => {
     try {
       exportStaffToExcel(
@@ -456,14 +478,13 @@ export default function StaffClientPage({
     }
   }, [filteredStaff]);
 
-  // Reset form
   const resetForm = useCallback(() => {
     setEditingStaff(null);
     setFormData({
       salutation: "mr",
       name: "",
       email: "",
-      password: "", // Clear password
+      password: "",
       confirmPassword: "",
       phone: "",
       whatsapp_number: "",
@@ -496,10 +517,9 @@ export default function StaffClientPage({
       photo_url: "",
       is_active: true,
     });
-    setPasswordErrors({}); // Clear password errors
+    setPasswordErrors({});
   }, [roles]);
 
-  // Handle file upload
   const handleFileUpload = useCallback(
     (
       e: React.ChangeEvent<HTMLInputElement>,
@@ -507,13 +527,11 @@ export default function StaffClientPage({
     ) => {
       const file = e.target.files?.[0];
       if (file) {
-        // Validate file size (5MB)
         if (file.size > 5 * 1024 * 1024) {
           toast.error("File size should be less than 5MB");
           return;
         }
 
-        // Validate file type
         const validTypes = [
           "image/jpeg",
           "image/jpg",
@@ -528,8 +546,7 @@ export default function StaffClientPage({
         setFormData((prev) => ({
           ...prev,
           [documentType]: file,
-          [`${documentType}_url`]:
-            prev[`${documentType}_url`] || URL.createObjectURL(file),
+          [`${documentType}_url`]: URL.createObjectURL(file),
         }));
         toast.success(
           `${documentType.replace("_", " ")} uploaded successfully`,
@@ -539,64 +556,79 @@ export default function StaffClientPage({
     [],
   );
 
-  // Handle remove document - UPDATED VERSION
-  const handleRemoveDocument = useCallback(
-    async (documentType: "aadhar_document" | "pan_document" | "photo") => {
-      try {
-        // If we're editing an existing staff member and there's a document URL
-        if (editingStaff && formData[`${documentType}_url`]) {
-          // Show loading toast
-          const loadingToast = toast.loading(`Removing ${documentType.replace("_", " ")}...`);
-          
-          // Call API to delete document from server
-          await deleteStaffDocument(editingStaff.id, documentType);
-          
-          // Update formData to clear both the file and URL
+// In StaffClientPage.tsx - update handleRemoveDocument
+
+const handleRemoveDocument = useCallback(
+  async (documentType: "aadhar_document" | "pan_document" | "photo") => {
+    try {
+
+      if (editingStaff && formData[`${documentType}_url`]) {
+        const loadingToast = toast.loading(
+          `Removing ${documentType.replace("_", " ")}...`,
+        );
+
+        // Call API to delete document from server
+        const response = await deleteStaffDocument(
+          editingStaff.id,
+          documentType,
+        );
+
+        if (response && response.success) {
+          // Get the updated staff data from response
+          const updatedStaffData = response.data;
+
+
+          // Update form data with the new document URLs from server
           setFormData((prev) => {
-            const newFormData = {
+            const newState = {
               ...prev,
               [documentType]: null,
-              [`${documentType}_url`]: "", // Clear the URL
+              [`${documentType}_url`]: null,
+              // Update all document URLs from the server response
+              aadhar_document_url: updatedStaffData.aadhar_document_url || null,
+              pan_document_url: updatedStaffData.pan_document_url || null,
+              photo_url: updatedStaffData.photo_url || null,
             };
-            return newFormData;
+
+            return newState;
           });
-          
-          // Also update the editingStaff data to reflect the change
+
+          // CRITICAL: Update editingStaff with the new data from server
           setEditingStaff((prev) => {
-            if (!prev) return null;
+            if (!prev) return updatedStaffData;
             return {
               ...prev,
-              [`${documentType}_url`]: "", // Clear the URL in editingStaff
+              ...updatedStaffData,
+              // Ensure document URLs are explicitly set to null if they don't exist
+              aadhar_document_url: updatedStaffData.aadhar_document_url || null,
+              pan_document_url: updatedStaffData.pan_document_url || null,
+              photo_url: updatedStaffData.photo_url || null,
             };
           });
-          
-          // Dismiss loading and show success
-          toast.dismiss(loadingToast);
-          toast.success(`${documentType.replace("_", " ")} removed successfully`);
-          
-          // Reload staff data to reflect changes in the table
-          await loadStaff();
-        } else {
-          // For new staff or if no document URL exists, just clear local state
-          setFormData((prev) => {
-            const newFormData = {
-              ...prev,
-              [documentType]: null,
-              [`${documentType}_url`]: "", // Clear the URL
-            };
-            return newFormData;
-          });
-          toast.success(`${documentType.replace("_", " ")} removed`);
-        }
-      } catch (error: any) {
-        console.error("Error removing document:", error);
-        toast.error(error.message || `Failed to remove ${documentType.replace("_", " ")}`);
-      }
-    },
-    [editingStaff, loadStaff], // Removed formData from dependencies
-  );
 
-  // Role badge color
+          toast.dismiss(loadingToast);
+          toast.success(
+            `${documentType.replace("_", " ")} removed successfully`,
+          );
+
+          // Optionally refresh the staff list in the background
+          getAllStaff().then(updatedList => {
+            setStaff(updatedList);
+          }).catch(err => {
+            console.error("Error refreshing staff list:", err);
+          });
+        }
+      }
+    } catch (error: any) {
+      console.error("Error removing document:", error);
+      toast.error(
+        error.message || `Failed to remove ${documentType.replace("_", " ")}`,
+      );
+    }
+  },
+  [editingStaff, formData], // Remove formData from dependencies if it causes issues
+);
+
   const getRoleBadgeColor = useCallback((role: string) => {
     switch (role) {
       case "admin":
@@ -620,7 +652,6 @@ export default function StaffClientPage({
     }
   }, []);
 
-  // Format salary
   const formatSalary = useCallback((salary: number) => {
     return new Intl.NumberFormat("en-IN", {
       style: "currency",
@@ -630,7 +661,6 @@ export default function StaffClientPage({
     }).format(salary);
   }, []);
 
-  // Format date
   const formatDate = useCallback((dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-IN", {
       day: "2-digit",
@@ -639,7 +669,6 @@ export default function StaffClientPage({
     });
   }, []);
 
-  // Loading state
   if (loading && staff.length === 0) {
     return (
       <div className="p-6 flex items-center justify-center min-h-[400px]">
@@ -653,101 +682,98 @@ export default function StaffClientPage({
 
   return (
     <div className="p-2 md:p-2 -mt-9">
-      <div className="flex flex-col sm:flex-row justify-end items-end gap-4 mb-8 sticky top-20 z-10">
+      <div className="flex flex-row justify-end items-end gap-4 mb-8 sticky top-20 z-10 md:pt-4">
+  <Button
+    variant="outline"
+    onClick={handleExport}
+    className="w-28 h-9 text-sm bg-gradient-to-r from-blue-900 to-blue-800 text-white"
+    disabled={staff.length === 0}
+  >
+    <Download className="mr-2 h-4 w-4 text-white" />
+    Export
+  </Button>
+  <Dialog
+    open={showDialog}
+    onOpenChange={(open) => {
+      setShowDialog(open);
+      if (!open) {
+        resetForm();
+      }
+    }}
+  >
+    <DialogTrigger asChild>
+      <Button className="w-28 h-9 text-sm">
+        <Plus className="mr-2 h-4 w-4" />
+        Add Staff
+      </Button>
+    </DialogTrigger>
+
+    <DialogContent className="max-w-full sm:max-w-3xl md:max-w-4xl lg:max-w-6xl w-[95vw] sm:w-full max-h-[95vh] sm:max-h-[97vh] overflow-hidden p-0 rounded-lg sm:rounded-xl">
+      <div className="bg-gradient-to-r from-blue-700 to-blue-600 text-white px-3 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4 flex items-center justify-between rounded-t-lg">
+        <div>
+          <h2 className="text-sm sm:text-base md:text-lg lg:text-xl font-semibold">
+            {editingStaff ? "Edit Staff Member" : "Add New Staff Member"}
+          </h2>
+          <p className="text-[10px] sm:text-xs md:text-sm text-blue-100">
+            Fill in the details below to {editingStaff ? "update" : "add"}{" "}
+            staff information
+          </p>
+        </div>
+
+        <DialogClose asChild>
+          <button className="p-1 sm:p-1.5 md:p-2 rounded-full hover:bg-white/20 transition">
+            <X className="h-4 w-4 sm:h-5 sm:w-5" />
+          </button>
+        </DialogClose>
+      </div>
+
+      <div className="p-3 sm:p-4 md:p-6 overflow-y-auto max-h-[70vh] sm:max-h-[65vh] md:max-h-[70vh]">
+        <StaffForm
+          formData={formData}
+          setFormData={setFormData}
+          editingStaff={editingStaff}
+          handleFileUpload={handleFileUpload}
+          handleRemoveDocument={handleRemoveDocument}
+          roles={roles}
+          departments={departments}
+          loadingMasters={loadingMasters}
+          passwordErrors={passwordErrors}
+        />
+      </div>
+
+      <div className="flex justify-end gap-2 sm:gap-3 p-3 sm:p-4 md:p-6 pt-2 sm:pt-3 md:pt-4 border-t bg-gray-50">
         <Button
           variant="outline"
-          onClick={handleExport}
-          className="w-24 sm:w-28 md:w-30 h-8 sm:h-9 text-xs sm:text-sm mt-3 bg-gradient-to-r from-blue-900 to-blue-800 text-white"
-          disabled={staff.length === 0}
-        >
-          <Download className="mr-1 sm:mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" />
-          <span className="hidden xs:inline ">Export</span> Excel
-        </Button>
-        <Dialog
-          open={showDialog}
-          onOpenChange={(open) => {
-            setShowDialog(open);
-            if (!open) resetForm();
+          onClick={() => {
+            setShowDialog(false);
+            resetForm();
           }}
+          disabled={submitting}
+          className="h-9 px-4 text-sm"
         >
-          <DialogTrigger asChild>
-            <Button className="w-24 sm:w-28 md:w-30 h-8 sm:h-9 text-xs sm:text-sm mt-3">
-              <Plus className="mr-1 sm:mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" />
-              <span className="hidden xs:inline">Add</span> Staff
-            </Button>
-          </DialogTrigger>
+          Cancel
+        </Button>
 
-          <DialogContent className="max-w-full sm:max-w-3xl md:max-w-4xl lg:max-w-6xl w-[95vw] sm:w-full max-h-[95vh] sm:max-h-[97vh] overflow-hidden p-0 rounded-lg sm:rounded-xl">
-            {/* Gradient Header */}
-            <div className="bg-gradient-to-r from-blue-700 to-blue-600 text-white px-3 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4 flex items-center justify-between rounded-t-lg">
-              <div>
-                <h2 className="text-sm sm:text-base md:text-lg lg:text-xl font-semibold">
-                  {editingStaff ? "Edit Staff Member" : "Add New Staff Member"}
-                </h2>
-                <p className="text-[10px] sm:text-xs md:text-sm text-blue-100">
-                  Fill in the details below to {editingStaff ? "update" : "add"}{" "}
-                  staff information
-                </p>
-              </div>
-
-              <DialogClose asChild>
-                <button className="p-1 sm:p-1.5 md:p-2 rounded-full hover:bg-white/20 transition">
-                  <X className="h-4 w-4 sm:h-5 sm:w-5" />
-                </button>
-              </DialogClose>
-            </div>
-
-            {/* Scrollable Body */}
-            <div className="p-3 sm:p-4 md:p-6 overflow-y-auto max-h-[70vh] sm:max-h-[65vh] md:max-h-[70vh]">
-              <StaffForm // Dynamic key to force re-render
-                formData={formData}
-                setFormData={setFormData}
-                editingStaff={editingStaff}
-                handleFileUpload={handleFileUpload}
-                handleRemoveDocument={handleRemoveDocument}
-                roles={roles}
-                departments={departments}
-                loadingMasters={loadingMasters}
-                passwordErrors={passwordErrors}
-              />
-            </div>
-
-            {/* Footer */}
-            <div className="flex justify-end gap-2 sm:gap-3 p-3 sm:p-4 md:p-6 pt-2 sm:pt-3 md:pt-4 border-t bg-gray-50">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowDialog(false);
-                  resetForm();
-                }}
-                disabled={submitting}
-                className="h-8 sm:h-9 md:h-10 px-3 sm:px-4 text-xs sm:text-sm"
-              >
-                Cancel
-              </Button>
-
-              <Button
-                onClick={handleSubmit}
-                className="min-w-[80px] sm:min-w-[100px] md:min-w-[120px] h-8 sm:h-9 md:h-10 px-3 sm:px-4 text-xs sm:text-sm bg-blue-600 hover:bg-blue-700"
-                disabled={submitting}
-              >
-                {submitting ? (
-                  <>
-                    <Loader2 className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
-                    <span className="hidden xs:inline">
-                      {editingStaff ? "Updating..." : "Adding..."}
-                    </span>
-                  </>
-                ) : editingStaff ? (
-                  "Update"
-                ) : (
-                  "Add"
-                )}
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <Button
+          onClick={handleSubmit}
+          className="min-w-[100px] h-9 px-4 text-sm bg-blue-600 hover:bg-blue-700"
+          disabled={submitting}
+        >
+          {submitting ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              {editingStaff ? "Updating..." : "Adding..."}
+            </>
+          ) : editingStaff ? (
+            "Update"
+          ) : (
+            "Add"
+          )}
+        </Button>
       </div>
+    </DialogContent>
+  </Dialog>
+</div>
 
       <CardContent className="px-0 md:px-0">
         <StaffTable
