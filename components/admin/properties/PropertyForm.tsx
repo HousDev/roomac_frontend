@@ -1030,6 +1030,7 @@ useEffect(() => {
     setLoadingStaff(true);
     try {
       const staff = await getAllStaff();
+      console.log("from staff : ", staff)
       setStaffList(staff);
     } catch (err) {
       console.error("Failed to load staff list:", err);
@@ -1593,7 +1594,7 @@ const handleSubmit = async () => {
                                   <span className="font-medium">
                                     {getSalutationDisplay(staff.salutation || "")} {staff.name}
                                   </span>
-                                  <span className="text-gray-400 text-[8px]">{staff.role}</span>
+                                  <span className="text-gray-400 text-[8px]">{staff.role_name}</span>
                                 </div>
                               </div>
                             </SelectItem>
