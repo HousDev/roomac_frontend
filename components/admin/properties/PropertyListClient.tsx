@@ -144,6 +144,7 @@ interface PropertyListClientProps {
 }
 
 export default function PropertyListClient({ initialProperties }: PropertyListClientProps) {
+
   const router = useRouter();
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
@@ -254,7 +255,8 @@ export default function PropertyListClient({ initialProperties }: PropertyListCl
         pageSize: 200,
         _t: cacheBuster
       });
-      
+
+
       if (res && res.success) {
         const propertiesData = Array.isArray(res.data)
           ? await Promise.all(res.data.map(async (p: any) => {
@@ -316,6 +318,7 @@ export default function PropertyListClient({ initialProperties }: PropertyListCl
                 terms_conditions: p.terms_conditions || "",
                 additional_terms: p.additional_terms || "",
                 tags: tags,
+                role_name: p.role_name || ""
               };
             }))
           : [];
@@ -480,7 +483,7 @@ export default function PropertyListClient({ initialProperties }: PropertyListCl
   }, [editMode, selectedProperty, loadProperties]);
 
   const handleEdit = useCallback((property: Property) => {
-    console.log("selected", property);
+    console.log("selectedssssssssssssssssssssss", property);
     setSelectedProperty(property);
     setEditMode(true);
     setDialogOpen(true);
@@ -961,7 +964,8 @@ export default function PropertyListClient({ initialProperties }: PropertyListCl
   property: Property; 
   propertiesMasters: Record<string, MasterValue[]>;
   mastersLoaded: boolean;
-}) => {
+   }) => {
+   console.log("from card : ", property)
   const isSelected = selectedCardIds.includes(property.id);
   
   // Function to get tag names from IDs

@@ -594,7 +594,8 @@ useEffect(() => {
       staffList.find((s) => s.name === selectedProperty.property_manager_name);
       
 
-      console.log("Select property from property form ", selectedProperty)
+    console.log("Select property from property form ", matchingStaff)
+    console.log("Select property from property form sjfahksdjhfsjdfhkj ", selectedProperty)
     if (matchingStaff) {
       setSelectedStaff(matchingStaff);
       setSelectedStaffId(String(matchingStaff.id));

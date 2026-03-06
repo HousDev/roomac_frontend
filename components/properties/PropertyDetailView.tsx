@@ -1869,8 +1869,7 @@ const PropertyDetailView = memo(function PropertyDetailView({
                     </p>
                     <p className="text-[10px] md:text-xs text-gray-600 font-semibold flex items-center gap-0.5 md:gap-1">
                       <ShieldCheck className="w-2.5 h-2.5 md:w-3 md:h-3 text-green-600" />
-                      {propertyData.manager?.role ||
-                        propertyData.property_manager_role ||
+                      {propertyData.manager?.role_name ||
                         "Manager"}
                     </p>
                   </div>
