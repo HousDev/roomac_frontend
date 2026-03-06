@@ -12,6 +12,7 @@ export type Property = {
   total_rooms?: number;
   total_beds?: number;
   occupied_beds?: number;
+  occupied_rooms?: number;
   starting_price?: number;
   security_deposit?: number;
   description?: string | null;

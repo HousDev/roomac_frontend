@@ -1,3 +1,4 @@
+// components/admin/staff/StaffForm.tsx
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -90,6 +91,7 @@ const StaffForm = ({
   loadingMasters = false,
   passwordErrors = {},
 }: StaffFormProps) => {
+
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [changePassword, setChangePassword] = useState(false);
@@ -151,9 +153,8 @@ const StaffForm = ({
           />
         </div>
 
-        {/* Password Fields - Show for both new and edit with change option */}
+        {/* Password Fields */}
         {!editingStaff ? (
-          // New Staff - Show password fields directly
           <>
             <div className="space-y-1.5 sm:space-y-2">
               <Label htmlFor="password" className="flex items-center gap-1.5 sm:gap-2">
@@ -216,7 +217,6 @@ const StaffForm = ({
             </div>
           </>
         ) : (
-          // Edit Staff - Show checkbox to enable password change
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               <input
@@ -226,7 +226,6 @@ const StaffForm = ({
                 onChange={(e) => {
                   setChangePassword(e.target.checked);
                   if (!e.target.checked) {
-                    // Clear password fields when unchecked
                     setFormData({ 
                       ...formData, 
                       password: "", 
@@ -437,54 +436,51 @@ const StaffForm = ({
           />
         </div>
 
-        {/* Department Select */}
         <div className="space-y-1.5 sm:space-y-2">
-          <Label htmlFor="department" className="flex items-center gap-1.5 sm:gap-2">
-            <Building className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-gray-500" />
-            <span className="text-xs sm:text-sm">Department</span>
-          </Label>
-          <Select
-            value={formData.department}
-            onValueChange={(v) => {
-              const selectedDept = departments.find(d => d.id.toString() === v);
-              setFormData({ 
-                ...formData, 
-                department: v,
-                department_name: selectedDept?.name || v
-              });
-            }}
-          >
-            <SelectTrigger className="h-8 sm:h-9 md:h-10 text-xs sm:text-sm">
-              <SelectValue placeholder={
-                loadingMasters 
-                  ? "Loading departments..." 
-                  : departments.length === 0 
-                    ? "No departments available" 
-                    : "Select department"
-              } />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="no-department">No Department</SelectItem>
-              {loadingMasters ? (
-                <SelectItem value="loading-departments" disabled>
-                  Loading departments...
-                </SelectItem>
-              ) : departments.length === 0 ? (
-                <SelectItem value="no-depts-found" disabled>
-                  No departments found
-                </SelectItem>
-              ) : (
-                departments.map((dept) => (
-                  <SelectItem key={dept.id} value={dept.id.toString()}>
-                    {dept.name}
-                  </SelectItem>
-                ))
-              )}
-            </SelectContent>
-          </Select>
-        </div>
+  <Label htmlFor="department" className="flex items-center gap-1.5 sm:gap-2">
+    <Building className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-gray-500" />
+    <span className="text-xs sm:text-sm">Department</span>
+  </Label>
+  <Select
+    value={formData.department}
+    onValueChange={(v) => {
+      const selectedDept = departments.find(d => d.id.toString() === v);
+      setFormData({ 
+        ...formData, 
+        department: v,
+        department_name: selectedDept?.name || v
+      });
+    }}
+  >
+    <SelectTrigger className="h-8 sm:h-9 md:h-10 text-xs sm:text-sm">
+      <SelectValue placeholder={
+        loadingMasters 
+          ? "Loading departments..." 
+          : departments.length === 0 
+            ? "No departments available" 
+            : "Select department"
+      } />
+    </SelectTrigger>
+    <SelectContent>
+      {loadingMasters ? (
+        <SelectItem value="loading-departments" disabled>
+          Loading departments...
+        </SelectItem>
+      ) : departments.length === 0 ? (
+        <SelectItem value="no-depts-found" disabled>
+          No departments found
+        </SelectItem>
+      ) : (
+        departments.map((dept) => (
+          <SelectItem key={dept.id} value={dept.id.toString()}>
+            {dept.name}
+          </SelectItem>
+        ))
+      )}
+    </SelectContent>
+  </Select>
+</div>
 
-        {/* Role Select */}
         <div className="space-y-1.5 sm:space-y-2">
           <Label htmlFor="role" className="text-xs sm:text-sm">Role *</Label>
           <Select
@@ -561,7 +557,6 @@ const StaffForm = ({
           />
         </div>
 
-        {/* Address Section */}
         <div className="border-t pt-3 sm:pt-4 space-y-2 sm:space-y-3">
           <div className="flex items-center gap-1.5 sm:gap-2">
             <Home className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-green-500" />
@@ -726,7 +721,7 @@ const StaffForm = ({
           </div>
         </div>
 
-        {/* Documents Upload Section - UPDATED WITH BETTER CONDITIONS */}
+        {/* Documents Upload Section */}
         <div className="border-t pt-3 sm:pt-4 space-y-2 sm:space-y-3">
           <div className="flex items-center gap-1.5 sm:gap-2">
             <Upload className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-purple-500" />
@@ -734,48 +729,65 @@ const StaffForm = ({
           </div>
 
           <div className="space-y-2 sm:space-y-3">
-            {/* Aadhar Card */}
-            <div className="space-y-1.5 sm:space-y-2">
-              <Label className="text-[10px] sm:text-xs">Aadhar Card (PDF/Image)</Label>
-              <Input
-                type="file"
-                accept=".pdf,.jpg,.jpeg,.png"
-                onChange={(e) => handleFileUpload(e, 'aadhar_document')}
-                className="cursor-pointer h-8 sm:h-9 md:h-10 text-[10px] sm:text-xs"
-              />
-              {/* Check if there's either a new file OR an existing URL that's not empty */}
-              {(formData.aadhar_document || (formData.aadhar_document_url && formData.aadhar_document_url.trim() !== '')) && (
-                <div className="flex items-center justify-between text-[10px] sm:text-xs p-1.5 sm:p-2 bg-gray-50 rounded mt-1">
-                  <span className="truncate max-w-[150px] sm:max-w-[200px]">
-                    {formData.aadhar_document 
-                      ? formData.aadhar_document.name 
-                      : "Aadhar document uploaded"}
-                  </span>
-                  <div className="flex gap-1.5 sm:gap-2">
-                    {formData.aadhar_document_url && !formData.aadhar_document && (
-                      <a
-                        href={formData.aadhar_document_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:text-blue-800 flex items-center gap-0.5"
-                        title="View document"
-                      >
-                        <Eye className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                        <span className="hidden sm:inline">View</span>
-                      </a>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveDocument('aadhar_document')}
-                      className="text-red-600 hover:text-red-800 text-sm font-bold"
-                      title="Remove document"
-                    >
-                      ×
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
+{/* Aadhar Card */}
+<div className="space-y-1.5 sm:space-y-2">
+  <Label className="text-[10px] sm:text-xs">Aadhar Card (PDF/Image)</Label>
+  <Input
+    type="file"
+    accept=".pdf,.jpg,.jpeg,.png"
+    onChange={(e) => handleFileUpload(e, 'aadhar_document')}
+    className="cursor-pointer h-8 sm:h-9 md:h-10 text-[10px] sm:text-xs"
+  />
+  
+  {formData.aadhar_document && (
+    <div className="flex items-center justify-between text-[10px] sm:text-xs p-1.5 sm:p-2 bg-gray-50 rounded mt-1">
+      <span className="truncate max-w-[150px] sm:max-w-[200px]">
+        {formData.aadhar_document.name}
+      </span>
+      <button
+        type="button"
+        onClick={() => handleRemoveDocument('aadhar_document')}
+        className="text-red-600 hover:text-red-800 text-sm font-bold"
+        title="Remove document"
+      >
+        ×
+      </button>
+    </div>
+  )}
+  
+  {/* Check for both existence and not null/undefined - using strict comparison */}
+  {!formData.aadhar_document && 
+   formData.aadhar_document_url && 
+   formData.aadhar_document_url !== null && 
+   formData.aadhar_document_url !== "" && 
+   formData.aadhar_document_url !== "null" && (
+    <div className="flex items-center justify-between text-[10px] sm:text-xs p-1.5 sm:p-2 bg-gray-50 rounded mt-1">
+      <span className="truncate max-w-[150px] sm:max-w-[200px]">
+        Aadhar document uploaded
+      </span>
+      <div className="flex gap-1.5 sm:gap-2">
+        <a
+          href={formData.aadhar_document_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-600 hover:text-blue-800 flex items-center gap-0.5"
+          title="View document"
+        >
+          <Eye className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+          <span className="hidden sm:inline">View</span>
+        </a>
+        <button
+          type="button"
+          onClick={() => handleRemoveDocument('aadhar_document')}
+          className="text-red-600 hover:text-red-800 text-sm font-bold"
+          title="Remove document"
+        >
+          ×
+        </button>
+      </div>
+    </div>
+  )}
+</div>
 
             {/* PAN Card */}
             <div className="space-y-1.5 sm:space-y-2">
@@ -786,26 +798,39 @@ const StaffForm = ({
                 onChange={(e) => handleFileUpload(e, 'pan_document')}
                 className="cursor-pointer h-8 sm:h-9 md:h-10 text-[10px] sm:text-xs"
               />
-              {(formData.pan_document || (formData.pan_document_url && formData.pan_document_url.trim() !== '')) && (
+              
+              {formData.pan_document && (
                 <div className="flex items-center justify-between text-[10px] sm:text-xs p-1.5 sm:p-2 bg-gray-50 rounded mt-1">
                   <span className="truncate max-w-[150px] sm:max-w-[200px]">
-                    {formData.pan_document 
-                      ? formData.pan_document.name 
-                      : "PAN document uploaded"}
+                    {formData.pan_document.name}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveDocument('pan_document')}
+                    className="text-red-600 hover:text-red-800 text-sm font-bold"
+                    title="Remove document"
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
+              
+              {!formData.pan_document && formData.pan_document_url && formData.pan_document_url !== "" && (
+                <div className="flex items-center justify-between text-[10px] sm:text-xs p-1.5 sm:p-2 bg-gray-50 rounded mt-1">
+                  <span className="truncate max-w-[150px] sm:max-w-[200px]">
+                    PAN document uploaded
                   </span>
                   <div className="flex gap-1.5 sm:gap-2">
-                    {formData.pan_document_url && !formData.pan_document && (
-                      <a
-                        href={formData.pan_document_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:text-blue-800 flex items-center gap-0.5"
-                        title="View document"
-                      >
-                        <Eye className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                        <span className="hidden sm:inline">View</span>
-                      </a>
-                    )}
+                    <a
+                      href={formData.pan_document_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:text-blue-800 flex items-center gap-0.5"
+                      title="View document"
+                    >
+                      <Eye className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                      <span className="hidden sm:inline">View</span>
+                    </a>
                     <button
                       type="button"
                       onClick={() => handleRemoveDocument('pan_document')}
@@ -828,26 +853,39 @@ const StaffForm = ({
                 onChange={(e) => handleFileUpload(e, 'photo')}
                 className="cursor-pointer h-8 sm:h-9 md:h-10 text-[10px] sm:text-xs"
               />
-              {(formData.photo || (formData.photo_url && formData.photo_url.trim() !== '')) && (
+              
+              {formData.photo && (
                 <div className="flex items-center justify-between text-[10px] sm:text-xs p-1.5 sm:p-2 bg-gray-50 rounded mt-1">
                   <span className="truncate max-w-[150px] sm:max-w-[200px]">
-                    {formData.photo 
-                      ? formData.photo.name 
-                      : "Photo uploaded"}
+                    {formData.photo.name}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveDocument('photo')}
+                    className="text-red-600 hover:text-red-800 text-sm font-bold"
+                    title="Remove document"
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
+              
+              {!formData.photo && formData.photo_url && formData.photo_url !== "" && (
+                <div className="flex items-center justify-between text-[10px] sm:text-xs p-1.5 sm:p-2 bg-gray-50 rounded mt-1">
+                  <span className="truncate max-w-[150px] sm:max-w-[200px]">
+                    Photo uploaded
                   </span>
                   <div className="flex gap-1.5 sm:gap-2">
-                    {formData.photo_url && !formData.photo && (
-                      <a
-                        href={formData.photo_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:text-blue-800 flex items-center gap-0.5"
-                        title="View photo"
-                      >
-                        <Eye className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                        <span className="hidden sm:inline">View</span>
-                      </a>
-                    )}
+                    <a
+                      href={formData.photo_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:text-blue-800 flex items-center gap-0.5"
+                      title="View photo"
+                    >
+                      <Eye className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                      <span className="hidden sm:inline">View</span>
+                    </a>
                     <button
                       type="button"
                       onClick={() => handleRemoveDocument('photo')}

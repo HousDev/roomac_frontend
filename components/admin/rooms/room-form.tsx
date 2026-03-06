@@ -18,7 +18,11 @@ import {
   Building, Layers, Shield, Coffee, Car, Dumbbell,
   TreePine, Waves, Sparkles, Sun, Thermometer, CheckCircle,
   Trash2, AlertCircle, Check, ArrowRight, Maximize2,
-  Pencil, Eye, Phone, Mail, Calendar, UserCircle, Heart, UserRound, UsersRound, User, BadgeIndianRupee, Info, Loader2
+  Pencil, Eye, Phone, Mail, Calendar, UserCircle, Heart, UserRound, UsersRound, User, BadgeIndianRupee, Info, Loader2,
+  Snowflake,
+  BookOpen,
+  Fan,
+  Lamp
 } from 'lucide-react';
 import { toast } from "sonner";
 import { PhotoGalleryModal } from '@/components/admin/rooms/PhotoGalleryModal';
@@ -103,27 +107,42 @@ const GENDER_PREFERENCES = [
   }
 ];
 
+// const AMENITIES_OPTIONS = [
+//   { id: 'wifi', label: 'WiFi', icon: <Wifi className="h-4 w-4" /> },
+//   { id: 'tv', label: 'TV', icon: <Tv className="h-4 w-4" /> },
+//   { id: 'ac', label: 'Air Conditioner', icon: <Wind className="h-4 w-4" /> },
+//   { id: 'geyser', label: 'Geyser', icon: <Droplets className="h-4 w-4" /> },
+//   { id: 'fridge', label: 'Refrigerator', icon: <Tv className="h-4 w-4" /> },
+//   { id: 'laundry', label: 'Laundry Service', icon: <Droplets className="h-4 w-4" /> },
+//   { id: 'cleaning', label: 'Cleaning Service', icon: <Home className="h-4 w-4" /> },
+//   { id: 'security', label: '24/7 Security', icon: <Shield className="h-4 w-4" /> },
+//   { id: 'parking', label: 'Parking', icon: <Car className="h-4 w-4" /> },
+//   { id: 'power', label: 'Power Backup', icon: <Sparkles className="h-4 w-4" /> },
+//   { id: 'gym', label: 'Gym', icon: <Dumbbell className="h-4 w-4" /> },
+//   { id: 'cafeteria', label: 'Cafeteria', icon: <Coffee className="h-4 w-4" /> },
+//   { id: 'garden', label: 'Garden', icon: <TreePine className="h-4 w-4" /> },
+//   { id: 'swimming', label: 'Swimming Pool', icon: <Waves className="h-4 w-4" /> },
+//   { id: 'study', label: 'Study Table', icon: <Sun className="h-4 w-4" /> },
+//   { id: 'wardrobe', label: 'Wardrobe', icon: <DoorOpen className="h-4 w-4" /> },
+//   { id: 'curtains', label: 'Curtains', icon: <Bed className="h-4 w-4" /> },
+//   { id: 'heater', label: 'Room Heater', icon: <Thermometer className="h-4 w-4" /> },
+//   { id: 'fan', label: 'Ceiling Fan', icon: <Wind className="h-4 w-4" /> },
+//   { id: 'lamp', label: 'Study Lamp', icon: <Sun className="h-4 w-4" /> },
+// ];
+
 const AMENITIES_OPTIONS = [
   { id: 'wifi', label: 'WiFi', icon: <Wifi className="h-4 w-4" /> },
   { id: 'tv', label: 'TV', icon: <Tv className="h-4 w-4" /> },
-  { id: 'ac', label: 'Air Conditioner', icon: <Wind className="h-4 w-4" /> },
+  { id: 'ac', label: 'Air Conditioner', icon: <Snowflake className="h-4 w-4" /> },
   { id: 'geyser', label: 'Geyser', icon: <Droplets className="h-4 w-4" /> },
-  { id: 'fridge', label: 'Refrigerator', icon: <Tv className="h-4 w-4" /> },
-  { id: 'laundry', label: 'Laundry Service', icon: <Droplets className="h-4 w-4" /> },
-  { id: 'cleaning', label: 'Cleaning Service', icon: <Home className="h-4 w-4" /> },
-  { id: 'security', label: '24/7 Security', icon: <Shield className="h-4 w-4" /> },
-  { id: 'parking', label: 'Parking', icon: <Car className="h-4 w-4" /> },
-  { id: 'power', label: 'Power Backup', icon: <Sparkles className="h-4 w-4" /> },
-  { id: 'gym', label: 'Gym', icon: <Dumbbell className="h-4 w-4" /> },
-  { id: 'cafeteria', label: 'Cafeteria', icon: <Coffee className="h-4 w-4" /> },
-  { id: 'garden', label: 'Garden', icon: <TreePine className="h-4 w-4" /> },
-  { id: 'swimming', label: 'Swimming Pool', icon: <Waves className="h-4 w-4" /> },
-  { id: 'study', label: 'Study Table', icon: <Sun className="h-4 w-4" /> },
+  { id: 'fridge', label: 'Refrigerator', icon: <Sparkles className="h-4 w-4" /> },
+  { id: 'bed', label: 'Bed', icon: <Bed className="h-4 w-4" /> },
+  { id: 'study', label: 'Study Table', icon: <BookOpen className="h-4 w-4" /> },
   { id: 'wardrobe', label: 'Wardrobe', icon: <DoorOpen className="h-4 w-4" /> },
-  { id: 'curtains', label: 'Curtains', icon: <Bed className="h-4 w-4" /> },
+  { id: 'curtains', label: 'Curtains', icon: <Layers className="h-4 w-4" /> },
   { id: 'heater', label: 'Room Heater', icon: <Thermometer className="h-4 w-4" /> },
-  { id: 'fan', label: 'Ceiling Fan', icon: <Wind className="h-4 w-4" /> },
-  { id: 'lamp', label: 'Study Lamp', icon: <Sun className="h-4 w-4" /> },
+  { id: 'fan', label: 'Ceiling Fan', icon: <Fan className="h-4 w-4" /> },
+  { id: 'lamp', label: 'Study Lamp', icon: <Lamp className="h-4 w-4" /> },
 ];
 
 const labelIcons: Record<string, React.ReactNode> = {
@@ -844,6 +863,10 @@ export function RoomForm({
           <DoorOpen className="h-3 w-3 md:h-3.5 md:w-3.5" />
           <span className="text-[8px] md:text-xs leading-tight">Details</span>
         </TabsTrigger>
+        <TabsTrigger value="amenities" className="flex flex-col md:flex-row items-center gap-0.5 md:gap-1 text-[9px] md:text-xs py-1 md:py-1.5 px-0.5 md:px-2">
+          <Sparkles className="h-3 w-3 md:h-3.5 md:w-3.5" />
+          <span className="text-[8px] md:text-xs leading-tight">Amenities</span>
+        </TabsTrigger>
         <TabsTrigger value="photos" className="flex flex-col md:flex-row items-center gap-0.5 md:gap-1 text-[9px] md:text-xs py-1 md:py-1.5 px-0.5 md:px-2">
           <ImageIcon className="h-3 w-3 md:h-3.5 md:w-3.5" />
           <span className="text-[8px] md:text-xs leading-tight">Photos</span>
@@ -851,10 +874,6 @@ export function RoomForm({
         <TabsTrigger value="video" className="flex flex-col md:flex-row items-center gap-0.5 md:gap-1 text-[9px] md:text-xs py-1 md:py-1.5 px-0.5 md:px-2">
           <Video className="h-3 w-3 md:h-3.5 md:w-3.5" />
           <span className="text-[8px] md:text-xs leading-tight">Video</span>
-        </TabsTrigger>
-        <TabsTrigger value="amenities" className="flex flex-col md:flex-row items-center gap-0.5 md:gap-1 text-[9px] md:text-xs py-1 md:py-1.5 px-0.5 md:px-2">
-          <Sparkles className="h-3 w-3 md:h-3.5 md:w-3.5" />
-          <span className="text-[8px] md:text-xs leading-tight">Amenities</span>
         </TabsTrigger>
       </TabsList>
 
@@ -892,18 +911,118 @@ export function RoomForm({
             </SelectContent>
           </Select>
         </div>
-
+        {/* Floor from Masters */}
         <div className="space-y-1.5 md:space-y-2">
           <Label className="text-[10px] md:text-xs font-medium flex items-center gap-1 mb-0.5">
-            <DoorOpen className="h-3 w-3 md:h-3.5 md:w-3.5" />
-            Room Number *
+            <Layers className="h-3 w-3 md:h-3.5 md:w-3.5" />
+            Floor
           </Label>
-          <Input
-            value={formData.room_number}
-            onChange={(e) => setFormData({ ...formData, room_number: e.target.value })}
-            placeholder="e.g., 101, 202, G-01"
-            className="h-7 md:h-8 text-[10px] md:text-xs mt-0.5"
-          />
+          <Select
+            value={formData.floor}
+            onValueChange={(value) => setFormData({ ...formData, floor: value })}
+            disabled={loadingMasters}
+          >
+            <SelectTrigger className="h-7 md:h-8 text-[10px] md:text-xs">
+              <SelectValue placeholder={loadingMasters ? "Loading..." : "Select floor"} />
+            </SelectTrigger>
+            <SelectContent>
+              {loadingMasters ? (
+                <div className="px-2 py-1.5 text-[10px] text-gray-500 flex items-center gap-1">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Loading...
+                </div>
+              ) : roomsMasters["Floor"]?.length > 0 ? (
+                roomsMasters["Floor"].map((floor) => (
+                  <SelectItem key={floor.id} value={floor.name}>
+                    <div className="flex items-center gap-2">
+                      <Layers className="h-3 w-3 md:h-4 md:w-4" />
+                      <span className="text-[10px] md:text-xs">{floor.name}</span>
+                    </div>
+                  </SelectItem>
+                ))
+              ) : (
+                <>
+                  <SelectItem value="Ground">Ground Floor</SelectItem>
+                  <SelectItem value="1">1st Floor</SelectItem>
+                  <SelectItem value="2">2nd Floor</SelectItem>
+                  <SelectItem value="3">3rd Floor</SelectItem>
+                  <SelectItem value="4">4th Floor</SelectItem>
+                  <SelectItem value="5">5th Floor</SelectItem>
+                  <SelectItem value="6">6th Floor</SelectItem>
+                  <SelectItem value="7">7th Floor</SelectItem>
+                  <SelectItem value="8">8th Floor</SelectItem>
+                  <SelectItem value="9">9th Floor</SelectItem>
+                  <SelectItem value="10">10th Floor</SelectItem>
+                </>
+              )}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Room Type from Masters */}
+        <div className="space-y-1.5 md:space-y-2">
+          <Label className="text-[10px] md:text-xs font-medium flex items-center gap-1 mb-0.5">
+            <Home className="h-3 w-3 md:h-3.5 md:w-3.5" />
+            Room Type
+          </Label>
+          <Select
+            value={formData.room_type || ""}
+            onValueChange={(value) => {
+              setFormData({ 
+                ...formData, 
+                room_type: value
+              });
+            }}
+            disabled={loadingMasters}
+          >
+            <SelectTrigger className="h-7 md:h-8 text-[10px] md:text-xs">
+              <SelectValue placeholder={loadingMasters ? "Loading..." : "Select room type"} />
+            </SelectTrigger>
+            <SelectContent>
+              {loadingMasters ? (
+                <div className="px-2 py-1.5 text-[10px] text-gray-500 flex items-center gap-1">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Loading...
+                </div>
+              ) : roomsMasters["Room Type"]?.length > 0 ? (
+                roomsMasters["Room Type"].map((type) => (
+                  <SelectItem key={type.id} value={type.name}>
+                    <div className="flex items-center gap-2">
+                      <Home className="h-3 w-3 md:h-4 md:w-4" />
+                      <span className="text-[10px] md:text-xs">{type.name}</span>
+                    </div>
+                  </SelectItem>
+                ))
+              ) : (
+                <>
+                  <SelectItem value="corner">
+                    <div className="flex items-center gap-2">
+                      <Home className="h-3 w-3 md:h-4 md:w-4" />
+                      <span className="text-[10px] md:text-xs">Corner Room</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="middle">
+                    <div className="flex items-center gap-2">
+                      <Home className="h-3 w-3 md:h-4 md:w-4" />
+                      <span className="text-[10px] md:text-xs">Middle Room</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="end">
+                    <div className="flex items-center gap-2">
+                      <Home className="h-3 w-3 md:h-4 md:w-4" />
+                      <span className="text-[10px] md:text-xs">End Room</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="standard">
+                    <div className="flex items-center gap-2">
+                      <Home className="h-3 w-3 md:h-4 md:w-4" />
+                      <span className="text-[10px] md:text-xs">Standard Room</span>
+                    </div>
+                  </SelectItem>
+                </>
+              )}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Sharing Type from Masters */}
@@ -988,6 +1107,21 @@ export function RoomForm({
 
         <div className="space-y-1.5 md:space-y-2">
           <Label className="text-[10px] md:text-xs font-medium flex items-center gap-1 mb-0.5">
+            <DoorOpen className="h-3 w-3 md:h-3.5 md:w-3.5" />
+            Room Number *
+          </Label>
+          <Input
+            value={formData.room_number}
+            onChange={(e) => setFormData({ ...formData, room_number: e.target.value })}
+            placeholder="e.g., 101, 202, G-01"
+            className="h-7 md:h-8 text-[10px] md:text-xs mt-0.5"
+          />
+        </div>
+
+        
+
+        <div className="space-y-1.5 md:space-y-2">
+          <Label className="text-[10px] md:text-xs font-medium flex items-center gap-1 mb-0.5">
             <Bed className="h-3 w-3 md:h-3.5 md:w-3.5" />
             Number of Beds *
           </Label>
@@ -1026,122 +1160,12 @@ export function RoomForm({
           />
         </div>
 
-        {/* Room Type from Masters */}
-        <div className="space-y-1.5 md:space-y-2">
-          <Label className="text-[10px] md:text-xs font-medium flex items-center gap-1 mb-0.5">
-            <Home className="h-3 w-3 md:h-3.5 md:w-3.5" />
-            Room Type
-          </Label>
-          <Select
-            value={formData.room_type || ""}
-            onValueChange={(value) => {
-              setFormData({ 
-                ...formData, 
-                room_type: value
-              });
-            }}
-            disabled={loadingMasters}
-          >
-            <SelectTrigger className="h-7 md:h-8 text-[10px] md:text-xs">
-              <SelectValue placeholder={loadingMasters ? "Loading..." : "Select room type"} />
-            </SelectTrigger>
-            <SelectContent>
-              {loadingMasters ? (
-                <div className="px-2 py-1.5 text-[10px] text-gray-500 flex items-center gap-1">
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                  Loading...
-                </div>
-              ) : roomsMasters["Room Type"]?.length > 0 ? (
-                roomsMasters["Room Type"].map((type) => (
-                  <SelectItem key={type.id} value={type.name}>
-                    <div className="flex items-center gap-2">
-                      <Home className="h-3 w-3 md:h-4 md:w-4" />
-                      <span className="text-[10px] md:text-xs">{type.name}</span>
-                    </div>
-                  </SelectItem>
-                ))
-              ) : (
-                <>
-                  <SelectItem value="corner">
-                    <div className="flex items-center gap-2">
-                      <Home className="h-3 w-3 md:h-4 md:w-4" />
-                      <span className="text-[10px] md:text-xs">Corner Room</span>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="middle">
-                    <div className="flex items-center gap-2">
-                      <Home className="h-3 w-3 md:h-4 md:w-4" />
-                      <span className="text-[10px] md:text-xs">Middle Room</span>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="end">
-                    <div className="flex items-center gap-2">
-                      <Home className="h-3 w-3 md:h-4 md:w-4" />
-                      <span className="text-[10px] md:text-xs">End Room</span>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="standard">
-                    <div className="flex items-center gap-2">
-                      <Home className="h-3 w-3 md:h-4 md:w-4" />
-                      <span className="text-[10px] md:text-xs">Standard Room</span>
-                    </div>
-                  </SelectItem>
-                </>
-              )}
-            </SelectContent>
-          </Select>
-        </div>
+        
 
-        {/* Floor from Masters */}
-        <div className="space-y-1.5 md:space-y-2">
-          <Label className="text-[10px] md:text-xs font-medium flex items-center gap-1 mb-0.5">
-            <Layers className="h-3 w-3 md:h-3.5 md:w-3.5" />
-            Floor
-          </Label>
-          <Select
-            value={formData.floor}
-            onValueChange={(value) => setFormData({ ...formData, floor: value })}
-            disabled={loadingMasters}
-          >
-            <SelectTrigger className="h-7 md:h-8 text-[10px] md:text-xs">
-              <SelectValue placeholder={loadingMasters ? "Loading..." : "Select floor"} />
-            </SelectTrigger>
-            <SelectContent>
-              {loadingMasters ? (
-                <div className="px-2 py-1.5 text-[10px] text-gray-500 flex items-center gap-1">
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                  Loading...
-                </div>
-              ) : roomsMasters["Floor"]?.length > 0 ? (
-                roomsMasters["Floor"].map((floor) => (
-                  <SelectItem key={floor.id} value={floor.name}>
-                    <div className="flex items-center gap-2">
-                      <Layers className="h-3 w-3 md:h-4 md:w-4" />
-                      <span className="text-[10px] md:text-xs">{floor.name}</span>
-                    </div>
-                  </SelectItem>
-                ))
-              ) : (
-                <>
-                  <SelectItem value="Ground">Ground Floor</SelectItem>
-                  <SelectItem value="1">1st Floor</SelectItem>
-                  <SelectItem value="2">2nd Floor</SelectItem>
-                  <SelectItem value="3">3rd Floor</SelectItem>
-                  <SelectItem value="4">4th Floor</SelectItem>
-                  <SelectItem value="5">5th Floor</SelectItem>
-                  <SelectItem value="6">6th Floor</SelectItem>
-                  <SelectItem value="7">7th Floor</SelectItem>
-                  <SelectItem value="8">8th Floor</SelectItem>
-                  <SelectItem value="9">9th Floor</SelectItem>
-                  <SelectItem value="10">10th Floor</SelectItem>
-                </>
-              )}
-            </SelectContent>
-          </Select>
-        </div>
+        
 
         {/* Gender Preference - Multi-Select Dropdown */}
-        <div className="space-y-1.5 md:space-y-2 col-span-2">
+        <div className="space-y-1.5 md:space-y-2 ">
           <Label className="text-[10px] md:text-xs font-medium flex items-center gap-1 mb-0.5">
             <Users className="h-3 w-3 md:h-3.5 md:w-3.5" />
             Gender Preferences (Select Multiple)
@@ -1182,9 +1206,9 @@ export function RoomForm({
             </Select>
           </div>
           
-          <p className="text-[9px] md:text-[10px] text-gray-500 mt-0.5">
+          {/* <p className="text-[9px] md:text-[10px] text-gray-500 mt-0.5">
             Select who can book beds in this room (multiple selections allowed)
-          </p>
+          </p> */}
           
           {/* Show selected preferences as badges */}
           {formData.room_gender_preference.length > 0 && (
@@ -1560,7 +1584,7 @@ export function RoomForm({
           </Label>
           <p className="text-[10px] md:text-xs text-gray-500 mb-2 md:mb-3">Choose amenities available in this room</p>
           
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-1.5 md:gap-2">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-1.5 md:gap-2">
             {AMENITIES_OPTIONS.map((amenity) => (
               <div
                 key={amenity.id}
@@ -1572,7 +1596,7 @@ export function RoomForm({
                 onClick={() => toggleAmenity(amenity.label)}
               >
                 <div className="flex items-center gap-1.5">
-                  <div className={`p-1.5 rounded ${
+                  <div className={`rounded ${
                     formData.amenities.includes(amenity.label)
                       ? 'bg-cyan-100 text-cyan-600'
                       : 'bg-gray-100 text-gray-600'
@@ -1581,12 +1605,12 @@ export function RoomForm({
                   </div>
                   <span className="text-[9px] md:text-[10px] font-medium">{amenity.label}</span>
                 </div>
-                {formData.amenities.includes(amenity.label) && (
+                {/* {formData.amenities.includes(amenity.label) && (
                   <div className="mt-1 flex items-center gap-0.5">
                     <CheckCircle className="h-2.5 w-2.5 md:h-3 md:w-3 text-green-600" />
                     <span className="text-[8px] md:text-[9px] text-green-600">Selected</span>
                   </div>
-                )}
+                )} */}
               </div>
             ))}
           </div>

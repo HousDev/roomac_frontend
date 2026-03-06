@@ -112,10 +112,12 @@ export const addStaff = async (data: FormData): Promise<any> => {
 
 export const updateStaff = async (id: number, data: FormData): Promise<any> => {
   try {
-    return await request(`/api/staff/${id}`, {
+    const response = await request(`/api/staff/${id}`, {
       method: "PUT",
       body: data,
     }, true);
+    
+    return response; // Return the response which contains the updated staff data
   } catch (error) {
     console.error("Error in updateStaff:", error);
     throw error;
@@ -138,13 +140,25 @@ export const deleteStaff = async (id: number): Promise<any> => {
 
 export const deleteStaffDocument = async (id: number, documentType: string): Promise<any> => {
   try {
-    return await request(`/api/staff/${id}/document`, {
+    const response = await request(`/api/staff/${id}/document`, {
       method: "DELETE",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ documentType }),
     });
+    
+    // console.log("Delete document response:", response);
+    
+    // Ensure we're returning the data properly
+    if (response.success && response.data) {
+      return {
+        success: true,
+        data: response.data
+      };
+    }
+    
+    return response;
   } catch (error) {
     console.error("Error in deleteStaffDocument:", error);
     throw error;
@@ -236,9 +250,7 @@ export async function fetchDepartments() {
   }
 }
 
-
-
-// lib/exportUtils.ts
+// Export to Excel
 import * as XLSX from 'xlsx';
 
 export const exportStaffToExcel = (staff: StaffMember[], filename: string = 'staff-data.xlsx') => {
@@ -279,7 +291,7 @@ export const exportStaffToExcel = (staff: StaffMember[], filename: string = 'sta
     // Auto-size columns
     const colWidths = [];
     for (let i = 0; i < Object.keys(exportData[0] || {}).length; i++) {
-      colWidths.push({ wch: 20 }); // Set default width
+      colWidths.push({ wch: 20 });
     }
     ws['!cols'] = colWidths;
 
@@ -293,6 +305,30 @@ export const exportStaffToExcel = (staff: StaffMember[], filename: string = 'sta
     return true;
   } catch (error) {
     console.error('Error exporting to Excel:', error);
+    throw error;
+  }
+};
+
+
+export const getStaffById = async (id: number): Promise<StaffMember> => {
+  try {
+    // Add a timestamp to prevent caching
+    const response = await request(`/api/staff/${id}?t=${Date.now()}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Pragma": "no-cache",
+      },
+    });
+    
+    if (response.success) {
+      return response.data;
+    }
+    
+    throw new Error("Failed to fetch staff data");
+  } catch (error) {
+    console.error("Error in getStaffById:", error);
     throw error;
   }
 };

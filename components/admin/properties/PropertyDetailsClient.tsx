@@ -1,5 +1,4 @@
 // components/admin/properties/PropertyDetailsClient.tsx - ENHANCED VERSION
-// components/admin/properties/PropertyDetailsClient.tsx - ENHANCED VERSION
 "use client";
 
 import { useEffect, useState, useCallback } from 'react';
@@ -31,14 +30,9 @@ import {
     Star,
     TrendingUp,
     AlertCircle,
-    Maximize2,
     Copy,
     Check,
-    Link2,
     FileText,
-    Scale,
-    Gavel,
-    Ban,
     Lock,
     Bell,
     Receipt,
@@ -170,7 +164,7 @@ const parseJsonField = (field: string | null | undefined): string[] => {
     }
 };
 
-// NEW: Helper function to map IDs to names using masters data
+// Helper function to map IDs to names using masters data
 const mapIdsToNames = (
     ids: string[],
     masters: Record<string, MasterValue[]>,
@@ -186,6 +180,15 @@ const mapIdsToNames = (
         );
         return matchingItem ? matchingItem.name : String(id);
     }).filter(Boolean);
+};
+
+// Helper function to map city ID to city name
+const getCityName = (cityId: string | null | undefined, commonMasters: Record<string, MasterValue[]>): string => {
+    if (!cityId) return 'N/A';
+    
+    const cities = commonMasters["Cities"] || [];
+    const city = cities.find(c => String(c.id) === String(cityId));
+    return city ? city.name : String(cityId);
 };
 
 // Helper function to parse terms and conditions with headers
@@ -293,11 +296,12 @@ const PropertyDetailsClient = ({ initialProperty }: PropertyDetailsClientProps) 
     const [loadingStaff, setLoadingStaff] = useState(false);
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [isLiked, setIsLiked] = useState(false);
-    const [imageFullscreen, setImageFullscreen] = useState(false);
     
-    // NEW: Masters data state
+    // Masters data state
     const [propertiesMasters, setPropertiesMasters] = useState<Record<string, MasterValue[]>>({});
+    const [commonMasters, setCommonMasters] = useState<Record<string, MasterValue[]>>({});
     const [mastersLoaded, setMastersLoaded] = useState(false);
+    const [commonMastersLoaded, setCommonMastersLoaded] = useState(false);
     const [loadingMasters, setLoadingMasters] = useState(false);
     
     // Staff data for manager with salutation
@@ -316,7 +320,7 @@ const PropertyDetailsClient = ({ initialProperty }: PropertyDetailsClientProps) 
 
     const propertyId = params.id as string;
 
-    // NEW: Fetch masters data
+    // Fetch properties masters
     const fetchPropertiesMasters = async () => {
         setLoadingMasters(true);
         try {
@@ -334,6 +338,7 @@ const PropertyDetailsClient = ({ initialProperty }: PropertyDetailsClientProps) 
                         isactive: 1,
                     });
                 });
+                console.log("Properties Masters loaded:", grouped);
                 setPropertiesMasters(grouped);
                 setMastersLoaded(true);
             }
@@ -344,9 +349,52 @@ const PropertyDetailsClient = ({ initialProperty }: PropertyDetailsClientProps) 
         }
     };
 
+    // Fetch common masters
+    const fetchCommonMasters = async () => {
+        setLoadingMasters(true);
+        try {
+            const res = await consumeMasters({ tab: "Common" });
+            if (res?.success && res.data) {
+                const grouped: Record<string, MasterValue[]> = {};
+                res.data.forEach((item: any) => {
+                    const type = item.type_name;
+                    if (!grouped[type]) {
+                        grouped[type] = [];
+                    }
+                    grouped[type].push({
+                        id: item.value_id,
+                        name: item.value_name,
+                        isactive: 1,
+                    });
+                });
+                console.log("Common Masters loaded:", grouped);
+                setCommonMasters(grouped);
+                setCommonMastersLoaded(true);
+            }
+        } catch (error) {
+            console.error("Failed to fetch common masters:", error);
+        } finally {
+            setLoadingMasters(false);
+        }
+    };
+
     // Load masters on component mount
     useEffect(() => {
-        fetchPropertiesMasters();
+        const loadAllMasters = async () => {
+            setLoadingMasters(true);
+            try {
+                await Promise.all([
+                    fetchPropertiesMasters(),
+                    fetchCommonMasters()
+                ]);
+            } catch (error) {
+                console.error("Failed to load masters:", error);
+            } finally {
+                setLoadingMasters(false);
+            }
+        };
+        
+        loadAllMasters();
     }, []);
 
     useEffect(() => {
@@ -365,6 +413,8 @@ const PropertyDetailsClient = ({ initialProperty }: PropertyDetailsClientProps) 
     // Parse and map JSON fields when property or masters change
     useEffect(() => {
         if (property) {
+            console.log("Parsing property data:", property);
+            
             // Parse raw fields
             const rawRules = parseJsonField(property.property_rules);
             const rawAdditionalTerms = parseJsonField(property.additional_terms);
@@ -374,7 +424,10 @@ const PropertyDetailsClient = ({ initialProperty }: PropertyDetailsClientProps) 
             if (mastersLoaded) {
                 setPropertyRules(mapIdsToNames(rawRules, propertiesMasters, "Property Rules"));
                 setAdditionalTerms(mapIdsToNames(rawAdditionalTerms, propertiesMasters, "Additional Terms"));
-                setMappedTags(mapIdsToNames(rawTags, propertiesMasters, "Tags"));
+                
+                const mappedTagNames = mapIdsToNames(rawTags, propertiesMasters, "Tags");
+                console.log("Mapped tag names:", mappedTagNames);
+                setMappedTags(mappedTagNames);
             } else {
                 // If masters not loaded yet, show IDs
                 setPropertyRules(rawRules);
@@ -391,8 +444,10 @@ const PropertyDetailsClient = ({ initialProperty }: PropertyDetailsClientProps) 
         setLoadingStaff(true);
         try {
             const staffList = await getAllStaff();
+            console.log("Staff list loaded:", staffList);
             const staff = staffList.find(s => String(s.id) === String(staffId));
             if (staff) {
+                console.log("Found staff:", staff);
                 setStaffData(staff);
             }
         } catch (error) {
@@ -407,6 +462,7 @@ const PropertyDetailsClient = ({ initialProperty }: PropertyDetailsClientProps) 
         try {
             const res = await getProperty(propertyId);
             if (res && res.success && res.data) {
+                console.log("Property data loaded:", res.data);
                 const propertyData = {
                     ...res.data,
                     id: String(res.data.id || ''),
@@ -540,7 +596,7 @@ const PropertyDetailsClient = ({ initialProperty }: PropertyDetailsClientProps) 
         }
     }, [property]);
 
-    if (loading || (loadingMasters && !mastersLoaded)) {
+    if (loading || (loadingMasters && !mastersLoaded && !commonMastersLoaded)) {
         return (
             <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 flex items-center justify-center">
                 <div className="text-center">
@@ -699,12 +755,15 @@ const getServiceIcon = (service: string) => {
         return property.property_manager_name || 'Not assigned';
     };
 
-    // Get manager role
-    const getManagerRole = () => {
-        if (staffData) {
-            return staffData.role || '';
+    // Get manager role - using role_name from staffData like in PropertyForm
+    const getManagerRoleValue = () => {
+        if (staffData?.role_name) {
+            return staffData.role_name;
         }
-        return property.property_manager_role || '';
+        if (staffData?.role) {
+            return staffData.role;
+        }
+        return property.property_manager_role || 'Manager';
     };
 
     // Get manager email
@@ -1010,12 +1069,15 @@ const getServiceIcon = (service: string) => {
                                     </div>
                                     <div className="flex items-center gap-2 text-slate-600">
                                         <MapPin className="h-4 w-4 text-blue-600" />
-                                        <span className="text-sm font-medium">{property.area}, {property.city_id || 'N/A'}</span>
+                                        <span className="text-sm font-medium">
+                                            {property.area}
+                                            {property.city_id && `, ${getCityName(property.city_id, commonMasters)}`}
+                                        </span>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* UPDATED: Tags section with mapped names */}
+                            {/* Tags section with mapped names */}
                             {mappedTags.length > 0 && (
                                 <div className="flex flex-wrap gap-1.5 mb-4">
                                     {mappedTags.map((tag, idx) => (
@@ -1053,34 +1115,7 @@ const getServiceIcon = (service: string) => {
                                     <p className="text-xl font-bold text-slate-900">{availableBeds}</p>
                                     <p className="text-[10px] text-slate-600 font-medium">Available</p>
                                 </div>
-                                {/* <div className="bg-gradient-to-br from-orange-50 to-amber-100 rounded-xl p-3 text-center hover:scale-105 transition-transform">
-                                    <User className="h-6 w-6 text-orange-600 mx-auto mb-1" />
-                                    <p className="text-xl font-bold text-slate-900">{occupiedBeds}</p>
-                                    <p className="text-[10px] text-slate-600 font-medium">Occupied</p>
-                                </div> */}
                             </div>
-
-                            {/* <div className="mb-4 bg-slate-50 rounded-xl p-3">
-                                <div className="flex justify-between items-center mb-2">
-                                    <div className="flex items-center gap-1.5">
-                                        <TrendingUp className="h-4 w-4 text-blue-600" />
-                                        <span className="text-xs font-bold text-slate-800">Occupancy</span>
-                                    </div>
-                                    <span className="text-sm font-bold text-blue-600">{occupancyPercentage.toFixed(0)}%</span>
-                                </div>
-                                <div className="w-full bg-slate-200 rounded-full h-2.5 overflow-hidden">
-                                    <div
-                                        className="bg-gradient-to-r from-blue-500 via-blue-600 to-cyan-500 h-full rounded-full transition-all duration-700"
-                                        style={{ width: `${occupancyPercentage}%` }}
-                                    />
-                                </div>
-                                <div className="flex justify-between mt-1 text-[10px] text-slate-500">
-                                    <span>{occupiedBeds} Occupied</span>
-                                    <span>{availableBeds} Available</span>
-                                </div>
-                            </div> */}
-
-  
 
 {hasTerms && (
     <div className="mt-6 space-y-4">
@@ -1091,7 +1126,7 @@ const getServiceIcon = (service: string) => {
 
         {/* Terms & Conditions in Two Columns */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Terms & Conditions with Headers - This now includes Custom Term */}
+            {/* Terms & Conditions with Headers */}
             {termsConditions.map((section, idx) => (
                 <div 
                     key={idx} 
@@ -1112,7 +1147,7 @@ const getServiceIcon = (service: string) => {
                 </div>
             ))}
 
-            {/* UPDATED: Property Rules - showing mapped names */}
+            {/* Property Rules - showing mapped names */}
             {propertyRules.length > 0 && (
                 <div className="bg-amber-50 rounded-xl p-4 border border-amber-200">
                     <h4 className="font-bold text-sm text-amber-800 mb-3 flex items-center gap-1.5">
@@ -1130,7 +1165,7 @@ const getServiceIcon = (service: string) => {
                 </div>
             )}
 
-            {/* UPDATED: Additional Terms - showing mapped names */}
+            {/* Additional Terms - showing mapped names */}
             {additionalTerms.length > 0 && (
                 <div className="bg-purple-50 rounded-xl p-4 border border-purple-200">
                     <h4 className="font-bold text-sm text-purple-800 mb-3 flex items-center gap-1.5">
@@ -1161,9 +1196,10 @@ const getServiceIcon = (service: string) => {
                         </div>
                     </div>
 
-                    {/* Right Sidebar - Rest remains the same */}
+                    {/* Right Sidebar */}
                     <div className="space-y-4">
-                          <div className="bg-white rounded-2xl shadow-lg p-4">
+                        {/* Property Manager Card */}
+                        <div className="bg-white rounded-2xl shadow-lg p-4">
                             <h3 className="font-bold text-sm text-slate-900 mb-3">Property Manager</h3>
 
                             <div className="flex items-center gap-3 mb-4">
@@ -1194,7 +1230,7 @@ const getServiceIcon = (service: string) => {
                                     <p className="font-bold text-sm text-slate-900">{getManagerDisplayName()}</p>
                                     <p className="text-xs text-slate-600 flex items-center gap-1 mt-0.5">
                                         <Shield className="h-3 w-3 text-green-600" />
-                                        {getManagerRole() || 'Manager'}
+                                        {getManagerRoleValue()}
                                     </p>
                                 </div>
                             </div>
@@ -1235,6 +1271,7 @@ const getServiceIcon = (service: string) => {
                                 )}
                             </div>
                         </div>
+
                         {/* Pricing Card */}
                         <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-cyan-600 rounded-2xl shadow-xl p-5 text-white">
                             <h3 className="text-base font-bold mb-4 flex items-center gap-2">
@@ -1268,39 +1305,39 @@ const getServiceIcon = (service: string) => {
                                 <MapPin className="h-4 w-4 text-blue-600" />
                                 Full Address
                             </h3>
-                            <p className="text-xs text-slate-700 leading-relaxed">{property.address || 'No address provided.'}</p>
+                            <p className="text-xs text-slate-700 leading-relaxed">
+                                {property.address || 'No address provided.'}
+                                {property.area && `, ${property.area}`}
+                                {property.city_id && `, ${getCityName(property.city_id, commonMasters)}`}
+                            </p>
                         </div>
 
                         {/* Services Card */}
                         {property.services && property.services.length > 0 && (
-  <div className="bg-white rounded-2xl shadow-lg p-5">
-    <h3 className="font-bold text-sm text-slate-900 mb-4 flex items-center gap-2 border-b pb-2">
-      <CheckCircle2 className="h-4 w-4 text-green-600" />
-      Services Included
-    </h3>
+                            <div className="bg-white rounded-2xl shadow-lg p-5">
+                                <h3 className="font-bold text-sm text-slate-900 mb-4 flex items-center gap-2 border-b pb-2">
+                                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                                    Services Included
+                                </h3>
 
-    {/* Responsive Grid */}
-    <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 gap-4">
-      {property.services.map((service, idx) => (
-        <div
-          key={idx}
-          className="flex flex-col items-center justify-center text-center gap-1"
-        >
-          <div className="text-green-600 text-lg">
-            {getServiceIcon(service)}
-          </div>
-
-          <span className="text-xs font-medium text-slate-700 leading-tight">
-            {service}
-          </span>
-        </div>
-      ))}
-    </div>
-  </div>
-)}
-
-                        
-                      
+                                {/* Responsive Grid */}
+                                <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 gap-4">
+                                    {property.services.map((service, idx) => (
+                                        <div
+                                            key={idx}
+                                            className="flex flex-col items-center justify-center text-center gap-1"
+                                        >
+                                            <div className="text-green-600 text-lg">
+                                                {getServiceIcon(service)}
+                                            </div>
+                                            <span className="text-xs font-medium text-slate-700 leading-tight">
+                                                {service}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
 
                         {/* Lock-in & Notice Period Card */}
                         {(property.lockin_period_months && property.lockin_period_months > 0) || 
@@ -1341,118 +1378,76 @@ const getServiceIcon = (service: string) => {
                             </div>
                         ) : null}
 
-                        {/* Timeline Card */}
-                        {/* <div className="bg-white rounded-2xl shadow-lg p-4">
-                            <h3 className="font-bold text-sm text-slate-900 mb-3 flex items-center gap-1.5">
-                                <Clock className="h-4 w-4 text-slate-600" />
-                                Timeline
-                            </h3>
+                        {/* Amenities Card */}
+                        {property.amenities && property.amenities.length > 0 && (
+                            <div className="bg-white rounded-2xl shadow-lg p-4">
+                                <h3 className="font-bold text-sm text-slate-900 mb-3 flex items-center gap-1.5">
+                                    <Star className="h-4 w-4 text-amber-500" />
+                                    Amenities
+                                </h3>
 
-                            <div className="space-y-3">
-                                <div className="flex items-start gap-2 pb-3 border-b border-slate-100 last:border-0 last:pb-0">
-                                    <div className="bg-blue-100 rounded-lg p-1.5 mt-0.5">
-                                        <Calendar className="h-3.5 w-3.5 text-blue-600" />
-                                    </div>
-                                    <div>
-                                        <p className="text-[10px] text-slate-500 font-medium mb-0.5">Created</p>
-                                        <p className="font-semibold text-xs text-slate-900">
-                                            {property.created_at ? new Date(property.created_at).toLocaleDateString('en-IN', {
-                                                day: 'numeric',
-                                                month: 'short',
-                                                year: 'numeric'
-                                            }) : 'N/A'}
-                                        </p>
-                                    </div>
+                                {/* Responsive Grid */}
+                                <div className="grid grid-cols-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                                    {property.amenities.map((amenity, idx) => {
+                                        // Light pastel color classes for different categories
+                                        const getColorClass = (amenity: string) => {
+                                            const lower = amenity.toLowerCase();
+                                            
+                                            // Connectivity & Entertainment - Blue shades
+                                            if (lower.includes('wifi') || lower.includes('internet') || lower.includes('tv'))
+                                                return "bg-blue-50 text-blue-600";
+                                            
+                                            // Climate Control - Cyan/Teal shades
+                                            if (lower.includes('ac') || lower.includes('air condition') || lower.includes('geyser') || lower.includes('water heater'))
+                                                return "bg-cyan-50 text-cyan-600";
+                                            
+                                            // Building Features - Purple shades
+                                            if (lower.includes('lift') || lower.includes('elevator') || lower.includes('parking'))
+                                                return "bg-purple-50 text-purple-600";
+                                            
+                                            // Power & Security - Amber/Orange shades
+                                            if (lower.includes('power backup') || lower.includes('generator') || lower.includes('security') || lower.includes('cctv'))
+                                                return "bg-amber-50 text-amber-600";
+                                            
+                                            // Recreational - Green shades
+                                            if (lower.includes('gym') || lower.includes('fitness') || lower.includes('pool') || lower.includes('swimming') || lower.includes('garden') || lower.includes('terrace'))
+                                                return "bg-green-50 text-green-600";
+                                            
+                                            // Appliances - Pink/Rose shades
+                                            if (lower.includes('refrigerator') || lower.includes('fridge') || lower.includes('microwave'))
+                                                return "bg-rose-50 text-rose-600";
+                                            
+                                            // Furniture - Orange shades
+                                            if (lower.includes('furnished'))
+                                                return "bg-orange-50 text-orange-600";
+                                            
+                                            // Services - Indigo shades
+                                            if (lower.includes('laundry') || lower.includes('housekeeping') || lower.includes('cleaning'))
+                                                return "bg-indigo-50 text-indigo-600";
+                                            
+                                            // Default - Gray
+                                            return "bg-gray-50 text-gray-600";
+                                        };
+
+                                        const colorClass = getColorClass(amenity);
+
+                                        return (
+                                            <div
+                                                key={idx}
+                                                className="flex flex-col items-center justify-center text-center gap-2 p-2 rounded-lg hover:shadow-md transition-all duration-200 group"
+                                            >
+                                                <div className={`w-10 h-10 ${colorClass} rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-200`}>
+                                                    {getAmenityIcon(amenity)}
+                                                </div>
+                                                <span className="text-xs text-slate-700 font-medium leading-tight group-hover:text-slate-900">
+                                                    {amenity}
+                                                </span>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
-
-                                {property.updated_at && (
-                                    <div className="flex items-start gap-2">
-                                        <div className="bg-green-100 rounded-lg p-1.5 mt-0.5">
-                                            <Calendar className="h-3.5 w-3.5 text-green-600" />
-                                        </div>
-                                        <div>
-                                            <p className="text-[10px] text-slate-500 font-medium mb-0.5">Last Updated</p>
-                                            <p className="font-semibold text-xs text-slate-900">
-                                                {new Date(property.updated_at).toLocaleDateString('en-IN', {
-                                                    day: 'numeric',
-                                                    month: 'short',
-                                                    year: 'numeric'
-                                                })}
-                                            </p>
-                                        </div>
-                                    </div>
-                                )}
                             </div>
-                        </div> */}
-{property.amenities && property.amenities.length > 0 && (
-  <div className="bg-white rounded-2xl shadow-lg p-4">
-    <h3 className="font-bold text-sm text-slate-900 mb-3 flex items-center gap-1.5">
-      <Star className="h-4 w-4 text-amber-500" />
-      Amenities
-    </h3>
-
-    {/* Responsive Grid */}
-    <div className="grid grid-cols-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-      {property.amenities.map((amenity, idx) => {
-        // Light pastel color classes for different categories
-        const getColorClass = (amenity: string) => {
-          const lower = amenity.toLowerCase();
-          
-          // Connectivity & Entertainment - Blue shades
-          if (lower.includes('wifi') || lower.includes('internet') || lower.includes('tv'))
-            return "bg-blue-50 text-blue-600";
-          
-          // Climate Control - Cyan/Teal shades
-          if (lower.includes('ac') || lower.includes('air condition') || lower.includes('geyser') || lower.includes('water heater'))
-            return "bg-cyan-50 text-cyan-600";
-          
-          // Building Features - Purple shades
-          if (lower.includes('lift') || lower.includes('elevator') || lower.includes('parking'))
-            return "bg-purple-50 text-purple-600";
-          
-          // Power & Security - Amber/Orange shades
-          if (lower.includes('power backup') || lower.includes('generator') || lower.includes('security') || lower.includes('cctv'))
-            return "bg-amber-50 text-amber-600";
-          
-          // Recreational - Green shades
-          if (lower.includes('gym') || lower.includes('fitness') || lower.includes('pool') || lower.includes('swimming') || lower.includes('garden') || lower.includes('terrace'))
-            return "bg-green-50 text-green-600";
-          
-          // Appliances - Pink/Rose shades
-          if (lower.includes('refrigerator') || lower.includes('fridge') || lower.includes('microwave'))
-            return "bg-rose-50 text-rose-600";
-          
-          // Furniture - Orange shades
-          if (lower.includes('furnished'))
-            return "bg-orange-50 text-orange-600";
-          
-          // Services - Indigo shades
-          if (lower.includes('laundry') || lower.includes('housekeeping') || lower.includes('cleaning'))
-            return "bg-indigo-50 text-indigo-600";
-          
-          // Default - Gray
-          return "bg-gray-50 text-gray-600";
-        };
-
-        const colorClass = getColorClass(amenity);
-
-        return (
-          <div
-            key={idx}
-            className="flex flex-col items-center justify-center text-center gap-2 p-2 rounded-lg hover:shadow-md transition-all duration-200 group"
-          >
-            <div className={`w-10 h-10 ${colorClass} rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-200`}>
-              {getAmenityIcon(amenity)}
-            </div>
-            <span className="text-xs text-slate-700 font-medium leading-tight group-hover:text-slate-900">
-              {amenity}
-            </span>
-          </div>
-        );
-      })}
-    </div>
-  </div>
-)}
+                        )}
                     </div>
                 </div>
             </div>
@@ -1461,4 +1456,3 @@ const getServiceIcon = (service: string) => {
 };
 
 export default PropertyDetailsClient;
-
