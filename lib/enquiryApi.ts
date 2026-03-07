@@ -1,3 +1,4 @@
+// lib/enquiryApi.ts
 import { request } from "@/lib/api";
 
 export interface Enquiry {
