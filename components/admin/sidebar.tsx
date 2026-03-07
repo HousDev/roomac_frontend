@@ -15,7 +15,8 @@ import {
   Sliders,
   Link2,
   Search,
-  Package
+  Package,
+  Users as VisitorsIcon // Add this for visitors
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState, useEffect, useRef } from 'react';
@@ -25,6 +26,23 @@ interface AdminSidebarProps {
   sidebarOpen: boolean;
   setSidebarOpen?: (open: boolean) => void;
 }
+
+// Define menu items outside component
+const inventoryItems = [
+  { href: '/admin/inventory-dashboard', label: 'Dashboard', icon: LayoutGrid },
+  { href: '/admin/inventory/assets', label: 'Assets', icon: Package },
+  { href: '/admin/inventory/purchase', label: 'Material Purchase', icon: CreditCard },
+  { href: '/admin/inventory/handover', label: 'Tenant Handover', icon: Users },
+  { href: '/admin/inventory/inspection', label: 'Move-Out Inspection', icon: FileText },
+  { href: '/admin/inventory/settlements', label: 'Settlements', icon: Receipt },
+];
+
+const visitorItems = [
+  { href: '/admin/visitors/dashboard', label: 'Dashboard', icon: LayoutGrid },
+  { href: '/admin/visitors/logs', label: 'Visitor Logs', icon: FileText },
+  { href: '/admin/visitors/new-entry', label: 'New Entry', icon: PlusCircle },
+  { href: '/admin/visitors/restrictions', label: 'Restrictions', icon: AlertCircle },
+];
 
 // Separate component for submenu items with tooltip
 function SubmenuItemWithTooltip({ reqItem, reqActive, sidebarOpen }: { 
@@ -224,6 +242,8 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [requestsOpen, setRequestsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [inventoryOpen, setInventoryOpen] = useState(false);
+  const [visitorsOpen, setVisitorsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
   const [settings, setSettings] = useState<SettingsData | null>(null);
@@ -302,6 +322,26 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
     }
   }, [pathname]);
 
+  // Auto-expand inventory dropdown if on inventory pages
+  useEffect(() => {
+    if (!pathname) return;
+    
+    const isInventoryPage = pathname.includes('/admin/inventory');
+    if (isInventoryPage) {
+      setInventoryOpen(true);
+    }
+  }, [pathname]);
+
+  // Auto-expand visitors dropdown if on visitors pages
+  useEffect(() => {
+    if (!pathname) return;
+    
+    const isVisitorsPage = pathname.includes('/admin/visitors');
+    if (isVisitorsPage) {
+      setVisitorsOpen(true);
+    }
+  }, [pathname]);
+
   const mainMenuItems = [
     { href: '/admin/dashboard', label: 'Dashboard', icon: Home },
     { href: '/admin/properties', label: 'Properties', icon: Building2 },
@@ -309,14 +349,15 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
     { href: '/admin/tenants', label: 'Tenants', icon: Users },
     { href: '/admin/payments', label: 'Payments', icon: CreditCard },
     { href: '/admin/reports', label: 'Reports', icon: BarChart3 },
-    { href: '/admin/document-center', label: 'Document Center', icon: FileText },
+    { href: '/admin/document-center', label: 'Document', icon: FileText },
     { href: '/admin/templates', label: 'Templates', icon: Layout },
     { href: '/admin/enquiries', label: 'Enquiries', icon: Mail },
     { href: '/admin/notifications', label: 'Notifications', icon: Bell },
     { href: '/admin/staff', label: 'Staffs', icon: UserCog },
     { href: '/admin/offers', label: 'Offers', icon: Tag },
     { href: '/admin/add-ons', label: 'Add-ons', icon: PlusCircle },
-    { href: '/admin/inventory', label: 'Inventory Management', icon: Package },
+    { href: '/admin/inventory', label: 'Inventory', icon: Package },
+    { href: '/admin/visitors', label: 'Visitors', icon: VisitorsIcon },
     { href: '/admin/masters', label: 'Masters', icon: LayoutGrid },
     { href: '/admin/settings', label: 'Settings', icon: Settings },
     { href: '/admin/profile', label: 'Profile', icon: UserCircle },
@@ -383,6 +424,8 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
     ...mainMenuItems,
     ...requestItems,
     ...settingsItems,
+    ...inventoryItems,
+    ...visitorItems,
   ];
 
   const filteredItems = searchQuery.trim()
@@ -414,14 +457,18 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
     const active = isActive(item.href);
     const isRequestActive = requestItems.some(req => isActive(req.href));
     const isSettingsActive = settingsItems.some(setting => isActive(setting.href));
-    const isNotificationsItem = index === 9;
-    const isSettingsItem = index === 15;
+    const isInventoryActive = inventoryItems.some(inv => isActive(inv.href));
+    const isVisitorsActive = visitorItems.some(vis => isActive(vis.href));
+    const isNotificationsItem = index === 9; // Notifications
+    const isInventoryItem = index === 13; // Inventory Management
+    const isVisitorsItem = index === 14; // Visitor Management
+    const isSettingsItem = index === 16; // Settings
 
     if (!sidebarOpen) {
       if (isNotificationsItem) {
         return (
-          <>
-            <li key={item.href} className="flex justify-center">
+          <React.Fragment key={item.href}>
+            <li className="flex justify-center">
               <CollapsedSidebarItem
                 item={item}
                 active={active}
@@ -444,7 +491,43 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
                 }}
               />
             </li>
-          </>
+          </React.Fragment>
+        );
+      }
+
+      if (isInventoryItem) {
+        return (
+          <li key="inventory-collapsed" className="flex justify-center">
+            <CollapsedSidebarItem
+              item={{ href: '#', label: 'Inventory', icon: Package }}
+              active={isInventoryActive}
+              sidebarOpen={sidebarOpen}
+              setSidebarOpen={setSidebarOpen}
+              handleIconClick={handleIconClick}
+              onClick={() => {
+                if (setSidebarOpen) setSidebarOpen(true);
+                setInventoryOpen(!inventoryOpen);
+              }}
+            />
+          </li>
+        );
+      }
+
+      if (isVisitorsItem) {
+        return (
+          <li key="visitors-collapsed" className="flex justify-center">
+            <CollapsedSidebarItem
+              item={{ href: '#', label: 'Visitors', icon: VisitorsIcon }}
+              active={isVisitorsActive}
+              sidebarOpen={sidebarOpen}
+              setSidebarOpen={setSidebarOpen}
+              handleIconClick={handleIconClick}
+              onClick={() => {
+                if (setSidebarOpen) setSidebarOpen(true);
+                setVisitorsOpen(!visitorsOpen);
+              }}
+            />
+          </li>
         );
       }
 
@@ -457,7 +540,6 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
               sidebarOpen={sidebarOpen}
               setSidebarOpen={setSidebarOpen}
               handleIconClick={handleIconClick}
-              isSettingsItem={true}
               onClick={() => {
                 if (setSidebarOpen) setSidebarOpen(true);
                 setSettingsOpen(!settingsOpen);
@@ -554,6 +636,104 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
       );
     }
 
+    if (isInventoryItem) {
+      return (
+        <li key="inventory-group">
+          <button
+            onClick={() => setInventoryOpen(!inventoryOpen)}
+            className={`
+              relative group flex items-center justify-between w-full px-2.5 py-2 rounded-xl transition-all duration-200
+              ${isInventoryActive
+                ? 'bg-[#F5C000]/15 text-[#F5C000]'
+                : 'text-blue-100 hover:bg-white/10 hover:text-white'
+              }
+            `}
+          >
+            {isInventoryActive && (
+              <span className="absolute left-0 top-2 bottom-2 w-0.5 rounded-full bg-[#F5C000]" />
+            )}
+            <div className="flex items-center gap-2.5">
+              <div className={`h-8 w-8 rounded-xl flex items-center justify-center transition-all flex-shrink-0
+                ${isInventoryActive ? 'bg-[#F5C000]/20 text-[#F5C000]' : 'bg-white/10 text-blue-200 group-hover:bg-white/15 group-hover:text-white'}`}>
+                <Icon className="h-4 w-4" />
+              </div>
+              <span className="font-normal tracking-wide whitespace-nowrap text-xs">{item.label}</span>
+            </div>
+            {inventoryOpen ? (
+              <ChevronDown className="h-3.5 w-3.5 flex-shrink-0 text-blue-300" />
+            ) : (
+              <ChevronRight className="h-3.5 w-3.5 flex-shrink-0 text-blue-300" />
+            )}
+          </button>
+
+          {inventoryOpen && (
+            <ul className="space-y-0.5 mt-0.5 ml-2">
+              {inventoryItems.map((invItem) => {
+                const invActive = isActive(invItem.href);
+                return (
+                  <SubmenuItemWithTooltip
+                    key={invItem.href}
+                    reqItem={invItem}
+                    reqActive={invActive}
+                    sidebarOpen={sidebarOpen}
+                  />
+                );
+              })}
+            </ul>
+          )}
+        </li>
+      );
+    }
+
+    if (isVisitorsItem) {
+      return (
+        <li key="visitors-group">
+          <button
+            onClick={() => setVisitorsOpen(!visitorsOpen)}
+            className={`
+              relative group flex items-center justify-between w-full px-2.5 py-2 rounded-xl transition-all duration-200
+              ${isVisitorsActive
+                ? 'bg-[#F5C000]/15 text-[#F5C000]'
+                : 'text-blue-100 hover:bg-white/10 hover:text-white'
+              }
+            `}
+          >
+            {isVisitorsActive && (
+              <span className="absolute left-0 top-2 bottom-2 w-0.5 rounded-full bg-[#F5C000]" />
+            )}
+            <div className="flex items-center gap-2.5">
+              <div className={`h-8 w-8 rounded-xl flex items-center justify-center transition-all flex-shrink-0
+                ${isVisitorsActive ? 'bg-[#F5C000]/20 text-[#F5C000]' : 'bg-white/10 text-blue-200 group-hover:bg-white/15 group-hover:text-white'}`}>
+                <Icon className="h-4 w-4" />
+              </div>
+              <span className="font-normal tracking-wide whitespace-nowrap text-xs">{item.label}</span>
+            </div>
+            {visitorsOpen ? (
+              <ChevronDown className="h-3.5 w-3.5 flex-shrink-0 text-blue-300" />
+            ) : (
+              <ChevronRight className="h-3.5 w-3.5 flex-shrink-0 text-blue-300" />
+            )}
+          </button>
+
+          {visitorsOpen && (
+            <ul className="space-y-0.5 mt-0.5 ml-2">
+              {visitorItems.map((visItem) => {
+                const visActive = isActive(visItem.href);
+                return (
+                  <SubmenuItemWithTooltip
+                    key={visItem.href}
+                    reqItem={visItem}
+                    reqActive={visActive}
+                    sidebarOpen={sidebarOpen}
+                  />
+                );
+              })}
+            </ul>
+          )}
+        </li>
+      );
+    }
+
     if (isSettingsItem) {
       return (
         <li key="settings-group">
@@ -603,35 +783,32 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
       );
     }
 
-    if (index < 9 || index > 9) {
-      return (
-        <li key={item.href}>
-          <Link
-            href={item.href}
-            className={`
-              relative group flex items-center gap-2.5 px-2.5 py-2 rounded-xl transition-all duration-200
-              ${active
-                ? 'bg-[#F5C000]/15 text-[#F5C000]'
-                : 'text-blue-100 hover:bg-white/10 hover:text-white'
-              }
-            `}
-          >
-            {active && (
-              <span className="absolute left-0 top-2 bottom-2 w-1 rounded-full bg-[#F5C000]" />
-            )}
-            <div className={`h-8 w-8 rounded-xl flex items-center justify-center transition-all flex-shrink-0
-              ${active ? 'bg-[#F5C000]/20 text-[#F5C000]' : 'bg-white/10 text-blue-200 group-hover:bg-white/15 group-hover:text-white'}`}>
-              <Icon className="h-4 w-4" />
-            </div>
-            <span className="font-normal tracking-wide whitespace-nowrap overflow-hidden text-ellipsis text-xs">
-              {item.label}
-            </span>
-          </Link>
-        </li>
-      );
-    }
-    
-    return null;
+    // Regular menu items (not special groups)
+    return (
+      <li key={item.href}>
+        <Link
+          href={item.href}
+          className={`
+            relative group flex items-center gap-2.5 px-2.5 py-2 rounded-xl transition-all duration-200
+            ${active
+              ? 'bg-[#F5C000]/15 text-[#F5C000]'
+              : 'text-blue-100 hover:bg-white/10 hover:text-white'
+            }
+          `}
+        >
+          {active && (
+            <span className="absolute left-0 top-2 bottom-2 w-1 rounded-full bg-[#F5C000]" />
+          )}
+          <div className={`h-8 w-8 rounded-xl flex items-center justify-center transition-all flex-shrink-0
+            ${active ? 'bg-[#F5C000]/20 text-[#F5C000]' : 'bg-white/10 text-blue-200 group-hover:bg-white/15 group-hover:text-white'}`}>
+            <Icon className="h-4 w-4" />
+          </div>
+          <span className="font-normal tracking-wide whitespace-nowrap overflow-hidden text-ellipsis text-xs">
+            {item.label}
+          </span>
+        </Link>
+      </li>
+    );
   };
 
   return (

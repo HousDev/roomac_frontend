@@ -1684,7 +1684,7 @@ const PropertyDetailView = memo(function PropertyDetailView({
 
               <div className="relative w-full h-[150px] md:h-[200px] lg:h-[250px] rounded-lg md:rounded-xl overflow-hidden border border-gray-200 mb-2 md:mb-3">
                 <iframe
-                  src={`https://www.google.com/maps?q=${propertyData.coordinates?.lat || 18.6088666},${propertyData.coordinates?.lng || 73.7379061}&z=15&output=embed`}
+                  src="https://www.google.com/maps?q=Roomac+Co-Living+Wakad+Pune&output=embed"
                   className="w-full h-full border-0"
                   loading="lazy"
                   title="Property Location"
@@ -1692,7 +1692,7 @@ const PropertyDetailView = memo(function PropertyDetailView({
               </div>
 
               <a
-                href={`https://www.google.com/maps/search/?api=1&query=${propertyData.coordinates?.lat || 18.6088666},${propertyData.coordinates?.lng || 73.7379061}`}
+                href="https://www.google.com/maps/dir/?api=1&destination=Roomac+Co-Living+Wakad+Pune"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="block w-full text-center bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-semibold py-1.5 md:py-2.5 rounded-lg md:rounded-xl transition-all text-[10px] md:text-sm shadow-sm hover:shadow"

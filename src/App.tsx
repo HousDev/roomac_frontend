@@ -39,7 +39,7 @@ import AdminNotificationsPage from "../app/admin/notifications/page";
 import AdminStaffPage from "../app/admin/staff/page";
 import AdminOffersPage from "../app/admin/offers/page";
 import AdminAddOnsPage from "../app/admin/add-ons/page";
-import AdminInventoryPage from "../app/admin/inventory/page";
+import AdminInventoryPage from "../app/admin/page";
 
 import AdminMastersPage from "../app/admin/masters/page";
 import AdminMastersValues from "../app/admin/masters/[itemId]/page";
@@ -68,6 +68,16 @@ import { HelmetProvider } from 'react-helmet-async';
 import { apiGet } from "@/lib/api";
 import { useEffect } from "react";
 import axios from "axios";
+import { InventoryDashboard } from "@/modules/inventory/InventoryDashboard";
+import { Assets } from "@/modules/inventory/Assets";
+import { VisitorDashboard } from "@/modules/visitor/VisitorDashboard";
+import { MaterialPurchase } from "@/modules/inventory/MaterialPurchase";
+import { TenantHandover } from "@/modules/inventory/TenantHandover";
+import { MoveOutInspection } from "@/modules/inventory/MoveOutInspection";
+import { Settlements } from "@/modules/inventory/Settlements";
+import { VisitorLogs } from "@/modules/visitor/VisitorLogs";
+import { NewVisitorEntry } from "@/modules/visitor/NewVisitorEntry";
+import { VisitorRestrictions } from "@/modules/visitor/VisitorRestrictions";
 
 
 function App() {
@@ -125,7 +135,19 @@ console.log(user)
             <Route path="staff" element={<AdminStaffPage />} />
             <Route path="offers" element={<AdminOffersPage />} />
             <Route path="add-ons" element={<AdminAddOnsPage />} />
-            <Route path="inventory" element={<AdminInventoryPage />} />
+            <Route path="inventory-dashboard" element={<InventoryDashboard />} />
+
+            <Route path="inventory/assets" element={<Assets />} />
+            <Route path="inventory/purchase" element={<MaterialPurchase />} />
+            <Route path="inventory/handover" element={<TenantHandover />} />
+            <Route path="inventory/inspection" element={<MoveOutInspection />} />
+            <Route path="inventory/settlements" element={<Settlements />} />
+
+            <Route path="visitors/dashboard" element={<VisitorDashboard />} />
+            <Route path="visitors/logs" element={<VisitorLogs />} />
+            <Route path="visitors/new-entry" element={<NewVisitorEntry />} />
+            <Route path="visitors/restrictions" element={<VisitorRestrictions/>} />
+
 
             <Route path="masters" element={<AdminMastersPage />} />
             <Route path="masters/:itemId" element={<AdminMastersValues />} />
