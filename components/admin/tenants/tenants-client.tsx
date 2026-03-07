@@ -2906,9 +2906,11 @@ const columns: Column<Tenant>[] = useMemo(() => [    {
         <div className="flex items-center gap-2 min-w-0">
           {tenant.photo_url ? (
             <img src={tenant.photo_url} alt="" className="w-7 h-7 rounded-full object-cover flex-shrink-0" />
+            
           ) : (
             <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
               <span className="text-blue-600 font-semibold text-[10px]">{tenant.full_name?.charAt(0)}</span>
+              
             </div>
           )}
           <div className="min-w-0">
@@ -3880,13 +3882,19 @@ const columns: Column<Tenant>[] = useMemo(() => [    {
                  {/* Name Column */}
 <td className="px-3 py-2.5 cursor-pointer" onClick={() => { setSelectedTenant(tenant); setIsViewDialogOpen(true); }}>
   <div className="flex items-center gap-2 min-w-0">
+     <div>
+                          
                       {tenant.photo_url ? (
                         <img src={tenant.photo_url} alt="" className="w-7 h-7 rounded-full object-cover flex-shrink-0 ring-1 ring-gray-200" />
                       ) : (
+                       
                         <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center flex-shrink-0">
                           <span className="text-white font-semibold text-[10px]">{tenant.full_name?.charAt(0)?.toUpperCase()}</span>
+                          
                         </div>
                       )}
+                      <span className="text-blue-600 font-semibold text-[10px]">{"TID-"+tenant.id}</span>
+                        </div>
                       <div className="min-w-0">
                         <div className="font-medium text-xs text-gray-900 truncate leading-tight">{tenant.full_name}</div>
                         <div className="text-[10px] text-gray-400 capitalize leading-tight">{tenant.gender?.toLowerCase() || 'N/A'}</div>

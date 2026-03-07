@@ -1,4 +1,4 @@
-
+// components/home/HomePageClient.tsx
 "use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -672,6 +672,7 @@ function PropertiesSection({
     property: null 
   });
   const [copied, setCopied] = useState(false);
+  console.log("properties from properties section ",properties)
 
   const handleShareClick = (e: React.MouseEvent, property: any) => {
     e.preventDefault();
@@ -768,7 +769,8 @@ function PropertiesSection({
               const fullLocation    = cityName ? `${propertyAddress}, ${cityName}` : propertyAddress;
               const propertyPrice   = property.starting_price || property.price || property.monthly_rent || property.rent || 15000;
 
-              const propertyTags: string[] = property.tags || property.property_tags || property.category_tags || property.labels || [];
+              const propertyTags: string[] = property.tags_mapped
+ || property.property_tags || property.category_tags || property.labels || [];
 
               const getTagColor = (tag: string) => {
                 const t = tag.toLowerCase();
@@ -867,7 +869,7 @@ function PropertiesSection({
                         {/* Tags */}
                         <div className="absolute bottom-3 left-3 flex flex-wrap gap-1.5 z-10">
                           {propertyTags.slice(0, 2).map((tag: string, ti: number) => (
-                            <span key={ti} className={`px-2 py-0.5 rounded-full text-xs font-semibold shadow-md ${getTagColor(tag)}`}>
+                            <span key={ti} className={`px-2 py-0.5 bg rounded-full text-xs font-semibold shadow-md ${getTagColor(tag)}`}>
                               {tag}
                             </span>
                           ))}
@@ -904,99 +906,137 @@ function PropertiesSection({
                       </div>
 
                       {/* Card body */}
-                      <div className="p-4 sm:p-5 flex flex-col flex-grow">
-                        
-                        {/* Title + Price in Header Row */}
-                        <div className="flex items-start justify-between mb-2">
-                          <div className="flex-1">
-                            <h3 className="font-bold text-base sm:text-lg text-slate-800 group-hover:text-[#0249a8] transition-colors duration-300 line-clamp-1">
-                              {propertyName}
-                            </h3>
-                            <div className="flex items-center gap-2 mt-1">
-                              <div className="h-0.5 w-8 bg-[#0249a8] rounded-full" />
-                              <div className="h-0.5 w-2 bg-yellow-400 rounded-full" />
-                            </div>
-                          </div>
-                          
-                          <div className="text-right ml-3">
-                            <p className="text-xs text-slate-400 font-medium whitespace-nowrap">Starting from</p>
-                            <p className="text-lg font-bold text-[#0249a8] whitespace-nowrap">
-                              ₹{Number(propertyPrice).toLocaleString()}
-                              <span className="text-sm text-slate-400 font-normal">/mo</span>
-                            </p>
-                          </div>
-                        </div>
+<div className="p-4 sm:p-5 flex flex-col flex-grow">
+  
+  {/* Title + Price in Header Row */}
+  <div className="flex items-start justify-between mb-2">
+    <div className="flex-1">
+      <h3 className="font-bold text-base sm:text-lg text-slate-800 group-hover:text-[#0249a8] transition-colors duration-300 line-clamp-1">
+        {propertyName}
+      </h3>
+      <div className="flex items-center gap-2 mt-1">
+        <div className="h-0.5 w-8 bg-[#0249a8] rounded-full" />
+        <div className="h-0.5 w-2 bg-yellow-400 rounded-full" />
+      </div>
+    </div>
+    
+    <div className="text-right ml-3">
+      <span
+            className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm
+             bg-slate-200 text-black "
+          >
+            <span className={`w-1.5 h-1.5 rounded-full `} />
+            {"RMCX-"+property.id }
+          </span>
+      <p className="text-xs text-slate-400 font-medium whitespace-nowrap">Starting from</p>
+      <p className="text-lg font-bold text-[#0249a8] whitespace-nowrap">
+        ₹{Number(propertyPrice).toLocaleString()}
+        <span className="text-sm text-slate-400 font-normal">/mo</span>
+      </p>
+    </div>
+  </div>
 
-                        <div className="flex items-start gap-1.5 mb-3">
-                          <MapPin className="h-3.5 w-3.5 text-[#0249a8] flex-shrink-0 mt-0.5" />
-                          <span className="text-xs text-slate-500 line-clamp-2 leading-relaxed">{fullLocation}</span>
-                        </div>
+  <div className="flex items-start gap-1.5 mb-3">
+    <MapPin className="h-3.5 w-3.5 text-[#0249a8] flex-shrink-0 mt-0.5" />
+    <span className="text-xs text-slate-500 line-clamp-2 leading-relaxed">{fullLocation}</span>
+  </div>
 
-                        <div className="flex items-center gap-4 mb-3 text-slate-600 text-xs">
-                          <div className="flex items-center gap-1.5">
-                            <BedDouble className="h-3.5 w-3.5 text-blue-500" />
-                            <span className="font-semibold text-slate-700">{totalBeds}</span>
-                            <span className="text-slate-400">Beds</span>
-                          </div>
-                          {totalRooms && (
-                            <div className="flex items-center gap-1.5">
-                              <Home className="h-3.5 w-3.5 text-[#0249a8]" />
-                              <span className="font-semibold text-slate-700">{totalRooms}</span>
-                              <span className="text-slate-400">Rooms</span>
-                            </div>
-                          )}
-                        </div>
+  <div className="flex items-center gap-4 mb-3 text-slate-600 text-xs">
+    <div className="flex items-center gap-1.5">
+      <BedDouble className="h-3.5 w-3.5 text-blue-500" />
+      <span className="font-semibold text-slate-700">{totalBeds}</span>
+      <span className="text-slate-400">Beds</span>
+    </div>
+    {totalRooms && (
+      <div className="flex items-center gap-1.5">
+        <Home className="h-3.5 w-3.5 text-[#0249a8]" />
+        <span className="font-semibold text-slate-700">{totalRooms}</span>
+        <span className="text-slate-400">Rooms</span>
+      </div>
+    )}
+  </div>
 
-                        {displayAmenities.length > 0 && (
-                          <div className="flex flex-wrap gap-1.5 mb-3">
-                            {displayAmenities.map((a: any, ai: number) => {
-                              const colors = [
-                                'bg-blue-50 text-blue-700 border-blue-200',
-                                'bg-emerald-50 text-emerald-700 border-emerald-200',
-                                'bg-amber-50 text-amber-700 border-amber-200',
-                                'bg-purple-50 text-purple-700 border-purple-200',
-                                'bg-cyan-50 text-cyan-700 border-cyan-200',
-                              ];
-                              return (
-                                <span key={ai} className={`px-2 py-0.5 rounded-md border text-xs font-medium ${colors[ai % colors.length]}`}>
-                                  {String(a)}
-                                </span>
-                              );
-                            })}
-                            {amenities.length > 5 && (
-                              <span className="px-2 py-0.5 rounded-md border border-slate-200 text-xs text-slate-500 bg-slate-50">+{amenities.length - 5}</span>
-                            )}
-                          </div>
-                        )}
+  {displayAmenities.length > 0 && (
+    <div className="flex flex-wrap gap-1.5 mb-3">
+      {displayAmenities.map((a: any, ai: number) => {
+        const colors = [
+          'bg-blue-50 text-blue-700 border-blue-200',
+          'bg-emerald-50 text-emerald-700 border-emerald-200',
+          'bg-amber-50 text-amber-700 border-amber-200',
+          'bg-purple-50 text-purple-700 border-purple-200',
+          'bg-cyan-50 text-cyan-700 border-cyan-200',
+        ];
+        return (
+          <span key={ai} className={`px-2 py-0.5 rounded-md border text-xs font-medium ${colors[ai % colors.length]}`}>
+            {String(a)}
+          </span>
+        );
+      })}
+      {amenities.length > 5 && (
+        <span className="px-2 py-0.5 rounded-md border border-slate-200 text-xs text-slate-500 bg-slate-50">+{amenities.length - 5}</span>
+      )}
+    </div>
+  )}
 
-                        <div className="border-t border-slate-200 mt-auto pt-3">
-                          <div className="flex items-center gap-2">
-                            <Link href={`/properties/${property.slug || property.id}`} className="flex-1">
-                              <button className="w-full px-2 py-2.5 bg-[#0249a8] hover:bg-[#023a88] text-white text-xs font-semibold rounded-lg shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 flex items-center justify-center gap-1">
-                                <span>Details</span>
-                                <ArrowRight className="h-3 w-3" />
-                              </button>
-                            </Link>
-                            <button
-                              onClick={(e) => { e.preventDefault(); e.stopPropagation(); onWhatsAppClick(property.whatsapp || '9923953933', propertyName, fullLocation); }}
-                              className="flex-1 flex items-center justify-center gap-1 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 rounded-lg text-xs font-medium transition-all hover:scale-105"
-                              title="WhatsApp"
-                            >
-                              <BsWhatsapp className="h-4 w-4" />
-                              <span className="hidden sm:inline">WhatsApp</span>
-                            </button>
-                            
-                            <button
-                              onClick={(e) => { e.preventDefault(); e.stopPropagation(); onCallClick(property.phone || property.contact_number || '1234567890'); }}
-                              className="flex-1 flex items-center justify-center gap-1 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-medium transition-all hover:scale-105"
-                              title="Call"
-                            >
-                              <Phone className="h-4 w-4" />
-                              <span className="hidden sm:inline">Call</span>
-                            </button>
-                          </div>
-                        </div>
-                      </div>
+  <div className="border-t border-slate-200 mt-auto pt-3">
+    <div className="flex items-center gap-2">
+      <Link href={`/properties/${property.slug || property.id}`} className="flex-1">
+        <button className="w-full px-2 py-2.5 bg-[#0249a8] hover:bg-[#023a88] text-white text-xs font-semibold rounded-lg shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 flex items-center justify-center gap-1">
+          <span>Details</span>
+          <ArrowRight className="h-3 w-3" />
+        </button>
+      </Link>
+      
+      {/* Extract manager phone for WhatsApp */}
+      {(() => {
+        // Get phone number from various possible fields
+        const managerPhone = property.manager_phone || 
+                            property.property_manager_phone || 
+                            property.contact_number || 
+                            property.whatsapp;
+        
+        // Get manager name for display (optional)
+        const managerName = property.manager_name || 
+                           property.property_manager_name || 
+                           'Manager';
+        
+        return (
+          <>
+            <button
+              onClick={(e) => { 
+                e.preventDefault(); 
+                e.stopPropagation(); 
+                onWhatsAppClick(
+                  managerPhone || '9923953933', 
+                  propertyName, 
+                  fullLocation
+                ); 
+              }}
+              className="flex-1 flex items-center justify-center gap-1 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 rounded-lg text-xs font-medium transition-all hover:scale-105"
+              title={`WhatsApp ${managerName}`}
+            >
+              <BsWhatsapp className="h-4 w-4" />
+              <span className="hidden sm:inline">WhatsApp</span>
+            </button>
+            
+            <button
+              onClick={(e) => { 
+                e.preventDefault(); 
+                e.stopPropagation(); 
+                onCallClick(managerPhone || '1234567890'); 
+              }}
+              className="flex-1 flex items-center justify-center gap-1 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-medium transition-all hover:scale-105"
+              title={`Call ${managerName}`}
+            >
+              <Phone className="h-4 w-4" />
+              <span className="hidden sm:inline">Call</span>
+            </button>
+          </>
+        );
+      })()}
+    </div>
+  </div>
+</div>
                     </div>
                   </Link>
                 </CardScrollAnimation>

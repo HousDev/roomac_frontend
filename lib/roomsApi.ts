@@ -36,6 +36,8 @@ export interface BedAssignment {
   tenant_name?: string;
   tenant_email?: string;
   tenant_phone?: string;
+  tenant_rent?: string | number; // Add this
+  is_couple?: boolean; // Add this
 }
 
 export type RoomResponse = {
@@ -75,12 +77,17 @@ export interface AssignBedPayload {
   bed_number: number;
   tenant_id: number;
   tenant_gender: 'Male' | 'Female' | 'Other';
+  tenant_rent?: number | null;
+  is_couple?: boolean;
 }
 
 export interface UpdateBedAssignmentPayload {
   tenant_id?: number | null;
   tenant_gender?: string | null;
   is_available?: boolean;
+  tenant_rent?: number | null;
+  is_couple?: boolean;
+  vacate_reason?: string;
 }
 
 export type BedPayload = {
@@ -165,14 +172,33 @@ export const listActiveProperties = () => {
 
 
 /* ---------- BED ASSIGNMENT FUNCTIONS ---------- */
+// export const assignBed = async (data: AssignBedPayload): Promise<ApiResult<any>> => {
+//   try {
+//     const result = await request<ApiResult<any>>("/api/rooms/assign-bed", {
+//       method: "POST",
+//       body: JSON.stringify(data),
+//     });
+//     return result;
+//   } catch (error: any) {
+//     return {
+//       success: false,
+//       message: error.message || 'Failed to assign bed'
+//     };
+//   }
+// };
+
+// In lib/roomsApi.ts - Update assignBed function
 export const assignBed = async (data: AssignBedPayload): Promise<ApiResult<any>> => {
   try {
+    console.log('📤 Sending assign bed request:', data); // Add logging
     const result = await request<ApiResult<any>>("/api/rooms/assign-bed", {
       method: "POST",
       body: JSON.stringify(data),
     });
+    console.log('📥 Assign bed response:', result);
     return result;
   } catch (error: any) {
+    console.error('❌ Assign bed error:', error);
     return {
       success: false,
       message: error.message || 'Failed to assign bed'
@@ -180,14 +206,33 @@ export const assignBed = async (data: AssignBedPayload): Promise<ApiResult<any>>
   }
 };
 
+// export const updateBedAssignment = async (bedId: string, data: UpdateBedAssignmentPayload): Promise<ApiResult<any>> => {
+//   try {
+//     const result = await request<ApiResult<any>>(`/api/rooms/bed-assignments/${bedId}`, {
+//       method: "PUT",
+//       body: JSON.stringify(data),
+//     });
+//     return result;
+//   } catch (error: any) {
+//     return {
+//       success: false,
+//       message: error.message || 'Failed to update bed assignment'
+//     };
+//   }
+// };
+
+// In lib/roomsApi.ts - Update updateBedAssignment function
 export const updateBedAssignment = async (bedId: string, data: UpdateBedAssignmentPayload): Promise<ApiResult<any>> => {
   try {
+    console.log('📤 Sending update bed request:', { bedId, data }); // Add logging
     const result = await request<ApiResult<any>>(`/api/rooms/bed-assignments/${bedId}`, {
       method: "PUT",
       body: JSON.stringify(data),
     });
+    console.log('📥 Update bed response:', result);
     return result;
   } catch (error: any) {
+    console.error('❌ Update bed error:', error);
     return {
       success: false,
       message: error.message || 'Failed to update bed assignment'

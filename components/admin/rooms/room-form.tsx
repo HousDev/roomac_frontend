@@ -86,14 +86,14 @@ const sharingTypeToCapacity: Record<string, number> = {
 const GENDER_PREFERENCES = [
   { 
     value: 'male_only', 
-    label: 'Male Only', 
+    label: 'Male', 
     icon: <User className="h-5 w-5" />,
     color: 'bg-blue-100 text-blue-800',
     iconColor: 'text-blue-600'
   },
   { 
     value: 'female_only', 
-    label: 'Female Only', 
+    label: 'Female', 
     icon: <UserRound className="h-5 w-5" />,
     color: 'bg-pink-100 text-pink-800',
     iconColor: 'text-pink-600'
@@ -785,7 +785,7 @@ export function RoomForm({
   };
 
   const goToNextTab = () => {
-    const tabs = ['details', 'photos', 'video', 'amenities'];
+    const tabs = ['details','amenities', 'photos', 'video' ];
     const currentIndex = tabs.indexOf(currentTab);
     if (currentIndex < tabs.length - 1) {
       setCurrentTab(tabs[currentIndex + 1]);
@@ -793,7 +793,7 @@ export function RoomForm({
   };
 
   const goToPrevTab = () => {
-    const tabs = ['details', 'photos', 'video', 'amenities'];
+    const tabs = ['details','amenities', 'photos', 'video',];
     const currentIndex = tabs.indexOf(currentTab);
     if (currentIndex > 0) {
       setCurrentTab(tabs[currentIndex - 1]);
@@ -1056,7 +1056,7 @@ export function RoomForm({
                       <div className="flex items-center gap-2">
                         <Users className="h-3 w-3 md:h-4 md:w-4" />
                         <span className="text-[10px] md:text-xs">{type.name}</span>
-                        <span className="text-[9px] md:text-[10px] text-gray-500">({capacity} bed{capacity > 1 ? 's' : ''})</span>
+                        {/* <span className="text-[9px] md:text-[10px] text-gray-500">({capacity} bed{capacity > 1 ? 's' : ''})</span> */}
                       </div>
                     </SelectItem>
                   );
@@ -1836,11 +1836,11 @@ export function RoomForm({
           </Button>
 
           <div>
-{currentTab !== 'amenities' ? (
+{currentTab !== 'video' ? (
             <Button 
               variant="outline" 
               onClick={goToNextTab}
-              className="h-7 md:h-8 text-[10px] md:text-xs px-2 md:px-3 bg-cyan-50 hover:bg-cyan-100 border-cyan-200"
+              className="h-7 md:h-8 text-[10px] md:text-xs px-2 md:px-3 bg-cyan-200 hover:bg-cyan-700 border-cyan-200"
             >
               Next
               <ArrowRight className="h-3 w-3 md:h-4 md:w-4 ml-1" />

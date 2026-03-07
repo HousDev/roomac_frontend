@@ -647,7 +647,7 @@ const RoomCard = memo(({
           <div className="bg-white/95 backdrop-blur-sm rounded-md px-2 py-1.5 shadow-md">
             <div className="flex items-center gap-0.5">
               <BadgeIndianRupee className="h-3.5 w-3.5 text-green-600" />
-              <span className="text-sm font-bold text-gray-900">₹{room.rent_per_bed}</span>
+              <span className="text-sm font-bold text-gray-900">{room.rent_per_bed}</span>
               <span className="text-xs text-gray-600">/bed</span>
             </div>
           </div>
