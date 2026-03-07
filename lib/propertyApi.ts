@@ -9,6 +9,8 @@ export type Property = {
   state?: string | null;
   area?: string | null;
   address?: string | null;
+  map_embed_url?: string | null;
+map_direction_url?: string | null;
   total_rooms?: number;
   total_beds?: number;
   occupied_beds?: number;

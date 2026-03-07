@@ -157,6 +157,9 @@ type PropertyFormData = {
   additional_terms: string[];
   custom_terms?: string[];
   tags: string[]; 
+  map_embed_url?: string;
+  map_direction_url?: string;
+
 };
 
 interface PropertyFormProps {
@@ -955,6 +958,8 @@ const initializeFormWithMasters = () => {
     additional_terms: termNames,
     custom_terms: [],
     tags: tagNames,
+    map_embed_url: selectedProperty.map_embed_url || "",
+    map_direction_url: selectedProperty.map_direction_url || "",
   };
 
   console.log("Setting form data:", initialFormData);
@@ -1089,7 +1094,9 @@ useEffect(() => {
       terms_conditions: "",
       additional_terms: [],
       custom_terms: [],
-      tags:[]
+      tags: [],
+      map_embed_url: "",
+      map_direction_url: "",
     });
     setAmenityInput("");
     setServiceInput("");
@@ -1419,6 +1426,58 @@ const handleSubmit = async () => {
                     rows={2}
                     className="text-[10px] md:text-xs min-h-12 md:min-h-14 mt-0.5"
                   />
+                </div>
+                {/* Google Map Links */}
+                <div className="space-y-2 mt-2">
+                  <Label className="text-[10px] md:text-xs font-medium">
+                    Google Map Embed Link
+                  </Label>
+
+                  <Input
+                    placeholder="https://www.google.com/maps?q=Roomac+Co-Living+Wakad+Pune&output=embed"
+                    value={formData.map_embed_url || ""}
+                    onChange={(e) =>
+                      setFormData({ ...formData, map_embed_url: e.target.value })
+                    }
+                    className="h-7 md:h-8 text-[10px] md:text-xs"
+                  />
+
+                  <Label className="text-[10px] md:text-xs font-medium">
+                    Google Map Directions Link
+                  </Label>
+
+                  <Input
+                    placeholder="https://www.google.com/maps/dir/?api=1&destination=Roomac+Co-Living+Wakad+Pune"
+                    value={formData.map_direction_url || ""}
+                    onChange={(e) =>
+                      setFormData({ ...formData, map_direction_url: e.target.value })
+                    }
+                    className="h-7 md:h-8 text-[10px] md:text-xs"
+                  />
+
+                  {/* Map Preview */}
+                  {formData.map_embed_url && (
+                    <div className="relative w-full h-[150px] md:h-[200px] rounded-lg overflow-hidden border border-gray-200">
+                      <iframe
+                        src={formData.map_embed_url}
+                        className="w-full h-full border-0"
+                        loading="lazy"
+                        title="Property Location"
+                      />
+                    </div>
+                  )}
+
+                  {/* Get Directions Button */}
+                  {formData.map_direction_url && (
+                    <a
+                      href={formData.map_direction_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block w-full text-center bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-semibold py-2 rounded-lg text-xs"
+                    >
+                      Get Directions
+                    </a>
+                  )}
                 </div>
 
                 <div>

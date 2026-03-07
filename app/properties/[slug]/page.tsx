@@ -103,7 +103,7 @@ function PropertyDetailsContent({ slug }: { slug: string }) {
     async function load() {
       try {
         let propertyData: ReturnType<typeof transformPropertyData> | null = null;
-        
+        console.log(propertyData,"jyyfdertuujhg")
         // METHOD 1: Try to extract ID from the SEO-friendly slug
         const propertyId = extractIdFromSlug(slug);
 

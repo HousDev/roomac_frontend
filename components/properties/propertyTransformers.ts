@@ -188,6 +188,8 @@ export const transformPropertyData = (property: any) => {
   return {
     name: property.name || "Luxury PG Accommodation",
     location: property.area || "Koramangala, Bangalore",
+    map_direction_url: property.map_direction_url,
+    map_embed_url:property.map_embed_url,
     area: property.area,
     city: property.city,
     address: property.address || "123 Main Street, Koramangala 5th Block, Bangalore - 560095",
@@ -382,6 +384,7 @@ export const transformRoomData = (room: any) => {
     price: price,
     floor: room.floor || 1,
     room_gender_preference: room.room_gender_preference,
+    
     gender: gender,
     ac: ac,
     wifi: true,

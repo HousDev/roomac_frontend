@@ -345,6 +345,7 @@ const PropertyDetailView = memo(function PropertyDetailView({
   propertyData,
   offers,
 }: PropertyDetailViewProps) {
+  console.log(propertyData, "ghjkhhyyujj")
   const router = useRouter();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showAllRooms, setShowAllRooms] = useState(false);
@@ -1690,23 +1691,29 @@ const PropertyDetailView = memo(function PropertyDetailView({
                 })}
               </div>
 
-              <div className="relative w-full h-[150px] md:h-[200px] lg:h-[250px] rounded-lg md:rounded-xl overflow-hidden border border-gray-200 mb-2 md:mb-3">
-                <iframe
-                  src="https://www.google.com/maps?q=Roomac+Co-Living+Wakad+Pune&output=embed"
-                  className="w-full h-full border-0"
-                  loading="lazy"
-                  title="Property Location"
-                />
-              </div>
 
-              <a
-                href="https://www.google.com/maps/dir/?api=1&destination=Roomac+Co-Living+Wakad+Pune"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block w-full text-center bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-semibold py-1.5 md:py-2.5 rounded-lg md:rounded-xl transition-all text-[10px] md:text-sm shadow-sm hover:shadow"
-              >
-                Get Directions
-              </a>
+
+              {propertyData?.map_embed_url && (
+                <div className="relative w-full h-[150px] md:h-[200px] lg:h-[250px] rounded-lg md:rounded-xl overflow-hidden border border-gray-200 mb-2 md:mb-3">
+                  <iframe
+                    src={propertyData.map_embed_url}
+                    className="w-full h-full border-0"
+                    loading="lazy"
+                    title="Property Location"
+                  />
+                </div>
+              )}
+
+              {propertyData?.map_direction_url && (
+                <a
+                  href={propertyData.map_direction_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block w-full text-center bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-semibold py-1.5 md:py-2.5 rounded-lg md:rounded-xl transition-all text-[10px] md:text-sm shadow-sm hover:shadow"
+                >
+                  Get Directions
+                </a>
+              )}
             </div>
 
             {/* Reviews */}
