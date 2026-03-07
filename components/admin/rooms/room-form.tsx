@@ -800,22 +800,98 @@ export function RoomForm({
     }
   };
 
-  const handleFormSubmit = async () => {
-    try {
-      setIsCreating(true);
-      const preparedData = prepareFormData();
-      
-      // Pass the prepared data to the parent onSubmit handler
-      await onSubmit(preparedData);
-      
-      toast.success(isEditMode ? "Room updated successfully!" : "Room created successfully!");
-    } catch (error) {
-      console.error('Error submitting form:', error);
-      toast.error(error instanceof Error ? error.message : "Failed to create room. Please try again.");
-    } finally {
-      setIsCreating(false);
+const handleFormSubmit = async () => {
+  try {
+    // Validate required fields
+    if (!formData.property_id) {
+      toast.error("Please select a property");
+      setCurrentTab('details');
+      return;
     }
-  };
+
+    if (!formData.room_number) {
+      toast.error("Please enter a room number");
+      setCurrentTab('details');
+      return;
+    }
+
+    if (!formData.sharing_type) {
+      toast.error("Please select sharing type");
+      setCurrentTab('details');
+      return;
+    }
+
+    if (!formData.rent_per_bed || formData.rent_per_bed <= 0) {
+      toast.error("Please enter a valid rent amount");
+      setCurrentTab('details');
+      return;
+    }
+
+    // Validate room number uniqueness
+    if (rooms && rooms.length > 0) {
+      // Convert all values to strings for consistent comparison
+      const selectedPropertyId = String(formData.property_id).trim();
+      const newRoomNumber = String(formData.room_number).trim();
+      const currentRoomId = isEditMode ? String(editingRoomId).trim() : null;
+      
+      console.log('Checking duplicate for:', {
+        selectedPropertyId,
+        newRoomNumber,
+        currentRoomId,
+        totalRooms: rooms.length
+      });
+      
+      const isDuplicate = rooms.some(room => {
+        const roomPropertyId = String(room.property_id).trim();
+        const roomNumber = String(room.room_number).trim();
+        const roomId = String(room.id).trim();
+        
+        // Check if same property and same room number
+        const isSameProperty = roomPropertyId === selectedPropertyId;
+        const isSameRoomNumber = roomNumber === newRoomNumber;
+        
+        // For edit mode, exclude the current room
+        const isCurrentRoom = isEditMode ? roomId === currentRoomId : false;
+        
+        console.log('Checking room:', {
+          roomId,
+          roomPropertyId,
+          roomNumber,
+          isSameProperty,
+          isSameRoomNumber,
+          isCurrentRoom,
+          isDuplicate: isSameProperty && isSameRoomNumber && !isCurrentRoom
+        });
+        
+        return isSameProperty && isSameRoomNumber && !isCurrentRoom;
+      });
+      
+      console.log('Is duplicate:', isDuplicate);
+      
+      if (isDuplicate) {
+        toast.error("Room number already exists for this property. Please choose a different number.");
+        setCurrentTab('details'); // Switch to details tab to show the error
+        return;
+      }
+    }
+
+    setIsCreating(true);
+    const preparedData = prepareFormData();
+    
+    // Log the data being sent
+    console.log('Submitting room data:', preparedData);
+    
+    // Pass the prepared data to the parent onSubmit handler
+    await onSubmit(preparedData);
+    
+    toast.success(isEditMode ? "Room updated successfully!" : "Room created successfully!");
+  } catch (error) {
+    console.error('Error submitting form:', error);
+    toast.error(error instanceof Error ? error.message : "Failed to create room. Please try again.");
+  } finally {
+    setIsCreating(false);
+  }
+};
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1105,18 +1181,95 @@ export function RoomForm({
           </Select>
         </div>
 
-        <div className="space-y-1.5 md:space-y-2">
-          <Label className="text-[10px] md:text-xs font-medium flex items-center gap-1 mb-0.5">
-            <DoorOpen className="h-3 w-3 md:h-3.5 md:w-3.5" />
-            Room Number *
-          </Label>
-          <Input
-            value={formData.room_number}
-            onChange={(e) => setFormData({ ...formData, room_number: e.target.value })}
-            placeholder="e.g., 101, 202, G-01"
-            className="h-7 md:h-8 text-[10px] md:text-xs mt-0.5"
-          />
-        </div>
+<div className="space-y-1.5 md:space-y-2">
+  <Label className="text-[10px] md:text-xs font-medium flex items-center gap-1 mb-0.5">
+    <DoorOpen className="h-3 w-3 md:h-3.5 md:w-3.5" />
+    Room Number *
+  </Label>
+  <div className="relative">
+    <Input
+      value={formData.room_number}
+      onChange={(e) => {
+        const newRoomNumber = e.target.value;
+        setFormData({ ...formData, room_number: newRoomNumber });
+      }}
+      placeholder="e.g., 101, 202, G-01"
+      className={`h-7 md:h-8 text-[10px] md:text-xs mt-0.5 ${
+        formData.room_number && 
+        formData.property_id &&
+        rooms && 
+        rooms.length > 0 && 
+        rooms.some(room => {
+          // Convert both to strings for comparison
+          const roomPropertyId = String(room.property_id).trim();
+          const selectedPropertyId = String(formData.property_id).trim();
+          const roomNumber = String(room.room_number).trim();
+          const newRoomNumber = String(formData.room_number).trim();
+          const currentRoomId = isEditMode ? String(editingRoomId).trim() : null;
+          const roomId = String(room.id).trim();
+          
+          // Check if same property and same room number
+          const isSameProperty = roomPropertyId === selectedPropertyId;
+          const isSameRoomNumber = roomNumber === newRoomNumber;
+          
+          // For edit mode, exclude the current room
+          const isCurrentRoom = isEditMode ? roomId === currentRoomId : false;
+          
+          return isSameProperty && isSameRoomNumber && !isCurrentRoom;
+        }) ? 'border-red-500 focus-visible:ring-red-500' : ''
+      }`}
+    />
+    
+    {/* Show duplicate warning icon */}
+    {formData.room_number && 
+     formData.property_id &&
+     rooms && 
+     rooms.length > 0 && 
+     rooms.some(room => {
+      const roomPropertyId = String(room.property_id).trim();
+      const selectedPropertyId = String(formData.property_id).trim();
+      const roomNumber = String(room.room_number).trim();
+      const newRoomNumber = String(formData.room_number).trim();
+      const currentRoomId = isEditMode ? String(editingRoomId).trim() : null;
+      const roomId = String(room.id).trim();
+      
+      const isSameProperty = roomPropertyId === selectedPropertyId;
+      const isSameRoomNumber = roomNumber === newRoomNumber;
+      const isCurrentRoom = isEditMode ? roomId === currentRoomId : false;
+      
+      return isSameProperty && isSameRoomNumber && !isCurrentRoom;
+     }) && (
+      <div className="absolute right-2 top-1/2 -translate-y-1/2">
+        <AlertCircle className="h-4 w-4 text-red-500" />
+      </div>
+    )}
+  </div>
+  
+  {/* Show duplicate error message */}
+  {formData.room_number && 
+   formData.property_id &&
+   rooms && 
+   rooms.length > 0 && 
+   rooms.some(room => {
+    const roomPropertyId = String(room.property_id).trim();
+    const selectedPropertyId = String(formData.property_id).trim();
+    const roomNumber = String(room.room_number).trim();
+    const newRoomNumber = String(formData.room_number).trim();
+    const currentRoomId = isEditMode ? String(editingRoomId).trim() : null;
+    const roomId = String(room.id).trim();
+    
+    const isSameProperty = roomPropertyId === selectedPropertyId;
+    const isSameRoomNumber = roomNumber === newRoomNumber;
+    const isCurrentRoom = isEditMode ? roomId === currentRoomId : false;
+    
+    return isSameProperty && isSameRoomNumber && !isCurrentRoom;
+   }) && (
+    <p className="text-[9px] md:text-[10px] text-red-500 mt-1 flex items-center gap-1">
+      <AlertCircle className="h-2.5 w-2.5" />
+      Room number already exists for this property. Please choose a different number.
+    </p>
+  )}
+</div>
 
         
 

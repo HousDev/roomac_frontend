@@ -1,4 +1,3 @@
-
 // components/admin/enquiries/EnquiriesClientPage.tsx
 "use client";
 
@@ -22,6 +21,7 @@ import {
   updateEnquiryStatus,
   addFollowup,
   getEnquiryStats,
+  getEnquiryById,  // Added this import
   type Enquiry,
   type CreateEnquiryPayload,
   type UpdateEnquiryPayload,
@@ -241,6 +241,22 @@ export default function EnquiriesClientPage({
     });
   }, [enquiries, columnFilters]);
 
+  // Function to open view dialog with fresh data - NEW FUNCTION
+  const openViewDialog = useCallback(async (enquiry: Enquiry) => {
+    try {
+      const response = await getEnquiryById(enquiry.id);
+      if (response.success) {
+        setSelectedEnquiry(response.data);
+        setShowViewDialog(true);
+      } else {
+        toast.error("Failed to load enquiry details");
+      }
+    } catch (error) {
+      console.error("Error fetching enquiry details:", error);
+      toast.error("Failed to load enquiry details");
+    }
+  }, []);
+
   // Add new enquiry handler
   const handleAddEnquiry = useCallback(async () => {
     if (!newEnquiry.tenant_name || !newEnquiry.phone) {
@@ -363,6 +379,7 @@ export default function EnquiriesClientPage({
     }
   }, [selectedEnquiry]);
 
+  // FIXED: Handle add followup with proper state updates
   const handleAddFollowup = useCallback(async () => {
     if (!followupText.trim()) {
       toast.error("Please enter followup note");
@@ -383,37 +400,37 @@ export default function EnquiriesClientPage({
       toast.success("Followup added");
       setFollowupText("");
 
-      // Refresh data after adding followup
+      // Refresh the main list
       await loadData(true);
 
-      // Update selected enquiry
-      const updatedEnquiries = await getEnquiries();
-      const updatedEnquiry = updatedEnquiries.results.find(e => e.id === selectedEnquiry.id);
-      if (updatedEnquiry) {
-        setSelectedEnquiry(updatedEnquiry);
+      // IMPORTANT: Fetch the updated enquiry with followups
+      const updatedEnquiry = await getEnquiryById(selectedEnquiry.id);
+      if (updatedEnquiry.success) {
+        setSelectedEnquiry(updatedEnquiry.data);
       }
+
     } catch (error) {
       console.error("Error adding followup:", error);
       toast.error("Failed to add followup");
     }
   }, [followupText, selectedEnquiry, loadData]);
 
-const handleDeleteEnquiry = useCallback(async (id: string) => {
-  try {
-    
-    await deleteEnquiry(id);
-    toast.success("Enquiry deleted successfully");
+  const handleDeleteEnquiry = useCallback(async (id: string) => {
+    try {
+      
+      await deleteEnquiry(id);
+      toast.success("Enquiry deleted successfully");
 
-    setShowViewDialog(false);
-    setShowEditDialog(false);
+      setShowViewDialog(false);
+      setShowEditDialog(false);
 
-    // Refresh data after deletion
-    await loadData(true);
-  } catch (error) {
-    console.error("Error deleting enquiry:", error);
-    toast.error("Failed to delete enquiry");
-  }
-}, [loadData]);
+      // Refresh data after deletion
+      await loadData(true);
+    } catch (error) {
+      console.error("Error deleting enquiry:", error);
+      toast.error("Failed to delete enquiry");
+    }
+  }, [loadData]);
 
   // Format date for display
   const formatDateForDisplay = useCallback((dateString: string) => {
@@ -688,14 +705,10 @@ const handleDeleteEnquiry = useCallback(async (id: string) => {
     ) : (
       filteredEnquiries.map((enquiry) => (
         <TableRow key={enquiry.id} className="hover:bg-gray-50">
-          {/* Name */}
-          {/* Name - Clickable */}
+          {/* Name - Clickable with fresh data fetch - UPDATED */}
 <TableCell 
   className="px-2 sm:px-4 py-2 sm:py-3 font-medium text-xs sm:text-sm cursor-pointer hover:text-blue-600 hover:underline transition-colors"
-  onClick={() => {
-    setSelectedEnquiry(enquiry);
-    setShowViewDialog(true);
-  }}
+  onClick={() => openViewDialog(enquiry)}
 >
   {enquiry.tenant_name}
 </TableCell>
@@ -746,10 +759,7 @@ const handleDeleteEnquiry = useCallback(async (id: string) => {
               <Button
                 size="sm"
                 variant="ghost"
-                onClick={() => {
-                  setSelectedEnquiry(enquiry);
-                  setShowViewDialog(true);
-                }}
+                onClick={() => openViewDialog(enquiry)}  // UPDATED
                 className="h-7 w-7 sm:h-8 sm:w-8 p-0"
                 title="View Details"
               >
