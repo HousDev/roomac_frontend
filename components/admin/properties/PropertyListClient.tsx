@@ -987,7 +987,6 @@ export default function PropertyListClient({ initialProperties }: PropertyListCl
       return matchingTag ? matchingTag.name : null;
     }).filter(Boolean) as string[];
     
-    console.log(`✅ Mapped tags for ${property.name}:`, mappedTags);
     return mappedTags;
   };
 
@@ -1058,9 +1057,18 @@ export default function PropertyListClient({ initialProperties }: PropertyListCl
 
         {/* Dark gradient overlay at bottom */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
+        
+        
 
         {/* Status badge */}
         <div className="absolute top-3 right-3" onClick={(e) => e.stopPropagation()}>
+          <span
+            className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm
+             bg-blue-400 text-white "
+          >
+            <span className={`w-1.5 h-1.5 rounded-full `} />
+            {"RMCX-"+property.id }
+          </span>
           <span
             className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm
               ${property.is_active

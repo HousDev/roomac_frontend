@@ -1142,7 +1142,15 @@ const PropertyDetailView = memo(function PropertyDetailView({
                     <span className="font-black text-xs md:text-base text-white">
                       {shortlistCount.toLocaleString()}
                     </span>
+                    
                   </button>
+                  <span
+            className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[14px] font-bold uppercase tracking-wider shadow-sm
+              text-white "
+          >
+            <span className={`w-1.5 h-1.5 rounded-full `} />
+            {"RMCX-"+propertyData.id }
+          </span>
                 </div>
 
                 {/* View All button - top right */}

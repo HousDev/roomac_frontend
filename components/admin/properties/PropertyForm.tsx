@@ -187,7 +187,6 @@ const commonAmenities = [
   "Microwave",
   "Geyser",
   "Furnished",
-  "Housekeeping",
 ];
 
 const commonServices = [
@@ -199,6 +198,7 @@ const commonServices = [
   "Transportation",
   "Package Handling",
   "Concierge",
+  "Housekeeping",
 ];
 
 interface MasterValue {
@@ -921,7 +921,6 @@ const initializeFormWithMasters = () => {
       );
       return matchingTag ? matchingTag.name : String(id);
     }).filter(Boolean);
-    console.log("Mapped tags to names:", tagNames);
   }
 
   // Initialize form data with mapped values
@@ -2031,16 +2030,10 @@ const handleSubmit = async () => {
           </div>
         )}
       </div>
+
+      
     </div>
-  </div>
-</div>
-</TabsContent>
-
-          {/* Photos Tab - includes Property Rules and Additional Terms */}
-          <TabsContent value="photos" className="space-y-2 md:space-y-3 mt-0 min-h-[400px] md:min-h-[500px] overflow-y-auto">
-            <div className="space-y-4 md:space-y-5">
-
-              {/* Property Rules Section */}
+    {/* Property Rules Section */}
               <div className="border-t pt-4 md:pt-5">
                 <div>
                   <Label className="text-[10px] md:text-xs font-medium flex items-center gap-1 mb-1.5">
@@ -2075,6 +2068,15 @@ const handleSubmit = async () => {
                   />
                 </div>
               </div>
+  </div>
+</div>
+</TabsContent>
+
+          {/* Photos Tab - includes Property Rules and Additional Terms */}
+          <TabsContent value="photos" className="space-y-2 md:space-y-3 mt-0 min-h-[400px] md:min-h-[500px] overflow-y-auto">
+            <div className="space-y-4 md:space-y-5">
+
+              
 
               {/* Property Photos Section */}
               <div className="space-y-2 md:space-y-2.5">

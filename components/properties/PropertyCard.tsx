@@ -527,6 +527,13 @@ const PropertyCard = memo(function PropertyCard({
               
               {/* Price on the right */}
               <div className="text-right flex-shrink-0">
+                <span
+            className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm
+             bg-slate-200 text-black "
+          >
+            <span className={`w-1.5 h-1.5 rounded-full `} />
+            {"RMCX-"+property.id }
+          </span>
                 <p className="text-xs text-slate-400 font-medium whitespace-nowrap">Starting from</p>
                 <p className="text-lg font-bold text-[#0249a8] whitespace-nowrap">
                   ₹{Number(propertyPrice).toLocaleString()}

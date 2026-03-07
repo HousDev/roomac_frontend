@@ -1,4 +1,4 @@
-
+// components/admin/rooms/BedManagementDialog.tsx
 // components/admin/rooms/BedManagementDialog.tsx
 "use client";
 
@@ -21,9 +21,10 @@ import {
 } from 'lucide-react';
 import { getAvailableBeds, assignBed, updateBedAssignment, getRoomById } from '@/lib/roomsApi';
 import { request } from '@/lib/api';
-import type { RoomResponse, BedAssignment } from '@/lib/roomsApi';
+import type { RoomResponse, BedAssignment, UpdateBedAssignmentPayload, AssignBedPayload } from '@/lib/roomsApi';
 import { VacateBedWizard } from '@/components/admin/rooms/VacateBedWizard';
 import { ChangeBedWizard } from '@/components/admin/rooms/ChangeBedWizard';
+import { number } from 'framer-motion';
 
 interface BedManagementDialogProps {
   room: any;
@@ -71,7 +72,7 @@ const GenderIcon = ({ gender, size = "h-4 w-4" }: { gender: string; size?: strin
   }
 };
 
-// Cleaned up Tenant Selection Dropdown Component
+// Tenant Selection Dropdown Component
 function TenantSelectDropdown({
   bedNumber,
   value,
@@ -79,7 +80,12 @@ function TenantSelectDropdown({
   tenants,
   loading,
   roomGenderPreferences,
-  currentRoomAssignments
+  currentRoomAssignments,
+  onCustomRentChange,
+  onIsCoupleChange,
+  customRent,
+  isCouple,
+  room,
 }: {
   bedNumber: number;
   value: string;
@@ -88,11 +94,21 @@ function TenantSelectDropdown({
   loading: boolean;
   roomGenderPreferences: string[];
   currentRoomAssignments: BedAssignment[];
+  onCustomRentChange?: (rent: string) => void;
+  onIsCoupleChange?: (isCouple: boolean) => void;
+  customRent?: string;
+  isCouple?: boolean;
+  room: RoomResponse;
 }) {
   const [searchQuery, setSearchQuery] = useState('');
 
   // Filter only unassigned tenants
   const unassignedTenants = tenants.filter(tenant => !tenant.is_assigned);
+
+  // useEffect(() => {
+  //   console.log('🏠 Room gender preferences:', roomGenderPreferences);
+  //   console.log('🏠 Includes couples?', roomGenderPreferences.includes('couples'));
+  // }, [roomGenderPreferences]);
   
   // Filter based on room preferences and current assignments
   const filteredTenants = unassignedTenants.filter(tenant => {
@@ -123,7 +139,7 @@ function TenantSelectDropdown({
     
     // For rooms with both male and female (mixed gender rooms)
     if (hasBothGenders) {
-      return !tenantIsCouple; // Don't show couples unless explicitly allowed
+      return !tenantIsCouple;
     }
     
     // For male-only rooms
@@ -138,7 +154,6 @@ function TenantSelectDropdown({
     
     // For rooms that allow both male and female (but not "both" preference)
     if (hasMaleOnly && hasFemaleOnly) {
-      // If one gender is already assigned, only show that gender
       if (assignedGenders.length > 0) {
         const assignedGender = assignedGenders[0];
         if (assignedGender === 'male') {
@@ -147,13 +162,12 @@ function TenantSelectDropdown({
           return tenantGender === 'female' && !tenantIsCouple;
         }
       }
-      // If no assignments yet, show both genders
       return (tenantGender === 'male' || tenantGender === 'female') && !tenantIsCouple;
     }
     
     // For couples rooms
     if (hasCouplesAllowed) {
-      return true; // Couples rooms can have any tenant (individuals or couples)
+      return true;
     }
     
     return true;
@@ -180,7 +194,7 @@ function TenantSelectDropdown({
   const selectedTenant = tenants.find(t => t.id.toString() === value);
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       <div className="flex items-center justify-between">
         <Label className="text-xs md:text-sm font-medium">Select Tenant</Label>
         <span className="text-[10px] md:text-xs text-gray-500">
@@ -197,7 +211,6 @@ function TenantSelectDropdown({
           } />
         </SelectTrigger>
         <SelectContent className="max-h-[350px] p-0">
-          {/* Search inside dropdown */}
           <div className="sticky top-0 z-10 bg-white border-b p-2 md:p-3">
             <div className="relative">
               <Search className="absolute left-2 md:left-3 top-1/2 transform -translate-y-1/2 h-3 w-3 md:h-4 md:w-4 text-gray-500" />
@@ -211,7 +224,6 @@ function TenantSelectDropdown({
             </div>
           </div>
 
-          {/* Tenant list */}
           <div className="max-h-[250px] overflow-y-auto">
             {loading ? (
               <div className="p-4 md:p-6 text-center">
@@ -271,6 +283,59 @@ function TenantSelectDropdown({
         </SelectContent>
       </Select>
 
+      {/* Couple Checkbox - Only show when room allows couples */}
+      {roomGenderPreferences.some(pref => pref.toLowerCase() === 'couples') && selectedTenant && (
+        <div className="flex items-center space-x-2 mt-3">
+          <input
+            type="checkbox"
+            id={`is-couple-${bedNumber}`}
+            checked={isCouple || false}
+            onChange={(e) => {
+              const newValue = e.target.checked;
+              if(newValue){
+                onCustomRentChange?.(String(Number(customRent)*2))
+              }else{
+                onCustomRentChange?.(String(Number(customRent)/2))
+              }
+              if (onIsCoupleChange) {
+                onIsCoupleChange(newValue);
+              }
+            }}
+            className="h-3 w-3 md:h-4 md:w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+          />
+          <Label htmlFor={`is-couple-${bedNumber}`} className="text-xs md:text-sm font-medium text-gray-700">
+            Mark as Couple Booking
+          </Label>
+        </div>
+      )}
+
+      {/* Custom Rent Input - Now shows room's default rent by default */}
+      {selectedTenant && (
+        <div className="space-y-3 mt-3">
+          <div>
+            <Label htmlFor={`custom-rent-${bedNumber}`} className="text-xs md:text-sm font-medium">
+              Custom Rent
+            </Label>
+            <div className="relative mt-1">
+              <BadgeIndianRupee className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 md:h-4 md:w-4 text-gray-500" />
+              <Input
+                id={`custom-rent-${bedNumber}`}
+                type="number"
+                placeholder={`Default: ₹${room?.rent_per_bed}`}
+                value={customRent}
+                onChange={(e) => onCustomRentChange?.(e.target.value)}
+                className="pl-7 md:pl-9 h-8 md:h-10 text-xs md:text-sm"
+              />
+            </div>
+            <p className="text-[10px] md:text-xs text-gray-500 mt-1">
+              Default rent: ₹{room?.rent_per_bed}. Enter custom amount if different.
+            </p>
+          </div>
+        </div>
+      )}
+
+      
+
       {/* Selected tenant preview */}
       {selectedTenant && (
         <div className="mt-2 md:mt-3 p-2 md:p-3 bg-blue-50 rounded-lg border border-blue-200">
@@ -296,6 +361,12 @@ function TenantSelectDropdown({
               <span className="text-[10px] md:text-xs text-gray-600">Gender</span>
               <span className="text-xs md:text-sm">{selectedTenant.couple_id ? 'Couple' : selectedTenant.gender || 'Not specified'}</span>
             </div>
+            {selectedTenant.couple_id && (
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] md:text-xs text-gray-600">Couple ID</span>
+                <span className="text-xs md:text-sm font-mono">{selectedTenant.couple_id}</span>
+              </div>
+            )}
             <div className="flex items-center justify-between">
               <span className="text-[10px] md:text-xs text-gray-600">Status</span>
               <Badge variant={selectedTenant.is_active ? "default" : "secondary"} className="h-4 md:h-5 text-[9px] md:text-xs">
@@ -318,7 +389,7 @@ function TenantSelectDropdown({
   );
 }
 
-// Updated Bed Card Component with Change Bed button
+// Bed Card Component
 function BedCard({
   bedNumber,
   assignment,
@@ -334,14 +405,14 @@ function BedCard({
   currentRoomAssignments,
   isSaving,
   tenantDetails,
-  room // Added room prop
+  room
 }: {
   bedNumber: number;
   assignment: any;
   isOccupied: boolean;
   isAssigning: boolean;
   onAssignClick: () => void;
-  onUpdateClick: (tenantId: string) => void;
+  onUpdateClick: (bedAssignment: any, tenantId: string, customRent?: string, isCouple?: boolean) => void;
   onVacateClick: () => void;
   onChangeBedClick: () => void;
   tenants: Tenant[];
@@ -350,9 +421,41 @@ function BedCard({
   currentRoomAssignments: BedAssignment[];
   isSaving: boolean;
   tenantDetails?: any;
-  room: RoomResponse; // Added room prop
+  room: RoomResponse;
 }) {
   const [selectedTenantId, setSelectedTenantId] = useState('');
+  const [customRent, setCustomRent] = useState<string>(room.rent_per_bed.toString()); // Default to room's rent
+  const [isCouple, setIsCouple] = useState<boolean>(false);
+
+  // Reset form when assigning state changes
+  useEffect(() => {
+    if (isAssigning) {
+      setSelectedTenantId('');
+      setCustomRent(room.rent_per_bed.toString());
+      setIsCouple(false);
+    }
+  }, [isAssigning, room.rent_per_bed]);
+
+  // Monitor isCouple changes
+  // useEffect(() => {
+  //   console.log('🔄 isCouple state changed to:', isCouple);
+  // }, [isCouple]);
+
+  const handleUpdateClick = () => {
+    const selectedTenant = tenants.find(t => t.id.toString() === selectedTenantId);
+    
+    // console.log('🔄 BEDCARD - Before calling onUpdateClick:', {
+    //   selectedTenantId,
+    //   customRent,
+    //   isCouple,
+    //   isCoupleType: typeof isCouple,
+    //   isCoupleValue: isCouple,
+    //   assignment
+    // });
+    
+    // Pass all parameters including the bed assignment
+    onUpdateClick(assignment, selectedTenantId, customRent, isCouple);
+  };
 
   return (
     <Card className={`overflow-hidden ${isOccupied ? 'border-green-200' : 'border-gray-200'}`}>
@@ -385,7 +488,12 @@ function BedCard({
                   <h4 className="font-semibold text-xs md:text-sm text-gray-800">Current Tenant</h4>
                   <p className="text-[10px] md:text-xs text-gray-600 mt-0.5">ID: {assignment.tenant_id}</p>
                 </div>
-                <GenderIcon gender={assignment.tenant_gender || ''} size="h-3.5 w-3.5 md:h-4 md:w-4" />
+                <div className="flex items-center gap-1">
+                  {assignment.is_couple && (
+                    <UsersRound className="h-3 w-3 md:h-4 md:w-4 text-red-600" />
+                  )}
+                  <GenderIcon gender={assignment.tenant_gender || ''} size="h-3.5 w-3.5 md:h-4 md:w-4" />
+                </div>
               </div>
               
               <div className="space-y-1 md:space-y-2">
@@ -397,6 +505,14 @@ function BedCard({
                   <span className="text-[10px] md:text-xs text-gray-600">Gender</span>
                   <span className="font-medium text-xs md:text-sm">{assignment.tenant_gender}</span>
                 </div>
+                {assignment.is_couple && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] md:text-xs text-gray-600">Couple</span>
+                    <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 text-[9px] md:text-xs">
+                      Yes
+                    </Badge>
+                  </div>
+                )}
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] md:text-xs text-gray-600">Status</span>
                   <Badge variant={tenantDetails.is_active ? "default" : "secondary"} className="h-4 md:h-5 text-[9px] md:text-xs">
@@ -418,6 +534,11 @@ function BedCard({
                     loading={loadingTenants}
                     roomGenderPreferences={roomGenderPreferences}
                     currentRoomAssignments={currentRoomAssignments}
+                    onCustomRentChange={setCustomRent}
+                    onIsCoupleChange={setIsCouple}
+                    customRent={customRent}
+                    isCouple={isCouple}
+                    room={room}
                   />
                   
                   <div className="flex gap-2">
@@ -431,7 +552,7 @@ function BedCard({
                     </Button>
                     <Button
                       className="flex-1 h-8 md:h-9 text-xs md:text-sm"
-                      onClick={() => onUpdateClick(selectedTenantId)}
+                      onClick={handleUpdateClick}
                       disabled={!selectedTenantId || isSaving}
                     >
                       {isSaving ? 'Updating...' : 'Update'}
@@ -442,14 +563,14 @@ function BedCard({
                 <>
                   <div className="grid grid-cols-2 gap-2">
                     <Button
-                    variant="outline"
-                    className="border-amber-200 text-amber-600 hover:bg-amber-50 hover:text-amber-900 h-8 md:h-9 text-[10px] md:text-xs"
-                    onClick={onChangeBedClick}
-                    disabled={isSaving}
-                  >
-                    <RefreshCw className="h-3 w-3 md:h-4 md:w-4 mr-1" />
-                    Change Bed
-                  </Button>
+                      variant="outline"
+                      className="border-amber-200 text-amber-600 hover:bg-amber-50 hover:text-amber-900 h-8 md:h-9 text-[10px] md:text-xs"
+                      onClick={onChangeBedClick}
+                      disabled={isSaving}
+                    >
+                      <RefreshCw className="h-3 w-3 md:h-4 md:w-4 mr-1" />
+                      Change Bed
+                    </Button>
                     <Button
                       variant="outline"
                       className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-900 h-8 md:h-9 text-[10px] md:text-xs"
@@ -479,6 +600,11 @@ function BedCard({
                   loading={loadingTenants}
                   roomGenderPreferences={roomGenderPreferences}
                   currentRoomAssignments={currentRoomAssignments}
+                  onCustomRentChange={setCustomRent}
+                  onIsCoupleChange={setIsCouple}
+                  customRent={customRent}
+                  isCouple={isCouple}
+                  room={room}
                 />
                 
                 <div className="flex gap-2">
@@ -492,7 +618,7 @@ function BedCard({
                   </Button>
                   <Button
                     className="flex-1 h-8 md:h-9 text-xs md:text-sm"
-                    onClick={() => onUpdateClick(selectedTenantId)}
+                    onClick={handleUpdateClick}
                     disabled={!selectedTenantId || isSaving}
                   >
                     {isSaving ? 'Assigning...' : 'Assign'}
@@ -517,7 +643,16 @@ function BedCard({
         <div className="mt-3 md:mt-4 pt-3 md:pt-4 border-t">
           <div className="flex items-center justify-between">
             <span className="text-[10px] md:text-xs text-gray-600">Monthly Rent</span>
-            <span className="font-bold text-xs md:text-sm text-green-600">₹{assignment?.rent_per_bed || room.rent_per_bed}</span>
+            <div className="text-right">
+              <span className="font-bold text-xs md:text-sm text-green-600">
+                ₹{assignment?.tenant_rent || room.rent_per_bed}
+              </span>
+              {assignment?.tenant_rent && assignment.tenant_rent != room.rent_per_bed && (
+                <div className="text-[8px] md:text-[10px] text-gray-500">
+                  Custom Rate
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </CardContent>
@@ -543,10 +678,14 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
     bedAssignment: BedAssignment | null;
     newTenant: any | null;
     existingAssignment: any | null;
+    customRent?: string;
+    isCouple?: boolean;
   }>({
     bedAssignment: null,
     newTenant: null,
-    existingAssignment: null
+    existingAssignment: null,
+    customRent: undefined,
+    isCouple: undefined
   });
   const [transferReason, setTransferReason] = useState('');
 
@@ -572,7 +711,7 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
     try {
       setLoadingTenants(true);
       
-      const response : any = await request<Tenant[]>('/api/tenants?is_active=true&portal_access_enabled=true');
+      const response: any = await request<Tenant[]>('/api/tenants?is_active=true&portal_access_enabled=true');
       
       let tenantsList: Tenant[] = [];
       
@@ -581,6 +720,8 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
       } else if (response.data && Array.isArray(response.data)) {
         tenantsList = response.data;
       }
+      
+      // console.log('📋 Raw tenants from API:', tenantsList.map(t => ({ id: t.id, name: t.full_name, gender: t.gender })));
       
       // Check assignment status for each tenant
       const tenantsWithAssignment = await Promise.all(
@@ -602,6 +743,8 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
           }
         })
       );
+      
+      // console.log('📋 Processed tenants:', tenantsWithAssignment.map(t => ({ id: t.id, name: t.full_name, gender: t.gender })));
       
       setTenants(tenantsWithAssignment);
     } catch (error: any) {
@@ -672,7 +815,7 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
     }
   };
 
-  const handleAssignBed = async (bedNumber: number, tenantId: string) => {
+  const handleAssignBed = async (bedNumber: number, tenantId: string, customRent?: string, isCouple?: boolean) => {
     if (!tenantId.trim()) {
       toast.error("Please select a tenant");
       return;
@@ -683,6 +826,8 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
       toast.error("Invalid tenant selected");
       return;
     }
+
+    // console.log('📋 Assigning tenant:', { id: tenant.id, name: tenant.full_name, gender: tenant.gender });
 
     const tenantIdNum = parseInt(tenantId);
     
@@ -696,7 +841,9 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
         setTransferDetails({
           bedAssignment: null,
           newTenant: tenant,
-          existingAssignment: existingAssignment
+          existingAssignment: existingAssignment,
+          customRent: customRent,
+          isCouple: isCouple
         });
         setTransferReason(`Moved to Bed ${bedNumber} in Room ${room.room_number}`);
         setTransferDialogOpen(true);
@@ -704,12 +851,34 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
         return;
       }
       
-      const payload = {
+      // Parse rent value - ensure it's a number
+      const rentValue = customRent && customRent.trim() !== '' 
+        ? parseFloat(customRent) 
+        : room.rent_per_bed;
+      
+      // Get tenant gender
+      const tenantGender = tenant.gender as 'Male' | 'Female' | 'Other';
+      
+      // Ensure isCouple is a boolean
+      const coupleValue = isCouple === true;
+      
+      // console.log('📤 Sending assign with values:', {
+      //   rentValue,
+      //   tenantGender,
+      //   coupleValue,
+      //   originalIsCouple: isCouple
+      // });
+      
+      const payload: AssignBedPayload = {
         room_id: room.id,
         bed_number: bedNumber,
         tenant_id: tenantIdNum,
-        tenant_gender: tenant.gender as 'Male' | 'Female' | 'Other'
+        tenant_gender: tenantGender,
+        tenant_rent: rentValue,
+        is_couple: coupleValue
       };
+
+      // console.log('📤 Full payload:', payload);
 
       const result = await assignBed(payload);
       
@@ -721,10 +890,12 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
           bed_number: bedNumber,
           room_id: room.id,
           tenant_id: tenantIdNum,
-          tenant_gender: tenant.gender as 'Male' | 'Female' | 'Other',
+          tenant_gender: tenantGender,
           is_available: false,
           created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
+          tenant_rent: rentValue.toString(),
+          is_couple: coupleValue
         };
         
         setBedAssignments(prev => {
@@ -747,7 +918,15 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
     }
   };
 
-  const handleUpdateBedAssignment = async (bedAssignment: BedAssignment, tenantId: string) => {
+  const handleUpdateBedAssignment = async (bedAssignment: BedAssignment, tenantId: string, customRent?: string, isCouple?: boolean) => {
+    // console.log('🔄 PARENT - handleUpdateBedAssignment received:', {
+    //   bedAssignmentId: bedAssignment.id,
+    //   tenantId,
+    //   customRent,
+    //   isCouple,
+    //   isCoupleType: typeof isCouple
+    // });
+
     if (!tenantId.trim()) {
       toast.error("Please select a tenant");
       return;
@@ -763,7 +942,8 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
     const currentTenantId = bedAssignment.tenant_id;
 
     if (currentTenantId === newTenantId) {
-      await updateBedAssignmentDirectly(bedAssignment, tenant);
+      // console.log('🔄 Same tenant, updating directly with isCouple:', isCouple);
+      await updateBedAssignmentDirectly(bedAssignment, tenant, customRent, isCouple);
       return;
     }
 
@@ -776,7 +956,9 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
         setTransferDetails({
           bedAssignment: bedAssignment,
           newTenant: tenant,
-          existingAssignment: existingAssignment
+          existingAssignment: existingAssignment,
+          customRent: customRent,
+          isCouple: isCouple
         });
         setTransferReason(`Transferred to Bed ${bedAssignment.bed_number} in Room ${room.room_number}`);
         setTransferDialogOpen(true);
@@ -784,7 +966,7 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
         return;
       }
       
-      await updateBedAssignmentDirectly(bedAssignment, tenant);
+      await updateBedAssignmentDirectly(bedAssignment, tenant, customRent, isCouple);
       
     } catch (err: any) {
       console.error("Update bed error:", err);
@@ -794,12 +976,44 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
     }
   };
 
-  const updateBedAssignmentDirectly = async (bedAssignment: BedAssignment, tenant: Tenant) => {
-    const result = await updateBedAssignment(bedAssignment.id.toString(), {
+  const updateBedAssignmentDirectly = async (bedAssignment: BedAssignment, tenant: Tenant, customRent?: string, isCouple?: boolean) => {
+    // console.log('🔄 DIRECT - updateBedAssignmentDirectly received:', {
+    //   bedAssignmentId: bedAssignment.id,
+    //   tenantId: tenant.id,
+    //   tenantName: tenant.full_name,
+    //   customRent,
+    //   isCouple,
+    //   isCoupleType: typeof isCouple
+    // });
+
+    // Parse rent value - ensure it's a number
+    const rentValue = customRent && customRent.trim() !== '' 
+      ? parseFloat(customRent) 
+      : room.rent_per_bed;
+    
+    const tenantGender = tenant.gender as 'Male' | 'Female' | 'Other';
+    
+    // Ensure isCouple is a boolean
+    const coupleValue = isCouple === true;
+    
+    // console.log('📤 DIRECT - Prepared values:', {
+    //   rentValue,
+    //   tenantGender,
+    //   coupleValue,
+    //   originalIsCouple: isCouple
+    // });
+    
+    const payload: UpdateBedAssignmentPayload = {
       tenant_id: tenant.id,
-      tenant_gender: tenant.gender as 'Male' | 'Female' | 'Other',
-      is_available: false
-    });
+      tenant_gender: tenantGender,
+      is_available: false,
+      tenant_rent: rentValue,
+      is_couple: coupleValue
+    };
+    
+    // console.log('📤 DIRECT - Full payload:', payload);
+    
+    const result = await updateBedAssignment(bedAssignment.id.toString(), payload);
     
     if (result.success) {
       toast.success(`Bed ${bedAssignment.bed_number} updated successfully!`);
@@ -807,9 +1021,11 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
       const updatedAssignment: BedAssignment = {
         ...bedAssignment,
         tenant_id: tenant.id,
-        tenant_gender: tenant.gender as 'Male' | 'Female' | 'Other',
+        tenant_gender: tenantGender,
         is_available: false,
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
+        tenant_rent: rentValue.toString(),
+        is_couple: coupleValue
       };
       
       setBedAssignments(prev => 
@@ -826,7 +1042,7 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
 
   const handleTransferConfirmation = async () => {
     try {
-      const { bedAssignment, newTenant, existingAssignment } = transferDetails;
+      const { bedAssignment, newTenant, existingAssignment, customRent, isCouple } = transferDetails;
       
       if (!existingAssignment || !newTenant) {
         toast.error("Invalid transfer details");
@@ -845,12 +1061,17 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
       
       toast.success(`Vacated previous assignment`);
       
+      const coupleValue = isCouple === true;
+      const tenantGender = newTenant.gender as 'Male' | 'Female' | 'Other';
+      
       if (!bedAssignment) {
-        const payload = {
+        const payload: AssignBedPayload = {
           room_id: room.id,
-          bed_number: transferDetails.existingAssignment?.bed_number || 0,
+          bed_number: existingAssignment.bed_number || 0,
           tenant_id: newTenant.id,
-          tenant_gender: newTenant.gender as 'Male' | 'Female' | 'Other'
+          tenant_gender: tenantGender,
+          tenant_rent: customRent ? parseFloat(customRent) : room.rent_per_bed,
+          is_couple: coupleValue
         };
 
         const result = await assignBed(payload);
@@ -861,10 +1082,12 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
             bed_number: payload.bed_number,
             room_id: room.id,
             tenant_id: newTenant.id,
-            tenant_gender: newTenant.gender as 'Male' | 'Female' | 'Other',
+            tenant_gender: tenantGender,
             is_available: false,
             created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
+            updated_at: new Date().toISOString(),
+            tenant_rent: (customRent || room.rent_per_bed).toString(),
+            is_couple: coupleValue
           };
           
           setBedAssignments(prev => {
@@ -875,19 +1098,25 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
           toast.error(result.message || "Failed to assign bed");
         }
       } else {
-        const result = await updateBedAssignment(bedAssignment.id.toString(), {
+        const payload: UpdateBedAssignmentPayload = {
           tenant_id: newTenant.id,
-          tenant_gender: newTenant.gender as 'Male' | 'Female' | 'Other',
-          is_available: false
-        });
+          tenant_gender: tenantGender,
+          is_available: false,
+          tenant_rent: customRent ? parseFloat(customRent) : room.rent_per_bed,
+          is_couple: coupleValue
+        };
+        
+        const result = await updateBedAssignment(bedAssignment.id.toString(), payload);
         
         if (result.success) {
           const updatedAssignment: BedAssignment = {
             ...bedAssignment,
             tenant_id: newTenant.id,
-            tenant_gender: newTenant.gender as 'Male' | 'Female' | 'Other',
+            tenant_gender: tenantGender,
             is_available: false,
-            updated_at: new Date().toISOString()
+            updated_at: new Date().toISOString(),
+            tenant_rent: (customRent || room.rent_per_bed).toString(),
+            is_couple: coupleValue
           };
           
           setBedAssignments(prev => 
@@ -906,7 +1135,9 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
       setTransferDetails({
         bedAssignment: null,
         newTenant: null,
-        existingAssignment: null
+        existingAssignment: null,
+        customRent: undefined,
+        isCouple: undefined
       });
       setTransferReason('');
       
@@ -924,51 +1155,44 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
   };
 
   const handleVacateComplete = () => {
-  console.log('🔄 Vacate complete - refreshing data...');
-  
-  // 1. Immediately update local state to show bed as available
-  setBedAssignments(prev => 
-    prev.map(bed => 
-      bed.id === selectedBedForVacate?.id 
-        ? { ...bed, tenant_id: null, tenant_gender: null, is_available: true }
-        : bed
-    )
-  );
-  
-  // 2. Refresh the parent data
-  if (onRefresh) {
-    console.log('🔄 Calling parent refresh...');
-    onRefresh(); // This should reload the rooms list
-  }
-  
-  // 3. Refresh tenants list
-  loadTenantsBasedOnPreferences();
-  
-  // 4. Clear the selected bed
-  setSelectedBedForVacate(null);
-  setAssigningBed(null);
-  
-  // 5. Show success message
-  toast.success('Bed vacated successfully! Occupants updated.');
-  
-  // 6. Force a direct refresh of room data
-  const refreshRoomData = async () => {
-    try {
-      const response = await getRoomById(room.id.toString());
-      if (response) {
-        console.log('🔄 Room data refreshed');
-        setBedAssignments(response.bed_assignments || []);
-      }
-    } catch (error) {
-      console.error('Error refreshing room:', error);
+    // console.log('🔄 Vacate complete - refreshing data...');
+    
+    setBedAssignments(prev => 
+      prev.map(bed => 
+        bed.id === selectedBedForVacate?.id 
+          ? { ...bed, tenant_id: null, tenant_gender: null, is_available: true, tenant_rent: null, is_couple: false }
+          : bed
+      )
+    );
+    
+    if (onRefresh) {
+      // console.log('🔄 Calling parent refresh...');
+      onRefresh();
     }
+    
+    loadTenantsBasedOnPreferences();
+    
+    setSelectedBedForVacate(null);
+    setAssigningBed(null);
+    
+    toast.success('Bed vacated successfully!');
+    
+    const refreshRoomData = async () => {
+      try {
+        const response = await getRoomById(room.id.toString());
+        if (response) {
+          // console.log('🔄 Room data refreshed');
+          setBedAssignments(response.bed_assignments || []);
+        }
+      } catch (error) {
+        console.error('Error refreshing room:', error);
+      }
+    };
+    
+    refreshRoomData();
   };
-  
-  refreshRoomData();
-};
 
   const handleChangeBedSuccess = () => {
-    // Refresh data after successful bed change
     loadTenantsBasedOnPreferences();
     if (onRefresh) onRefresh();
   };
@@ -1001,7 +1225,6 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
                   className="h-7 md:h-8 px-2 md:px-3 text-white hover:bg-white/20 text-xs md:text-sm"
                 >
                   <X className="h-3 w-3 md:h-4 md:w-4 mr-1" />
-                  Close
                 </Button>
               </DialogTitle>
               <div className="flex items-center gap-1.5 text-[10px] md:text-xs text-blue-100 flex-wrap">
@@ -1012,9 +1235,7 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
           </div>
 
           <div className="px-3 py-2 md:px-4 md:py-2.5 overflow-y-auto flex-1 min-h-0">
-            {/* Room Info & Stats */}
             <div className="space-y-2 md:space-y-3">
-              {/* Room Preferences */}
               {roomGenderPreferences.length > 0 && (
                 <Card>
                   <CardContent className="p-2 md:p-3">
@@ -1052,7 +1273,6 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
                 </Card>
               )}
 
-              {/* Stats Cards */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
                 <Card>
                   <CardContent className="p-2 md:p-3">
@@ -1103,7 +1323,6 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
                 </Card>
               </div>
 
-              {/* Bed Assignments */}
               <div>
                 <div className="flex items-center justify-between mb-3 md:mb-4">
                   <div>
@@ -1147,11 +1366,11 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
                             setAssigningBed(bedNumber);
                           }
                         }}
-                        onUpdateClick={(tenantId) => {
-                          if (assignment) {
-                            handleUpdateBedAssignment(assignment, tenantId);
+                        onUpdateClick={(bedAssignment, tenantId, customRent, isCouple) => {
+                          if (bedAssignment) {
+                            handleUpdateBedAssignment(bedAssignment, tenantId, customRent, isCouple);
                           } else {
-                            handleAssignBed(bedNumber, tenantId);
+                            handleAssignBed(bedNumber, tenantId, customRent, isCouple);
                           }
                         }}
                         onVacateClick={() => assignment && handleVacateClick(assignment)}
@@ -1179,7 +1398,6 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
         </DialogContent>
       </Dialog>
 
-      {/* Vacate Wizard Dialog */}
       {selectedBedForVacate && (
         <VacateBedWizard
           open={vacateWizardOpen}
@@ -1190,7 +1408,6 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
         />
       )}
 
-      {/* Change Bed Wizard Dialog */}
       {selectedTenantForChange && (
         <ChangeBedWizard
           tenantId={selectedTenantForChange.id}
@@ -1201,7 +1418,6 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
         />
       )}
 
-      {/* Transfer Dialog */}
       <Dialog open={transferDialogOpen} onOpenChange={setTransferDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -1247,7 +1463,9 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
                 setTransferDetails({
                   bedAssignment: null,
                   newTenant: null,
-                  existingAssignment: null
+                  existingAssignment: null,
+                  customRent: undefined,
+                  isCouple: undefined
                 });
                 setTransferReason('');
               }}
