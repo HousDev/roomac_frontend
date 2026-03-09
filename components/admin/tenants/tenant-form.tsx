@@ -1251,264 +1251,266 @@ export function TenantForm({ tenant, onSuccess, onCancel }: TenantFormProps) {
 
           {/* Occupation Tab - UPDATED with full hierarchy */}
           <TabsContent value="occupation" className="mt-0 space-y-4">
-            <Card>
-              <CardHeader className="bg-green-50 py-3">
-                <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
-                  <Briefcase className="h-4 w-4" />
-                  Occupation & Professional Details
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-3">
-                    {/* Occupation Category */}
-                    <div className="space-y-1">
-                      <Label htmlFor="occupation_category" className="text-xs sm:text-sm">
-                        <span className="text-red-500">*</span> Occupation Category
-                      </Label>
-                      <Select
-                        value={formData.occupation_category}
-                        onValueChange={(value) => handleSelectChange("occupation_category", value)}
-                      >
-                        <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
-                          <SelectValue placeholder="Select occupation category" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {occupationCategoryOptions.map((option) => (
-                            <SelectItem key={option.value} value={option.value} className="text-xs sm:text-sm">
-                              <span className="mr-2">{option.icon}</span>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+  <Card>
+    <CardHeader className="bg-green-50 py-3">
+      <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
+        <Briefcase className="h-4 w-4" />
+        Occupation & Professional Details
+      </CardTitle>
+    </CardHeader>
+    <CardContent className="pt-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-                    {/* Occupation Sub-Category - shown only when main category selected */}
-                    {formData.occupation_category && (
-                      <div className="space-y-1">
-                        <Label htmlFor="exact_occupation" className="text-xs sm:text-sm">
-                          Occupation Sub-Category
-                        </Label>
-                        <Select
-                          value={formData.exact_occupation || ""}
-                          onValueChange={(value) => handleSelectChange("exact_occupation", value === "none" ? "" : value)}
-                        >
-                          <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
-                            <SelectValue placeholder="Select sub-category (optional)" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none" className="text-xs sm:text-sm">
-                              None (specify below)
-                            </SelectItem>
-                            {availableSubCategories.map((sub) => (
-                              <SelectItem key={sub.value} value={sub.value} className="text-xs sm:text-sm">
-                                {sub.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )} 
-                  </div>
+        {/* ── LEFT COLUMN ── */}
+        <div className="space-y-3">
 
-                  <div className="space-y-3">
-                    {/* Organization/Institution (if applicable) */}
-                    {formData.occupation_category && (
-                      <div className="space-y-1">
-                        <Label htmlFor="organization" className="text-xs sm:text-sm">
-                          {formData.occupation_category === "Student" ? "College/University Name" :
-                            formData.occupation_category === "Working Professional" ? "Company/Organization Name" :
-                              formData.occupation_category === "Business Owner" ? "Business/Shop Name" :
-                                formData.occupation_category === "Government Employee" ? "Department/Office Name" :
-                                  "Organization Name (Optional)"}
-                        </Label>
-                        <Input
-                          id="organization"
-                          value={formData.organization || ""}
-                          onChange={(e) => handleInputChange("organization", e.target.value)}
-                          placeholder={
-                            formData.occupation_category === "Student" ? "e.g., Indian Institute of Technology" :
-                              formData.occupation_category === "Working Professional" ? "e.g., Google India" :
-                                formData.occupation_category === "Business Owner" ? "e.g., Fashion Store, Sector 18" :
-                                  "Enter organization name"
-                          }
-                          className="h-8 sm:h-9 text-xs sm:text-sm"
-                        />
-                      </div>
-                    )}
+          {/* Occupation Category */}
+          <div className="space-y-1">
+            <Label htmlFor="occupation_category" className="text-xs sm:text-sm">
+              <span className="text-red-500">*</span> Occupation Category
+            </Label>
+            <Select
+              value={formData.occupation_category}
+              onValueChange={(value) => handleSelectChange("occupation_category", value)}
+            >
+              <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
+                <SelectValue placeholder="Select occupation category" />
+              </SelectTrigger>
+              <SelectContent>
+                {occupationCategoryOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value} className="text-xs sm:text-sm">
+                    <span className="mr-2">{option.icon}</span>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-                    {/* Work Experience (for professionals) */}
-                    {(formData.occupation_category === "Working Professional" ||
-                      formData.occupation_category === "Business Owner" ||
-                      formData.occupation_category === "Consultant") && (
-                        <div className="grid grid-cols-2 gap-2">
-                          <div className="space-y-1">
-                            <Label htmlFor="years_of_experience" className="text-xs sm:text-sm">Years of Experience</Label>
-                            <Input
-                              id="years_of_experience"
-                              type="number"
-                              min="0"
-                              max="50"
-                              value={formData.years_of_experience || ""}
-                              onChange={(e) => handleInputChange("years_of_experience", e.target.value)}
-                              placeholder="e.g., 5"
-                              className="h-8 sm:h-9 text-xs sm:text-sm"
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <Label htmlFor="monthly_income" className="text-xs sm:text-sm">Monthly Income (₹)</Label>
-                            <Input
-                              id="monthly_income"
-                              type="number"
-                              min="0"
-                              value={formData.monthly_income || ""}
-                              onChange={(e) => handleInputChange("monthly_income", e.target.value)}
-                              placeholder="e.g., 50000"
-                              className="h-8 sm:h-9 text-xs sm:text-sm"
-                            />
-                          </div>
-                        </div>
-                      )}
+          {/* Occupation Sub-Category */}
+          {formData.occupation_category && (
+            <div className="space-y-1">
+              <Label htmlFor="exact_occupation" className="text-xs sm:text-sm">
+                Occupation Sub-Category
+              </Label>
+              <Select
+                value={formData.exact_occupation || ""}
+                onValueChange={(value) => handleSelectChange("exact_occupation", value === "none" ? "" : value)}
+              >
+                <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
+                  <SelectValue placeholder="Select sub-category (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none" className="text-xs sm:text-sm">
+                    None (specify below)
+                  </SelectItem>
+                  {availableSubCategories.map((sub) => (
+                    <SelectItem key={sub.value} value={sub.value} className="text-xs sm:text-sm">
+                      {sub.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
-                    {/* For Students - Course Details */}
-                    {formData.occupation_category === "Student" && (
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="space-y-1">
-                          <Label htmlFor="course_duration" className="text-xs sm:text-sm">Course Duration</Label>
-                          <Select
-                            value={formData.course_duration || ""}
-                            onValueChange={(value) => handleSelectChange("course_duration", value)}
-                          >
-                            <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
-                              <SelectValue placeholder="Select duration" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="1_year" className="text-xs sm:text-sm">1 Year</SelectItem>
-                              <SelectItem value="2_years" className="text-xs sm:text-sm">2 Years</SelectItem>
-                              <SelectItem value="3_years" className="text-xs sm:text-sm">3 Years</SelectItem>
-                              <SelectItem value="4_years" className="text-xs sm:text-sm">4 Years</SelectItem>
-                              <SelectItem value="5_years" className="text-xs sm:text-sm">5+ Years</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-1">
-                          <Label htmlFor="student_id" className="text-xs sm:text-sm">Student ID (Optional)</Label>
-                          <Input
-                            id="student_id"
-                            value={formData.student_id || ""}
-                            onChange={(e) => handleInputChange("student_id", e.target.value)}
-                            placeholder="University ID"
-                            className="h-8 sm:h-9 text-xs sm:text-sm"
-                          />
-                        </div>
-                      </div>
-                    )}
+          {/* Organization / Institution */}
+          {formData.occupation_category && (
+            <div className="space-y-1">
+              <Label htmlFor="organization" className="text-xs sm:text-sm">
+                {formData.occupation_category === "Student" ? "College/University Name" :
+                  formData.occupation_category === "Working Professional" ? "Company/Organization Name" :
+                    formData.occupation_category === "Business Owner" ? "Business/Shop Name" :
+                      formData.occupation_category === "Government Employee" ? "Department/Office Name" :
+                        "Organization Name (Optional)"}
+              </Label>
+              <Input
+                id="organization"
+                value={formData.organization || ""}
+                onChange={(e) => handleInputChange("organization", e.target.value)}
+                placeholder={
+                  formData.occupation_category === "Student" ? "e.g., Indian Institute of Technology" :
+                    formData.occupation_category === "Working Professional" ? "e.g., Google India" :
+                      formData.occupation_category === "Business Owner" ? "e.g., Fashion Store, Sector 18" :
+                        "Enter organization name"
+                }
+                className="h-8 sm:h-9 text-xs sm:text-sm"
+              />
+            </div>
+          )}
 
-                    {/* For Government Employees */}
-                    {formData.occupation_category === "Government Employee" && (
-                      <div className="space-y-1">
-                        <Label htmlFor="employee_id" className="text-xs sm:text-sm">Employee/Service ID</Label>
-                        <Input
-                          id="employee_id"
-                          value={formData.employee_id || ""}
-                          onChange={(e) => handleInputChange("employee_id", e.target.value)}
-                          placeholder="e.g., Employee ID / Service Number"
-                          className="h-8 sm:h-9 text-xs sm:text-sm"
-                        />
-                      </div>
-                    )}
+          {/* Years of Experience + Monthly Income — Professionals */}
+          {(formData.occupation_category === "Working Professional" ||
+            formData.occupation_category === "Business Owner" ||
+            formData.occupation_category === "Consultant") && (
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <Label htmlFor="years_of_experience" className="text-xs sm:text-sm">Years of Experience</Label>
+                <Input
+                  id="years_of_experience"
+                  type="number"
+                  min="0"
+                  max="50"
+                  value={formData.years_of_experience || ""}
+                  onChange={(e) => handleInputChange("years_of_experience", e.target.value)}
+                  placeholder="e.g., 5"
+                  className="h-8 sm:h-9 text-xs sm:text-sm"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="monthly_income" className="text-xs sm:text-sm">Monthly Income (₹)</Label>
+                <Input
+                  id="monthly_income"
+                  type="number"
+                  min="0"
+                  value={formData.monthly_income || ""}
+                  onChange={(e) => handleInputChange("monthly_income", e.target.value)}
+                  placeholder="e.g., 50000"
+                  className="h-8 sm:h-9 text-xs sm:text-sm"
+                />
+              </div>
+            </div>
+          )}
 
-                    {/* For Freelancers */}
-                    {formData.occupation_category === "Freelancer / Self-Employed" && (
-                      <div className="space-y-1">
-                        <Label htmlFor="portfolio_url" className="text-xs sm:text-sm">Portfolio/Website URL</Label>
-                        <Input
-                          id="portfolio_url"
-                          type="url"
-                          value={formData.portfolio_url || ""}
-                          onChange={(e) => handleInputChange("portfolio_url", e.target.value)}
-                          placeholder="e.g., github.com/username, behance.net/..."
-                          className="h-8 sm:h-9 text-xs sm:text-sm"
-                        />
-                      </div>
-                    )}
+          {/* Student — Course Details */}
+          {formData.occupation_category === "Student" && (
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <Label htmlFor="course_duration" className="text-xs sm:text-sm">Course Duration</Label>
+                <Select
+                  value={formData.course_duration || ""}
+                  onValueChange={(value) => handleSelectChange("course_duration", value)}
+                >
+                  <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
+                    <SelectValue placeholder="Select duration" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1_year" className="text-xs sm:text-sm">1 Year</SelectItem>
+                    <SelectItem value="2_years" className="text-xs sm:text-sm">2 Years</SelectItem>
+                    <SelectItem value="3_years" className="text-xs sm:text-sm">3 Years</SelectItem>
+                    <SelectItem value="4_years" className="text-xs sm:text-sm">4 Years</SelectItem>
+                    <SelectItem value="5_years" className="text-xs sm:text-sm">5+ Years</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="student_id" className="text-xs sm:text-sm">Student ID (Optional)</Label>
+                <Input
+                  id="student_id"
+                  value={formData.student_id || ""}
+                  onChange={(e) => handleInputChange("student_id", e.target.value)}
+                  placeholder="University ID"
+                  className="h-8 sm:h-9 text-xs sm:text-sm"
+                />
+              </div>
+            </div>
+          )}
 
-                    {/* Work Mode Preference */}
-<div className="space-y-1">
-  <Label htmlFor="work_mode" className="text-xs sm:text-sm">Work Mode (Optional)</Label>
-  <Select
-    value={formData.work_mode || ""}
-    onValueChange={(value) => handleSelectChange("work_mode", value)}
-  >
-    <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
-      <SelectValue placeholder="Select work mode" />
-    </SelectTrigger>
-    <SelectContent>
-      <SelectItem value="remote" className="text-xs sm:text-sm">Fully Remote</SelectItem>
-      <SelectItem value="hybrid" className="text-xs sm:text-sm">Hybrid</SelectItem>
-      <SelectItem value="onsite" className="text-xs sm:text-sm">On-site</SelectItem>
-      <SelectItem value="flexible" className="text-xs sm:text-sm">Flexible</SelectItem>
-    </SelectContent>
-  </Select>
-</div>
+          {/* Government Employee — Employee ID */}
+          {formData.occupation_category === "Government Employee" && (
+            <div className="space-y-1">
+              <Label htmlFor="employee_id" className="text-xs sm:text-sm">Employee/Service ID</Label>
+              <Input
+                id="employee_id"
+                value={formData.employee_id || ""}
+                onChange={(e) => handleInputChange("employee_id", e.target.value)}
+                placeholder="e.g., Employee ID / Service Number"
+                className="h-8 sm:h-9 text-xs sm:text-sm"
+              />
+            </div>
+          )}
 
-{/* Shift Timing - FIXED */}
-<div className="space-y-1">
-  <Label htmlFor="shift_timing" className="text-xs sm:text-sm">Shift Timing (Optional)</Label>
-  <Select
-    value={formData.shift_timing || ""}
-    onValueChange={(value) => handleSelectChange("shift_timing", value)}
-  >
-    <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
-      <SelectValue placeholder="Select shift timing" />
-    </SelectTrigger>
-    <SelectContent>
-      <SelectItem value="day" className="text-xs sm:text-sm">Day</SelectItem>
-      <SelectItem value="night" className="text-xs sm:text-sm">Night</SelectItem>
-      <SelectItem value="rotating" className="text-xs sm:text-sm">Rotating</SelectItem>
-      <SelectItem value="flexible" className="text-xs sm:text-sm">Flexible</SelectItem>
-    </SelectContent>
-  </Select>
-</div>
+          {/* Freelancer — Portfolio URL */}
+          {formData.occupation_category === "Freelancer / Self-Employed" && (
+            <div className="space-y-1">
+              <Label htmlFor="portfolio_url" className="text-xs sm:text-sm">Portfolio/Website URL</Label>
+              <Input
+                id="portfolio_url"
+                type="url"
+                value={formData.portfolio_url || ""}
+                onChange={(e) => handleInputChange("portfolio_url", e.target.value)}
+                placeholder="e.g., github.com/username, behance.net/..."
+                className="h-8 sm:h-9 text-xs sm:text-sm"
+              />
+            </div>
+          )}
 
-                    {/* Check-in Date */}
-                    <div className="space-y-1">
-  <Label htmlFor="check_in_date" className="text-xs sm:text-sm">Check-in Date</Label>
-  <div className="relative">
-    <Calendar className="absolute left-2 top-2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-gray-400" />
-    <Input
-      id="check_in_date"
-      type="date"
-      value={formData.check_in_date}
-      onChange={(e) => {
-        const selectedDate = new Date(e.target.value);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0); // Reset time part for accurate comparison
-        
-        // Check if selected date is before today
-        if (selectedDate < today) {
-          toast.error("Check-in date cannot be in the past");
-          return;
-        }
-        handleInputChange("check_in_date", e.target.value);
-      }}
-      className="pl-8 sm:pl-10 h-8 sm:h-9 text-xs sm:text-sm"
-      min={new Date().toISOString().split('T')[0]} // Today's date as minimum
-    />
-  </div>
-  {formData.check_in_date && (
-    <p className="text-[10px] sm:text-xs text-gray-500">
-      Tenant move-in date
-    </p>
-  )}
-</div>
-                  </div>
-                </div>
+        </div>
 
-              </CardContent>
-            </Card>
-          </TabsContent>
+        {/* ── RIGHT COLUMN ── */}
+        <div className="space-y-3">
+
+          {/* Work Mode */}
+          <div className="space-y-1">
+            <Label htmlFor="work_mode" className="text-xs sm:text-sm">Work Mode (Optional)</Label>
+            <Select
+              value={formData.work_mode || ""}
+              onValueChange={(value) => handleSelectChange("work_mode", value)}
+            >
+              <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
+                <SelectValue placeholder="Select work mode" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="remote" className="text-xs sm:text-sm">Fully Remote</SelectItem>
+                <SelectItem value="hybrid" className="text-xs sm:text-sm">Hybrid</SelectItem>
+                <SelectItem value="onsite" className="text-xs sm:text-sm">On-site</SelectItem>
+                <SelectItem value="flexible" className="text-xs sm:text-sm">Flexible</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Shift Timing */}
+          <div className="space-y-1">
+            <Label htmlFor="shift_timing" className="text-xs sm:text-sm">Shift Timing (Optional)</Label>
+            <Select
+              value={formData.shift_timing || ""}
+              onValueChange={(value) => handleSelectChange("shift_timing", value)}
+            >
+              <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
+                <SelectValue placeholder="Select shift timing" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="day" className="text-xs sm:text-sm">Day</SelectItem>
+                <SelectItem value="night" className="text-xs sm:text-sm">Night</SelectItem>
+                <SelectItem value="rotating" className="text-xs sm:text-sm">Rotating</SelectItem>
+                <SelectItem value="flexible" className="text-xs sm:text-sm">Flexible</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Check-in Date */}
+          <div className="space-y-1">
+            <Label htmlFor="check_in_date" className="text-xs sm:text-sm">Check-in Date</Label>
+            <div className="relative">
+              <Calendar className="absolute left-2 top-2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-gray-400" />
+              <Input
+                id="check_in_date"
+                type="date"
+                value={formData.check_in_date}
+                onChange={(e) => {
+                  const selectedDate = new Date(e.target.value);
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  if (selectedDate < today) {
+                    toast.error("Check-in date cannot be in the past");
+                    return;
+                  }
+                  handleInputChange("check_in_date", e.target.value);
+                }}
+                className="pl-8 sm:pl-10 h-8 sm:h-9 text-xs sm:text-sm"
+                min={new Date().toISOString().split('T')[0]}
+              />
+            </div>
+            {formData.check_in_date && (
+              <p className="text-[10px] sm:text-xs text-gray-500">Tenant move-in date</p>
+            )}
+          </div>
+
+        </div>
+      </div>
+    </CardContent>
+  </Card>
+</TabsContent>
 
           {/* Address Tab */}
           <TabsContent value="address" className="mt-0 space-y-4">

@@ -136,12 +136,13 @@ export async function loginTenant(
 
     return res;
   } catch (error: any) {
-    console.error('❌ Tenant login error:', error);
-    return {
-      success: false,
-      error: error.message || "Login failed. Please try again.",
-    };
-  }
+  console.error('❌ Tenant login error:', error);
+  return {
+    success: false,
+    error: error.message || "Login failed. Please try again.",
+    message: error.message || "Login failed. Please try again.",  // ADD THIS LINE
+  };
+}
 }
 
 /**

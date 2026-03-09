@@ -1464,9 +1464,15 @@ const columns: Column<Tenant>[] = useMemo(() => [    {
                       ) : (
                        
                         <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center flex-shrink-0">
-                          <span className="text-white font-semibold text-[10px]">{tenant.full_name?.charAt(0)?.toUpperCase()}</span>
-                          
-                        </div>
+  <span className="text-white font-semibold text-[10px]">
+    {tenant.full_name
+      ?.split(" ")
+      .map(n => n[0])
+      .join("")
+      .substring(0,2)
+      .toUpperCase()}
+  </span>
+</div>
                       )}
                       <span className="text-blue-600 font-semibold text-[10px]">{"TID-"+tenant.id}</span>
                         </div>

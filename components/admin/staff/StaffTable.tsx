@@ -241,9 +241,16 @@ const StaffTable = ({
                             className="h-8 w-8 rounded-full object-cover border flex-shrink-0"
                           />
                         ) : (
-                          <div className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center border flex-shrink-0">
-                            <User className="h-4 w-4 text-gray-400" />
-                          </div>
+                         <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center border flex-shrink-0">
+  <span className="text-white font-semibold text-[10px]">
+    {member.name
+      ?.split(" ")
+      .map(n => n[0])
+      .join("")
+      .substring(0, 2)
+      .toUpperCase()}
+  </span>
+</div>
                         )}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1 flex-wrap">

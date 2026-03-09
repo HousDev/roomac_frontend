@@ -107,7 +107,7 @@ export async function request<T = any>(
     if (res.status === 401) {
       clearAuthToken();
     }
-    const err: any = new Error(data?.message || "API request failed");
+    const err: any = new Error(data?.message || "Invalid Email or Password");
     err.status = res.status;
     err.response = data;
     throw err;

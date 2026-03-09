@@ -17,6 +17,7 @@ export interface StaffMember {
   joining_date: string;
   blood_group: string;
   aadhar_number: string;
+  phone_country_code?: string;
   pan_number: string;
   current_address: string;
   permanent_address: string;
@@ -55,6 +56,7 @@ export interface StaffFormData {
   employee_id?: string;
   salary: string | number;
   department?: string;
+  phone_country_code?: string;
   joining_date: string;
   current_address?: string;
   permanent_address?: string;
@@ -184,7 +186,7 @@ export const createStaffFormData = (data: any): FormData => {
   const formData = new FormData();
   
   const fields = [
-    'salutation', 'name', 'email', 'password', 'phone', 'whatsapp_number', 'is_whatsapp_same',
+    'salutation', 'name', 'email', 'password', 'phone', 'phone_country_code','whatsapp_number', 'is_whatsapp_same',
     'blood_group', 'aadhar_number', 'pan_number', 'role', 'employee_id', 'salary',
     'department', 'joining_date', 'current_address', 'permanent_address',
     'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relation',
