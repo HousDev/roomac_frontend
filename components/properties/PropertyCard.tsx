@@ -603,35 +603,62 @@ const PropertyCard = memo(function PropertyCard({
             )}
 
             {/* Divider and Actions */}
-            <div className="border-t border-slate-200 mt-auto pt-3">
-              {/* WhatsApp, Call, View Details */}
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleDetailsClick}
-                  className="flex-1 px-2 py-2.5 bg-[#0249a8] hover:bg-[#023a88] text-white text-xs font-semibold rounded-lg shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 flex items-center justify-center gap-1"
-                >
-                  <span>Details</span>
-                  <ArrowRight className="h-3 w-3" />
-                </button>
-                <button
-                  onClick={handleWhatsAppClick}
-                  className="flex-1 flex items-center justify-center gap-1 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 rounded-lg text-xs font-medium transition-all hover:scale-105"
-                  title="WhatsApp"
-                >
-                  <BsWhatsapp className="h-4 w-4" />
-                  <span className="hidden sm:inline">WhatsApp</span>
-                </button>
-                
-                <button
-                  onClick={handleCallClick}
-                  className="flex-1 flex items-center justify-center gap-1 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-medium transition-all hover:scale-105"
-                  title="Call"
-                >
-                  <Phone className="h-4 w-4" />
-                  <span className="hidden sm:inline">Call</span>
-                </button>
-              </div>
-            </div>
+<div className="border-t border-slate-200 mt-auto pt-3">
+  {/* WhatsApp, Call, View Details */}
+  <div className="flex items-center gap-2">
+    <button
+      onClick={handleDetailsClick}
+      className="flex-1 px-2 py-2.5 bg-[#0249a8] hover:bg-[#023a88] text-white text-xs font-semibold rounded-lg shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 flex items-center justify-center gap-1"
+    >
+      <span>Details</span>
+      <ArrowRight className="h-3 w-3" />
+    </button>
+    
+    {/* WhatsApp Button - Using property manager's WhatsApp/phone */}
+    <button
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        // Get WhatsApp number from property data - check all possible fields
+        const whatsappNumber = property?.whatsapp || 
+                              property?.manager_phone || 
+                              property?.property_manager_phone || 
+                              property?.contact_number || 
+                              '9923953933'; // fallback number
+        
+        const message = `Hi, I'm interested in ${property?.name || 'this property'} at ${property?.location || property?.area || ''}. Can you share more details?`;
+        window.open(`https://wa.me/${whatsappNumber.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(message)}`, '_blank');
+      }}
+      className="flex-1 flex items-center justify-center gap-1 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 rounded-lg text-xs font-medium transition-all hover:scale-105"
+      title="WhatsApp"
+    >
+      <BsWhatsapp className="h-4 w-4" />
+      <span className="hidden sm:inline">WhatsApp</span>
+    </button>
+    
+    {/* Call Button - Using property manager's phone */}
+    <button
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        // Get phone number from property data - check all possible fields
+        const phoneNumber = property?.manager_phone || 
+                           property?.property_manager_phone || 
+                           property?.contact_number || 
+                           property?.phone || 
+                           property?.whatsapp || 
+                           '1234567890'; // fallback number
+        
+        window.location.href = `tel:${phoneNumber}`;
+      }}
+      className="flex-1 flex items-center justify-center gap-1 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-medium transition-all hover:scale-105"
+      title="Call"
+    >
+      <Phone className="h-4 w-4" />
+      <span className="hidden sm:inline">Call</span>
+    </button>
+  </div>
+</div>
           </div>
         </div>
       </div>
