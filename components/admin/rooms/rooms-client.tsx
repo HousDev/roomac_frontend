@@ -93,7 +93,7 @@ const [importing, setImporting] = useState(false);
     room_number: '',
     sharing_type: '',
     room_type: '',
-    capacity: 2,
+    capacity: 0,
     rent_per_bed: 0,
     floor: '',
     has_attached_bathroom: false,
@@ -112,6 +112,7 @@ const [importing, setImporting] = useState(false);
     isManualCapacity: false,
     customAmenityInput: '',
     description: '',
+     beds_config: [], 
   });
 
   // Memoized room stats with safe defaults
@@ -421,8 +422,8 @@ const handleImportFile = async (file: File) => {
     
     setIsEditMode(true);
     setEditingRoomId(room.id.toString());
-    
-    const capacity = room.total_bed || 2;
+    console.log(room.total_bed,"hbjhbjhguhguhuihiuhiu")
+    const capacity = room.total_bed || 0;
     const sharingType = room.sharing_type || '';
     
     const standardCapacities = [1, 2, 3];
@@ -481,6 +482,7 @@ const handleImportFile = async (file: File) => {
       isManualCapacity: !isAutoCapacity || actualSharingType === 'other',
       customAmenityInput: '',
       description: room.description || '',
+      beds_config: []
     });
     
     setRoomDialogOpen(true);
@@ -522,7 +524,7 @@ const handleImportFile = async (file: File) => {
       room_number: '',
       sharing_type: '',
       room_type: '',
-      capacity: 2,
+      capacity: 0,
       rent_per_bed: 0,
       floor: '',
       has_attached_bathroom: false,
@@ -541,6 +543,7 @@ const handleImportFile = async (file: File) => {
       isManualCapacity: false,
       customAmenityInput: '',
       description: '',
+      beds_config: [],
     });
     setIsEditMode(false);
     setEditingRoomId(null);
@@ -589,6 +592,9 @@ const handleImportFile = async (file: File) => {
       
       formDataObj.append('description', formData.description || '');
       formDataObj.append('video_label', formData.video_label || '');
+
+      console.log('Adding beds_config to FormData:', JSON.stringify(formData.beds_config));
+    formDataObj.append('beds_config', JSON.stringify(formData.beds_config));
       
       if (isEditMode && editingRoomId) {
         formDataObj.append('existing_photos', JSON.stringify(formData.existingPhotos));
