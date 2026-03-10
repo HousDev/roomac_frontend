@@ -22,7 +22,7 @@ export const getImageUrl = (imagePath: string | null | undefined) => {
 };
 
 export const transformPropertyData = (property: any) => {
-  console.log('Raw property from backend:', property);
+  // console.log('Raw property from backend:', property);
   
   const defaultImages = [
     "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800",
@@ -44,14 +44,14 @@ export const transformPropertyData = (property: any) => {
   const nearbyNames = property.nearbyPlaces?.map((p: any) => p.name) || [];
 
   // Log raw data for debugging
-  console.log('Mapped property data:', {
-    tags: propertyTags,
-    property_rules: propertyRules,
-    additional_terms: additionalTerms,
-    original_tags: property.tags_mapped,
-    original_rules: property.property_rules,
-    original_additional: property.additional_terms
-  });
+  // console.log('Mapped property data:', {
+  //   tags: propertyTags,
+  //   property_rules: propertyRules,
+  //   additional_terms: additionalTerms,
+  //   original_tags: property.tags_mapped,
+  //   original_rules: property.property_rules,
+  //   original_additional: property.additional_terms
+  // });
 
   // Ensure arrays are properly formatted
   const ensureArray = (data: any): any[] => {
@@ -78,7 +78,7 @@ export const transformPropertyData = (property: any) => {
   if (property.terms_conditions) {
     // Split by double newlines to separate sections
     const sections = property.terms_conditions.split('\n\n');
-    console.log('Sections:', sections);
+    // console.log('Sections:', sections);
     
     for (const section of sections) {
       const lines = section.split('\n').filter(line => line.trim() !== '');
@@ -86,7 +86,7 @@ export const transformPropertyData = (property: any) => {
       
       // Get the first line which might be a header
       const firstLine = lines[0].trim();
-      console.log('Processing section with header:', firstLine);
+      // console.log('Processing section with header:', firstLine);
       
       // Check if this is a Custom Term section
       if (firstLine.includes('📝 Custom Term')) {
@@ -341,6 +341,7 @@ export const transformPropertyData = (property: any) => {
   };
 };
 
+
 export const transformRoomData = (room: any) => {
   let gender = 'mixed';
   if (room.room_gender_preference && Array.isArray(room.room_gender_preference)) {
@@ -366,20 +367,34 @@ export const transformRoomData = (room: any) => {
   let maleOccupancy = 0;
   let femaleOccupancy = 0;
   
+  // IMPORTANT: Extract bed_assignments and calculate rents
   if (room.bed_assignments && Array.isArray(room.bed_assignments)) {
     room.bed_assignments.forEach((bed: any) => {
       if (bed.tenant_gender === 'Male' || bed.tenant_gender === 'male') maleOccupancy++;
       if (bed.tenant_gender === 'Female' || bed.tenant_gender === 'female') femaleOccupancy++;
     });
+    
+    // Log bed assignments with their rents for debugging
+    console.log(`Room ${room.room_number || room.id} bed_assignments:`, 
+      room.bed_assignments.map((b: any) => ({
+        bed: b.bed_number,
+        rent: b.tenant_rent,
+        available: b.is_available
+      }))
+    );
   }
 
   const sharingType = parseInt(room.sharing_type) || 2;
+  
+  // Use price from room data - this might be rent_per_bed or a computed value
   const price = room.rent_per_bed || 5000;
+  
   const ac = room.has_ac === true || room.has_ac === 'true';
   
   return {
     id: room.id.toString(),
     name: room.room_number || `Room ${room.id}`,
+    roomNumber: room.room_number || `Room ${room.id}`,
     sharingType: sharingType,
     price: price,
     floor: room.floor || 1,
@@ -403,6 +418,7 @@ export const transformRoomData = (room: any) => {
     hasBalcony: room.has_balcony || false,
     allowCouples: room.allow_couples || false,
     isActive: room.is_active || true,
-    bedAssignments: room.bed_assignments || []
+    bed_assignments: room.bed_assignments || [], // CRITICAL: Include bed_assignments
+    beds: room.beds || [] // Also include beds array if available
   };
 };

@@ -97,7 +97,7 @@ console.log(user)
   return (
     <HelmetProvider>
 
-      <Toaster position="top-right" richColors />
+      <Toaster position="top-right" richColors closeButton/>
 
       <Routes>
 
