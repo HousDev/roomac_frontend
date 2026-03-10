@@ -923,9 +923,9 @@ const getServiceIcon = (service: string) => {
             )}
 
             {/* Sticky Header */}
-            <div>
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-0">
-                    <div className="flex items-center justify-between">
+            <div className='sticky top-24 z-10'>
+                <div className=" max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-0  ">
+                    <div className="flex items-center justify-between ">
                         <button
                             onClick={() => router.back()}
                             className="flex items-center gap-2 text-slate-700 hover:text-blue-600 transition-colors group"

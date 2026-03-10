@@ -909,32 +909,44 @@ function PropertiesSection({
 <div className="p-4 sm:p-5 flex flex-col flex-grow">
   
   {/* Title + Price in Header Row */}
-  <div className="flex items-start justify-between mb-2">
-    <div className="flex-1">
-      <h3 className="font-bold text-base sm:text-lg text-slate-800 group-hover:text-[#0249a8] transition-colors duration-300 line-clamp-1">
-        {propertyName}
-      </h3>
-      <div className="flex items-center gap-2 mt-1">
-        <div className="h-0.5 w-8 bg-[#0249a8] rounded-full" />
-        <div className="h-0.5 w-2 bg-yellow-400 rounded-full" />
-      </div>
-    </div>
-    
-    <div className="text-right ml-3">
-      <span
-            className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm
-             bg-slate-200 text-black "
-          >
-            <span className={`w-1.5 h-1.5 rounded-full `} />
-            {"RMCX-"+property.id }
-          </span>
-      <p className="text-xs text-slate-400 font-medium whitespace-nowrap">Starting from</p>
-      <p className="text-lg font-bold text-[#0249a8] whitespace-nowrap">
-        ₹{Number(propertyPrice).toLocaleString()}
-        <span className="text-sm text-slate-400 font-normal">/mo</span>
-      </p>
+ {/* Title + Code + Price Row */}
+<div className="flex items-start justify-between mb-2 gap-2">
+
+  {/* LEFT : Property Title */}
+  <div className="flex-1 min-w-0">
+    <h3 className="font-bold text-base sm:text-lg text-slate-800 group-hover:text-[#0249a8] transition-colors duration-300 line-clamp-1">
+      {propertyName}
+    </h3>
+
+    <div className="flex items-center gap-2 mt-1">
+      <div className="h-0.5 w-8 bg-[#0249a8] rounded-full" />
+      <div className="h-0.5 w-2 bg-yellow-400 rounded-full" />
     </div>
   </div>
+
+  {/* CENTER : RMCX Code */}
+  <div className="flex items-center justify-center">
+    <span
+      className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm bg-slate-200 text-black whitespace-nowrap"
+    >
+      
+      {"RMCX-" + property.id}
+    </span>
+  </div>
+
+  {/* RIGHT : Pricing */}
+  <div className="text-right ml-2">
+    <p className="text-xs text-slate-400 font-medium whitespace-nowrap">
+      Starting from
+    </p>
+
+    <p className="text-lg font-bold text-[#0249a8] whitespace-nowrap">
+      ₹{Number(propertyPrice).toLocaleString()}
+      <span className="text-sm text-slate-400 font-normal">/mo</span>
+    </p>
+  </div>
+
+</div>
 
   <div className="flex items-start gap-1.5 mb-3">
     <MapPin className="h-3.5 w-3.5 text-[#0249a8] flex-shrink-0 mt-0.5" />

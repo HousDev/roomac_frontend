@@ -107,6 +107,7 @@ export default function StaffClientPage({
     password: "",
     confirmPassword: "",
     phone: "",
+    phone_country_code: "+91",
     whatsapp_number: "",
     is_whatsapp_same: true,
     blood_group: "not_specified",
@@ -384,6 +385,7 @@ const handleEdit = useCallback(async (member: StaffMember) => {
       aadhar_document: null,
       pan_document: null,
       photo: null,
+      phone_country_code: freshData.phone_country_code || "+91",
       // CRITICAL: Use null, not empty string
       aadhar_document_url: freshData.aadhar_document_url || null,
       pan_document_url: freshData.pan_document_url || null,
@@ -487,6 +489,7 @@ const handleDelete = useCallback(
       password: "",
       confirmPassword: "",
       phone: "",
+      phone_country_code: "+91",
       whatsapp_number: "",
       is_whatsapp_same: true,
       blood_group: "not_specified",
@@ -727,7 +730,7 @@ const handleRemoveDocument = useCallback(
         </DialogClose>
       </div>
 
-      <div className="p-3 sm:p-4 md:p-6 overflow-y-auto max-h-[70vh] sm:max-h-[65vh] md:max-h-[70vh]">
+      <div className="p-3 sm:p-4 md:p-1 overflow-y-auto max-h-[70vh] sm:max-h-[65vh] md:max-h-[59vh]">
         <StaffForm
           formData={formData}
           setFormData={setFormData}

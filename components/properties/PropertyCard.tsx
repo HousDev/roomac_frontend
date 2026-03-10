@@ -453,13 +453,13 @@ const PropertyCard = memo(function PropertyCard({
             <div className="absolute top-3 left-3 z-10 flex items-center gap-1.5 bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-full shadow-lg">
               <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
               <span className="text-xs font-bold text-slate-800">{rating}</span>
-              <span
+              {/* <span
             className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm
              bg-slate-200 text-black "
           >
             <span className={`w-1.5 h-1.5 rounded-full `} />
             {"RMCX-"+property.id }
-          </span>
+          </span> */}
             </div>
 
             {/* Share & Heart */}
@@ -522,33 +522,43 @@ const PropertyCard = memo(function PropertyCard({
           <div className="p-4 sm:p-5 flex flex-col flex-grow">
             
             {/* Title + Price in Header Row */}
-            <div className="flex items-start justify-between mb-2">
-              <div className="flex-1 min-w-0 mr-3">
-                <h3 className="font-bold text-base sm:text-lg text-slate-800 group-hover:text-[#0249a8] transition-colors duration-300 line-clamp-1">
-                  {propertyName}
-                </h3>
-                <div className="flex items-center gap-2 mt-1">
-                  <div className="h-0.5 w-8 bg-[#0249a8] rounded-full" />
-                  <div className="h-0.5 w-2 bg-[#fdbc0a] rounded-full" />
-                </div>
-              </div>
-              
-              {/* Price on the right */}
-              <div className="text-right flex-shrink-0">
-                {/* <span
-            className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm
-             bg-slate-200 text-black "
-          >
-            <span className={`w-1.5 h-1.5 rounded-full `} />
-            {"RMCX-"+property.id }
-          </span> */}
-                <p className="text-xs text-slate-400 font-medium whitespace-nowrap">Starting from</p>
-                <p className="text-lg font-bold text-[#0249a8] whitespace-nowrap">
-                  ₹{Number(propertyPrice).toLocaleString()}
-                  <span className="text-sm text-slate-400 font-normal">/mo</span>
-                </p>
-              </div>
-            </div>
+           {/* Title + Code + Price Row */}
+<div className="flex items-start justify-between mb-2 gap-2">
+
+  {/* LEFT : Property Title */}
+  <div className="flex-1 min-w-0">
+    <h3 className="font-bold text-base sm:text-lg text-slate-800 group-hover:text-[#0249a8] transition-colors duration-300 line-clamp-1">
+      {propertyName}
+    </h3>
+
+    <div className="flex items-center gap-2 mt-1">
+      <div className="h-0.5 w-8 bg-[#0249a8] rounded-full" />
+      <div className="h-0.5 w-2 bg-[#fdbc0a] rounded-full" />
+    </div>
+  </div>
+
+  {/* CENTER : RMCX Code */}
+  <div className="flex items-center justify-center flex-shrink-0">
+    <span
+      className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm bg-slate-200 text-black whitespace-nowrap"
+    >
+      {"RMCX-" + property.id}
+    </span>
+  </div>
+
+  {/* RIGHT : Price */}
+  <div className="text-right flex-shrink-0">
+    <p className="text-xs text-slate-400 font-medium whitespace-nowrap">
+      Starting from
+    </p>
+
+    <p className="text-lg font-bold text-[#0249a8] whitespace-nowrap">
+      ₹{Number(propertyPrice).toLocaleString()}
+      <span className="text-sm text-slate-400 font-normal">/mo</span>
+    </p>
+  </div>
+
+</div>
 
             {/* Location */}
             <div className="flex items-start gap-1.5 mb-3">
@@ -620,12 +630,12 @@ const PropertyCard = memo(function PropertyCard({
         e.preventDefault();
         e.stopPropagation();
         // Get WhatsApp number from property data - check all possible fields
-        const whatsappNumber = property?.whatsapp || 
-                              property?.manager_phone || 
-                              property?.property_manager_phone || 
-                              property?.contact_number || 
-                              '9923953933'; // fallback number
-        
+        const whatsappNumber = property?.property_manager_phone || 
+                      property?.manager_phone || 
+                      property?.whatsapp || 
+                      property?.contact_number || 
+                      '9923953933';
+window.open(`https://wa.me/91${whatsappNumber.replace(/[^0-9]/g, '')}?text=...`)
         const message = `Hi, I'm interested in ${property?.name || 'this property'} at ${property?.location || property?.area || ''}. Can you share more details?`;
         window.open(`https://wa.me/${whatsappNumber.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(message)}`, '_blank');
       }}
@@ -642,14 +652,12 @@ const PropertyCard = memo(function PropertyCard({
         e.preventDefault();
         e.stopPropagation();
         // Get phone number from property data - check all possible fields
-        const phoneNumber = property?.manager_phone || 
-                           property?.property_manager_phone || 
-                           property?.contact_number || 
-                           property?.phone || 
-                           property?.whatsapp || 
-                           '1234567890'; // fallback number
-        
-        window.location.href = `tel:${phoneNumber}`;
+const phoneNumber = property?.property_manager_phone || 
+                   property?.manager_phone || 
+                   property?.contact_number || 
+                   property?.phone || 
+                   '9923953933';
+window.location.href = `tel:+91${phoneNumber.replace(/[^0-9]/g, '')}`;
       }}
       className="flex-1 flex items-center justify-center gap-1 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-medium transition-all hover:scale-105"
       title="Call"
