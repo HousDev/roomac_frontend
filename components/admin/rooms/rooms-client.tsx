@@ -409,7 +409,6 @@ const handleImportFile = async (file: File) => {
 
   // Your original handleEdit function
   const handleEdit = useCallback((room: RoomResponse) => {
-   
     
     const roomToEdit = rooms.find(r => r.id === room.id);
     if (!roomToEdit) {
@@ -418,11 +417,10 @@ const handleImportFile = async (file: File) => {
       return;
     }
 
-    
+    const bedConfig:any = room.bed_assignments.map((bed)=>({...bed,bed_rent:bed.tenant_rent,bedNumber:bed.bed_number}))
     
     setIsEditMode(true);
     setEditingRoomId(room.id.toString());
-    console.log(room.total_bed,"hbjhbjhguhguhuihiuhiu")
     const capacity = room.total_bed || 0;
     const sharingType = room.sharing_type || '';
     
@@ -482,7 +480,7 @@ const handleImportFile = async (file: File) => {
       isManualCapacity: !isAutoCapacity || actualSharingType === 'other',
       customAmenityInput: '',
       description: room.description || '',
-      beds_config: []
+      beds_config: bedConfig || []
     });
     
     setRoomDialogOpen(true);
@@ -551,21 +549,10 @@ const handleImportFile = async (file: File) => {
 
   // Your original handleSubmit function
   const handleSubmit = useCallback(async () => {
-    console.log("🔄 Submitting form data:", {
-      property_id: formData.property_id,
-      room_number: formData.room_number,
-      sharing_type: formData.sharing_type,
-      room_type: formData.room_type,
-      rent_per_bed: formData.rent_per_bed
-    });
 
+    
     if (!formData.property_id || !formData.room_number || !formData.sharing_type || formData.rent_per_bed <= 0) {
-      console.error("❌ Validation failed:", {
-        property_id: formData.property_id,
-        room_number: formData.room_number,
-        sharing_type: formData.sharing_type,
-        rent_per_bed: formData.rent_per_bed
-      });
+    
       toast.error("Please fill all required fields");
       return;
     }
@@ -593,7 +580,6 @@ const handleImportFile = async (file: File) => {
       formDataObj.append('description', formData.description || '');
       formDataObj.append('video_label', formData.video_label || '');
 
-      console.log('Adding beds_config to FormData:', JSON.stringify(formData.beds_config));
     formDataObj.append('beds_config', JSON.stringify(formData.beds_config));
       
       if (isEditMode && editingRoomId) {
