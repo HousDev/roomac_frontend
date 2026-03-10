@@ -1,5 +1,4 @@
 // components/admin/rooms/BedManagementDialog.tsx
-// components/admin/rooms/BedManagementDialog.tsx
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -86,6 +85,7 @@ function TenantSelectDropdown({
   customRent,
   isCouple,
   room,
+  bedRent, // Add this prop
 }: {
   bedNumber: number;
   value: string;
@@ -99,16 +99,12 @@ function TenantSelectDropdown({
   customRent?: string;
   isCouple?: boolean;
   room: RoomResponse;
+  bedRent?: number; // Bed-specific rent from beds_config
 }) {
   const [searchQuery, setSearchQuery] = useState('');
 
   // Filter only unassigned tenants
   const unassignedTenants = tenants.filter(tenant => !tenant.is_assigned);
-
-  // useEffect(() => {
-  //   console.log('🏠 Room gender preferences:', roomGenderPreferences);
-  //   console.log('🏠 Includes couples?', roomGenderPreferences.includes('couples'));
-  // }, [roomGenderPreferences]);
   
   // Filter based on room preferences and current assignments
   const filteredTenants = unassignedTenants.filter(tenant => {
@@ -192,6 +188,9 @@ function TenantSelectDropdown({
 
   // Get selected tenant
   const selectedTenant = tenants.find(t => t.id.toString() === value);
+
+  // Determine the rent to show in the input
+  const displayRent = bedRent || room.rent_per_bed;
 
   return (
     <div className="space-y-3">
@@ -292,10 +291,12 @@ function TenantSelectDropdown({
             checked={isCouple || false}
             onChange={(e) => {
               const newValue = e.target.checked;
-              if(newValue){
-                onCustomRentChange?.(String(Number(customRent)*2))
-              }else{
-                onCustomRentChange?.(String(Number(customRent)/2))
+              // Double or halve the rent based on couple selection
+              const currentRent = parseFloat(customRent || displayRent.toString());
+              if (newValue) {
+                onCustomRentChange?.(String(currentRent * 2));
+              } else {
+                onCustomRentChange?.(String(currentRent / 2));
               }
               if (onIsCoupleChange) {
                 onIsCoupleChange(newValue);
@@ -304,37 +305,39 @@ function TenantSelectDropdown({
             className="h-3 w-3 md:h-4 md:w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
           />
           <Label htmlFor={`is-couple-${bedNumber}`} className="text-xs md:text-sm font-medium text-gray-700">
-            Mark as Couple Booking
+            Mark as Couple Booking (Rent will double)
           </Label>
         </div>
       )}
 
-      {/* Custom Rent Input - Now shows room's default rent by default */}
+      {/* Custom Rent Input - Shows bed rent from beds_config */}
       {selectedTenant && (
         <div className="space-y-3 mt-3">
           <div>
             <Label htmlFor={`custom-rent-${bedNumber}`} className="text-xs md:text-sm font-medium">
-              Custom Rent
+              Bed Rent
             </Label>
             <div className="relative mt-1">
               <BadgeIndianRupee className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 md:h-4 md:w-4 text-gray-500" />
               <Input
                 id={`custom-rent-${bedNumber}`}
                 type="number"
-                placeholder={`Default: ₹${room?.rent_per_bed}`}
+                placeholder={`Enter rent amount`}
                 value={customRent}
                 onChange={(e) => onCustomRentChange?.(e.target.value)}
                 className="pl-7 md:pl-9 h-8 md:h-10 text-xs md:text-sm"
               />
             </div>
             <p className="text-[10px] md:text-xs text-gray-500 mt-1">
-              Default rent: ₹{room?.rent_per_bed}. Enter custom amount if different.
+              <span className="font-medium">Bed rent: ₹{displayRent}</span> • 
+              Room base: ₹{room?.rent_per_bed}
+              {bedRent && bedRent !== room.rent_per_bed && (
+                <span className="text-blue-600 ml-1">(Configured for this bed)</span>
+              )}
             </p>
           </div>
         </div>
       )}
-
-      
 
       {/* Selected tenant preview */}
       {selectedTenant && (
@@ -360,6 +363,10 @@ function TenantSelectDropdown({
             <div className="flex items-center justify-between">
               <span className="text-[10px] md:text-xs text-gray-600">Gender</span>
               <span className="text-xs md:text-sm">{selectedTenant.couple_id ? 'Couple' : selectedTenant.gender || 'Not specified'}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] md:text-xs text-gray-600">This Bed Rent</span>
+              <span className="text-xs md:text-sm font-medium text-green-600">₹{displayRent}</span>
             </div>
             {selectedTenant.couple_id && (
               <div className="flex items-center justify-between">
@@ -422,6 +429,7 @@ function BedCard({
   isSaving: boolean;
   tenantDetails?: any;
   room: RoomResponse;
+  bedRent?: number;
 }) {
   const [selectedTenantId, setSelectedTenantId] = useState('');
   const [customRent, setCustomRent] = useState<string>(room.rent_per_bed.toString()); // Default to room's rent
@@ -539,6 +547,7 @@ function BedCard({
                     customRent={customRent}
                     isCouple={isCouple}
                     room={room}
+                    bedRent={bedRent}
                   />
                   
                   <div className="flex gap-2">
@@ -686,6 +695,7 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
     existingAssignment: null,
     customRent: undefined,
     isCouple: undefined
+    
   });
   const [transferReason, setTransferReason] = useState('');
 
@@ -699,6 +709,7 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
       ? room.room_gender_preference.split(',').filter(Boolean)
       : [];
 
+      
   useEffect(() => {
     if (open) {
       loadTenantsBasedOnPreferences();
@@ -1200,6 +1211,12 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
   const totalBeds = room.total_bed;
   const occupiedBeds = bedAssignments.filter(b => !b.is_available).length;
   const availableBedsCount = totalBeds - occupiedBeds;
+  // Calculate total room rent from bed assignments
+const totalRoomRent = bedAssignments.reduce((sum, bed) => {
+  // Use tenant_rent if available (as number), otherwise fallback to room's rent_per_bed
+  const bedRent = bed.tenant_rent ? parseFloat(bed.tenant_rent.toString()) : room.rent_per_bed;
+  return sum + (isNaN(bedRent) ? 0 : bedRent);
+}, 0);
 
   return (
     <>
@@ -1311,16 +1328,19 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
                 </Card>
 
                 <Card>
-                  <CardContent className="p-2 md:p-3">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-[10px] md:text-xs text-gray-600">Rent per Bed</p>
-                        <h3 className="text-lg md:text-2xl font-bold text-amber-600">₹{room.rent_per_bed}</h3>
-                      </div>
-                      <BadgeIndianRupee className="h-6 w-6 md:h-8 md:w-8 text-amber-500" />
-                    </div>
-                  </CardContent>
-                </Card>
+  <CardContent className="p-2 md:p-3">
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-[10px] md:text-xs text-gray-600">Total Room Rent</p>
+        <h3 className="text-lg md:text-2xl font-bold text-amber-600">₹{totalRoomRent}</h3>
+        <p className="text-[8px] md:text-[10px] text-gray-500">
+          {occupiedBeds} occupied • ₹{room.rent_per_bed}/bed base
+        </p>
+      </div>
+      <BadgeIndianRupee className="h-6 w-6 md:h-8 md:w-8 text-amber-500" />
+    </div>
+  </CardContent>
+</Card>
               </div>
 
               <div>
