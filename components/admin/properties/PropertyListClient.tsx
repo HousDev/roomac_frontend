@@ -81,6 +81,8 @@ type Property = {
   floor?: string;
   area: string;
   address: string;
+   map_embed_url?: string;        // ADD THIS
+  map_direction_url?: string; 
   total_rooms: number;
   total_beds: number;
   occupied_beds: number;
@@ -293,6 +295,8 @@ export default function PropertyListClient({ initialProperties }: PropertyListCl
                 name: p.name || '',
                 area: p.area || '',
                 address: p.address || '',
+                map_embed_url: p.map_embed_url || '',        // ADD THIS
+        map_direction_url: p.map_direction_url || '', // ADD THIS
                 state: p.state || '',
                 floor: p.floor || '',
                 city_id: p.city_id || '',

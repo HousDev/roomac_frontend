@@ -19,7 +19,7 @@ import {
   Users as VisitorsIcon // Add this for visitors
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { getSettings, SettingsData } from '@/lib/settingsApi';
 import React from 'react';
 
@@ -271,6 +271,13 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
     fetchSettings();
   }, []);
 
+  // Add this function to close all submenus
+const closeAllSubmenus = useCallback(() => {
+  setRequestsOpen(false);
+  setInventoryOpen(false);
+  setVisitorsOpen(false);
+  setSettingsOpen(false);
+}, []);
   // Handle click outside for mobile sidebar
   const sidebarRef = useRef<HTMLDivElement>(null);
   const { logout } = useAuth();
@@ -295,7 +302,9 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
   // Close mobile sidebar on route change
   useEffect(() => {
     setMobileSidebarOpen(false);
-  }, [pathname]);
+      closeAllSubmenus(); // Add this line to close all submenus when route changes
+
+  }, [pathname,closeAllSubmenus]);
 
   // Auto-expand settings dropdown if on a settings page
   useEffect(() => {
@@ -791,6 +800,8 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
       <li key={item.href}>
         <Link
           href={item.href}
+                onClick={() => closeAllSubmenus()} // Add this onClick handler
+
           className={`
             relative group flex items-center gap-2.5 px-2.5 py-2 rounded-xl transition-all duration-200
             ${active

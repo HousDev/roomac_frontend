@@ -263,10 +263,7 @@ export default function EnquiriesClientPage({
     }
   }, []);
 
-  // Add new enquiry handler
-  // In EnquiriesClientPage.tsx, update the handleAddEnquiry function:
-
-// In EnquiriesClientPage.tsx, update the handleAddEnquiry function:
+ 
 
 const handleAddEnquiry = useCallback(async () => {
   if (!newEnquiry.tenant_name || !newEnquiry.phone) {
@@ -280,7 +277,11 @@ const handleAddEnquiry = useCallback(async () => {
   }
 
   try {
-    const selectedProperty = properties.find((p) => p.id === newEnquiry.property_id);
+    // ✅ FIX: String() se compare karo dono ko
+    const selectedProperty = properties.find(
+      (p) => String(p.id) === String(newEnquiry.property_id)
+    );
+
     const formattedDate = formatDateForDatabase(newEnquiry.preferred_move_in_date || "");
 
     const enquiryData: CreateEnquiryPayload = {
@@ -288,7 +289,7 @@ const handleAddEnquiry = useCallback(async () => {
       tenant_name: newEnquiry.tenant_name,
       phone: newEnquiry.phone,
       email: newEnquiry.email,
-      property_name: selectedProperty?.name || "", // <-- ADD THIS LINE
+      property_name: selectedProperty?.name || "",  // ✅ Ab sahi name aayega
       preferred_move_in_date: formattedDate || "",
       budget_range: newEnquiry.budget_range,
       message: newEnquiry.message,

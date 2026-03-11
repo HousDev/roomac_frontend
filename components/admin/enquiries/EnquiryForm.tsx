@@ -397,10 +397,17 @@ const EnquiryForm = ({
           {/* Property */}
           <div>
             <label className={L}>Property <span className="text-red-400">*</span></label>
-            <Select
-              value={formData.property_id ? String(formData.property_id) : ""}
-              onValueChange={v => setFormData((p: any) => ({ ...p, property_id: v }))}
-            >
+<Select
+  value={formData.property_id ? String(formData.property_id) : ""}
+  onValueChange={v => {
+    const selectedProp = properties.find(p => String(p.id) === v);
+    setFormData((p: any) => ({ 
+      ...p, 
+      property_id: v,
+      property_name: selectedProp?.name || ""  // ← add this
+    }));
+  }}
+>
               <SelectTrigger className={F}>
                 <Building className="h-3 w-3 text-gray-400 mr-1.5 flex-shrink-0" />
                 <SelectValue placeholder="Select property" />
