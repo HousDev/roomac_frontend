@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { Badge } from "@/components/ui/badge";
 import { Plus, RefreshCw, Download, CheckCircle, XCircle, UserX, Trash2, Filter, SlidersHorizontal, MoreVertical, Eye, Edit, Key, Mail, Phone, Building, Bed, MapPin, Users, FileText, IndianRupee, CheckSquare, Square, Search, X, Briefcase, Building2, Globe, LogIn, ShieldCheck, Users2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Upload, AlertTriangle, Calendar, Clock, User, } from "lucide-react";
 import { toast } from "sonner";
-import { deleteTenant, bulkDeleteTenants, bulkUpdateTenantStatus, bulkUpdateTenantPortalAccess, updateTenantSimple, createCredential, resetCredential, exportTenantsToExcel, listTenants, type Tenant, type TenantFilters, } from "@/lib/tenantApi";
+import { deleteTenant, bulkDeleteTenants, bulkUpdateTenantStatus, bulkUpdateTenantPortalAccess, updateTenantSimple, createCredential, resetCredential, exportTenantsToExcel, listTenants, type Tenant, type TenantFilters, softDeleteTenant, } from "@/lib/tenantApi";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, } from "@/components/ui/sheet";
@@ -18,6 +18,7 @@ import { DataTable } from "@/components/admin/data-table";
 import type { Column, FilterConfig, BulkAction, ActionButton } from "@/components/admin/data-table";
 import { TenantForm } from "@/components/admin/tenants/tenant-form";
 import TenantImportModal from "./tenant-import-modal";
+import Swal from "sweetalert2";
 
 interface TenantsClientProps {
   initialData: Tenant[];
@@ -53,7 +54,10 @@ const [showImportModal, setShowImportModal] = useState(false);
 const [importing, setImporting] = useState(false);
 
 
-const [filters, setFiltersState] = useState<TenantFilters>({});
+// const [filters, setFiltersState] = useState<TenantFilters>({});
+const [filters, setFiltersState] = useState<TenantFilters>({
+  vacate_status: 'active' // Default to active tenants
+});
   // Column search for the header
   const [columnSearch, setColumnSearch] = useState({
     name: "",
@@ -89,6 +93,7 @@ const [filters, setFiltersState] = useState<TenantFilters>({});
     setLoading(true);
     try {
       const useFilters = customFilters || filtersRef.current;
+      console.log('Loading tenants with filters:', useFilters);
       const res = await listTenants(useFilters);
       if (res?.success && Array.isArray(res.data)) {
         setTenants(res.data);
@@ -237,6 +242,7 @@ const handleImportFile = async (file: File) => {
       city: "",
       state: "",
       preferred_sharing: "",
+      vacate_status: "active",
     };
     filtersRef.current = emptyFilters;
     setFiltersState(emptyFilters);
@@ -245,41 +251,118 @@ const handleImportFile = async (file: File) => {
   }, [filters.search, loadTenants]);
 
   // Handle delete
-  const handleDelete = useCallback(async (tenant: Tenant) => {
-    if (!confirm(`Are you sure you want to delete ${tenant.full_name}?`)) return;
+const handleDelete = useCallback(async (tenant: Tenant) => {
+  const result = await Swal.fire({
+    title: "Are you sure?",
+    text: `You are about to delete "${tenant.full_name}"`,
+    icon: "warning",
+    showCancelButton: true,
+    confirmButtonColor: "#d33",
+    cancelButtonColor: "#3085d6",
+    confirmButtonText: "Yes, delete it!",
+    cancelButtonText: "Cancel",
+    background: "#fff",
+    backdrop: `rgba(0,0,0,0.4)`,
+    customClass: {
+      title: "text-lg font-bold",
+      popup: "rounded-xl",
+      confirmButton:
+        "bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-lg",
+      cancelButton:
+        "bg-gray-500 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg",
+    },
+  });
+
+  if (result.isConfirmed) {
     try {
-      const res = await deleteTenant(tenant.id as any);
-      if (res?.success) {
-        toast.success("Tenant deleted successfully");
-        loadTenants();
-      } else {
+      const res = await softDeleteTenant(tenant.id as any);
+
+      if (!res?.success) {
         toast.error(res?.message || "Failed to delete tenant");
+        return;
       }
-    } catch {
-      toast.error("Failed to delete tenant");
+
+      await Swal.fire({
+        title: "Deleted!",
+        text: "Tenant has been deleted successfully.",
+        icon: "success",
+        timer: 2000,
+        showConfirmButton: false,
+        background: "#fff",
+        customClass: {
+          popup: "rounded-xl",
+          title: "text-lg font-bold text-green-600",
+        },
+      });
+
+      loadTenants();
+
+    } catch (err: any) {
+      console.error("Tenant delete error:", err);
+      toast.error(err?.response?.message || "Failed to delete tenant");
     }
-  }, [loadTenants]);
+  }
+}, [loadTenants]);
 
   // Bulk delete
-  const handleBulkDelete = useCallback(async (selectedIds: string[]) => {
-    if (selectedIds.length === 0) {
-      toast.error("No tenants selected");
-      return;
-    }
-    if (!confirm(`Are you sure you want to delete ${selectedIds.length} tenants?`)) return;
+const handleBulkDelete = useCallback(async (selectedIds: string[]) => {
+  if (selectedIds.length === 0) {
+    toast.error("No tenants selected");
+    return;
+  }
+
+  const result = await Swal.fire({
+    title: "Are you sure?",
+    text: `You are about to delete ${selectedIds.length} tenants`,
+    icon: "warning",
+    showCancelButton: true,
+    confirmButtonColor: "#d33",
+    cancelButtonColor: "#3085d6",
+    confirmButtonText: "Yes, delete them!",
+    cancelButtonText: "Cancel",
+    background: "#fff",
+    backdrop: `rgba(0,0,0,0.4)`,
+    customClass: {
+      title: "text-lg font-bold",
+      popup: "rounded-xl",
+      confirmButton:
+        "bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-lg",
+      cancelButton:
+        "bg-gray-500 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg",
+    },
+  });
+
+  if (result.isConfirmed) {
     try {
       const res = await bulkDeleteTenants(selectedIds);
-      if (res?.success) {
-        toast.success(`${selectedIds.length} tenants deleted successfully`);
-        setSelectedTenantIds([]);
-        loadTenants();
-      } else {
+
+      if (!res?.success) {
         toast.error(res?.message || "Failed to delete tenants");
+        return;
       }
-    } catch {
-      toast.error("Failed to delete tenants");
+
+      await Swal.fire({
+        title: "Deleted!",
+        text: `${selectedIds.length} tenants deleted successfully.`,
+        icon: "success",
+        timer: 2000,
+        showConfirmButton: false,
+        background: "#fff",
+        customClass: {
+          popup: "rounded-xl",
+          title: "text-lg font-bold text-green-600",
+        },
+      });
+
+      setSelectedTenantIds([]);
+      loadTenants();
+
+    } catch (err: any) {
+      console.error("Bulk delete error:", err);
+      toast.error(err?.response?.message || "Failed to delete tenants");
     }
-  }, [loadTenants]);
+  }
+}, [loadTenants]);
 
   // Bulk status change
   const handleBulkStatusChange = useCallback(async (selectedIds: string[], status: boolean = true) => {
@@ -735,7 +818,7 @@ const columns: Column<Tenant>[] = useMemo(() => [    {
       icon: <Trash2 className="w-3 h-3" />,
       action: handleBulkDelete,
       variant: "destructive",
-      confirmMessage: "Are you sure you want to delete the selected tenants?",
+      // confirmMessage: "Are you sure you want to delete the selected tenants?",
     },
   ], [handleBulkStatusChange, handleBulkPortalAccess, handleBulkDelete]);
 
@@ -1084,6 +1167,53 @@ const columns: Column<Tenant>[] = useMemo(() => [    {
                       />
                     </div>
                   </div>
+
+{/* VACATE STATUS FILTER - Simplified */}
+<div className="space-y-3">
+  <div className="flex items-center gap-1.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
+    <Calendar className="w-3 h-3" />
+    Vacate Status
+  </div>
+  <div className="grid grid-cols-2 gap-2">
+    <Button
+      variant={filters.vacate_status === 'active' ? "default" : "outline"}
+      size="sm"
+      className={`h-8 text-xs ${
+        filters.vacate_status === 'active' 
+          ? 'bg-blue-600 text-white hover:bg-blue-700' 
+          : 'border-gray-200 text-gray-700 hover:bg-red-500'
+      }`}
+      onClick={() => handleFilterChange({ 
+        ...filters, 
+        vacate_status: filters.vacate_status === 'active' ? undefined : 'active' 
+      })}
+    >
+      <User className="w-3 h-3 mr-1" />
+      Active
+    </Button>
+    <Button
+      variant={filters.vacate_status === 'vacated' ? "default" : "outline"}
+      size="sm"
+      className={`h-8 text-xs ${
+        filters.vacate_status === 'vacated' 
+          ? 'bg-purple-600 text-white hover:bg-purple-700' 
+          : 'border-gray-200 text-gray-700 hover:bg-gray-600'
+      }`}
+      onClick={() => handleFilterChange({ 
+        ...filters, 
+        vacate_status: filters.vacate_status === 'vacated' ? undefined : 'vacated' 
+      })}
+    >
+      <Calendar className="w-3 h-3 mr-1" />
+      Vacated
+    </Button>
+  </div>
+  <p className="text-[9px] text-gray-400">
+    {filters.vacate_status === 'active' && 'Showing tenants currently assigned to beds'}
+    {filters.vacate_status === 'vacated' && 'Showing tenants who have vacated their beds'}
+    {!filters.vacate_status && 'Showing all tenants'}
+  </p>
+</div>
                 </div>
 
                 {/* FOOTER */}

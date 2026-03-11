@@ -540,10 +540,10 @@ export default function PropertyListClient({ initialProperties }: PropertyListCl
   }
 }, [loadProperties]);
 
-  const handleBulkDelete = useCallback(async (ids: string[]) => {
+const handleBulkDelete = useCallback(async (ids: string[]) => {
   if (!ids.length) return;
 
-  // Show SweetAlert confirmation
+  // SweetAlert confirmation
   const result = await Swal.fire({
     title: 'Delete Multiple Properties?',
     text: `You are about to delete ${ids.length} selected propert${ids.length > 1 ? 'ies' : 'y'}`,
@@ -577,15 +577,16 @@ export default function PropertyListClient({ initialProperties }: PropertyListCl
 
   try {
     setLoading(true);
+
     const numIds = ids.map(id => Number(id));
     const res = await bulkDeleteProperties(numIds);
-    
+
     if (!res?.success) {
       toast.error(res?.message || "Failed to delete properties");
       return;
     }
 
-    // Show success message
+    // Success SweetAlert
     await Swal.fire({
       title: 'Deleted!',
       text: `${ids.length} propert${ids.length > 1 ? 'ies have' : 'y has'} been deleted successfully.`,
@@ -598,27 +599,22 @@ export default function PropertyListClient({ initialProperties }: PropertyListCl
         title: 'text-lg font-bold text-green-600'
       }
     });
-    
+
     setProperties(prev => prev.filter(p => !ids.includes(p.id)));
     setSelectedCardIds([]);
     setSelectedTableIds([]);
     setTableKey(Date.now());
-    
-  } catch (err) {
+
+  } catch (err: any) {
     console.error("handleBulkDelete error:", err);
-    
-    // Show error message
-    Swal.fire({
-      title: 'Error!',
-      text: 'Failed to delete properties. Please try again.',
-      icon: 'error',
-      confirmButtonColor: '#3085d6',
-      background: '#fff',
-      customClass: {
-        popup: 'rounded-xl',
-        confirmButton: 'bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg'
-      }
-    });
+
+    const message =
+      err?.response?.data?.message ||
+      err?.message ||
+      "Failed to delete properties";
+
+    // Show FK or backend message as toast
+    toast.error(message);
   } finally {
     setLoading(false);
   }

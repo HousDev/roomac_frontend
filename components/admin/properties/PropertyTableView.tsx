@@ -303,7 +303,7 @@ export default function PropertyTableView({ initialProperties }: PropertyTableVi
       icon: <Trash2 className="h-4 w-4" />,
       action: () => toast.info("Delete selected properties"),
       variant: "destructive",
-      confirmMessage: "Are you sure you want to delete the selected properties?",
+      // confirmMessage: "Are you sure you want to delete the selected properties?",
     },
   ];
 

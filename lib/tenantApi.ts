@@ -2,6 +2,16 @@
 import { request } from "@/lib/api"; 
 
 export type Tenant = {
+  organization: string;
+  course_duration: any;
+  student_id: string;
+  employee_id: string;
+  portfolio_url: any;
+  years_of_experience: any;
+  monthly_income: any;
+  work_mode: string;
+  shift_timing: string;
+  property_name: string;
   id: number | string;
   salutation?: string; // NEW FIELD
   full_name: string;
@@ -94,6 +104,17 @@ export type Tenant = {
   assigned_property_name?: string;
   assigned_property_id?: number;
   bed_is_available?: boolean;
+   has_vacated?: boolean; // Flag indicating if tenant has vacated
+  vacate_records?: Array<{
+    id: number;
+    vacate_reason_value: string;
+    requested_vacate_date: string;
+    final_vacate_date: string | null;
+    status: string;
+    refundable_amount: number;
+    total_penalty_amount: number;
+    created_at: string;
+  }>;
 };
 
 // Add to Property type
@@ -280,6 +301,7 @@ export async function listTenants(filters: {
   state?: string;
   preferred_sharing?: string;
   include_deleted?: boolean;
+  vacate_status?: 'active' | 'vacated';
 } = {}): Promise<any> {
   
   const params = new URLSearchParams();
@@ -672,6 +694,7 @@ export type TenantFilters = {
   city?: string;
   state?: string;
   preferred_sharing?: string;
+  vacate_status?: 'active' | 'vacated' | 'all'; // NEW FILTER
 };
 
 // Type for export filters
