@@ -1,4 +1,5 @@
 // components/admin/rooms/BedManagementDialog.tsx
+// components/admin/rooms/BedManagementDialog.tsx
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -23,7 +24,6 @@ import { request } from '@/lib/api';
 import type { RoomResponse, BedAssignment, UpdateBedAssignmentPayload, AssignBedPayload } from '@/lib/roomsApi';
 import { VacateBedWizard } from '@/components/admin/rooms/VacateBedWizard';
 import { ChangeBedWizard } from '@/components/admin/rooms/ChangeBedWizard';
-import { number } from 'framer-motion';
 
 interface BedManagementDialogProps {
   room: any;
@@ -85,7 +85,7 @@ function TenantSelectDropdown({
   customRent,
   isCouple,
   room,
-  bedRent, // Add this prop
+  bedRent, // This should be the tenant_rent from the assignment
 }: {
   bedNumber: number;
   value: string;
@@ -99,7 +99,7 @@ function TenantSelectDropdown({
   customRent?: string;
   isCouple?: boolean;
   room: RoomResponse;
-  bedRent?: number; // Bed-specific rent from beds_config
+  bedRent?: number; // This is the tenant_rent from the assignment
 }) {
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -189,7 +189,7 @@ function TenantSelectDropdown({
   // Get selected tenant
   const selectedTenant = tenants.find(t => t.id.toString() === value);
 
-  // Determine the rent to show in the input
+  // Determine the rent to show in the input - Use bedRent (tenant_rent) if available, otherwise room's rent_per_bed
   const displayRent = bedRent || room.rent_per_bed;
 
   return (
@@ -310,7 +310,7 @@ function TenantSelectDropdown({
         </div>
       )}
 
-      {/* Custom Rent Input - Shows bed rent from beds_config */}
+      {/* Custom Rent Input - Shows tenant_rent from bed assignment */}
       {selectedTenant && (
         <div className="space-y-3 mt-3">
           <div>
@@ -332,7 +332,7 @@ function TenantSelectDropdown({
               <span className="font-medium">Bed rent: ₹{displayRent}</span> • 
               Room base: ₹{room?.rent_per_bed}
               {bedRent && bedRent !== room.rent_per_bed && (
-                <span className="text-blue-600 ml-1">(Configured for this bed)</span>
+                <span className="text-blue-600 ml-1">(Custom rate for this bed)</span>
               )}
             </p>
           </div>
@@ -412,7 +412,8 @@ function BedCard({
   currentRoomAssignments,
   isSaving,
   tenantDetails,
-  room
+  room,
+  bedRent // This is the tenant_rent from the assignment
 }: {
   bedNumber: number;
   assignment: any;
@@ -429,41 +430,32 @@ function BedCard({
   isSaving: boolean;
   tenantDetails?: any;
   room: RoomResponse;
-  bedRent?: number;
+  bedRent?: number; // This is the tenant_rent from the assignment
 }) {
   const [selectedTenantId, setSelectedTenantId] = useState('');
-  const [customRent, setCustomRent] = useState<string>(room.rent_per_bed.toString()); // Default to room's rent
-  const [isCouple, setIsCouple] = useState<boolean>(false);
+  const [customRent, setCustomRent] = useState<string>(
+    // Use bedRent (tenant_rent) if available, otherwise room's rent
+    bedRent ? bedRent.toString() : room.rent_per_bed.toString()
+  );
+  const [isCouple, setIsCouple] = useState<boolean>(assignment?.is_couple || false);
 
   // Reset form when assigning state changes
   useEffect(() => {
     if (isAssigning) {
       setSelectedTenantId('');
-      setCustomRent(room.rent_per_bed.toString());
-      setIsCouple(false);
+      // When assigning, use the bed's current rent (tenant_rent) if it exists
+      setCustomRent(bedRent ? bedRent.toString() : room.rent_per_bed.toString());
+      setIsCouple(assignment?.is_couple || false);
     }
-  }, [isAssigning, room.rent_per_bed]);
-
-  // Monitor isCouple changes
-  // useEffect(() => {
-  //   console.log('🔄 isCouple state changed to:', isCouple);
-  // }, [isCouple]);
+  }, [isAssigning, room.rent_per_bed, bedRent, assignment]);
 
   const handleUpdateClick = () => {
     const selectedTenant = tenants.find(t => t.id.toString() === selectedTenantId);
-    
-    // console.log('🔄 BEDCARD - Before calling onUpdateClick:', {
-    //   selectedTenantId,
-    //   customRent,
-    //   isCouple,
-    //   isCoupleType: typeof isCouple,
-    //   isCoupleValue: isCouple,
-    //   assignment
-    // });
-    
-    // Pass all parameters including the bed assignment
     onUpdateClick(assignment, selectedTenantId, customRent, isCouple);
   };
+
+  // Determine the rent to display
+  const displayRent = assignment?.tenant_rent || room.rent_per_bed;
 
   return (
     <Card className={`overflow-hidden ${isOccupied ? 'border-green-200' : 'border-gray-200'}`}>
@@ -497,7 +489,7 @@ function BedCard({
                   <p className="text-[10px] md:text-xs text-gray-600 mt-0.5">ID: {assignment.tenant_id}</p>
                 </div>
                 <div className="flex items-center gap-1">
-                  {assignment.is_couple && (
+                  {Boolean(assignment.is_couple) && (
                     <UsersRound className="h-3 w-3 md:h-4 md:w-4 text-red-600" />
                   )}
                   <GenderIcon gender={assignment.tenant_gender || ''} size="h-3.5 w-3.5 md:h-4 md:w-4" />
@@ -513,7 +505,7 @@ function BedCard({
                   <span className="text-[10px] md:text-xs text-gray-600">Gender</span>
                   <span className="font-medium text-xs md:text-sm">{assignment.tenant_gender}</span>
                 </div>
-                {assignment.is_couple && (
+                {Boolean(assignment.is_couple) && (
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] md:text-xs text-gray-600">Couple</span>
                     <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 text-[9px] md:text-xs">
@@ -547,7 +539,7 @@ function BedCard({
                     customRent={customRent}
                     isCouple={isCouple}
                     room={room}
-                    bedRent={bedRent}
+                    bedRent={bedRent} // Pass the tenant_rent
                   />
                   
                   <div className="flex gap-2">
@@ -614,6 +606,7 @@ function BedCard({
                   customRent={customRent}
                   isCouple={isCouple}
                   room={room}
+                  bedRent={bedRent} // Pass the tenant_rent if any (for editing existing bed)
                 />
                 
                 <div className="flex gap-2">
@@ -654,9 +647,9 @@ function BedCard({
             <span className="text-[10px] md:text-xs text-gray-600">Monthly Rent</span>
             <div className="text-right">
               <span className="font-bold text-xs md:text-sm text-green-600">
-                ₹{assignment?.tenant_rent || room.rent_per_bed}
+                ₹{displayRent}
               </span>
-              {assignment?.tenant_rent && assignment.tenant_rent != room.rent_per_bed && (
+              {displayRent != room.rent_per_bed && (
                 <div className="text-[8px] md:text-[10px] text-gray-500">
                   Custom Rate
                 </div>
@@ -709,6 +702,17 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
       ? room.room_gender_preference.split(',').filter(Boolean)
       : [];
 
+  // Function to refresh room data
+  const refreshRoomData = async () => {
+    try {
+      const response = await getRoomById(room.id.toString());
+      if (response) {
+        setBedAssignments(response.bed_assignments || []);
+      }
+    } catch (error) {
+      console.error('Error refreshing room:', error);
+    }
+  };
       
   useEffect(() => {
     if (open) {
@@ -732,8 +736,6 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
         tenantsList = response.data;
       }
       
-      // console.log('📋 Raw tenants from API:', tenantsList.map(t => ({ id: t.id, name: t.full_name, gender: t.gender })));
-      
       // Check assignment status for each tenant
       const tenantsWithAssignment = await Promise.all(
         tenantsList.map(async (tenant) => {
@@ -754,8 +756,6 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
           }
         })
       );
-      
-      // console.log('📋 Processed tenants:', tenantsWithAssignment.map(t => ({ id: t.id, name: t.full_name, gender: t.gender })));
       
       setTenants(tenantsWithAssignment);
     } catch (error: any) {
@@ -838,8 +838,6 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
       return;
     }
 
-    // console.log('📋 Assigning tenant:', { id: tenant.id, name: tenant.full_name, gender: tenant.gender });
-
     const tenantIdNum = parseInt(tenantId);
     
     try {
@@ -873,12 +871,14 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
       // Ensure isCouple is a boolean
       const coupleValue = isCouple === true;
       
-      // console.log('📤 Sending assign with values:', {
-      //   rentValue,
-      //   tenantGender,
-      //   coupleValue,
-      //   originalIsCouple: isCouple
-      // });
+      console.log('📤 Sending assign with values:', {
+        room_id: room.id,
+        bed_number: bedNumber,
+        tenant_id: tenantIdNum,
+        tenant_gender: tenantGender,
+        tenant_rent: rentValue,
+        is_couple: coupleValue
+      });
       
       const payload: AssignBedPayload = {
         room_id: room.id,
@@ -889,30 +889,13 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
         is_couple: coupleValue
       };
 
-      // console.log('📤 Full payload:', payload);
-
       const result = await assignBed(payload);
       
       if (result.success) {
         toast.success(`Bed ${bedNumber} assigned successfully!`);
         
-        const newAssignment: BedAssignment = {
-          id: result.data?.id || Date.now(),
-          bed_number: bedNumber,
-          room_id: room.id,
-          tenant_id: tenantIdNum,
-          tenant_gender: tenantGender,
-          is_available: false,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          tenant_rent: rentValue.toString(),
-          is_couple: coupleValue
-        };
-        
-        setBedAssignments(prev => {
-          const filtered = prev.filter(b => b.bed_number !== bedNumber);
-          return [...filtered, newAssignment];
-        });
+        // Refresh the bed assignments
+        await refreshRoomData();
         
         setAssigningBed(null);
         
@@ -930,14 +913,6 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
   };
 
   const handleUpdateBedAssignment = async (bedAssignment: BedAssignment, tenantId: string, customRent?: string, isCouple?: boolean) => {
-    // console.log('🔄 PARENT - handleUpdateBedAssignment received:', {
-    //   bedAssignmentId: bedAssignment.id,
-    //   tenantId,
-    //   customRent,
-    //   isCouple,
-    //   isCoupleType: typeof isCouple
-    // });
-
     if (!tenantId.trim()) {
       toast.error("Please select a tenant");
       return;
@@ -953,7 +928,6 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
     const currentTenantId = bedAssignment.tenant_id;
 
     if (currentTenantId === newTenantId) {
-      // console.log('🔄 Same tenant, updating directly with isCouple:', isCouple);
       await updateBedAssignmentDirectly(bedAssignment, tenant, customRent, isCouple);
       return;
     }
@@ -988,15 +962,6 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
   };
 
   const updateBedAssignmentDirectly = async (bedAssignment: BedAssignment, tenant: Tenant, customRent?: string, isCouple?: boolean) => {
-    // console.log('🔄 DIRECT - updateBedAssignmentDirectly received:', {
-    //   bedAssignmentId: bedAssignment.id,
-    //   tenantId: tenant.id,
-    //   tenantName: tenant.full_name,
-    //   customRent,
-    //   isCouple,
-    //   isCoupleType: typeof isCouple
-    // });
-
     // Parse rent value - ensure it's a number
     const rentValue = customRent && customRent.trim() !== '' 
       ? parseFloat(customRent) 
@@ -1007,12 +972,13 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
     // Ensure isCouple is a boolean
     const coupleValue = isCouple === true;
     
-    // console.log('📤 DIRECT - Prepared values:', {
-    //   rentValue,
-    //   tenantGender,
-    //   coupleValue,
-    //   originalIsCouple: isCouple
-    // });
+    console.log('📤 DIRECT - Updating bed assignment:', {
+      bedAssignmentId: bedAssignment.id,
+      tenant_id: tenant.id,
+      tenant_gender: tenantGender,
+      tenant_rent: rentValue,
+      is_couple: coupleValue
+    });
     
     const payload: UpdateBedAssignmentPayload = {
       tenant_id: tenant.id,
@@ -1022,26 +988,13 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
       is_couple: coupleValue
     };
     
-    // console.log('📤 DIRECT - Full payload:', payload);
-    
     const result = await updateBedAssignment(bedAssignment.id.toString(), payload);
     
     if (result.success) {
       toast.success(`Bed ${bedAssignment.bed_number} updated successfully!`);
       
-      const updatedAssignment: BedAssignment = {
-        ...bedAssignment,
-        tenant_id: tenant.id,
-        tenant_gender: tenantGender,
-        is_available: false,
-        updated_at: new Date().toISOString(),
-        tenant_rent: rentValue.toString(),
-        is_couple: coupleValue
-      };
-      
-      setBedAssignments(prev => 
-        prev.map(b => b.id === bedAssignment.id ? updatedAssignment : b)
-      );
+      // Refresh the bed assignments
+      await refreshRoomData();
       
       setAssigningBed(null);
       
@@ -1088,23 +1041,8 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
         const result = await assignBed(payload);
         
         if (result.success) {
-          const newBedAssignment: BedAssignment = {
-            id: result.data?.id || Date.now(),
-            bed_number: payload.bed_number,
-            room_id: room.id,
-            tenant_id: newTenant.id,
-            tenant_gender: tenantGender,
-            is_available: false,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            tenant_rent: (customRent || room.rent_per_bed).toString(),
-            is_couple: coupleValue
-          };
-          
-          setBedAssignments(prev => {
-            const filtered = prev.filter(b => b.bed_number !== payload.bed_number);
-            return [...filtered, newBedAssignment];
-          });
+          // Refresh bed assignments
+          await refreshRoomData();
         } else {
           toast.error(result.message || "Failed to assign bed");
         }
@@ -1120,19 +1058,8 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
         const result = await updateBedAssignment(bedAssignment.id.toString(), payload);
         
         if (result.success) {
-          const updatedAssignment: BedAssignment = {
-            ...bedAssignment,
-            tenant_id: newTenant.id,
-            tenant_gender: tenantGender,
-            is_available: false,
-            updated_at: new Date().toISOString(),
-            tenant_rent: (customRent || room.rent_per_bed).toString(),
-            is_couple: coupleValue
-          };
-          
-          setBedAssignments(prev => 
-            prev.map(b => b.id === bedAssignment.id ? updatedAssignment : b)
-          );
+          // Refresh bed assignments
+          await refreshRoomData();
         } else {
           toast.error(result.message || "Failed to update bed assignment");
         }
@@ -1165,21 +1092,9 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
     setVacateWizardOpen(true);
   };
 
-  const handleVacateComplete = () => {
-    // console.log('🔄 Vacate complete - refreshing data...');
-    
-    setBedAssignments(prev => 
-      prev.map(bed => 
-        bed.id === selectedBedForVacate?.id 
-          ? { ...bed, tenant_id: null, tenant_gender: null, is_available: true, tenant_rent: null, is_couple: false }
-          : bed
-      )
-    );
-    
-    if (onRefresh) {
-      // console.log('🔄 Calling parent refresh...');
-      onRefresh();
-    }
+  const handleVacateComplete = async () => {
+    // Refresh the bed assignments
+    await refreshRoomData();
     
     loadTenantsBasedOnPreferences();
     
@@ -1188,19 +1103,7 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
     
     toast.success('Bed vacated successfully!');
     
-    const refreshRoomData = async () => {
-      try {
-        const response = await getRoomById(room.id.toString());
-        if (response) {
-          // console.log('🔄 Room data refreshed');
-          setBedAssignments(response.bed_assignments || []);
-        }
-      } catch (error) {
-        console.error('Error refreshing room:', error);
-      }
-    };
-    
-    refreshRoomData();
+    if (onRefresh) onRefresh();
   };
 
   const handleChangeBedSuccess = () => {
@@ -1211,12 +1114,13 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
   const totalBeds = room.total_bed;
   const occupiedBeds = bedAssignments.filter(b => !b.is_available).length;
   const availableBedsCount = totalBeds - occupiedBeds;
-  // Calculate total room rent from bed assignments
-const totalRoomRent = bedAssignments.reduce((sum, bed) => {
-  // Use tenant_rent if available (as number), otherwise fallback to room's rent_per_bed
-  const bedRent = bed.tenant_rent ? parseFloat(bed.tenant_rent.toString()) : room.rent_per_bed;
-  return sum + (isNaN(bedRent) ? 0 : bedRent);
-}, 0);
+  
+  // Calculate total room rent from bed assignments using tenant_rent
+  const totalRoomRent = bedAssignments.reduce((sum, bed) => {
+    // Use tenant_rent if available (as number), otherwise fallback to room's rent_per_bed
+    const bedRent = bed.tenant_rent ? parseFloat(bed.tenant_rent.toString()) : room.rent_per_bed;
+    return sum + (isNaN(bedRent) ? 0 : bedRent);
+  }, 0);
 
   return (
     <>
@@ -1328,19 +1232,19 @@ const totalRoomRent = bedAssignments.reduce((sum, bed) => {
                 </Card>
 
                 <Card>
-  <CardContent className="p-2 md:p-3">
-    <div className="flex items-center justify-between">
-      <div>
-        <p className="text-[10px] md:text-xs text-gray-600">Total Room Rent</p>
-        <h3 className="text-lg md:text-2xl font-bold text-amber-600">₹{totalRoomRent}</h3>
-        <p className="text-[8px] md:text-[10px] text-gray-500">
-          {occupiedBeds} occupied • ₹{room.rent_per_bed}/bed base
-        </p>
-      </div>
-      <BadgeIndianRupee className="h-6 w-6 md:h-8 md:w-8 text-amber-500" />
-    </div>
-  </CardContent>
-</Card>
+                  <CardContent className="p-2 md:p-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-[10px] md:text-xs text-gray-600">Total Room Rent</p>
+                        <h3 className="text-lg md:text-2xl font-bold text-amber-600">₹{totalRoomRent}</h3>
+                        <p className="text-[8px] md:text-[10px] text-gray-500">
+                          {occupiedBeds} occupied • ₹{room.rent_per_bed}/bed base
+                        </p>
+                      </div>
+                      <BadgeIndianRupee className="h-6 w-6 md:h-8 md:w-8 text-amber-500" />
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
 
               <div>
@@ -1401,6 +1305,7 @@ const totalRoomRent = bedAssignments.reduce((sum, bed) => {
                         currentRoomAssignments={bedAssignments}
                         tenantDetails={tenantDetails}
                         room={room}
+                        bedRent={assignment?.tenant_rent} // Pass the tenant_rent from the assignment
                       />
                     );
                   })}

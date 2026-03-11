@@ -21,6 +21,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { useState, useEffect, useRef } from 'react';
 import { getSettings, SettingsData } from '@/lib/settingsApi';
+import React from 'react';
 
 interface AdminSidebarProps {
   sidebarOpen: boolean;

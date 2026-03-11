@@ -8,7 +8,8 @@ import {
   Check, CalendarDays, IndianRupee, Shield,
   Smartphone, Wallet, Building2, Lock, DoorOpen, BedDouble,
   Home, Grid, ChevronRight, MapPin, Hash, Layers, UserCircle,
-  AlertCircle, CheckCircle, XCircle, ArrowLeft, Sparkles, Heart
+  AlertCircle, CheckCircle, XCircle, ArrowLeft, Sparkles, Heart,
+  Bed
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { listRoomsByProperty } from "@/lib/roomsApi";
@@ -41,6 +42,15 @@ interface Room {
   gender_preference?: string[];
   current_occupants_gender?: string[];
   room_gender_preference?: string[];
+   beds?: {  // Change from beds_config to beds
+    bed_number: number;
+    bed_type: string;
+    bed_rent: number;  // This comes from tenant_rent in bed_assignments
+    is_occupied: boolean;
+    tenant_id?: number | null;
+    assignment_id?: number | null;
+  }[];
+  bed_assignments?: any[]; // Keep for reference
 }
 
 interface MasterValue {
@@ -455,6 +465,7 @@ const BookingModal = memo(function BookingModal({
   
   const preselectionAttempted = useRef(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [selectedBed, setSelectedBed] = useState<{roomId: number, bedNumber: number, bedRent: number} | null>(null);
 
   const [formData, setFormData] = useState({
     salutation: 'Mr.',
@@ -470,6 +481,7 @@ const BookingModal = memo(function BookingModal({
     sharingType: '',
     roomId: '',
     roomNumber: '',
+     bedNumber: '', 
     monthlyRent: 0,
     dailyRate: 0,
     floor: '',
@@ -523,117 +535,146 @@ const BookingModal = memo(function BookingModal({
   };
 
   // Fetch rooms function with reset filters option
-  const fetchRooms = async (resetFilters = true) => {
-    if (!propertyData?.id) return;
+const fetchRooms = async (resetFilters = true) => {
+  if (!propertyData?.id) return;
 
-    setRoomsLoading(true);
-    setRoomsError('');
+  setRoomsLoading(true);
+  setRoomsError('');
 
-    try {
-      const response: any = await listRoomsByProperty(Number(propertyData.id));
-      
-      let roomsData = [];
+  try {
+    const response: any = await listRoomsByProperty(Number(propertyData.id));
+    
+    // console.log('🔍 RAW API RESPONSE:', JSON.stringify(response, null, 2));
+    
+    let roomsData = [];
 
-      if (response.success && response.data) {
-        if (Array.isArray(response.data)) {
-          roomsData = response.data;
-        } else if (response.data.data && Array.isArray(response.data.data)) {
-          roomsData = response.data.data;
-        } else if (response.data.items && Array.isArray(response.data.items)) {
-          roomsData = response.data.items;
-        } else if (typeof response.data === 'object' && response.data !== null) {
-          roomsData = Object.values(response.data);
-        }
+    if (response.success && response.data) {
+      if (Array.isArray(response.data)) {
+        roomsData = response.data;
+      } else if (response.data.data && Array.isArray(response.data.data)) {
+        roomsData = response.data.data;
+      } else if (response.data.items && Array.isArray(response.data.items)) {
+        roomsData = response.data.items;
+      } else if (typeof response.data === 'object' && response.data !== null) {
+        roomsData = Object.values(response.data);
       }
+    }
 
-      if (roomsData.length > 0) {
-        const transformedRooms = roomsData.map((room: any) => {
-          let availableBeds = 0;
-          let occupiedBeds = 0;
+    console.log('🔍 ROOMS DATA:', JSON.stringify(roomsData, null, 2));
+    
+    if (roomsData.length > 0) {
+      // Log the first room's bed_assignments to see structure
+      console.log('🔍 FIRST ROOM BED_ASSIGNMENTS:', roomsData[0].bed_assignments);
+      
+      const transformedRooms = roomsData.map((room: any) => {
+        // Get bed_assignments
+        const bedAssignments = room.bed_assignments || [];
+        
+        console.log(`🔍 Room ${room.room_number} bed_assignments:`, bedAssignments);
+        
+        // Create beds array from bed_assignments
+        const beds = bedAssignments.map((assignment: any) => {
+          console.log(`🔍 Bed ${assignment.bed_number} assignment:`, assignment);
           
-          if (room.bed_assignments && Array.isArray(room.bed_assignments)) {
-            availableBeds = room.bed_assignments.filter((bed: any) => bed.is_available === 1 || bed.is_available === true).length;
-            occupiedBeds = room.bed_assignments.filter((bed: any) => bed.is_available === 0 || bed.is_available === false).length;
-          } else if (room.bed_assignments_json && Array.isArray(room.bed_assignments_json)) {
-            availableBeds = room.bed_assignments_json.filter((bed: any) => bed.is_available === 1 || bed.is_available === true).length;
-            occupiedBeds = room.bed_assignments_json.filter((bed: any) => bed.is_available === 0 || bed.is_available === false).length;
-          } else {
-            availableBeds = Number(room.total_bed || 1) - Number(room.occupied_beds || 0);
-            occupiedBeds = Number(room.occupied_beds || 0);
-          }
-
-          const genderPreference = room.room_gender_preference || [];
-
           return {
-            id: room.id,
-            room_number: room.room_number?.toString() || `Room ${room.id}`,
-            room_type: room.room_type || '',
-            sharing_type: room.sharing_type || 'double',
-            monthly_rent: Number(room.rent_per_bed || 0),
-            daily_rate: Number(room.daily_rate || Math.round(Number(room.rent_per_bed || 0) / 30) || 500),
-            is_available: room.is_active === 1 || room.is_active === true,
-            floor: room.floor?.toString() || 'Ground',
-            total_beds: Number(room.total_bed || 1),
-            available_beds: availableBeds,
-            occupied_beds: occupiedBeds,
-            amenities: room.amenities || [],
-            gender_preference: genderPreference,
-            current_occupants_gender: room.current_occupants_gender || [],
-            room_gender_preference: genderPreference
+            bed_number: assignment.bed_number,
+            bed_type: assignment.bed_type || '',
+            bed_rent: assignment.tenant_rent ? Number(assignment.tenant_rent) : 0,
+            is_occupied: assignment.is_available === 0 && assignment.tenant_id !== null,
+            tenant_id: assignment.tenant_id || null,
+            assignment_id: assignment.id,
+            is_couple: assignment.is_couple || false
           };
         });
 
-        // Filter only available rooms
-        const availableRooms = transformedRooms.filter((room: any) => room.is_available === true);
-        
-        // Store all available rooms
-        setAllRooms(availableRooms);
-        
-        // Reset filters if requested
-        if (resetFilters) {
-          setSelectedSharingType('all');
-          setSelectedRoomType('all');
-        }
-        
-        // Apply current filters
-        let filteredRooms = [...availableRooms];
-        
-        if (formData.gender) {
-          filteredRooms = filteredRooms.filter((room: any) => 
-            isRoomAllowedForGender(room, formData.gender, formData.isCouple)
-          );
-        }
-        
-        if (selectedSharingType && selectedSharingType !== 'all') {
-          filteredRooms = filteredRooms.filter((room: any) => 
-            room.sharing_type?.toLowerCase() === selectedSharingType.toLowerCase()
-          );
-        }
+        // Sort beds by bed_number
+        beds.sort((a, b) => a.bed_number - b.bed_number);
 
-        if (selectedRoomType && selectedRoomType !== 'all') {
-          filteredRooms = filteredRooms.filter((room: any) => 
-            room.room_type?.toLowerCase() === selectedRoomType.toLowerCase()
-          );
-        }
-        
-        setRooms(filteredRooms);
+        // Count available and occupied beds
+        const availableBeds = beds.filter(bed => !bed.is_occupied).length;
+        const occupiedBeds = beds.filter(bed => bed.is_occupied).length;
 
-        if (filteredRooms.length === 0) {
-          setRoomsError('No rooms match your filters');
-        } else {
-          setRoomsError('');
-        }
-      } else {
-        setRoomsError('No rooms found');
+        const genderPreference = room.room_gender_preference || [];
+
+        return {
+          id: room.id,
+          room_number: room.room_number?.toString() || `Room ${room.id}`,
+          room_type: room.room_type || '',
+          sharing_type: room.sharing_type || 'double',
+          monthly_rent: Number(room.rent_per_bed || 0),
+          daily_rate: Number(room.daily_rate || Math.round(Number(room.rent_per_bed || 0) / 30) || 500),
+          is_available: room.is_active === 1 || room.is_active === true,
+          floor: room.floor?.toString() || 'Ground',
+          total_beds: beds.length,
+          available_beds: availableBeds,
+          occupied_beds: occupiedBeds,
+          amenities: room.amenities || [],
+          gender_preference: genderPreference,
+          current_occupants_gender: room.current_occupants_gender || [],
+          room_gender_preference: genderPreference,
+          beds: beds,
+          raw_bed_assignments: bedAssignments // Keep raw for debugging
+        };
+      });
+
+      // console.log('🔍 TRANSFORMED ROOMS:', transformedRooms.map((r: any) => ({
+      //   room: r.room_number,
+      //   beds: r.beds.map((b: any) => ({
+      //     bed: b.bed_number,
+      //     rent: b.bed_rent,
+      //     occupied: b.is_occupied,
+      //     type: b.bed_type
+      //   }))
+      // })));
+      
+      // Filter only available rooms
+      const availableRooms = transformedRooms.filter((room: any) => room.is_available === true);
+      
+      setAllRooms(availableRooms);
+      
+      if (resetFilters) {
+        setSelectedSharingType('all');
+        setSelectedRoomType('all');
+      }
+      
+      let filteredRooms = [...availableRooms];
+      
+      if (formData.gender) {
+        filteredRooms = filteredRooms.filter((room: any) => 
+          isRoomAllowedForGender(room, formData.gender, formData.isCouple)
+        );
+      }
+      
+      if (selectedSharingType && selectedSharingType !== 'all') {
+        filteredRooms = filteredRooms.filter((room: any) => 
+          room.sharing_type?.toLowerCase() === selectedSharingType.toLowerCase()
+        );
       }
 
-    } catch (error) {
-      console.error('Error fetching rooms:', error);
-      setRoomsError('Unable to load rooms');
-    } finally {
-      setRoomsLoading(false);
+      if (selectedRoomType && selectedRoomType !== 'all') {
+        filteredRooms = filteredRooms.filter((room: any) => 
+          room.room_type?.toLowerCase() === selectedRoomType.toLowerCase()
+        );
+      }
+      
+      setRooms(filteredRooms);
+
+      if (filteredRooms.length === 0) {
+        setRoomsError('No rooms match your filters');
+      } else {
+        setRoomsError('');
+      }
+    } else {
+      setRoomsError('No rooms found');
     }
-  };
+
+  } catch (error) {
+    console.error('Error fetching rooms:', error);
+    setRoomsError('Unable to load rooms');
+  } finally {
+    setRoomsLoading(false);
+  }
+};
 
   // Clear filters function
   const clearFilters = () => {
@@ -658,6 +699,7 @@ const BookingModal = memo(function BookingModal({
     if (isOpen) {
       setBookingStep(1);
       setSelectedRoom(null);
+      setSelectedBed(null);
       setRooms([]);
       setRoomsError('');
       setVerified(false);
@@ -704,6 +746,7 @@ const BookingModal = memo(function BookingModal({
     } else {
       setBookingStep(1);
       setSelectedRoom(null);
+      setSelectedBed(null);
       setRooms([]);
       setRoomsError('');
       setVerified(false);
@@ -849,6 +892,7 @@ const BookingModal = memo(function BookingModal({
 
   const handleRoomSelect = useCallback((room: Room) => {
     setSelectedRoom(room);
+    setSelectedBed(null);
     
     const genderPref = room.gender_preference || [];
     let autoGender = formData.gender;
@@ -896,23 +940,24 @@ const BookingModal = memo(function BookingModal({
     }));
   }, [formData.gender, formData.isCouple]);
 
-  const calculateRent = useCallback(() => {
-    if (bookingType === 'short') {
-      if (!selectedRoom) return 0;
-      const checkIn = new Date(formData.checkInDate);
-      const checkOut = new Date(formData.checkOutDate);
-      if (isNaN(checkIn.getTime()) || isNaN(checkOut.getTime())) return 0;
-
-      const days = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
-      // For couple bookings, multiply rent by 2
-      const rentMultiplier = formData.isCouple ? 2 : 1;
-      return days * (selectedRoom.daily_rate || propertyData?.dailyRate || 500) * rentMultiplier;
-    } else {
-      // For long stay, couple bookings multiply by 2
-      const rentMultiplier = formData.isCouple ? 2 : 1;
-      return (selectedRoom?.monthly_rent || propertyData?.monthly_rent || propertyData?.price || 0) * rentMultiplier;
-    }
-  }, [bookingType, selectedRoom, formData, propertyData]);
+const calculateRent = useCallback(() => {
+  if (!selectedBed) return 0;
+  
+  if (bookingType === 'short') {
+    const checkIn = new Date(formData.checkInDate);
+    const checkOut = new Date(formData.checkOutDate);
+    if (isNaN(checkIn.getTime()) || isNaN(checkOut.getTime())) return 0;
+    
+    const days = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
+    // For couple bookings, multiply rent by 2
+    const rentMultiplier = formData.isCouple ? 2 : 1;
+    return days * selectedBed.bedRent * rentMultiplier;
+  } else {
+    // For long stay, couple bookings multiply by 2
+    const rentMultiplier = formData.isCouple ? 2 : 1;
+    return selectedBed.bedRent * rentMultiplier;
+  }
+}, [bookingType, selectedBed, formData]);
 
   const calculateTotal = useCallback(() => {
     return calculateRent();
@@ -1684,170 +1729,132 @@ const BookingModal = memo(function BookingModal({
                         </p>
                       </div>
 
-                      {/* Rooms Grid - Scrollable */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-80 overflow-y-auto pr-1 pb-2">
-                        {rooms.map((room) => {
-                          const isPreselected = preselectedRoomId && String(room.id) === String(preselectedRoomId);
-                          const genderPreferences = room.gender_preference || [];
-                          const totalCapacity = getSharingCapacity(room.sharing_type);
-                          const occupiedCount = room.occupied_beds || 0;
-                          const availableCount = room.available_beds || 0;
-                          
-                          let status = 'available';
-                          let statusColor = 'text-green-600';
-                          let statusBg = 'bg-green-50';
-                          
-                          if (availableCount === 0) {
-                            status = 'occupied';
-                            statusColor = 'text-red-600';
-                            statusBg = 'bg-red-50';
-                          } else if (occupiedCount > 0 && availableCount > 0) {
-                            status = 'partially-available';
-                            statusColor = 'text-orange-600';
-                            statusBg = 'bg-orange-50';
-                          }
+                      {/* Rooms Grid - Show Individual Beds */}
+<div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-80 overflow-y-auto pr-1 pb-2">
+  {rooms.map((room) => {
+    const beds = room.beds || []; // Use beds array from bed_assignments
+    const availableBeds = beds.filter((bed: any) => !bed.is_occupied);
+    const totalBeds = room.total_beds || getSharingCapacity(room.sharing_type);
+    
+    return (
+      <div
+        key={room.id}
+        className={`border-2 rounded-lg p-3 transition-all ${
+          selectedRoom?.id === room.id 
+            ? 'border-blue-500 bg-blue-50' 
+            : 'border-gray-200 hover:border-gray-300'
+        }`}
+      >
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-gradient-to-br from-blue-100 to-blue-200 rounded flex items-center justify-center">
+              <DoorOpen className="w-4 h-4 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-gray-900">Room {room.room_number}</p>
+              <p className="text-[10px] text-gray-500">Floor {room.floor || 'G'}</p>
+            </div>
+          </div>
+          <Badge className={`text-[9px] ${
+            availableBeds.length > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+          }`}>
+            {availableBeds.length} bed{availableBeds.length !== 1 ? 's' : ''} available
+          </Badge>
+        </div>
 
-                          // Check if room is couple-friendly
-                          const isCoupleFriendly = genderPreferences.some(p => 
-                            p.toLowerCase() === 'couples' || p.toLowerCase() === 'both' || p.toLowerCase() === 'mixed'
-                          );
-                          
-                          return (
-                            <label
-                              key={room.id}
-                              className={`border-2 rounded-lg p-2.5 cursor-pointer transition-all hover:shadow ${
-                                selectedRoom?.id === room.id 
-                                  ? 'border-blue-500 bg-blue-50 shadow ring-1 ring-blue-200' 
-                                  : isPreselected && !selectedRoom
-                                  ? 'border-blue-300 bg-blue-50/50 ring-2 ring-blue-300 ring-offset-1'
-                                  : 'border-gray-200 bg-white hover:border-gray-300'
-                              }`}
-                            >
-                              <input
-                                type="radio"
-                                name="room"
-                                value={room.id}
-                                checked={selectedRoom?.id === room.id}
-                                onChange={() => handleRoomSelect(room)}
-                                className="sr-only"
-                              />
+        {/* Room Type and Gender */}
+        <div className="flex flex-wrap gap-1 mb-2">
+          <Badge className="text-[8px] bg-gray-100 text-black hover:text-white">
+            {formatSharingType(room.sharing_type)}
+          </Badge>
+          {room.room_gender_preference?.map((pref: string) => {
+            const prefLower = pref.toLowerCase();
+            if (prefLower === 'male_only' || prefLower === 'male') {
+              return <Badge key={pref} className="text-[8px] bg-blue-100 text-blue-800">♂ Male</Badge>;
+            } else if (prefLower === 'female_only' || prefLower === 'female') {
+              return <Badge key={pref} className="text-[8px] bg-pink-100 text-pink-800">♀ Female</Badge>;
+            } else if (prefLower === 'couples') {
+              return <Badge key={pref} className="text-[8px] bg-red-100 text-red-800">💑 Couples</Badge>;
+            } else if (prefLower === 'both' || prefLower === 'mixed') {
+              return <Badge key={pref} className="text-[8px] bg-purple-100 text-purple-800">👥 Mixed</Badge>;
+            }
+            return null;
+          })}
+        </div>
 
-                              <div className="flex items-start justify-between mb-2">
-                                <div className="flex items-center gap-1.5">
-                                  <div className="w-7 h-7 bg-gradient-to-br from-blue-100 to-blue-200 rounded flex items-center justify-center flex-shrink-0">
-                                    <BedDouble className="w-3.5 h-3.5 text-blue-600" />
-                                  </div>
-                                  <div>
-                                    <p className="text-xs font-bold text-gray-900">Room {room.room_number}</p>
-                                    <p className="text-[9px] text-gray-500">Floor {room.floor || 'G'}</p>
-                                  </div>
-                                </div>
-                                {selectedRoom?.id === room.id && (
-                                  <CheckCircle className="w-4 h-4 text-blue-600" />
-                                )}
-                                {isPreselected && !selectedRoom && (
-                                  <span className="text-[8px] bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded-full font-medium">
-                                    Selected
-                                  </span>
-                                )}
-                              </div>
+        {/* Individual Beds - Using tenant_rent from bed_assignments */}
+        <div className="space-y-1.5 mt-2">
+          {beds.map((bed: any) => {
+            const isBedAvailable = !bed.is_occupied;
+            const isSelected = selectedBed?.roomId === room.id && selectedBed?.bedNumber === bed.bed_number;
+            
+            return (
+              <div
+                key={bed.bed_number}
+                className={`flex items-center justify-between p-2 rounded-lg border cursor-pointer transition-all ${
+                  isSelected
+                    ? 'border-blue-500 bg-blue-100'
+                    : isBedAvailable
+                      ? 'border-green-200 hover:border-green-400 bg-green-50/50'
+                      : 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-60'
+                }`}
+                onClick={() => {
+                  if (isBedAvailable) {
+                    setSelectedRoom(room);
+                    setSelectedBed({
+                      roomId: room.id,
+                      bedNumber: bed.bed_number,
+                      bedRent: bed.bed_rent // This is tenant_rent from bed_assignments
+                    });
+                    setFormData(prev => ({
+                      ...prev,
+                      roomId: room.id.toString(),
+                      roomNumber: room.room_number,
+                      bedNumber: bed.bed_number,
+                      sharingType: room.sharing_type || '',
+                      monthlyRent: bed.bed_rent, // Use bed_rent from bed_assignments
+                      floor: room.floor || 'Ground'
+                    }));
+                  }
+                }}
+              >
+                <div className="flex items-center gap-2">
+                  <Bed className={`w-3.5 h-3.5 ${isBedAvailable ? 'text-green-600' : 'text-gray-400'}`} />
+                  <div>
+                    <span className="text-xs font-medium">Bed {bed.bed_number}</span>
+                    {bed.bed_type && (
+                      <span className="text-[9px] text-gray-500 ml-1">({bed.bed_type})</span>
+                    )}
+                    {bed.is_couple && (
+                      <span className="text-[8px] text-red-500 ml-1">👫</span>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-bold text-green-700">
+                    ₹{Number(bed.bed_rent).toLocaleString()}
+                  </span>
+                  {isSelected && (
+                    <CheckCircle className="w-4 h-4 text-blue-600" />
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
 
-                              <div className="space-y-1 mb-2">
-                                <div className="flex items-center gap-1 text-[9px] text-gray-600">
-                                  {getSharingIcon(room.sharing_type)}
-                                  <span className="font-medium">{formatSharingType(room.sharing_type)}</span>
-                                  {room.room_type && room.room_type !== 'null' && room.room_type !== 'undefined' && (
-                                    <>
-                                      <span className="text-gray-400">•</span>
-                                      <span className="capitalize">{room.room_type}</span>
-                                    </>
-                                  )}
-                                  <span className="text-[8px] text-gray-500 ml-1">
-                                    ({totalCapacity} {totalCapacity === 1 ? 'bed' : 'beds'})
-                                  </span>
-                                </div>
-
-                                {genderPreferences.length > 0 && (
-                                  <div className="flex flex-wrap gap-1 mt-1">
-                                    {genderPreferences.map((pref: string) => {
-                                      const prefLower = pref.toLowerCase();
-                                      let badgeClass = '';
-                                      let icon = '';
-                                      
-                                      if (prefLower === 'male_only' || prefLower === 'male') {
-                                        badgeClass = 'bg-blue-100 text-blue-700';
-                                        icon = '♂';
-                                      } else if (prefLower === 'female_only' || prefLower === 'female') {
-                                        badgeClass = 'bg-pink-100 text-pink-700';
-                                        icon = '♀';
-                                      } else if (prefLower === 'couples') {
-                                        badgeClass = 'bg-red-100 text-red-700';
-                                        icon = '💑';
-                                      } else if (prefLower === 'both' || prefLower === 'any' || prefLower === 'mixed') {
-                                        badgeClass = 'bg-purple-100 text-purple-700';
-                                        icon = '👥';
-                                      } else {
-                                        badgeClass = 'bg-gray-100 text-gray-700';
-                                      }
-                                      
-                                      return (
-                                        <span key={pref} className={`text-[8px] px-1.5 py-0.5 rounded-full ${badgeClass}`}>
-                                          {icon} {pref === 'male_only' ? 'Male Only' : 
-                                                   pref === 'female_only' ? 'Female Only' : 
-                                                   pref === 'couples' ? 'Couples' : 
-                                                   pref === 'both' ? 'Mixed' : pref}
-                                        </span>
-                                      );
-                                    })}
-                                  </div>
-                                )}
-
-                                {/* Couple-friendly badge */}
-                                {isCoupleFriendly && (
-                                  <div className="flex items-center gap-1 mt-1">
-                                    <Badge className="bg-red-100 text-red-700 text-[7px] px-1.5 py-0">
-                                      <Heart className="w-2 h-2 mr-0.5" />
-                                      Couple Friendly
-                                    </Badge>
-                                  </div>
-                                )}
-
-                                <div className="flex items-center gap-1 text-[8px] mt-1">
-                                  <div className={`px-1.5 py-0.5 rounded-full ${statusBg} ${statusColor} font-medium`}>
-                                    {status === 'available' && '✨ Available'}
-                                    {status === 'partially-available' && '🟡 Partially Available'}
-                                    {status === 'occupied' && '🔴 Fully Occupied'}
-                                  </div>
-                                </div>
-
-                                {availableCount > 0 && (
-                                  <div className="flex items-center gap-1 text-[8px] text-gray-500">
-                                    <Users className="w-2.5 h-2.5" />
-                                    <span>
-                                      {availableCount} bed{availableCount > 1 ? 's' : ''} available 
-                                      {occupiedCount > 0 && ` • ${occupiedCount} occupied`}
-                                    </span>
-                                  </div>
-                                )}
-                              </div>
-
-                              <div className="pt-2 border-t border-gray-200">
-                                <span className="text-sm font-bold text-gray-900">
-                                  ₹{bookingType === 'long' ? room.monthly_rent.toLocaleString() : room.daily_rate.toLocaleString()}
-                                </span>
-                                <span className="text-[8px] text-gray-500 ml-0.5">
-                                  /{bookingType === 'long' ? 'mo' : 'day'}
-                                </span>
-                                {formData.isCouple && (
-                                  <span className="ml-2 text-[8px] text-green-600 font-semibold">
-                                    (×2 persons)
-                                  </span>
-                                )}
-                              </div>
-                            </label>
-                          );
-                        })}
-                      </div>
+        {/* Room Amenities */}
+        <div className="flex items-center gap-1 mt-2 pt-2 border-t border-gray-200">
+          {room.ac && <Wind className="w-3 h-3 text-blue-600" />}
+          {room.wifi && <Wifi className="w-3 h-3 text-blue-600" />}
+          {room.hasAttachedBathroom && <Bath className="w-3 h-3 text-blue-600" />}
+          {room.hasBalcony && <Home className="w-3 h-3 text-blue-600" />}
+        </div>
+      </div>
+    );
+  })}
+</div>
                     </div>
                   )}
                 </div>
@@ -1910,53 +1917,58 @@ const BookingModal = memo(function BookingModal({
                     </div>
                   </div>
 
-                  <div className="bg-gradient-to-br from-blue-50 to-cyan-50 border border-blue-200 rounded-lg p-3">
-                    <h4 className="text-xs font-bold text-gray-900 mb-2.5 flex items-center gap-1">
-                      <Sparkles className="w-3 h-3 text-blue-600" />
-                      Summary
-                    </h4>
+                  {/* In the payment step summary section */}
+<div className="bg-gradient-to-br from-blue-50 to-cyan-50 border border-blue-200 rounded-lg p-3">
+  <h4 className="text-xs font-bold text-gray-900 mb-2.5 flex items-center gap-1">
+    <Sparkles className="w-3 h-3 text-blue-600" />
+    Booking Summary
+  </h4>
 
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <span className="text-[10px] sm:text-xs text-gray-700">
-                          {bookingType === 'long' ? 'Monthly Rent' : 'Stay Charges'}
-                          {/* {formData.isCouple && ' (2 persons)'} */}
-                        </span>
-                        <span className="text-xs font-bold text-gray-900">₹{calculateRent().toLocaleString()}</span>
-                      </div>
+  <div className="space-y-2">
+    <div className="flex justify-between items-center">
+      <span className="text-[10px] sm:text-xs text-gray-700">
+        Room {selectedRoom?.room_number} • Bed {selectedBed?.bedNumber}
+      </span>
+      <span className="text-xs font-bold text-gray-900">
+        ₹{selectedBed?.bedRent.toLocaleString()}
+      </span>
+    </div>
 
-                      {bookingType === 'short' && formData.checkInDate && formData.checkOutDate && (
-                        <div className="flex justify-between items-center text-[9px] text-gray-600">
-                          <span>Duration</span>
-                          <span>
-                            {Math.ceil((new Date(formData.checkOutDate).getTime() - new Date(formData.checkInDate).getTime()) / (1000 * 60 * 60 * 24))} days × ₹{selectedRoom.daily_rate}/day
-                            {formData.isCouple && ' × 2 persons'}
-                          </span>
-                        </div>
-                      )}
+    {bookingType === 'short' && formData.checkInDate && formData.checkOutDate && (
+      <div className="flex justify-between items-center text-[9px] text-gray-600">
+        <span>Duration</span>
+        <span>
+          {Math.ceil((new Date(formData.checkOutDate).getTime() - new Date(formData.checkInDate).getTime()) / (1000 * 60 * 60 * 24))} days
+        </span>
+      </div>
+    )}
 
-                      {bookingType === 'long' && (
-                        <div className="flex justify-between items-center pt-2 border-t border-blue-200">
-                          <span className="text-[10px] sm:text-xs text-gray-700">Security Deposit</span>
-                          <span className="text-xs font-bold text-gray-900">₹{(propertyData?.securityDeposit || 0).toLocaleString()}</span>
-                        </div>
-                      )}
+    {formData.isCouple && (
+      <div className="flex justify-between items-center text-[9px] text-gray-600">
+        <span>Couple Booking</span>
+        <span>×2 persons</span>
+      </div>
+    )}
 
-                      <div className="border-t-2 border-blue-300 pt-2.5 mt-2">
-                        <div className="flex justify-between items-center">
-                          <span className="text-xs sm:text-sm font-bold text-gray-900">
-                            {bookingType === 'long' ? 'Total Payable' : 'Total'}
-                          </span>
-                          <span className="text-lg sm:text-xl font-bold text-blue-600">
-                            ₹{calculateTotalPayable().toLocaleString()}
-                          </span>
-                        </div>
-                        {bookingType === 'short' && (
-                          <p className="text-[9px] text-gray-600 mt-1 text-right">No deposit for short stays</p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
+    {bookingType === 'long' && (
+      <div className="flex justify-between items-center pt-2 border-t border-blue-200">
+        <span className="text-[10px] sm:text-xs text-gray-700">Security Deposit</span>
+        <span className="text-xs font-bold text-gray-900">₹{(propertyData?.securityDeposit || 0).toLocaleString()}</span>
+      </div>
+    )}
+
+    <div className="border-t-2 border-blue-300 pt-2.5 mt-2">
+      <div className="flex justify-between items-center">
+        <span className="text-xs sm:text-sm font-bold text-gray-900">
+          {bookingType === 'long' ? 'Total Payable' : 'Total'}
+        </span>
+        <span className="text-lg sm:text-xl font-bold text-blue-600">
+          ₹{calculateTotalPayable().toLocaleString()}
+        </span>
+      </div>
+    </div>
+  </div>
+</div>
 
                   <label className="flex items-start gap-2 p-2.5 bg-gray-50 border-2 border-gray-200 rounded-lg cursor-pointer hover:bg-gray-100">
                     <input

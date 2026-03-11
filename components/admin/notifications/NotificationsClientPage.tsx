@@ -237,6 +237,8 @@
 //   );
 // }
 
+
+// components/admin/notifications/NotificationsClientPage.tsx
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from 'react';

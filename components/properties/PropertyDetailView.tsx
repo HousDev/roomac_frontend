@@ -1,4 +1,5 @@
 // components/properties/PropertyDetailView.tsx
+// components/properties/PropertyDetailView.tsx
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, memo } from "react";
@@ -79,16 +80,16 @@ import {
   Package,
   Stethoscope,
   Wrench,
+  Loader2,
 } from "lucide-react";
 import BookingModal from "./BookingModal";
 import {
   incrementPropertyView,
   togglePropertyShortlist,
   getPropertyAnalytics,
-  checkShortlistStatus,
 } from "@/lib/propertyApi";
-// Add this import at the top
 import { generatePropertySlug, getOrCreateTrackingId } from "@/lib/slugUtils";
+import { consumeMasters } from "@/lib/masterApi";
 
 const Icons = {
   Wifi,
@@ -136,6 +137,12 @@ interface PropertyDetailViewProps {
   offers: any[];
 }
 
+interface MasterValue {
+  id: number;
+  name: string;
+  isactive: number;
+}
+
 // Helper function to format gender preference for display
 const formatGenderPreference = (preferences: string[]) => {
   if (!preferences || preferences.length === 0) return "Any Gender";
@@ -180,7 +187,7 @@ const isRoomAllowedForGender = (room: any, gender: string): boolean => {
       return normalizedGender === "female";
     }
     if (normalizedPref === "couples") {
-      return true; // Couples rooms can have any gender for individual bookings
+      return true;
     }
     if (
       normalizedPref === "both" ||
@@ -193,29 +200,21 @@ const isRoomAllowedForGender = (room: any, gender: string): boolean => {
   });
 };
 
-// Helper function to transform API amenities to the format expected by the UI
+// Helper function to transform API amenities
 const transformAmenities = (apiAmenities: string[] | any[]): any[] => {
   if (!apiAmenities || !Array.isArray(apiAmenities)) return [];
 
   return apiAmenities.map((amenity, index) => {
-    // If amenity is already an object with required properties
     if (typeof amenity === "object" && amenity !== null) {
       return {
         id: amenity.id || index,
         title: amenity.name || amenity.title || "Amenity",
-        icon:
-          amenity.icon ||
-          getIconForAmenity(amenity.name || amenity.title || ""),
-        category:
-          amenity.category ||
-          getCategoryForAmenity(amenity.name || amenity.title || ""),
-        description:
-          amenity.description ||
-          `${amenity.name || amenity.title || "Amenity"} available`,
+        icon: amenity.icon || getIconForAmenity(amenity.name || amenity.title || ""),
+        category: amenity.category || getCategoryForAmenity(amenity.name || amenity.title || ""),
+        description: amenity.description || `${amenity.name || amenity.title || "Amenity"} available`,
       };
     }
 
-    // If amenity is a string
     const amenityStr = String(amenity);
     return {
       id: index,
@@ -227,7 +226,6 @@ const transformAmenities = (apiAmenities: string[] | any[]): any[] => {
   });
 };
 
-// Helper function to format amenity name
 const formatAmenityName = (amenity: string): string => {
   return amenity
     .split("_")
@@ -235,106 +233,49 @@ const formatAmenityName = (amenity: string): string => {
     .join(" ");
 };
 
-// Helper function to get icon based on amenity name
 const getIconForAmenity = (amenity: string): string => {
   const amenityLower = amenity.toLowerCase();
 
-  if (amenityLower.includes("wifi") || amenityLower.includes("internet"))
-    return "Wifi";
-  if (amenityLower.includes("ac") || amenityLower.includes("air condition"))
-    return "Wind";
-  if (
-    amenityLower.includes("food") ||
-    amenityLower.includes("meal") ||
-    amenityLower.includes("restaurant")
-  )
-    return "Utensils";
-  if (amenityLower.includes("security") || amenityLower.includes("safety"))
-    return "Shield";
-  if (
-    amenityLower.includes("power") ||
-    amenityLower.includes("backup") ||
-    amenityLower.includes("electricity")
-  )
-    return "Zap";
-  if (amenityLower.includes("parking") || amenityLower.includes("car"))
-    return "Car";
-  if (amenityLower.includes("gym") || amenityLower.includes("fitness"))
-    return "Dumbbell";
-  if (amenityLower.includes("tv") || amenityLower.includes("television"))
-    return "Tv";
+  if (amenityLower.includes("wifi") || amenityLower.includes("internet")) return "Wifi";
+  if (amenityLower.includes("ac") || amenityLower.includes("air condition")) return "Wind";
+  if (amenityLower.includes("food") || amenityLower.includes("meal") || amenityLower.includes("restaurant")) return "Utensils";
+  if (amenityLower.includes("security") || amenityLower.includes("safety")) return "Shield";
+  if (amenityLower.includes("power") || amenityLower.includes("backup") || amenityLower.includes("electricity")) return "Zap";
+  if (amenityLower.includes("parking") || amenityLower.includes("car")) return "Car";
+  if (amenityLower.includes("gym") || amenityLower.includes("fitness")) return "Dumbbell";
+  if (amenityLower.includes("tv") || amenityLower.includes("television")) return "Tv";
   if (amenityLower.includes("laundry")) return "Droplets";
-  if (amenityLower.includes("lift") || amenityLower.includes("elevator"))
-    return "Building2";
-  if (amenityLower.includes("water") || amenityLower.includes("purifier"))
-    return "Droplets";
-  if (amenityLower.includes("garden") || amenityLower.includes("terrace"))
-    return "Sun";
-  if (
-    amenityLower.includes("cleaning") ||
-    amenityLower.includes("housekeeping")
-  )
-    return "Bell";
-  if (amenityLower.includes("bathroom") || amenityLower.includes("bath"))
-    return "Bath";
+  if (amenityLower.includes("lift") || amenityLower.includes("elevator")) return "Building2";
+  if (amenityLower.includes("water") || amenityLower.includes("purifier")) return "Droplets";
+  if (amenityLower.includes("garden") || amenityLower.includes("terrace")) return "Sun";
+  if (amenityLower.includes("cleaning") || amenityLower.includes("housekeeping")) return "Bell";
+  if (amenityLower.includes("bathroom") || amenityLower.includes("bath")) return "Bath";
 
   return "Home";
 };
 
-// Helper function to get category based on amenity name
 const getCategoryForAmenity = (amenity: string): string => {
   const amenityLower = amenity.toLowerCase();
 
-  if (
-    amenityLower.includes("wifi") ||
-    amenityLower.includes("internet") ||
-    amenityLower.includes("tv") ||
-    amenityLower.includes("ac")
-  ) {
+  if (amenityLower.includes("wifi") || amenityLower.includes("internet") || amenityLower.includes("tv") || amenityLower.includes("ac")) {
     return "Technology";
   }
-  if (
-    amenityLower.includes("food") ||
-    amenityLower.includes("meal") ||
-    amenityLower.includes("kitchen") ||
-    amenityLower.includes("restaurant")
-  ) {
+  if (amenityLower.includes("food") || amenityLower.includes("meal") || amenityLower.includes("kitchen") || amenityLower.includes("restaurant")) {
     return "Dining";
   }
-  if (
-    amenityLower.includes("gym") ||
-    amenityLower.includes("fitness") ||
-    amenityLower.includes("pool") ||
-    amenityLower.includes("sports")
-  ) {
+  if (amenityLower.includes("gym") || amenityLower.includes("fitness") || amenityLower.includes("pool") || amenityLower.includes("sports")) {
     return "Fitness";
   }
-  if (
-    amenityLower.includes("security") ||
-    amenityLower.includes("cctv") ||
-    amenityLower.includes("guard")
-  ) {
+  if (amenityLower.includes("security") || amenityLower.includes("cctv") || amenityLower.includes("guard")) {
     return "Safety";
   }
-  if (
-    amenityLower.includes("parking") ||
-    amenityLower.includes("lift") ||
-    amenityLower.includes("elevator")
-  ) {
+  if (amenityLower.includes("parking") || amenityLower.includes("lift") || amenityLower.includes("elevator")) {
     return "Facility";
   }
-  if (
-    amenityLower.includes("garden") ||
-    amenityLower.includes("terrace") ||
-    amenityLower.includes("balcony")
-  ) {
+  if (amenityLower.includes("garden") || amenityLower.includes("terrace") || amenityLower.includes("balcony")) {
     return "Outdoor";
   }
-  if (
-    amenityLower.includes("laundry") ||
-    amenityLower.includes("cleaning") ||
-    amenityLower.includes("housekeeping")
-  ) {
+  if (amenityLower.includes("laundry") || amenityLower.includes("cleaning") || amenityLower.includes("housekeeping")) {
     return "Services";
   }
 
@@ -345,11 +286,9 @@ const PropertyDetailView = memo(function PropertyDetailView({
   propertyData,
   offers,
 }: PropertyDetailViewProps) {
-  console.log(propertyData, "ghjkhhyyujj")
   const router = useRouter();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showAllRooms, setShowAllRooms] = useState(false);
-  const [copied, setCopied] = useState(false);
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [bookingType, setBookingType] = useState("long");
   const [showFilters, setShowFilters] = useState(false);
@@ -366,9 +305,8 @@ const PropertyDetailView = memo(function PropertyDetailView({
   const [isClient, setIsClient] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [showCopyMessage, setShowCopyMessage] = useState(false);
-  const [preselectedRoomId, setPreselectedRoomId] = useState<
-    number | undefined
-  >(undefined);
+  const [preselectedRoomId, setPreselectedRoomId] = useState<number | undefined>(undefined);
+  
   // Analytics states
   const [viewCount, setViewCount] = useState(0);
   const [shortlistCount, setShortlistCount] = useState(0);
@@ -378,6 +316,11 @@ const PropertyDetailView = memo(function PropertyDetailView({
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
 
+  // Masters data for filters
+  const [floorsMasters, setFloorsMasters] = useState<MasterValue[]>([]);
+  const [sharingTypesMasters, setSharingTypesMasters] = useState<MasterValue[]>([]);
+  const [loadingMasters, setLoadingMasters] = useState(false);
+
   // Transform amenities from API
   const transformedAmenities = useMemo(() => {
     if (!propertyData?.amenities) return [];
@@ -386,14 +329,68 @@ const PropertyDetailView = memo(function PropertyDetailView({
 
   useEffect(() => {
     setIsClient(true);
-  }, []);
+    
+    // Log the property data to see what's coming from API
+    // console.log("🔥 FULL PROPERTY DATA:", JSON.stringify(propertyData, null, 2));
+    
+    // Specifically log rooms and their bed_assignments
+    if (propertyData?.rooms) {
+      // console.log("🔥 ROOMS DATA:", propertyData.rooms.length, "rooms");
+      propertyData.rooms.forEach((room: any, index: number) => {
+        // console.log(`🔥 ROOM ${index}:`, {
+        //   id: room.id,
+        //   name: room.name || room.roomNumber,
+        //   bed_assignments: room.bed_assignments,
+        //   beds: room.beds,
+        //   price: room.price,
+        //   rent_per_bed: room.rent_per_bed
+        // });
+      });
+    }
+  }, [propertyData]);
 
-  // Add this right after your component starts
+  // Fetch masters data for filters
   useEffect(() => {
-    // console.log('PropertyDetailView - tags from backend:', propertyData.tags);
-  }, [propertyData.tags]);
+    const fetchMastersForFilters = async () => {
+      if (!propertyData?.id) return;
+      
+      setLoadingMasters(true);
+      try {
+        const res = await consumeMasters({ tab: "Properties" });
+        if (res?.success && res.data) {
+          const floors: MasterValue[] = [];
+          const sharingTypes: MasterValue[] = [];
+          
+          res.data.forEach((item: any) => {
+            if (item.type_name === "Floors") {
+              floors.push({
+                id: item.value_id,
+                name: item.value_name,
+                isactive: 1
+              });
+            } else if (item.type_name === "Sharing Type") {
+              sharingTypes.push({
+                id: item.value_id,
+                name: item.value_name,
+                isactive: 1
+              });
+            }
+          });
+          
+          setFloorsMasters(floors);
+          setSharingTypesMasters(sharingTypes);
+        }
+      } catch (error) {
+        console.error("Error fetching masters for filters:", error);
+      } finally {
+        setLoadingMasters(false);
+      }
+    };
 
-  // Load analytics and increment view count
+    fetchMastersForFilters();
+  }, [propertyData?.id]);
+
+  // Load analytics
   useEffect(() => {
     if (!propertyData?.id || analyticsLoaded) return;
 
@@ -401,19 +398,15 @@ const PropertyDetailView = memo(function PropertyDetailView({
       try {
         const propertyId = propertyData.id;
 
-        // Check if already viewed in this session (optional)
         const viewedKey = `property_${propertyId}_viewed`;
         const hasViewed = sessionStorage.getItem(viewedKey);
 
-        // Always increment view on page load (backend handles duplicate prevention)
         const viewResult = await incrementPropertyView(propertyId);
         if (viewResult.success) {
           setViewCount(viewResult.data.totalViews);
-          // Mark as viewed in this session
           sessionStorage.setItem(viewedKey, "true");
         }
 
-        // Get full analytics (includes shortlist status and counts)
         const analyticsResult = await getPropertyAnalytics(propertyId);
         if (analyticsResult.success) {
           setViewCount(analyticsResult.data.totalViews);
@@ -424,7 +417,6 @@ const PropertyDetailView = memo(function PropertyDetailView({
         setAnalyticsLoaded(true);
       } catch (error) {
         console.error("Error loading analytics:", error);
-        // Fallback to propertyData values
         setViewCount(propertyData.activity?.totalViews || 0);
         setShortlistCount(propertyData.activity?.shortlistedBy || 0);
       }
@@ -433,13 +425,11 @@ const PropertyDetailView = memo(function PropertyDetailView({
     loadAnalytics();
   }, [propertyData?.id, analyticsLoaded]);
 
-  // Handle shortlist button click
   const handleShortlistClick = async () => {
     if (isLoadingShortlist || !propertyData?.id) return;
 
     setIsLoadingShortlist(true);
 
-    // Optimistic update
     const wasShortlisted = isShortlisted;
     const previousCount = shortlistCount;
 
@@ -450,27 +440,14 @@ const PropertyDetailView = memo(function PropertyDetailView({
       const result = await togglePropertyShortlist(propertyData.id);
 
       if (result.success) {
-        // Update with actual server values
         setIsShortlisted(result.data.isShortlisted);
         setShortlistCount(result.data.totalShortlists);
-
-        // // Show feedback (optional)
-        // if (result.data.isShortlisted) {
-        //   // You could show a toast notification here
-        //   console.log('Added to shortlist');
-        // } else {
-        //   console.log('Removed from shortlist');
-        // }
       } else {
-        // Revert on error
         setIsShortlisted(wasShortlisted);
         setShortlistCount(previousCount);
-
-        // Show error message (optional)
         alert("Failed to update shortlist. Please try again.");
       }
     } catch (error) {
-      // Revert on error
       setIsShortlisted(wasShortlisted);
       setShortlistCount(previousCount);
       console.error("Error toggling shortlist:", error);
@@ -482,13 +459,12 @@ const PropertyDetailView = memo(function PropertyDetailView({
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });
-  }, []); // runs once when component mounts
-  // Keep the existing handleShare as-is:
+  }, []);
+
   const handleShare = useCallback(() => {
     setIsShareModalOpen(true);
   }, []);
 
-  // Add getShareUrl INSIDE the component:
   const getShareUrl = useCallback(() => {
     if (!isClient || !propertyData?.id) return "";
     const seoSlug = generatePropertySlug({
@@ -501,7 +477,6 @@ const PropertyDetailView = memo(function PropertyDetailView({
     return `${window.location.origin}/properties/${seoSlug}?tf=${trackingId}`;
   }, [propertyData, isClient]);
 
-  // Replace the existing copyShareLink with this:
   const copyShareLink = useCallback(() => {
     if (isClient) {
       const url = getShareUrl() || window.location.href;
@@ -519,8 +494,7 @@ const PropertyDetailView = memo(function PropertyDetailView({
   const prevImage = useCallback(() => {
     if (!propertyData?.images?.length) return;
     setCurrentImageIndex(
-      (prev) =>
-        (prev - 1 + propertyData.images.length) % propertyData.images.length,
+      (prev) => (prev - 1 + propertyData.images.length) % propertyData.images.length,
     );
   }, [propertyData?.images]);
 
@@ -533,24 +507,116 @@ const PropertyDetailView = memo(function PropertyDetailView({
     return () => clearInterval(interval);
   }, [propertyData?.images, nextImage]);
 
+  // CRITICAL FUNCTION: Get minimum tenant rent from bed_assignments
+// In PropertyDetailView.tsx - update getMinTenantRent function
+
+const getMinTenantRent = (room: any): number => {
+  // console.log(`🔍 Getting min rent for room:`, room.id, room.name || room.roomNumber);
+  
+  // Method 1: Check bed_assignments array (from API)
+  if (room.bed_assignments && Array.isArray(room.bed_assignments) && room.bed_assignments.length > 0) {
+    // console.log(`✅ Room has bed_assignments:`, room.bed_assignments);
+    
+    const rents = room.bed_assignments
+      .map((bed: any) => {
+        // tenant_rent is the field from bed_assignments table
+        let rent = null;
+        
+        if (bed.tenant_rent) {
+          rent = parseFloat(bed.tenant_rent);
+          console.log(`  Bed ${bed.bed_number}: tenant_rent = ${rent}`);
+        }
+        
+        return rent && !isNaN(rent) && rent > 0 ? rent : null;
+      })
+      .filter((rent: number | null) => rent !== null);
+    
+    // console.log(`  Extracted rents:`, rents);
+    
+    if (rents.length > 0) {
+      const minRent = Math.min(...rents);
+      // console.log(`  ✅ Minimum rent from bed_assignments: ₹${minRent}`);
+      return minRent;
+    }
+  }
+  
+  // Method 2: Check beds array (alternative format)
+  if (room.beds && Array.isArray(room.beds) && room.beds.length > 0) {
+    // console.log(`✅ Room has beds array:`, room.beds);
+    
+    const rents = room.beds
+      .map((bed: any) => {
+        let rent = null;
+        
+        if (bed.bed_rent) {
+          rent = parseFloat(bed.bed_rent);
+        } else if (bed.tenant_rent) {
+          rent = parseFloat(bed.tenant_rent);
+        }
+        
+        return rent && !isNaN(rent) && rent > 0 ? rent : null;
+      })
+      .filter((rent: number | null) => rent !== null);
+    
+    if (rents.length > 0) {
+      const minRent = Math.min(...rents);
+      // console.log(`  ✅ Minimum rent from beds array: ₹${minRent}`);
+      return minRent;
+    }
+  }
+  
+  // Method 3: Use room.price (fallback)
+  if (room.price) {
+    const price = parseFloat(room.price);
+    if (!isNaN(price) && price > 0) {
+      // console.log(`  ⚠️ Falling back to room.price: ₹${price}`);
+      return price;
+    }
+  }
+  
+  // Method 4: Use room.rent_per_bed (fallback)
+  if (room.rent_per_bed) {
+    const rent = parseFloat(room.rent_per_bed);
+    if (!isNaN(rent) && rent > 0) {
+      // console.log(`  ⚠️ Falling back to room.rent_per_bed: ₹${rent}`);
+      return rent;
+    }
+  }
+  
+  // Method 5: Default fallback
+  // console.log(`  ❌ No rent found, using default 5000`);
+  return 5000;
+};
+
   const filteredRooms = useMemo(() => {
     if (!propertyData?.rooms) return [];
 
+    // console.log("🎯 Filtering rooms with", propertyData.rooms.length, "rooms");
+    
     return propertyData.rooms.filter((room: any) => {
-      // Floor filter
-      if (selectedFloor !== "all" && room.floor !== Number(selectedFloor))
-        return false;
+      // Debug each room's bed rents
+      // console.log(`🎯 Room ${room.id}:`, {
+      //   name: room.name || room.roomNumber,
+      //   bed_assignments: room.bed_assignments?.map((b: any) => ({
+      //     bed: b.bed_number,
+      //     rent: b.tenant_rent
+      //   }))
+      // });
+
+      // Floor filter using masters
+      if (selectedFloor !== "all") {
+        const floorMatch = floorsMasters.find(f => f.name === selectedFloor);
+        if (floorMatch && room.floor !== floorMatch.name) return false;
+      }
 
       // Gender filter
       if (selectedGender !== "all") {
         const roomPrefers = room.room_gender_preference || [];
-
         if (roomPrefers.length === 0) return true;
 
         const normalizedGender = selectedGender.toLowerCase();
         const isAllowed = roomPrefers.some((pref: string) => {
           const normalizedPref = pref.toLowerCase();
-
           if (normalizedPref === "male_only" || normalizedPref === "male") {
             return normalizedGender === "male";
           }
@@ -560,11 +626,7 @@ const PropertyDetailView = memo(function PropertyDetailView({
           if (normalizedPref === "couples") {
             return true;
           }
-          if (
-            normalizedPref === "both" ||
-            normalizedPref === "any" ||
-            normalizedPref === "mixed"
-          ) {
+          if (normalizedPref === "both" || normalizedPref === "any" || normalizedPref === "mixed") {
             return true;
           }
           return false;
@@ -573,33 +635,28 @@ const PropertyDetailView = memo(function PropertyDetailView({
         if (!isAllowed) return false;
       }
 
-      // Sharing type filter
-      if (
-        selectedSharing !== "all" &&
-        room.sharingType !== Number(selectedSharing)
-      )
-        return false;
+      // Sharing type filter using masters
+      if (selectedSharing !== "all") {
+        const sharingMatch = sharingTypesMasters.find(s => s.name.toLowerCase() === selectedSharing.toLowerCase());
+        if (sharingMatch && room.sharingType?.toLowerCase() !== sharingMatch.name.toLowerCase()) return false;
+      }
 
-      // Price range filter
-      if (priceRange === "low" && room.price > 5000) return false;
-      if (priceRange === "mid" && (room.price <= 5000 || room.price > 7000))
-        return false;
-      if (priceRange === "high" && room.price <= 7000) return false;
+      // Price range filter using min tenant rent
+      const minRent = getMinTenantRent(room);
+      // console.log(`🎯 Room ${room.id} min rent:`, minRent);
+      
+      if (priceRange === "low" && minRent > 5000) return false;
+      if (priceRange === "mid" && (minRent <= 5000 || minRent > 7000)) return false;
+      if (priceRange === "high" && minRent <= 7000) return false;
 
       // Amenities filter
       if (selectedAmenities.ac && !room.ac) return false;
       if (selectedAmenities.wifi && !room.wifi) return false;
 
       // Availability filter
-      if (availabilityFilter === "available" && room.status === "occupied")
-        return false;
-      if (availabilityFilter === "occupied" && room.status !== "occupied")
-        return false;
-      if (
-        availabilityFilter === "partially" &&
-        room.status !== "partially-available"
-      )
-        return false;
+      if (availabilityFilter === "available" && room.status === "occupied") return false;
+      if (availabilityFilter === "occupied" && room.status !== "occupied") return false;
+      if (availabilityFilter === "partially" && room.status !== "partially-available") return false;
 
       return true;
     });
@@ -611,6 +668,8 @@ const PropertyDetailView = memo(function PropertyDetailView({
     priceRange,
     selectedAmenities,
     availabilityFilter,
+    floorsMasters,
+    sharingTypesMasters,
   ]);
 
   const roomTypeSummary = useMemo(() => {
@@ -622,24 +681,13 @@ const PropertyDetailView = memo(function PropertyDetailView({
       const sharingType = parseInt(room.sharingType?.toString()) || 2;
       const availableCount = parseInt(room.available) || 0;
 
-      const genderLabel = formatGenderPreference(
-        room.room_gender_preference || [],
-      );
+      const genderLabel = formatGenderPreference(room.room_gender_preference || []);
 
-      const availableNow =
-        room.status === "available" || room.status === "partially-available"
-          ? availableCount
-          : 0;
+      const availableNow = room.status === "available" || room.status === "partially-available"
+        ? availableCount
+        : 0;
 
-      const price =
-        parseInt(room.price) ||
-        (sharingType === 1
-          ? 7000
-          : sharingType === 2
-            ? 5000
-            : sharingType === 3
-              ? 4000
-              : 3500);
+      const minRent = getMinTenantRent(room);
 
       const hasAC = room.ac === true || room.ac === "true";
       const hasWiFi = room.wifi === true || room.wifi === "true";
@@ -647,7 +695,7 @@ const PropertyDetailView = memo(function PropertyDetailView({
       return {
         id: room.id,
         sharingType: sharingType,
-        price: price,
+        price: minRent,
         totalAvailable: availableCount,
         availableNow: availableNow,
         totalRooms: 1,
@@ -718,24 +766,12 @@ const PropertyDetailView = memo(function PropertyDetailView({
     });
   }, []);
 
-  // Add this near the top of your PropertyDetailView component, after getting propertyData
-  useEffect(() => {
-    console.log("PropertyDetailView - terms data:", {
-      termsAndConditions: propertyData?.termsAndConditions,
-      customTerms: propertyData?.customTerms,
-      propertyRules: propertyData?.propertyRules,
-      additionalTerms: propertyData?.additionalTerms,
-    });
-  }, [propertyData]);
-
   useEffect(() => {
     if (!isLightboxOpen) return;
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === "ArrowLeft")
         setLightboxIndex(
-          (prev) =>
-            (prev - 1 + (propertyData.images?.length || 1)) %
-            (propertyData.images?.length || 1),
+          (prev) => (prev - 1 + (propertyData.images?.length || 1)) % (propertyData.images?.length || 1),
         );
       if (e.key === "ArrowRight")
         setLightboxIndex(
@@ -760,7 +796,6 @@ const PropertyDetailView = memo(function PropertyDetailView({
     );
   }
 
-  // Add this function inside your PropertyDetailView component
   const getTagColor = (tag: string) => {
     const t = tag.toLowerCase();
     if (t.includes("male") || t.includes("boys") || t.includes("men"))
@@ -841,18 +876,12 @@ const PropertyDetailView = memo(function PropertyDetailView({
                   className="flex flex-col items-center gap-1 p-2 hover:bg-gray-50 rounded-lg transition-all group"
                 >
                   <div className="w-10 h-10 bg-[#25D366]/10 rounded-lg flex items-center justify-center group-hover:scale-105 transition-transform">
-                    <svg
-                      className="w-8 h-8 text-[#25D366]"
-                      fill="currentColor"
-                      viewBox="0 0 24 24"
-                    >
+                    <svg className="w-8 h-8 text-[#25D366]" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 2.08.57 4.03 1.56 5.71L2.2 21.44l3.96-1.31c1.63.89 3.49 1.4 5.47 1.4 5.46 0 9.91-4.45 9.91-9.91S17.5 2 12.04 2zm.01 18.05c-1.7 0-3.36-.46-4.8-1.32l-.34-.2-2.55.84.85-2.48-.22-.35c-.86-1.44-1.32-3.1-1.32-4.8 0-4.63 3.77-8.4 8.4-8.4s8.4 3.77 8.4 8.4-3.77 8.4-8.4 8.4z" />
                       <path d="M16.23 13.44c-.23-.12-1.36-.67-1.57-.75-.21-.08-.37-.12-.52.12s-.6.75-.73.9c-.13.15-.27.17-.5.06-.23-.12-.97-.36-1.85-1.14-.68-.61-1.14-1.36-1.28-1.59-.13-.23-.01-.35.1-.46.1-.1.23-.27.34-.4.11-.14.15-.23.22-.38.07-.15.04-.29-.02-.4-.06-.12-.52-1.25-.71-1.71-.19-.46-.38-.38-.52-.39h-.44c-.15 0-.39.06-.6.28-.21.22-.8.78-.8 1.91s.82 2.22.94 2.37c.12.15 1.62 2.48 3.93 3.47.55.24.98.38 1.31.48.55.17 1.05.14 1.45.08.44-.06 1.36-.56 1.55-1.1.19-.54.19-1 .13-1.1-.06-.1-.23-.16-.47-.28z" />
                     </svg>
                   </div>
-                  <span className="text-[10px] font-medium text-gray-600">
-                    WhatsApp
-                  </span>
+                  <span className="text-[10px] font-medium text-gray-600">WhatsApp</span>
                 </a>
 
                 {/* Facebook */}
@@ -863,17 +892,11 @@ const PropertyDetailView = memo(function PropertyDetailView({
                   className="flex flex-col items-center gap-1 p-2 hover:bg-gray-50 rounded-lg transition-all group"
                 >
                   <div className="w-10 h-10 bg-[#4267B2]/10 rounded-lg flex items-center justify-center group-hover:scale-105 transition-transform">
-                    <svg
-                      className="w-8 h-8 text-[#4267B2]"
-                      fill="currentColor"
-                      viewBox="0 0 24 24"
-                    >
+                    <svg className="w-8 h-8 text-[#4267B2]" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M22 12c0-5.52-4.48-10-10-10S2 6.48 2 12c0 4.84 3.44 8.87 8 9.8V15H8v-3h2V9.5C10 7.57 11.57 6 13.5 6H16v3h-2c-.55 0-1 .45-1 1v2h3v3h-3v6.95c5.05-.5 9-4.76 9-9.95z" />
                     </svg>
                   </div>
-                  <span className="text-[10px] font-medium text-gray-600">
-                    Facebook
-                  </span>
+                  <span className="text-[10px] font-medium text-gray-600">Facebook</span>
                 </a>
 
                 {/* Twitter */}
@@ -884,17 +907,11 @@ const PropertyDetailView = memo(function PropertyDetailView({
                   className="flex flex-col items-center gap-1 p-2 hover:bg-gray-50 rounded-lg transition-all group"
                 >
                   <div className="w-10 h-10 bg-black/10 rounded-lg flex items-center justify-center group-hover:scale-105 transition-transform">
-                    <svg
-                      className="w-4 h-4 text-black"
-                      fill="currentColor"
-                      viewBox="0 0 24 24"
-                    >
+                    <svg className="w-4 h-4 text-black" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
                     </svg>
                   </div>
-                  <span className="text-[10px] font-medium text-gray-600">
-                    X
-                  </span>
+                  <span className="text-[10px] font-medium text-gray-600">X</span>
                 </a>
 
                 {/* LinkedIn */}
@@ -905,17 +922,11 @@ const PropertyDetailView = memo(function PropertyDetailView({
                   className="flex flex-col items-center gap-1 p-2 hover:bg-gray-50 rounded-lg transition-all group"
                 >
                   <div className="w-10 h-10 bg-[#0A66C2]/10 rounded-lg flex items-center justify-center group-hover:scale-105 transition-transform">
-                    <svg
-                      className="w-8 h-8 text-[#0A66C2]"
-                      fill="currentColor"
-                      viewBox="0 0 24 24"
-                    >
+                    <svg className="w-8 h-8 text-[#0A66C2]" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451c.979 0 1.771-.773 1.771-1.729V1.729C24 .774 23.204 0 22.225 0z" />
                     </svg>
                   </div>
-                  <span className="text-[10px] font-medium text-gray-600">
-                    LinkedIn
-                  </span>
+                  <span className="text-[10px] font-medium text-gray-600">LinkedIn</span>
                 </a>
 
                 {/* Telegram */}
@@ -926,17 +937,11 @@ const PropertyDetailView = memo(function PropertyDetailView({
                   className="flex flex-col items-center gap-1 p-2 hover:bg-gray-50 rounded-lg transition-all group"
                 >
                   <div className="w-10 h-10 bg-[#26A5E4]/10 rounded-lg flex items-center justify-center group-hover:scale-105 transition-transform">
-                    <svg
-                      className="w-8 h-8 text-[#26A5E4]"
-                      fill="currentColor"
-                      viewBox="0 0 24 24"
-                    >
+                    <svg className="w-8 h-8 text-[#26A5E4]" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69.01-.04.01-.14-.06-.2s-.17-.04-.24-.02c-.1.02-1.77 1.13-4.99 3.3-.47.32-.9.48-1.28.47-.42-.01-1.23-.24-1.83-.44-.74-.24-1.32-.37-1.27-.78.03-.22.32-.44.9-.67 3.6-1.57 6.01-2.6 7.22-3.1 3.44-1.42 4.16-1.66 4.63-1.66.1 0 .33.02.48.13.13.09.16.21.17.29-.01.09.02.3 0 .46z" />
                     </svg>
                   </div>
-                  <span className="text-[10px] font-medium text-gray-600">
-                    Telegram
-                  </span>
+                  <span className="text-[10px] font-medium text-gray-600">Telegram</span>
                 </a>
 
                 {/* Email */}
@@ -947,17 +952,11 @@ const PropertyDetailView = memo(function PropertyDetailView({
                   className="flex flex-col items-center gap-1 p-2 hover:bg-gray-50 rounded-lg transition-all group"
                 >
                   <div className="w-10 h-10 bg-[#EA4335]/10 rounded-lg flex items-center justify-center group-hover:scale-105 transition-transform">
-                    <svg
-                      className="w-8 h-8 text-[#EA4335]"
-                      fill="currentColor"
-                      viewBox="0 0 24 24"
-                    >
+                    <svg className="w-8 h-8 text-[#EA4335]" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z" />
                     </svg>
                   </div>
-                  <span className="text-[10px] font-medium text-gray-600">
-                    Email
-                  </span>
+                  <span className="text-[10px] font-medium text-gray-600">Email</span>
                 </a>
 
                 {/* Copy Link */}
@@ -968,9 +967,7 @@ const PropertyDetailView = memo(function PropertyDetailView({
                   <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center group-hover:scale-105 transition-transform">
                     <Link2 className="w-8 h-8 text-gray-600" />
                   </div>
-                  <span className="text-[10px] font-medium text-gray-600">
-                    Copy
-                  </span>
+                  <span className="text-[10px] font-medium text-gray-600">Copy</span>
                 </button>
               </div>
 
@@ -1010,19 +1007,16 @@ const PropertyDetailView = memo(function PropertyDetailView({
                     {propertyData.name}
                   </h1>
 
-                  {/* Display ONLY tags from backend - NO static/featured tags */}
                   {propertyData.tags && propertyData.tags.length > 0 ? (
                     <div className="flex flex-wrap gap-1 ml-2">
-                      {propertyData.tags
-                        .slice(0, 3)
-                        .map((tag: string, index: number) => (
-                          <span
-                            key={index}
-                            className={`px-1.5 md:px-2 py-0.5 md:py-1 rounded-full text-[10px] md:text-xs font-bold whitespace-nowrap ${getTagColor(tag)}`}
-                          >
-                            {tag}
-                          </span>
-                        ))}
+                      {propertyData.tags.slice(0, 3).map((tag: string, index: number) => (
+                        <span
+                          key={index}
+                          className={`px-1.5 md:px-2 py-0.5 md:py-1 rounded-full text-[10px] md:text-xs font-bold whitespace-nowrap ${getTagColor(tag)}`}
+                        >
+                          {tag}
+                        </span>
+                      ))}
                       {propertyData.tags.length > 3 && (
                         <span className="px-1.5 md:px-2 py-0.5 md:py-1 bg-gray-200 text-gray-700 rounded-full text-[10px] md:text-xs font-bold">
                           +{propertyData.tags.length - 3}
@@ -1035,9 +1029,7 @@ const PropertyDetailView = memo(function PropertyDetailView({
                 <div className="flex items-center gap-1 md:gap-2 text-gray-600 mb-1">
                   <MapPin className="w-3 h-3 md:w-4 md:h-4 text-blue-600 flex-shrink-0" />
                   <span className="font-semibold text-xs md:text-sm truncate">
-                    {propertyData.location ||
-                      propertyData.area ||
-                      "Location not specified"}
+                    {propertyData.location || propertyData.area || "Location not specified"}
                   </span>
                 </div>
 
@@ -1099,14 +1091,10 @@ const PropertyDetailView = memo(function PropertyDetailView({
           {/* Main Content */}
           <div className="space-y-4 lg:space-y-6">
             {/* Image Gallery */}
-            {/* Image Gallery */}
             <div className="relative group">
               <div className="relative w-full h-[250px] md:h-[400px] lg:h-[500px] xl:h-[600px] rounded-xl md:rounded-2xl lg:rounded-3xl overflow-hidden shadow-xl md:shadow-2xl">
                 <img
-                  src={
-                    propertyData.images?.[currentImageIndex] ||
-                    "/placeholder-property.jpg"
-                  }
+                  src={propertyData.images?.[currentImageIndex] || "/placeholder-property.jpg"}
                   alt="Property"
                   className="w-full h-full object-cover transition-all duration-700 group-hover:scale-105"
                 />
@@ -1127,31 +1115,21 @@ const PropertyDetailView = memo(function PropertyDetailView({
                     className={`glass-dark px-2 py-1.5 md:px-4 md:py-3 rounded-lg md:rounded-xl backdrop-blur-md flex items-center gap-1 md:gap-2 shadow-lg transition-all transform hover:scale-105 ${
                       isShortlisted ? "bg-rose-500/20" : ""
                     } ${isLoadingShortlist ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
-                    title={
-                      isShortlisted
-                        ? "Remove from shortlist"
-                        : "Add to shortlist"
-                    }
+                    title={isShortlisted ? "Remove from shortlist" : "Add to shortlist"}
                   >
                     <Heart
                       className={`w-3 h-3 md:w-5 md:h-5 transition-all ${
-                        isShortlisted
-                          ? "text-rose-500 fill-rose-500 animate-pulse"
-                          : "text-rose-400 hover:text-rose-500"
+                        isShortlisted ? "text-rose-500 fill-rose-500 animate-pulse" : "text-rose-400 hover:text-rose-500"
                       }`}
                     />
                     <span className="font-black text-xs md:text-base text-white">
                       {shortlistCount.toLocaleString()}
                     </span>
-                    
                   </button>
-                  <span
-            className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[14px] font-bold uppercase tracking-wider shadow-sm
-              text-white "
-          >
-            <span className={`w-1.5 h-1.5 rounded-full `} />
-            {"RMCX-"+propertyData.id }
-          </span>
+                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[14px] font-bold uppercase tracking-wider shadow-sm text-white">
+                    <span className="w-1.5 h-1.5 rounded-full" />
+                    {"RMCX-" + propertyData.id}
+                  </span>
                 </div>
 
                 {/* View All button - top right */}
@@ -1184,88 +1162,67 @@ const PropertyDetailView = memo(function PropertyDetailView({
                   {currentImageIndex + 1} / {propertyData.images?.length || 0}
                 </div>
               </div>
-
-              {/* Thumbnail strip
-  {propertyData.images?.length > 1 && (
-    <div className="flex gap-1.5 md:gap-2 mt-2 md:mt-3 overflow-x-auto pb-1 scrollbar-hide">
-      {propertyData.images.map((img: string, idx: number) => (
-        <button
-          key={idx}
-          onClick={() => setCurrentImageIndex(idx)}
-          className={`flex-shrink-0 w-14 h-10 md:w-20 md:h-14 rounded-md md:rounded-lg overflow-hidden border-2 transition-all ${
-            idx === currentImageIndex ? 'border-blue-500 scale-105' : 'border-transparent opacity-60 hover:opacity-90'
-          }`}
-        >
-          <img src={img} alt={`thumb-${idx}`} className="w-full h-full object-cover" />
-        </button>
-      ))}
-    </div>
-  )} */}
             </div>
 
             {/* Description Card */}
-<div className="bg-white rounded-lg md:rounded-xl overflow-hidden shadow-md mt-0">
-  <div className="bg-gradient-to-r from-blue-600 to-cyan-600 px-3 py-2 flex items-center gap-2">
-    <div className="w-6 h-6 bg-white/20 rounded-md flex items-center justify-center">
-      <FileText className="w-3.5 h-3.5 text-white" />
-    </div>
-    <h2 className="text-xs md:text-sm font-semibold text-white">
-      About This Property
-    </h2>
-  </div>
-
-  <div className="p-3 space-y-3">
-    <div className="bg-blue-50 rounded-md p-2 border border-blue-100">
-      <p className="text-gray-700 text-xs leading-relaxed">
-        {propertyData.description || "No description available"}
-      </p>
-    </div>
-
-    {/* Services in 3x3 Grid - Increased Size */}
-    {propertyData.highlights && propertyData.highlights.length > 0 && (
-      <div>
-        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-          SERVICES & AMENITIES
-        </h3>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          {propertyData.highlights.map((highlight: string, i: number) => {
-            // Get icon based on service type
-            const getServiceIcon = (text: string) => {
-              const lower = text.toLowerCase();
-              
-              // Your specific services
-              if (lower.includes('food')) return <Utensils className="w-4 h-4 text-orange-600" />;
-              if (lower.includes('cleaning') || lower.includes('housekeeping')) return <Sparkles className="w-4 h-4 text-blue-600" />;
-              if (lower.includes('laundry')) return <Droplets className="w-4 h-4 text-indigo-600" />;
-              if (lower.includes('maintenance')) return <Wrench className="w-4 h-4 text-amber-600" />;
-              if (lower.includes('medical')) return <Stethoscope className="w-4 h-4 text-red-600" />;
-              if (lower.includes('transportation')) return <Bus className="w-4 h-4 text-green-600" />;
-              if (lower.includes('package') || lower.includes('handling')) return <Package className="w-4 h-4 text-purple-600" />;
-              if (lower.includes('concierge')) return <Headset className="w-4 h-4 text-teal-600" />;
-              
-              // Default fallback
-              return <CheckCircle2 className="w-4 h-4 text-blue-600" />;
-            };
-
-            return (
-              <div
-                key={i}
-                className="flex items-center gap-2 bg-gray-50/80 px-2 py-1.5 rounded border border-gray-100 hover:border-blue-200 hover:bg-gray-100/50 transition-all"
-              >
-                <div className="w-6 h-6 bg-white rounded-full flex items-center justify-center shadow-sm">
-                  {getServiceIcon(highlight)}
+            <div className="bg-white rounded-lg md:rounded-xl overflow-hidden shadow-md mt-0">
+              <div className="bg-gradient-to-r from-blue-600 to-cyan-600 px-3 py-2 flex items-center gap-2">
+                <div className="w-6 h-6 bg-white/20 rounded-md flex items-center justify-center">
+                  <FileText className="w-3.5 h-3.5 text-white" />
                 </div>
-                <span className="text-xs font-medium text-gray-700 truncate">
-                  {highlight}
-                </span>
+                <h2 className="text-xs md:text-sm font-semibold text-white">
+                  About This Property
+                </h2>
               </div>
-            );
-          })}
-        </div>
-      </div>
-    )}
-  </div>
-</div>
+
+              <div className="p-3 space-y-3">
+                <div className="bg-blue-50 rounded-md p-2 border border-blue-100">
+                  <p className="text-gray-700 text-xs leading-relaxed">
+                    {propertyData.description || "No description available"}
+                  </p>
+                </div>
+
+                {propertyData.highlights && propertyData.highlights.length > 0 && (
+                  <div>
+                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                      SERVICES & AMENITIES
+                    </h3>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {propertyData.highlights.map((highlight: string, i: number) => {
+                        const getServiceIcon = (text: string) => {
+                          const lower = text.toLowerCase();
+                          
+                          if (lower.includes('food')) return <Utensils className="w-4 h-4 text-orange-600" />;
+                          if (lower.includes('cleaning') || lower.includes('housekeeping')) return <Sparkles className="w-4 h-4 text-blue-600" />;
+                          if (lower.includes('laundry')) return <Droplets className="w-4 h-4 text-indigo-600" />;
+                          if (lower.includes('maintenance')) return <Wrench className="w-4 h-4 text-amber-600" />;
+                          if (lower.includes('medical')) return <Stethoscope className="w-4 h-4 text-red-600" />;
+                          if (lower.includes('transportation')) return <Bus className="w-4 h-4 text-green-600" />;
+                          if (lower.includes('package') || lower.includes('handling')) return <Package className="w-4 h-4 text-purple-600" />;
+                          if (lower.includes('concierge')) return <Headset className="w-4 h-4 text-teal-600" />;
+                          
+                          return <CheckCircle2 className="w-4 h-4 text-blue-600" />;
+                        };
+
+                        return (
+                          <div
+                            key={i}
+                            className="flex items-center gap-2 bg-gray-50/80 px-2 py-1.5 rounded border border-gray-100 hover:border-blue-200 hover:bg-gray-100/50 transition-all"
+                          >
+                            <div className="w-6 h-6 bg-white rounded-full flex items-center justify-center shadow-sm">
+                              {getServiceIcon(highlight)}
+                            </div>
+                            <span className="text-xs font-medium text-gray-700 truncate">
+                              {highlight}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
 
             {/* Available Rooms */}
             <div className="bg-white rounded-xl md:rounded-2xl p-3 md:p-6 shadow-lg md:shadow-2xl">
@@ -1323,7 +1280,7 @@ const PropertyDetailView = memo(function PropertyDetailView({
                     <div
                       className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm px-3"
                       onClick={(e) => {
-                        if (e.target === e.currentTarget) setShowFilters(false); // close on outside click
+                        if (e.target === e.currentTarget) setShowFilters(false);
                       }}
                     >
                       <div className="w-full max-w-md md:max-w-2xl bg-white rounded-xl md:rounded-2xl shadow-2xl p-4 md:p-6 relative animate-fadeIn">
@@ -1357,13 +1314,19 @@ const PropertyDetailView = memo(function PropertyDetailView({
                             </label>
                             <select
                               value={selectedFloor}
-                              onChange={(e) => setSelectedFloor(e.target.value)} // auto-filters instantly
+                              onChange={(e) => setSelectedFloor(e.target.value)}
                               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                             >
                               <option value="all">All Floors</option>
-                              <option value="1">1st Floor</option>
-                              <option value="2">2nd Floor</option>
-                              <option value="3">3rd Floor</option>
+                              {loadingMasters ? (
+                                <option disabled>Loading floors...</option>
+                              ) : (
+                                floorsMasters.map((floor) => (
+                                  <option key={floor.id} value={floor.name}>
+                                    {floor.name}
+                                  </option>
+                                ))
+                              )}
                             </select>
                           </div>
 
@@ -1373,14 +1336,13 @@ const PropertyDetailView = memo(function PropertyDetailView({
                             </label>
                             <select
                               value={selectedGender}
-                              onChange={(e) =>
-                                setSelectedGender(e.target.value)
-                              }
+                              onChange={(e) => setSelectedGender(e.target.value)}
                               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                             >
                               <option value="all">All Genders</option>
                               <option value="male">Male Only</option>
                               <option value="female">Female Only</option>
+                              <option value="couples">Couples</option>
                             </select>
                           </div>
 
@@ -1390,16 +1352,19 @@ const PropertyDetailView = memo(function PropertyDetailView({
                             </label>
                             <select
                               value={selectedSharing}
-                              onChange={(e) =>
-                                setSelectedSharing(e.target.value)
-                              }
+                              onChange={(e) => setSelectedSharing(e.target.value)}
                               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                             >
                               <option value="all">All Types</option>
-                              <option value="1">1 Sharing</option>
-                              <option value="2">2 Sharing</option>
-                              <option value="3">3 Sharing</option>
-                              <option value="4">4 Sharing</option>
+                              {loadingMasters ? (
+                                <option disabled>Loading sharing types...</option>
+                              ) : (
+                                sharingTypesMasters.map((type) => (
+                                  <option key={type.id} value={type.name.toLowerCase()}>
+                                    {type.name}
+                                  </option>
+                                ))
+                              )}
                             </select>
                           </div>
 
@@ -1424,8 +1389,7 @@ const PropertyDetailView = memo(function PropertyDetailView({
                         <div className="mt-4 p-2 bg-blue-50 rounded-lg border border-blue-100">
                           <p className="text-xs text-blue-700 font-semibold text-center">
                             {filteredRooms.length} room
-                            {filteredRooms.length !== 1 ? "s" : ""} match your
-                            filters
+                            {filteredRooms.length !== 1 ? "s" : ""} match your filters
                           </p>
                         </div>
 
@@ -1449,20 +1413,17 @@ const PropertyDetailView = memo(function PropertyDetailView({
 
                   <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-2 md:gap-4 mb-3 md:mb-6">
                     {filteredRooms.slice(0, 4).map((room: any) => {
-                      const sharingType =
-                        parseInt(room.sharingType?.toString()) || 2;
-                      const availableNow =
-                        room.status === "available" ||
-                        room.status === "partially-available"
-                          ? parseInt(room.available) || 0
-                          : 0;
+                      const sharingType = parseInt(room.sharingType?.toString()) || 2;
+                      const availableNow = room.status === "available" || room.status === "partially-available"
+                        ? parseInt(room.available) || 0
+                        : 0;
                       const hasAC = room.ac === true || room.ac === "true";
-                      const hasWiFi =
-                        room.wifi === true || room.wifi === "true";
-                      const genderLabel = formatGenderPreference(
-                        room.room_gender_preference || [],
-                      );
-                      const price = parseInt(room.price) || 5000;
+                      const hasWiFi = room.wifi === true || room.wifi === "true";
+                      const genderLabel = formatGenderPreference(room.room_gender_preference || []);
+                      
+                      // CRITICAL: Get the minimum tenant rent for this room
+                      const minRent = getMinTenantRent(room);
+                      // console.log(`🏠 Room ${room.id} display rent:`, minRent);
 
                       return (
                         <div
@@ -1479,33 +1440,29 @@ const PropertyDetailView = memo(function PropertyDetailView({
                                 {sharingType} Sharing
                               </h3>
                               <p className="text-[10px] md:text-xs text-gray-500 font-semibold">
-                                Room{" "}
-                                {room.roomNumber ||
-                                  room.name ||
-                                  `Room ${room.id}`}
+                                Room {room.roomNumber || room.name || `Room ${room.id}`}
                               </p>
                             </div>
                           </div>
 
                           {/* Gender Preference Badge */}
-                          {room.room_gender_preference &&
-                            room.room_gender_preference.length > 0 && (
-                              <div className="mb-2">
-                                <span
-                                  className={`text-[9px] px-2 py-0.5 rounded-full ${
-                                    genderLabel.includes("Male")
-                                      ? "bg-blue-100 text-blue-700"
-                                      : genderLabel.includes("Female")
-                                        ? "bg-pink-100 text-pink-700"
-                                        : genderLabel.includes("Couples")
-                                          ? "bg-red-100 text-red-700"
-                                          : "bg-purple-100 text-purple-700"
-                                  }`}
-                                >
-                                  {genderLabel}
-                                </span>
-                              </div>
-                            )}
+                          {room.room_gender_preference && room.room_gender_preference.length > 0 && (
+                            <div className="mb-2">
+                              <span
+                                className={`text-[9px] px-2 py-0.5 rounded-full ${
+                                  genderLabel.includes("Male")
+                                    ? "bg-blue-100 text-blue-700"
+                                    : genderLabel.includes("Female")
+                                      ? "bg-pink-100 text-pink-700"
+                                      : genderLabel.includes("Couples")
+                                        ? "bg-red-100 text-red-700"
+                                        : "bg-purple-100 text-purple-700"
+                                }`}
+                              >
+                                {genderLabel}
+                              </span>
+                            </div>
+                          )}
 
                           <div className="space-y-1.5 md:space-y-2 mb-2 md:mb-4">
                             <div className="flex justify-between items-center">
@@ -1524,14 +1481,12 @@ const PropertyDetailView = memo(function PropertyDetailView({
                             <div className="flex items-center gap-1 md:gap-2">
                               {hasAC && (
                                 <span className="text-[10px] md:text-xs px-1.5 md:px-2 py-0.5 md:py-1 bg-blue-100 text-blue-700 rounded-full font-semibold flex items-center gap-0.5 md:gap-1">
-                                  <Wind className="w-2.5 h-2.5 md:w-3 md:h-3" />{" "}
-                                  AC
+                                  <Wind className="w-2.5 h-2.5 md:w-3 md:h-3" /> AC
                                 </span>
                               )}
                               {hasWiFi && (
                                 <span className="text-[10px] md:text-xs px-1.5 md:px-2 py-0.5 md:py-1 bg-purple-100 text-purple-700 rounded-full font-semibold flex items-center gap-0.5 md:gap-1">
-                                  <Wifi className="w-2.5 h-2.5 md:w-3 md:h-3" />{" "}
-                                  WiFi
+                                  <Wifi className="w-2.5 h-2.5 md:w-3 md:h-3" /> WiFi
                                 </span>
                               )}
                             </div>
@@ -1539,7 +1494,7 @@ const PropertyDetailView = memo(function PropertyDetailView({
 
                           <div className="pt-2 md:pt-4 border-t border-gray-200">
                             <p className="text-lg md:text-2xl font-black bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
-                              ₹{price.toLocaleString()}
+                              ₹{minRent.toLocaleString()}
                               <span className="text-xs md:text-sm text-gray-500 font-normal">
                                 /month
                               </span>
@@ -1554,108 +1509,100 @@ const PropertyDetailView = memo(function PropertyDetailView({
             </div>
 
             {/* Amenities - Dynamically Fetched */}
-<div className="bg-white rounded-xl md:rounded-2xl p-3 md:p-5 shadow-sm border border-gray-100 hover:shadow-md transition-shadow duration-300">
-  <h2 className="text-sm md:text-xl font-bold text-gray-800 mb-3 md:mb-5 flex items-center gap-1.5 md:gap-2">
-    <div className="p-1.5 md:p-2 bg-blue-50 rounded-lg">
-      <Sparkles className="w-3.5 h-3.5 md:w-5 md:h-5 text-blue-500" />
-    </div>
-    <span className="text-gray-800">Amenities & Facilities</span>
-  </h2>
+            <div className="bg-white rounded-xl md:rounded-2xl p-3 md:p-5 shadow-sm border border-gray-100 hover:shadow-md transition-shadow duration-300">
+              <h2 className="text-sm md:text-xl font-bold text-gray-800 mb-3 md:mb-5 flex items-center gap-1.5 md:gap-2">
+                <div className="p-1.5 md:p-2 bg-blue-50 rounded-lg">
+                  <Sparkles className="w-3.5 h-3.5 md:w-5 md:h-5 text-blue-500" />
+                </div>
+                <span className="text-gray-800">Amenities & Facilities</span>
+              </h2>
 
-  {/* Category Pills - Light Colors */}
-  <div className="flex gap-1 md:gap-1.5 mb-3 md:mb-5 overflow-x-auto pb-2 scrollbar-hide">
-    {allCategories.map((cat) => {
-      const isAll = cat === "all";
-      const isActive = selectedCategory === cat;
+              {/* Category Pills */}
+              <div className="flex gap-1 md:gap-1.5 mb-3 md:mb-5 overflow-x-auto pb-2 scrollbar-hide">
+                {allCategories.map((cat) => {
+                  const isAll = cat === "all";
+                  const isActive = selectedCategory === cat;
 
-      return (
-        <button
-          key={cat}
-          onClick={() => setSelectedCategory(cat)}
-          className={`px-3 md:px-4 py-1.5 md:py-2 rounded-full font-medium text-[10px] md:text-xs whitespace-nowrap capitalize transition-all duration-200 ${
-            isActive
-              ? isAll
-                ? "bg-blue-600 text-white"
-                : "bg-blue-600 text-white"
-              : "bg-gray-50 text-gray-600 hover:bg-gray-100"
-          }`}
-        >
-          {isAll ? "All" : cat}
-        </button>
-      );
-    })}
-  </div>
+                  return (
+                    <button
+                      key={cat}
+                      onClick={() => setSelectedCategory(cat)}
+                      className={`px-3 md:px-4 py-1.5 md:py-2 rounded-full font-medium text-[10px] md:text-xs whitespace-nowrap capitalize transition-all duration-200 ${
+                        isActive
+                          ? isAll
+                            ? "bg-blue-600 text-white"
+                            : "bg-blue-600 text-white"
+                          : "bg-gray-50 text-gray-600 hover:bg-gray-100"
+                      }`}
+                    >
+                      {isAll ? "All" : cat}
+                    </button>
+                  );
+                })}
+              </div>
 
-  {/* Amenities Grid with Light Colors */}
-  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 md:gap-3">
-    {filteredAmenities.map((amenity: any, i: number) => {
-      const IconComponent = (Icons as any)[amenity.icon] || Home;
-      
-      // Light pastel colors
-      const bgColors = [
-        "bg-blue-50 text-blue-600",
-        "bg-purple-50 text-purple-600",
-        "bg-green-50 text-green-600",
-        "bg-amber-50 text-amber-600",
-        "bg-pink-50 text-pink-600",
-        "bg-indigo-50 text-indigo-600",
-        "bg-cyan-50 text-cyan-600",
-        "bg-orange-50 text-orange-600",
-        "bg-teal-50 text-teal-600",
-        "bg-rose-50 text-rose-600",
-      ];
-      const bgColor = bgColors[i % bgColors.length];
-      
-      return (
-        <div
-          key={amenity.id || i}
-          className="group bg-white rounded-lg p-2 md:p-3 border border-gray-100 hover:border-gray-200 hover:bg-gray-50/50 transition-all duration-200"
-        >
-          <div className="flex flex-col items-center text-center gap-1.5 md:gap-2">
-            {/* Icon with Light Background */}
-            <div className={`w-10 h-10 md:w-12 md:h-12 ${bgColor} rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform duration-200`}>
-              <IconComponent className="w-5 h-5 md:w-6 md:h-6" />
+              {/* Amenities Grid */}
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 md:gap-3">
+                {filteredAmenities.map((amenity: any, i: number) => {
+                  const IconComponent = (Icons as any)[amenity.icon] || Home;
+                  
+                  const bgColors = [
+                    "bg-blue-50 text-blue-600",
+                    "bg-purple-50 text-purple-600",
+                    "bg-green-50 text-green-600",
+                    "bg-amber-50 text-amber-600",
+                    "bg-pink-50 text-pink-600",
+                    "bg-indigo-50 text-indigo-600",
+                    "bg-cyan-50 text-cyan-600",
+                    "bg-orange-50 text-orange-600",
+                    "bg-teal-50 text-teal-600",
+                    "bg-rose-50 text-rose-600",
+                  ];
+                  const bgColor = bgColors[i % bgColors.length];
+                  
+                  return (
+                    <div
+                      key={amenity.id || i}
+                      className="group bg-white rounded-lg p-2 md:p-3 border border-gray-100 hover:border-gray-200 hover:bg-gray-50/50 transition-all duration-200"
+                    >
+                      <div className="flex flex-col items-center text-center gap-1.5 md:gap-2">
+                        <div className={`w-10 h-10 md:w-12 md:h-12 ${bgColor} rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform duration-200`}>
+                          <IconComponent className="w-5 h-5 md:w-6 md:h-6" />
+                        </div>
+                        <h3 className="font-medium text-gray-700 text-[11px] md:text-xs leading-tight">
+                          {amenity.title}
+                        </h3>
+                        <p className="text-[8px] md:text-[10px] text-gray-400 leading-tight line-clamp-2">
+                          {amenity.description}
+                        </p>
+                        <span className="text-[7px] md:text-[9px] text-gray-500 bg-gray-50 px-2 py-0.5 rounded-full border border-gray-100">
+                          {amenity.category}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Empty State */}
+              {filteredAmenities.length === 0 && (
+                <div className="text-center py-8 md:py-10">
+                  <div className="w-16 h-16 md:w-20 md:h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <Home className="w-6 h-6 md:w-8 md:h-8 text-gray-300" />
+                  </div>
+                  <p className="text-gray-500 font-medium text-xs md:text-sm mb-1">
+                    {selectedCategory === "all"
+                      ? "No amenities available"
+                      : `No amenities in "${selectedCategory}"`}
+                  </p>
+                  <p className="text-gray-400 text-[10px] md:text-xs">
+                    {selectedCategory === "all"
+                      ? "This property hasn't added any amenities yet"
+                      : "Try selecting a different category"}
+                  </p>
+                </div>
+              )}
             </div>
-
-            {/* Title */}
-            <h3 className="font-medium text-gray-700 text-[11px] md:text-xs leading-tight">
-              {amenity.title}
-            </h3>
-
-            {/* Description */}
-            <p className="text-[8px] md:text-[10px] text-gray-400 leading-tight line-clamp-2">
-              {amenity.description}
-            </p>
-
-            {/* Category Badge - Very Light */}
-            <span className="text-[7px] md:text-[9px] text-gray-500 bg-gray-50 px-2 py-0.5 rounded-full border border-gray-100">
-              {amenity.category}
-            </span>
-          </div>
-        </div>
-      );
-    })}
-  </div>
-
-  {/* Empty State */}
-  {filteredAmenities.length === 0 && (
-    <div className="text-center py-8 md:py-10">
-      <div className="w-16 h-16 md:w-20 md:h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-3">
-        <Home className="w-6 h-6 md:w-8 md:h-8 text-gray-300" />
-      </div>
-      <p className="text-gray-500 font-medium text-xs md:text-sm mb-1">
-        {selectedCategory === "all"
-          ? "No amenities available"
-          : `No amenities in "${selectedCategory}"`}
-      </p>
-      <p className="text-gray-400 text-[10px] md:text-xs">
-        {selectedCategory === "all"
-          ? "This property hasn't added any amenities yet"
-          : "Try selecting a different category"}
-      </p>
-    </div>
-  )}
-</div>
 
             {/* Location & Nearby */}
             <div className="bg-white rounded-lg md:rounded-xl p-2 md:p-4 shadow-sm md:shadow-lg border border-gray-100 md:border-gray-200">
@@ -1676,7 +1623,6 @@ const PropertyDetailView = memo(function PropertyDetailView({
                         <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg flex items-center justify-center group-hover:scale-105 transition-transform">
                           <Icon className="w-4 h-4 md:w-5 md:h-5 text-blue-600" />
                         </div>
-
                         <div className="min-w-0 flex-1">
                           <p className="font-semibold text-gray-900 text-[10px] md:text-xs leading-tight truncate">
                             {place.name}
@@ -1690,8 +1636,6 @@ const PropertyDetailView = memo(function PropertyDetailView({
                   );
                 })}
               </div>
-
-
 
               {propertyData?.map_embed_url && (
                 <div className="relative w-full h-[150px] md:h-[200px] lg:h-[250px] rounded-lg md:rounded-xl overflow-hidden border border-gray-200 mb-2 md:mb-3">
@@ -1758,10 +1702,7 @@ const PropertyDetailView = memo(function PropertyDetailView({
                           </span>
                           <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
                           <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-blue-600 rounded-full"
-                              style={{ width: "70%" }}
-                            />
+                            <div className="h-full bg-blue-600 rounded-full" style={{ width: "70%" }} />
                           </div>
                         </div>
                       ))}
@@ -1841,8 +1782,6 @@ const PropertyDetailView = memo(function PropertyDetailView({
           {/* Sidebar */}
           <div className="lg:sticky lg:top-6 lg:self-start space-y-4">
             {/* Property Manager Card */}
-
-            {/* Property Manager Card */}
             <div className="bg-white rounded-xl md:rounded-2xl overflow-hidden shadow-lg md:shadow-2xl border border-blue-100 md:border-2">
               <div className="bg-gradient-to-r from-blue-600 to-cyan-600 px-3 md:px-4 py-2 md:py-3 flex items-center justify-between">
                 <div className="flex items-center gap-1.5 md:gap-2">
@@ -1863,14 +1802,10 @@ const PropertyDetailView = memo(function PropertyDetailView({
               <div className="p-3 md:p-4">
                 <div className="flex items-center gap-2 md:gap-3 mb-3 md:mb-4">
                   <img
-                    src={
-                      propertyData.manager?.avatar ||
-                      `https://ui-avatars.com/api/?name=${encodeURIComponent(propertyData.manager?.name || "Manager")}&background=3b82f6&color=fff&size=128`
-                    }
+                    src={propertyData.manager?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(propertyData.manager?.name || "Manager")}&background=3b82f6&color=fff&size=128`}
                     alt={propertyData.manager?.name || "Manager"}
                     className="w-14 h-14 md:w-20 md:h-20 rounded-lg md:rounded-xl object-cover ring-1 md:ring-2 ring-blue-200"
                     onError={(e) => {
-                      // Fallback to avatar with name initials if image fails to load
                       const target = e.target as HTMLImageElement;
                       const name = propertyData.manager?.name || "Manager";
                       target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=3b82f6&color=fff&size=128`;
@@ -1878,14 +1813,11 @@ const PropertyDetailView = memo(function PropertyDetailView({
                   />
                   <div>
                     <p className="font-black text-gray-900 text-sm md:text-lg">
-                      {propertyData.manager?.name ||
-                        propertyData.property_manager_name ||
-                        "Property Manager"}
+                      {propertyData.manager?.name || propertyData.property_manager_name || "Property Manager"}
                     </p>
                     <p className="text-[10px] md:text-xs text-gray-600 font-semibold flex items-center gap-0.5 md:gap-1">
                       <ShieldCheck className="w-2.5 h-2.5 md:w-3 md:h-3 text-green-600" />
-                      {propertyData.manager?.role_name ||
-                        "Manager"}
+                      {propertyData.manager?.role_name || "Manager"}
                     </p>
                   </div>
                 </div>
@@ -1896,18 +1828,14 @@ const PropertyDetailView = memo(function PropertyDetailView({
                     className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm text-gray-700 hover:text-blue-600"
                   >
                     <Phone className="w-3 h-3 md:w-4 md:h-4" />
-                    {propertyData.manager?.phone ||
-                      propertyData.property_manager_phone ||
-                      "Not available"}
+                    {propertyData.manager?.phone || propertyData.property_manager_phone || "Not available"}
                   </a>
                   <a
                     href={`mailto:${propertyData.manager?.email || propertyData.property_manager_email}`}
                     className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm text-gray-700 hover:text-blue-600"
                   >
                     <Mail className="w-3 h-3 md:w-4 md:h-4" />
-                    {propertyData.manager?.email ||
-                      propertyData.property_manager_email ||
-                      "Not available"}
+                    {propertyData.manager?.email || propertyData.property_manager_email || "Not available"}
                   </a>
                 </div>
 
@@ -1956,9 +1884,7 @@ const PropertyDetailView = memo(function PropertyDetailView({
                     >
                       {(offer.discount_value || offer.discount_percent) && (
                         <div className="absolute top-0 right-0 bg-gradient-to-r from-amber-400 to-orange-500 text-white px-1.5 md:px-2 py-0.5 md:py-1 rounded-bl-lg md:rounded-bl-xl font-bold text-[10px] md:text-xs">
-                          {offer.discount_percent
-                            ? `${offer.discount_percent}% OFF`
-                            : `₹${offer.discount_value} OFF`}
+                          {offer.discount_percent ? `${offer.discount_percent}% OFF` : `₹${offer.discount_value} OFF`}
                         </div>
                       )}
 
@@ -1981,9 +1907,7 @@ const PropertyDetailView = memo(function PropertyDetailView({
                           </p>
                           {offer.start_date && offer.end_date && (
                             <p className="text-[10px] md:text-xs text-gray-500 mt-0.5 md:mt-1">
-                              Valid:{" "}
-                              {new Date(offer.start_date).toLocaleDateString()}{" "}
-                              - {new Date(offer.end_date).toLocaleDateString()}
+                              Valid: {new Date(offer.start_date).toLocaleDateString()} - {new Date(offer.end_date).toLocaleDateString()}
                             </p>
                           )}
                         </div>
@@ -2047,10 +1971,7 @@ const PropertyDetailView = memo(function PropertyDetailView({
                     </div>
                     <ul className="space-y-1 md:space-y-2 mb-2 md:mb-5">
                       {plan.features?.map((feature: string, i: number) => (
-                        <li
-                          key={i}
-                          className="flex items-start gap-1.5 md:gap-2"
-                        >
+                        <li key={i} className="flex items-start gap-1.5 md:gap-2">
                           <Check className="w-3 h-3 md:w-4 md:h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
                           <span className="text-xs md:text-sm text-gray-700 font-semibold">
                             {feature}
@@ -2096,77 +2017,71 @@ const PropertyDetailView = memo(function PropertyDetailView({
             </div>
 
             {/* Terms & Conditions */}
-<div className="bg-white rounded-xl md:rounded-2xl p-3 md:p-5 shadow-lg md:shadow-2xl">
-  <h2 className="text-sm md:text-base font-black gradient-text mb-2 md:mb-3 flex items-center">
-    <FileCheck className="w-4 h-4 md:w-5 md:h-5 mr-1 md:mr-2" />Terms & Conditions
-  </h2>
-  <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1 md:pr-2">
+            <div className="bg-white rounded-xl md:rounded-2xl p-3 md:p-5 shadow-lg md:shadow-2xl">
+              <h2 className="text-sm md:text-base font-black gradient-text mb-2 md:mb-3 flex items-center">
+                <FileCheck className="w-4 h-4 md:w-5 md:h-5 mr-1 md:mr-2" />Terms & Conditions
+              </h2>
+              <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1 md:pr-2">
 
-    {/* General Terms - includes both template terms and custom terms */}
-    {((Array.isArray(propertyData.termsAndConditions) && propertyData.termsAndConditions.length > 0) ||
-      (Array.isArray(propertyData.customTerms) && propertyData.customTerms.length > 0)) && (
-      <div>
-        <p className="text-xs font-bold text-gray-500 uppercase mb-1.5">General Terms</p>
-        <div className="space-y-1.5">
-          {/* Template terms (numbered items from Lock-in, Notice, etc.) */}
-          {propertyData.termsAndConditions?.map((term: string, i: number) => (
-            <div key={`gen-${i}`} className="flex items-start gap-1.5 md:gap-2 p-2 md:p-3 bg-white/50 rounded md:rounded-lg border border-gray-200">
-              <div className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 flex-shrink-0" />
-              <p className="text-xs text-gray-700 font-medium leading-relaxed">{term}</p>
+                {((Array.isArray(propertyData.termsAndConditions) && propertyData.termsAndConditions.length > 0) ||
+                  (Array.isArray(propertyData.customTerms) && propertyData.customTerms.length > 0)) && (
+                  <div>
+                    <p className="text-xs font-bold text-gray-500 uppercase mb-1.5">General Terms</p>
+                    <div className="space-y-1.5">
+                      {propertyData.termsAndConditions?.map((term: string, i: number) => (
+                        <div key={`gen-${i}`} className="flex items-start gap-1.5 md:gap-2 p-2 md:p-3 bg-white/50 rounded md:rounded-lg border border-gray-200">
+                          <div className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 flex-shrink-0" />
+                          <p className="text-xs text-gray-700 font-medium leading-relaxed">{term}</p>
+                        </div>
+                      ))}
+                      
+                      {propertyData.customTerms?.map((term: string, i: number) => (
+                        <div key={`cust-${i}`} className="flex items-start gap-1.5 md:gap-2 p-2 md:p-3 bg-white/50 rounded md:rounded-lg border border-gray-200">
+                          <div className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 flex-shrink-0" />
+                          <p className="text-xs text-gray-700 font-medium leading-relaxed">{term}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {Array.isArray(propertyData.propertyRules) && propertyData.propertyRules.length > 0 && (
+                  <div>
+                    <p className="text-xs font-bold text-gray-500 uppercase mb-1.5">Property Rules</p>
+                    <div className="space-y-1.5">
+                      {propertyData.propertyRules.map((rule: string, i: number) => (
+                        <div key={i} className="flex items-start gap-1.5 md:gap-2 p-2 md:p-3 bg-amber-50/30 rounded md:rounded-lg border border-amber-200">
+                          <Shield className="w-3 h-3 md:w-4 md:h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                          <p className="text-xs text-gray-700 font-medium leading-relaxed">{rule}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {Array.isArray(propertyData.additionalTerms) && propertyData.additionalTerms.length > 0 && (
+                  <div>
+                    <p className="text-xs font-bold text-gray-500 uppercase mb-1.5">Additional Terms</p>
+                    <div className="space-y-1.5">
+                      {propertyData.additionalTerms.map((term: string, i: number) => (
+                        <div key={i} className="flex items-start gap-1.5 md:gap-2 p-2 md:p-3 bg-purple-50/30 rounded md:rounded-lg border border-purple-200">
+                          <AlertCircle className="w-3 h-3 md:w-4 md:h-4 text-purple-600 flex-shrink-0 mt-0.5" />
+                          <p className="text-xs text-gray-700 font-medium leading-relaxed">{term}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {(!propertyData.termsAndConditions?.length && 
+                  !propertyData.customTerms?.length &&
+                  !propertyData.propertyRules?.length && 
+                  !propertyData.additionalTerms?.length) && (
+                  <p className="text-xs text-gray-400 text-center py-2">No terms available</p>
+                )}
+
+              </div>
             </div>
-          ))}
-          
-          {/* Custom terms from 📝 Custom Term section - same design as regular terms */}
-          {propertyData.customTerms?.map((term: string, i: number) => (
-            <div key={`cust-${i}`} className="flex items-start gap-1.5 md:gap-2 p-2 md:p-3 bg-white/50 rounded md:rounded-lg border border-gray-200">
-              <div className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 flex-shrink-0" />
-              <p className="text-xs text-gray-700 font-medium leading-relaxed">{term}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-    )}
-
-    {/* Property Rules */}
-    {Array.isArray(propertyData.propertyRules) && propertyData.propertyRules.length > 0 && (
-      <div>
-        <p className="text-xs font-bold text-gray-500 uppercase mb-1.5">Property Rules</p>
-        <div className="space-y-1.5">
-          {propertyData.propertyRules.map((rule: string, i: number) => (
-            <div key={i} className="flex items-start gap-1.5 md:gap-2 p-2 md:p-3 bg-amber-50/30 rounded md:rounded-lg border border-amber-200">
-              <Shield className="w-3 h-3 md:w-4 md:h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-              <p className="text-xs text-gray-700 font-medium leading-relaxed">{rule}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-    )}
-
-    {/* Additional Terms */}
-    {Array.isArray(propertyData.additionalTerms) && propertyData.additionalTerms.length > 0 && (
-      <div>
-        <p className="text-xs font-bold text-gray-500 uppercase mb-1.5">Additional Terms</p>
-        <div className="space-y-1.5">
-          {propertyData.additionalTerms.map((term: string, i: number) => (
-            <div key={i} className="flex items-start gap-1.5 md:gap-2 p-2 md:p-3 bg-purple-50/30 rounded md:rounded-lg border border-purple-200">
-              <AlertCircle className="w-3 h-3 md:w-4 md:h-4 text-purple-600 flex-shrink-0 mt-0.5" />
-              <p className="text-xs text-gray-700 font-medium leading-relaxed">{term}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-    )}
-
-    {/* Empty state */}
-    {(!propertyData.termsAndConditions?.length && 
-      !propertyData.customTerms?.length &&
-      !propertyData.propertyRules?.length && 
-      !propertyData.additionalTerms?.length) && (
-      <p className="text-xs text-gray-400 text-center py-2">No terms available</p>
-    )}
-
-  </div>
-</div>
           </div>
         </div>
       </div>
@@ -2174,7 +2089,6 @@ const PropertyDetailView = memo(function PropertyDetailView({
       {/* Lightbox Modal */}
       {isLightboxOpen && (
         <div className="fixed inset-0 z-[100] bg-black/95 flex flex-col">
-          {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 md:px-6 md:py-4 flex-shrink-0">
             <div className="flex items-center gap-2 text-white">
               <ImageIcon className="w-4 h-4 md:w-5 md:h-5 text-white/70" />
@@ -2190,42 +2104,26 @@ const PropertyDetailView = memo(function PropertyDetailView({
             </button>
           </div>
 
-          {/* Main image */}
           <div className="flex-1 flex items-center justify-center relative px-2 md:px-16 min-h-0">
             <img
-              src={
-                propertyData.images?.[lightboxIndex] ||
-                "/placeholder-property.jpg"
-              }
+              src={propertyData.images?.[lightboxIndex] || "/placeholder-property.jpg"}
               alt={`Property image ${lightboxIndex + 1}`}
               className="max-w-full max-h-full object-contain rounded-lg select-none"
               style={{ maxHeight: "calc(100vh - 180px)" }}
             />
 
-            {/* Prev */}
             {propertyData.images?.length > 1 && (
               <button
-                onClick={() =>
-                  setLightboxIndex(
-                    (prev) =>
-                      (prev - 1 + propertyData.images.length) %
-                      propertyData.images.length,
-                  )
-                }
+                onClick={() => setLightboxIndex((prev) => (prev - 1 + propertyData.images.length) % propertyData.images.length)}
                 className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/25 text-white p-2.5 md:p-4 rounded-xl md:rounded-2xl transition-all hover:scale-105 backdrop-blur-sm"
               >
                 <ChevronLeft className="w-5 h-5 md:w-7 md:h-7" />
               </button>
             )}
 
-            {/* Next */}
             {propertyData.images?.length > 1 && (
               <button
-                onClick={() =>
-                  setLightboxIndex(
-                    (prev) => (prev + 1) % propertyData.images.length,
-                  )
-                }
+                onClick={() => setLightboxIndex((prev) => (prev + 1) % propertyData.images.length)}
                 className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/25 text-white p-2.5 md:p-4 rounded-xl md:rounded-2xl transition-all hover:scale-105 backdrop-blur-sm"
               >
                 <ChevronRight className="w-5 h-5 md:w-7 md:h-7" />
@@ -2233,7 +2131,6 @@ const PropertyDetailView = memo(function PropertyDetailView({
             )}
           </div>
 
-          {/* Thumbnail strip */}
           {propertyData.images?.length > 1 && (
             <div className="flex-shrink-0 px-4 py-3 md:px-6 md:py-4">
               <div className="flex gap-2 overflow-x-auto pb-1 justify-center scrollbar-hide">
@@ -2242,16 +2139,10 @@ const PropertyDetailView = memo(function PropertyDetailView({
                     key={idx}
                     onClick={() => setLightboxIndex(idx)}
                     className={`flex-shrink-0 w-12 h-9 md:w-16 md:h-12 rounded-md overflow-hidden border-2 transition-all ${
-                      idx === lightboxIndex
-                        ? "border-blue-400 opacity-100 scale-105"
-                        : "border-transparent opacity-40 hover:opacity-70"
+                      idx === lightboxIndex ? "border-blue-400 opacity-100 scale-105" : "border-transparent opacity-40 hover:opacity-70"
                     }`}
                   >
-                    <img
-                      src={img}
-                      alt={`thumb-${idx}`}
-                      className="w-full h-full object-cover"
-                    />
+                    <img src={img} alt={`thumb-${idx}`} className="w-full h-full object-cover" />
                   </button>
                 ))}
               </div>
@@ -2259,259 +2150,270 @@ const PropertyDetailView = memo(function PropertyDetailView({
           )}
         </div>
       )}
+
       {/* Room View Modal */}
-      {showAllRooms && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-2 md:p-4">
-          <div className="bg-white rounded-xl md:rounded-2xl w-full max-w-4xl md:max-w-7xl max-h-[90vh] overflow-hidden shadow-xl md:shadow-2xl flex flex-col">
-            <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-cyan-600 px-3 md:px-6 py-2 md:py-4 flex items-center justify-between z-10">
-              <div className="flex items-center gap-2 md:gap-3">
-                <div className="w-9 h-9 md:w-12 md:h-12 bg-white/20 rounded-lg md:rounded-xl flex items-center justify-center">
-                  <Home className="w-4 h-4 md:w-6 md:h-6 text-white" />
-                </div>
-                <div>
-                  <h2 className="text-sm md:text-xl font-black text-white">
-                    All Available Rooms
-                  </h2>
-                  <p className="text-[10px] md:text-xs text-white/80 font-semibold">
-                    {filteredRooms.length} rooms found •{" "}
-                    {hasActiveFilters && "Filters applied"}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-1.5 md:gap-3">
-                {hasActiveFilters && (
-                  <button
-                    onClick={clearFilters}
-                    className="px-2 py-1 md:px-4 md:py-2 bg-white/20 text-white rounded md:rounded-lg text-xs md:text-sm font-semibold hover:bg-white/30 transition-all"
-                  >
-                    Clear Filters
-                  </button>
-                )}
-                <button
-                  onClick={() => setShowAllRooms(false)}
-                  className="p-1 md:p-2 hover:bg-white/20 rounded md:rounded-lg transition-all"
-                >
-                  <X className="w-4 h-4 md:w-6 md:h-6 text-white" />
-                </button>
-              </div>
-            </div>
-            <div className="p-3 md:p-6 overflow-y-auto flex-1">
-              {filteredRooms.length === 0 ? (
-                <div className="text-center py-6 md:py-12">
-                  <div className="w-14 h-14 md:w-24 md:h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3 md:mb-4">
-                    <Search className="w-6 h-6 md:w-12 md:h-12 text-gray-400" />
-                  </div>
-                  <h3 className="text-sm md:text-xl font-bold text-gray-700 mb-1 md:mb-2">
-                    No rooms found
-                  </h3>
-                  <p className="text-gray-500 mb-3 md:mb-4 text-xs md:text-base">
-                    Try adjusting your filters to find more rooms
-                  </p>
-                  <button
-                    onClick={clearFilters}
-                    className="px-4 py-1.5 md:px-6 md:py-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg md:rounded-xl font-bold text-xs md:text-sm"
-                  >
-                    Clear All Filters
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-3 md:space-y-6">
-                  {Object.entries(groupedRooms).map(
-                    ([sharingType, sharingRooms]) => (
-                      <div
-                        key={sharingType}
-                        className="bg-white rounded-lg md:rounded-xl p-3 md:p-6 border border-blue-100 md:border-2"
-                      >
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-1 md:gap-0 mb-3 md:mb-5 pb-2 md:pb-4 border-b border-gray-200">
-                          <div>
-                            <h3 className="font-black text-base md:text-xl bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
-                              {sharingType} Sharing
-                            </h3>
-                            <p className="text-xs md:text-sm text-gray-600 font-semibold">
-                              {(sharingRooms as any[]).length} rooms •{" "}
-                              {(sharingRooms as any[]).reduce(
-                                (acc, r) => acc + (r.available || 0),
-                                0,
-                              )}{" "}
-                              beds available
-                            </p>
-                          </div>
-                          <p className="text-lg md:text-2xl font-black bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
-                            ₹
-                            {(
-                              sharingRooms as any[]
-                            )[0].price?.toLocaleString() || 5000}
-                            /mo
-                          </p>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-4">
-                          {(sharingRooms as any[]).map((room) => (
-                            <div
-                              key={room.id}
-                              className={`bg-white rounded-lg md:rounded-xl p-2.5 md:p-4 border transition-all hover:shadow ${
-                                room.status === "available" ||
-                                room.status === "partially-available"
-                                  ? "border-emerald-200 hover:border-emerald-400"
-                                  : "border-orange-200 hover:border-orange-400"
-                              }`}
-                            >
-                              <div className="flex items-center justify-between mb-2 md:mb-3">
-                                <div>
-                                  <span className="text-xs md:text-sm font-black text-gray-900">
-                                    {room.name}
-                                  </span>
-                                  <p className="text-[10px] md:text-xs text-gray-500">
-                                    Floor {room.floor}
-                                  </p>
-                                </div>
-
-                                {/* Gender Preference Badges - Updated to show proper icons */}
-                                <div className="flex gap-1">
-                                  {room.room_gender_preference &&
-                                    room.room_gender_preference.map(
-                                      (pref: string) => {
-                                        const prefLower = pref.toLowerCase();
-                                        if (
-                                          prefLower === "male_only" ||
-                                          prefLower === "male"
-                                        ) {
-                                          return (
-                                            <span
-                                              key={pref}
-                                              className="text-[8px] md:text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700"
-                                            >
-                                              ♂ Male Only
-                                            </span>
-                                          );
-                                        }
-                                        if (
-                                          prefLower === "female_only" ||
-                                          prefLower === "female"
-                                        ) {
-                                          return (
-                                            <span
-                                              key={pref}
-                                              className="text-[8px] md:text-[10px] px-1.5 py-0.5 rounded-full bg-pink-100 text-pink-700"
-                                            >
-                                              ♀ Female Only
-                                            </span>
-                                          );
-                                        }
-                                        if (prefLower === "couples") {
-                                          return (
-                                            <span
-                                              key={pref}
-                                              className="text-[8px] md:text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-700"
-                                            >
-                                              💑 Couples
-                                            </span>
-                                          );
-                                        }
-                                        if (
-                                          prefLower === "both" ||
-                                          prefLower === "any" ||
-                                          prefLower === "mixed"
-                                        ) {
-                                          return (
-                                            <span
-                                              key={pref}
-                                              className="text-[8px] md:text-[10px] px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700"
-                                            >
-                                              👥 Mixed
-                                            </span>
-                                          );
-                                        }
-                                        return null;
-                                      },
-                                    )}
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-1.5 md:gap-2 mb-2 md:mb-4">
-                                <div className="flex items-center gap-0.5 md:gap-1 text-xs md:text-sm text-gray-600">
-                                  <Users className="w-3 h-3 md:w-4 md:h-4" />
-                                  <span className="font-semibold">
-                                    {(room.occupancy?.male || 0) +
-                                      (room.occupancy?.female || 0)}
-                                    /{sharingType}
-                                    {(!room.room_gender_preference ||
-                                      room.room_gender_preference.length !==
-                                        1) && (
-                                      <span>
-                                        ({room.occupancy?.male || 0}♂{" "}
-                                        {room.occupancy?.female || 0}♀)
-                                      </span>
-                                    )}
-                                  </span>
-                                </div>
-                                <div className="flex items-center gap-1 ml-auto">
-                                  {room.ac && (
-                                    <Wind className="w-3 h-3 md:w-4 md:h-4 text-blue-600" />
-                                  )}
-                                  {room.wifi && (
-                                    <Wifi className="w-3 h-3 md:w-4 md:h-4 text-blue-600" />
-                                  )}
-                                  {room.hasAttachedBathroom && (
-                                    <Bath className="w-3 h-3 md:w-4 md:h-4 text-blue-600" />
-                                  )}
-                                  {room.hasBalcony && (
-                                    <Home className="w-3 h-3 md:w-4 md:h-4 text-blue-600" />
-                                  )}
-                                  {room.available > 0 && (
-                                    <div className="text-[10px] md:text-xs font-bold text-emerald-600">
-                                      {room.available} bed
-                                      {room.available > 1 ? "s" : ""}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-
-                              <div className="flex items-center justify-between pt-2 md:pt-4 border-t border-gray-200">
-                                <span
-                                  className={`text-xs md:text-sm font-bold ${
-                                    room.status === "available" ||
-                                    room.status === "partially-available"
-                                      ? "text-emerald-600"
-                                      : "text-orange-600"
-                                  }`}
-                                >
-                                  {room.status === "available"
-                                    ? "Available Now"
-                                    : room.status === "partially-available"
-                                      ? "Partially Available"
-                                      : "Fully Occupied"}
-                                </span>
-                                <button
-                                  onClick={() => {
-                                    setPreselectedRoomId(room.id);
-                                    setIsBookingModalOpen(true);
-                                    setShowAllRooms(false);
-                                  }}
-                                  className={`px-2.5 md:px-4 py-1 md:py-2 rounded md:rounded-lg text-xs md:text-sm font-bold ${
-                                    room.status === "available" ||
-                                    room.status === "partially-available"
-                                      ? "bg-gradient-to-r from-emerald-600 to-teal-900 text-white hover:shadow md:hover:shadow-lg"
-                                      : "bg-gradient-to-r from-gray-600 to-gray-800 text-white hover:shadow md:hover:shadow-lg"
-                                  }`}
-                                  disabled={room.status === "occupied"}
-                                >
-                                  {room.status === "available" ||
-                                  room.status === "partially-available"
-                                    ? "Book Now"
-                                    : "Occupied"}
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ),
-                  )}
-                </div>
-              )}
-            </div>
+{showAllRooms && (
+  <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-2 md:p-4">
+    <div className="bg-white rounded-xl md:rounded-2xl w-full max-w-4xl md:max-w-7xl max-h-[90vh] overflow-hidden shadow-xl md:shadow-2xl flex flex-col">
+      <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-cyan-600 px-3 md:px-6 py-2 md:py-4 flex items-center justify-between z-10">
+        <div className="flex items-center gap-2 md:gap-3">
+          <div className="w-9 h-9 md:w-12 md:h-12 bg-white/20 rounded-lg md:rounded-xl flex items-center justify-center">
+            <Home className="w-4 h-4 md:w-6 md:h-6 text-white" />
+          </div>
+          <div>
+            <h2 className="text-sm md:text-xl font-black text-white">
+              All Available Rooms
+            </h2>
+            <p className="text-[10px] md:text-xs text-white/80 font-semibold">
+              {filteredRooms.length} rooms found • {hasActiveFilters && "Filters applied"}
+            </p>
           </div>
         </div>
-      )}
+        <div className="flex items-center gap-1.5 md:gap-3">
+          {hasActiveFilters && (
+            <button
+              onClick={clearFilters}
+              className="px-2 py-1 md:px-4 md:py-2 bg-white/20 text-white rounded md:rounded-lg text-xs md:text-sm font-semibold hover:bg-white/30 transition-all"
+            >
+              Clear Filters
+            </button>
+          )}
+          <button
+            onClick={() => setShowAllRooms(false)}
+            className="p-1 md:p-2 hover:bg-white/20 rounded md:rounded-lg transition-all"
+          >
+            <X className="w-4 h-4 md:w-6 md:h-6 text-white" />
+          </button>
+        </div>
+      </div>
+      <div className="p-3 md:p-6 overflow-y-auto flex-1">
+        {filteredRooms.length === 0 ? (
+          <div className="text-center py-6 md:py-12">
+            <div className="w-14 h-14 md:w-24 md:h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3 md:mb-4">
+              <Search className="w-6 h-6 md:w-12 md:h-12 text-gray-400" />
+            </div>
+            <h3 className="text-sm md:text-xl font-bold text-gray-700 mb-1 md:mb-2">
+              No rooms found
+            </h3>
+            <p className="text-gray-500 mb-3 md:mb-4 text-xs md:text-base">
+              Try adjusting your filters to find more rooms
+            </p>
+            <button
+              onClick={clearFilters}
+              className="px-4 py-1.5 md:px-6 md:py-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg md:rounded-xl font-bold text-xs md:text-sm"
+            >
+              Clear All Filters
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-3 md:space-y-6">
+            {Object.entries(groupedRooms).map(([sharingType, sharingRooms]) => (
+              <div
+                key={sharingType}
+                className="bg-white rounded-lg md:rounded-xl p-3 md:p-6 border border-blue-100 md:border-2"
+              >
+              
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-4">
+                  {(sharingRooms as any[]).map((room) => {
+                    // Get minimum tenant rent for this room
+                    const minRent = getMinTenantRent(room);
+                    
+                    return (
+                      <div
+                        key={room.id}
+                        className={`bg-white rounded-lg md:rounded-xl p-2.5 md:p-4 border transition-all hover:shadow ${
+                          room.status === "available" ||
+                          room.status === "partially-available"
+                            ? "border-emerald-200 hover:border-emerald-400"
+                            : "border-orange-200 hover:border-orange-400"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-2 md:mb-3">
+                          <div>
+                            <span className="text-xs md:text-sm font-black text-gray-900">
+                              {room.name}
+                            </span>
+                            <p className="text-[10px] md:text-xs text-gray-500">
+                              Floor {room.floor}
+                            </p>
+                          </div>
+
+                          {/* Gender Preference Badges */}
+                          <div className="flex gap-1">
+                            {room.room_gender_preference &&
+                              room.room_gender_preference.map((pref: string) => {
+                                const prefLower = pref.toLowerCase();
+                                if (prefLower === "male_only" || prefLower === "male") {
+                                  return (
+                                    <span
+                                      key={pref}
+                                      className="text-[8px] md:text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700"
+                                    >
+                                      {room.room_gender_preference.length > 1 ? "♂ Male" : "♂ Male Only"}
+                                    </span>
+                                  );
+                                }
+                                if (prefLower === "female_only" || prefLower === "female") {
+                                  return (
+                                    <span
+                                      key={pref}
+                                      className="text-[8px] md:text-[10px] px-1.5 py-0.5 rounded-full bg-pink-100 text-pink-700"
+                                    >
+                                      {room.room_gender_preference.length > 1 ? "♀ Female" : "♀ Female Only"}
+                                    </span>
+                                  );
+                                }
+                                if (prefLower === "couples") {
+                                  return (
+                                    <span
+                                      key={pref}
+                                      className="text-[8px] md:text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-700"
+                                    >
+                                      💑 Couples
+                                    </span>
+                                  );
+                                }
+                                if (prefLower === "both" || prefLower === "any" || prefLower === "mixed") {
+                                  return (
+                                    <span
+                                      key={pref}
+                                      className="text-[8px] md:text-[10px] px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700"
+                                    >
+                                      👥 Mixed
+                                    </span>
+                                  );
+                                }
+                                return null;
+                              })}
+                          </div>
+                        </div>
+
+                        {/* Bed Details - Show individual beds if available */}
+                        {room.bed_assignments && room.bed_assignments.length > 0 && (
+                          <div className="mb-3">
+                            <div className="flex items-center justify-between text-[9px] md:text-[10px] text-gray-600 mb-1.5">
+                              <span>Bed Configuration</span>
+                              <span className="font-medium">
+                                {room.occupiedBeds || 0}/{room.totalBeds || 0} occupied
+                              </span>
+                            </div>
+                            <div className="space-y-1.5">
+                              {room.bed_assignments.slice(0, 3).map((bed: any) => {
+                                const isBedOccupied = bed.tenant_id && !bed.is_available;
+                                const bedRent = bed.tenant_rent ? parseFloat(bed.tenant_rent) : 0;
+                                
+                                return (
+                                  <div
+                                    key={bed.bed_number}
+                                    className={`flex items-center justify-between p-1.5 rounded text-[9px] md:text-[10px] ${
+                                      isBedOccupied ? 'bg-orange-50' : 'bg-green-50'
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-1.5">
+                                      <Bed className={`w-3 h-3 ${isBedOccupied ? 'text-orange-600' : 'text-green-600'}`} />
+                                      <span className="font-medium">Bed {bed.bed_number}</span>
+                                      {bed.bed_type && (
+                                        <span className="text-gray-500">({bed.bed_type})</span>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-bold text-green-700">
+                                        ₹{bedRent.toLocaleString()}
+                                      </span>
+                                      {isBedOccupied ? (
+                                        <span className="w-1.5 h-1.5 bg-orange-500 rounded-full" />
+                                      ) : (
+                                        <span className="text-[8px] text-emerald-600 font-medium">
+                                          Available
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                              {room.bed_assignments.length > 3 && (
+                                <div className="text-[8px] text-gray-500 text-center">
+                                  +{room.bed_assignments.length - 3} more beds
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="flex items-center gap-1.5 md:gap-2 mb-2 md:mb-4">
+                          <div className="flex items-center gap-0.5 md:gap-1 text-xs md:text-sm text-gray-600">
+                            <Users className="w-3 h-3 md:w-4 md:h-4" />
+                            <span className="font-semibold">
+                              {(room.occupancy?.male || 0) + (room.occupancy?.female || 0)}
+                              /{sharingType}
+                              {(!room.room_gender_preference ||
+                                room.room_gender_preference.length !== 1) && (
+                                <span>
+                                  ({room.occupancy?.male || 0}♂ {room.occupancy?.female || 0}♀)
+                                </span>
+                              )}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1 ml-auto">
+                            {room.ac && (
+                              <Wind className="w-3 h-3 md:w-4 md:h-4 text-blue-600" />
+                            )}
+                            {room.wifi && (
+                              <Wifi className="w-3 h-3 md:w-4 md:h-4 text-blue-600" />
+                            )}
+                            {room.hasAttachedBathroom && (
+                              <Bath className="w-3 h-3 md:w-4 md:h-4 text-blue-600" />
+                            )}
+                            {room.hasBalcony && (
+                              <Home className="w-3 h-3 md:w-4 md:h-4 text-blue-600" />
+                            )}
+                            {room.available > 0 && (
+                              <div className="text-[10px] md:text-xs font-bold text-emerald-600">
+                                {room.available} bed{room.available > 1 ? "s" : ""}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-2 md:pt-4 border-t border-gray-200">
+                          <div className="flex flex-col">
+                            <span className="text-xs text-gray-500">Starting from</span>
+                            <span className="text-sm md:text-base font-black text-emerald-600">
+                              ₹{minRent.toLocaleString()}
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => {
+                              setPreselectedRoomId(room.id);
+                              setIsBookingModalOpen(true);
+                              setShowAllRooms(false);
+                            }}
+                            className={`px-2.5 md:px-4 py-1 md:py-2 rounded md:rounded-lg text-xs md:text-sm font-bold ${
+                              room.status === "available" ||
+                              room.status === "partially-available"
+                                ? "bg-gradient-to-r from-emerald-600 to-teal-900 text-white hover:shadow md:hover:shadow-lg"
+                                : "bg-gradient-to-r from-gray-600 to-gray-800 text-white hover:shadow md:hover:shadow-lg"
+                            }`}
+                            disabled={room.status === "occupied"}
+                          >
+                            {room.status === "available" ||
+                            room.status === "partially-available"
+                              ? "Book Now"
+                              : "Occupied"}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+)}
 
       <BookingModal
         isOpen={isBookingModalOpen}
