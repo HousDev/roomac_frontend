@@ -747,7 +747,7 @@ export function RoomForm({
                   <div className="border border-slate-100 rounded-lg p-2.5 bg-white shadow-sm">
                     <div className="flex items-center gap-1 mb-2 pb-1 border-b border-slate-50">
                       <Building className="h-3 w-3 text-blue-500 flex-shrink-0" />
-                      <span className="text-[9px] font-bold text-slate-600 uppercase tracking-wide">Location</span>
+                      <span className="text-[9px] font-bold text-black uppercase tracking-wide">Location</span>
                     </div>
                     <div className="space-y-1.5">
                       <F label="Property" required>
@@ -822,7 +822,7 @@ export function RoomForm({
                   <div className="border border-slate-100 rounded-lg p-2.5 bg-white shadow-sm">
                     <div className="flex items-center gap-1 mb-2 pb-1 border-b border-slate-50">
                       <Home className="h-3 w-3 text-emerald-500 flex-shrink-0" />
-                      <span className="text-[9px] font-bold text-slate-600 uppercase tracking-wide">Room Config</span>
+                      <span className="text-[9px] font-bold text-black uppercase tracking-wide">Room Config</span>
                     </div>
                     <div className="grid grid-cols-2 gap-1.5">
                       <F label="Sharing Type" required>
@@ -909,7 +909,7 @@ export function RoomForm({
                   <div className="border border-slate-100 rounded-lg p-2.5 bg-white shadow-sm">
                     <div className="flex items-center gap-1 mb-2 pb-1 border-b border-slate-50">
                       <Users className="h-3 w-3 text-pink-500 flex-shrink-0" />
-                      <span className="text-[9px] font-bold text-slate-600 uppercase tracking-wide">Occupancy Preferences</span>
+                      <span className="text-[9px] font-bold text-black uppercase tracking-wide">Occupancy Preferences</span>
                     </div>
                     <F label="Gender Preferences">
                       <div className="grid grid-cols-3 gap-1 mt-0.5">
@@ -941,7 +941,7 @@ export function RoomForm({
                   <div className="border border-slate-100 rounded-lg p-2.5 bg-white shadow-sm">
                     <div className="flex items-center gap-1 mb-2 pb-1 border-b border-slate-50">
                       <Edit className="h-3 w-3 text-slate-500 flex-shrink-0" />
-                      <span className="text-[9px] font-bold text-slate-600 uppercase tracking-wide">Description</span>
+                      <span className="text-[9px] font-bold text-black uppercase tracking-wide">Description</span>
                     </div>
                     <Textarea
                       value={formData.description}
@@ -952,7 +952,7 @@ export function RoomForm({
                     />
                   </div>
 
-                  {selectedProperty && (
+                  {/* {selectedProperty && (
                     <div className="border border-blue-100 rounded-lg p-2.5 bg-blue-50/40">
                       <div className="flex items-center gap-1 mb-1">
                         <Info className="h-3 w-3 text-blue-500 flex-shrink-0" />
@@ -964,7 +964,7 @@ export function RoomForm({
                         {selectedProperty.address && <div className="col-span-2"><p className="text-[9px] text-blue-400">Address</p><p className="text-[10px] text-blue-600 truncate">{selectedProperty.address}</p></div>}
                       </div>
                     </div>
-                  )}
+                  )} */}
                 </div>
               </div>
             </TabsContent>
@@ -974,7 +974,7 @@ export function RoomForm({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <BedDouble className="h-3.5 w-3.5 text-blue-500" />
-                  <span className="text-[11px] font-bold text-slate-700">Configure Beds ({formData.beds_config?.length || 0})</span>
+                  <span className="text-[11px] font-bold text-black">Configure Beds ({formData.beds_config?.length || 0})</span>
                 </div>
                 {/* Live total — always accurate, derived directly from bedRentInputs state */}
                 <Badge variant="outline" className="text-[9px]">

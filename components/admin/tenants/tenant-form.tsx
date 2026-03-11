@@ -1,3 +1,5 @@
+
+
 // components/admin/tenants/tenant-form.tsx
 "use client";
 
@@ -19,156 +21,77 @@ import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  FileText,
-  Upload,
-  X,
-  Eye,
-  EyeOff,
-  Loader2,
-  Key,
-  AlertCircle,
-  Check,
-  Calendar,
-  MapPin,
-  Building,
-  User,
-  Briefcase,
-  Lock,
-  Shield,
-  AlertTriangle,
-  Clock3,
-  ChevronLeft,
-  ChevronRight,
-  Mail,
-  GraduationCap,
-  BriefcaseBusiness,
-  Store,
-  Laptop,
-  Rocket,
-  Home,
-  Users,
-  Landmark,
-  Sparkles
+  FileText, Upload, X, Eye, EyeOff, Loader2, Key, AlertCircle, Check,
+  Calendar, MapPin, Building, User, Briefcase, Lock, Shield, AlertTriangle,
+  Clock3, ChevronLeft, ChevronRight, Mail, GraduationCap, BriefcaseBusiness,
+  Store, Laptop, Rocket, Home, Users, Landmark, Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import {
-  createTenant,
-  updateTenant,
-  getTenant,
-  getAllProperties,
-  getAvailableRooms,
-  getRoomTypes,
-  getPropertyDetails,
-  type Tenant,
-  type PreferredOptions,
-  type OptionType,
-  getPreferredOptions,
+  createTenant, updateTenant, getTenant, getAllProperties, getAvailableRooms,
+  getRoomTypes, getPropertyDetails,
+  type Tenant, type PreferredOptions, type OptionType, getPreferredOptions,
 } from "@/lib/tenantApi";
 import { consumeMasters } from "@/lib/masterApi";
-
-// Import occupation data
 import {
   occupationCategories as occupationCategoryOptions,
-  getSubCategoriesForCategory,
-  getOccupationPlaceholder,
-  type OccupationSubCategory
+  getSubCategoriesForCategory, getOccupationPlaceholder,
+  type OccupationSubCategory,
 } from "@/lib/occupation-data";
 
-// Add Property type definition
 type Property = {
-  id: number;
-  name: string;
-  city?: string;
-  state?: string;
-  address?: string;
-  lockin_period_months: number;
-  lockin_penalty_amount: number;
-  lockin_penalty_type: string;
-  notice_period_days: number;
-  notice_penalty_amount: number;
-  notice_penalty_type: string;
+  id: number; name: string; city?: string; state?: string; address?: string;
+  lockin_period_months: number; lockin_penalty_amount: number; lockin_penalty_type: string;
+  notice_period_days: number; notice_penalty_amount: number; notice_penalty_type: string;
 };
-
-interface MasterValue {
-  id: number;
-  name: string;
-  isactive: number;
-}
-
-interface TenantFormProps {
-  tenant?: Tenant;
-  onSuccess: () => void;
-  onCancel: () => void;
-}
+interface MasterValue { id: number; name: string; isactive: number; }
+interface TenantFormProps { tenant?: Tenant; onSuccess: () => void; onCancel: () => void; }
 
 export function TenantForm({ tenant, onSuccess, onCancel }: TenantFormProps) {
-  const [loading, setLoading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [properties, setProperties] = useState<OptionType[]>([]);
-  const [availableRooms, setAvailableRooms] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState("basic");
-
-  // Master data states
-  const [commonMasters, setCommonMasters] = useState<Record<string, MasterValue[]>>({});
-  const [roomsMasters, setRoomsMasters] = useState<Record<string, MasterValue[]>>({});
-  const [loadingMasters, setLoadingMasters] = useState(false);
-
-  // Derived options from masters
-  const [cities, setCities] = useState<MasterValue[]>([]);
-  const [states, setStates] = useState<MasterValue[]>([]);
-  const [sharingTypes, setSharingTypes] = useState<MasterValue[]>([]);
-  const [roomTypes, setRoomTypes] = useState<MasterValue[]>([]);
-  const [occupations, setOccupations] = useState<MasterValue[]>([]);
-
-  const [options, setOptions] = useState<PreferredOptions>({
-    sharingTypes: [],
-    roomTypes: [],
-    properties: [],
-    genderOptions: ['Male', 'Female', 'Other'],
-    countryCodes: ['+91', '+1', '+44', '+61', '+65'],
-    occupations: [],
-    cities: [],
-    states: []
+  const [loading,               setLoading]               = useState(false);
+  const [uploadProgress,        setUploadProgress]        = useState(0);
+  const [properties,            setProperties]            = useState<OptionType[]>([]);
+  const [availableRooms,        setAvailableRooms]        = useState<any[]>([]);
+  const [activeTab,             setActiveTab]             = useState("basic");
+  const [commonMasters,         setCommonMasters]         = useState<Record<string, MasterValue[]>>({});
+  const [roomsMasters,          setRoomsMasters]          = useState<Record<string, MasterValue[]>>({});
+  const [loadingMasters,        setLoadingMasters]        = useState(false);
+  const [cities,                setCities]                = useState<MasterValue[]>([]);
+  const [states,                setStates]                = useState<MasterValue[]>([]);
+  const [sharingTypes,          setSharingTypes]          = useState<MasterValue[]>([]);
+  const [roomTypes,             setRoomTypes]             = useState<MasterValue[]>([]);
+  const [occupations,           setOccupations]           = useState<MasterValue[]>([]);
+  const [options,               setOptions]               = useState<PreferredOptions>({
+    sharingTypes: [], roomTypes: [], properties: [],
+    genderOptions: ["Male","Female","Other"],
+    countryCodes: ["+91","+1","+44","+61","+65"],
+    occupations: [], cities: [], states: [],
   });
-
-  // File states
-  const [idProofFile, setIdProofFile] = useState<File | null>(null);
-  const [addressProofFile, setAddressProofFile] = useState<File | null>(null);
-  const [photoFile, setPhotoFile] = useState<File | null>(null);
-  const [additionalFiles, setAdditionalFiles] = useState<File[]>([]);
+  const [idProofFile,           setIdProofFile]           = useState<File | null>(null);
+  const [addressProofFile,      setAddressProofFile]      = useState<File | null>(null);
+  const [photoFile,             setPhotoFile]             = useState<File | null>(null);
+  const [additionalFiles,       setAdditionalFiles]       = useState<File[]>([]);
   const [selectedPropertyDetails, setSelectedPropertyDetails] = useState<Property | null>(null);
-  const [useCustomTerms, setUseCustomTerms] = useState(false);
-
-  // Password visibility states
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-
-  // Occupation sub-categories state
-  const [availableSubCategories, setAvailableSubCategories] = useState<OccupationSubCategory[]>([]);
-
-  // Existing files from tenant
-  const [existingFiles, setExistingFiles] = useState({
-    id_proof_url: tenant?.id_proof_url || "",
+  const [useCustomTerms,        setUseCustomTerms]        = useState(false);
+  const [showPassword,          setShowPassword]          = useState(false);
+  const [showConfirmPassword,   setShowConfirmPassword]   = useState(false);
+  const [availableSubCategories,setAvailableSubCategories]= useState<OccupationSubCategory[]>([]);
+  const [existingFiles,         setExistingFiles]         = useState({
+    id_proof_url:      tenant?.id_proof_url      || "",
     address_proof_url: tenant?.address_proof_url || "",
-    photo_url: tenant?.photo_url || "",
+    photo_url:         tenant?.photo_url         || "",
   });
-
-  // Additional documents from tenant
-  const [additionalDocuments, setAdditionalDocuments] = useState<Array<{
-    filename: string;
-    url: string;
-    uploaded_at?: string;
-  }>>(tenant?.additional_documents || []);
-
-  // Credential fields
-  const [createCredentials, setCreateCredentials] = useState(false);
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [passwordStrength, setPasswordStrength] = useState(0);
-  const [existingPassword, setExistingPassword] = useState("••••••••");
-  const [showExistingPassword, setShowExistingPassword] = useState(false);
+  const [additionalDocuments,   setAdditionalDocuments]   = useState<
+    Array<{ filename: string; url: string; uploaded_at?: string }>
+  >(tenant?.additional_documents || []);
+  const [createCredentials,     setCreateCredentials]     = useState(false);
+  const [password,              setPassword]              = useState("");
+  const [confirmPassword,       setConfirmPassword]       = useState("");
+  const [passwordStrength,      setPasswordStrength]      = useState(0);
+  const [existingPassword,      setExistingPassword]      = useState("••••••••");
+  const [showExistingPassword,  setShowExistingPassword]  = useState(false);
 
   const [formData, setFormData] = useState<any>({
     salutation: tenant?.salutation || "",
@@ -205,2329 +128,915 @@ export function TenantForm({ tenant, onSuccess, onCancel }: TenantFormProps) {
     emergency_contact_name: tenant?.emergency_contact_name || "",
     emergency_contact_phone: tenant?.emergency_contact_phone || "",
     emergency_contact_relation: tenant?.emergency_contact_relation || "",
-    lockin_period_months: tenant?.lockin_period_months !== undefined ? tenant.lockin_period_months : 0,
+    lockin_period_months:  tenant?.lockin_period_months  !== undefined ? tenant.lockin_period_months  : 0,
     lockin_penalty_amount: tenant?.lockin_penalty_amount !== undefined ? tenant.lockin_penalty_amount : 0,
-    lockin_penalty_type: tenant?.lockin_penalty_type || "fixed",
-    notice_period_days: tenant?.notice_period_days !== undefined ? tenant.notice_period_days : 0,
+    lockin_penalty_type:   tenant?.lockin_penalty_type   || "fixed",
+    notice_period_days:    tenant?.notice_period_days    !== undefined ? tenant.notice_period_days    : 0,
     notice_penalty_amount: tenant?.notice_penalty_amount !== undefined ? tenant.notice_penalty_amount : 0,
-    notice_penalty_type: tenant?.notice_penalty_type || "fixed",
+    notice_penalty_type:   tenant?.notice_penalty_type   || "fixed",
     property_id: tenant?.property_id || undefined,
   });
 
-  const tabs = ["basic", "occupation", "address", "property", "terms", "documents", "credentials"];
+  const tabs = ["basic","occupation","address","property","terms","documents","credentials"];
+  const goToNextTab = () => { const i = tabs.indexOf(activeTab); if (i < tabs.length-1) setActiveTab(tabs[i+1]); };
+  const goToPrevTab = () => { const i = tabs.indexOf(activeTab); if (i > 0) setActiveTab(tabs[i-1]); };
 
-  const goToNextTab = () => {
-    const currentIndex = tabs.indexOf(activeTab);
-    if (currentIndex < tabs.length - 1) {
-      setActiveTab(tabs[currentIndex + 1]);
-    }
-  };
-
-  const goToPrevTab = () => {
-    const currentIndex = tabs.indexOf(activeTab);
-    if (currentIndex > 0) {
-      setActiveTab(tabs[currentIndex - 1]);
-    }
-  };
-
-  // Fetch masters and properties when form opens
-  useEffect(() => {
-    fetchMasters();
-    fetchProperties();
-  }, []);
-
-  // Initialize with tenant data
+  // ── ALL original effects preserved ────────────────────────────────────────
+  useEffect(() => { fetchMasters(); fetchProperties(); }, []);
   useEffect(() => {
     loadOptions();
     if (tenant?.id) {
       loadExistingDocuments();
-      if (tenant.additional_documents) {
-        setAdditionalDocuments(tenant.additional_documents);
-      }
+      if (tenant.additional_documents) setAdditionalDocuments(tenant.additional_documents);
       setCreateCredentials(tenant?.has_credentials || false);
     }
   }, [tenant]);
-
-  // Load available rooms when gender and property are selected
+  useEffect(() => { if (formData.gender && formData.preferred_property_id) loadAvailableRooms(); }, [formData.gender, formData.preferred_property_id]);
   useEffect(() => {
-    if (formData.gender && formData.preferred_property_id) {
-      loadAvailableRooms();
-    }
-  }, [formData.gender, formData.preferred_property_id]);
-
-  // Check password strength
-  useEffect(() => {
-    if (password.length === 0) {
-      setPasswordStrength(0);
-      return;
-    }
-
-    let strength = 0;
-    if (password.length >= 6) strength += 25;
-    if (/[A-Z]/.test(password)) strength += 25;
-    if (/[0-9]/.test(password)) strength += 25;
-    if (/[^A-Za-z0-9]/.test(password)) strength += 25;
-
-    setPasswordStrength(strength);
+    if (password.length === 0) { setPasswordStrength(0); return; }
+    let s = 0;
+    if (password.length >= 6)          s += 25;
+    if (/[A-Z]/.test(password))        s += 25;
+    if (/[0-9]/.test(password))        s += 25;
+    if (/[^A-Za-z0-9]/.test(password)) s += 25;
+    setPasswordStrength(s);
   }, [password]);
-
   useEffect(() => {
-    if (formData.property_id && !useCustomTerms) {
-      fetchPropertyDetails(formData.property_id);
-    } else {
-      setSelectedPropertyDetails(null);
-    }
+    if (formData.property_id && !useCustomTerms) fetchPropertyDetails(formData.property_id);
+    else setSelectedPropertyDetails(null);
   }, [formData.property_id, useCustomTerms]);
-
   useEffect(() => {
     if (tenant?.id) {
-      const hasCustomTerms =
-        (tenant.lockin_period_months !== null && tenant.lockin_period_months !== undefined) ||
-        (tenant.lockin_penalty_amount !== null && tenant.lockin_penalty_amount !== undefined) ||
-        (tenant.notice_period_days !== null && tenant.notice_period_days !== undefined) ||
-        (tenant.notice_penalty_amount !== null && tenant.notice_penalty_amount !== undefined);
-
-      setUseCustomTerms(hasCustomTerms);
-
-      if (hasCustomTerms) {
-        setFormData((prev: any) => ({
-          ...prev,
-          lockin_period_months: tenant.lockin_period_months || 0,
-          lockin_penalty_amount: tenant.lockin_penalty_amount || 0,
-          lockin_penalty_type: tenant.lockin_penalty_type || "fixed",
-          notice_period_days: tenant.notice_period_days || 0,
-          notice_penalty_amount: tenant.notice_penalty_amount || 0,
-          notice_penalty_type: tenant.notice_penalty_type || "fixed",
-        }));
-      }
-    } else {
-      setUseCustomTerms(false);
-    }
+      const has = (tenant.lockin_period_months!==null&&tenant.lockin_period_months!==undefined)||
+                  (tenant.lockin_penalty_amount!==null&&tenant.lockin_penalty_amount!==undefined)||
+                  (tenant.notice_period_days!==null&&tenant.notice_period_days!==undefined)||
+                  (tenant.notice_penalty_amount!==null&&tenant.notice_penalty_amount!==undefined);
+      setUseCustomTerms(has);
+      if (has) setFormData((p:any)=>({...p,
+        lockin_period_months:tenant.lockin_period_months||0,lockin_penalty_amount:tenant.lockin_penalty_amount||0,
+        lockin_penalty_type:tenant.lockin_penalty_type||"fixed",notice_period_days:tenant.notice_period_days||0,
+        notice_penalty_amount:tenant.notice_penalty_amount||0,notice_penalty_type:tenant.notice_penalty_type||"fixed",
+      }));
+    } else setUseCustomTerms(false);
   }, [tenant]);
-
-  // Update cities and states from masters
-  useEffect(() => {
-    if (commonMasters["Cities"]) {
-      setCities(commonMasters["Cities"]);
-    }
-    if (commonMasters["States"]) {
-      setStates(commonMasters["States"]);
-    }
-  }, [commonMasters]);
-
-  // Update sharing types and room types from rooms masters
-  useEffect(() => {
-    if (roomsMasters["Sharing Type"]) {
-      setSharingTypes(roomsMasters["Sharing Type"]);
-    }
-    if (roomsMasters["Room Type"]) {
-      setRoomTypes(roomsMasters["Room Type"]);
-    }
-    if (roomsMasters["Occupation"]) {
-      setOccupations(roomsMasters["Occupation"]);
-    }
-  }, [roomsMasters]);
-
-  // Update sub-categories when main category changes
+  useEffect(() => { if (commonMasters["Cities"]) setCities(commonMasters["Cities"]); if (commonMasters["States"]) setStates(commonMasters["States"]); }, [commonMasters]);
+  useEffect(() => { if (roomsMasters["Sharing Type"]) setSharingTypes(roomsMasters["Sharing Type"]); if (roomsMasters["Room Type"]) setRoomTypes(roomsMasters["Room Type"]); if (roomsMasters["Occupation"]) setOccupations(roomsMasters["Occupation"]); }, [roomsMasters]);
   useEffect(() => {
     if (formData.occupation_category) {
       const subs = getSubCategoriesForCategory(formData.occupation_category);
       setAvailableSubCategories(subs);
-
-      // If current sub-category doesn't belong to new category, clear it
-      if (formData.exact_occupation) {
-        const belongs = subs.some(s => s.value === formData.exact_occupation);
-        if (!belongs) {
-          handleInputChange('exact_occupation', '');
-        }
-      }
-    } else {
-      setAvailableSubCategories([]);
-    }
+      if (formData.exact_occupation && !subs.some(s=>s.value===formData.exact_occupation)) handleInputChange("exact_occupation","");
+    } else setAvailableSubCategories([]);
   }, [formData.occupation_category]);
-
-  // Add this new useEffect RIGHT HERE to sync portal_access_enabled with createCredentials
+  useEffect(() => { setFormData((p:any)=>({...p,portal_access_enabled:createCredentials})); }, [createCredentials]);
   useEffect(() => {
-    setFormData((prev: any) => ({
-      ...prev,
-      portal_access_enabled: createCredentials
-    }));
-  }, [createCredentials]);
-
-  // When masters load and we have a tenant, set the city and state IDs
-  useEffect(() => {
-    if (tenant?.id && cities.length > 0 && states.length > 0) {
-      // Find city ID from city name
-      if (tenant.city && !tenant.city_id) {
-        const matchingCity = cities.find(
-          c => c.name.toLowerCase() === tenant.city?.toLowerCase()
-        );
-        if (matchingCity) {
-          setFormData((prev: any) => ({
-            ...prev,
-            city_id: String(matchingCity.id)
-          }));
-        }
-      }
-
-      // Find state ID from state name
-      if (tenant.state && !tenant.state_id) {
-        const matchingState = states.find(
-          s => s.name.toLowerCase() === tenant.state?.toLowerCase()
-        );
-        if (matchingState) {
-          setFormData((prev: any) => ({
-            ...prev,
-            state_id: String(matchingState.id)
-          }));
-        }
-      }
+    if (tenant?.id && cities.length>0 && states.length>0) {
+      if (tenant.city && !tenant.city_id) { const m=cities.find(c=>c.name.toLowerCase()===tenant.city?.toLowerCase()); if(m) setFormData((p:any)=>({...p,city_id:String(m.id)})); }
+      if (tenant.state && !tenant.state_id) { const m=states.find(s=>s.name.toLowerCase()===tenant.state?.toLowerCase()); if(m) setFormData((p:any)=>({...p,state_id:String(m.id)})); }
     }
-  }, [cities, states, tenant]);
+  }, [cities,states,tenant]);
 
+  // ── ALL original API helpers preserved ────────────────────────────────────
   const fetchMasters = async () => {
     setLoadingMasters(true);
     try {
-      // Fetch both Common and Rooms masters in parallel
-      const [commonRes, roomsRes] = await Promise.all([
-        consumeMasters({ tab: "Common" }),
-        consumeMasters({ tab: "Rooms" })
-      ]);
-
-      // Process Common masters
-      if (commonRes?.success && commonRes.data) {
-        const grouped: Record<string, MasterValue[]> = {};
-        commonRes.data.forEach((item: any) => {
-          const type = item.type_name;
-          if (!grouped[type]) {
-            grouped[type] = [];
-          }
-          grouped[type].push({
-            id: item.value_id,
-            name: item.value_name,
-            isactive: 1,
-          });
-        });
-        setCommonMasters(grouped);
-      }
-
-      // Process Rooms masters
-      if (roomsRes?.success && roomsRes.data) {
-        const grouped: Record<string, MasterValue[]> = {};
-        roomsRes.data.forEach((item: any) => {
-          const type = item.type_name;
-          if (!grouped[type]) {
-            grouped[type] = [];
-          }
-          grouped[type].push({
-            id: item.value_id,
-            name: item.value_name,
-            isactive: 1,
-          });
-        });
-        setRoomsMasters(grouped);
-      }
-    } catch (error) {
-      console.error("Failed to fetch masters:", error);
-      toast.error("Failed to load master data");
-    } finally {
-      setLoadingMasters(false);
-    }
+      const [cR,rR] = await Promise.all([consumeMasters({tab:"Common"}),consumeMasters({tab:"Rooms"})]);
+      if (cR?.success&&cR.data) { const g:Record<string,MasterValue[]>={}; cR.data.forEach((i:any)=>{if(!g[i.type_name])g[i.type_name]=[];g[i.type_name].push({id:i.value_id,name:i.value_name,isactive:1});}); setCommonMasters(g); }
+      if (rR?.success&&rR.data) { const g:Record<string,MasterValue[]>={}; rR.data.forEach((i:any)=>{if(!g[i.type_name])g[i.type_name]=[];g[i.type_name].push({id:i.value_id,name:i.value_name,isactive:1});}); setRoomsMasters(g); }
+    } catch(e){console.error("Failed to fetch masters:",e);toast.error("Failed to load master data");}
+    finally{setLoadingMasters(false);}
   };
-
   const fetchProperties = async () => {
     try {
-      const propertiesResult = await getAllProperties();
-      if (propertiesResult.success && propertiesResult.data) {
-        const propertiesData = Array.isArray(propertiesResult.data)
-          ? propertiesResult.data.map(p => ({
-            value: p.id,
-            label: p.name,
-            address: p.address || `${p.city}, ${p.state}`,
-            lockin_period_months: p.lockin_period_months,
-            lockin_penalty_amount: p.lockin_penalty_amount,
-            lockin_penalty_type: p.lockin_penalty_type,
-            notice_period_days: p.notice_period_days,
-            notice_penalty_amount: p.notice_penalty_amount,
-            notice_penalty_type: p.notice_penalty_type,
-          }))
-          : [];
-        setProperties(propertiesData);
-      }
-    } catch (err) {
-      console.error("Failed to fetch properties", err);
-      toast.error("Failed to load properties");
-    }
+      const r = await getAllProperties();
+      if (r.success&&r.data) setProperties(Array.isArray(r.data)?r.data.map(p=>({value:p.id,label:p.name,address:p.address||`${p.city}, ${p.state}`,lockin_period_months:p.lockin_period_months,lockin_penalty_amount:p.lockin_penalty_amount,lockin_penalty_type:p.lockin_penalty_type,notice_period_days:p.notice_period_days,notice_penalty_amount:p.notice_penalty_amount,notice_penalty_type:p.notice_penalty_type})):[]);
+    } catch(e){console.error("Failed to fetch properties",e);toast.error("Failed to load properties");}
   };
-
-  const fetchPropertyDetails = async (propertyId: number) => {
+  const fetchPropertyDetails = async (propertyId:number) => {
     try {
-      const res: any = await getPropertyDetails(propertyId);
-
-      if (res.success && res.data) {
+      const res:any = await getPropertyDetails(propertyId);
+      if (res.success&&res.data) {
         setSelectedPropertyDetails(res.data);
-
-        const isEditingExistingTenant = tenant?.id !== undefined;
-        const tenantHasCustomValues =
-          tenant?.lockin_period_months !== null ||
-          tenant?.notice_period_days !== null ||
-          tenant?.lockin_penalty_amount !== null ||
-          tenant?.notice_penalty_amount !== null;
-
-        if (!isEditingExistingTenant || (!tenantHasCustomValues && !useCustomTerms)) {
-          setFormData((prev: any) => ({
-            ...prev,
-            lockin_period_months: res.data.lockin_period_months || prev.lockin_period_months,
-            lockin_penalty_amount: res.data.lockin_penalty_amount || prev.lockin_penalty_amount,
-            lockin_penalty_type: res.data.lockin_penalty_type || prev.lockin_penalty_type,
-            notice_period_days: res.data.notice_period_days || prev.notice_period_days,
-            notice_penalty_amount: res.data.notice_penalty_amount || prev.notice_penalty_amount,
-            notice_penalty_type: res.data.notice_penalty_type || prev.notice_penalty_type,
-          }));
-        }
+        const isEditing=tenant?.id!==undefined;
+        const hasCustom=tenant?.lockin_period_months!==null||tenant?.notice_period_days!==null||tenant?.lockin_penalty_amount!==null||tenant?.notice_penalty_amount!==null;
+        if (!isEditing||(!hasCustom&&!useCustomTerms)) setFormData((p:any)=>({...p,lockin_period_months:res.data.lockin_period_months||p.lockin_period_months,lockin_penalty_amount:res.data.lockin_penalty_amount||p.lockin_penalty_amount,lockin_penalty_type:res.data.lockin_penalty_type||p.lockin_penalty_type,notice_period_days:res.data.notice_period_days||p.notice_period_days,notice_penalty_amount:res.data.notice_penalty_amount||p.notice_penalty_amount,notice_penalty_type:res.data.notice_penalty_type||p.notice_penalty_type}));
       }
-    } catch (err: any) {
-      console.error("Failed to fetch property details", err);
-    }
+    } catch(e){console.error("Failed to fetch property details",e);}
   };
-
-  const handlePropertySelect = (propertyId: number | undefined) => {
-    setFormData((prev: any) => ({
-      ...prev,
-      property_id: propertyId
-    }));
-
-    if (!tenant) {
-      setUseCustomTerms(false);
-    }
-  };
-
+  const handlePropertySelect = (pid:number|undefined) => { setFormData((p:any)=>({...p,property_id:pid})); if(!tenant)setUseCustomTerms(false); };
   const loadOptions = async () => {
-    try {
-      // Load preferred options
-      const preferredResult = await getPreferredOptions();
-
-      if (preferredResult.success && preferredResult.data) {
-        const data = preferredResult.data;
-        setOptions(prev => ({
-          ...prev,
-          ...data,
-          genderOptions: data.genderOptions || ['Male', 'Female', 'Other'],
-          countryCodes: data.countryCodes || ['+91', '+1', '+44', '+61', '+65']
-        }));
-      }
-    } catch (err) {
-      console.error("Failed to load options", err);
-      toast.error("Failed to load form options");
-    }
+    try { const r=await getPreferredOptions(); if(r.success&&r.data){const d=r.data;setOptions(p=>({...p,...d,genderOptions:d.genderOptions||["Male","Female","Other"],countryCodes:d.countryCodes||["+91","+1","+44","+61","+65"]}));} }
+    catch(e){console.error("Failed to load options",e);toast.error("Failed to load form options");}
   };
-
   const loadExistingDocuments = async () => {
     if (tenant?.id) {
       try {
-        const res = await getTenant(tenant.id);
-        if (res?.success && res.data) {
-          setExistingFiles({
-            id_proof_url: res.data.id_proof_url || "",
-            address_proof_url: res.data.address_proof_url || "",
-            photo_url: res.data.photo_url || "",
-          });
-          if (res.data.additional_documents && Array.isArray(res.data.additional_documents)) {
-            setAdditionalDocuments(res.data.additional_documents);
-          }
-
-          // Update form data with the latest from API
-          setFormData((prev: any) => ({
-            ...prev,
-            city_id: res.data.city_id || prev.city_id,
-            city: res.data.city || prev.city,
-            state_id: res.data.state_id || prev.state_id,
-            state: res.data.state || prev.state,
-          }));
+        const res=await getTenant(tenant.id);
+        if (res?.success&&res.data) {
+          setExistingFiles({id_proof_url:res.data.id_proof_url||"",address_proof_url:res.data.address_proof_url||"",photo_url:res.data.photo_url||""});
+          if (res.data.additional_documents&&Array.isArray(res.data.additional_documents)) setAdditionalDocuments(res.data.additional_documents);
+          setFormData((p:any)=>({...p,city_id:res.data.city_id||p.city_id,city:res.data.city||p.city,state_id:res.data.state_id||p.state_id,state:res.data.state||p.state}));
         }
-      } catch (err) {
-        console.error("Failed to load documents", err);
-        toast.error("Failed to load existing documents");
-      }
+      } catch(e){console.error("Failed to load documents",e);toast.error("Failed to load existing documents");}
     }
   };
-
   const loadAvailableRooms = async () => {
-    if (!formData.gender || !formData.preferred_property_id) return;
-
-    try {
-      const res = await getAvailableRooms(
-        formData.gender,
-        formData.preferred_property_id
-      );
-      if (res?.success) {
-        setAvailableRooms(res.data || []);
-      }
-    } catch (err) {
-      console.error("Failed to load available rooms", err);
-      setAvailableRooms([]);
-    }
+    if (!formData.gender||!formData.preferred_property_id) return;
+    try { const r=await getAvailableRooms(formData.gender,formData.preferred_property_id); if(r?.success)setAvailableRooms(r.data||[]); }
+    catch(e){console.error("Failed to load available rooms",e);setAvailableRooms([]);}
   };
 
+  // ── ALL original validation preserved ─────────────────────────────────────
   const validateForm = (): boolean => {
-    // Basic validations
-    if (!formData.full_name.trim()) {
-      toast.error("Full name is required");
-      setActiveTab("basic");
-      return false;
-    }
-
-    if (!formData.email.trim()) {
-      toast.error("Email is required");
-      setActiveTab("basic");
-      return false;
-    }
-
-    if (!formData.phone.trim()) {
-      toast.error("Phone number is required");
-      setActiveTab("basic");
-      return false;
-    }
-
-    if (!formData.gender) {
-      toast.error("Gender is required");
-      setActiveTab("basic");
-      return false;
-    }
-
-    // Occupation validation
-    if (!formData.occupation_category) {
-      toast.error("Occupation category is required");
-      setActiveTab("occupation");
-      return false;
-    }
-
-
-    if (!formData.address) {
-      toast.error("Address is required");
-      setActiveTab("address");
-      return false;
-    }
-
-    if (!formData.city_id && !formData.city) {
-      toast.error("City is required");
-      setActiveTab("address");
-      return false;
-    }
-
-    if (!formData.state_id && !formData.state) {
-      toast.error("State is required");
-      setActiveTab("address");
-      return false;
-    }
-
-    // Additional document validations
-    if (!idProofFile && !existingFiles.id_proof_url) {
-      toast.error("ID Proof is required");
-      setActiveTab("documents");
-      return false;
-    }
-
-    if (!addressProofFile && !existingFiles.address_proof_url) {
-      toast.error("Address Proof is required");
-      setActiveTab("documents");
-      return false;
-    }
-
-    if (!photoFile && !existingFiles.photo_url) {
-      toast.error("Photo is required");
-      setActiveTab("documents");
-      return false;
-    }
-
-    // Credential validations
+    if (!formData.full_name.trim())            {toast.error("Full name is required");           setActiveTab("basic");       return false;}
+    if (!formData.email.trim())                {toast.error("Email is required");               setActiveTab("basic");       return false;}
+    if (!formData.phone.trim())                {toast.error("Phone number is required");        setActiveTab("basic");       return false;}
+    if (!formData.gender)                      {toast.error("Gender is required");              setActiveTab("basic");       return false;}
+    if (!formData.occupation_category)         {toast.error("Occupation category is required"); setActiveTab("occupation");  return false;}
+    if (!formData.address)                     {toast.error("Address is required");             setActiveTab("address");     return false;}
+    if (!formData.city_id&&!formData.city)     {toast.error("City is required");               setActiveTab("address");     return false;}
+    if (!formData.state_id&&!formData.state)   {toast.error("State is required");              setActiveTab("address");     return false;}
+    if (!idProofFile&&!existingFiles.id_proof_url)           {toast.error("ID Proof is required");      setActiveTab("documents");return false;}
+    if (!addressProofFile&&!existingFiles.address_proof_url) {toast.error("Address Proof is required"); setActiveTab("documents");return false;}
+    if (!photoFile&&!existingFiles.photo_url)                {toast.error("Photo is required");         setActiveTab("documents");return false;}
     if (!tenant?.id) {
       if (createCredentials) {
-        if (password.length < 6) {
-          toast.error("Password must be at least 6 characters");
-          setActiveTab("credentials");
-          return false;
-        }
-
-        if (password !== confirmPassword) {
-          toast.error("Passwords do not match");
-          setActiveTab("credentials");
-          return false;
-        }
+        if (password.length<6)          {toast.error("Password must be at least 6 characters");setActiveTab("credentials");return false;}
+        if (password!==confirmPassword) {toast.error("Passwords do not match");               setActiveTab("credentials");return false;}
       }
     } else {
-      if (password && password.trim() !== '') {
-        if (password.length < 6) {
-          toast.error("Password must be at least 6 characters");
-          setActiveTab("credentials");
-          return false;
-        }
-
-        if (password !== confirmPassword) {
-          toast.error("Passwords do not match");
-          setActiveTab("credentials");
-          return false;
-        }
+      if (password&&password.trim()!=="") {
+        if (password.length<6)          {toast.error("Password must be at least 6 characters");setActiveTab("credentials");return false;}
+        if (password!==confirmPassword) {toast.error("Passwords do not match");               setActiveTab("credentials");return false;}
       }
     }
-
     return true;
   };
 
+  // ── ALL original submit logic preserved ───────────────────────────────────
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (!validateForm()) return;
-
-    setLoading(true);
-    setUploadProgress(0);
-
+    setLoading(true); setUploadProgress(0);
     try {
-      const progressInterval = setInterval(() => {
-        setUploadProgress(prev => {
-          if (prev >= 90) {
-            clearInterval(progressInterval);
-            return prev;
-          }
-          return prev + 10;
-        });
-      }, 200);
-
-      const formDataToSend = new FormData();
-
-      
-
-      // Append tenant data
-      Object.keys(formData).forEach(key => {
-        const value = formData[key as keyof typeof formData];
-        if (value !== undefined && value !== null && value !== '') {
-          if ((key === 'check_in_date' || key === 'date_of_birth') && value) {
-            const dateValue = new Date(String(value));
-            if (!isNaN(dateValue.getTime())) {
-              formDataToSend.append(key, dateValue.toISOString().split('T')[0]);
-            }
-          } else {
-            formDataToSend.append(key, String(value));
-          }
+      const pi = setInterval(()=>setUploadProgress(p=>{if(p>=90){clearInterval(pi);return p;}return p+10;}),200);
+      const fd = new FormData();
+      Object.keys(formData).forEach(k=>{
+        const v=formData[k as keyof typeof formData];
+        if (v!==undefined&&v!==null&&v!=="") {
+          if ((k==="check_in_date"||k==="date_of_birth")&&v){const d=new Date(String(v));if(!isNaN(d.getTime()))fd.append(k,d.toISOString().split("T")[0]);}
+          else fd.append(k,String(v));
         }
       });
-
-      // Append credential info
       if (createCredentials) {
-        if (tenant?.id) {
-          if (password && password.trim() !== '') {
-            formDataToSend.append('update_credentials', 'true');
-            formDataToSend.append('password', password);
-          }
-        } else {
-          if (createCredentials) {
-            formDataToSend.append('create_credentials', 'true');
-            formDataToSend.append('password', password);
-          }
-        }
+        if (tenant?.id) { if(password&&password.trim()!==""){fd.append("update_credentials","true");fd.append("password",password);} }
+        else { fd.append("create_credentials","true"); fd.append("password",password); }
       }
-
-      // Append existing additional documents as JSON
-      if (additionalDocuments.length > 0) {
-        formDataToSend.append('additional_documents', JSON.stringify(additionalDocuments));
-      }
-
-      // Append main document files
-      if (idProofFile) formDataToSend.append('id_proof_url', idProofFile);
-      if (addressProofFile) formDataToSend.append('address_proof_url', addressProofFile);
-      if (photoFile) formDataToSend.append('photo_url', photoFile);
-
-      // Append additional files
-      additionalFiles.forEach((file) => {
-        formDataToSend.append('additional_documents[]', file);
-      });
-
-      let result: any;
-      if (tenant?.id) {
-        result = await updateTenant(tenant.id, formDataToSend);
-      } else {
-        result = await createTenant(formDataToSend);
-      }
-
-      clearInterval(progressInterval);
-      setUploadProgress(100);
-
+      if (additionalDocuments.length>0) fd.append("additional_documents",JSON.stringify(additionalDocuments));
+      if (idProofFile)      fd.append("id_proof_url",     idProofFile);
+      if (addressProofFile) fd.append("address_proof_url",addressProofFile);
+      if (photoFile)        fd.append("photo_url",        photoFile);
+      additionalFiles.forEach(f=>fd.append("additional_documents[]",f));
+      let result:any = tenant?.id ? await updateTenant(tenant.id,fd) : await createTenant(fd);
+      clearInterval(pi); setUploadProgress(100);
       if (result.success) {
-        const successMessage = tenant ? "Tenant updated successfully" : "Tenant created successfully";
-        toast.success(successMessage);
-
-        if (result.additional_documents) {
-          setAdditionalDocuments(result.additional_documents);
-        }
-
-        setIdProofFile(null);
-        setAddressProofFile(null);
-        setPhotoFile(null);
-        setAdditionalFiles([]);
-
-        if (typeof onSuccess === "function") {
-          setTimeout(() => {
-            onSuccess();
-          }, 500);
-        }
-      } else {
-        toast.error(result.message || "Operation failed");
-      }
-    } catch (err: any) {
-      console.error("Failed to save tenant", err);
-      toast.error(err.message || "Operation failed. Check console for details.");
-    } finally {
-      setLoading(false);
-      setUploadProgress(0);
-    }
+        toast.success(tenant?"Tenant updated successfully":"Tenant created successfully");
+        if (result.additional_documents) setAdditionalDocuments(result.additional_documents);
+        setIdProofFile(null);setAddressProofFile(null);setPhotoFile(null);setAdditionalFiles([]);
+        if (typeof onSuccess==="function") setTimeout(()=>onSuccess(),500);
+      } else toast.error(result.message||"Operation failed");
+    } catch(err:any){console.error("Failed to save tenant",err);toast.error(err.message||"Operation failed.");}
+    finally{setLoading(false);setUploadProgress(0);}
   };
 
-  
+  const handleInputChange  = (f:string,v:any) => setFormData((p:any)=>({...p,[f]:v}));
+  const handleSelectChange = (f:string,v:string|undefined) => setFormData((p:any)=>({...p,[f]:v}));
 
-  const handleInputChange = (field: string, value: any) => {
-    setFormData((prev: any) => ({ ...prev, [field]: value }));
-  };
+  // ── Shared UI tokens ───────────────────────────────────────────────────────
+  // h-8 inputs, 11px text — matches the blue-gradient dialog theme in the screenshot
+  const F  = "h-8 text-[11px] rounded-md border-gray-200 focus:border-blue-400";
+  const L  = "block text-[11px] font-medium text-gray-500 mb-0.5";
+  const SI = "text-[11px] py-0.5";
+  const g2 = "grid grid-cols-2 gap-2";
+  const g3 = "grid grid-cols-3 gap-2";
 
-  const handleSelectChange = (field: string, value: string | undefined) => {
-    setFormData((prev: any) => ({ ...prev, [field]: value }));
-  };
+  // Section-header like in the image (small-caps label + icon)
+  const SH = ({ icon, title, color="text-blue-600" }: {icon:React.ReactNode;title:string;color?:string}) => (
+    <div className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest pb-1.5 border-b border-gray-100 ${color}`}>
+      {icon} {title}
+    </div>
+  );
 
-  const DocumentPreview = ({ url, type, onRemove }: { url: string; type: string; onRemove?: () => void }) => {
+  // ── DocumentPreview (logic 100% preserved) ────────────────────────────────
+  const DocumentPreview = ({url,type,onRemove}:{url:string;type:string;onRemove?:()=>void}) => {
     if (!url) return null;
-
-    const isImage = url.match(/\.(jpeg|jpg|png|gif|webp|bmp)$/i);
-    const isPdf = url.match(/\.pdf$/i);
+    const isImg  = url.match(/\.(jpeg|jpg|png|gif|webp|bmp)$/i);
+    const isPdf  = url.match(/\.pdf$/i);
     const isWord = url.match(/\.(doc|docx)$/i);
-
-    const getIcon = () => {
-      if (isPdf) return "📄 PDF";
-      if (isWord) return "📝 Word";
-      return "📋 Document";
-    };
-
-    const [imageError, setImageError] = useState(false);
-
+    const icon   = isPdf?"📄 PDF":isWord?"📝 Word":"📋 Doc";
+    const [err,setErr] = useState(false);
     return (
-      <div className="mt-2 border rounded-lg p-3 bg-white">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex gap-2">
-            <a
-              href={url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-600 hover:text-blue-800 text-sm flex items-center gap-1 px-2 py-1 rounded hover:bg-blue-50"
-            >
-              <Eye className="h-3 w-3" />
-              View
-            </a>
-            {onRemove && (
-              <button
-                type="button"
-                onClick={onRemove}
-                className="text-red-600 hover:text-red-800 text-sm flex items-center gap-1 px-2 py-1 rounded hover:bg-red-50"
-              >
-                <X className="h-3 w-3" />
-                Remove
-              </button>
-            )}
-          </div>
+      <div className="mt-1 border rounded p-1.5 bg-white">
+        <div className="flex gap-2 mb-1">
+          <a href={url} target="_blank" rel="noopener noreferrer" className="text-blue-500 text-[10px] flex items-center gap-0.5 hover:underline"><Eye className="h-2.5 w-2.5"/>View</a>
+          {onRemove&&<button type="button" onClick={onRemove} className="text-red-400 text-[10px] flex items-center gap-0.5 hover:text-red-600"><X className="h-2.5 w-2.5"/>Remove</button>}
         </div>
-
-        {isImage && !imageError ? (
-          <div className="relative h-32 w-full rounded border overflow-hidden bg-gray-50">
-            <img
-              src={url}
-              alt={type}
-              className="h-full w-full object-contain"
-              onError={() => setImageError(true)}
-            />
-          </div>
-        ) : (
-          <div className="h-32 w-full bg-gray-100 rounded flex flex-col items-center justify-center p-4">
-            <FileText className="h-8 w-8 text-gray-400 mb-2" />
-            <p className="text-sm font-medium text-gray-700 mb-1">{getIcon()}</p>
-            <p className="text-xs text-gray-500 text-center mb-2">
-              {imageError ? 'Image preview not available' : `${type} Document`}
-            </p>
-            <a
-              href={url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
-            >
-              View original file
-            </a>
-          </div>
-        )}
+        {isImg&&!err
+          ? <div className="h-16 w-full rounded border overflow-hidden bg-gray-50"><img src={url} alt={type} className="h-full w-full object-contain" onError={()=>setErr(true)}/></div>
+          : <div className="h-16 w-full bg-gray-100 rounded flex flex-col items-center justify-center"><FileText className="h-4 w-4 text-gray-400 mb-0.5"/><p className="text-[10px] text-gray-600">{icon}</p></div>
+        }
       </div>
     );
   };
 
-  const FileUploadField = ({
-    label,
-    file,
-    setFile,
-    existingUrl,
-    fieldName,
-    accept = ".pdf,.jpg,.jpeg,.png,.webp,.bmp,.doc,.docx",
-    description = "Max file size: 10MB",
-    required = true,
-    onRemoveExisting
-  }: {
-    label: string;
-    file: File | null;
-    setFile: (file: File | null) => void;
-    existingUrl: string;
-    fieldName: string;
-    accept?: string;
-    description?: string;
-    required?: boolean;
-    onRemoveExisting?: () => void;
-  }) => (
-    <div className="space-y-3">
-      <Label htmlFor={fieldName}>
-        <div className="flex items-center gap-2">
-          <FileText className="h-4 w-4" />
-          {label} {required && <span className="text-red-500">*</span>}
-        </div>
-      </Label>
-
-      <div className="space-y-2">
-        <Input
-          id={fieldName}
-          type="file"
-          accept={accept}
-          onChange={(e) => {
-            if (e.target.files && e.target.files[0]) {
-              const selectedFile = e.target.files[0];
-              if (selectedFile.size > 10 * 1024 * 1024) {
-                toast.error("File size exceeds 10MB limit");
-                return;
-              }
-              setFile(selectedFile);
-            }
-          }}
-          className="cursor-pointer"
-        />
-
-        {/* Show new file if selected */}
-        {file && (
-          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium text-blue-800">New file selected:</p>
-                <p className="text-blue-700 text-sm">{file.name}</p>
-                <p className="text-xs text-blue-600">Size: {(file.size / 1024 / 1024).toFixed(2)} MB</p>
-              </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-8 text-red-600 hover:text-red-800 hover:bg-red-50"
-                onClick={() => setFile(null)}
-              >
-                <X className="h-3 w-3" />
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* Show existing file preview only if no new file is selected */}
-        {!file && existingUrl && (
-          <DocumentPreview
-            url={existingUrl}
-            type={label}
-            onRemove={() => {
-              setExistingFiles(prev => ({ ...prev, [fieldName]: "" }));
-              toast.info(`${label} will be removed on save`);
-            }}
-          />
-        )}
-
-        {/* Show upload placeholder if no file and no existing file */}
-        {!file && !existingUrl && (
-          <div className="p-4 border-2 border-dashed border-gray-300 rounded-lg text-center">
-            <Upload className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-            <p className="text-sm text-gray-600">Click to upload {label.toLowerCase()}</p>
-            <p className="text-xs text-gray-500 mt-1">{description}</p>
-          </div>
-        )}
-      </div>
+  // ── FileUploadField (logic 100% preserved) ────────────────────────────────
+  const FileUploadField = ({label,file,setFile,existingUrl,fieldName,accept=".pdf,.jpg,.jpeg,.png,.webp,.bmp,.doc,.docx",description="Max 10MB",required=true,onRemoveExisting}:{label:string;file:File|null;setFile:(f:File|null)=>void;existingUrl:string;fieldName:string;accept?:string;description?:string;required?:boolean;onRemoveExisting?:()=>void;}) => (
+    <div className="space-y-1">
+      <label className={L}><span className="flex items-center gap-1"><FileText className="h-3 w-3"/>{label}{required&&<span className="text-red-400">*</span>}</span></label>
+      <Input id={fieldName} type="file" accept={accept} className={`cursor-pointer ${F}`}
+        onChange={e=>{if(e.target.files?.[0]){if(e.target.files[0].size>10*1024*1024){toast.error("File exceeds 10MB");return;}setFile(e.target.files[0]);}}}/>
+      {file&&(<div className="flex items-center justify-between p-1.5 bg-blue-50 border border-blue-100 rounded"><div><p className="text-[10px] font-medium text-blue-700">{file.name}</p><p className="text-[10px] text-blue-400">{(file.size/1024/1024).toFixed(2)} MB</p></div><button type="button" onClick={()=>setFile(null)} className="text-red-400"><X className="h-3 w-3"/></button></div>)}
+      {!file&&existingUrl&&<DocumentPreview url={existingUrl} type={label} onRemove={()=>{setExistingFiles(p=>({...p,[fieldName]:""}));toast.info(`${label} removed on save`);}}/>}
+      {!file&&!existingUrl&&(<div className="p-2 border-2 border-dashed border-gray-200 rounded text-center bg-gray-50"><Upload className="h-4 w-4 text-gray-300 mx-auto mb-0.5"/><p className="text-[10px] text-gray-400">{description}</p></div>)}
     </div>
   );
 
-  const emergencyRelations = [
-    "Father", "Mother", "Brother", "Sister", "Spouse",
-    "Friend", "Relative", "Guardian", "Other"
-  ];
+  const emergencyRelations = ["Father","Mother","Brother","Sister","Spouse","Friend","Relative","Guardian","Other"];
 
-  // Get icon for occupation category
-  const getOccupationIcon = (category: string) => {
-    const found = occupationCategoryOptions.find(o => o.value === category);
-    return found?.icon || "👤";
-  };
-
+  // ══════════════════════════════════════════════════════════════════════════
+  //  RENDER
+  // ══════════════════════════════════════════════════════════════════════════
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col h-full">
-      {/* Progress Bar - made smaller */}
-      {loading && uploadProgress > 0 && (
-        <div className="px-4 pt-2 space-y-1">
-          <div className="flex justify-between text-xs">
-            <span>Uploading...</span>
-            <span>{uploadProgress}%</span>
-          </div>
-          <Progress value={uploadProgress} className="h-1.5" />
+    // The form fills 100% of whatever height the Dialog gives it.
+    // The Dialog should set a fixed height — see the note below this file.
+    <form onSubmit={handleSubmit} className="flex flex-col h-full bg-white">
+
+      {/* Upload progress */}
+      {loading&&uploadProgress>0&&(
+        <div className="px-4 pt-1.5 flex-shrink-0 space-y-0.5">
+          <div className="flex justify-between text-[10px] text-gray-400"><span>Uploading…</span><span>{uploadProgress}%</span></div>
+          <Progress value={uploadProgress} className="h-1"/>
         </div>
       )}
 
-      {/* Form Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
-        <div className="px-4 pt-2">
-          <TabsList className="grid grid-cols-7 h-12 sm:h-10">
-            <TabsTrigger
-              value="basic"
-              className="flex flex-col sm:flex-row items-center justify-center gap-1 px-1 sm:px-2"
-            >
-              <User className="h-4 w-4 sm:h-4 sm:w-4" />
-              <span className="text-[10px] sm:text-xs">Basic</span>
-            </TabsTrigger>
-
-            <TabsTrigger
-              value="occupation"
-              className="flex flex-col sm:flex-row items-center justify-center gap-1 px-1 sm:px-2"
-            >
-              <Briefcase className="h-4 w-4 sm:h-4 sm:w-4" />
-              <span className="text-[10px] sm:text-xs">Work</span>
-            </TabsTrigger>
-
-            <TabsTrigger
-              value="address"
-              className="flex flex-col sm:flex-row items-center justify-center gap-1 px-1 sm:px-2"
-            >
-              <MapPin className="h-4 w-4 sm:h-4 sm:w-4" />
-              <span className="text-[10px] sm:text-xs">Address</span>
-            </TabsTrigger>
-
-            <TabsTrigger
-              value="property"
-              className="flex flex-col sm:flex-row items-center justify-center gap-1 px-1 sm:px-2"
-            >
-              <Building className="h-4 w-4 sm:h-4 sm:w-4" />
-              <span className="text-[10px] sm:text-xs">Prop</span>
-            </TabsTrigger>
-
-            <TabsTrigger
-              value="terms"
-              className="flex flex-col sm:flex-row items-center justify-center gap-1 px-1 sm:px-2"
-            >
-              <FileText className="h-4 w-4 sm:h-4 sm:w-4" />
-              <span className="text-[10px] sm:text-xs">Terms</span>
-            </TabsTrigger>
-
-            <TabsTrigger
-              value="documents"
-              className="flex flex-col sm:flex-row items-center justify-center gap-1 px-1 sm:px-2"
-            >
-              <FileText className="h-4 w-4 sm:h-4 sm:w-4" />
-              <span className="text-[10px] sm:text-xs">Docs</span>
-            </TabsTrigger>
-
-            <TabsTrigger
-              value="credentials"
-              className="flex flex-col sm:flex-row items-center justify-center gap-1 px-1 sm:px-2"
-            >
-              <Key className="h-4 w-4 sm:h-4 sm:w-4" />
-              <span className="text-[10px] sm:text-xs">Login</span>
-            </TabsTrigger>
+      {/* ── Tab bar (fixed, never scrolls) ──────────────────────────────── */}
+      <div className="flex-shrink-0 px-4 pt-2 pb-0 border-b border-gray-100">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="grid grid-cols-7 h-9 w-full bg-gray-100/80 rounded-lg p-0.5 gap-0.5">
+            {[
+              {v:"basic",       ic:<User className="h-3 w-3"/>,      lb:"Basic" },
+              {v:"occupation",  ic:<Briefcase className="h-3 w-3"/>, lb:"Work"  },
+              {v:"address",     ic:<MapPin className="h-3 w-3"/>,    lb:"Addr"  },
+              {v:"property",    ic:<Building className="h-3 w-3"/>,  lb:"Prop"  },
+              {v:"terms",       ic:<FileText className="h-3 w-3"/>,  lb:"Terms" },
+              {v:"documents",   ic:<Upload className="h-3 w-3"/>,    lb:"Docs"  },
+              {v:"credentials", ic:<Key className="h-3 w-3"/>,       lb:"Login" },
+            ].map(t=>(
+              <TabsTrigger key={t.v} value={t.v}
+                className="flex flex-col items-center justify-center gap-0.5 py-0.5 px-0 rounded-md text-gray-500
+                  data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm transition-all">
+                {t.ic}
+                <span className="text-[8.5px] leading-none font-medium">{t.lb}</span>
+              </TabsTrigger>
+            ))}
           </TabsList>
-        </div>
-
-        {/* Scrollable content area with fixed height */}
-        <div className="flex-1 overflow-y-auto min-h-0 px-4 py-3">
-          {/* Basic Information Tab */}
-          <TabsContent value="basic" className="mt-0 space-y-4">
-            <Card>
-              <CardHeader className="bg-blue-50 py-3">
-                <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
-                  <User className="h-4 w-4" />
-                  Personal Information
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-3">
-                    {/* Salutation and Name row */}
-                    <div className="grid grid-cols-4 gap-2">
-                      <div className="space-y-1">
-                        <Label htmlFor="salutation" className="text-xs sm:text-sm">Salutation</Label>
-                        <Select
-                          value={formData.salutation}
-                          onValueChange={(value) => handleSelectChange("salutation", value)}
-                        >
-                          <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
-                            <SelectValue placeholder="Title" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {["Mr", "Mrs", "Miss", "Ms", "Dr", "Prof"].map((title) => (
-                              <SelectItem key={title} value={title} className="text-xs sm:text-sm">
-                                {title}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-1 col-span-3">
-                        <Label htmlFor="full_name" className="text-xs sm:text-sm">
-                          <span className="text-red-500">*</span> Full Name
-                        </Label>
-                        <Input
-                          id="full_name"
-                          value={formData.full_name}
-                          onChange={(e) => handleInputChange("full_name", e.target.value)}
-                          placeholder="Enter full name"
-                          required
-                          className="h-8 sm:h-9 text-xs sm:text-sm"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <Label htmlFor="email" className="text-xs sm:text-sm">
-                        <span className="text-red-500">*</span> Email Address
-                      </Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        value={formData.email}
-                        onChange={(e) => handleInputChange("email", e.target.value)}
-                        placeholder="example@email.com"
-                        required
-                        className="h-8 sm:h-9 text-xs sm:text-sm"
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <Label htmlFor="phone" className="text-xs sm:text-sm">
-                        <span className="text-red-500">*</span> Phone Number
-                      </Label>
-                      <div className="flex gap-2">
-                        <Select
-                          value={formData.country_code}
-                          onValueChange={(value) => handleInputChange("country_code", value)}
-                        >
-                          <SelectTrigger className="w-[100px] sm:w-[120px] h-8 sm:h-9 text-xs sm:text-sm">
-                            <SelectValue placeholder="+91" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {options.countryCodes.map((code) => (
-                              <SelectItem key={code} value={code} className="text-xs sm:text-sm">
-                                {code}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <Input
-                          id="phone"
-                          type="tel"
-                          value={formData.phone}
-                          onChange={(e) => handleInputChange("phone", e.target.value)}
-                          placeholder="9876543210"
-                          pattern="[6-9][0-9]{9}"
-                          maxLength={10}
-                          required
-                          className="h-8 sm:h-9 text-xs sm:text-sm"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="space-y-1">
-  <Label htmlFor="date_of_birth" className="text-xs sm:text-sm">Date of Birth</Label>
-  <div className="relative">
-    <Calendar className="absolute left-2 top-2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-gray-400" />
-    <Input
-      id="date_of_birth"
-      type="date"
-      value={formData.date_of_birth}
-      onChange={(e) => {
-        const selectedDate = new Date(e.target.value);
-        const today = new Date();
-        const eighteenYearsAgo = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());
-        
-        // Check if selected date is after 18 years ago (i.e., user is under 18)
-        if (selectedDate > eighteenYearsAgo) {
-          toast.error("Tenant must be at least 18 years old");
-          return;
-        }
-        handleInputChange("date_of_birth", e.target.value);
-      }}
-      className="pl-8 sm:pl-10 h-8 sm:h-9 text-xs sm:text-sm"
-      max={new Date(new Date().getFullYear() - 18, new Date().getMonth(), new Date().getDate()).toISOString().split('T')[0]}
-    />
-  </div>
-  {formData.date_of_birth && (
-    <p className="text-[10px] sm:text-xs text-gray-500">
-      Age: {Math.floor((new Date().getTime() - new Date(formData.date_of_birth).getTime()) / (365.25 * 24 * 60 * 60 * 1000))} years
-    </p>
-  )}
-</div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <div className="space-y-1">
-                      <Label htmlFor="gender" className="text-xs sm:text-sm">
-                        <span className="text-red-500">*</span> Gender
-                      </Label>
-                      <Select
-                        value={formData.gender}
-                        onValueChange={(value) => handleSelectChange("gender", value)}
-                      >
-                        <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
-                          <SelectValue placeholder="Select gender" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {options.genderOptions.map((option) => (
-                            <SelectItem key={option} value={option} className="text-xs sm:text-sm">
-                              {option}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-1">
-                      <Label className="text-xs sm:text-sm">Emergency Contact</Label>
-                      <div className="grid grid-cols-2 gap-2">
-                        <Input
-                          placeholder="Name"
-                          value={formData.emergency_contact_name}
-                          onChange={(e) => handleInputChange("emergency_contact_name", e.target.value)}
-                          className="h-8 sm:h-9 text-xs sm:text-sm"
-                        />
-                        <Input
-                          placeholder="Phone"
-                          value={formData.emergency_contact_phone}
-                          onChange={(e) => handleInputChange("emergency_contact_phone", e.target.value)}
-                          className="h-8 sm:h-9 text-xs sm:text-sm"
-                          pattern="[6-9][0-9]{9}"
-                          maxLength={10}
-                        />
-                      </div>
-                      <Select
-                        value={formData.emergency_contact_relation}
-                        onValueChange={(value) => handleSelectChange("emergency_contact_relation", value)}
-                      >
-                        <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
-                          <SelectValue placeholder="Relation" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {emergencyRelations.map((relation) => (
-                            <SelectItem key={relation} value={relation} className="text-xs sm:text-sm">
-                              {relation}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="pt-2">
-                      <div className="flex items-center gap-2">
-                        <Switch
-                          id="is_active"
-                          checked={formData.is_active}
-                          onCheckedChange={(checked) => handleInputChange("is_active", checked)}
-                        />
-                        <Label htmlFor="is_active" className="cursor-pointer text-xs sm:text-sm">
-                          Active Tenant
-                        </Label>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Occupation Tab - UPDATED with full hierarchy */}
-          <TabsContent value="occupation" className="mt-0 space-y-4">
-  <Card>
-    <CardHeader className="bg-green-50 py-3">
-      <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
-        <Briefcase className="h-4 w-4" />
-        Occupation & Professional Details
-      </CardTitle>
-    </CardHeader>
-    <CardContent className="pt-4">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-        {/* ── LEFT COLUMN ── */}
-        <div className="space-y-3">
-
-          {/* Occupation Category */}
-          <div className="space-y-1">
-            <Label htmlFor="occupation_category" className="text-xs sm:text-sm">
-              <span className="text-red-500">*</span> Occupation Category
-            </Label>
-            <Select
-              value={formData.occupation_category}
-              onValueChange={(value) => handleSelectChange("occupation_category", value)}
-            >
-              <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
-                <SelectValue placeholder="Select occupation category" />
-              </SelectTrigger>
-              <SelectContent>
-                {occupationCategoryOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value} className="text-xs sm:text-sm">
-                    <span className="mr-2">{option.icon}</span>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Occupation Sub-Category */}
-          {formData.occupation_category && (
-            <div className="space-y-1">
-              <Label htmlFor="exact_occupation" className="text-xs sm:text-sm">
-                Occupation Sub-Category
-              </Label>
-              <Select
-                value={formData.exact_occupation || ""}
-                onValueChange={(value) => handleSelectChange("exact_occupation", value === "none" ? "" : value)}
-              >
-                <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
-                  <SelectValue placeholder="Select sub-category (optional)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none" className="text-xs sm:text-sm">
-                    None (specify below)
-                  </SelectItem>
-                  {availableSubCategories.map((sub) => (
-                    <SelectItem key={sub.value} value={sub.value} className="text-xs sm:text-sm">
-                      {sub.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          {/* Organization / Institution */}
-          {formData.occupation_category && (
-            <div className="space-y-1">
-              <Label htmlFor="organization" className="text-xs sm:text-sm">
-                {formData.occupation_category === "Student" ? "College/University Name" :
-                  formData.occupation_category === "Working Professional" ? "Company/Organization Name" :
-                    formData.occupation_category === "Business Owner" ? "Business/Shop Name" :
-                      formData.occupation_category === "Government Employee" ? "Department/Office Name" :
-                        "Organization Name (Optional)"}
-              </Label>
-              <Input
-                id="organization"
-                value={formData.organization || ""}
-                onChange={(e) => handleInputChange("organization", e.target.value)}
-                placeholder={
-                  formData.occupation_category === "Student" ? "e.g., Indian Institute of Technology" :
-                    formData.occupation_category === "Working Professional" ? "e.g., Google India" :
-                      formData.occupation_category === "Business Owner" ? "e.g., Fashion Store, Sector 18" :
-                        "Enter organization name"
-                }
-                className="h-8 sm:h-9 text-xs sm:text-sm"
-              />
-            </div>
-          )}
-
-          {/* Years of Experience + Monthly Income — Professionals */}
-          {(formData.occupation_category === "Working Professional" ||
-            formData.occupation_category === "Business Owner" ||
-            formData.occupation_category === "Consultant") && (
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1">
-                <Label htmlFor="years_of_experience" className="text-xs sm:text-sm">Years of Experience</Label>
-                <Input
-                  id="years_of_experience"
-                  type="number"
-                  min="0"
-                  max="50"
-                  value={formData.years_of_experience || ""}
-                  onChange={(e) => handleInputChange("years_of_experience", e.target.value)}
-                  placeholder="e.g., 5"
-                  className="h-8 sm:h-9 text-xs sm:text-sm"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="monthly_income" className="text-xs sm:text-sm">Monthly Income (₹)</Label>
-                <Input
-                  id="monthly_income"
-                  type="number"
-                  min="0"
-                  value={formData.monthly_income || ""}
-                  onChange={(e) => handleInputChange("monthly_income", e.target.value)}
-                  placeholder="e.g., 50000"
-                  className="h-8 sm:h-9 text-xs sm:text-sm"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Student — Course Details */}
-          {formData.occupation_category === "Student" && (
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1">
-                <Label htmlFor="course_duration" className="text-xs sm:text-sm">Course Duration</Label>
-                <Select
-                  value={formData.course_duration || ""}
-                  onValueChange={(value) => handleSelectChange("course_duration", value)}
-                >
-                  <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
-                    <SelectValue placeholder="Select duration" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1_year" className="text-xs sm:text-sm">1 Year</SelectItem>
-                    <SelectItem value="2_years" className="text-xs sm:text-sm">2 Years</SelectItem>
-                    <SelectItem value="3_years" className="text-xs sm:text-sm">3 Years</SelectItem>
-                    <SelectItem value="4_years" className="text-xs sm:text-sm">4 Years</SelectItem>
-                    <SelectItem value="5_years" className="text-xs sm:text-sm">5+ Years</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="student_id" className="text-xs sm:text-sm">Student ID (Optional)</Label>
-                <Input
-                  id="student_id"
-                  value={formData.student_id || ""}
-                  onChange={(e) => handleInputChange("student_id", e.target.value)}
-                  placeholder="University ID"
-                  className="h-8 sm:h-9 text-xs sm:text-sm"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Government Employee — Employee ID */}
-          {formData.occupation_category === "Government Employee" && (
-            <div className="space-y-1">
-              <Label htmlFor="employee_id" className="text-xs sm:text-sm">Employee/Service ID</Label>
-              <Input
-                id="employee_id"
-                value={formData.employee_id || ""}
-                onChange={(e) => handleInputChange("employee_id", e.target.value)}
-                placeholder="e.g., Employee ID / Service Number"
-                className="h-8 sm:h-9 text-xs sm:text-sm"
-              />
-            </div>
-          )}
-
-          {/* Freelancer — Portfolio URL */}
-          {formData.occupation_category === "Freelancer / Self-Employed" && (
-            <div className="space-y-1">
-              <Label htmlFor="portfolio_url" className="text-xs sm:text-sm">Portfolio/Website URL</Label>
-              <Input
-                id="portfolio_url"
-                type="url"
-                value={formData.portfolio_url || ""}
-                onChange={(e) => handleInputChange("portfolio_url", e.target.value)}
-                placeholder="e.g., github.com/username, behance.net/..."
-                className="h-8 sm:h-9 text-xs sm:text-sm"
-              />
-            </div>
-          )}
-
-        </div>
-
-        {/* ── RIGHT COLUMN ── */}
-        <div className="space-y-3">
-
-          {/* Work Mode */}
-          <div className="space-y-1">
-            <Label htmlFor="work_mode" className="text-xs sm:text-sm">Work Mode (Optional)</Label>
-            <Select
-              value={formData.work_mode || ""}
-              onValueChange={(value) => handleSelectChange("work_mode", value)}
-            >
-              <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
-                <SelectValue placeholder="Select work mode" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="remote" className="text-xs sm:text-sm">Fully Remote</SelectItem>
-                <SelectItem value="hybrid" className="text-xs sm:text-sm">Hybrid</SelectItem>
-                <SelectItem value="onsite" className="text-xs sm:text-sm">On-site</SelectItem>
-                <SelectItem value="flexible" className="text-xs sm:text-sm">Flexible</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Shift Timing */}
-          <div className="space-y-1">
-            <Label htmlFor="shift_timing" className="text-xs sm:text-sm">Shift Timing (Optional)</Label>
-            <Select
-              value={formData.shift_timing || ""}
-              onValueChange={(value) => handleSelectChange("shift_timing", value)}
-            >
-              <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
-                <SelectValue placeholder="Select shift timing" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="day" className="text-xs sm:text-sm">Day</SelectItem>
-                <SelectItem value="night" className="text-xs sm:text-sm">Night</SelectItem>
-                <SelectItem value="rotating" className="text-xs sm:text-sm">Rotating</SelectItem>
-                <SelectItem value="flexible" className="text-xs sm:text-sm">Flexible</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Check-in Date */}
-          <div className="space-y-1">
-            <Label htmlFor="check_in_date" className="text-xs sm:text-sm">Check-in Date</Label>
-            <div className="relative">
-              <Calendar className="absolute left-2 top-2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-gray-400" />
-              <Input
-                id="check_in_date"
-                type="date"
-                value={formData.check_in_date}
-                onChange={(e) => {
-                  const selectedDate = new Date(e.target.value);
-                  const today = new Date();
-                  today.setHours(0, 0, 0, 0);
-                  if (selectedDate < today) {
-                    toast.error("Check-in date cannot be in the past");
-                    return;
-                  }
-                  handleInputChange("check_in_date", e.target.value);
-                }}
-                className="pl-8 sm:pl-10 h-8 sm:h-9 text-xs sm:text-sm"
-                min={new Date().toISOString().split('T')[0]}
-              />
-            </div>
-            {formData.check_in_date && (
-              <p className="text-[10px] sm:text-xs text-gray-500">Tenant move-in date</p>
-            )}
-          </div>
-
-        </div>
+        </Tabs>
       </div>
-    </CardContent>
-  </Card>
-</TabsContent>
 
-          {/* Address Tab */}
-          <TabsContent value="address" className="mt-0 space-y-4">
-            <Card>
-              <CardHeader className="bg-purple-50 py-3">
-                <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
-                  <MapPin className="h-4 w-4" />
-                  Address Information
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-4">
+      {/* ── Scrollable content area — fixed height comes from the Dialog ── */}
+      <div className="flex-1 overflow-y-auto min-h-0">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+
+          {/* ────────────────────────────────────────────────────────────────
+              BASIC
+          ──────────────────────────────────────────────────────────────── */}
+          <TabsContent value="basic" className="mt-0 data-[state=inactive]:hidden">
+            <div className="p-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-0">
+
+                {/* LEFT */}
                 <div className="space-y-3">
-                  <div className="space-y-1">
-                    <Label htmlFor="address" className="text-xs sm:text-sm">
-                      <span className="text-red-500">*</span> Complete Address
-                    </Label>
-                    <Textarea
-                      id="address"
-                      value={formData.address}
-                      onChange={(e) => handleInputChange("address", e.target.value)}
-                      placeholder="House no, Building, Street, Area, Landmark"
-                      rows={2}
-                      className="text-xs sm:text-sm min-h-16"
-                      required
-                    />
-                  </div>
+                  <SH icon={<User className="h-3 w-3"/>} title="Personal Info"/>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div className="space-y-1">
-                      <Label htmlFor="city_id" className="text-xs sm:text-sm">
-                        <span className="text-red-500">*</span> City
-                      </Label>
-                      <Select
-                        value={formData.city_id ? String(formData.city_id) : ""}
-                        onValueChange={(value) => {
-                          const selectedCity = cities.find(c => c.id === parseInt(value));
-                          handleSelectChange("city_id", value);
-                          handleSelectChange("city", selectedCity?.name || "");
-                        }}
-                        disabled={loadingMasters}
-                      >
-                        <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
-                          <SelectValue placeholder={loadingMasters ? "Loading..." : "Select City"} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {loadingMasters ? (
-                            <div className="px-2 py-1.5 text-xs text-gray-500 flex items-center gap-1">
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                              Loading...
-                            </div>
-                          ) : cities.length > 0 ? (
-                            cities.map((city) => (
-                              <SelectItem key={city.id} value={String(city.id)} className="text-xs sm:text-sm">
-                                {city.name}
-                              </SelectItem>
-                            ))
-                          ) : (
-                            <div className="px-2 py-1.5 text-xs text-gray-500">
-                              No cities found
-                            </div>
-                          )}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-1">
-                      <Label htmlFor="state_id" className="text-xs sm:text-sm">
-                        <span className="text-red-500">*</span> State
-                      </Label>
-                      <Select
-                        value={formData.state_id ? String(formData.state_id) : ""}
-                        onValueChange={(value) => {
-                          const selectedState = states.find(s => s.id === parseInt(value));
-                          handleSelectChange("state_id", value);
-                          handleSelectChange("state", selectedState?.name || "");
-                        }}
-                        disabled={loadingMasters}
-                      >
-                        <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
-                          <SelectValue placeholder={loadingMasters ? "Loading..." : "Select State"} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {loadingMasters ? (
-                            <div className="px-2 py-1.5 text-xs text-gray-500 flex items-center gap-1">
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                              Loading...
-                            </div>
-                          ) : states.length > 0 ? (
-                            states.map((state) => (
-                              <SelectItem key={state.id} value={String(state.id)} className="text-xs sm:text-sm">
-                                {state.name}
-                              </SelectItem>
-                            ))
-                          ) : (
-                            <div className="px-2 py-1.5 text-xs text-gray-500">
-                              No states found
-                            </div>
-                          )}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-1">
-                      <Label htmlFor="pincode" className="text-xs sm:text-sm">Pincode</Label>
-                      <Input
-                        id="pincode"
-                        value={formData.pincode}
-                        onChange={(e) => handleInputChange("pincode", e.target.value)}
-                        placeholder="6-digit pincode"
-                        maxLength={6}
-                        className="h-8 sm:h-9 text-xs sm:text-sm"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Property Tab */}
-          <TabsContent value="property" className="mt-0 space-y-4">
-            <Card>
-              <CardHeader className="bg-indigo-50 py-3">
-                <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
-                  <Building className="h-4 w-4" />
-                  Property Assignment
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-4">
-                <div className="space-y-3">
-                  <div className="space-y-1">
-                    <Label htmlFor="property_id" className="text-xs sm:text-sm">Assigned Property</Label>
-                    <Select
-                      value={formData.property_id?.toString() || ""}
-                      onValueChange={(value) => handlePropertySelect(value ? parseInt(value) : undefined)}
-                    >
-                      <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
-                        <SelectValue placeholder="Select property to assign" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {properties.map((property) => (
-                          <SelectItem key={property.value} value={property.value.toString()} className="text-xs sm:text-sm">
-                            <div className="flex flex-col max-w-[200px]">
-                              <span className="font-medium truncate">{property.label}</span>
-                              <span className="text-[10px] sm:text-xs text-gray-500 truncate">
-                                {property.address}
-                              </span>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <p className="text-[10px] sm:text-xs text-gray-500">
-                      This is the actual property where the tenant will be staying
-                    </p>
-                  </div>
-
-                  {/* Show property details if selected */}
-                  {selectedPropertyDetails && (
-                    <div className="border rounded p-3 bg-blue-50">
-                      <h4 className="font-medium mb-2 flex items-center gap-1 text-xs sm:text-sm">
-                        <Building className="h-3.5 w-3.5" />
-                        Selected Property Details
-                      </h4>
-                      <div className="grid grid-cols-2 gap-3 text-[10px] sm:text-xs">
-                        <div>
-                          <p className="text-gray-600">Property Name:</p>
-                          <p className="font-medium">{selectedPropertyDetails.name}</p>
-                        </div>
-                        <div>
-                          <p className="text-gray-600">Lock-in Period:</p>
-                          <p className="font-medium">{selectedPropertyDetails.lockin_period_months} months</p>
-                        </div>
-                        <div>
-                          <p className="text-gray-600">Lock-in Penalty:</p>
-                          <p className="font-medium flex items-center gap-1">
-                            {selectedPropertyDetails.lockin_penalty_type === 'percentage' ? (
-                              <>
-                                <span>%</span>
-                                <span>{selectedPropertyDetails.lockin_penalty_amount}</span>
-                              </>
-                            ) : (
-                              <>
-                                <span>₹</span>
-                                <span>{selectedPropertyDetails.lockin_penalty_amount}</span>
-                              </>
-                            )}
-                            <span className="text-gray-500 text-[8px] sm:text-[10px]">({selectedPropertyDetails.lockin_penalty_type})</span>
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-gray-600">Notice Period:</p>
-                          <p className="font-medium">{selectedPropertyDetails.notice_period_days} days</p>
-                        </div>
-                        <div>
-                          <p className="text-gray-600">Notice Penalty:</p>
-                          <p className="font-medium flex items-center gap-1">
-                            {selectedPropertyDetails.notice_penalty_type === 'percentage' ? (
-                              <>
-                                <span>%</span>
-                                <span>{selectedPropertyDetails.notice_penalty_amount}</span>
-                              </>
-                            ) : (
-                              <>
-                                <span>₹</span>
-                                <span>{selectedPropertyDetails.notice_penalty_amount}</span>
-                              </>
-                            )}
-                            <span className="text-gray-500 text-[8px] sm:text-[10px]">({selectedPropertyDetails.notice_penalty_type})</span>
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Terms Tab */}
-          <TabsContent value="terms" className="mt-0 space-y-2">
-            <Card className="border shadow-sm">
-              <CardHeader className="bg-purple-50 py-2 px-3">
-                <CardTitle className="flex items-center gap-1.5 text-md font-medium">
-                  <FileText className="h-3.5 w-3.5" />
-                  Rental Terms & Conditions
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-3 space-y-3">
-                {/* <Alert className="bg-blue-50 border-blue-200 py-2 px-3">
-                  <AlertCircle className="h-3.5 w-3.5 text-blue-600" />
-                  <AlertDescription className="text-blue-800 text-xs">
-                    These terms will override the property's default terms for this specific tenant.
-                  </AlertDescription>
-                </Alert> */}
-
-                <div className="space-y-3">
-                  {/* Custom Terms Toggle */}
-                  <div className="flex items-center justify-between p-2 border rounded">
+                  {/* Title + Name */}
+                  <div className="grid grid-cols-4 gap-1.5">
                     <div>
-                      <Label className="font-medium text-xs">Use Custom Terms</Label>
-                      <p className="text-xs text-gray-500">
-                        Toggle to override property's default terms for this tenant
-                      </p>
+                      <label className={L}>Title</label>
+                      <Select value={formData.salutation} onValueChange={v=>handleSelectChange("salutation",v)}>
+                        <SelectTrigger className={F}><SelectValue placeholder="—"/></SelectTrigger>
+                        <SelectContent>{["Mr","Mrs","Miss","Ms","Dr","Prof"].map(t=><SelectItem key={t} value={t} className={SI}>{t}</SelectItem>)}</SelectContent>
+                      </Select>
                     </div>
-                    <Switch
-                      checked={useCustomTerms}
-                      onCheckedChange={(checked) => {
-                        setUseCustomTerms(checked);
-                        if (!checked && selectedPropertyDetails) {
-                          setFormData((prev: any) => ({
-                            ...prev,
-                            lockin_period_months: selectedPropertyDetails.lockin_period_months || 0,
-                            lockin_penalty_amount: selectedPropertyDetails.lockin_penalty_amount || 0,
-                            lockin_penalty_type: selectedPropertyDetails.lockin_penalty_type || "fixed",
-                            notice_period_days: selectedPropertyDetails.notice_period_days || 0,
-                            notice_penalty_amount: selectedPropertyDetails.notice_penalty_amount || 0,
-                            notice_penalty_type: selectedPropertyDetails.notice_penalty_type || "fixed",
-                          }));
-                        } else if (checked && tenant) {
-                          setFormData((prev: any) => ({
-                            ...prev,
-                            lockin_period_months: tenant.lockin_period_months || selectedPropertyDetails?.lockin_period_months || 0,
-                            lockin_penalty_amount: tenant.lockin_penalty_amount || selectedPropertyDetails?.lockin_penalty_amount || 0,
-                            lockin_penalty_type: tenant.lockin_penalty_type || selectedPropertyDetails?.lockin_penalty_type || "fixed",
-                            notice_period_days: tenant.notice_period_days || selectedPropertyDetails?.notice_period_days || 0,
-                            notice_penalty_amount: tenant.notice_penalty_amount || selectedPropertyDetails?.notice_penalty_amount || 0,
-                            notice_penalty_type: tenant.notice_penalty_type || selectedPropertyDetails?.notice_penalty_type || "fixed",
-                          }));
-                        }
-                      }}
-                    />
-                  </div>
-
-                  {useCustomTerms || !selectedPropertyDetails ? (
-                    <div className="grid grid-cols-2 gap-3">
-                      {/* Lock-in Period Section */}
-                      <div className="space-y-2 border border-blue-100 bg-blue-50/50 rounded p-2">
-                        <h3 className="font-semibold flex items-center gap-1 text-xs">
-                          <Calendar className="h-3.5 w-3.5 text-blue-600" />
-                          Custom Lock-in Period
-                        </h3>
-                        <div className="space-y-2">
-                          <div>
-                            <Label className="text-xs">Duration (months)</Label>
-                            <Input
-                              type="number"
-                              min="0"
-                              value={formData.lockin_period_months || ''}
-                              onChange={(e) => handleInputChange("lockin_period_months", parseInt(e.target.value) || 0)}
-                              placeholder="12"
-                              className="h-7 text-xs mt-0.5"
-                            />
-                          </div>
-
-                          <div className="space-y-1">
-                            <Label className="text-xs">Penalty Amount</Label>
-                            <div className="grid grid-cols-2 gap-1.5">
-                              <Input
-                                type="number"
-                                min="0"
-                                value={formData.lockin_penalty_amount || ''}
-                                onChange={(e) => handleInputChange("lockin_penalty_amount", parseFloat(e.target.value) || 0)}
-                                placeholder="Amount"
-                                className="h-7 text-xs"
-                              />
-                              <Select
-                                value={formData.lockin_penalty_type}
-                                onValueChange={(value) => handleSelectChange("lockin_penalty_type", value)}
-                              >
-                                <SelectTrigger className="h-7 text-xs">
-                                  <SelectValue placeholder="Type" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="fixed" className="text-xs">Fixed Amount</SelectItem>
-                                  <SelectItem value="percentage" className="text-xs">Percentage</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Notice Period Section */}
-                      <div className="space-y-2 border border-amber-100 bg-amber-50/50 rounded p-2">
-                        <h3 className="font-semibold flex items-center gap-1 text-xs">
-                          <Clock3 className="h-3.5 w-3.5 text-amber-600" />
-                          Custom Notice Period
-                        </h3>
-                        <div className="space-y-2">
-                          <div>
-                            <Label className="text-xs">Duration (days)</Label>
-                            <Input
-                              type="number"
-                              min="0"
-                              value={formData.notice_period_days || ''}
-                              onChange={(e) => handleInputChange("notice_period_days", parseInt(e.target.value) || 0)}
-                              placeholder="30"
-                              className="h-7 text-xs mt-0.5"
-                            />
-                          </div>
-
-                          <div className="space-y-1">
-                            <Label className="text-xs">Penalty Amount</Label>
-                            <div className="grid grid-cols-2 gap-1.5">
-                              <Input
-                                type="number"
-                                min="0"
-                                value={formData.notice_penalty_amount || ''}
-                                onChange={(e) => handleInputChange("notice_penalty_amount", parseFloat(e.target.value) || 0)}
-                                placeholder="Amount"
-                                className="h-7 text-xs"
-                              />
-                              <Select
-                                value={formData.notice_penalty_type}
-                                onValueChange={(value) => handleSelectChange("notice_penalty_type", value)}
-                              >
-                                <SelectTrigger className="h-7 text-xs">
-                                  <SelectValue placeholder="Type" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="fixed" className="text-xs">Fixed Amount</SelectItem>
-                                  <SelectItem value="percentage" className="text-xs">Percentage</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="p-2 border border-green-200 bg-green-50 rounded">
-                      <div className="flex items-center gap-1 mb-1.5">
-                        <Check className="h-3.5 w-3.5 text-green-600" />
-                        <h3 className="font-semibold text-green-800 text-xs">
-                          Using Property's Default Terms
-                        </h3>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <h4 className="font-medium mb-0.5 text-xs">Lock-in Period</h4>
-                          <div className="space-y-0.5 text-xs">
-                            <p><span className="text-gray-600">Duration:</span> {formData.lockin_period_months} months</p>
-                            <p><span className="text-gray-600">Penalty:</span>
-                              {formData.lockin_penalty_type === 'percentage' ? (
-                                <span className="font-medium"> %{formData.lockin_penalty_amount}</span>
-                              ) : (
-                                <span className="font-medium"> ₹{formData.lockin_penalty_amount}</span>
-                              )}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div>
-                          <h4 className="font-medium mb-0.5 text-xs">Notice Period</h4>
-                          <div className="space-y-0.5 text-xs">
-                            <p><span className="text-gray-600">Duration:</span> {formData.notice_period_days} days</p>
-                            <p><span className="text-gray-600">Penalty:</span>
-                              {formData.notice_penalty_type === 'percentage' ? (
-                                <span className="font-medium"> %{formData.notice_penalty_amount}</span>
-                              ) : (
-                                <span className="font-medium"> ₹{formData.notice_penalty_amount}</span>
-                              )}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Summary of Terms */}
-                  <div className="border rounded p-3 bg-gray-50">
-                    <h4 className="font-medium mb-2 text-xs">Terms Summary</h4>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <p className="text-xs text-gray-600">Lock-in Period:</p>
-                        <p className="font-medium text-sm">{formData.lockin_period_months} months</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-600">Lock-in Penalty:</p>
-                        <p className="font-medium text-sm flex items-center gap-1">
-                          {formData.lockin_penalty_type === 'percentage' ? (
-                            <>
-                              <span>%</span>
-                              <span>{formData.lockin_penalty_amount}</span>
-                            </>
-                          ) : (
-                            <>
-                              <span>₹</span>
-                              <span>{formData.lockin_penalty_amount}</span>
-                            </>
-                          )}
-                          <span className="text-gray-500 text-xs">({formData.lockin_penalty_type})</span>
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-600">Notice Period:</p>
-                        <p className="font-medium text-sm">{formData.notice_period_days} days</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-600">Notice Penalty:</p>
-                        <p className="font-medium text-sm flex items-center gap-1">
-                          {formData.notice_penalty_type === 'percentage' ? (
-                            <>
-                              <span>%</span>
-                              <span>{formData.notice_penalty_amount}</span>
-                            </>
-                          ) : (
-                            <>
-                              <span>₹</span>
-                              <span>{formData.notice_penalty_amount}</span>
-                            </>
-                          )}
-                          <span className="text-gray-500 text-xs">({formData.notice_penalty_type})</span>
-                        </p>
-                      </div>
+                    <div className="col-span-3">
+                      <label className={L}><span className="text-red-400">*</span> Full Name</label>
+                      <Input value={formData.full_name} onChange={e=>handleInputChange("full_name",e.target.value)} placeholder="John Doe" required className={F}/>
                     </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
 
-          {/* Documents Tab */}
-          <TabsContent value="documents" className="mt-0 space-y-4">
-            <Card>
-              <CardHeader className="bg-amber-50 py-3">
-                <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
-                  <FileText className="h-4 w-4" />
-                  Required Documents
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-4">
-                <Alert className="mb-4 bg-blue-50 border-blue-200 py-2">
-                  <AlertCircle className="h-4 w-4 text-blue-600" />
-                  <AlertDescription className="text-blue-800 text-xs sm:text-sm">
-                    Max file size: 10MB per file.
-                    Supported formats: PDF, JPG, PNG, WebP, BMP.
-                  </AlertDescription>
-                </Alert>
+                  {/* Email */}
+                  <div>
+                    <label className={L}><span className="text-red-400">*</span> Email Address</label>
+                    <div className="relative">
+                      <Mail className="absolute left-2.5 top-2 h-3.5 w-3.5 text-gray-300"/>
+                      <Input type="email" value={formData.email} onChange={e=>handleInputChange("email",e.target.value)} placeholder="john@example.com" required className={`pl-8 ${F}`}/>
+                    </div>
+                  </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <FileUploadField
-                    label="ID Proof"
-                    file={idProofFile}
-                    setFile={setIdProofFile}
-                    existingUrl={existingFiles.id_proof_url}
-                    fieldName="id_proof_url"
-                    description="Aadhar Card, Passport, PAN Card, Driving License"
-                    onRemoveExisting={() => {
-                      setExistingFiles(prev => ({ ...prev, id_proof_url: "" }));
-                    }}
-                  />
+                  {/* Password row — matching the image layout */}
+                  {/* (credentials are in the credentials tab; this is just a visual ref)  */}
 
-                  <FileUploadField
-                    label="Address Proof"
-                    file={addressProofFile}
-                    setFile={setAddressProofFile}
-                    existingUrl={existingFiles.address_proof_url}
-                    fieldName="address_proof_url"
-                    description="Utility Bill, Bank Statement, Rental Agreement"
-                    onRemoveExisting={() => {
-                      setExistingFiles(prev => ({ ...prev, address_proof_url: "" }));
-                    }}
-                  />
+                  {/* Phone */}
+                  <div>
+                    <label className={L}><span className="text-red-400">*</span> Phone Number</label>
+                    <div className="flex gap-1.5">
+                      <Select value={formData.country_code} onValueChange={v=>handleInputChange("country_code",v)}>
+                        <SelectTrigger className={`w-[84px] ${F}`}><SelectValue/></SelectTrigger>
+                        <SelectContent>{options.countryCodes.map(c=><SelectItem key={c} value={c} className={SI}>{c}</SelectItem>)}</SelectContent>
+                      </Select>
+                      <Input type="tel" value={formData.phone} onChange={e=>handleInputChange("phone",e.target.value)} placeholder="9876543210" pattern="[6-9][0-9]{9}" maxLength={10} required className={F}/>
+                    </div>
+                  </div>
 
-                  <FileUploadField
-                    label="Photograph"
-                    file={photoFile}
-                    setFile={setPhotoFile}
-                    existingUrl={existingFiles.photo_url}
-                    fieldName="photo_url"
-                    accept=".jpg,.jpeg,.png,.webp,.bmp"
-                    description="Recent passport-size photo"
-                    onRemoveExisting={() => {
-                      setExistingFiles(prev => ({ ...prev, photo_url: "" }));
-                    }}
-                  />
+                  {/* DOB */}
+                  <div>
+                    <label className={L}>Date of Birth</label>
+                    <div className="relative">
+                      <Calendar className="absolute left-2.5 top-2 h-3.5 w-3.5 text-gray-300"/>
+                      <Input type="date" value={formData.date_of_birth}
+                        onChange={e=>{
+                          const sel=new Date(e.target.value);
+                          const cut=new Date(new Date().getFullYear()-18,new Date().getMonth(),new Date().getDate());
+                          if(sel>cut){toast.error("Must be at least 18 years old");return;}
+                          handleInputChange("date_of_birth",e.target.value);
+                        }}
+                        max={new Date(new Date().getFullYear()-18,new Date().getMonth(),new Date().getDate()).toISOString().split("T")[0]}
+                        className={`pl-8 ${F}`}/>
+                    </div>
+                    {formData.date_of_birth&&<p className="text-[10px] text-gray-400 mt-0.5">Age: {Math.floor((Date.now()-new Date(formData.date_of_birth).getTime())/(365.25*24*60*60*1000))} yrs</p>}
+                  </div>
                 </div>
 
-                {/* Additional Documents */}
-                <Separator className="my-4" />
-
+                {/* RIGHT */}
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Label className="font-medium text-xs sm:text-sm">Additional Documents (Optional)</Label>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-7 sm:h-8 text-[10px] sm:text-xs"
-                      onClick={() => {
-                        const input = document.createElement('input');
-                        input.type = 'file';
-                        input.accept = ".pdf,.jpg,.jpeg,.png,.webp,.bmp,.doc,.docx";
-                        input.multiple = true;
-                        input.onchange = (e: any) => {
-                          const files = Array.from(e.target.files);
-                          if (files.length + additionalFiles.length > 5) {
-                            toast.error("Maximum 5 additional documents allowed");
-                            return;
-                          }
-                          setAdditionalFiles(prev => [...prev, ...files as File[]]);
-                        };
-                        input.click();
-                      }}
-                    >
-                      <Upload className="h-3.5 w-3.5 mr-1" />
-                      Add Files
-                    </Button>
+                  <SH icon={<Shield className="h-3 w-3"/>} title="Contact & Status" color="text-indigo-500"/>
+
+                  {/* Gender */}
+                  <div>
+                    <label className={L}><span className="text-red-400">*</span> Gender</label>
+                    <Select value={formData.gender} onValueChange={v=>handleSelectChange("gender",v)}>
+                      <SelectTrigger className={F}><SelectValue placeholder="Select gender"/></SelectTrigger>
+                      <SelectContent>{options.genderOptions.map(o=><SelectItem key={o} value={o} className={SI}>{o}</SelectItem>)}</SelectContent>
+                    </Select>
                   </div>
 
-                  {/* Existing Additional Documents */}
-                  {additionalDocuments.length > 0 && (
-                    <div className="space-y-2">
-                      <h4 className="font-medium text-[10px] sm:text-xs">Existing Documents:</h4>
-                      {additionalDocuments.map((doc, index) => (
-                        <div key={index} className="flex items-center justify-between p-2 border rounded">
-                          <div className="flex items-center gap-2">
-                            <FileText className="h-4 w-4 text-gray-500" />
-                            <div>
-                              <p className="font-medium text-xs sm:text-sm">{doc.filename}</p>
-                              <p className="text-[10px] sm:text-xs text-gray-500">
-                                {doc.uploaded_at ? new Date(doc.uploaded_at).toLocaleDateString() : 'Previously uploaded'}
-                              </p>
-                              <a
-                                href={doc.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-[10px] sm:text-xs text-blue-600 hover:underline"
-                              >
-                                View Document
-                              </a>
-                            </div>
-                          </div>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 w-7 p-0 text-red-600 hover:text-red-800"
-                            onClick={() => {
-                              setAdditionalDocuments(prev => prev.filter((_, i) => i !== index));
-                              toast.info("Document will be removed on save");
-                            }}
-                          >
-                            <X className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      ))}
+                  {/* Emergency contact */}
+                  <div>
+                    <label className={L}>Emergency Contact</label>
+                    <div className={`${g2} mb-1.5`}>
+                      <Input placeholder="Name" value={formData.emergency_contact_name} onChange={e=>handleInputChange("emergency_contact_name",e.target.value)} className={F}/>
+                      <Input placeholder="Phone" value={formData.emergency_contact_phone} onChange={e=>handleInputChange("emergency_contact_phone",e.target.value)} pattern="[6-9][0-9]{9}" maxLength={10} className={F}/>
                     </div>
-                  )}
+                    <Select value={formData.emergency_contact_relation} onValueChange={v=>handleSelectChange("emergency_contact_relation",v)}>
+                      <SelectTrigger className={F}><SelectValue placeholder="Relationship"/></SelectTrigger>
+                      <SelectContent>{emergencyRelations.map(r=><SelectItem key={r} value={r} className={SI}>{r}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
 
-                  {/* New Additional Files */}
-                  {additionalFiles.length > 0 && (
-                    <div className="space-y-2">
-                      <h4 className="font-medium text-[10px] sm:text-xs">New Files to Upload:</h4>
-                      {additionalFiles.map((file, index) => (
-                        <div key={index} className="flex items-center justify-between p-2 border rounded">
-                          <div className="flex items-center gap-2">
-                            <FileText className="h-4 w-4 text-gray-500" />
-                            <div>
-                              <p className="font-medium text-xs sm:text-sm">{file.name}</p>
-                              <p className="text-[10px] sm:text-xs text-gray-500">
-                                {(file.size / 1024 / 1024).toFixed(2)} MB
-                              </p>
-                            </div>
-                          </div>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 w-7 p-0 text-red-600 hover:text-red-800"
-                            onClick={() => {
-                              setAdditionalFiles(prev => prev.filter((_, i) => i !== index));
-                            }}
-                          >
-                            <X className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      ))}
+                  {/* Active toggle */}
+                  <div className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg border border-gray-200">
+                    <div>
+                      <p className="text-[11px] font-medium text-gray-700">Active Tenant</p>
+                      <p className="text-[10px] text-gray-400">Enable tenant account</p>
                     </div>
-                  )}
-
-                  <p className="text-[10px] sm:text-xs text-gray-500">
-                    You can upload additional documents like company ID, college ID, reference letters, etc.
-                    Maximum 5 additional documents.
-                  </p>
+                    <Switch id="is_active" checked={formData.is_active} onCheckedChange={c=>handleInputChange("is_active",c)}/>
+                  </div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           </TabsContent>
 
-          {/* Credentials Tab */}
-<TabsContent value="credentials" className="mt-0 space-y-4">
-  <Card>
-    <CardHeader className="bg-emerald-50 py-3">
-      <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
-        <Key className="h-4 w-4" />
-        Login Credentials
-      </CardTitle>
-    </CardHeader>
-    <CardContent className="pt-4">
-      <div className="space-y-4">
-        {/* Show credential status alerts ONLY when editing an existing tenant */}
-        {tenant?.id && (
-          <>
-            {tenant?.has_credentials ? (
-              <Alert className="bg-blue-50 border-blue-200 py-2">
-                <div className="flex items-start gap-2">
-                  <Shield className="h-4 w-4 text-blue-600 mt-0.5" />
+          {/* ────────────────────────────────────────────────────────────────
+              OCCUPATION
+          ──────────────────────────────────────────────────────────────── */}
+          <TabsContent value="occupation" className="mt-0 data-[state=inactive]:hidden">
+            <div className="p-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-0">
+                {/* LEFT */}
+                <div className="space-y-3">
+                  <SH icon={<Briefcase className="h-3 w-3"/>} title="Job Details" color="text-green-600"/>
+
                   <div>
-                    <h4 className="font-medium text-blue-800 text-xs sm:text-sm">Login Already Configured</h4>
-                    <p className="text-[10px] sm:text-xs text-blue-700 mt-0.5">
-                      Tenant already has portal access. To reset password, set a new password below.
-                    </p>
-                    <div className="mt-2 space-y-0.5">
-                      <p className="text-[10px] sm:text-xs">
-                        <span className="font-medium">Email:</span> {tenant.credential_email || tenant.email}
-                      </p>
-                      <p className="text-[10px] sm:text-xs">
-                        <span className="font-medium">Status:</span>{" "}
-                        <Badge variant="outline" className="bg-green-100 text-green-800 text-[10px] sm:text-xs">
-                          Active
-                        </Badge>
-                      </p>
-                      {/* Show existing password with eye toggle */}
-                      <div className="mt-2">
-                        <p className="text-[10px] sm:text-xs font-medium">Current Password:</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <div className="relative flex-1 max-w-[200px]">
-                            <Input
-                              type={showExistingPassword ? "text" : "password"}
-                              value={existingPassword}
-                              readOnly
-                              disabled
-                              className="h-8 sm:h-9 text-xs sm:text-sm bg-gray-50 pr-8"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => setShowExistingPassword(!showExistingPassword)}
-                              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                            >
-                              {showExistingPassword ? (
-                                <EyeOff className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                              ) : (
-                                <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                              )}
-                            </button>
-                          </div>
-                        </div>
-                      </div>
+                    <label className={L}><span className="text-red-400">*</span> Occupation Category</label>
+                    <Select value={formData.occupation_category} onValueChange={v=>handleSelectChange("occupation_category",v)}>
+                      <SelectTrigger className={F}><SelectValue placeholder="Select category"/></SelectTrigger>
+                      <SelectContent>{occupationCategoryOptions.map(o=><SelectItem key={o.value} value={o.value} className={SI}><span className="mr-1">{o.icon}</span>{o.label}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+
+                  {formData.occupation_category&&(
+                    <div>
+                      <label className={L}>Sub-Category</label>
+                      <Select value={formData.exact_occupation||""} onValueChange={v=>handleSelectChange("exact_occupation",v==="none"?"":v)}>
+                        <SelectTrigger className={F}><SelectValue placeholder="Select sub-category (optional)"/></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none" className={SI}>None (specify below)</SelectItem>
+                          {availableSubCategories.map(s=><SelectItem key={s.value} value={s.value} className={SI}>{s.label}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
                     </div>
-                  </div>
+                  )}
+
+                  {formData.occupation_category&&(
+                    <div>
+                      <label className={L}>
+                        {formData.occupation_category==="Student"?"College/University":
+                         formData.occupation_category==="Working Professional"?"Company/Org":
+                         formData.occupation_category==="Business Owner"?"Business Name":
+                         formData.occupation_category==="Government Employee"?"Department/Office":"Organization (Optional)"}
+                      </label>
+                      <Input value={formData.organization||""} onChange={e=>handleInputChange("organization",e.target.value)} placeholder="Enter name" className={F}/>
+                    </div>
+                  )}
+
+                  {(formData.occupation_category==="Working Professional"||formData.occupation_category==="Business Owner"||formData.occupation_category==="Consultant")&&(
+                    <div className={g2}>
+                      <div><label className={L}>Experience (yrs)</label><Input type="number" min="0" max="50" value={formData.years_of_experience||""} onChange={e=>handleInputChange("years_of_experience",e.target.value)} placeholder="5" className={F}/></div>
+                      <div><label className={L}>Monthly Income (₹)</label><Input type="number" min="0" value={formData.monthly_income||""} onChange={e=>handleInputChange("monthly_income",e.target.value)} placeholder="50000" className={F}/></div>
+                    </div>
+                  )}
+
+                  {formData.occupation_category==="Student"&&(
+                    <div className={g2}>
+                      <div>
+                        <label className={L}>Course Duration</label>
+                        <Select value={formData.course_duration||""} onValueChange={v=>handleSelectChange("course_duration",v)}>
+                          <SelectTrigger className={F}><SelectValue placeholder="Duration"/></SelectTrigger>
+                          <SelectContent>{[["1_year","1 Year"],["2_years","2 Years"],["3_years","3 Years"],["4_years","4 Years"],["5_years","5+ Years"]].map(([v,l])=><SelectItem key={v} value={v} className={SI}>{l}</SelectItem>)}</SelectContent>
+                        </Select>
+                      </div>
+                      <div><label className={L}>Student ID</label><Input value={formData.student_id||""} onChange={e=>handleInputChange("student_id",e.target.value)} placeholder="University ID" className={F}/></div>
+                    </div>
+                  )}
+
+                  {formData.occupation_category==="Government Employee"&&(
+                    <div><label className={L}>Employee / Service ID</label><Input value={formData.employee_id||""} onChange={e=>handleInputChange("employee_id",e.target.value)} placeholder="Employee ID" className={F}/></div>
+                  )}
+
+                  {formData.occupation_category==="Freelancer / Self-Employed"&&(
+                    <div><label className={L}>Portfolio / Website URL</label><Input type="url" value={formData.portfolio_url||""} onChange={e=>handleInputChange("portfolio_url",e.target.value)} placeholder="github.com/username" className={F}/></div>
+                  )}
                 </div>
-              </Alert>
-            ) : (
-              <Alert className="bg-blue-50 border-blue-200 py-2">
-                <div className="flex items-start gap-2">
-                  <Key className="h-4 w-4 text-blue-600 mt-0.5" />
+
+                {/* RIGHT */}
+                <div className="space-y-3">
+                  <SH icon={<Clock3 className="h-3 w-3"/>} title="Schedule & Check-in" color="text-purple-600"/>
+
                   <div>
-                    <h4 className="font-medium text-blue-800 text-xs sm:text-sm">Create Portal Access</h4>
-                    <p className="text-[10px] sm:text-xs text-blue-700 mt-0.5">
-                      Set a password to enable tenant portal access.
-                    </p>
+                    <label className={L}>Work Mode (Optional)</label>
+                    <Select value={formData.work_mode||""} onValueChange={v=>handleSelectChange("work_mode",v)}>
+                      <SelectTrigger className={F}><SelectValue placeholder="Select work mode"/></SelectTrigger>
+                      <SelectContent>{[["remote","Fully Remote"],["hybrid","Hybrid"],["onsite","On-site"],["flexible","Flexible"]].map(([v,l])=><SelectItem key={v} value={v} className={SI}>{l}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <label className={L}>Shift Timing (Optional)</label>
+                    <Select value={formData.shift_timing||""} onValueChange={v=>handleSelectChange("shift_timing",v)}>
+                      <SelectTrigger className={F}><SelectValue placeholder="Select shift"/></SelectTrigger>
+                      <SelectContent>{[["day","Day"],["night","Night"],["rotating","Rotating"],["flexible","Flexible"]].map(([v,l])=><SelectItem key={v} value={v} className={SI}>{l}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <label className={L}>Check-in Date</label>
+                    <div className="relative">
+                      <Calendar className="absolute left-2.5 top-2 h-3.5 w-3.5 text-gray-300"/>
+                      <Input type="date" value={formData.check_in_date}
+                        onChange={e=>{
+                          const sel=new Date(e.target.value);
+                          const today=new Date();today.setHours(0,0,0,0);
+                          if(sel<today){toast.error("Check-in date cannot be in the past");return;}
+                          handleInputChange("check_in_date",e.target.value);
+                        }}
+                        min={new Date().toISOString().split("T")[0]}
+                        className={`pl-8 ${F}`}/>
+                    </div>
+                    {formData.check_in_date&&<p className="text-[10px] text-gray-400 mt-0.5">Tenant move-in date</p>}
                   </div>
                 </div>
-              </Alert>
-            )}
-          </>
-        )}
+              </div>
+            </div>
+          </TabsContent>
 
-        {/* Enable Credentials Toggle - Show for both new and existing tenants */}
-        <div className="flex items-center justify-between p-3 border rounded">
-          <div>
-            <Label className="font-medium text-xs sm:text-sm">Enable Portal Access</Label>
-            <p className="text-[10px] sm:text-xs text-gray-500">
-              Allow tenant to access their portal with login credentials
-            </p>
-          </div>
-          <Switch
-            checked={createCredentials}
-            onCheckedChange={(checked) => setCreateCredentials(checked)}
-          />
-        </div>
+          {/* ────────────────────────────────────────────────────────────────
+              ADDRESS
+          ──────────────────────────────────────────────────────────────── */}
+          <TabsContent value="address" className="mt-0 data-[state=inactive]:hidden">
+            <div className="p-4 space-y-3">
+              <SH icon={<MapPin className="h-3 w-3"/>} title="Address Details" color="text-purple-600"/>
+              <div>
+                <label className={L}><span className="text-red-400">*</span> Complete Address</label>
+                <Textarea value={formData.address} onChange={e=>handleInputChange("address",e.target.value)}
+                  placeholder="House no, Building, Street, Area, Landmark" rows={3} className="text-[11px] resize-none" required/>
+              </div>
+              <div className={g3}>
+                <div>
+                  <label className={L}><span className="text-red-400">*</span> City</label>
+                  <Select value={formData.city_id?String(formData.city_id):""} disabled={loadingMasters}
+                    onValueChange={v=>{const s=cities.find(c=>c.id===parseInt(v));handleSelectChange("city_id",v);handleSelectChange("city",s?.name||"");}}>
+                    <SelectTrigger className={F}><SelectValue placeholder={loadingMasters?"Loading…":"City"}/></SelectTrigger>
+                    <SelectContent>
+                      {loadingMasters?<div className="px-2 py-1 text-[10px] text-gray-400 flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin"/>Loading…</div>
+                        :cities.length>0?cities.map(c=><SelectItem key={c.id} value={String(c.id)} className={SI}>{c.name}</SelectItem>)
+                        :<div className="px-2 py-1 text-[10px] text-gray-400">No cities</div>}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className={L}><span className="text-red-400">*</span> State</label>
+                  <Select value={formData.state_id?String(formData.state_id):""} disabled={loadingMasters}
+                    onValueChange={v=>{const s=states.find(st=>st.id===parseInt(v));handleSelectChange("state_id",v);handleSelectChange("state",s?.name||"");}}>
+                    <SelectTrigger className={F}><SelectValue placeholder={loadingMasters?"Loading…":"State"}/></SelectTrigger>
+                    <SelectContent>
+                      {loadingMasters?<div className="px-2 py-1 text-[10px] text-gray-400 flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin"/>Loading…</div>
+                        :states.length>0?states.map(s=><SelectItem key={s.id} value={String(s.id)} className={SI}>{s.name}</SelectItem>)
+                        :<div className="px-2 py-1 text-[10px] text-gray-400">No states</div>}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className={L}>Pincode</label>
+                  <Input value={formData.pincode} onChange={e=>handleInputChange("pincode",e.target.value)} placeholder="6-digit" maxLength={6} className={F}/>
+                </div>
+              </div>
+            </div>
+          </TabsContent>
 
-        {createCredentials && (
-          <>
-            {/* Password Generation and Email Actions */}
-            <div className="flex flex-wrap items-center gap-2 p-3 bg-gray-50 rounded-lg border">
-<Button
-  type="button"
-  variant="outline"
-  size="sm"
-  onClick={() => {
-    // Get tenant information
-    const fullName = formData.full_name || tenant?.full_name || "";
-    // const phone = formData.phone || tenant?.phone || "";
-    const dob = formData.date_of_birth || tenant?.date_of_birth || "";
-    
-    // Extract first name and last name
-    const nameParts = fullName.trim().split(" ");
-    const firstName = nameParts[0] || "";
-    const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : "";
-    
-    // Get first character of first name (capitalize)
-    const firstInitial = firstName.charAt(0).toUpperCase();
-    
-    // Get first character of last name if exists, otherwise use 'X'
-    const lastInitial = lastName ? lastName.charAt(0).toUpperCase() : "X";
-    
-    // Format date of birth to DDMM
-    let dobPart = "";
-    if (dob) {
-      const date = new Date(dob);
-      if (!isNaN(date.getTime())) {
-         const year = (date.getFullYear()).toString().padStart(2, '0');
-        dobPart =  year; // DDMM format
-      }
-    }
-    
-    // If no DOB, use random 4 digits
-    if (!dobPart) {
-      dobPart = Math.floor(1000 + Math.random() * 9000).toString();
-    }
-    
-    // Get last 4 digits of phone number
-    // let phonePart = "";
-    // if (phone) {
-    //   const cleanPhone = phone.replace(/\D/g, ''); // Remove non-digits
-    //   phonePart = cleanPhone.slice(-4); // Last 4 digits
-    // }
-    
-    // If no phone, use random 4 digits
-    // if (!phonePart) {
-    //   phonePart = Math.floor(1000 + Math.random() * 9000).toString();
-    // }
-  
-    const generatedPassword = `${firstInitial}${lastInitial.toLowerCase()}${dobPart}$`;
-    
-    setPassword(generatedPassword);
-    setConfirmPassword(generatedPassword);
-    toast.success("Memorable password generated using your details!");
-  }}
-  className="h-7 sm:h-8 text-[10px] sm:text-xs"
->
-  <Key className="h-3 w-3 mr-1" />
-  Generate Password
-</Button>
-
-              {tenant?.email && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    if (!password && !tenant?.has_credentials) {
-                      toast.error("Please set a password first");
-                      return;
-                    }
-
-                    // Here you would call your API to send credentials email
-                    toast.success(`Login credentials will be sent to ${tenant.email}`);
-
-                    // Example API call (you'll need to implement this)
-                    // sendTenantCredentials({
-                    //   email: tenant.email,
-                    //   password: password || "existing password",
-                    //   name: tenant.full_name,
-                    //   portalUrl: window.location.origin + "/tenant/login"
-                    // });
-                  }}
-                  className="h-7 sm:h-8 text-[10px] sm:text-xs"
-                >
-                  <Mail className="h-3 w-3 mr-1" />
-                  Send to Email
-                </Button>
+          {/* ────────────────────────────────────────────────────────────────
+              PROPERTY
+          ──────────────────────────────────────────────────────────────── */}
+          <TabsContent value="property" className="mt-0 data-[state=inactive]:hidden">
+            <div className="p-4 space-y-3">
+              <SH icon={<Building className="h-3 w-3"/>} title="Property Assignment" color="text-indigo-600"/>
+              <div>
+                <label className={L}>Assigned Property</label>
+                <Select value={formData.property_id?.toString()||""} onValueChange={v=>handlePropertySelect(v?parseInt(v):undefined)}>
+                  <SelectTrigger className={F}><SelectValue placeholder="Select property to assign"/></SelectTrigger>
+                  <SelectContent>{properties.map(p=><SelectItem key={p.value} value={p.value.toString()} className={SI}><div className="flex flex-col"><span className="font-medium">{p.label}</span><span className="text-[10px] text-gray-400">{p.address}</span></div></SelectItem>)}</SelectContent>
+                </Select>
+                <p className="text-[10px] text-gray-400 mt-0.5">Actual property where tenant will be staying</p>
+              </div>
+              {selectedPropertyDetails&&(
+                <div className="border border-blue-100 rounded-lg p-3 bg-blue-50/60">
+                  <p className="text-[11px] font-bold text-blue-700 mb-2 flex items-center gap-1"><Building className="h-3 w-3"/> Selected Property Details</p>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[10px]">
+                    {[
+                      ["Property",       selectedPropertyDetails.name],
+                      ["Lock-in",        `${selectedPropertyDetails.lockin_period_months} months`],
+                      ["Lock-in Penalty",`${selectedPropertyDetails.lockin_penalty_type==="percentage"?"%":"₹"}${selectedPropertyDetails.lockin_penalty_amount} (${selectedPropertyDetails.lockin_penalty_type})`],
+                      ["Notice Period",  `${selectedPropertyDetails.notice_period_days} days`],
+                      ["Notice Penalty", `${selectedPropertyDetails.notice_penalty_type==="percentage"?"%":"₹"}${selectedPropertyDetails.notice_penalty_amount} (${selectedPropertyDetails.notice_penalty_type})`],
+                    ].map(([k,v])=>(
+                      <div key={k}><p className="text-gray-500">{k}</p><p className="font-medium text-gray-700">{v}</p></div>
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
+          </TabsContent>
 
-            <div className="space-y-3">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="password" className="text-xs sm:text-sm">
-                    {tenant?.has_credentials ? "New Password (leave blank to keep current)" : "Password"}
-                    {tenant?.has_credentials ? "" : " *"}
-                  </Label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-2.5 h-3.5 w-3.5 sm:h-4 sm:w-4 text-gray-400" />
-                    <Input
-                      id="password"
-                      type={showPassword ? "text" : "password"}
-                      placeholder={tenant?.has_credentials ? "Enter new password to change" : "Enter password"}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="pl-8 sm:pl-10 pr-8 h-8 sm:h-9 text-xs sm:text-sm"
-                      minLength={6}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                    >
-                      {showPassword ? (
-                        <EyeOff className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                      ) : (
-                        <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                      )}
-                    </button>
-                  </div>
+          {/* ────────────────────────────────────────────────────────────────
+              TERMS
+          ──────────────────────────────────────────────────────────────── */}
+          <TabsContent value="terms" className="mt-0 data-[state=inactive]:hidden">
+            <div className="p-4 space-y-3">
+              <SH icon={<FileText className="h-3 w-3"/>} title="Rental Terms & Conditions" color="text-purple-600"/>
 
-                  {/* Password Strength Meter */}
-                  {password.length > 0 && (
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-[10px] sm:text-xs">
-                        <span>Password Strength:</span>
-                        <span className={
-                          passwordStrength >= 75 ? "text-green-600" :
-                            passwordStrength >= 50 ? "text-yellow-600" :
-                              passwordStrength >= 25 ? "text-orange-600" : "text-red-600"
-                        }>
-                          {passwordStrength >= 75 ? "Strong" :
-                            passwordStrength >= 50 ? "Good" :
-                              passwordStrength >= 25 ? "Weak" : "Very Weak"}
-                        </span>
-                      </div>
-                      <Progress
-                        value={passwordStrength}
-                        className="h-1.5 bg-gray-200 rounded-full"
-                        style={{
-                          '--progress-bar-color': passwordStrength >= 75 ? 'rgb(34,197,94)' :
-                            passwordStrength >= 50 ? 'rgb(234,179,8)' :
-                              passwordStrength >= 25 ? 'rgb(249,115,22)' :
-                                'rgb(239,68,68)'
-                        } as React.CSSProperties}
-                      />
-                    </div>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="confirmPassword" className="text-xs sm:text-sm">
-                    Confirm Password
-                    {tenant?.has_credentials && password ? " *" : !tenant?.has_credentials && createCredentials ? " *" : ""}
-                  </Label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-2.5 h-3.5 w-3.5 sm:h-4 sm:w-4 text-gray-400" />
-                    <Input
-                      id="confirmPassword"
-                      type={showConfirmPassword ? "text" : "password"}
-                      placeholder="Confirm password"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      className="pl-8 sm:pl-10 pr-8 h-8 sm:h-9 text-xs sm:text-sm"
-                      minLength={6}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                    >
-                      {showConfirmPassword ? (
-                        <EyeOff className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                      ) : (
-                        <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                      )}
-                    </button>
-                  </div>
-
-                  {password && confirmPassword && (
-                    <div className={`flex items-center gap-1 text-[10px] sm:text-xs ${password === confirmPassword ? "text-green-600" : "text-red-600"
-                      }`}>
-                      {password === confirmPassword ? (
-                        <>
-                          <Check className="h-3.5 w-3.5" />
-                          <span>Passwords match</span>
-                        </>
-                      ) : (
-                        <>
-                          <AlertTriangle className="h-3.5 w-3.5" />
-                          <span>Passwords don't match</span>
-                        </>
-                      )}
-                    </div>
-                  )}
-                </div>
+              {/* Toggle */}
+              <div className="flex items-center justify-between px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg">
+                <div><p className="text-[11px] font-medium text-gray-700">Use Custom Terms</p><p className="text-[10px] text-gray-400">Override property defaults for this tenant</p></div>
+                <Switch checked={useCustomTerms}
+                  onCheckedChange={checked=>{
+                    setUseCustomTerms(checked);
+                    if (!checked&&selectedPropertyDetails) setFormData((p:any)=>({...p,lockin_period_months:selectedPropertyDetails.lockin_period_months||0,lockin_penalty_amount:selectedPropertyDetails.lockin_penalty_amount||0,lockin_penalty_type:selectedPropertyDetails.lockin_penalty_type||"fixed",notice_period_days:selectedPropertyDetails.notice_period_days||0,notice_penalty_amount:selectedPropertyDetails.notice_penalty_amount||0,notice_penalty_type:selectedPropertyDetails.notice_penalty_type||"fixed"}));
+                    else if (checked&&tenant) setFormData((p:any)=>({...p,lockin_period_months:tenant.lockin_period_months||selectedPropertyDetails?.lockin_period_months||0,lockin_penalty_amount:tenant.lockin_penalty_amount||selectedPropertyDetails?.lockin_penalty_amount||0,lockin_penalty_type:tenant.lockin_penalty_type||selectedPropertyDetails?.lockin_penalty_type||"fixed",notice_period_days:tenant.notice_period_days||selectedPropertyDetails?.notice_period_days||0,notice_penalty_amount:tenant.notice_penalty_amount||selectedPropertyDetails?.notice_penalty_amount||0,notice_penalty_type:tenant.notice_penalty_type||selectedPropertyDetails?.notice_penalty_type||"fixed"}));
+                  }}/>
               </div>
 
-              {/* Password Requirements */}
-              <div className="p-3 border rounded bg-gray-50">
-                <Label className="font-medium mb-1 block text-xs sm:text-sm">Password Requirements:</Label>
-                <ul className="space-y-1 text-[10px] sm:text-xs text-gray-600">
-                  <li className={`flex items-center gap-1 ${password.length >= 6 ? "text-green-600" : ""}`}>
-                    <div className={`h-1.5 w-1.5 rounded-full ${password.length >= 6 ? "bg-green-500" : "bg-gray-300"}`} />
-                    Minimum 6 characters
-                  </li>
-                  <li className={`flex items-center gap-1 ${/[A-Z]/.test(password) ? "text-green-600" : ""}`}>
-                    <div className={`h-1.5 w-1.5 rounded-full ${/[A-Z]/.test(password) ? "bg-green-500" : "bg-gray-300"}`} />
-                    At least one uppercase letter
-                  </li>
-                  <li className={`flex items-center gap-1 ${/[0-9]/.test(password) ? "text-green-600" : ""}`}>
-                    <div className={`h-1.5 w-1.5 rounded-full ${/[0-9]/.test(password) ? "bg-green-500" : "bg-gray-300"}`} />
-                    At least one number
-                  </li>
-                  <li className={`flex items-center gap-1 ${/[^A-Za-z0-9]/.test(password) ? "text-green-600" : ""}`}>
-                    <div className={`h-1.5 w-1.5 rounded-full ${/[^A-Za-z0-9]/.test(password) ? "bg-green-500" : "bg-gray-300"}`} />
-                    At least one special character
-                  </li>
-                </ul>
+              {useCustomTerms||!selectedPropertyDetails?(
+                <div className={g2}>
+                  {/* Lock-in */}
+                  <div className="space-y-2 border border-blue-100 bg-blue-50/40 rounded-lg p-3">
+                    <p className="text-[10px] font-bold text-blue-600 flex items-center gap-1"><Calendar className="h-3 w-3"/> LOCK-IN PERIOD</p>
+                    <div><label className={L}>Duration (months)</label><Input type="number" min="0" value={formData.lockin_period_months||""} onChange={e=>handleInputChange("lockin_period_months",parseInt(e.target.value)||0)} placeholder="12" className={F}/></div>
+                    <div><label className={L}>Penalty</label>
+                      <div className={g2}>
+                        <Input type="number" min="0" value={formData.lockin_penalty_amount||""} onChange={e=>handleInputChange("lockin_penalty_amount",parseFloat(e.target.value)||0)} placeholder="Amount" className={F}/>
+                        <Select value={formData.lockin_penalty_type} onValueChange={v=>handleSelectChange("lockin_penalty_type",v)}>
+                          <SelectTrigger className={F}><SelectValue/></SelectTrigger>
+                          <SelectContent><SelectItem value="fixed" className={SI}>Fixed (₹)</SelectItem><SelectItem value="percentage" className={SI}>Percent (%)</SelectItem></SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+                  {/* Notice */}
+                  <div className="space-y-2 border border-amber-100 bg-amber-50/40 rounded-lg p-3">
+                    <p className="text-[10px] font-bold text-amber-600 flex items-center gap-1"><Clock3 className="h-3 w-3"/> NOTICE PERIOD</p>
+                    <div><label className={L}>Duration (days)</label><Input type="number" min="0" value={formData.notice_period_days||""} onChange={e=>handleInputChange("notice_period_days",parseInt(e.target.value)||0)} placeholder="30" className={F}/></div>
+                    <div><label className={L}>Penalty</label>
+                      <div className={g2}>
+                        <Input type="number" min="0" value={formData.notice_penalty_amount||""} onChange={e=>handleInputChange("notice_penalty_amount",parseFloat(e.target.value)||0)} placeholder="Amount" className={F}/>
+                        <Select value={formData.notice_penalty_type} onValueChange={v=>handleSelectChange("notice_penalty_type",v)}>
+                          <SelectTrigger className={F}><SelectValue/></SelectTrigger>
+                          <SelectContent><SelectItem value="fixed" className={SI}>Fixed (₹)</SelectItem><SelectItem value="percentage" className={SI}>Percent (%)</SelectItem></SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ):(
+                <div className="p-3 border border-green-200 bg-green-50 rounded-lg">
+                  <p className="text-[11px] font-bold text-green-700 flex items-center gap-1 mb-1.5"><Check className="h-3 w-3"/> Using Property's Default Terms</p>
+                  <div className={g2}>
+                    {[
+                      ["Lock-in",`${formData.lockin_period_months} mo · ${formData.lockin_penalty_type==="percentage"?"%":"₹"}${formData.lockin_penalty_amount}`],
+                      ["Notice", `${formData.notice_period_days} days · ${formData.notice_penalty_type==="percentage"?"%":"₹"}${formData.notice_penalty_amount}`],
+                    ].map(([k,v])=>(
+                      <div key={k} className="text-[10px]"><p className="text-gray-500">{k}</p><p className="font-semibold text-gray-700">{v}</p></div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Summary */}
+              <div className="border rounded-lg p-3 bg-gray-50">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-2">Summary</p>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[10px]">
+                  {[
+                    ["Lock-in Period",  `${formData.lockin_period_months} months`],
+                    ["Lock-in Penalty", `${formData.lockin_penalty_type==="percentage"?"%":"₹"}${formData.lockin_penalty_amount} (${formData.lockin_penalty_type})`],
+                    ["Notice Period",   `${formData.notice_period_days} days`],
+                    ["Notice Penalty",  `${formData.notice_penalty_type==="percentage"?"%":"₹"}${formData.notice_penalty_amount} (${formData.notice_penalty_type})`],
+                  ].map(([k,v])=>(
+                    <div key={k}><p className="text-gray-400">{k}</p><p className="font-semibold text-gray-700">{v}</p></div>
+                  ))}
+                </div>
               </div>
             </div>
-          </>
-        )}
-      </div>
-    </CardContent>
-  </Card>
-</TabsContent>
-        </div>
-      </Tabs>
+          </TabsContent>
 
-      {/* Fixed Footer with Navigation and Submit */}
-      <div className="border-t bg-white px-4 py-3 flex items-center justify-between shrink-0">
+          {/* ────────────────────────────────────────────────────────────────
+              DOCUMENTS
+          ──────────────────────────────────────────────────────────────── */}
+          <TabsContent value="documents" className="mt-0 data-[state=inactive]:hidden">
+            <div className="p-4 space-y-3">
+              <SH icon={<Upload className="h-3 w-3"/>} title="Upload Documents" color="text-amber-600"/>
+
+              <div className="flex items-start gap-2 p-2 bg-blue-50 border border-blue-100 rounded-lg">
+                <AlertCircle className="h-3.5 w-3.5 text-blue-400 flex-shrink-0 mt-0.5"/>
+                <p className="text-[10px] text-blue-600">Max 10MB per file · PDF, JPG, PNG, WebP, BMP</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <FileUploadField label="ID Proof" file={idProofFile} setFile={setIdProofFile} existingUrl={existingFiles.id_proof_url} fieldName="id_proof_url" description="Aadhar, Passport, PAN, DL" onRemoveExisting={()=>setExistingFiles(p=>({...p,id_proof_url:""}))}/>
+                <FileUploadField label="Address Proof" file={addressProofFile} setFile={setAddressProofFile} existingUrl={existingFiles.address_proof_url} fieldName="address_proof_url" description="Utility Bill, Bank Statement" onRemoveExisting={()=>setExistingFiles(p=>({...p,address_proof_url:""}))}/>
+                <FileUploadField label="Photograph" file={photoFile} setFile={setPhotoFile} existingUrl={existingFiles.photo_url} fieldName="photo_url" accept=".jpg,.jpeg,.png,.webp,.bmp" description="Passport-size photo" onRemoveExisting={()=>setExistingFiles(p=>({...p,photo_url:""}))}/>
+              </div>
+
+              <Separator/>
+
+              {/* Additional documents */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-[11px] font-semibold text-gray-600">Additional Documents (Optional)</p>
+                  <Button type="button" variant="outline" size="sm" className="h-7 text-[10px] px-2"
+                    onClick={()=>{
+                      const inp=document.createElement("input");
+                      inp.type="file"; inp.accept=".pdf,.jpg,.jpeg,.png,.webp,.bmp,.doc,.docx"; inp.multiple=true;
+                      inp.onchange=(e:any)=>{
+                        const files=Array.from(e.target.files) as File[];
+                        if(files.length+additionalFiles.length>5){toast.error("Maximum 5 additional documents");return;}
+                        setAdditionalFiles(p=>[...p,...files]);
+                      };
+                      inp.click();
+                    }}>
+                    <Upload className="h-3 w-3 mr-1"/> Add Files
+                  </Button>
+                </div>
+
+                {additionalDocuments.length>0&&(
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-medium text-gray-400">Existing:</p>
+                    {additionalDocuments.map((doc,i)=>(
+                      <div key={i} className="flex items-center justify-between p-1.5 border rounded-lg bg-gray-50">
+                        <div className="flex items-center gap-2"><FileText className="h-3 w-3 text-gray-400"/>
+                          <div><p className="text-[10px] font-medium text-gray-700">{doc.filename}</p>
+                            <a href={doc.url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-blue-500 hover:underline">View</a>
+                          </div>
+                        </div>
+                        <button type="button" className="text-red-400 hover:text-red-600" onClick={()=>{setAdditionalDocuments(p=>p.filter((_,j)=>j!==i));toast.info("Removed on save");}}><X className="h-3 w-3"/></button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {additionalFiles.length>0&&(
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-medium text-gray-400">New to upload:</p>
+                    {additionalFiles.map((file,i)=>(
+                      <div key={i} className="flex items-center justify-between p-1.5 border rounded-lg bg-blue-50">
+                        <div className="flex items-center gap-2"><FileText className="h-3 w-3 text-blue-400"/>
+                          <div><p className="text-[10px] font-medium text-blue-700">{file.name}</p><p className="text-[10px] text-blue-400">{(file.size/1024/1024).toFixed(2)} MB</p></div>
+                        </div>
+                        <button type="button" className="text-red-400 hover:text-red-600" onClick={()=>setAdditionalFiles(p=>p.filter((_,j)=>j!==i))}><X className="h-3 w-3"/></button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <p className="text-[10px] text-gray-400">Company ID, college ID, reference letters, etc. Max 5 files.</p>
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* ────────────────────────────────────────────────────────────────
+              CREDENTIALS
+          ──────────────────────────────────────────────────────────────── */}
+          <TabsContent value="credentials" className="mt-0 data-[state=inactive]:hidden">
+            <div className="p-4 space-y-3">
+              <SH icon={<Key className="h-3 w-3"/>} title="Login Credentials" color="text-emerald-600"/>
+
+              {/* Status alerts — only when editing */}
+              {tenant?.id&&(
+                tenant?.has_credentials?(
+                  <div className="p-2.5 bg-blue-50 border border-blue-100 rounded-lg flex items-start gap-2">
+                    <Shield className="h-3.5 w-3.5 text-blue-500 flex-shrink-0 mt-0.5"/>
+                    <div className="space-y-1">
+                      <p className="text-[11px] font-semibold text-blue-800">Login Already Configured</p>
+                      <p className="text-[10px] text-blue-600">To reset password, set a new password below.</p>
+                      <p className="text-[10px]"><span className="font-medium">Email:</span> {tenant.credential_email||tenant.email}</p>
+                      <p className="text-[10px]"><span className="font-medium">Status:</span>{" "}<Badge variant="outline" className="bg-green-100 text-green-700 text-[9px] px-1.5 py-0">Active</Badge></p>
+                      <div>
+                        <p className="text-[10px] font-medium text-gray-600 mb-0.5">Current Password:</p>
+                        <div className="relative w-40">
+                          <Input type={showExistingPassword?"text":"password"} value={existingPassword} readOnly disabled className="h-7 text-[11px] bg-white pr-7"/>
+                          <button type="button" onClick={()=>setShowExistingPassword(!showExistingPassword)} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400">
+                            {showExistingPassword?<EyeOff className="h-3 w-3"/>:<Eye className="h-3 w-3"/>}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ):(
+                  <div className="p-2.5 bg-blue-50 border border-blue-100 rounded-lg flex items-start gap-2">
+                    <Key className="h-3.5 w-3.5 text-blue-500 flex-shrink-0 mt-0.5"/>
+                    <div><p className="text-[11px] font-semibold text-blue-800">Create Portal Access</p><p className="text-[10px] text-blue-600">Set a password to enable tenant portal access.</p></div>
+                  </div>
+                )
+              )}
+
+              {/* Enable toggle */}
+              <div className="flex items-center justify-between px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg">
+                <div><p className="text-[11px] font-medium text-gray-700">Enable Portal Access</p><p className="text-[10px] text-gray-400">Allow tenant to log in with credentials</p></div>
+                <Switch checked={createCredentials} onCheckedChange={setCreateCredentials}/>
+              </div>
+
+              {createCredentials&&(
+                <div className="space-y-3">
+                  {/* Action buttons */}
+                  <div className="flex flex-wrap gap-2 p-2.5 bg-gray-50 border border-gray-200 rounded-lg">
+                    <Button type="button" variant="outline" size="sm" className="h-7 text-[10px] px-2.5"
+                      onClick={()=>{
+                        const name=formData.full_name||tenant?.full_name||"";
+                        const dob=formData.date_of_birth||tenant?.date_of_birth||"";
+                        const parts=name.trim().split(" ");
+                        const fi=parts[0]?.charAt(0).toUpperCase()||"X";
+                        const li=parts.length>1?parts[parts.length-1].charAt(0).toUpperCase():"X";
+                        let dp=""; if(dob){const d=new Date(dob);if(!isNaN(d.getTime()))dp=d.getFullYear().toString();}
+                        if(!dp) dp=Math.floor(1000+Math.random()*9000).toString();
+                        const gen=`${fi}${li.toLowerCase()}${dp}$`;
+                        setPassword(gen);setConfirmPassword(gen);toast.success("Password generated!");
+                      }}>
+                      <Key className="h-3 w-3 mr-1"/> Generate Password
+                    </Button>
+                    {tenant?.email&&(
+                      <Button type="button" variant="outline" size="sm" className="h-7 text-[10px] px-2.5"
+                        onClick={()=>{if(!password&&!tenant?.has_credentials){toast.error("Set a password first");return;}toast.success(`Credentials will be sent to ${tenant.email}`);}}>
+                        <Mail className="h-3 w-3 mr-1"/> Send to Email
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* Password + Confirm */}
+                  <div className={g2}>
+                    <div className="space-y-1">
+                      <label className={L}>{tenant?.has_credentials?"New Password (blank = keep)":"Password *"}</label>
+                      <div className="relative">
+                        <Lock className="absolute left-2.5 top-2 h-3.5 w-3.5 text-gray-300"/>
+                        <Input id="password" type={showPassword?"text":"password"}
+                          placeholder={tenant?.has_credentials?"New password to change":"Password"}
+                          value={password} onChange={e=>setPassword(e.target.value)} className={`pl-8 pr-8 ${F}`} minLength={6}/>
+                        <button type="button" onClick={()=>setShowPassword(!showPassword)} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                          {showPassword?<EyeOff className="h-3.5 w-3.5"/>:<Eye className="h-3.5 w-3.5"/>}
+                        </button>
+                      </div>
+                      {password.length>0&&(
+                        <div>
+                          <div className="flex justify-between text-[10px] mb-0.5">
+                            <span className="text-gray-400">Strength</span>
+                            <span className={passwordStrength>=75?"text-green-600":passwordStrength>=50?"text-yellow-500":passwordStrength>=25?"text-orange-500":"text-red-500"}>
+                              {passwordStrength>=75?"Strong":passwordStrength>=50?"Good":passwordStrength>=25?"Weak":"Very Weak"}
+                            </span>
+                          </div>
+                          <Progress value={passwordStrength} className="h-1"/>
+                        </div>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <label className={L}>Confirm Password</label>
+                      <div className="relative">
+                        <Lock className="absolute left-2.5 top-2 h-3.5 w-3.5 text-gray-300"/>
+                        <Input id="confirmPassword" type={showConfirmPassword?"text":"password"}
+                          placeholder="Confirm password" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} className={`pl-8 pr-8 ${F}`} minLength={6}/>
+                        <button type="button" onClick={()=>setShowConfirmPassword(!showConfirmPassword)} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                          {showConfirmPassword?<EyeOff className="h-3.5 w-3.5"/>:<Eye className="h-3.5 w-3.5"/>}
+                        </button>
+                      </div>
+                      {password&&confirmPassword&&(
+                        <div className={`flex items-center gap-1 text-[10px] mt-0.5 ${password===confirmPassword?"text-green-600":"text-red-500"}`}>
+                          {password===confirmPassword?<><Check className="h-3 w-3"/>Passwords match</>:<><AlertTriangle className="h-3 w-3"/>Don't match</>}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Requirements */}
+                  <div className="p-2.5 border border-gray-200 rounded-lg bg-gray-50">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1.5">Password Requirements</p>
+                    <ul className="space-y-1">
+                      {[
+                        [password.length>=6,            "Minimum 6 characters"],
+                        [/[A-Z]/.test(password),         "Uppercase letter"],
+                        [/[0-9]/.test(password),         "Number"],
+                        [/[^A-Za-z0-9]/.test(password),  "Special character"],
+                      ].map(([ok,txt],i)=>(
+                        <li key={i} className={`flex items-center gap-1.5 text-[10px] ${ok?"text-green-600":"text-gray-400"}`}>
+                          <div className={`h-1.5 w-1.5 rounded-full flex-shrink-0 ${ok?"bg-green-500":"bg-gray-300"}`}/>
+                          {txt as string}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              )}
+            </div>
+          </TabsContent>
+
+        </Tabs>
+      </div>{/* end scrollable */}
+
+      {/* ── Fixed footer ────────────────────────────────────────────────────── */}
+      <div className="flex-shrink-0 border-t border-gray-200 bg-white px-4 py-2.5 flex items-center justify-between">
+        {/* Left: Prev + dots + Next */}
         <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={goToPrevTab}
-            disabled={activeTab === tabs[0] || loading}
-            className="h-7 sm:h-8 px-2 sm:px-3 text-[10px] sm:text-xs"
-          >
-            <ChevronLeft className="h-3 w-3 sm:h-3.5 sm:w-3.5 mr-1" />
-            Previous
+          <Button type="button" variant="outline" size="sm"
+            onClick={goToPrevTab} disabled={activeTab===tabs[0]||loading}
+            className="h-7 px-3 text-[11px] border-gray-200 text-gray-600 hover:text-gray-800">
+            <ChevronLeft className="h-3.5 w-3.5 mr-0.5"/> Prev
           </Button>
 
-          <div className="flex items-center gap-1 mx-2">
-            {tabs.map((tab) => (
-              <div
-                key={tab}
-                className={`h-1.5 w-4 sm:w-6 rounded-full transition-colors ${activeTab === tab ? "bg-blue-600" : "bg-gray-300"
-                  }`}
+          <div className="flex items-center gap-1">
+            {tabs.map(t=>(
+              <button key={t} type="button" onClick={()=>setActiveTab(t)}
+                className={`rounded-full transition-all duration-200 ${activeTab===t?"w-5 h-1.5 bg-blue-600":"w-1.5 h-1.5 bg-gray-300 hover:bg-gray-400"}`}
               />
             ))}
           </div>
 
-          {activeTab !== tabs[tabs.length - 1] ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={goToNextTab}
-              className="h-7 sm:h-8 px-2 sm:px-3 text-[10px] sm:text-xs"
-            >
-              Next
-              <ChevronRight className="h-3 w-3 sm:h-3.5 sm:w-3.5 ml-1" />
+          {activeTab!==tabs[tabs.length-1]?(
+            <Button type="button" variant="outline" size="sm" onClick={goToNextTab}
+              className="h-7 px-3 text-[11px] border-gray-200 text-gray-600 hover:text-gray-800">
+              Next <ChevronRight className="h-3.5 w-3.5 ml-0.5"/>
             </Button>
-          ) : (
-            <div className="w-[60px] sm:w-[70px]" /> // Spacer for alignment
-          )}
+          ):<div className="w-16"/>}
         </div>
 
-        {/* Show submit button only on the last tab */}
-        {activeTab === tabs[tabs.length - 1] && (
-          <Button
-            type="submit"
-            disabled={loading}
-            className="h-7 sm:h-8 px-3 sm:px-4 text-[10px] sm:text-xs bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="mr-1 h-3 w-3 sm:h-3.5 sm:w-3.5 animate-spin" />
-                {uploadProgress > 0 ? "Upload" : "Save"}
-              </>
-            ) : tenant ? "Update" : "Create"}
+        {/* Right: Cancel + Submit (always visible, matches image) */}
+        <div className="flex items-center gap-2">
+          <Button type="button" variant="ghost" size="sm"
+            onClick={onCancel} disabled={loading}
+            className="h-7 px-4 text-[11px] text-gray-500 hover:text-gray-700 border border-gray-200">
+            Cancel
           </Button>
-        )}
+          <Button type="submit" disabled={loading}
+            className="h-7 px-5 text-[11px] font-semibold rounded-lg shadow-sm
+              bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white">
+            {loading
+              ? <><Loader2 className="mr-1.5 h-3 w-3 animate-spin"/>{uploadProgress>0?"Uploading…":"Saving…"}</>
+              : tenant?"Update Tenant":"Add Tenant"}
+          </Button>
+        </div>
       </div>
+
     </form>
   );
 }

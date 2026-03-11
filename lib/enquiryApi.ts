@@ -2,6 +2,7 @@
 import { request } from "@/lib/api";
 
 export interface Enquiry {
+  occupation: string;
   id: string;
   property_id: string;
   property_name: string;
@@ -20,6 +21,8 @@ export interface Enquiry {
   followups?: Followup[];
   created_at?: string;
   updated_at?: string;
+occupation_category?: string;
+remark?: string;
 }
 
 export interface Followup {
@@ -41,6 +44,9 @@ export interface CreateEnquiryPayload {
   message?: string;
   source?: string;
   status?: string;
+  occupation?: string;
+occupation_category?: string;
+remark?: string;
 }
 
 export interface UpdateEnquiryPayload {
@@ -54,6 +60,9 @@ export interface UpdateEnquiryPayload {
   message?: string;
   status?: string;
   assigned_to?: string;
+  occupation?: string;
+occupation_category?: string;
+remark?: string;
 }
 
 export interface AddFollowupPayload {

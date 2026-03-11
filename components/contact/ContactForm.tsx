@@ -28,6 +28,8 @@ export default function ContactForm({ initialData, properties = [] }: ContactFor
       message: '',
       preferredMoveInDate: '',
       budgetRange: '',
+        source: 'website', // Add this line
+
     }
   );
   
@@ -54,7 +56,7 @@ export default function ContactForm({ initialData, properties = [] }: ContactFor
   };
 
   // Function to create notification for admin
-const createEnquiryNotification = async (enquiryId: string, propertyName: string) => {
+const createEnquiryNotification = async (enquiryId: string, propertyName: string, p0: any) => {
   try {
     const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
     
@@ -72,7 +74,8 @@ const createEnquiryNotification = async (enquiryId: string, propertyName: string
           property_id: formData.propertyInterest,
           budget_range: formData.budgetRange,
           move_in_date: formData.preferredMoveInDate,
-          message: formData.message
+          message: formData.message,
+          source: source 
         },
         propertyName: propertyName
       }),
@@ -133,8 +136,7 @@ const createEnquiryNotification = async (enquiryId: string, propertyName: string
         preferred_move_in_date: formattedDate || null,
         budget_range: formData.budgetRange || null,
         message: formData.message || 'No message provided',
-        source: 'website_contact_form',
-        status: 'new'
+  source: formData.source || 'website',        status: 'new'
       };
 
       // Submit to your enquiry API
@@ -142,10 +144,11 @@ const createEnquiryNotification = async (enquiryId: string, propertyName: string
       
       // Create notification for admin using the test-notification endpoint
       if (response && response.data && response.data.id) {
-        await createEnquiryNotification(
-          response.data.id, 
-          selectedProperty?.name || 'a property'
-        );
+       await createEnquiryNotification(
+  response.data.id, 
+  selectedProperty?.name || 'a property',
+  formData.source || 'website' // Add this parameter
+);
       }
       
       setSubmitted(true);
@@ -162,6 +165,7 @@ const createEnquiryNotification = async (enquiryId: string, propertyName: string
           message: '',
           preferredMoveInDate: '',
           budgetRange: '',
+           source: 'website',
         });
       }, 3000);
     } catch (error: any) {
@@ -242,44 +246,77 @@ const createEnquiryNotification = async (enquiryId: string, propertyName: string
 
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="email" className="text-xs font-medium">Email Address *</Label>
-              <Input
-                id="email"
-                type="email"
-                required
-                placeholder="john@example.com"
-                value={formData.email}
-                onChange={(e) => handleInputChange('email', e.target.value)}
-                className="h-10 text-sm"
-              />
-            </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="property" className="text-xs font-medium">Property Interest *</Label>
-              <Select 
-                value={formData.propertyInterest} 
-                onValueChange={(value) => handleInputChange('propertyInterest', value)}
-                required
-              >
-                <SelectTrigger className="h-10 text-sm">
-                  <SelectValue placeholder="Select property" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableProperties.length > 0 ? (
-                    availableProperties.map((property) => (
-                      <SelectItem key={property.id} value={String(property.id)} className="text-sm">
-                        {property.name}
-                      </SelectItem>
-                    ))
-                  ) : (
-                    <SelectItem value="no-property" disabled>
-                      Loading properties...
-                    </SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="space-y-1.5">
+  <Label htmlFor="email" className="text-xs font-medium">Email Address *</Label>
+  <Input
+    id="email"
+    type="email"
+    required
+    placeholder="john@example.com"
+    value={formData.email}
+    onChange={(e) => handleInputChange('email', e.target.value)}
+    className="h-10 text-sm"
+  />
+</div>
+
+{/* Add this grid container for Lead Source and Property Interest */}
+<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+ <div className="space-y-1.5">
+  <Label htmlFor="source" className="text-xs font-medium">Lead Source *</Label>
+  <Select 
+    value={formData.source || 'website'} 
+    onValueChange={(value) => handleInputChange('source', value)}
+    required
+  >
+    <SelectTrigger className="h-10 text-sm">
+      <SelectValue placeholder="Select lead source" />
+    </SelectTrigger>
+    <SelectContent 
+      className="max-h-[300px]"
+      align="start" // Optional: keeps alignment to the left
+    >
+      <SelectItem value="website">Website</SelectItem>
+      <SelectItem value="instagram">Instagram</SelectItem>
+      <SelectItem value="facebook">Facebook</SelectItem>
+      <SelectItem value="whatsapp">WhatsApp</SelectItem>
+      <SelectItem value="google">Google Search</SelectItem>
+      <SelectItem value="referral">Friend/Family Referral</SelectItem>
+      <SelectItem value="walk_in">Walk-in</SelectItem>
+      <SelectItem value="phone_call">Phone Call</SelectItem>
+      <SelectItem value="email">Email</SelectItem>
+      <SelectItem value="other">Other</SelectItem>
+    </SelectContent>
+  </Select>
+  <p className="text-xs text-gray-500">How did you hear about us?</p>
+</div>
+
+  <div className="space-y-1.5">
+    <Label htmlFor="property" className="text-xs font-medium">Property Interest *</Label>
+    <Select 
+      value={formData.propertyInterest} 
+      onValueChange={(value) => handleInputChange('propertyInterest', value)}
+      required
+    >
+      <SelectTrigger className="h-10 text-sm">
+        <SelectValue placeholder="Select property" />
+      </SelectTrigger>
+      <SelectContent>
+        {availableProperties.length > 0 ? (
+          availableProperties.map((property) => (
+            <SelectItem key={property.id} value={String(property.id)} className="text-sm">
+              {property.name}
+            </SelectItem>
+          ))
+        ) : (
+          <SelectItem value="no-property" disabled>
+            Loading properties...
+          </SelectItem>
+        )}
+      </SelectContent>
+    </Select>
+  </div>
+</div>
 
             {/* Optional Fields - Additional Information */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
