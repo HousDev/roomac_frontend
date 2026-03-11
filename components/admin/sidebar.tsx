@@ -36,12 +36,14 @@ const inventoryItems = [
   { href: '/admin/inventory/handover', label: 'Tenant Handover', icon: Users },
   { href: '/admin/inventory/inspection', label: 'Move-Out Inspection', icon: FileText },
   { href: '/admin/inventory/settlements', label: 'Settlements', icon: Receipt },
+  { href: '/admin/inventory/penalty-rules', label: 'Penalty Rules', icon: Receipt },
+
 ];
 
 const visitorItems = [
   { href: '/admin/visitors/dashboard', label: 'Dashboard', icon: LayoutGrid },
+  // { href: '/admin/visitors/new-entry', label: 'New Entry', icon: PlusCircle },
   { href: '/admin/visitors/logs', label: 'Visitor Logs', icon: FileText },
-  { href: '/admin/visitors/new-entry', label: 'New Entry', icon: PlusCircle },
   { href: '/admin/visitors/restrictions', label: 'Restrictions', icon: AlertCircle },
 ];
 

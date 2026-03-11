@@ -78,6 +78,7 @@ import { Settlements } from "@/modules/inventory/Settlements";
 import { VisitorLogs } from "@/modules/visitor/VisitorLogs";
 import { NewVisitorEntry } from "@/modules/visitor/NewVisitorEntry";
 import { VisitorRestrictions } from "@/modules/visitor/VisitorRestrictions";
+import { PenaltyRules } from "@/modules/inventory/PenaltyRules";
 
 
 function App() {
@@ -142,6 +143,8 @@ console.log(user)
             <Route path="inventory/handover" element={<TenantHandover />} />
             <Route path="inventory/inspection" element={<MoveOutInspection />} />
             <Route path="inventory/settlements" element={<Settlements />} />
+            <Route path="inventory/penalty-rules" element={<PenaltyRules/>} />
+
 
             <Route path="visitors/dashboard" element={<VisitorDashboard />} />
             <Route path="visitors/logs" element={<VisitorLogs />} />
