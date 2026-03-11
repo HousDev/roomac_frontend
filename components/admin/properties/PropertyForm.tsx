@@ -2633,7 +2633,7 @@ const F = ({ label, required, children }: { label: string; required?: boolean; c
 );
 
 // ─── Section header ───────────────────────────────────────────────────────────
-const SH = ({ icon: Icon, label, color = "text-slate-500" }: { icon: any; label: string; color?: string }) => (
+const SH = ({ icon: Icon, label, color = "text-black" }: { icon: any; label: string; color?: string }) => (
   <div className={`flex items-center gap-1.5 text-[11px] font-bold mb-2 pb-1 border-b border-slate-100 ${color}`}>
     <Icon className="h-3 w-3 flex-shrink-0" />
     <span className="uppercase tracking-wide">{label}</span>
@@ -2650,7 +2650,6 @@ export default function PropertyForm({
   onReset,
   loading,
 }: PropertyFormProps) {
-  console.log("sleelcted prpertiessssssssssssssssssssssssssss", selectedProperty);
 
   const [activeTab, setActiveTab] = useState("basic");
   const [formData, setFormData] = useState<PropertyFormData>({

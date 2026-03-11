@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, RefreshCw, Download, CheckCircle, XCircle, UserX, Trash2, Filter, SlidersHorizontal, MoreVertical, Eye, Edit, Key, Mail, Phone, Building, Bed, MapPin, Users, FileText, IndianRupee, CheckSquare, Square, Search, X, Briefcase, Building2, Globe, LogIn, ShieldCheck, Users2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Upload, } from "lucide-react";
+import { Plus, RefreshCw, Download, CheckCircle, XCircle, UserX, Trash2, Filter, SlidersHorizontal, MoreVertical, Eye, Edit, Key, Mail, Phone, Building, Bed, MapPin, Users, FileText, IndianRupee, CheckSquare, Square, Search, X, Briefcase, Building2, Globe, LogIn, ShieldCheck, Users2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Upload, AlertTriangle, Calendar, Clock, User, } from "lucide-react";
 import { toast } from "sonner";
 import { deleteTenant, bulkDeleteTenants, bulkUpdateTenantStatus, bulkUpdateTenantPortalAccess, updateTenantSimple, createCredential, resetCredential, exportTenantsToExcel, listTenants, type Tenant, type TenantFilters, } from "@/lib/tenantApi";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, } from "@/components/ui/select";
@@ -1635,8 +1635,7 @@ const columns: Column<Tenant>[] = useMemo(() => [    {
       {/* ── DIALOGS (unchanged) ── */}
       {/* Add New Tenant <TenantForm onSuccess={handleSuccess} onCancel={() => setIsAddDialogOpen(false)} /> */}
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-  <DialogContent 
-    className="max-w-3xl max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden rounded-xl"
+  <DialogContent className="max-w-3xl h-[65vh] flex flex-col p-0 gap-0 overflow-hidden rounded-xl"
     onInteractOutside={(e) => {
       e.preventDefault();
     }}
@@ -1661,238 +1660,469 @@ const columns: Column<Tenant>[] = useMemo(() => [    {
 
       {/* View Dialog */}
       {selectedTenant && (
-        <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-  <DialogContent 
-    className="max-w-2xl max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden rounded-xl"
-    onInteractOutside={(e) => {
-      e.preventDefault();
-    }}
-  >
-            {/* Sticky Gradient Header */}
-            <div className="bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-600 px-4 md:px-6 py-3 flex items-start justify-between flex-shrink-0">
-              <div className="flex-1 min-w-0">
-                <DialogTitle className="text-sm font-semibold text-white truncate">
-                  Tenant Details: {selectedTenant.full_name}
-                </DialogTitle>
-                <div className="flex items-center gap-1 mt-1.5 flex-wrap">
-                  <Badge className={`text-[9px] px-1.5 py-0 h-4 ${selectedTenant.is_active ? "bg-emerald-500" : "bg-gray-400"} text-white border-0`}>
-                    {selectedTenant.is_active ? "Active" : "Inactive"}
-                  </Badge>
-                  <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-white/40 text-white bg-white/20">
-                    {selectedTenant.gender}
-                  </Badge>
-                  {selectedTenant.portal_access_enabled && (
-                    <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-white/40 text-white bg-white/20">
-                      Portal Access Enabled
-                    </Badge>
-                  )}
-                  {selectedTenant.has_credentials ? (
-                    <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-white/40 text-white bg-white/20">
-                      Login Enabled
-                    </Badge>
-                  ) : (
-                    <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-orange-300/60 text-orange-200 bg-orange-500/20">
-                      No Login
-                    </Badge>
-                  )}
-                </div>
+  <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+    <DialogContent
+      className="max-w-2xl h-[90vh] flex flex-col p-0 gap-0 overflow-hidden rounded-xl"
+      onInteractOutside={(e) => { e.preventDefault(); }}
+    >
+      {/* ── Sticky Gradient Header ───────────────────────────────────────── */}
+      <div className="bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-600 px-4 md:px-6 py-3 flex items-start justify-between flex-shrink-0">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          {/* Avatar */}
+          {selectedTenant.photo_url ? (
+            <img src={selectedTenant.photo_url} alt=""
+              className="w-9 h-9 rounded-full object-cover ring-2 ring-white/40 flex-shrink-0" />
+          ) : (
+            <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
+              <User className="w-4 h-4 text-white" />
+            </div>
+          )}
+          <div className="min-w-0">
+            <DialogTitle className="text-sm font-semibold text-white truncate leading-tight">
+              {selectedTenant.salutation ? `${selectedTenant.salutation}. ` : ""}
+              {selectedTenant.full_name}
+            </DialogTitle>
+            <div className="flex items-center gap-1 mt-1 flex-wrap">
+              <Badge className={`text-[9px] px-1.5 py-0 h-4 ${selectedTenant.is_active ? "bg-emerald-500" : "bg-gray-400"} text-white border-0`}>
+                {selectedTenant.is_active ? "Active" : "Inactive"}
+              </Badge>
+              {selectedTenant.gender && (
+                <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-white/40 text-white bg-white/20">
+                  {selectedTenant.gender}
+                </Badge>
+              )}
+              {selectedTenant.portal_access_enabled && (
+                <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-white/40 text-white bg-white/20">
+                  Portal Access
+                </Badge>
+              )}
+              {selectedTenant.has_credentials ? (
+                <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-white/40 text-white bg-white/20">
+                  Login Enabled
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-orange-300/60 text-orange-200 bg-orange-500/20">
+                  No Login
+                </Badge>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+          <Button variant="ghost" size="icon" className="h-7 w-7 text-white/80 hover:text-white hover:bg-white/20"
+            onClick={() => { setIsViewDialogOpen(false); setIsEditDialogOpen(true); }} title="Edit">
+            <Edit className="w-3.5 h-3.5" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-7 w-7 text-white/80 hover:text-white hover:bg-white/20"
+            onClick={() => setIsViewDialogOpen(false)}>
+            <X className="w-3.5 h-3.5" />
+          </Button>
+        </div>
+      </div>
+
+      {/* ── Scrollable Body ──────────────────────────────────────────────── */}
+      <div className="flex-1 overflow-y-auto min-h-0 p-4 space-y-4 bg-gray-50/40">
+
+        {/* ── Personal Information ──────────────────────────────────────── */}
+        <div>
+          <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1 border-b border-gray-100 pb-1">
+            <User className="w-3 h-3 text-blue-500" /> Personal Information
+          </h4>
+          <div className="bg-white rounded-lg border border-gray-100 p-3 grid grid-cols-2 gap-x-4 gap-y-2">
+            {[
+              ["Salutation",     selectedTenant.salutation || "—"],
+              ["Full Name",      selectedTenant.full_name  || "—"],
+              ["Gender",         selectedTenant.gender     || "—"],
+              ["Date of Birth",  selectedTenant.date_of_birth
+                ? `${new Date(selectedTenant.date_of_birth).toLocaleDateString("en-IN", { day:"2-digit", month:"short", year:"numeric" })} (${Math.floor((Date.now() - new Date(selectedTenant.date_of_birth).getTime()) / (365.25*24*60*60*1000))} yrs)`
+                : "—"],
+            ].map(([label, value]) => (
+              <div key={label}>
+                <p className="text-[9px] uppercase tracking-widest font-semibold text-gray-400">{label}</p>
+                <p className="text-[11px] font-medium text-gray-800">{value}</p>
               </div>
-              <div className="flex items-center gap-1 flex-shrink-0 ml-2">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 text-white/80 hover:text-white hover:bg-white/20"
-                  onClick={() => { setIsViewDialogOpen(false); setIsEditDialogOpen(true); }}
-                  title="Edit"
-                >
-                  <Edit className="w-3.5 h-3.5" />
-                </Button>
-                <Button variant="ghost" size="icon" className="h-7 w-7 text-white/80 hover:text-white hover:bg-white/20" onClick={() => setIsViewDialogOpen(false)}>
-                  <X className="w-3.5 h-3.5" />
-                </Button>
+            ))}
+
+            {/* Emergency contact — full width */}
+            {(selectedTenant.emergency_contact_name || selectedTenant.emergency_contact_phone) && (
+              <div className="col-span-2 pt-1 border-t border-gray-100 mt-1">
+                <p className="text-[9px] uppercase tracking-widest font-semibold text-gray-400 mb-0.5">Emergency Contact</p>
+                <p className="text-[11px] font-medium text-gray-800">
+                  {selectedTenant.emergency_contact_name || "—"}
+                  {selectedTenant.emergency_contact_relation ? ` · ${selectedTenant.emergency_contact_relation}` : ""}
+                </p>
+                <p className="text-[11px] text-gray-500">{selectedTenant.emergency_contact_phone || "—"}</p>
               </div>
+            )}
+          </div>
+        </div>
+
+        {/* ── Contact Information ───────────────────────────────────────── */}
+        <div>
+          <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1 border-b border-gray-100 pb-1">
+            <Phone className="w-3 h-3 text-indigo-500" /> Contact Information
+          </h4>
+          <div className="bg-white rounded-lg border border-gray-100 p-3 space-y-2">
+            {[
+              ["Email",   selectedTenant.email],
+              ["Phone",   `${selectedTenant.country_code || ""} ${selectedTenant.phone || ""}`.trim()],
+              ["Address", [selectedTenant.address, selectedTenant.city, selectedTenant.state, selectedTenant.pincode ? `- ${selectedTenant.pincode}` : ""].filter(Boolean).join(", ")],
+            ].map(([label, value]) => (
+              <div key={label} className="flex justify-between text-xs gap-2">
+                <span className="text-gray-500 font-medium flex-shrink-0">{label}</span>
+                <span className="text-gray-800 text-right">{value || "—"}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Occupation & Work ─────────────────────────────────────────── */}
+        <div>
+          <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1 border-b border-gray-100 pb-1">
+            <Briefcase className="w-3 h-3 text-green-600" /> Occupation & Work
+          </h4>
+          <div className="bg-white rounded-lg border border-gray-100 p-3 grid grid-cols-2 gap-x-4 gap-y-2">
+            <div>
+              <p className="text-[9px] uppercase tracking-widest font-semibold text-gray-400">Category</p>
+              {selectedTenant.occupation_category
+                ? <Badge variant="outline" className="text-[9px] px-1.5 py-0 mt-0.5">{selectedTenant.occupation_category}</Badge>
+                : <p className="text-[11px] font-medium text-gray-800">—</p>}
+            </div>
+            <div>
+              <p className="text-[9px] uppercase tracking-widest font-semibold text-gray-400">Sub-Category / Role</p>
+              <p className="text-[11px] font-medium text-gray-800">{selectedTenant.exact_occupation || selectedTenant.occupation || "—"}</p>
+            </div>
+            <div>
+              <p className="text-[9px] uppercase tracking-widest font-semibold text-gray-400">Organization</p>
+              <p className="text-[11px] font-medium text-gray-800">{selectedTenant.organization || "—"}</p>
             </div>
 
-            {/* Scrollable Body */}
-            <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-5">
-              {/* Profile Header */}
-              <div className="flex items-center gap-3">
-                {selectedTenant.photo_url && (
-                  <img src={selectedTenant.photo_url} alt="" className="w-14 h-14 rounded-full object-cover ring-2 ring-blue-100" />
-                )}
+            {/* Conditional fields based on occupation category */}
+            {selectedTenant.occupation_category === "Student" ? (
+              <>
                 <div>
-                  <h3 className="text-sm font-semibold text-gray-900">{selectedTenant.full_name}</h3>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="mt-1 h-6 text-[10px] px-2 border-blue-200 text-blue-600 hover:bg-blue-50"
-                    onClick={() => { setIsViewDialogOpen(false); setIsEditDialogOpen(true); }}
-                  >
-                    <Edit className="w-2.5 h-2.5 mr-1" /> Edit
-                  </Button>
+                  <p className="text-[9px] uppercase tracking-widest font-semibold text-gray-400">Course Duration</p>
+                  <p className="text-[11px] font-medium text-gray-800">{selectedTenant.course_duration?.replace("_"," ") || "—"}</p>
                 </div>
-              </div>
-
-              {/* Contact Information */}
-              <div>
-                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1">
-                  <Phone className="w-3 h-3" /> Contact Information
-                </h4>
-                <div className="bg-gray-50 rounded-lg p-3 space-y-2">
-                  <div className="flex justify-between text-xs">
-                    <span className="text-gray-500 font-medium">Email</span>
-                    <span className="text-gray-800">{selectedTenant.email}</span>
-                  </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-gray-500 font-medium">Phone</span>
-                    <span className="text-gray-800">{selectedTenant.country_code} {selectedTenant.phone}</span>
-                  </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-gray-500 font-medium">Address</span>
-                    <span className="text-gray-800 text-right max-w-[200px]">{selectedTenant.address} {selectedTenant.city}, {selectedTenant.state} - {selectedTenant.pincode}</span>
-                  </div>
+                <div>
+                  <p className="text-[9px] uppercase tracking-widest font-semibold text-gray-400">Student ID</p>
+                  <p className="text-[11px] font-medium text-gray-800">{selectedTenant.student_id || "—"}</p>
                 </div>
-              </div>
-
-              {/* Occupation & Preferences */}
+              </>
+            ) : selectedTenant.occupation_category === "Government Employee" ? (
               <div>
-                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1">
-                  <Briefcase className="w-3 h-3" /> Occupation & Preferences
-                </h4>
-                <div className="bg-gray-50 rounded-lg p-3 space-y-2">
-                  <div className="flex justify-between text-xs">
-                    <span className="text-gray-500 font-medium">Occupation Category</span>
-                    <span className="text-gray-800">{selectedTenant.occupation_category || "Other"}</span>
-                  </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-gray-500 font-medium">Occupation Details</span>
-                    <span className="text-gray-800">{selectedTenant.exact_occupation || selectedTenant.occupation || "-"}</span>
-                  </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-gray-500 font-medium">Room Preferences</span>
-                    <div className="flex gap-1 flex-wrap justify-end">
-                      {selectedTenant.preferred_sharing && (
-                        <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4">{selectedTenant.preferred_sharing} sharing</Badge>
-                      )}
-                      {selectedTenant.preferred_room_type && (
-                        <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4">{selectedTenant.preferred_room_type}</Badge>
-                      )}
-                    </div>
-                  </div>
+                <p className="text-[9px] uppercase tracking-widest font-semibold text-gray-400">Employee / Service ID</p>
+                <p className="text-[11px] font-medium text-gray-800">{selectedTenant.employee_id || "—"}</p>
+              </div>
+            ) : selectedTenant.occupation_category === "Freelancer / Self-Employed" ? (
+              <div className="col-span-2">
+                <p className="text-[9px] uppercase tracking-widest font-semibold text-gray-400">Portfolio / Website</p>
+                {selectedTenant.portfolio_url
+                  ? <a href={selectedTenant.portfolio_url} target="_blank" rel="noopener noreferrer"
+                      className="text-[11px] text-blue-600 hover:underline">{selectedTenant.portfolio_url}</a>
+                  : <p className="text-[11px] font-medium text-gray-800">—</p>}
+              </div>
+            ) : (
+              <>
+                <div>
+                  <p className="text-[9px] uppercase tracking-widest font-semibold text-gray-400">Experience</p>
+                  <p className="text-[11px] font-medium text-gray-800">{selectedTenant.years_of_experience ? `${selectedTenant.years_of_experience} yrs` : "—"}</p>
                 </div>
-              </div>
+                <div>
+                  <p className="text-[9px] uppercase tracking-widest font-semibold text-gray-400">Monthly Income</p>
+                  <p className="text-[11px] font-medium text-gray-800">{selectedTenant.monthly_income ? `₹${Number(selectedTenant.monthly_income).toLocaleString("en-IN")}` : "—"}</p>
+                </div>
+              </>
+            )}
 
-              {/* Current Booking & Payments */}
-              <div>
-                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1">
-                  <Building className="w-3 h-3" /> Current Booking & Payments
-                </h4>
-                {(selectedTenant.bookings ?? []).length > 0 ? (
-                  (selectedTenant.bookings ?? [])
-                    .filter(b => b.status === 'active')
-                    .map((booking) => (
-                      <div key={booking.id} className="bg-gray-50 rounded-lg p-3 space-y-3">
-                        <div className="space-y-1">
-                          <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Property</div>
-                          <div className="text-xs font-medium text-gray-900">{booking.properties?.name}</div>
-                          <div className="text-[10px] text-gray-500">{booking.properties?.city}, {booking.properties?.state}</div>
-                        </div>
-                        {booking.room && (
-                          <div className="space-y-1">
-                            <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Room Details</div>
-                            <div className="text-xs text-gray-900">Room {booking.room.room_number}</div>
-                            <div className="text-[10px] text-gray-500">{booking.room.sharing_type} sharing · Floor {booking.room.floor || "-"}</div>
-                          </div>
-                        )}
-                        <div className="space-y-1">
-                          <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Monthly Rent</div>
-                          <div className="text-sm font-semibold text-green-600">₹{booking.monthly_rent?.toLocaleString()}</div>
-                        </div>
-                        {selectedTenant.payments && selectedTenant.payments.length > 0 && (
-                          <div className="space-y-2">
-                            <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Payment History</div>
-                            {selectedTenant.payments.slice(0, 5).map((payment) => (
-                              <div key={payment.id} className="flex items-center justify-between py-1.5 border-b border-gray-100 last:border-0">
-                                <div>
-                                  <div className="text-xs text-gray-800">{payment.description || "Payment"}</div>
-                                  <div className="text-[10px] text-gray-400">{new Date(payment.payment_date).toLocaleDateString()} · {payment.payment_method}</div>
-                                </div>
-                                <div className="text-right">
-                                  <div className="text-xs font-semibold text-gray-900">₹{payment.amount?.toLocaleString()}</div>
-                                  <Badge className={`text-[9px] px-1 py-0 h-3.5 ${payment.status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'} border-0`}>
-                                    {payment.status}
-                                  </Badge>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ))
-                ) : (
-                  <div className="bg-gray-50 rounded-lg p-4 text-center text-xs text-gray-400">No active booking</div>
+            <div>
+              <p className="text-[9px] uppercase tracking-widest font-semibold text-gray-400">Work Mode</p>
+              <p className="text-[11px] font-medium text-gray-800">{selectedTenant.work_mode || "—"}</p>
+            </div>
+            <div>
+              <p className="text-[9px] uppercase tracking-widest font-semibold text-gray-400">Shift Timing</p>
+              <p className="text-[11px] font-medium text-gray-800">{selectedTenant.shift_timing || "—"}</p>
+            </div>
+
+            {/* Room preferences */}
+            <div className="col-span-2 pt-1 border-t border-gray-100 mt-1">
+              <p className="text-[9px] uppercase tracking-widest font-semibold text-gray-400 mb-1">Room Preferences</p>
+              <div className="flex gap-1.5 flex-wrap">
+                {selectedTenant.preferred_sharing
+                  ? <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4">{selectedTenant.preferred_sharing} sharing</Badge>
+                  : null}
+                {selectedTenant.preferred_room_type
+                  ? <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4">{selectedTenant.preferred_room_type}</Badge>
+                  : null}
+                {!selectedTenant.preferred_sharing && !selectedTenant.preferred_room_type && (
+                  <p className="text-[11px] text-gray-400">—</p>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
 
-              {/* Documents */}
+        {/* ── Property, Check-in & Terms ───────────────────────────────── */}
+        <div>
+          <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1 border-b border-gray-100 pb-1">
+            <Building className="w-3 h-3 text-indigo-500" /> Property, Check-in & Terms
+          </h4>
+          <div className="bg-white rounded-lg border border-gray-100 p-3 space-y-3">
+            {/* Property + Check-in row */}
+            <div className="grid grid-cols-2 gap-x-4 gap-y-2">
               <div>
-                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1">
-                  <FileText className="w-3 h-3" /> Documents
-                </h4>
-                <div className="bg-gray-50 rounded-lg p-3 space-y-2">
-                  {selectedTenant.id_proof_url && (
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="text-gray-600">ID Proof</span>
-                      <a href={selectedTenant.id_proof_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-xs">View Document</a>
-                    </div>
-                  )}
-                  {selectedTenant.address_proof_url && (
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="text-gray-600">Address Proof</span>
-                      <a href={selectedTenant.address_proof_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-xs">View Document</a>
-                    </div>
-                  )}
-                  {selectedTenant.photo_url && (
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="text-gray-600">Photo</span>
-                      <a href={selectedTenant.photo_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-xs">View Photo</a>
-                    </div>
-                  )}
-                </div>
+                <p className="text-[9px] uppercase tracking-widest font-semibold text-gray-400">Assigned Property</p>
+                <p className="text-[11px] font-medium text-gray-800">
+                  {selectedTenant.property_name || (selectedTenant.property_id ? `Property #${selectedTenant.property_id}` : "—")}
+                </p>
               </div>
-
-              {/* System Information */}
               <div>
-                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1">
-                  <ShieldCheck className="w-3 h-3" /> System Information
-                </h4>
-                <div className="bg-gray-50 rounded-lg p-3 space-y-2">
-                  <div className="flex justify-between text-xs">
-                    <span className="text-gray-500">Created At</span>
-                    <span className="text-gray-800">{new Date(selectedTenant.created_at!).toLocaleDateString()}</span>
-                  </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-gray-500">Last Updated</span>
-                    <span className="text-gray-800">{selectedTenant.updated_at ? new Date(selectedTenant.updated_at).toLocaleDateString() : "-"}</span>
-                  </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-gray-500">Login Email</span>
-                    <span className="text-gray-800">{selectedTenant.credential_email || "No login configured"}</span>
-                  </div>
-                </div>
+                <p className="text-[9px] uppercase tracking-widest font-semibold text-gray-400">Check-in Date</p>
+                <p className="text-[11px] font-medium text-gray-800">
+                  {selectedTenant.check_in_date
+                    ? new Date(selectedTenant.check_in_date).toLocaleDateString("en-IN", { day:"2-digit", month:"short", year:"numeric" })
+                    : "—"}
+                </p>
               </div>
             </div>
 
-            {/* Sticky Footer */}
-            <div className="border-t bg-gray-50 px-4 py-2.5 flex justify-end flex-shrink-0">
-              <Button variant="outline" onClick={() => setIsViewDialogOpen(false)} className="h-7 md:h-8 text-[10px] md:text-xs px-3 md:px-4 w-full md:w-auto">
-                Close
-              </Button>
+            {/* Rental terms */}
+            <div className="grid grid-cols-2 gap-2 pt-1 border-t border-gray-100">
+              <div className="bg-blue-50/70 border border-blue-100 rounded-lg p-2">
+                <p className="text-[9px] font-bold text-blue-600 uppercase tracking-widest mb-1 flex items-center gap-1">
+                  <Calendar className="h-2.5 w-2.5" /> Lock-in
+                </p>
+                <p className="text-[11px] font-semibold text-gray-800">
+                  {selectedTenant.lockin_period_months ?? 0} months
+                </p>
+                <p className="text-[10px] text-gray-500">
+                  Penalty: {selectedTenant.lockin_penalty_type === "percentage" ? "%" : "₹"}
+                  {selectedTenant.lockin_penalty_amount ?? 0}
+                  {" "}({selectedTenant.lockin_penalty_type || "fixed"})
+                </p>
+              </div>
+              <div className="bg-amber-50/70 border border-amber-100 rounded-lg p-2">
+                <p className="text-[9px] font-bold text-amber-600 uppercase tracking-widest mb-1 flex items-center gap-1">
+                  <Clock className="h-2.5 w-2.5" /> Notice
+                </p>
+                <p className="text-[11px] font-semibold text-gray-800">
+                  {selectedTenant.notice_period_days ?? 0} days
+                </p>
+                <p className="text-[10px] text-gray-500">
+                  Penalty: {selectedTenant.notice_penalty_type === "percentage" ? "%" : "₹"}
+                  {selectedTenant.notice_penalty_amount ?? 0}
+                  {" "}({selectedTenant.notice_penalty_type || "fixed"})
+                </p>
+              </div>
             </div>
-          </DialogContent>
-        </Dialog>
-      )}
+          </div>
+        </div>
 
+        {/* ── Current Booking & Payments ────────────────────────────────── */}
+        <div>
+          <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1 border-b border-gray-100 pb-1">
+            <Building className="w-3 h-3 text-purple-500" /> Current Booking & Payments
+          </h4>
+          {(selectedTenant.bookings ?? []).filter(b => b.status === "active").length > 0 ? (
+            (selectedTenant.bookings ?? [])
+              .filter(b => b.status === "active")
+              .map((booking) => (
+                <div key={booking.id} className="bg-white rounded-lg border border-gray-100 p-3 space-y-2">
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+                    <div>
+                      <p className="text-[9px] uppercase tracking-widest font-semibold text-gray-400">Property</p>
+                      <p className="text-[11px] font-medium text-gray-800">{booking.properties?.name || "—"}</p>
+                      <p className="text-[10px] text-gray-500">{booking.properties?.city}, {booking.properties?.state}</p>
+                    </div>
+                    {booking.room && (
+                      <div>
+                        <p className="text-[9px] uppercase tracking-widest font-semibold text-gray-400">Room</p>
+                        <p className="text-[11px] font-medium text-gray-800">Room {booking.room.room_number}</p>
+                        <p className="text-[10px] text-gray-500">{booking.room.sharing_type} sharing · Floor {booking.room.floor || "—"}</p>
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-[9px] uppercase tracking-widest font-semibold text-gray-400">Monthly Rent</p>
+                      <p className="text-[12px] font-bold text-green-600">₹{booking.monthly_rent?.toLocaleString()}</p>
+                    </div>
+                  </div>
+
+                  {/* Payment history */}
+                  {selectedTenant.payments && selectedTenant.payments.length > 0 && (
+                    <div className="pt-2 border-t border-gray-100">
+                      <p className="text-[9px] uppercase tracking-widest font-semibold text-gray-400 mb-1.5">Payment History</p>
+                      <div className="space-y-1">
+                        {selectedTenant.payments.slice(0, 5).map((payment) => (
+                          <div key={payment.id} className="flex items-center justify-between py-1 border-b border-gray-100 last:border-0">
+                            <div>
+                              <p className="text-[11px] text-gray-800">{payment.description || "Payment"}</p>
+                              <p className="text-[10px] text-gray-400">
+                                {new Date(payment.payment_date).toLocaleDateString("en-IN", { day:"2-digit", month:"short", year:"numeric" })}
+                                {" · "}{payment.payment_method}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-[11px] font-semibold text-gray-900">₹{payment.amount?.toLocaleString()}</p>
+                              <Badge className={`text-[9px] px-1 py-0 h-3.5 border-0 ${payment.status === "paid" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"}`}>
+                                {payment.status}
+                              </Badge>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))
+          ) : (
+            <div className="bg-white rounded-lg border border-gray-100 p-4 text-center text-[11px] text-gray-400">
+              No active booking
+            </div>
+          )}
+        </div>
+
+        {/* ── Documents ────────────────────────────────────────────────── */}
+        <div>
+          <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1 border-b border-gray-100 pb-1">
+            <FileText className="w-3 h-3 text-amber-500" /> Documents
+          </h4>
+          <div className="bg-white rounded-lg border border-gray-100 p-3 space-y-3">
+            {/* Required docs — thumbnail grid */}
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { label: "ID Proof",      url: selectedTenant.id_proof_url      },
+                { label: "Address Proof", url: selectedTenant.address_proof_url },
+                { label: "Photograph",    url: selectedTenant.photo_url         },
+              ].map(({ label, url }) =>
+                url ? (
+                  <a key={label} href={url} target="_blank" rel="noopener noreferrer"
+                    className="group flex flex-col items-center gap-1 p-2 border border-gray-200 rounded-lg bg-gray-50 hover:bg-blue-50 hover:border-blue-200 transition-colors">
+                    {/\.(jpeg|jpg|png|gif|webp|bmp)$/i.test(url)
+                      ? <img src={url} alt={label} className="h-12 w-full object-contain rounded" />
+                      : <div className="h-12 w-full flex items-center justify-center bg-gray-100 rounded">
+                          <FileText className="h-5 w-5 text-gray-400" />
+                        </div>
+                    }
+                    <span className="text-[9px] text-gray-500 group-hover:text-blue-600 text-center leading-tight">{label}</span>
+                    <span className="text-[9px] text-blue-400 flex items-center gap-0.5"><Eye className="h-2.5 w-2.5"/>View</span>
+                  </a>
+                ) : (
+                  <div key={label}
+                    className="flex flex-col items-center gap-1 p-2 border border-dashed border-gray-200 rounded-lg bg-gray-50">
+                    <div className="h-12 w-full flex items-center justify-center">
+                      <AlertTriangle className="h-5 w-5 text-gray-300" />
+                    </div>
+                    <span className="text-[9px] text-gray-400 text-center">{label}</span>
+                    <span className="text-[9px] text-red-400">Not uploaded</span>
+                  </div>
+                )
+              )}
+            </div>
+
+            {/* Additional documents */}
+            {selectedTenant.additional_documents && selectedTenant.additional_documents.length > 0 && (
+              <div className="pt-2 border-t border-gray-100">
+                <p className="text-[9px] uppercase tracking-widest font-semibold text-gray-400 mb-1.5">Additional Documents</p>
+                <div className="space-y-1">
+                  {selectedTenant.additional_documents.map((doc, i) => (
+                    <a key={i} href={doc.url} target="_blank" rel="noopener noreferrer"
+                      className="flex items-center justify-between p-1.5 border border-gray-100 rounded-lg bg-gray-50 hover:bg-blue-50 hover:border-blue-200 transition-colors group">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <FileText className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-medium text-gray-700 truncate group-hover:text-blue-700">{doc.filename}</p>
+                          {doc.uploaded_at && (
+                            <p className="text-[9px] text-gray-400">
+                              {new Date(doc.uploaded_at).toLocaleDateString("en-IN", { day:"2-digit", month:"short", year:"numeric" })}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <span className="text-[9px] text-blue-500 flex items-center gap-0.5 flex-shrink-0 ml-2">
+                        <Eye className="h-2.5 w-2.5"/>View
+                      </span>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ── Portal & Login ────────────────────────────────────────────── */}
+        <div>
+          <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1 border-b border-gray-100 pb-1">
+            <ShieldCheck className="w-3 h-3 text-emerald-500" /> Portal & Login
+          </h4>
+          <div className="bg-white rounded-lg border border-gray-100 p-3 grid grid-cols-2 gap-x-4 gap-y-2">
+            <div>
+              <p className="text-[9px] uppercase tracking-widest font-semibold text-gray-400">Portal Access</p>
+              <Badge className={`text-[9px] px-1.5 py-0 mt-0.5 border-0 font-semibold ${selectedTenant.portal_access_enabled ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                {selectedTenant.portal_access_enabled ? "Enabled" : "Disabled"}
+              </Badge>
+            </div>
+            <div>
+              <p className="text-[9px] uppercase tracking-widest font-semibold text-gray-400">Login Status</p>
+              {selectedTenant.has_credentials
+                ? <Badge className="text-[9px] px-1.5 py-0 mt-0.5 bg-emerald-100 text-emerald-700 border-0 font-semibold">Active</Badge>
+                : <Badge className="text-[9px] px-1.5 py-0 mt-0.5 bg-orange-100 text-orange-600 border-0 font-semibold">Not Created</Badge>
+              }
+            </div>
+            <div className="col-span-2">
+              <p className="text-[9px] uppercase tracking-widest font-semibold text-gray-400">Login Email</p>
+              <p className="text-[11px] font-medium text-gray-800">{selectedTenant.credential_email || selectedTenant.email || "No login configured"}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* ── System Information ────────────────────────────────────────── */}
+        <div>
+          <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1 border-b border-gray-100 pb-1">
+            <ShieldCheck className="w-3 h-3 text-gray-400" /> System Information
+          </h4>
+          <div className="bg-white rounded-lg border border-gray-100 p-3 space-y-1.5">
+            {[
+              ["Tenant ID",    `#${selectedTenant.id}`],
+              ["Created At",   selectedTenant.created_at ? new Date(selectedTenant.created_at).toLocaleDateString("en-IN", { day:"2-digit", month:"short", year:"numeric" }) : "—"],
+              ["Last Updated", selectedTenant.updated_at ? new Date(selectedTenant.updated_at).toLocaleDateString("en-IN", { day:"2-digit", month:"short", year:"numeric" }) : "—"],
+            ].map(([label, value]) => (
+              <div key={label} className="flex justify-between text-xs">
+                <span className="text-gray-500 font-medium">{label}</span>
+                <span className="text-gray-800">{value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+      </div>{/* end scrollable body */}
+
+      {/* ── Sticky Footer ────────────────────────────────────────────────── */}
+      <div className="border-t bg-white px-4 py-2.5 flex items-center justify-between flex-shrink-0">
+        <p className="text-[10px] text-gray-400">
+          ID: <span className="font-medium text-gray-600">#{selectedTenant.id}</span>
+          {selectedTenant.check_in_date && (
+            <> · Check-in: <span className="font-medium text-gray-600">
+              {new Date(selectedTenant.check_in_date).toLocaleDateString("en-IN", { day:"2-digit", month:"short", year:"numeric" })}
+            </span></>
+          )}
+        </p>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm"
+            onClick={() => setIsViewDialogOpen(false)}
+            className="h-7 text-[10px] px-3 border-gray-200 text-gray-500">
+            Close
+          </Button>
+          <Button size="sm"
+            onClick={() => { setIsViewDialogOpen(false); setIsEditDialogOpen(true); }}
+            className="h-7 text-[10px] px-3 font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg">
+            <Edit className="h-3 w-3 mr-1" /> Edit Tenant
+          </Button>
+        </div>
+      </div>
+
+    </DialogContent>
+  </Dialog>
+)}
       {/* Edit Dialog */}
       {selectedTenant && (
        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>

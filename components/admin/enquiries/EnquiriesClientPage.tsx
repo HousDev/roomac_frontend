@@ -91,7 +91,10 @@ export default function EnquiriesClientPage({
     preferred_move_in_date: "",
     budget_range: "",
     message: "",
-    source: "website"
+    source: "website",
+    occupation: "",
+  occupation_category: "",
+  remark: "",
   });
 
   // Edit enquiry form state
@@ -103,7 +106,10 @@ export default function EnquiriesClientPage({
     preferred_move_in_date: "",
     budget_range: "",
     message: "",
-    status: "new"
+    status: "new",
+    occupation: "",
+  occupation_category: "",
+  remark: "",
   });
 
   
@@ -258,50 +264,65 @@ export default function EnquiriesClientPage({
   }, []);
 
   // Add new enquiry handler
-  const handleAddEnquiry = useCallback(async () => {
-    if (!newEnquiry.tenant_name || !newEnquiry.phone) {
-      toast.error("Name and phone are required");
-      return;
-    }
+  // In EnquiriesClientPage.tsx, update the handleAddEnquiry function:
 
-    if (!newEnquiry.property_id) {
-      toast.error("Please select a property");
-      return;
-    }
+// In EnquiriesClientPage.tsx, update the handleAddEnquiry function:
 
-    try {
-      const selectedProperty = properties.find((p) => p.id === newEnquiry.property_id);
-      const formattedDate = formatDateForDatabase(newEnquiry.preferred_move_in_date || "");
+const handleAddEnquiry = useCallback(async () => {
+  if (!newEnquiry.tenant_name || !newEnquiry.phone) {
+    toast.error("Name and phone are required");
+    return;
+  }
 
-      const enquiryData: CreateEnquiryPayload = {
-        ...newEnquiry,
-        property_name: selectedProperty?.name || "",
-        preferred_move_in_date: formattedDate || ""
-      };
+  if (!newEnquiry.property_id) {
+    toast.error("Please select a property");
+    return;
+  }
 
-      await createEnquiry(enquiryData);
-      toast.success("Enquiry added successfully");
+  try {
+    const selectedProperty = properties.find((p) => p.id === newEnquiry.property_id);
+    const formattedDate = formatDateForDatabase(newEnquiry.preferred_move_in_date || "");
 
-      setShowAddDialog(false);
-      setNewEnquiry({
-        property_id: "",
-        tenant_name: "",
-        phone: "",
-        email: "",
-        preferred_move_in_date: "",
-        budget_range: "",
-        message: "",
-        source: "website"
-      });
+    const enquiryData: CreateEnquiryPayload = {
+      property_id: newEnquiry.property_id,
+      tenant_name: newEnquiry.tenant_name,
+      phone: newEnquiry.phone,
+      email: newEnquiry.email,
+      property_name: selectedProperty?.name || "", // <-- ADD THIS LINE
+      preferred_move_in_date: formattedDate || "",
+      budget_range: newEnquiry.budget_range,
+      message: newEnquiry.message,
+      source: newEnquiry.source,
+      status: "new",
+      occupation: newEnquiry.occupation,
+      occupation_category: newEnquiry.occupation_category,
+      remark: newEnquiry.remark,
+    };
 
-      // Refresh data after adding
-      await loadData(true);
-    } catch (error: any) {
-      console.error("Error adding enquiry:", error);
-      toast.error(error.message || "Failed to add enquiry");
-    }
-  }, [newEnquiry, properties, formatDateForDatabase, loadData]);
+    await createEnquiry(enquiryData);
+    toast.success("Enquiry added successfully");
 
+    setShowAddDialog(false);
+    setNewEnquiry({
+      property_id: "",
+      tenant_name: "",
+      phone: "",
+      email: "",
+      preferred_move_in_date: "",
+      budget_range: "",
+      message: "",
+      source: "website",
+      occupation: "",
+      occupation_category: "",
+      remark: "",
+    });
+
+    await loadData(true);
+  } catch (error: any) {
+    console.error("Error adding enquiry:", error);
+    toast.error(error.message || "Failed to add enquiry");
+  }
+}, [newEnquiry, properties, formatDateForDatabase, loadData]);
   // Open edit dialog with enquiry data
   const handleOpenEditDialog = useCallback((enquiry: Enquiry) => {
     setSelectedEnquiry(enquiry);
@@ -313,7 +334,10 @@ export default function EnquiriesClientPage({
       preferred_move_in_date: formatDateForInput(enquiry.preferred_move_in_date || ""),
       budget_range: enquiry.budget_range || "",
       message: enquiry.message || "",
-      status: enquiry.status || "new"
+      status: enquiry.status || "new",
+      occupation: enquiry.occupation || "",
+  occupation_category: enquiry.occupation_category || "",
+  remark: enquiry.remark || "",
     });
     setShowEditDialog(true);
   }, [formatDateForInput]);
