@@ -350,45 +350,60 @@ const PropertyDetailView = memo(function PropertyDetailView({
   }, [propertyData]);
 
   // Fetch masters data for filters
-  useEffect(() => {
-    const fetchMastersForFilters = async () => {
-      if (!propertyData?.id) return;
+useEffect(() => {
+  const fetchMastersForFilters = async () => {
+    if (!propertyData?.id) return;
+    
+    setLoadingMasters(true);
+    try {
+      // Fetch from Properties tab for Floors
+      const propertiesRes = await consumeMasters({ tab: "Properties" });
+      // Fetch from Rooms tab for Sharing Type
+      const roomsRes = await consumeMasters({ tab: "Rooms" });
       
-      setLoadingMasters(true);
-      try {
-        const res = await consumeMasters({ tab: "Properties" });
-        if (res?.success && res.data) {
-          const floors: MasterValue[] = [];
-          const sharingTypes: MasterValue[] = [];
-          
-          res.data.forEach((item: any) => {
-            if (item.type_name === "Floors") {
-              floors.push({
-                id: item.value_id,
-                name: item.value_name,
-                isactive: 1
-              });
-            } else if (item.type_name === "Sharing Type") {
-              sharingTypes.push({
-                id: item.value_id,
-                name: item.value_name,
-                isactive: 1
-              });
-            }
-          });
-          
-          setFloorsMasters(floors);
-          setSharingTypesMasters(sharingTypes);
-        }
-      } catch (error) {
-        console.error("Error fetching masters for filters:", error);
-      } finally {
-        setLoadingMasters(false);
+      const floors: MasterValue[] = [];
+      const sharingTypes: MasterValue[] = [];
+      
+      // Process Properties tab data for Floors
+      if (propertiesRes?.success && propertiesRes.data) {
+        propertiesRes.data.forEach((item: any) => {
+          if (item.type_name === "Floors") {
+            floors.push({
+              id: item.value_id,
+              name: item.value_name,
+              isactive: 1
+            });
+          }
+        });
       }
-    };
+      
+      // Process Rooms tab data for Sharing Type
+      if (roomsRes?.success && roomsRes.data) {
+        roomsRes.data.forEach((item: any) => {
+          if (item.type_name === "Sharing Type") {
+            sharingTypes.push({
+              id: item.value_id,
+              name: item.value_name,
+              isactive: 1
+            });
+          }
+        });
+      }
+      
+      console.log('Fetched floors:', floors);
+      console.log('Fetched sharing types:', sharingTypes);
+      
+      setFloorsMasters(floors);
+      setSharingTypesMasters(sharingTypes);
+    } catch (error) {
+      console.error("Error fetching masters for filters:", error);
+    } finally {
+      setLoadingMasters(false);
+    }
+  };
 
-    fetchMastersForFilters();
-  }, [propertyData?.id]);
+  fetchMastersForFilters();
+}, [propertyData?.id]);
 
   // Load analytics
   useEffect(() => {
@@ -524,7 +539,7 @@ const getMinTenantRent = (room: any): number => {
         
         if (bed.tenant_rent) {
           rent = parseFloat(bed.tenant_rent);
-          console.log(`  Bed ${bed.bed_number}: tenant_rent = ${rent}`);
+          // console.log(`  Bed ${bed.bed_number}: tenant_rent = ${rent}`);
         }
         
         return rent && !isNaN(rent) && rent > 0 ? rent : null;
@@ -1276,140 +1291,145 @@ const getMinTenantRent = (room: any): number => {
               ) : (
                 <>
                   {/* Filters Modal */}
-                  {showFilters && (
-                    <div
-                      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm px-3"
-                      onClick={(e) => {
-                        if (e.target === e.currentTarget) setShowFilters(false);
-                      }}
-                    >
-                      <div className="w-full max-w-md md:max-w-2xl bg-white rounded-xl md:rounded-2xl shadow-2xl p-4 md:p-6 relative animate-fadeIn">
-                        <div className="flex items-center justify-between mb-4">
-                          <h3 className="font-bold text-gray-900 text-sm md:text-lg">
-                            Filter Rooms
-                          </h3>
-                          <button
-                            onClick={() => setShowFilters(false)}
-                            className="text-gray-400 hover:text-gray-600 text-lg font-bold"
-                          >
-                            ✕
-                          </button>
-                        </div>
+{showFilters && (
+  <div
+    className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm px-3"
+    onClick={(e) => {
+      if (e.target === e.currentTarget) setShowFilters(false);
+    }}
+  >
+    <div className="w-full max-w-md md:max-w-2xl bg-white rounded-xl md:rounded-2xl shadow-2xl p-4 md:p-6 relative animate-fadeIn">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-bold text-gray-900 text-sm md:text-lg">
+          Filter Rooms
+        </h3>
+        <button
+          onClick={() => setShowFilters(false)}
+          className="text-gray-400 hover:text-gray-600 text-lg font-bold"
+        >
+          ✕
+        </button>
+      </div>
 
-                        {hasActiveFilters && (
-                          <div className="flex justify-end mb-3">
-                            <button
-                              onClick={clearFilters}
-                              className="text-xs text-blue-600 font-semibold hover:text-blue-700"
-                            >
-                              Clear All
-                            </button>
-                          </div>
-                        )}
+      {hasActiveFilters && (
+        <div className="flex justify-end mb-3">
+          <button
+            onClick={clearFilters}
+            className="text-xs text-blue-600 font-semibold hover:text-blue-700"
+          >
+            Clear All
+          </button>
+        </div>
+      )}
 
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                          <div>
-                            <label className="block text-xs font-semibold text-gray-700 mb-1">
-                              Floor
-                            </label>
-                            <select
-                              value={selectedFloor}
-                              onChange={(e) => setSelectedFloor(e.target.value)}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                            >
-                              <option value="all">All Floors</option>
-                              {loadingMasters ? (
-                                <option disabled>Loading floors...</option>
-                              ) : (
-                                floorsMasters.map((floor) => (
-                                  <option key={floor.id} value={floor.name}>
-                                    {floor.name}
-                                  </option>
-                                ))
-                              )}
-                            </select>
-                          </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div>
+          <label className="block text-xs font-semibold text-gray-700 mb-1">
+            Floor
+          </label>
+          <select
+            value={selectedFloor}
+            onChange={(e) => setSelectedFloor(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+          >
+            <option value="all">All Floors</option>
+            {loadingMasters ? (
+              <option disabled>Loading floors...</option>
+            ) : (
+              floorsMasters.map((floor) => (
+                <option key={floor.id} value={floor.name}>
+                  {floor.name}
+                </option>
+              ))
+            )}
+          </select>
+        </div>
 
-                          <div>
-                            <label className="block text-xs font-semibold text-gray-700 mb-1">
-                              Gender
-                            </label>
-                            <select
-                              value={selectedGender}
-                              onChange={(e) => setSelectedGender(e.target.value)}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                            >
-                              <option value="all">All Genders</option>
-                              <option value="male">Male Only</option>
-                              <option value="female">Female Only</option>
-                              <option value="couples">Couples</option>
-                            </select>
-                          </div>
+        <div>
+          <label className="block text-xs font-semibold text-gray-700 mb-1">
+            Gender
+          </label>
+          <select
+            value={selectedGender}
+            onChange={(e) => setSelectedGender(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+          >
+            <option value="all">All Genders</option>
+            <option value="male">Male Only</option>
+            <option value="female">Female Only</option>
+            <option value="couples">Couples</option>
+          </select>
+        </div>
 
-                          <div>
-                            <label className="block text-xs font-semibold text-gray-700 mb-1">
-                              Sharing
-                            </label>
-                            <select
-                              value={selectedSharing}
-                              onChange={(e) => setSelectedSharing(e.target.value)}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                            >
-                              <option value="all">All Types</option>
-                              {loadingMasters ? (
-                                <option disabled>Loading sharing types...</option>
-                              ) : (
-                                sharingTypesMasters.map((type) => (
-                                  <option key={type.id} value={type.name.toLowerCase()}>
-                                    {type.name}
-                                  </option>
-                                ))
-                              )}
-                            </select>
-                          </div>
+        <div>
+  <label className="block text-xs font-semibold text-gray-700 mb-1">
+    Sharing
+  </label>
+  <select
+    value={selectedSharing}
+    onChange={(e) => setSelectedSharing(e.target.value)}
+    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+  >
+    <option value="all">All Types</option>
+    {loadingMasters ? (
+      <option disabled>Loading sharing types...</option>
+    ) : (
+      sharingTypesMasters.map((type) => {
+        // Use the master value directly
+        const typeValue = type.name.toLowerCase();
+        
+        return (
+          <option key={type.id} value={typeValue}>
+            {type.name}
+          </option>
+        );
+      })
+    )}
+  </select>
+</div>
 
-                          <div>
-                            <label className="block text-xs font-semibold text-gray-700 mb-1">
-                              Price
-                            </label>
-                            <select
-                              value={priceRange}
-                              onChange={(e) => setPriceRange(e.target.value)}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                            >
-                              <option value="all">All Prices</option>
-                              <option value="low">Under ₹5000</option>
-                              <option value="mid">₹5000-₹7000</option>
-                              <option value="high">Above ₹7000</option>
-                            </select>
-                          </div>
-                        </div>
+        <div>
+          <label className="block text-xs font-semibold text-gray-700 mb-1">
+            Price
+          </label>
+          <select
+            value={priceRange}
+            onChange={(e) => setPriceRange(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+          >
+            <option value="all">All Prices</option>
+            <option value="low">Under ₹5000</option>
+            <option value="mid">₹5000-₹7000</option>
+            <option value="high">Above ₹7000</option>
+          </select>
+        </div>
+      </div>
 
-                        {/* Live filter count preview */}
-                        <div className="mt-4 p-2 bg-blue-50 rounded-lg border border-blue-100">
-                          <p className="text-xs text-blue-700 font-semibold text-center">
-                            {filteredRooms.length} room
-                            {filteredRooms.length !== 1 ? "s" : ""} match your filters
-                          </p>
-                        </div>
+      {/* Live filter count preview */}
+      <div className="mt-4 p-2 bg-blue-50 rounded-lg border border-blue-100">
+        <p className="text-xs text-blue-700 font-semibold text-center">
+          {filteredRooms.length} room
+          {filteredRooms.length !== 1 ? "s" : ""} match your filters
+        </p>
+      </div>
 
-                        <div className="mt-4 flex justify-end gap-3">
-                          <button
-                            onClick={clearFilters}
-                            className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-semibold hover:bg-gray-100"
-                          >
-                            Reset
-                          </button>
-                          <button
-                            onClick={() => setShowFilters(false)}
-                            className="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-600 to-cyan-600 text-white text-sm font-bold hover:shadow-lg transition-all"
-                          >
-                            Done ({filteredRooms.length})
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
+      <div className="mt-4 flex justify-end gap-3">
+        <button
+          onClick={clearFilters}
+          className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-semibold hover:bg-gray-100"
+        >
+          Reset
+        </button>
+        <button
+          onClick={() => setShowFilters(false)}
+          className="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-600 to-cyan-600 text-white text-sm font-bold hover:shadow-lg transition-all"
+        >
+          Done ({filteredRooms.length})
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
                   <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-2 md:gap-4 mb-3 md:mb-6">
                     {filteredRooms.slice(0, 4).map((room: any) => {
@@ -2341,19 +2361,19 @@ const getMinTenantRent = (room: any): number => {
                         )}
 
                         <div className="flex items-center gap-1.5 md:gap-2 mb-2 md:mb-4">
-                          <div className="flex items-center gap-0.5 md:gap-1 text-xs md:text-sm text-gray-600">
-                            <Users className="w-3 h-3 md:w-4 md:h-4" />
-                            <span className="font-semibold">
-                              {(room.occupancy?.male || 0) + (room.occupancy?.female || 0)}
-                              /{sharingType}
-                              {(!room.room_gender_preference ||
-                                room.room_gender_preference.length !== 1) && (
-                                <span>
-                                  ({room.occupancy?.male || 0}♂ {room.occupancy?.female || 0}♀)
-                                </span>
-                              )}
-                            </span>
-                          </div>
+
+<div className="flex items-center gap-0.5 md:gap-1 text-xs md:text-sm text-gray-600">
+  <Users className="w-3 h-3 md:w-4 md:h-4" />
+  <span className="font-semibold">
+    {room.occupiedBeds || 0}/{room.totalBeds || 2}
+    {(!room.room_gender_preference ||
+      room.room_gender_preference.length !== 1) && (
+      <span className="text-[12px] ml-1">
+        ({room.occupancy?.male || 0}♂ {room.occupancy?.female || 0}♀)
+      </span>
+    )}
+  </span>
+</div>
                           <div className="flex items-center gap-1 ml-auto">
                             {room.ac && (
                               <Wind className="w-3 h-3 md:w-4 md:h-4 text-blue-600" />
@@ -2368,10 +2388,10 @@ const getMinTenantRent = (room: any): number => {
                               <Home className="w-3 h-3 md:w-4 md:h-4 text-blue-600" />
                             )}
                             {room.available > 0 && (
-                              <div className="text-[10px] md:text-xs font-bold text-emerald-600">
-                                {room.available} bed{room.available > 1 ? "s" : ""}
-                              </div>
-                            )}
+  <div className="text-[10px] md:text-xs font-bold text-emerald-600">
+    {room.available} bed{room.available > 1 ? "s" : ""} available
+  </div>
+)}
                           </div>
                         </div>
 

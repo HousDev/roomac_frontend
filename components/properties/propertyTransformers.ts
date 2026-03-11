@@ -342,6 +342,8 @@ export const transformPropertyData = (property: any) => {
 };
 
 
+// In propertyTransformers.ts - update transformRoomData
+
 export const transformRoomData = (room: any) => {
   let gender = 'mixed';
   if (room.room_gender_preference && Array.isArray(room.room_gender_preference)) {
@@ -353,8 +355,38 @@ export const transformRoomData = (room: any) => {
     }
   }
 
-  const totalBeds = room.total_bed || 0;
-  const occupiedBeds = room.occupied_beds || 0;
+  // IMPORTANT: Get total beds from bed_assignments length OR total_bed field
+  const bedAssignments = room.bed_assignments || [];
+  const totalBeds = bedAssignments.length || room.total_bed || 0;
+  
+  // Calculate occupied beds from bed_assignments
+  let occupiedBeds = 0;
+  let maleOccupancy = 0;
+  let femaleOccupancy = 0;
+  
+  if (bedAssignments.length > 0) {
+    bedAssignments.forEach((bed: any) => {
+      // A bed is occupied if is_available is false AND tenant_id exists
+      const isOccupied = bed.is_available === 0 && bed.tenant_id !== null;
+      if (isOccupied) {
+        occupiedBeds++;
+        if (bed.tenant_gender === 'Male' || bed.tenant_gender === 'male') maleOccupancy++;
+        if (bed.tenant_gender === 'Female' || bed.tenant_gender === 'female') femaleOccupancy++;
+      }
+    });
+    
+    console.log(`Room ${room.room_number || room.id} bed status:`, 
+      bedAssignments.map((b: any) => ({
+        bed: b.bed_number,
+        occupied: b.is_available === 0 && b.tenant_id !== null,
+        rent: b.tenant_rent
+      }))
+    );
+  } else {
+    // Fallback to room.occupied_beds if bed_assignments not available
+    occupiedBeds = room.occupied_beds || 0;
+  }
+
   const availableBeds = totalBeds - occupiedBeds;
   
   let status = 'available';
@@ -364,30 +396,19 @@ export const transformRoomData = (room: any) => {
     status = 'partially-available';
   }
 
-  let maleOccupancy = 0;
-  let femaleOccupancy = 0;
-  
-  // IMPORTANT: Extract bed_assignments and calculate rents
-  if (room.bed_assignments && Array.isArray(room.bed_assignments)) {
-    room.bed_assignments.forEach((bed: any) => {
-      if (bed.tenant_gender === 'Male' || bed.tenant_gender === 'male') maleOccupancy++;
-      if (bed.tenant_gender === 'Female' || bed.tenant_gender === 'female') femaleOccupancy++;
-    });
-    
-    // Log bed assignments with their rents for debugging
-    console.log(`Room ${room.room_number || room.id} bed_assignments:`, 
-      room.bed_assignments.map((b: any) => ({
-        bed: b.bed_number,
-        rent: b.tenant_rent,
-        available: b.is_available
-      }))
-    );
-  }
-
   const sharingType = parseInt(room.sharing_type) || 2;
   
-  // Use price from room data - this might be rent_per_bed or a computed value
-  const price = room.rent_per_bed || 5000;
+  // Calculate minimum rent from bed_assignments
+  let minRent = room.rent_per_bed || 5000;
+  if (bedAssignments.length > 0) {
+    const rents = bedAssignments
+      .map((bed: any) => bed.tenant_rent ? parseFloat(bed.tenant_rent) : null)
+      .filter((rent: number | null) => rent !== null && rent > 0);
+    
+    if (rents.length > 0) {
+      minRent = Math.min(...rents);
+    }
+  }
   
   const ac = room.has_ac === true || room.has_ac === 'true';
   
@@ -396,7 +417,7 @@ export const transformRoomData = (room: any) => {
     name: room.room_number || `Room ${room.id}`,
     roomNumber: room.room_number || `Room ${room.id}`,
     sharingType: sharingType,
-    price: price,
+    price: minRent, // Use min rent as the displayed price
     floor: room.floor || 1,
     room_gender_preference: room.room_gender_preference,
     
@@ -418,7 +439,7 @@ export const transformRoomData = (room: any) => {
     hasBalcony: room.has_balcony || false,
     allowCouples: room.allow_couples || false,
     isActive: room.is_active || true,
-    bed_assignments: room.bed_assignments || [], // CRITICAL: Include bed_assignments
-    beds: room.beds || [] // Also include beds array if available
+    bed_assignments: bedAssignments, // Include full bed_assignments
+    rent_per_bed: room.rent_per_bed // Keep original for reference
   };
 };

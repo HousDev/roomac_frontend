@@ -529,9 +529,9 @@ export default function PropertyListClient({ initialProperties }: PropertyListCl
         });
         await loadProperties(true);
       }
-    } catch (err) {
-      console.error("handleDelete error:", err);
-      toast.error("Failed to delete property");
+    } catch (err:any) {
+      console.error("handleDelete error:", err.response);
+      toast.error(err.response.message);
     }
   }
 }, [loadProperties]);

@@ -279,6 +279,7 @@ export async function listTenants(filters: {
   city?: string;
   state?: string;
   preferred_sharing?: string;
+  include_deleted?: boolean;
 } = {}): Promise<any> {
   
   const params = new URLSearchParams();
@@ -303,9 +304,6 @@ export async function listTenants(filters: {
   try {
     // Use enhancedFetch which internally uses `request` -> goes to localhost:3001
     const result = await enhancedFetch<ApiResult<Tenant[]>>(path, { method: "GET" });
-    
-    
-    
     return result;
   } catch (error: any) {
     console.error('❌ Error fetching tenants:', error);
@@ -934,4 +932,26 @@ export async function getTenantsWithCache(
 // Clear cache utility
 export function clearTenantCache() {
   tenantCache.clear();
+}
+
+
+// Soft delete tenant
+export async function softDeleteTenant(id: string | number): Promise<ApiResult> {
+  return enhancedFetch<ApiResult>(`/api/tenants/${id}/soft-delete`, { 
+    method: "PATCH" 
+  });
+}
+
+// Restore tenant
+export async function restoreTenant(id: string | number): Promise<ApiResult> {
+  return enhancedFetch<ApiResult>(`/api/tenants/${id}/restore`, { 
+    method: "PATCH" 
+  });
+}
+
+// Get deleted tenants
+export async function getDeletedTenants(): Promise<ApiResult<Tenant[]>> {
+  return enhancedFetch<ApiResult<Tenant[]>>(`/api/tenants/deleted`, { 
+    method: "GET" 
+  });
 }
