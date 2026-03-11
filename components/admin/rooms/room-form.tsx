@@ -1,6 +1,7 @@
+// components/admin/rooms/room-form.tsx
+"use client";
 
-
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -18,12 +19,36 @@ import {
   TreePine, Waves, Sparkles, Sun, Thermometer, CheckCircle,
   Trash2, AlertCircle, Check, ArrowRight, Maximize2,
   Pencil, Eye, Phone, Mail, Calendar, UserCircle, Heart, UserRound, UsersRound, User, BadgeIndianRupee, Info, Loader2,
-  Snowflake, BookOpen, Fan, Lamp, BedDouble, Wallet,
-  Utensils, ShieldCheck, Zap, Package, Star, Music,
-  Camera, Globe, Clock, Key, Shirt, Sofa, Monitor,
-  Gamepad2, FlameKindling, WashingMachine, UtensilsCrossed,
-  AirVent, ParkingCircle, Flower2, Baby, Bike,
-  MoveVertical, Flame
+  Snowflake,
+  BookOpen,
+  Fan,
+  Lamp,
+  BedDouble,
+  Wallet,
+  Utensils,
+  ShieldCheck,
+  Zap,
+  Package,
+  Star,
+  Music,
+  Camera,
+  Globe,
+  Clock,
+  Key,
+  Shirt,
+  Sofa,
+  Monitor,
+  Gamepad2,
+  FlameKindling,
+  WashingMachine,
+  UtensilsCrossed,
+  AirVent,
+  ParkingCircle,
+  Flower2,
+  Baby,
+  Bike,
+  MoveVertical,
+  Flame
 } from 'lucide-react';
 import { toast } from "sonner";
 import { PhotoGalleryModal } from '@/components/admin/rooms/PhotoGalleryModal';
@@ -75,65 +100,92 @@ interface RoomFormProps {
   properties: any[];
   rooms?: any[];
   editingRoomId?: any;
+  getExistingRoomsCount?: (propertyId: string) => number;
 }
 
-interface MasterValue { id: number; name: string; isactive: number; }
+interface MasterValue {
+  id: number;
+  name: string;
+  isactive: number;
+}
 
+// Sharing type to capacity mapping
 const sharingTypeToCapacity: Record<string, number> = {
-  'single': 1, 'double': 2, 'triple': 3, 'other': 2
+  'single': 1,
+  'double': 2,
+  'triple': 3,
+  'other': 2
 };
 
 const GENDER_PREFERENCES = [
-  { value: 'male_only',   label: 'Male',    icon: <User className="h-5 w-5" />,       color: 'bg-blue-100 text-blue-800', iconColor: 'text-blue-600' },
-  { value: 'female_only', label: 'Female',  icon: <UserRound className="h-5 w-5" />,  color: 'bg-pink-100 text-pink-800', iconColor: 'text-pink-600' },
-  { value: 'couples',     label: 'Couples', icon: <UsersRound className="h-5 w-5" />, color: 'bg-red-100 text-red-800',   iconColor: 'text-red-600'  },
+  { 
+    value: 'male_only', 
+    label: 'Male', 
+    icon: <User className="h-5 w-5" />,
+    color: 'bg-blue-100 text-blue-800',
+    iconColor: 'text-blue-600'
+  },
+  { 
+    value: 'female_only', 
+    label: 'Female', 
+    icon: <UserRound className="h-5 w-5" />,
+    color: 'bg-pink-100 text-pink-800',
+    iconColor: 'text-pink-600'
+  },
+  { 
+    value: 'couples', 
+    label: 'Couples', 
+    icon: <UsersRound className="h-5 w-5" />,
+    color: 'bg-red-100 text-red-800',
+    iconColor: 'text-red-600'
+  }
 ];
 
 const AMENITIES_OPTIONS = [
-  { id: 'wifi',     label: 'WiFi',            icon: <Wifi className="h-4 w-4" />         },
-  { id: 'tv',       label: 'TV',              icon: <Tv className="h-4 w-4" />           },
-  { id: 'ac',       label: 'Air Conditioner', icon: <Snowflake className="h-4 w-4" />    },
-  { id: 'geyser',   label: 'Geyser',          icon: <Droplets className="h-4 w-4" />     },
-  { id: 'fridge',   label: 'Refrigerator',    icon: <Sparkles className="h-4 w-4" />     },
-  { id: 'bed',      label: 'Bed',             icon: <Bed className="h-4 w-4" />          },
-  { id: 'study',    label: 'Study Table',     icon: <BookOpen className="h-4 w-4" />     },
-  { id: 'wardrobe', label: 'Wardrobe',        icon: <DoorOpen className="h-4 w-4" />     },
-  { id: 'curtains', label: 'Curtains',        icon: <Layers className="h-4 w-4" />       },
-  { id: 'heater',   label: 'Room Heater',     icon: <Thermometer className="h-4 w-4" />  },
-  { id: 'fan',      label: 'Ceiling Fan',     icon: <Fan className="h-4 w-4" />          },
-  { id: 'lamp',     label: 'Study Lamp',      icon: <Lamp className="h-4 w-4" />         },
+  { id: 'wifi', label: 'WiFi', icon: <Wifi className="h-4 w-4" /> },
+  { id: 'tv', label: 'TV', icon: <Tv className="h-4 w-4" /> },
+  { id: 'ac', label: 'Air Conditioner', icon: <Snowflake className="h-4 w-4" /> },
+  { id: 'geyser', label: 'Geyser', icon: <Droplets className="h-4 w-4" /> },
+  { id: 'fridge', label: 'Refrigerator', icon: <Sparkles className="h-4 w-4" /> },
+  { id: 'bed', label: 'Bed', icon: <Bed className="h-4 w-4" /> },
+  { id: 'study', label: 'Study Table', icon: <BookOpen className="h-4 w-4" /> },
+  { id: 'wardrobe', label: 'Wardrobe', icon: <DoorOpen className="h-4 w-4" /> },
+  { id: 'curtains', label: 'Curtains', icon: <Layers className="h-4 w-4" /> },
+  { id: 'heater', label: 'Room Heater', icon: <Thermometer className="h-4 w-4" /> },
+  { id: 'fan', label: 'Ceiling Fan', icon: <Fan className="h-4 w-4" /> },
+  { id: 'lamp', label: 'Study Lamp', icon: <Lamp className="h-4 w-4" /> },
 ];
 
 const getCustomAmenityIcon = (label: string): React.ReactNode => {
   const l = label.toLowerCase();
-  if (l.includes('wash') || l.includes('laundry') || l.includes('machine'))            return <WashingMachine className="h-3 w-3" />;
-  if (l.includes('lift') || l.includes('elevator'))                                     return <MoveVertical className="h-3 w-3" />;
-  if (l.includes('microwave') || l.includes('oven') || l.includes('induction'))        return <Flame className="h-3 w-3" />;
-  if (l.includes('fan') || l.includes('exhaust'))                                       return <Fan className="h-3 w-3" />;
+  if (l.includes('wash') || l.includes('laundry') || l.includes('machine')) return <WashingMachine className="h-3 w-3" />;
+  if (l.includes('lift') || l.includes('elevator')) return <MoveVertical className="h-3 w-3" />;
+  if (l.includes('microwave') || l.includes('oven') || l.includes('induction')) return <Flame className="h-3 w-3" />;
+  if (l.includes('fan') || l.includes('exhaust')) return <Fan className="h-3 w-3" />;
   if (l.includes('fire') || l.includes('extinguish') || l.includes('safety') || l.includes('alarm') || l.includes('sprinkler')) return <ShieldCheck className="h-3 w-3" />;
-  if (l.includes('park') || l.includes('car'))                                          return <ParkingCircle className="h-3 w-3" />;
-  if (l.includes('gym') || l.includes('fitness') || l.includes('dumbbell'))            return <Dumbbell className="h-3 w-3" />;
-  if (l.includes('kitchen') || l.includes('cook'))                                      return <UtensilsCrossed className="h-3 w-3" />;
-  if (l.includes('food') || l.includes('meal') || l.includes('dining'))                return <Utensils className="h-3 w-3" />;
+  if (l.includes('park') || l.includes('car')) return <ParkingCircle className="h-3 w-3" />;
+  if (l.includes('gym') || l.includes('fitness') || l.includes('dumbbell')) return <Dumbbell className="h-3 w-3" />;
+  if (l.includes('kitchen') || l.includes('cook')) return <UtensilsCrossed className="h-3 w-3" />;
+  if (l.includes('food') || l.includes('meal') || l.includes('dining')) return <Utensils className="h-3 w-3" />;
   if (l.includes('security') || l.includes('cctv') || l.includes('safe') || l.includes('guard')) return <ShieldCheck className="h-3 w-3" />;
   if (l.includes('power') || l.includes('backup') || l.includes('generator') || l.includes('electric')) return <Zap className="h-3 w-3" />;
-  if (l.includes('sofa') || l.includes('lounge') || l.includes('sitting'))             return <Sofa className="h-3 w-3" />;
-  if (l.includes('bike') || l.includes('cycle'))                                        return <Bike className="h-3 w-3" />;
-  if (l.includes('garden') || l.includes('plant') || l.includes('flower'))             return <Flower2 className="h-3 w-3" />;
-  if (l.includes('music') || l.includes('speaker') || l.includes('audio'))             return <Music className="h-3 w-3" />;
-  if (l.includes('camera') || l.includes('photo'))                                      return <Camera className="h-3 w-3" />;
-  if (l.includes('monitor') || l.includes('screen') || l.includes('television'))       return <Monitor className="h-3 w-3" />;
-  if (l.includes('game') || l.includes('play'))                                         return <Gamepad2 className="h-3 w-3" />;
-  if (l.includes('key') || l.includes('lock') || l.includes('access'))                 return <Key className="h-3 w-3" />;
-  if (l.includes('cloth') || l.includes('dress') || l.includes('shirt'))               return <Shirt className="h-3 w-3" />;
-  if (l.includes('internet') || l.includes('web') || l.includes('broadband'))          return <Globe className="h-3 w-3" />;
-  if (l.includes('clock') || l.includes('time') || l.includes('hour'))                 return <Clock className="h-3 w-3" />;
-  if (l.includes('coffee') || l.includes('tea') || l.includes('cafe'))                 return <Coffee className="h-3 w-3" />;
-  if (l.includes('baby') || l.includes('child') || l.includes('kid'))                  return <Baby className="h-3 w-3" />;
-  if (l.includes('air') || l.includes('ventilat') || l.includes('cool'))               return <AirVent className="h-3 w-3" />;
-  if (l.includes('storage') || l.includes('box') || l.includes('locker'))              return <Package className="h-3 w-3" />;
-  if (l.includes('grill') || l.includes('barbecue') || l.includes('bbq'))              return <FlameKindling className="h-3 w-3" />;
-  if (l.includes('star') || l.includes('premium') || l.includes('luxury'))             return <Star className="h-3 w-3" />;
+  if (l.includes('sofa') || l.includes('lounge') || l.includes('sitting')) return <Sofa className="h-3 w-3" />;
+  if (l.includes('bike') || l.includes('cycle')) return <Bike className="h-3 w-3" />;
+  if (l.includes('garden') || l.includes('plant') || l.includes('flower')) return <Flower2 className="h-3 w-3" />;
+  if (l.includes('music') || l.includes('speaker') || l.includes('audio')) return <Music className="h-3 w-3" />;
+  if (l.includes('camera') || l.includes('photo')) return <Camera className="h-3 w-3" />;
+  if (l.includes('monitor') || l.includes('screen') || l.includes('television')) return <Monitor className="h-3 w-3" />;
+  if (l.includes('game') || l.includes('play')) return <Gamepad2 className="h-3 w-3" />;
+  if (l.includes('key') || l.includes('lock') || l.includes('access')) return <Key className="h-3 w-3" />;
+  if (l.includes('cloth') || l.includes('dress') || l.includes('shirt')) return <Shirt className="h-3 w-3" />;
+  if (l.includes('internet') || l.includes('web') || l.includes('broadband')) return <Globe className="h-3 w-3" />;
+  if (l.includes('clock') || l.includes('time') || l.includes('hour')) return <Clock className="h-3 w-3" />;
+  if (l.includes('coffee') || l.includes('tea') || l.includes('cafe')) return <Coffee className="h-3 w-3" />;
+  if (l.includes('baby') || l.includes('child') || l.includes('kid')) return <Baby className="h-3 w-3" />;
+  if (l.includes('air') || l.includes('ventilat') || l.includes('cool')) return <AirVent className="h-3 w-3" />;
+  if (l.includes('storage') || l.includes('box') || l.includes('locker')) return <Package className="h-3 w-3" />;
+  if (l.includes('grill') || l.includes('barbecue') || l.includes('bbq')) return <FlameKindling className="h-3 w-3" />;
+  if (l.includes('star') || l.includes('premium') || l.includes('luxury')) return <Star className="h-3 w-3" />;
   return <Sparkles className="h-3 w-3" />;
 };
 
@@ -157,7 +209,7 @@ const calculateTotalRentFromBeds = (beds: BedConfig[]) =>
 const distributeRentEqually = (total: number, count: number): number[] => {
   if (count === 0) return [];
   const base = Math.floor(total / count);
-  const rem  = total - base * count;
+  const rem = total - base * count;
   return Array.from({ length: count }, (_, i) => i < rem ? base + 1 : base);
 };
 
@@ -177,16 +229,24 @@ const F = ({ label, required, children }: { label: string; required?: boolean; c
 );
 
 export function RoomForm({
-  open, onOpenChange, isEditMode, formData, setFormData,
-  onSubmit, properties, rooms = [], editingRoomId
+  open,
+  onOpenChange,
+  isEditMode,
+  formData,
+  setFormData,
+  onSubmit,
+  properties,
+  rooms = [],
+  editingRoomId,
+  getExistingRoomsCount
 }: RoomFormProps) {
-  const fileInputRef    = useRef<HTMLInputElement>(null);
-  const videoInputRef   = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
   const amenityInputRef = useRef<HTMLInputElement>(null);
 
-  const [isFileDialogOpen,  setIsFileDialogOpen]  = useState(false);
+  const [isFileDialogOpen, setIsFileDialogOpen] = useState(false);
   const [isVideoDialogOpen, setIsVideoDialogOpen] = useState(false);
-  const [galleryOpen,  setGalleryOpen]  = useState(false);
+  const [galleryOpen, setGalleryOpen] = useState(false);
   const [galleryItems, setGalleryItems] = useState<Array<{url:string;label?:string;type:'photo'|'video'}>>([]);
   const [currentTab, setCurrentTab] = useState('details');
   const [existingVideoUrl, setExistingVideoUrl] = useState<string|null>(null);
@@ -195,24 +255,61 @@ export function RoomForm({
   const [roomsMasters, setRoomsMasters] = useState<Record<string, MasterValue[]>>({});
   const [loadingMasters, setLoadingMasters] = useState(false);
 
+  // Room limit state
+  const [roomLimitReached, setRoomLimitReached] = useState(false);
+
   // ─── KEY CHANGE: bedRentInputs — controlled string state per bed ─────────────
-  // This replaces the old defaultValue + ref approach completely.
-  // Each bed has its own string entry so React always shows what user typed.
-  // No focus loss because we only update the specific bed's entry, not the whole form.
   const [bedRentInputs, setBedRentInputs] = useState<Record<number, string>>({});
 
   // Derived: sum of all bedRentInputs (updates instantly on every keystroke)
   const liveTotalRent = Object.values(bedRentInputs).reduce((s, v) => s + (parseFloat(v) || 0), 0);
 
-  const fileDialogTimeoutRef  = useRef<NodeJS.Timeout>();
+  const fileDialogTimeoutRef = useRef<NodeJS.Timeout>();
   const videoDialogTimeoutRef = useRef<NodeJS.Timeout>();
   const hasInitializedRef = useRef(false);
 
-  const selectedProperty     = properties.find(p => String(p.id) === String(formData.property_id));
+  const selectedProperty = properties.find(p => String(p.id) === String(formData.property_id));
   const propertyFloorOptions = generateFloorOptions(selectedProperty?.floor);
 
+  // Get original property ID for edit mode
+  const originalPropertyId = useMemo(() => {
+    if (!isEditMode || !editingRoomId || !rooms.length) return null;
+    const room = rooms.find(r => r.id.toString() === editingRoomId.toString());
+    return room?.property_id?.toString() || null;
+  }, [isEditMode, editingRoomId, rooms]);
+
+  // Check room limit when property changes
+  useEffect(() => {
+    if (formData.property_id && getExistingRoomsCount) {
+      const propertyTotalRooms = selectedProperty?.total_rooms || 0;
+      const existingCount = getExistingRoomsCount(String(formData.property_id));
+      
+      if (isEditMode) {
+        // In edit mode, check if we're trying to change to a property that's at limit
+        // But allow editing if it's the same property (the room already exists there)
+        const isChangingProperty = originalPropertyId && originalPropertyId !== formData.property_id;
+        
+        if (propertyTotalRooms > 0 && existingCount >= propertyTotalRooms && isChangingProperty) {
+          setRoomLimitReached(true);
+          toast.error(`This property has reached its maximum room limit (${propertyTotalRooms} rooms). Cannot move room to this property.`);
+        } else {
+          setRoomLimitReached(false);
+        }
+      } else {
+        // For new rooms, disable if property is at limit
+        if (propertyTotalRooms > 0 && existingCount >= propertyTotalRooms) {
+          setRoomLimitReached(true);
+          toast.error(`This property has reached its maximum room limit (${propertyTotalRooms} rooms). Cannot add more rooms.`);
+        } else {
+          setRoomLimitReached(false);
+        }
+      }
+    } else {
+      setRoomLimitReached(false);
+    }
+  }, [formData.property_id, selectedProperty, isEditMode, getExistingRoomsCount, originalPropertyId]);
+
   // ─── Sync bedRentInputs from beds array ──────────────────────────────────────
-  // Called whenever beds are loaded/redistributed from outside (edit load, distribute, capacity change)
   const syncBedRentInputs = useCallback((beds: BedConfig[]) => {
     const inputs: Record<number, string> = {};
     beds.forEach(b => {
@@ -287,10 +384,10 @@ export function RoomForm({
             : []
         : [];
 
-      const capacity    = editingRoom.beds_config?.length || editingRoom.bed_assignments?.length || editingRoom.total_bed || 0;
+      const capacity = editingRoom.beds_config?.length || editingRoom.bed_assignments?.length || editingRoom.total_bed || 0;
       const sharingType = editingRoom.sharing_type || '';
-      const defCap      = sharingTypeToCapacity[sharingType] || 2;
-      const isManual    = sharingType === 'other' || capacity !== defCap;
+      const defCap = sharingTypeToCapacity[sharingType] || 2;
+      const isManual = sharingType === 'other' || capacity !== defCap;
 
       setExistingVideoUrl(existingVideo?.url || null);
       setVideoToRemove(false);
@@ -318,26 +415,26 @@ export function RoomForm({
 
       setFormData((prev: any) => ({
         ...prev,
-        property_id:            editingRoom.property_id.toString(),
-        room_number:            editingRoom.room_number.toString(),
-        sharing_type:           sharingType,
-        room_type:              editingRoom.room_type || '',
+        property_id: editingRoom.property_id.toString(),
+        room_number: editingRoom.room_number.toString(),
+        sharing_type: sharingType,
+        room_type: editingRoom.room_type || '',
         capacity,
-        rent_per_bed:           totalRent,
-        floor:                  editingRoom.floor ? editingRoom.floor.toString() : '',
-        has_attached_bathroom:  Boolean(editingRoom.has_attached_bathroom),
-        has_balcony:            Boolean(editingRoom.has_balcony),
-        has_ac:                 Boolean(editingRoom.has_ac),
-        amenities:              editingRoom.amenities || [],
+        rent_per_bed: totalRent,
+        floor: editingRoom.floor ? editingRoom.floor.toString() : '',
+        has_attached_bathroom: Boolean(editingRoom.has_attached_bathroom),
+        has_balcony: Boolean(editingRoom.has_balcony),
+        has_ac: Boolean(editingRoom.has_ac),
+        amenities: editingRoom.amenities || [],
         video_label: '', video: null,
         room_gender_preference: genderPreferences,
-        allow_couples:          Boolean(editingRoom.allow_couples),
-        is_active:              Boolean(editingRoom.is_active),
+        allow_couples: Boolean(editingRoom.allow_couples),
+        is_active: Boolean(editingRoom.is_active),
         existingPhotos, existingVideo,
-        photosToRemove:         [],
-        isManualCapacity:       isManual,
-        description:            editingRoom.description || '',
-        beds_config:            bedsConfig,
+        photosToRemove: [],
+        isManualCapacity: isManual,
+        description: editingRoom.description || '',
+        beds_config: bedsConfig,
       }));
 
       syncBedRentInputs(bedsConfig);
@@ -380,7 +477,7 @@ export function RoomForm({
 
   // ── Cleanup ──────────────────────────────────────────────────────────────────
   useEffect(() => () => {
-    if (fileDialogTimeoutRef.current)  clearTimeout(fileDialogTimeoutRef.current);
+    if (fileDialogTimeoutRef.current) clearTimeout(fileDialogTimeoutRef.current);
     if (videoDialogTimeoutRef.current) clearTimeout(videoDialogTimeoutRef.current);
   }, []);
 
@@ -393,7 +490,7 @@ export function RoomForm({
   const handleSharingTypeChange = useCallback((value: string) => {
     const defaultCapacity = sharingTypeToCapacity[value] || 2;
     setFormData((prev: RoomFormData) => {
-      let newCapacity         = prev.capacity;
+      let newCapacity = prev.capacity;
       let newIsManualCapacity = prev.isManualCapacity;
       if (value !== 'other') {
         if (prev.sharing_type === 'other' || prev.capacity !== defaultCapacity) {
@@ -414,10 +511,10 @@ export function RoomForm({
   }, [setFormData, syncBedRentInputs]);
 
   const handleCapacityChange = useCallback((value: string) => {
-    const num   = value === '' ? 0 : parseInt(value, 10);
+    const num = value === '' ? 0 : parseInt(value, 10);
     const valid = isNaN(num) ? 0 : num;
     setFormData((prev: RoomFormData) => {
-      const def    = sharingTypeToCapacity[prev.sharing_type] || 2;
+      const def = sharingTypeToCapacity[prev.sharing_type] || 2;
       const manual = prev.sharing_type === 'other' || (prev.sharing_type ? valid !== def : false);
       return { ...prev, capacity: valid, isManualCapacity: manual };
     });
@@ -427,8 +524,8 @@ export function RoomForm({
   const handleTotalRentChange = useCallback((value: string) => {
     const newTotal = value === '' ? 0 : (parseFloat(value) || 0);
     setFormData((prev: RoomFormData) => {
-      const count   = prev.beds_config?.length || prev.capacity || 1;
-      const rents   = distributeRentEqually(newTotal, count);
+      const count = prev.beds_config?.length || prev.capacity || 1;
+      const rents = distributeRentEqually(newTotal, count);
       const updated = (prev.beds_config || []).map((b, i) => ({ ...b, bed_rent: rents[i] ?? b.bed_rent }));
       setTimeout(() => syncBedRentInputs(updated), 0);
       return { ...prev, rent_per_bed: newTotal, beds_config: updated };
@@ -436,9 +533,6 @@ export function RoomForm({
   }, [setFormData, syncBedRentInputs]);
 
   // ─── Bed rent: CONTROLLED input handlers ──────────────────────────────────────
-  // onChange: update only this bed's string in bedRentInputs → zero formData setState
-  //           → zero re-render of other beds → zero focus loss
-  // onBlur:   commit parsed number to formData.beds_config + rent_per_bed
   const handleBedRentChange = useCallback((bedNumber: number, value: string) => {
     setBedRentInputs(prev => ({ ...prev, [bedNumber]: value }));
 
@@ -452,14 +546,11 @@ export function RoomForm({
     
   }, []);
 
-
-
- const handleBedRentBlur = useCallback((bedNumber: number) => {
+  const handleBedRentBlur = useCallback((bedNumber: number) => {
     const raw = bedRentInputs[bedNumber] ?? '';
     const newRent = raw === '' ? 0 : (parseFloat(raw) || 0);
     const cleaned = newRent === 0 ? '' : String(newRent);
 
-    
     setFormData((p: RoomFormData) => {
       const updated = (p.beds_config || []).map(b =>
         b.bed_number === bedNumber ? { ...b, bed_rent: newRent } : b
@@ -468,12 +559,12 @@ export function RoomForm({
       return { ...p, beds_config: updated, rent_per_bed: newTotal };
     });
     setBedRentInputs(prev => ({ ...prev, [bedNumber]: cleaned }));
-}, [bedRentInputs, setFormData]);
+  }, [bedRentInputs, setFormData]);
 
   // ─── Distribute equally ───────────────────────────────────────────────────────
   const applyRoomRentToAllBeds = useCallback(() => {
     if (!formData.beds_config?.length) return;
-    const rents   = distributeRentEqually(formData.rent_per_bed || 0, formData.beds_config.length);
+    const rents = distributeRentEqually(formData.rent_per_bed || 0, formData.beds_config.length);
     const updated = formData.beds_config.map((b, i) => ({ ...b, bed_rent: rents[i] }));
     setFormData((p: RoomFormData) => ({ ...p, beds_config: updated }));
     syncBedRentInputs(updated);
@@ -526,7 +617,7 @@ export function RoomForm({
 
   useEffect(() => {
     const h = () => {
-      if (isFileDialogOpen)  setTimeout(() => setIsFileDialogOpen(false), 100);
+      if (isFileDialogOpen) setTimeout(() => setIsFileDialogOpen(false), 100);
       if (isVideoDialogOpen) setTimeout(() => setIsVideoDialogOpen(false), 100);
     };
     window.addEventListener('click', h);
@@ -621,26 +712,26 @@ export function RoomForm({
 
   const createFormDataForSubmission = () => {
     const fd = new FormData();
-    fd.append('property_id',           formData.property_id);
-    fd.append('room_number',           formData.room_number);
-    fd.append('sharing_type',          formData.sharing_type);
-    fd.append('room_type',             formData.room_type || '');
-    fd.append('total_beds',            formData.capacity.toString());
-    fd.append('rent_per_bed',          formData.rent_per_bed.toString());
-    fd.append('floor',                 formData.floor || '');
+    fd.append('property_id', formData.property_id);
+    fd.append('room_number', formData.room_number);
+    fd.append('sharing_type', formData.sharing_type);
+    fd.append('room_type', formData.room_type || '');
+    fd.append('total_beds', formData.capacity.toString());
+    fd.append('rent_per_bed', formData.rent_per_bed.toString());
+    fd.append('floor', formData.floor || '');
     fd.append('has_attached_bathroom', formData.has_attached_bathroom ? 'true' : 'false');
-    fd.append('has_balcony',           formData.has_balcony ? 'true' : 'false');
-    fd.append('has_ac',                formData.has_ac ? 'true' : 'false');
-    fd.append('allow_couples',         formData.allow_couples ? 'true' : 'false');
-    fd.append('is_active',             formData.is_active ? 'true' : 'false');
-    fd.append('amenities',             JSON.stringify(formData.amenities));
-    fd.append('room_gender_preference',formData.room_gender_preference.join(','));
-    fd.append('description',           formData.description || '');
-    fd.append('video_label',           formData.video_label || '');
-    fd.append('photo_labels',          JSON.stringify(formData.photo_labels || {}));
-    fd.append('videoToRemove',         videoToRemove ? 'true' : 'false');
-    fd.append('photosToRemove',        JSON.stringify(formData.photosToRemove));
-    fd.append('beds_config',           JSON.stringify(formData.beds_config || []));
+    fd.append('has_balcony', formData.has_balcony ? 'true' : 'false');
+    fd.append('has_ac', formData.has_ac ? 'true' : 'false');
+    fd.append('allow_couples', formData.allow_couples ? 'true' : 'false');
+    fd.append('is_active', formData.is_active ? 'true' : 'false');
+    fd.append('amenities', JSON.stringify(formData.amenities));
+    fd.append('room_gender_preference', formData.room_gender_preference.join(','));
+    fd.append('description', formData.description || '');
+    fd.append('video_label', formData.video_label || '');
+    fd.append('photo_labels', JSON.stringify(formData.photo_labels || {}));
+    fd.append('videoToRemove', videoToRemove ? 'true' : 'false');
+    fd.append('photosToRemove', JSON.stringify(formData.photosToRemove));
+    fd.append('beds_config', JSON.stringify(formData.beds_config || []));
     formData.photos?.forEach(p => fd.append('photos', p));
     if (formData.video) fd.append('video', formData.video);
     return fd;
@@ -652,9 +743,9 @@ export function RoomForm({
 
   const handleFormSubmit = async () => {
     try {
-      if (!formData.property_id)                                { toast.error('Please select a property');             setCurrentTab('details'); return; }
-      if (!formData.room_number)                                { toast.error('Please enter a room number');           setCurrentTab('details'); return; }
-      if (!formData.sharing_type)                               { toast.error('Please select sharing type');           setCurrentTab('details'); return; }
+      if (!formData.property_id) { toast.error('Please select a property'); setCurrentTab('details'); return; }
+      if (!formData.room_number) { toast.error('Please enter a room number'); setCurrentTab('details'); return; }
+      if (!formData.sharing_type) { toast.error('Please select sharing type'); setCurrentTab('details'); return; }
       if (!formData.rent_per_bed || formData.rent_per_bed <= 0) { toast.error('Please enter a valid total room rent'); setCurrentTab('details'); return; }
 
       const noBedType = (formData.beds_config || []).filter(b => !b.bed_type);
@@ -741,19 +832,24 @@ export function RoomForm({
             <TabsContent value="details" className="mt-0 space-y-2">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
 
-                {/* Left */}
+                {/* Left column */}
                 <div className="space-y-2">
                   {/* Location card */}
                   <div className="border border-slate-100 rounded-lg p-2.5 bg-white shadow-sm">
                     <div className="flex items-center gap-1 mb-2 pb-1 border-b border-slate-50">
                       <Building className="h-3 w-3 text-blue-500 flex-shrink-0" />
-                      <span className="text-[9px] font-bold text-black uppercase tracking-wide">Location</span>
+                      <span className="text-[9px] font-bold text-slate-600 uppercase tracking-wide">Location</span>
                     </div>
                     <div className="space-y-1.5">
                       <F label="Property" required>
-                        <Select value={formData.property_id}
-                          onValueChange={v => setFormData((p: RoomFormData) => ({ ...p, property_id: v, floor: '' }))}>
-                          <SelectTrigger className="h-7 text-[10px] border-slate-200 bg-slate-50"><SelectValue placeholder="Select property" /></SelectTrigger>
+                        <Select 
+                          value={formData.property_id}
+                          onValueChange={v => setFormData((p: RoomFormData) => ({ ...p, property_id: v, floor: '' }))}
+                          // Property selector is NOT disabled when limit reached - user should be able to select a different property
+                        >
+                          <SelectTrigger className="h-7 text-[10px] border-slate-200 bg-slate-50">
+                            <SelectValue placeholder="Select property" />
+                          </SelectTrigger>
                           <SelectContent>
                             {properties.map(p => (
                               <SelectItem key={p.id} value={String(p.id)}>
@@ -770,9 +866,11 @@ export function RoomForm({
 
                       <div className="grid grid-cols-2 gap-1.5">
                         <F label="Floor">
-                          <Select value={formData.floor}
+                          <Select 
+                            value={formData.floor}
                             onValueChange={v => setFormData((p: RoomFormData) => ({ ...p, floor: v }))}
-                            disabled={!formData.property_id}>
+                            disabled={!formData.property_id || roomLimitReached}
+                          >
                             <SelectTrigger className="h-7 text-[10px] border-slate-200 bg-slate-50">
                               <SelectValue placeholder={!formData.property_id ? 'Select property first' : propertyFloorOptions.length === 0 ? 'No floors set' : 'Select floor'} />
                             </SelectTrigger>
@@ -793,9 +891,6 @@ export function RoomForm({
                               }
                             </SelectContent>
                           </Select>
-                          {formData.property_id && propertyFloorOptions.length > 0 && (
-                            <p className="text-[9px] text-slate-400 mt-0.5">Floors 1–{selectedProperty?.floor}</p>
-                          )}
                         </F>
 
                         <F label="Room No." required>
@@ -805,6 +900,7 @@ export function RoomForm({
                               onChange={e => { const v = e.target.value; setFormData((p: RoomFormData) => ({ ...p, room_number: v })); }}
                               placeholder="101, G-01…"
                               className={`h-7 text-[10px] border-slate-200 bg-slate-50 ${isDuplicateRoom ? 'border-red-400' : ''}`}
+                              disabled={roomLimitReached}
                             />
                             {isDuplicateRoom && <AlertCircle className="absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-red-500" />}
                           </div>
@@ -822,11 +918,15 @@ export function RoomForm({
                   <div className="border border-slate-100 rounded-lg p-2.5 bg-white shadow-sm">
                     <div className="flex items-center gap-1 mb-2 pb-1 border-b border-slate-50">
                       <Home className="h-3 w-3 text-emerald-500 flex-shrink-0" />
-                      <span className="text-[9px] font-bold text-black uppercase tracking-wide">Room Config</span>
+                      <span className="text-[9px] font-bold text-slate-600 uppercase tracking-wide">Room Config</span>
                     </div>
                     <div className="grid grid-cols-2 gap-1.5">
                       <F label="Sharing Type" required>
-                        <Select value={formData.sharing_type} onValueChange={handleSharingTypeChange} disabled={loadingMasters}>
+                        <Select 
+                          value={formData.sharing_type} 
+                          onValueChange={handleSharingTypeChange} 
+                          disabled={loadingMasters || roomLimitReached}
+                        >
                           <SelectTrigger className="h-7 text-[10px] border-slate-200 bg-slate-50">
                             <SelectValue placeholder={loadingMasters ? 'Loading…' : 'Select type'} />
                           </SelectTrigger>
@@ -847,9 +947,11 @@ export function RoomForm({
                       </F>
 
                       <F label="Room Type">
-                        <Select value={formData.room_type || ''}
+                        <Select 
+                          value={formData.room_type || ''}
                           onValueChange={v => setFormData((p: RoomFormData) => ({ ...p, room_type: v }))}
-                          disabled={loadingMasters}>
+                          disabled={loadingMasters || roomLimitReached}
+                        >
                           <SelectTrigger className="h-7 text-[10px] border-slate-200 bg-slate-50">
                             <SelectValue placeholder={loadingMasters ? 'Loading…' : 'Select type'} />
                           </SelectTrigger>
@@ -875,6 +977,7 @@ export function RoomForm({
                           onChange={e => handleCapacityChange(e.target.value)}
                           className="h-7 text-[10px] border-slate-200 bg-slate-50"
                           placeholder="e.g. 2"
+                          disabled={roomLimitReached}
                         />
                       </F>
 
@@ -885,6 +988,7 @@ export function RoomForm({
                           onChange={e => handleTotalRentChange(e.target.value)}
                           placeholder="Total room rent"
                           className="h-7 text-[10px] border-slate-200 bg-slate-50"
+                          disabled={roomLimitReached}
                         />
                         {(formData.beds_config?.length || 0) > 0 && displayedTotal > 0 && (
                           <p className="text-[9px] text-slate-400 mt-0.5">
@@ -895,29 +999,38 @@ export function RoomForm({
                     </div>
 
                     {isEditMode && (formData.beds_config?.length || 0) > 0 && (
-                      <Button type="button" variant="outline" size="sm" onClick={applyRoomRentToAllBeds}
-                        className="mt-1.5 h-6 text-[9px] w-full border-dashed border-slate-300 text-slate-500 hover:text-blue-600 hover:border-blue-300">
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={applyRoomRentToAllBeds}
+                        className="mt-1.5 h-6 text-[9px] w-full border-dashed border-slate-300 text-slate-500 hover:text-blue-600 hover:border-blue-300"
+                        disabled={roomLimitReached}
+                      >
                         <Wallet className="h-3 w-3 mr-1" /> Distribute rent equally to all beds
                       </Button>
                     )}
                   </div>
                 </div>
 
-                {/* Right */}
+                {/* Right column */}
                 <div className="space-y-2">
                   {/* Gender & Preferences */}
                   <div className="border border-slate-100 rounded-lg p-2.5 bg-white shadow-sm">
                     <div className="flex items-center gap-1 mb-2 pb-1 border-b border-slate-50">
                       <Users className="h-3 w-3 text-pink-500 flex-shrink-0" />
-                      <span className="text-[9px] font-bold text-black uppercase tracking-wide">Occupancy Preferences</span>
+                      <span className="text-[9px] font-bold text-slate-600 uppercase tracking-wide">Occupancy Preferences</span>
                     </div>
                     <F label="Gender Preferences">
                       <div className="grid grid-cols-3 gap-1 mt-0.5">
                         {GENDER_PREFERENCES.map(pref => {
                           const sel = formData.room_gender_preference.includes(pref.value);
                           return (
-                            <div key={pref.value} onClick={() => toggleGenderPreference(pref.value)}
-                              className={`flex flex-col items-center gap-0.5 p-1.5 border rounded-lg cursor-pointer transition-all ${sel ? `${pref.color} border-2` : 'border-slate-100 bg-slate-50 hover:bg-slate-100'}`}>
+                            <div 
+                              key={pref.value} 
+                              onClick={() => !roomLimitReached && toggleGenderPreference(pref.value)}
+                              className={`flex flex-col items-center gap-0.5 p-1.5 border rounded-lg cursor-pointer transition-all ${roomLimitReached ? 'opacity-50 cursor-not-allowed' : ''} ${sel ? `${pref.color} border-2` : 'border-slate-100 bg-slate-50 hover:bg-slate-100'}`}
+                            >
                               <div className={sel ? pref.iconColor : 'text-slate-400'}>{pref.icon}</div>
                               <span className={`text-[9px] font-semibold ${sel ? '' : 'text-slate-500'}`}>{pref.label}</span>
                             </div>
@@ -930,8 +1043,10 @@ export function RoomForm({
                         <p className="text-[10px] font-semibold text-slate-700">Active Status</p>
                         <p className="text-[9px] text-slate-400">{formData.is_active ? 'Room is visible & bookable' : 'Room is hidden'}</p>
                       </div>
-                      <div onClick={() => setFormData((p: RoomFormData) => ({ ...p, is_active: !p.is_active }))}
-                        className={`relative w-9 h-5 rounded-full cursor-pointer transition-colors ${formData.is_active ? 'bg-green-500' : 'bg-slate-300'}`}>
+                      <div 
+                        onClick={() => !roomLimitReached && setFormData((p: RoomFormData) => ({ ...p, is_active: !p.is_active }))}
+                        className={`relative w-9 h-5 rounded-full cursor-pointer transition-colors ${roomLimitReached ? 'opacity-50 cursor-not-allowed' : ''} ${formData.is_active ? 'bg-green-500' : 'bg-slate-300'}`}
+                      >
                         <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${formData.is_active ? 'translate-x-4' : 'translate-x-0.5'}`} />
                       </div>
                     </div>
@@ -941,7 +1056,7 @@ export function RoomForm({
                   <div className="border border-slate-100 rounded-lg p-2.5 bg-white shadow-sm">
                     <div className="flex items-center gap-1 mb-2 pb-1 border-b border-slate-50">
                       <Edit className="h-3 w-3 text-slate-500 flex-shrink-0" />
-                      <span className="text-[9px] font-bold text-black uppercase tracking-wide">Description</span>
+                      <span className="text-[9px] font-bold text-slate-600 uppercase tracking-wide">Description</span>
                     </div>
                     <Textarea
                       value={formData.description}
@@ -949,22 +1064,11 @@ export function RoomForm({
                       placeholder="Describe the room, its features, view…"
                       rows={4}
                       className="resize-none text-[10px] min-h-[80px] border-slate-200 bg-slate-50 focus:bg-white placeholder:text-slate-400 rounded-md"
+                      disabled={roomLimitReached}
                     />
                   </div>
 
-                  {/* {selectedProperty && (
-                    <div className="border border-blue-100 rounded-lg p-2.5 bg-blue-50/40">
-                      <div className="flex items-center gap-1 mb-1">
-                        <Info className="h-3 w-3 text-blue-500 flex-shrink-0" />
-                        <span className="text-[9px] font-bold text-blue-600 uppercase tracking-wide">Property Info</span>
-                      </div>
-                      <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
-                        <div><p className="text-[9px] text-blue-400">Property</p><p className="text-[10px] font-semibold text-blue-700 truncate">{selectedProperty.name}</p></div>
-                        <div><p className="text-[9px] text-blue-400">Total Floors</p><p className="text-[10px] font-semibold text-blue-700">{selectedProperty.floor || '—'}</p></div>
-                        {selectedProperty.address && <div className="col-span-2"><p className="text-[9px] text-blue-400">Address</p><p className="text-[10px] text-blue-600 truncate">{selectedProperty.address}</p></div>}
-                      </div>
-                    </div>
-                  )} */}
+                  
                 </div>
               </div>
             </TabsContent>
@@ -974,9 +1078,8 @@ export function RoomForm({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <BedDouble className="h-3.5 w-3.5 text-blue-500" />
-                  <span className="text-[11px] font-bold text-black">Configure Beds ({formData.beds_config?.length || 0})</span>
+                  <span className="text-[11px] font-bold text-slate-700">Configure Beds ({formData.beds_config?.length || 0})</span>
                 </div>
-                {/* Live total — always accurate, derived directly from bedRentInputs state */}
                 <Badge variant="outline" className="text-[9px]">
                   Total: ₹{displayedTotal}
                 </Badge>
@@ -995,7 +1098,7 @@ export function RoomForm({
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
                   {formData.beds_config.map(bed => (
                     <div key={bed.bed_number}
-                      className={`border rounded-xl p-2.5 ${!bed.bed_type ? 'border-red-200 bg-red-50' : 'border-slate-100 bg-white shadow-sm'}`}>
+                      className={`border rounded-xl p-2.5 ${!bed.bed_type ? 'border-red-200 bg-red-50' : 'border-slate-100 bg-white shadow-sm'} ${roomLimitReached ? 'opacity-60' : ''}`}>
                       <div className="flex items-center gap-1.5 mb-2">
                         <div className={`p-1 rounded-lg ${!bed.bed_type ? 'bg-red-100' : 'bg-blue-100'}`}>
                           <Bed className={`h-3 w-3 ${!bed.bed_type ? 'text-red-600' : 'text-blue-600'}`} />
@@ -1004,13 +1107,14 @@ export function RoomForm({
                         {!bed.bed_type && <Badge variant="destructive" className="text-[8px] px-1 py-0 ml-auto">Required</Badge>}
                       </div>
                       <div className="space-y-1.5">
-                        {/* Bed Type — stable key, controlled value */}
+                        {/* Bed Type */}
                         <div>
                           <label className="text-[9px] font-semibold text-slate-500 uppercase tracking-wide block mb-0.5">Bed Type *</label>
                           <Select
                             value={bed.bed_type || ''}
                             onValueChange={v => handleBedTypeChange(bed.bed_number, v)}
                             key={`bed-type-${bed.bed_number}`}
+                            disabled={roomLimitReached}
                           >
                             <SelectTrigger className="h-7 text-[10px] border-slate-200 bg-slate-50">
                               <SelectValue placeholder="Select type" />
@@ -1039,12 +1143,7 @@ export function RoomForm({
                           </Select>
                         </div>
 
-                        {/* Bed Rent — FULLY CONTROLLED via bedRentInputs state
-                            onChange: updates only this bed's entry in bedRentInputs
-                                      → liveTotalRent recalculates immediately (derived value)
-                                      → NO focus loss (only this bed's state key changes)
-                            onBlur:   commits parsed number to formData.beds_config
-                        */}
+                        {/* Bed Rent */}
                         <div>
                           <label className="text-[9px] font-semibold text-slate-500 uppercase tracking-wide block mb-0.5">Rent (₹) *</label>
                           <Input
@@ -1054,6 +1153,7 @@ export function RoomForm({
                             onBlur={() => handleBedRentBlur(bed.bed_number)}
                             placeholder="Bed rent"
                             className="h-7 text-[10px] border-slate-200 bg-slate-50"
+                            disabled={roomLimitReached}
                           />
                         </div>
                       </div>
@@ -1074,8 +1174,9 @@ export function RoomForm({
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-1.5 md:gap-2">
                     {AMENITIES_OPTIONS.map(amenity => (
                       <div key={amenity.id}
-                        className={`p-2 md:p-2.5 border rounded-lg cursor-pointer transition-all ${formData.amenities.includes(amenity.label) ? 'border-cyan-500 bg-cyan-50' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'}`}
-                        onClick={() => toggleAmenity(amenity.label)}>
+                        className={`p-2 md:p-2.5 border rounded-lg cursor-pointer transition-all ${roomLimitReached ? 'opacity-50 cursor-not-allowed' : ''} ${formData.amenities.includes(amenity.label) ? 'border-cyan-500 bg-cyan-50' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'}`}
+                        onClick={() => !roomLimitReached && toggleAmenity(amenity.label)}
+                      >
                         <div className="flex items-center gap-1.5">
                           <div className={`rounded ${formData.amenities.includes(amenity.label) ? 'bg-cyan-100 text-cyan-600' : 'bg-gray-100 text-gray-600'}`}>
                             {amenity.icon}
@@ -1099,8 +1200,14 @@ export function RoomForm({
                       onKeyPress={handleAmenityKeyPress}
                       placeholder="Enter amenity name"
                       className="flex-1 h-6 md:h-7 text-[10px] md:text-xs"
+                      disabled={roomLimitReached}
                     />
-                    <Button type="button" onClick={addCustomAmenity} className="bg-cyan-600 hover:bg-cyan-700 h-6 md:h-7 text-[10px] md:text-xs px-2">
+                    <Button 
+                      type="button" 
+                      onClick={addCustomAmenity} 
+                      className="bg-cyan-600 hover:bg-cyan-700 h-6 md:h-7 text-[10px] md:text-xs px-2"
+                      disabled={roomLimitReached}
+                    >
                       <Plus className="h-3 w-3 md:h-3.5 md:w-3.5 mr-0.5" /> Add
                     </Button>
                   </div>
@@ -1118,7 +1225,7 @@ export function RoomForm({
                               className={`flex items-center gap-0.5 py-0.5 px-1.5 text-[9px] md:text-[10px] ${!pre ? 'bg-purple-50 border-purple-200 text-purple-700' : 'bg-white border-gray-300 text-gray-700'}`}>
                               {pre ? pre.icon : getCustomAmenityIcon(amenity)}
                               <span>{amenity}</span>
-                              <button type="button" onClick={() => removeAmenity(amenity)} className="ml-0.5 text-gray-400 hover:text-red-500">
+                              <button type="button" onClick={() => !roomLimitReached && removeAmenity(amenity)} className="ml-0.5 text-gray-400 hover:text-red-500">
                                 <X className="h-2.5 w-2.5" />
                               </button>
                             </Badge>
@@ -1146,8 +1253,8 @@ export function RoomForm({
                       { key: 'has_attached_bathroom', label: 'Attached Bathroom',sub: 'Private bathroom', icon: Bath,    color: 'border-cyan-500 bg-cyan-50' },
                     ].map(({ key, label, sub, icon: Icon, color }) => (
                       <div key={key}
-                        className={`flex items-center gap-2 p-2 md:p-3 border rounded-lg cursor-pointer ${(formData as any)[key] ? color : 'border-gray-200'}`}
-                        onClick={() => setFormData((p: RoomFormData) => ({ ...p, [key]: !(p as any)[key] }))}>
+                        className={`flex items-center gap-2 p-2 md:p-3 border rounded-lg cursor-pointer ${roomLimitReached ? 'opacity-50 cursor-not-allowed' : ''} ${(formData as any)[key] ? color : 'border-gray-200'}`}
+                        onClick={() => !roomLimitReached && setFormData((p: RoomFormData) => ({ ...p, [key]: !(p as any)[key] }))}>
                         <div className={`p-1.5 rounded-lg ${(formData as any)[key] ? 'bg-cyan-100 text-cyan-600' : 'bg-gray-100 text-gray-600'}`}>
                           <Icon className="h-4 w-4 md:h-5 md:w-5" />
                         </div>
@@ -1155,9 +1262,13 @@ export function RoomForm({
                           <Label className="cursor-pointer text-[10px] md:text-xs font-medium">{label}</Label>
                           <p className="text-[9px] md:text-[10px] text-gray-500">{sub}</p>
                         </div>
-                        <input type="checkbox" checked={(formData as any)[key]}
+                        <input 
+                          type="checkbox" 
+                          checked={(formData as any)[key]}
                           onChange={e => { const c = e.target.checked; setFormData((p: RoomFormData) => ({ ...p, [key]: c })); }}
-                          className="h-4 w-4 md:h-5 md:w-5" />
+                          className="h-4 w-4 md:h-5 md:w-5"
+                          disabled={roomLimitReached}
+                        />
                       </div>
                     ))}
                   </div>
@@ -1176,7 +1287,12 @@ export function RoomForm({
                   <Upload className="h-8 w-8 md:h-10 md:w-10 mx-auto text-gray-400 mb-2" />
                   <p className="text-xs md:text-sm font-medium text-gray-700 mb-1">Upload Room Photos</p>
                   <p className="text-[10px] md:text-xs text-gray-600 mb-2 md:mb-3">Click to browse or drag & drop</p>
-                  <UploadButton type="photo" onClick={handleFileClick} isDisabled={isFileDialogOpen} isProcessing={isFileDialogOpen} />
+                  <UploadButton 
+                    type="photo" 
+                    onClick={handleFileClick} 
+                    isDisabled={isFileDialogOpen || roomLimitReached} 
+                    isProcessing={isFileDialogOpen} 
+                  />
                   <p className="text-[9px] md:text-[10px] text-gray-500 mt-2">Max 10 photos, 5MB each.</p>
                 </div>
 
@@ -1186,7 +1302,13 @@ export function RoomForm({
                       <Label className="text-[10px] md:text-xs font-medium flex items-center gap-1">
                         <ImageIcon className="h-3 w-3 md:h-3.5 md:w-3.5" />Existing Photos ({formData.existingPhotos.length})
                       </Label>
-                      <Button variant="outline" size="sm" onClick={openExistingGallery} className="h-6 md:h-7 text-[10px] md:text-xs px-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={openExistingGallery} 
+                        className="h-6 md:h-7 text-[10px] md:text-xs px-2"
+                        disabled={roomLimitReached}
+                      >
                         <Eye className="h-2.5 w-2.5 md:h-3 md:w-3 mr-1" />View Gallery
                       </Button>
                     </div>
@@ -1199,12 +1321,16 @@ export function RoomForm({
                               <img src={photo.url} alt={`Room photo ${idx + 1}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                                 onError={e => { (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2YzZjRmNiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIiBmaWxsPSIjNjY2Ij5Sb29tIFBob3RvPC90ZXh0Pjwvc3ZnPg=='; }} />
                             </div>
-                            <Button size="sm" variant={marked ? 'outline' : 'destructive'}
+                            <Button 
+                              size="sm" 
+                              variant={marked ? 'outline' : 'destructive'}
                               className="absolute -top-1 -right-1 h-5 w-5 md:h-6 md:w-6 p-0 rounded-full z-10"
                               onClick={() => marked
                                 ? setFormData((p: RoomFormData) => ({ ...p, photosToRemove: p.photosToRemove.filter(u => u !== photo.url) }))
                                 : removeExistingPhoto(photo.url)
-                              }>
+                              }
+                              disabled={roomLimitReached}
+                            >
                               {marked ? <Plus className="h-2.5 w-2.5" /> : <X className="h-2.5 w-2.5" />}
                             </Button>
                             {marked && (
@@ -1242,6 +1368,7 @@ export function RoomForm({
                                 onChange={e => { const v = e.target.value; setFormData((p: RoomFormData) => ({ ...p, photo_labels: { ...p.photo_labels, [idx]: v } })); }}
                                 placeholder="e.g., Room View, Bathroom"
                                 className="h-6 md:h-7 text-[10px] md:text-xs"
+                                disabled={roomLimitReached}
                               />
                             </div>
                             <div className="flex items-center justify-between">
@@ -1249,7 +1376,13 @@ export function RoomForm({
                                 <p className="font-medium truncate max-w-[150px]">{file.name}</p>
                                 <p className="text-[9px]">{(file.size / (1024 * 1024)).toFixed(2)} MB</p>
                               </div>
-                              <Button variant="ghost" size="sm" onClick={() => removeNewFile(idx)} className="text-red-600 hover:text-red-700 h-6 text-[10px] px-2">
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => removeNewFile(idx)} 
+                                className="text-red-600 hover:text-red-700 h-6 text-[10px] px-2"
+                                disabled={roomLimitReached}
+                              >
                                 <Trash2 className="h-3 w-3 mr-0.5" />Remove
                               </Button>
                             </div>
@@ -1283,7 +1416,13 @@ export function RoomForm({
                         <p className="text-[10px] md:text-xs font-medium">Current Video</p>
                         <p className="text-[9px] md:text-[10px] text-gray-600">{formData.existingVideo?.label || 'Room Video Walkthrough'}</p>
                       </div>
-                      <Button variant="destructive" size="sm" onClick={removeExistingVideo} className="h-6 md:h-7 text-[10px] md:text-xs px-2">
+                      <Button 
+                        variant="destructive" 
+                        size="sm" 
+                        onClick={removeExistingVideo} 
+                        className="h-6 md:h-7 text-[10px] md:text-xs px-2"
+                        disabled={roomLimitReached}
+                      >
                         <Trash2 className="h-3 w-3 md:h-3.5 md:w-3.5 mr-0.5" />Remove
                       </Button>
                     </div>
@@ -1297,7 +1436,13 @@ export function RoomForm({
                         <video src={URL.createObjectURL(formData.video)} controls className="w-full h-full" />
                       </div>
                       <div className="absolute top-2 right-2">
-                        <Button variant="destructive" size="sm" onClick={removeVideo} className="h-6 md:h-7 text-[10px] md:text-xs px-2 bg-red-600 hover:bg-red-700">
+                        <Button 
+                          variant="destructive" 
+                          size="sm" 
+                          onClick={removeVideo} 
+                          className="h-6 md:h-7 text-[10px] md:text-xs px-2 bg-red-600 hover:bg-red-700"
+                          disabled={roomLimitReached}
+                        >
                           <Trash2 className="h-3 w-3 mr-0.5" />Remove
                         </Button>
                       </div>
@@ -1309,7 +1454,9 @@ export function RoomForm({
                         </Label>
                         <Input id="video-label-input" value={formData.video_label}
                           onChange={e => { const v = e.target.value; setFormData((p: RoomFormData) => ({ ...p, video_label: v })); }}
-                          placeholder="e.g., Room Walkthrough" className="h-6 md:h-7 text-[10px] md:text-xs" />
+                          placeholder="e.g., Room Walkthrough" className="h-6 md:h-7 text-[10px] md:text-xs"
+                          disabled={roomLimitReached}
+                        />
                       </div>
                       <div className="flex items-center justify-between pt-1.5 border-t">
                         <div>
@@ -1329,7 +1476,12 @@ export function RoomForm({
                         {isEditMode && videoToRemove ? 'Upload Replacement Video' : 'Upload Room Video'}
                       </p>
                       <p className="text-[10px] md:text-xs text-gray-600 mb-2 md:mb-3">Show a walkthrough of the room</p>
-                      <UploadButton type="video" onClick={handleVideoClick} isDisabled={isVideoDialogOpen} isProcessing={isVideoDialogOpen} />
+                      <UploadButton 
+                        type="video" 
+                        onClick={handleVideoClick} 
+                        isDisabled={isVideoDialogOpen || roomLimitReached} 
+                        isProcessing={isVideoDialogOpen} 
+                      />
                     </div>
                   )
                 )}
@@ -1342,7 +1494,15 @@ export function RoomForm({
           <div className="border-t border-slate-100 bg-white pt-2 flex-shrink-0">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={goToPrevTab} disabled={currentTab === 'details' || isCreating} className="h-7 text-[11px] px-2.5">← Prev</Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={goToPrevTab} 
+                  disabled={currentTab === 'details' || isCreating || roomLimitReached} 
+                  className="h-7 text-[11px] px-2.5"
+                >
+                  ← Prev
+                </Button>
                 <div className="flex items-center gap-1">
                   {tabs.map(t => (
                     <button key={t} onClick={() => setCurrentTab(t)}
@@ -1350,14 +1510,34 @@ export function RoomForm({
                   ))}
                 </div>
                 {currentTab !== 'video' && (
-                  <Button variant="outline" size="sm" onClick={goToNextTab} className="h-7 text-[11px] px-2.5">Next →</Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={goToNextTab} 
+                    className="h-7 text-[11px] px-2.5"
+                    disabled={roomLimitReached}
+                  >
+                    Next →
+                  </Button>
                 )}
               </div>
               <div className="flex gap-1.5">
-                <Button variant="outline" size="sm" onClick={() => onOpenChange(false)} disabled={isCreating} className="h-7 text-[11px] px-3">Cancel</Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => onOpenChange(false)} 
+                  disabled={isCreating} 
+                  className="h-7 text-[11px] px-3"
+                >
+                  Cancel
+                </Button>
                 {currentTab === 'video' && (
-                  <Button onClick={handleFormSubmit} disabled={isCreating} size="sm"
-                    className="h-7 text-[11px] px-3 bg-gradient-to-r from-blue-600 to-cyan-500 hover:opacity-90">
+                  <Button 
+                    onClick={handleFormSubmit} 
+                    disabled={isCreating || roomLimitReached} 
+                    size="sm"
+                    className="h-7 text-[11px] px-3 bg-gradient-to-r from-blue-600 to-cyan-500 hover:opacity-90"
+                  >
                     {isCreating
                       ? <span className="flex items-center gap-1"><div className="h-2.5 w-2.5 border-2 border-white border-t-transparent rounded-full animate-spin" />Processing…</span>
                       : isEditMode ? <><Edit className="h-3 w-3 mr-1" />Update Room</> : <><Plus className="h-3 w-3 mr-1" />Create Room</>
@@ -1374,6 +1554,6 @@ export function RoomForm({
       <PhotoGalleryModal open={galleryOpen} onOpenChange={setGalleryOpen} photos={galleryItems} roomNumber={formData.room_number} />
     </Dialog>
   );
-  
 }
+
 export default RoomForm;

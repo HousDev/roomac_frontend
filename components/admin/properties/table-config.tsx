@@ -293,7 +293,7 @@ export const getBulkActions = (
       handleBulkDelete(ids.map(String));
     },
     variant: "destructive",
-    confirmMessage: "Are you sure you want to delete the selected properties?",
+    // confirmMessage: "Are you sure you want to delete the selected properties?",
   },
   {
     label: "Manage Tags",

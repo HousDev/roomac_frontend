@@ -274,40 +274,118 @@ export function TenantForm({ tenant, onSuccess, onCancel }: TenantFormProps) {
   };
 
   // ── ALL original submit logic preserved ───────────────────────────────────
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!validateForm()) return;
-    setLoading(true); setUploadProgress(0);
-    try {
-      const pi = setInterval(()=>setUploadProgress(p=>{if(p>=90){clearInterval(pi);return p;}return p+10;}),200);
-      const fd = new FormData();
-      Object.keys(formData).forEach(k=>{
-        const v=formData[k as keyof typeof formData];
-        if (v!==undefined&&v!==null&&v!=="") {
-          if ((k==="check_in_date"||k==="date_of_birth")&&v){const d=new Date(String(v));if(!isNaN(d.getTime()))fd.append(k,d.toISOString().split("T")[0]);}
-          else fd.append(k,String(v));
+// In tenant-form.tsx - Update handleSubmit
+
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+
+  if (!validateForm()) return;
+
+  setLoading(true);
+  setUploadProgress(0);
+
+  try {
+    const progressInterval = setInterval(() => {
+      setUploadProgress(prev => {
+        if (prev >= 90) {
+          clearInterval(progressInterval);
+          return prev;
         }
+        return prev + 10;
       });
-      if (createCredentials) {
-        if (tenant?.id) { if(password&&password.trim()!==""){fd.append("update_credentials","true");fd.append("password",password);} }
-        else { fd.append("create_credentials","true"); fd.append("password",password); }
+    }, 200);
+
+    const formDataToSend = new FormData();
+
+    // Append tenant data (your existing code)
+    Object.keys(formData).forEach(key => {
+      const value = formData[key as keyof typeof formData];
+      if (value !== undefined && value !== null && value !== '') {
+        if ((key === 'check_in_date' || key === 'date_of_birth') && value) {
+          const dateValue = new Date(String(value));
+          if (!isNaN(dateValue.getTime())) {
+            formDataToSend.append(key, dateValue.toISOString().split('T')[0]);
+          }
+        } else {
+          formDataToSend.append(key, String(value));
+        }
       }
-      if (additionalDocuments.length>0) fd.append("additional_documents",JSON.stringify(additionalDocuments));
-      if (idProofFile)      fd.append("id_proof_url",     idProofFile);
-      if (addressProofFile) fd.append("address_proof_url",addressProofFile);
-      if (photoFile)        fd.append("photo_url",        photoFile);
-      additionalFiles.forEach(f=>fd.append("additional_documents[]",f));
-      let result:any = tenant?.id ? await updateTenant(tenant.id,fd) : await createTenant(fd);
-      clearInterval(pi); setUploadProgress(100);
-      if (result.success) {
-        toast.success(tenant?"Tenant updated successfully":"Tenant created successfully");
-        if (result.additional_documents) setAdditionalDocuments(result.additional_documents);
-        setIdProofFile(null);setAddressProofFile(null);setPhotoFile(null);setAdditionalFiles([]);
-        if (typeof onSuccess==="function") setTimeout(()=>onSuccess(),500);
-      } else toast.error(result.message||"Operation failed");
-    } catch(err:any){console.error("Failed to save tenant",err);toast.error(err.message||"Operation failed.");}
-    finally{setLoading(false);setUploadProgress(0);}
-  };
+    });
+
+    // Append credential info
+    if (createCredentials) {
+      if (tenant?.id) {
+        if (password && password.trim() !== '') {
+          formDataToSend.append('update_credentials', 'true');
+          formDataToSend.append('password', password);
+        }
+      } else {
+        if (createCredentials) {
+          formDataToSend.append('create_credentials', 'true');
+          formDataToSend.append('password', password);
+        }
+      }
+    }
+
+    // Append existing additional documents as JSON
+    if (additionalDocuments.length > 0) {
+      formDataToSend.append('additional_documents', JSON.stringify(additionalDocuments));
+    }
+
+    // Append main document files
+    if (idProofFile) formDataToSend.append('id_proof_url', idProofFile);
+    if (addressProofFile) formDataToSend.append('address_proof_url', addressProofFile);
+    if (photoFile) formDataToSend.append('photo_url', photoFile);
+
+    // Append additional files
+    additionalFiles.forEach((file) => {
+      formDataToSend.append('additional_documents[]', file);
+    });
+
+    let result: any;
+    if (tenant?.id) {
+      result = await updateTenant(tenant.id, formDataToSend);
+    } else {
+      result = await createTenant(formDataToSend);
+    }
+
+    clearInterval(progressInterval);
+    setUploadProgress(100);
+
+    if (result.success) {
+      // Check if it was a restored tenant
+      if (result.restored) {
+        toast.success("Existing deleted tenant restored and updated successfully");
+      } else {
+        const successMessage = tenant ? "Tenant updated successfully" : "Tenant created successfully";
+        toast.success(successMessage);
+      }
+
+      if (result.additional_documents) {
+        setAdditionalDocuments(result.additional_documents);
+      }
+
+      setIdProofFile(null);
+      setAddressProofFile(null);
+      setPhotoFile(null);
+      setAdditionalFiles([]);
+
+      if (typeof onSuccess === "function") {
+        setTimeout(() => {
+          onSuccess();
+        }, 500);
+      }
+    } else {
+      toast.error(result.message || "Operation failed");
+    }
+  } catch (err: any) {
+    console.error("Failed to save tenant", err);
+    toast.error(err.message || "Operation failed. Check console for details.");
+  } finally {
+    setLoading(false);
+    setUploadProgress(0);
+  }
+};
 
   const handleInputChange  = (f:string,v:any) => setFormData((p:any)=>({...p,[f]:v}));
   const handleSelectChange = (f:string,v:string|undefined) => setFormData((p:any)=>({...p,[f]:v}));
