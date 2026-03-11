@@ -1454,34 +1454,36 @@ const columns: Column<Tenant>[] = useMemo(() => [    {
                   </td>
 
                   {/* Name Column */}
-                 {/* Name Column */}
+
+{/* Name Column */}
 <td className="px-3 py-2.5 cursor-pointer" onClick={() => { setSelectedTenant(tenant); setIsViewDialogOpen(true); }}>
   <div className="flex items-center gap-2 min-w-0">
      <div>
-                          
-                      {tenant.photo_url ? (
-                        <img src={tenant.photo_url} alt="" className="w-7 h-7 rounded-full object-cover flex-shrink-0 ring-1 ring-gray-200" />
-                      ) : (
-                       
-                        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center flex-shrink-0">
-  <span className="text-white font-semibold text-[10px]">
-    {tenant.full_name
-      ?.split(" ")
-      .map(n => n[0])
-      .join("")
-      .substring(0,2)
-      .toUpperCase()}
-  </span>
-</div>
-                      )}
-                      <span className="text-blue-600 font-semibold text-[10px]">{"TID-"+tenant.id}</span>
-                        </div>
-                      <div className="min-w-0">
-                        <div className="font-medium text-xs text-gray-900 truncate leading-tight">{tenant.full_name}</div>
-                        <div className="text-[10px] text-gray-400 capitalize leading-tight">{tenant.gender?.toLowerCase() || 'N/A'}</div>
-                      </div>
-                    </div>
-                  </td>
+        {tenant.photo_url ? (
+          <img src={tenant.photo_url} alt="" className="w-7 h-7 rounded-full object-cover flex-shrink-0 ring-1 ring-gray-200" />
+        ) : (
+          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center flex-shrink-0">
+            <span className="text-white font-semibold text-[10px]">
+              {tenant.full_name
+                ?.split(" ")
+                .map(n => n[0])
+                .join("")
+                .substring(0,2)
+                .toUpperCase()}
+            </span>
+          </div>
+        )}
+     </div>
+     <div className="min-w-0">
+        <div className="font-medium text-xs text-gray-900 truncate leading-tight">
+          <span className="text-gray-500 mr-1">{tenant.salutation || ''}</span>
+          {tenant.full_name}
+        </div>
+        <div className="text-[10px] text-gray-400 capitalize leading-tight">{tenant.gender?.toLowerCase() || 'N/A'}</div>
+        <div className="text-[9px] text-blue-600 font-semibold">TID-{tenant.id}</div>
+     </div>
+  </div>
+</td>
 
                   {/* Contact Column */}
 {/* Contact Column */}
@@ -1633,7 +1635,12 @@ const columns: Column<Tenant>[] = useMemo(() => [    {
       {/* ── DIALOGS (unchanged) ── */}
       {/* Add New Tenant <TenantForm onSuccess={handleSuccess} onCancel={() => setIsAddDialogOpen(false)} /> */}
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden rounded-xl">
+  <DialogContent 
+    className="max-w-3xl max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden rounded-xl"
+    onInteractOutside={(e) => {
+      e.preventDefault();
+    }}
+  >
           {/* Gradient header — responsive padding and height */}
           <div className="bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-600 px-4 md:px-6 py-3 md:py-4 flex items-start justify-between flex-shrink-0">
             <div>
@@ -1655,7 +1662,12 @@ const columns: Column<Tenant>[] = useMemo(() => [    {
       {/* View Dialog */}
       {selectedTenant && (
         <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-          <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden rounded-xl">
+  <DialogContent 
+    className="max-w-2xl max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden rounded-xl"
+    onInteractOutside={(e) => {
+      e.preventDefault();
+    }}
+  >
             {/* Sticky Gradient Header */}
             <div className="bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-600 px-4 md:px-6 py-3 flex items-start justify-between flex-shrink-0">
               <div className="flex-1 min-w-0">
@@ -1883,8 +1895,13 @@ const columns: Column<Tenant>[] = useMemo(() => [    {
 
       {/* Edit Dialog */}
       {selectedTenant && (
-        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden rounded-xl">
+       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+  <DialogContent 
+    className="max-w-3xl max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden rounded-xl"
+    onInteractOutside={(e) => {
+      e.preventDefault();
+    }}
+  >
             {/* Sticky Gradient Header */}
             <div className="bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-600 px-4 md:px-6 py-3 md:py-4 flex items-center justify-between flex-shrink-0">
               <div>
@@ -1916,8 +1933,13 @@ const columns: Column<Tenant>[] = useMemo(() => [    {
 
       {/* Credential Dialog */}
       {selectedTenant && (
-        <Dialog open={isCredentialDialogOpen} onOpenChange={setIsCredentialDialogOpen}>
-          <DialogContent className="max-w-sm rounded-xl">
+       <Dialog open={isCredentialDialogOpen} onOpenChange={setIsCredentialDialogOpen}>
+  <DialogContent 
+    className="max-w-sm rounded-xl"
+    onInteractOutside={(e) => {
+      e.preventDefault();
+    }}
+  >
             <DialogHeader>
               <DialogTitle className="text-sm">
                 {selectedTenant.has_credentials ? "Reset Password" : "Create Login Credentials"}
