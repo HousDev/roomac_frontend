@@ -30,6 +30,7 @@ import { RoomDetailsDialog } from './RoomDetailsDialog';
 import SideFilter from './side-filter';
 import BulkActions from './bulk-actions'; // Keep this import
 import RoomImportModal from './room-import-modal';
+import Swal from 'sweetalert2';
 
 // Types
 interface RoomsClientProps {
@@ -182,6 +183,31 @@ const [importing, setImporting] = useState(false);
   const handleImportClick = useCallback(() => {
   setShowImportModal(true);
 }, []);
+
+
+
+// Also add validation when property is selected in the form
+const validatePropertyRoomLimit = (propertyId: string) => {
+  const selectedProperty = properties.find(p => String(p.id) === propertyId);
+  if (!selectedProperty) return { allowed: true, message: '' };
+  
+  const propertyTotalRooms = selectedProperty.total_rooms || 0;
+  const existingRoomsForProperty = rooms.filter(r => String(r.property_id) === propertyId).length;
+  
+  if (existingRoomsForProperty >= propertyTotalRooms) {
+    return {
+      allowed: false,
+      message: `This property has reached its maximum room limit (${propertyTotalRooms} rooms). Cannot add more rooms.`
+    };
+  }
+  
+  return { allowed: true, message: '' };
+};
+
+// Add this function to calculate existing rooms for a property
+const getExistingRoomsCount = useCallback((propertyId: string) => {
+  return rooms.filter(r => String(r.property_id) === propertyId).length;
+}, [rooms]);
 
 
 // Add import file handler
@@ -486,19 +512,60 @@ const handleImportFile = async (file: File) => {
     setRoomDialogOpen(true);
   }, [rooms]);
 
-  const handleDelete = useCallback(async (id: string) => {
-    if (!confirm("Are you sure you want to delete this room?")) return;
+const handleDelete = useCallback(async (id: string, roomName?: string) => {
+  const result = await Swal.fire({
+    title: "Are you sure?",
+    text: `You are about to delete "${roomName || "this room"}"`,
+    icon: "warning",
+    showCancelButton: true,
+    confirmButtonColor: "#d33",
+    cancelButtonColor: "#3085d6",
+    confirmButtonText: "Yes, delete it!",
+    cancelButtonText: "Cancel",
+    background: "#fff",
+    backdrop: `rgba(0,0,0,0.4)`,
+    customClass: {
+      title: "text-lg font-bold",
+      popup: "rounded-xl",
+      confirmButton:
+        "bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-lg",
+      cancelButton:
+        "bg-gray-500 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg",
+    },
+  });
 
+  if (result.isConfirmed) {
     try {
-      const { deleteRoom } = await import('@/lib/roomsApi');
-      await deleteRoom(id);
-      toast.success("Room deleted successfully!");
-      setRooms(prev => prev.filter(room => room.id.toString() !== id));
-      setSelectedRooms(prev => prev.filter(roomId => roomId !== id));
-    } catch {
-      toast.error("Failed to delete room!");
+      const { deleteRoom } = await import("@/lib/roomsApi");
+      const res = await deleteRoom(id);
+
+      if (!res?.success) {
+        toast.error(res?.message || "Failed to delete room");
+        return;
+      }
+
+      await Swal.fire({
+        title: "Deleted!",
+        text: "Room has been deleted successfully.",
+        icon: "success",
+        timer: 2000,
+        showConfirmButton: false,
+        background: "#fff",
+        customClass: {
+          popup: "rounded-xl",
+          title: "text-lg font-bold text-green-600",
+        },
+      });
+
+      setRooms((prev) => prev.filter((room) => room.id.toString() !== id));
+      setSelectedRooms((prev) => prev.filter((roomId) => roomId !== id));
+
+    } catch (err: any) {
+      console.error("Room delete error:", err);
+      toast.error(err?.response?.message || "Failed to delete room");
     }
-  }, []);
+  }
+}, []);
 
   const handleViewDetails = useCallback((room: RoomResponse) => {
     setSelectedRoom(room);
@@ -546,6 +613,12 @@ const handleImportFile = async (file: File) => {
     setIsEditMode(false);
     setEditingRoomId(null);
   }, []);
+
+  // In rooms-client.tsx, update the Add New Room button click handler
+const handleAddRoomClick = useCallback(() => {
+  resetForm();
+  setRoomDialogOpen(true);
+}, [resetForm]);
 
   // Your original handleSubmit function
   const handleSubmit = useCallback(async () => {
@@ -1026,6 +1099,7 @@ const handleImportFile = async (file: File) => {
         properties={properties}
         rooms={rooms}
         editingRoomId={editingRoomId}
+         getExistingRoomsCount={getExistingRoomsCount}
       />
 
       <RoomImportModal
