@@ -102,7 +102,7 @@
 //         <div className="flex items-center gap-2">
 //           <Bell className="h-4 w-4 text-blue-600" />
 //           <p className="font-semibold text-sm">Notifications</p>
-          
+
 //           {unreadCount > 0 && (
 //             <Badge variant="destructive" className="text-xs px-1.5 py-0 h-5">
 //               {unreadCount}
@@ -207,11 +207,11 @@
 
 //   // Check if tenant has accommodation - check multiple possible fields
 //   const hasAccommodation = tenant?.room_id !== null && tenant?.room_id !== undefined;
-  
+
 //   // Get display values with fallbacks
 //   const propertyDisplay = tenant?.property_name || "Roomac PG";
-//   const locationDisplay = tenant?.property_city || 
-//                           tenant?.city || 
+//   const locationDisplay = tenant?.property_city ||
+//                           tenant?.city ||
 //                           (tenant?.property_address ? tenant.property_address.split(',').pop()?.trim() : "Pune");
 //   const rentAmount = tenant?.rent_per_bed || tenant?.monthly_rent || 12000;
 
@@ -245,7 +245,7 @@
 //             </Badge>
 //           )}
 //         </div>
-        
+
 //         {hasAccommodation ? (
 //           <>
 //             <p className="font-bold text-sm text-white truncate relative z-10">
@@ -561,9 +561,9 @@
 //   const handleNotificationClick = (n: Notification) => {
 //     if (!n.is_read) onMarkNotificationRead(n.id);
 //     setNotificationsOpen(false);
-    
+
 //     const notificationType = n.type || n.notification_type || 'general';
-    
+
 //     if (notificationType === "payment")        onNavigate("/tenant/portal#payments");
 //     else if (notificationType === "complaint") onNavigate("/tenant/requests");
 //      else if (notificationType === "maintenance") onNavigate("/tenant/requests");
@@ -616,7 +616,6 @@
 //               )}
 //             </Button>
 
-            
 //             {notificationsOpen && (
 //               <NotificationPopup
 //                 notifications={notifications}
@@ -632,7 +631,6 @@
 //               />
 //             )}
 //           </div>
-          
 
 //           {/* Profile Dropdown */}
 //           <div className="relative" ref={profileRef}>
@@ -692,7 +690,7 @@
 // // ─── Main Layout ──────────────────────────────────────────────────────────────
 
 // export default function TenantLayout() {
-  
+
 //   const navigate = useNavigate();
 //   const location = useLocation();
 //   const { logout } = useAuth();
@@ -731,32 +729,32 @@
 // const loadNotifications = async (showLoading = true) => {
 //   try {
 //     if (showLoading) setLoadingNotifications(true);
-    
+
 //     console.log('🔍 ===== FETCHING NOTIFICATIONS =====');
 //     console.log('👤 Current tenant ID from getTenantId():', getTenantId());
-    
+
 //     // Also check localStorage directly
 //     const localTenantId = localStorage.getItem('tenant_id');
 //     console.log('👤 Tenant ID from localStorage:', localTenantId);
-    
+
 //     const [notifs, count] = await Promise.all([
 //       getTenantNotifications(20),
 //       getUnreadNotificationCount()
 //     ]);
-    
+
 //     // console.log('📦 Raw notifications from API:', JSON.stringify(notifs, null, 2));
 //     // console.log('🔢 Unread count from API:', count);
-    
+
 //     // Check if any change_bed notifications exist
 //     const changeBedNotifs = notifs.filter(n => n.notification_type === 'change_bed');
 //     console.log('🛏️ Change bed notifications found:', changeBedNotifs.length);
-    
+
 //     if (changeBedNotifs.length > 0) {
 //       console.log('📋 First change bed notification:', changeBedNotifs[0]);
 //     } else {
 //       console.log('❌ No change bed notifications found!');
 //     }
-    
+
 //     // Transform API notifications to match component format
 //     const formattedNotifs = notifs.map(n => {
 //       return {
@@ -764,13 +762,13 @@
 //         type: n.notification_type // Add type for backward compatibility
 //       };
 //     });
-    
+
 //     setNotifications(formattedNotifs);
 //     setNotificationCount(count);
-    
+
 //     console.log('✅ Notifications state updated, total:', formattedNotifs.length);
 //     console.log('🔚 ===== FETCH NOTIFICATIONS COMPLETE =====');
-    
+
 //   } catch (error) {
 //     console.error('❌ Error loading notifications:', error);
 //   } finally {
@@ -781,12 +779,12 @@
 //   // Load notifications on mount
 //   useEffect(() => {
 //     loadNotifications(true);
-    
+
 //     // Set up polling for real-time updates (every 30 seconds)
 //     const interval = setInterval(() => {
 //       loadNotifications(false);
 //     }, 30000);
-    
+
 //     return () => clearInterval(interval);
 //   }, []);
 
@@ -825,7 +823,7 @@
 //   const handleMarkNotificationRead = async (id: string) => {
 //     try {
 //       await markNotificationAsRead(id);
-//       setNotifications((prev) => 
+//       setNotifications((prev) =>
 //         prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
 //       );
 //       setNotificationCount(prev => Math.max(0, prev - 1));
@@ -898,36 +896,53 @@
 //   );
 // }
 
-
-
 // components/tenant/layout/TenantLayout.tsx
 "use client";
 
 import { useState, useRef, useEffect } from "react";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import {
-  Home, CreditCard, FileText, Bell,
-  LogOut, User, Settings, FolderOpen,
-  Menu, Sun, ChevronRight, ChevronLeft,
-  HelpCircle, MessageSquare, X, AlertCircle,
-  Calendar, Building, MapPin, Loader2,
+  Home,
+  CreditCard,
+  FileText,
+  Bell,
+  LogOut,
+  User,
+  Settings,
+  FolderOpen,
+  Menu,
+  Sun,
+  ChevronRight,
+  ChevronLeft,
+  HelpCircle,
+  MessageSquare,
+  X,
+  AlertCircle,
+  Calendar,
+  Building,
+  MapPin,
+  Loader2,
   UserX,
   Users,
   Wrench,
   RefreshCw,
-  Move
+  Move,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { getTenantId, logoutTenant, type TenantProfile } from "@/lib/tenantAuthApi";
+import {
+  getTenantId,
+  logoutTenant,
+  type TenantProfile,
+} from "@/lib/tenantAuthApi";
 import { tenantDetailsApi } from "@/lib/tenantDetailsApi";
 import {
   getTenantNotifications,
   getUnreadNotificationCount,
   markNotificationAsRead,
   markAllNotificationsAsRead,
-  type Notification
+  type Notification,
 } from "@/lib/tenantNotificationsApi";
 import roomacLogo from "@/app/src/assets/images/image.png";
 import { useAuth } from "@/context/authContext";
@@ -944,7 +959,7 @@ interface Notification {
   related_entity_id: number;
   is_read: boolean;
   read_at: string | null;
-  priority: 'low' | 'medium' | 'high' | 'urgent';
+  priority: "low" | "medium" | "high" | "urgent";
   created_at: string;
   type?: string; // For backward compatibility
   metadata?: any;
@@ -973,25 +988,36 @@ function NotificationPopup({
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (popupRef.current && !popupRef.current.contains(e.target as Node)) onClose();
+      if (popupRef.current && !popupRef.current.contains(e.target as Node))
+        onClose();
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [onClose]);
 
   const getIcon = (type: string) => {
-    console.log("🎨 Getting icon for type: ", type)
+    console.log("🎨 Getting icon for type: ", type);
     switch (type) {
-      case "payment":   return <CreditCard className="h-4 w-4 text-blue-600" />;
-      case "complaint": return <AlertCircle className="h-4 w-4 text-orange-600" />;
-      case "maintenance": return <Wrench className="h-4 w-4 text-purple-600" />;
-        case "leave": return <Users className="h-4 w-4 text-green-600" />;
-        case "change_bed": return <Move className="h-4 w-4 text-teal-600" />;
-        case "vacate bed": return <MapPin className="h-4 w-4 text-red-600" />;
-        case "account deletion": return <UserX className="h-4 w-4 text-gray-600" />;
-      case "event":     return <Calendar className="h-4 w-4 text-green-600" />;
-      case "document":  return <FileText className="h-4 w-4 text-purple-600" />;
-      default:          return <Bell className="h-4 w-4 text-gray-600" />;
+      case "payment":
+        return <CreditCard className="h-4 w-4 text-blue-600" />;
+      case "complaint":
+        return <AlertCircle className="h-4 w-4 text-orange-600" />;
+      case "maintenance":
+        return <Wrench className="h-4 w-4 text-purple-600" />;
+      case "leave":
+        return <Users className="h-4 w-4 text-green-600" />;
+      case "change_bed":
+        return <Move className="h-4 w-4 text-teal-600" />;
+      case "vacate bed":
+        return <MapPin className="h-4 w-4 text-red-600" />;
+      case "account deletion":
+        return <UserX className="h-4 w-4 text-gray-600" />;
+      case "event":
+        return <Calendar className="h-4 w-4 text-green-600" />;
+      case "document":
+        return <FileText className="h-4 w-4 text-purple-600" />;
+      default:
+        return <Bell className="h-4 w-4 text-gray-600" />;
     }
   };
 
@@ -1004,7 +1030,7 @@ function NotificationPopup({
         <div className="flex items-center gap-2">
           <Bell className="h-4 w-4 text-blue-600" />
           <p className="font-semibold text-sm">Notifications</p>
-          
+
           {unreadCount > 0 && (
             <Badge variant="destructive" className="text-xs px-1.5 py-0 h-5">
               {unreadCount}
@@ -1012,7 +1038,12 @@ function NotificationPopup({
           )}
         </div>
         {unreadCount > 0 && (
-          <Button variant="ghost" size="sm" onClick={onMarkAllRead} className="h-6 text-xs hover:bg-slate-100">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onMarkAllRead}
+            className="h-6 text-xs hover:bg-slate-100"
+          >
             Mark all read
           </Button>
         )}
@@ -1026,7 +1057,7 @@ function NotificationPopup({
           </div>
         ) : notifications.length > 0 ? (
           notifications.slice(0, 5).map((n) => {
-            const notificationType = n.type || n.notification_type || 'general';
+            const notificationType = n.type || n.notification_type || "general";
             return (
               <div
                 key={n.id}
@@ -1034,15 +1065,23 @@ function NotificationPopup({
                 onClick={() => onNotificationClick(n)}
               >
                 <div className="flex items-start gap-2.5">
-                  <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${n.is_read ? "bg-slate-100" : "bg-blue-100"}`}>
+                  <div
+                    className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${n.is_read ? "bg-slate-100" : "bg-blue-100"}`}
+                  >
                     {getIcon(notificationType)}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
-                      <p className="font-medium text-sm text-slate-900 leading-tight">{n.title}</p>
-                      {!n.is_read && <div className="h-1.5 w-1.5 bg-blue-600 rounded-full mt-1 shrink-0" />}
+                      <p className="font-medium text-sm text-slate-900 leading-tight">
+                        {n.title}
+                      </p>
+                      {!n.is_read && (
+                        <div className="h-1.5 w-1.5 bg-blue-600 rounded-full mt-1 shrink-0" />
+                      )}
                     </div>
-                    <p className="text-xs text-slate-600 mt-1 leading-relaxed line-clamp-2">{n.message}</p>
+                    <p className="text-xs text-slate-600 mt-1 leading-relaxed line-clamp-2">
+                      {n.message}
+                    </p>
                     <p className="text-[10px] text-slate-400 mt-2">
                       {new Date(n.created_at).toLocaleDateString()}
                     </p>
@@ -1052,7 +1091,9 @@ function NotificationPopup({
             );
           })
         ) : (
-          <div className="p-4 text-center text-sm text-slate-500">No notifications</div>
+          <div className="p-4 text-center text-sm text-slate-500">
+            No notifications
+          </div>
         )}
       </div>
 
@@ -1073,15 +1114,50 @@ function NotificationPopup({
 // ─── Nav Items ────────────────────────────────────────────────────────────────
 
 const NAV_ITEMS = [
-  { id: "dashboard",     label: "Dashboard",     icon: Home,          path: "/tenant/portal" },
-  { id: "payments",      label: "Payments",       icon: CreditCard,    path: "/tenant/portal#payments" },
-  { id: "documents",     label: "Documents",      icon: FileText,      path: "/tenant/documents" },
-  { id: "my-documents",  label: "My Documents",   icon: FolderOpen,    path: "/tenant/my-documents" },
-  { id: "request",       label: "Request",        icon: HelpCircle,    path: "/tenant/requests" },
-  { id: "notifications", label: "Notifications",  icon: Bell,          path: "/tenant/portal/#notifications" },
-  { id: "profile",       label: "Profile",        icon: User,          path: "/tenant/profile" },
-  { id: "settings",      label: "Settings",       icon: Settings,      path: "/tenant/settings" },
-  { id: "support",       label: "Support",        icon: MessageSquare, path: "/tenant/support" },
+  { id: "dashboard", label: "Dashboard", icon: Home, path: "/tenant/portal" },
+  {
+    id: "payments",
+    label: "Payments",
+    icon: CreditCard,
+    path: "/tenant/portal#payments",
+  },
+  {
+    id: "documents",
+    label: "Documents",
+    icon: FileText,
+    path: "/tenant/documents",
+  },
+  {
+    id: "my-documents",
+    label: "My Documents",
+    icon: FolderOpen,
+    path: "/tenant/my-documents",
+  },
+  {
+    id: "request",
+    label: "Request",
+    icon: HelpCircle,
+    path: "/tenant/requests",
+  },
+  {
+    id: "notifications",
+    label: "Notifications",
+    icon: Bell,
+    path: "/tenant/portal/#notifications",
+  },
+  { id: "profile", label: "Profile", icon: User, path: "/tenant/profile" },
+  {
+    id: "settings",
+    label: "Settings",
+    icon: Settings,
+    path: "/tenant/settings",
+  },
+  {
+    id: "support",
+    label: "Support",
+    icon: MessageSquare,
+    path: "/tenant/support",
+  },
 ];
 
 // ─── Helper: determine if tenant is truly active ──────────────────────────────
@@ -1090,47 +1166,78 @@ function isTenantActive(tenant: TenantProfile | null): boolean {
   if (!tenant) return false;
   const val = tenant.is_active;
   // Handle number (1 = active, 0 = inactive) and boolean (true = active)
-  if (typeof val === 'number') return val === 1;
-  if (typeof val === 'boolean') return val === true;
+  if (typeof val === "number") return val === 1;
+  if (typeof val === "boolean") return val === true;
   return false;
 }
 
 // ─── Sidebar Accommodation + Next Payment Card (combined) ────────────────────
 
-function SidebarAccommodationCard({ tenant }: { tenant: TenantProfile | null }) {
+function SidebarAccommodationCard({
+  tenant,
+}: {
+  tenant: TenantProfile | null;
+}) {
   const daysLeft = 7;
-  const dueDate = new Date(Date.now() + daysLeft * 86400000).toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-  });
+  const dueDate = new Date(Date.now() + daysLeft * 86400000).toLocaleDateString(
+    "en-IN",
+    {
+      day: "2-digit",
+      month: "short",
+    },
+  );
 
-  // Debug log
-  console.log('🏠 Sidebar tenant data:', {
+  // Debug log to see what's coming from backend
+  console.log("🏠 Sidebar tenant data:", {
     property_name: tenant?.property_name,
     property_address: tenant?.property_address,
     property_city: tenant?.property_city,
     room_number: tenant?.room_number,
     bed_number: tenant?.bed_number,
+    bed_type: tenant?.bed_type,           // This should now show
+    tenant_rent: tenant?.tenant_rent,      // This should now show the correct rent
+    is_couple: tenant?.is_couple,
     floor: tenant?.floor,
-    rent_per_bed: tenant?.rent_per_bed,
-    is_active: tenant?.is_active
+    rent_per_bed: tenant?.rent_per_bed,    // This is the room's default rent
   });
 
-  // Check if tenant has accommodation - check multiple possible fields
-  const hasAccommodation = tenant?.room_id !== null && tenant?.room_id !== undefined;
-  
-  // Get display values with fallbacks
-  const propertyDisplay = tenant?.property_name || "Roomac PG";
-  const locationDisplay = tenant?.property_city || 
-                          tenant?.city || 
-                          (tenant?.property_address ? tenant.property_address.split(',').pop()?.trim() : "Pune");
-  const rentAmount = tenant?.rent_per_bed || tenant?.monthly_rent || 12000;
+  // Check if tenant has accommodation
+  const hasAccommodation = tenant?.room_number && tenant?.bed_number;
 
-  // Fix: use the helper to correctly determine active status
-  const isActive = isTenantActive(tenant);
+  // CRITICAL FIX: Get rent from tenant_rent (bed_assignments) first
+  // This is the actual rent set for this specific bed
+  let rentAmount = 12000; // Default
+  
+  if (tenant?.tenant_rent) {
+    // This is the actual rent from bed_assignments table
+    rentAmount = Number(tenant.tenant_rent);
+    console.log('✅ Using tenant_rent from bed_assignments:', rentAmount);
+  } else if (tenant?.rent_per_bed) {
+    // Fallback to room's default rent_per_bed
+    rentAmount = Number(tenant.rent_per_bed);
+    console.log('⚠️ Using room rent_per_bed as fallback:', rentAmount);
+  }
+
+  // Get bed type display
+  const bedTypeDisplay = tenant?.bed_type || "Standard";
+
+  // Get property display
+  const propertyDisplay = tenant?.property_name || "Roomac PG";
+  
+  // Get location display
+  const locationDisplay =
+    tenant?.property_city ||
+    tenant?.city ||
+    (tenant?.property_address
+      ? tenant.property_address.split(",").pop()?.trim()
+      : "Pune");
+
+  // Get floor display
+  const floorDisplay = tenant?.floor ? `Floor ${tenant.floor}` : "—";
 
   return (
-<div className="mx-2 mb-2 mt-1 lg:mx-3 lg:mb-4">      <div
+    <div className="mx-2 mb-2 mt-1 lg:mx-3 lg:mb-4">
+      <div
         className="rounded-xl p-2.5 lg:p-3 text-white relative overflow-hidden"
         style={{
           background: "linear-gradient(to right, #0A1F5C, #123A9A, #1E4ED8)",
@@ -1140,7 +1247,7 @@ function SidebarAccommodationCard({ tenant }: { tenant: TenantProfile | null }) 
         <div className="absolute -top-4 -right-4 h-20 w-20 rounded-full bg-white/10" />
         <div className="absolute -bottom-3 -left-3 h-14 w-14 rounded-full bg-white/10" />
 
-        {/* Header with Active Status */}
+        {/* Header */}
         <div className="flex items-center justify-between mb-1 relative z-10">
           <div className="flex items-center gap-1">
             <Building className="h-2.5 w-2.5 lg:h-3 lg:w-3 text-blue-100" />
@@ -1148,17 +1255,20 @@ function SidebarAccommodationCard({ tenant }: { tenant: TenantProfile | null }) 
               Your Accommodation
             </p>
           </div>
-          {isActive ? (
+          {tenant?.is_active ? (
             <Badge className="bg-green-500 text-white border-0 text-[7px] lg:text-[8px] h-3.5 lg:h-4 px-1 lg:px-1.5">
               Active
             </Badge>
           ) : (
-            <Badge variant="destructive" className="text-[7px] lg:text-[8px] h-3.5 lg:h-4 px-1 lg:px-1.5">
+            <Badge
+              variant="destructive"
+              className="text-[7px] lg:text-[8px] h-3.5 lg:h-4 px-1 lg:px-1.5"
+            >
               Inactive
             </Badge>
           )}
         </div>
-        
+
         {hasAccommodation ? (
           <>
             <p className="font-bold text-xs lg:text-sm text-white truncate relative z-10">
@@ -1166,35 +1276,66 @@ function SidebarAccommodationCard({ tenant }: { tenant: TenantProfile | null }) 
             </p>
             <p className="text-[9px] lg:text-[10px] text-blue-100 truncate relative z-10 mb-2 flex items-center gap-1">
               <MapPin className="h-2 w-2 lg:h-2.5 lg:w-2.5 shrink-0" />
-              {tenant?.property_address || locationDisplay || "Pune"}
+              {tenant?.property_address || locationDisplay}
             </p>
 
-            {/* Room details grid */}
+            {/* Room details grid - NOW WITH CORRECT RENT FROM BED_ASSIGNMENTS */}
             <div className="grid grid-cols-2 gap-1 lg:gap-1.5 relative z-10">
               {[
-                { label: "ROOM NO.",   value: tenant?.room_number || "—" },
-                { label: "BED NO.",    value: tenant?.bed_number?.toString() || "—" },
-                { label: "RENT/MONTH", value: `₹${Number(rentAmount).toLocaleString("en-IN")}` },
-                { label: "FLOOR",      value: tenant?.floor ? `Floor ${tenant.floor}` : "—" },
+                { label: "ROOM NO.", value: tenant?.room_number || "—" },
+                {
+                  label: "BED",
+                  value: `#${tenant?.bed_number || "—"} ${bedTypeDisplay ? `(${bedTypeDisplay})` : ''}`,
+                },
+                {
+                  label: "RENT/MONTH",
+                  value: `₹${rentAmount.toLocaleString("en-IN")}`,
+                },
+                {
+                  label: "FLOOR",
+                  value: floorDisplay,
+                },
               ].map(({ label, value }) => (
-                <div key={label} className="bg-white/15 rounded-lg px-1.5 py-1 lg:px-2 lg:py-1.5 backdrop-blur-sm">
-                  <p className="text-[7px] lg:text-[8px] font-semibold text-blue-100 uppercase leading-none tracking-wide">{label}</p>
-                  <p className="text-[10px] lg:text-xs font-bold text-white mt-0.5 leading-tight truncate">{value}</p>
+                <div
+                  key={label}
+                  className="bg-white/15 rounded-lg px-1.5 py-1 lg:px-2 lg:py-1.5 backdrop-blur-sm"
+                >
+                  <p className="text-[7px] lg:text-[8px] font-semibold text-blue-100 uppercase leading-none tracking-wide">
+                    {label}
+                  </p>
+                  <p className="text-[10px] lg:text-xs font-bold text-white mt-0.5 leading-tight truncate">
+                    {value}
+                  </p>
                 </div>
               ))}
             </div>
+
+            {/* Show couple badge if applicable
+            {tenant?.is_couple && (
+              <div className="mt-1 flex justify-end">
+                <Badge className="bg-pink-500/30 text-white border-pink-300/30 text-[7px]">
+                  👫 Couple Booking
+                </Badge>
+              </div>
+            )} */}
           </>
         ) : (
           <div className="py-2 lg:py-3 text-center relative z-10">
-            <p className="text-xs lg:text-sm text-blue-100 mb-2">No accommodation assigned</p>
-            <Badge variant="outline" className="bg-white/20 text-white border-white/30 text-[9px] lg:text-xs">
+            <p className="text-xs lg:text-sm text-blue-100 mb-2">
+              No accommodation assigned
+            </p>
+            <Badge
+              variant="outline"
+              className="bg-white/20 text-white border-white/30 text-[9px] lg:text-xs"
+            >
               Pending Assignment
             </Badge>
           </div>
         )}
 
         {/* Next Payment section */}
-        <div className="mt-2 relative z-10 rounded-lg overflow-hidden"
+        <div
+          className="mt-2 relative z-10 rounded-lg overflow-hidden"
           style={{ background: "rgba(255,255,255,0.12)" }}
         >
           <div className="px-2 py-1.5 lg:px-2.5 lg:py-2">
@@ -1204,18 +1345,28 @@ function SidebarAccommodationCard({ tenant }: { tenant: TenantProfile | null }) 
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs lg:text-sm font-black text-white leading-none">
-                  ₹{Number(rentAmount).toLocaleString("en-IN")}
+                  ₹{rentAmount.toLocaleString("en-IN")}
                 </p>
-                <p className="text-[8px] lg:text-[9px] text-blue-200 mt-0.5">Monthly Rent</p>
+                <p className="text-[8px] lg:text-[9px] text-blue-200 mt-0.5">
+                  Monthly Rent
+                </p>
               </div>
               <div className="flex gap-1 lg:gap-1.5">
                 <div className="bg-white/20 rounded-md px-1.5 py-0.5 lg:px-2 lg:py-1 text-center backdrop-blur-sm">
-                  <p className="text-[6px] lg:text-[7px] text-blue-100 uppercase leading-none">Due in</p>
-                  <p className="text-[9px] lg:text-[11px] font-black text-white leading-tight">{daysLeft}d</p>
+                  <p className="text-[6px] lg:text-[7px] text-blue-100 uppercase leading-none">
+                    Due in
+                  </p>
+                  <p className="text-[9px] lg:text-[11px] font-black text-white leading-tight">
+                    {daysLeft}d
+                  </p>
                 </div>
                 <div className="bg-white/20 rounded-md px-1.5 py-0.5 lg:px-2 lg:py-1 text-center backdrop-blur-sm">
-                  <p className="text-[6px] lg:text-[7px] text-blue-100 uppercase leading-none">Date</p>
-                  <p className="text-[9px] lg:text-[11px] font-black text-white leading-tight">{dueDate}</p>
+                  <p className="text-[6px] lg:text-[7px] text-blue-100 uppercase leading-none">
+                    Date
+                  </p>
+                  <p className="text-[9px] lg:text-[11px] font-black text-white leading-tight">
+                    {dueDate}
+                  </p>
                 </div>
               </div>
             </div>
@@ -1257,16 +1408,34 @@ function DesktopSidebar({
         {!collapsed ? (
           <div className="relative w-full flex items-center justify-between pl-5">
             <div className="h-16 w-36 relative">
-              <img src={roomacLogo} alt="Roomac Logo" className="object-contain h-full w-full" />
+              <img
+                src={roomacLogo}
+                alt="Roomac Logo"
+                className="object-contain h-full w-full"
+              />
             </div>
-            <Button variant="ghost" size="icon" onClick={onToggle} className="h-9 w-9 hover:bg-slate-100">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onToggle}
+              className="h-9 w-9 hover:bg-slate-100"
+            >
               <ChevronLeft className="h-5 w-5" />
             </Button>
           </div>
         ) : (
           <div className="flex flex-col items-center w-full gap-3">
-            <img src={roomacLogo} alt="Roomac Logo" className="h-10 w-10 object-contain" />
-            <Button variant="ghost" size="icon" onClick={onToggle} className="h-8 w-8 hover:bg-slate-100">
+            <img
+              src={roomacLogo}
+              alt="Roomac Logo"
+              className="h-10 w-10 object-contain"
+            />
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onToggle}
+              className="h-8 w-8 hover:bg-slate-100"
+            >
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
@@ -1287,20 +1456,28 @@ function DesktopSidebar({
                   className={`
                     w-full flex items-center rounded-lg transition-all duration-200
                     ${collapsed ? "h-11 justify-center px-0" : "h-11 justify-start px-3"}
-                    ${isActive
-                      ? "bg-[#0A1F5C] text-white hover:bg-[#0A1F5C]"
-                      : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                    ${
+                      isActive
+                        ? "bg-[#0A1F5C] text-white hover:bg-[#0A1F5C]"
+                        : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                     }
                   `}
                 >
-                  <item.icon className={`h-5 w-5 shrink-0 ${isActive ? "text-white" : "text-slate-500"}`} />
+                  <item.icon
+                    className={`h-5 w-5 shrink-0 ${isActive ? "text-white" : "text-slate-500"}`}
+                  />
                   {!collapsed && (
                     <>
-                      <span className={`ml-3 text-sm font-medium flex-1 text-left ${isActive ? "text-white" : "text-slate-600"}`}>
+                      <span
+                        className={`ml-3 text-sm font-medium flex-1 text-left ${isActive ? "text-white" : "text-slate-600"}`}
+                      >
                         {item.label}
                       </span>
                       {badge > 0 && (
-                        <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4">
+                        <Badge
+                          variant="destructive"
+                          className="text-[10px] px-1.5 py-0 h-4"
+                        >
                           {badge > 9 ? "9+" : badge}
                         </Badge>
                       )}
@@ -1311,7 +1488,8 @@ function DesktopSidebar({
                 {/* Collapsed tooltip */}
                 {collapsed && (
                   <span className="absolute left-14 top-1/2 -translate-y-1/2 bg-slate-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition whitespace-nowrap z-50 pointer-events-none">
-                    {item.label}{badge > 0 ? ` (${badge})` : ""}
+                    {item.label}
+                    {badge > 0 ? ` (${badge})` : ""}
                   </span>
                 )}
               </div>
@@ -1364,23 +1542,29 @@ function MobileSidebar({
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={onClose} />
+      <div
+        className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+        onClick={onClose}
+      />
       <div
         ref={ref}
         // ← Reduced mobile sidebar width from w-64 to w-56
         className="fixed inset-y-0 left-0 z-50 w-56 bg-white border-r border-slate-200 shadow-2xl flex flex-col lg:hidden"
       >
-{/* Logo — compact on mobile */}
-<div className="h-16 border-b border-slate-100 flex items-center px-3 shrink-0 relative">
-  <img src={roomacLogo} alt="Roomac Logo" className="h-12 w-32 object-contain" />
-  <Button 
-    variant="ghost" 
-    size="icon" 
-    onClick={onClose} 
-    className="absolute top-2 right-2 h-8 w-8 hover:bg-blue-700"
-  >
-  </Button>
-</div>
+        {/* Logo — compact on mobile */}
+        <div className="h-16 border-b border-slate-100 flex items-center px-3 shrink-0 relative">
+          <img
+            src={roomacLogo}
+            alt="Roomac Logo"
+            className="h-12 w-32 object-contain"
+          />
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onClose}
+            className="absolute top-2 right-2 h-8 w-8 hover:bg-blue-700"
+          ></Button>
+        </div>
 
         {/* Nav — tighter on mobile */}
         <nav className=" py-1 px-2 overflow-y-auto">
@@ -1392,21 +1576,32 @@ function MobileSidebar({
                 <Button
                   key={item.id}
                   variant="ghost"
-                  onClick={() => { onNavigate(item.path); onClose(); }}
+                  onClick={() => {
+                    onNavigate(item.path);
+                    onClose();
+                  }}
                   className={`
                     w-full flex items-center justify-start rounded-lg h-9 px-2.5
-                    ${isActive
-                      ? "bg-[#0A1F5C] text-white hover:bg-[#0A1F5C]"
-                      : "text-slate-600 hover:bg-slate-100"
+                    ${
+                      isActive
+                        ? "bg-[#0A1F5C] text-white hover:bg-[#0A1F5C]"
+                        : "text-slate-600 hover:bg-slate-100"
                     }
                   `}
                 >
-                  <item.icon className={`h-4 w-4 shrink-0 ${isActive ? "text-white" : "text-slate-500"}`} />
-                  <span className={`ml-2.5 text-xs font-medium flex-1 text-left ${isActive ? "text-white" : "text-slate-600"}`}>
+                  <item.icon
+                    className={`h-4 w-4 shrink-0 ${isActive ? "text-white" : "text-slate-500"}`}
+                  />
+                  <span
+                    className={`ml-2.5 text-xs font-medium flex-1 text-left ${isActive ? "text-white" : "text-slate-600"}`}
+                  >
                     {item.label}
                   </span>
                   {badge > 0 && (
-                    <Badge variant="destructive" className="text-[9px] px-1 py-0 h-4">
+                    <Badge
+                      variant="destructive"
+                      className="text-[9px] px-1 py-0 h-4"
+                    >
                       {badge > 9 ? "9+" : badge}
                     </Badge>
                   )}
@@ -1420,14 +1615,16 @@ function MobileSidebar({
         <SidebarAccommodationCard tenant={tenant} />
 
         {/* Logout — compact on mobile */}
-      <div className="flex-1" />
+        <div className="flex-1" />
 
         {/* Logout — compact on mobile */}
         <div className="p-2 border-t border-slate-200 shrink-0">
-
           <Button
             variant="ghost"
-            onClick={() => { onLogout(); onClose(); }}
+            onClick={() => {
+              onLogout();
+              onClose();
+            }}
             className="w-full justify-start h-9 px-2.5 text-red-600 hover:text-red-700 hover:bg-red-50"
           >
             <LogOut className="h-4 w-4 mr-2" />
@@ -1471,7 +1668,10 @@ function TenantHeader({
     const handler = (e: MouseEvent) => {
       if (profileRef.current && !profileRef.current.contains(e.target as Node))
         setProfileOpen(false);
-      if (notificationsRef.current && !notificationsRef.current.contains(e.target as Node))
+      if (
+        notificationsRef.current &&
+        !notificationsRef.current.contains(e.target as Node)
+      )
         setNotificationsOpen(false);
     };
     document.addEventListener("mousedown", handler);
@@ -1481,15 +1681,16 @@ function TenantHeader({
   const handleNotificationClick = (n: Notification) => {
     if (!n.is_read) onMarkNotificationRead(n.id);
     setNotificationsOpen(false);
-    
-    const notificationType = n.type || n.notification_type || 'general';
-    
-    if (notificationType === "payment")        onNavigate("/tenant/portal#payments");
+
+    const notificationType = n.type || n.notification_type || "general";
+
+    if (notificationType === "payment") onNavigate("/tenant/portal#payments");
     else if (notificationType === "complaint") onNavigate("/tenant/requests");
-     else if (notificationType === "maintenance") onNavigate("/tenant/requests");
-  else if (notificationType === "change_bed") onNavigate("/tenant/requests"); // Add this
-    else if (notificationType === "document")  onNavigate("/tenant/documents");
-    else                                        onNavigate("/tenant/portal/#notifications");
+    else if (notificationType === "maintenance") onNavigate("/tenant/requests");
+    else if (notificationType === "change_bed")
+      onNavigate("/tenant/requests"); // Add this
+    else if (notificationType === "document") onNavigate("/tenant/documents");
+    else onNavigate("/tenant/portal/#notifications");
   };
 
   return (
@@ -1498,7 +1699,12 @@ function TenantHeader({
       <div className="px-3 sm:px-6 py-2 lg:py-4 flex items-center justify-between">
         {/* Left */}
         <div className="flex items-center gap-2 lg:gap-3">
-          <Button variant="ghost" size="icon" className="lg:hidden hover:bg-blue-700 h-8 w-8" onClick={onMenuClick}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="lg:hidden hover:bg-blue-700 h-8 w-8"
+            onClick={onMenuClick}
+          >
             <Menu className="h-4 w-4" />
           </Button>
           <div>
@@ -1539,7 +1745,6 @@ function TenantHeader({
               )}
             </Button>
 
-            
             {notificationsOpen && (
               <NotificationPopup
                 notifications={notifications}
@@ -1555,7 +1760,6 @@ function TenantHeader({
               />
             )}
           </div>
-          
 
           {/* Profile Dropdown */}
           <div className="relative" ref={profileRef}>
@@ -1576,30 +1780,44 @@ function TenantHeader({
             {profileOpen && (
               <div className="absolute right-0 mt-2 w-48 lg:w-56 bg-white rounded-lg shadow-xl border border-slate-200 z-50">
                 <div className="p-2.5 lg:p-3 border-b border-slate-200">
-                  <p className="font-medium text-xs lg:text-sm text-slate-900 truncate">{tenant?.full_name}</p>
-                  <p className="text-[10px] lg:text-xs text-slate-500 truncate">{tenant?.email}</p>
+                  <p className="font-medium text-xs lg:text-sm text-slate-900 truncate">
+                    {tenant?.full_name}
+                  </p>
+                  <p className="text-[10px] lg:text-xs text-slate-500 truncate">
+                    {tenant?.email}
+                  </p>
                 </div>
                 <div className="p-1">
                   <Button
                     variant="ghost"
                     className="w-full justify-start h-8 lg:h-9 px-2 text-xs lg:text-sm hover:bg-slate-100 hover:text-black"
-                    onClick={() => { onNavigate("/tenant/profile"); setProfileOpen(false); }}
+                    onClick={() => {
+                      onNavigate("/tenant/profile");
+                      setProfileOpen(false);
+                    }}
                   >
                     <User className="h-3.5 w-3.5 lg:h-4 lg:w-4 mr-2" /> Profile
                   </Button>
                   <Button
                     variant="ghost"
                     className="w-full justify-start h-8 lg:h-9 px-2 text-xs lg:text-sm hover:bg-slate-100 hover:text-black"
-                    onClick={() => { onNavigate("/tenant/settings"); setProfileOpen(false); }}
+                    onClick={() => {
+                      onNavigate("/tenant/settings");
+                      setProfileOpen(false);
+                    }}
                   >
-                    <Settings className="h-3.5 w-3.5 lg:h-4 lg:w-4 mr-2" /> Settings
+                    <Settings className="h-3.5 w-3.5 lg:h-4 lg:w-4 mr-2" />{" "}
+                    Settings
                   </Button>
                 </div>
                 <div className="border-t border-slate-200 p-1">
                   <Button
                     variant="ghost"
                     className="w-full justify-start h-8 lg:h-9 px-2 text-xs lg:text-sm text-red-600 hover:bg-red-50 hover:text-red-600"
-                    onClick={() => { onLogout(); setProfileOpen(false); }}
+                    onClick={() => {
+                      onLogout();
+                      setProfileOpen(false);
+                    }}
                   >
                     <LogOut className="h-3.5 w-3.5 lg:h-4 lg:w-4 mr-2" /> Logout
                   </Button>
@@ -1616,7 +1834,6 @@ function TenantHeader({
 // ─── Main Layout ──────────────────────────────────────────────────────────────
 
 export default function TenantLayout() {
-  
   const navigate = useNavigate();
   const location = useLocation();
   const { logout } = useAuth();
@@ -1651,66 +1868,70 @@ export default function TenantLayout() {
   }, []);
 
   // Load notifications
-// Load notifications
-const loadNotifications = async (showLoading = true) => {
-  try {
-    if (showLoading) setLoadingNotifications(true);
-    
-    console.log('🔍 ===== FETCHING NOTIFICATIONS =====');
-    console.log('👤 Current tenant ID from getTenantId():', getTenantId());
-    
-    // Also check localStorage directly
-    const localTenantId = localStorage.getItem('tenant_id');
-    console.log('👤 Tenant ID from localStorage:', localTenantId);
-    
-    const [notifs, count] = await Promise.all([
-      getTenantNotifications(20),
-      getUnreadNotificationCount()
-    ]);
-    
-    // console.log('📦 Raw notifications from API:', JSON.stringify(notifs, null, 2));
-    // console.log('🔢 Unread count from API:', count);
-    
-    // Check if any change_bed notifications exist
-    const changeBedNotifs = notifs.filter(n => n.notification_type === 'change_bed');
-    console.log('🛏️ Change bed notifications found:', changeBedNotifs.length);
-    
-    if (changeBedNotifs.length > 0) {
-      console.log('📋 First change bed notification:', changeBedNotifs[0]);
-    } else {
-      console.log('❌ No change bed notifications found!');
+  // Load notifications
+  const loadNotifications = async (showLoading = true) => {
+    try {
+      if (showLoading) setLoadingNotifications(true);
+
+      console.log("🔍 ===== FETCHING NOTIFICATIONS =====");
+      console.log("👤 Current tenant ID from getTenantId():", getTenantId());
+
+      // Also check localStorage directly
+      const localTenantId = localStorage.getItem("tenant_id");
+      console.log("👤 Tenant ID from localStorage:", localTenantId);
+
+      const [notifs, count] = await Promise.all([
+        getTenantNotifications(20),
+        getUnreadNotificationCount(),
+      ]);
+
+      // console.log('📦 Raw notifications from API:', JSON.stringify(notifs, null, 2));
+      // console.log('🔢 Unread count from API:', count);
+
+      // Check if any change_bed notifications exist
+      const changeBedNotifs = notifs.filter(
+        (n) => n.notification_type === "change_bed",
+      );
+      console.log("🛏️ Change bed notifications found:", changeBedNotifs.length);
+
+      if (changeBedNotifs.length > 0) {
+        console.log("📋 First change bed notification:", changeBedNotifs[0]);
+      } else {
+        console.log("❌ No change bed notifications found!");
+      }
+
+      // Transform API notifications to match component format
+      const formattedNotifs = notifs.map((n) => {
+        return {
+          ...n,
+          type: n.notification_type, // Add type for backward compatibility
+        };
+      });
+
+      setNotifications(formattedNotifs);
+      setNotificationCount(count);
+
+      console.log(
+        "✅ Notifications state updated, total:",
+        formattedNotifs.length,
+      );
+      console.log("🔚 ===== FETCH NOTIFICATIONS COMPLETE =====");
+    } catch (error) {
+      console.error("❌ Error loading notifications:", error);
+    } finally {
+      if (showLoading) setLoadingNotifications(false);
+      setInitialLoadDone(true);
     }
-    
-    // Transform API notifications to match component format
-    const formattedNotifs = notifs.map(n => {
-      return {
-        ...n,
-        type: n.notification_type // Add type for backward compatibility
-      };
-    });
-    
-    setNotifications(formattedNotifs);
-    setNotificationCount(count);
-    
-    console.log('✅ Notifications state updated, total:', formattedNotifs.length);
-    console.log('🔚 ===== FETCH NOTIFICATIONS COMPLETE =====');
-    
-  } catch (error) {
-    console.error('❌ Error loading notifications:', error);
-  } finally {
-    if (showLoading) setLoadingNotifications(false);
-    setInitialLoadDone(true);
-  }
-};
+  };
   // Load notifications on mount
   useEffect(() => {
     loadNotifications(true);
-    
+
     // Set up polling for real-time updates (every 30 seconds)
     const interval = setInterval(() => {
       loadNotifications(false);
     }, 30000);
-    
+
     return () => clearInterval(interval);
   }, []);
 
@@ -1724,15 +1945,15 @@ const loadNotifications = async (showLoading = true) => {
   const getActiveId = () => {
     const path = location.pathname;
     const hash = location.hash;
-    if (path.includes("/my-documents"))  return "my-documents";
-    if (path.includes("/documents"))     return "documents";
-    if (path.includes("/profile"))       return "profile";
-    if (path.includes("/settings"))      return "settings";
-    if (path.includes("/requests"))      return "request";
+    if (path.includes("/my-documents")) return "my-documents";
+    if (path.includes("/documents")) return "documents";
+    if (path.includes("/profile")) return "profile";
+    if (path.includes("/settings")) return "settings";
+    if (path.includes("/requests")) return "request";
     if (path.includes("/notifications")) return "notifications";
-    if (path.includes("/support"))       return "support";
+    if (path.includes("/support")) return "support";
     if (path.includes("/portal")) {
-      if (hash === "#payments")      return "payments";
+      if (hash === "#payments") return "payments";
       if (hash === "#notifications") return "notifications";
       return "dashboard";
     }
@@ -1749,12 +1970,12 @@ const loadNotifications = async (showLoading = true) => {
   const handleMarkNotificationRead = async (id: string) => {
     try {
       await markNotificationAsRead(id);
-      setNotifications((prev) => 
-        prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, is_read: true } : n)),
       );
-      setNotificationCount(prev => Math.max(0, prev - 1));
+      setNotificationCount((prev) => Math.max(0, prev - 1));
     } catch (error) {
-      console.error('Error marking notification as read:', error);
+      console.error("Error marking notification as read:", error);
     }
   };
 
@@ -1766,7 +1987,7 @@ const loadNotifications = async (showLoading = true) => {
         setNotificationCount(0);
       }
     } catch (error) {
-      console.error('Error marking all as read:', error);
+      console.error("Error marking all as read:", error);
     }
   };
 
