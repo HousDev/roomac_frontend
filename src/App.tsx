@@ -79,6 +79,7 @@ import { VisitorLogs } from "@/modules/visitor/VisitorLogs";
 import { NewVisitorEntry } from "@/modules/visitor/NewVisitorEntry";
 import { VisitorRestrictions } from "@/modules/visitor/VisitorRestrictions";
 import { PenaltyRules } from "@/modules/inventory/PenaltyRules";
+import ExpensesManagement from "@/components/Expense/EexpenseManagement";
 
 
 function App() {
@@ -128,6 +129,8 @@ console.log(user)
             <Route path="rooms" element={<AdminRoomsPage />} />
             <Route path="tenants" element={<AdminTenantsPage />} />
             <Route path="payments" element={<AdminPaymentsPage />} />
+            <Route path="expenses" element={<ExpensesManagement />} />
+
             <Route path="reports" element={<AdminReportsPage />} />
             <Route path="document-center" element={<AdminDocumentCenterPage />} />
             <Route path="templates" element={<AdminTemplatesPage />} />

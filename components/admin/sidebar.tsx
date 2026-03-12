@@ -360,6 +360,7 @@ const closeAllSubmenus = useCallback(() => {
     { href: '/admin/rooms', label: 'Rooms', icon: DoorOpen },
     { href: '/admin/tenants', label: 'Tenants', icon: Users },
     { href: '/admin/payments', label: 'Payments', icon: CreditCard },
+    { href: '/admin/expenses', label: 'Expenses', icon: Receipt },
     { href: '/admin/reports', label: 'Reports', icon: BarChart3 },
     { href: '/admin/document-center', label: 'Document', icon: FileText },
     { href: '/admin/templates', label: 'Templates', icon: Layout },
@@ -373,6 +374,7 @@ const closeAllSubmenus = useCallback(() => {
     { href: '/admin/masters', label: 'Masters', icon: LayoutGrid },
     { href: '/admin/settings', label: 'Settings', icon: Settings },
     { href: '/admin/profile', label: 'Profile', icon: UserCircle },
+
   ];
 
   const requestItems = [
@@ -471,10 +473,10 @@ const closeAllSubmenus = useCallback(() => {
     const isSettingsActive = settingsItems.some(setting => isActive(setting.href));
     const isInventoryActive = inventoryItems.some(inv => isActive(inv.href));
     const isVisitorsActive = visitorItems.some(vis => isActive(vis.href));
-    const isNotificationsItem = index === 9; // Notifications
-    const isInventoryItem = index === 13; // Inventory Management
-    const isVisitorsItem = index === 14; // Visitor Management
-    const isSettingsItem = index === 16; // Settings
+    const isNotificationsItem = index === 10; // Notifications
+    const isInventoryItem = index === 14; // Inventory Management
+    const isVisitorsItem = index === 15; // Visitor Management
+    const isSettingsItem = index === 17; // Settings
 
     if (!sidebarOpen) {
       if (isNotificationsItem) {
