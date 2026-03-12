@@ -1440,6 +1440,7 @@ import {
 import { getMasterItemsByTab, getMasterValues } from "@/lib/masterApi";
 import { listProperties } from "@/lib/propertyApi";
 import Swal from 'sweetalert2';
+import { deletePurchase, getPurchases } from "@/lib/materialPurchaseApi";
 
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -1500,7 +1501,10 @@ export function Assets() {
   const [editingItem,  setEditingItem]  = useState<InventoryItem | null>(null);
   const [submitting,   setSubmitting]   = useState(false);
   const [sidebarOpen,  setSidebarOpen]  = useState(false);
-
+  const [purchasedItems, setPurchasedItems] = useState<{label: string, value: string}[]>([]);
+const [itemSearchTerm, setItemSearchTerm] = useState('');
+const [categorySearchTerm, setCategorySearchTerm] = useState('');
+const [propertySearchTerm, setPropertySearchTerm] = useState('');
   const [stats, setStats] = useState({
     total_items: 0, total_quantity: 0, total_value: 0,
     low_stock_count: 0, out_of_stock_count: 0,
@@ -1514,6 +1518,46 @@ export function Assets() {
     item_name: '', category: '', property: '', quantity: '', unit_price: '', status: '',
   });
 
+  const loadPurchasedItems = useCallback(async () => {
+  try {
+    const res = await getPurchases();
+    const allItems: {label: string, value: string}[] = [];
+    
+    (res.data || []).forEach(purchase => {
+      // Try all possible sources for items
+      let items: any[] = [];
+      
+      if (purchase.purchase_items && purchase.purchase_items.length > 0) {
+        items = purchase.purchase_items;
+      } else if (purchase.items) {
+        if (typeof purchase.items === 'string') {
+          try { items = JSON.parse(purchase.items); } catch { items = []; }
+        } else if (Array.isArray(purchase.items)) {
+          items = purchase.items;
+        }
+      }
+      
+      items.forEach((item: any) => {
+        if (item.item_name) {
+          allItems.push({
+            label: item.item_name,   // ← Just item name, no invoice
+            value: item.item_name
+          });
+        }
+      });
+    });
+    
+    // Remove duplicates by value
+    const unique = allItems.filter((v, i, a) => 
+      a.findIndex(t => t.value === v.value) === i
+    );
+    
+    console.log('Loaded purchased items:', unique); // ← Check console
+    setPurchasedItems(unique);
+  } catch (err) {
+    console.error('Could not load purchased items:', err);
+  }
+}, []);
   const emptyForm = {
     item_name: '', category_id: '', category_name: '',
     property_id: '', property_name: '',
@@ -1571,9 +1615,8 @@ export function Assets() {
     }
   }, []);
 
-  useEffect(() => { loadCategories(); loadProperties(); }, []);
+useEffect(() => { loadCategories(); loadProperties(); loadPurchasedItems(); }, []);
   useEffect(() => { loadAll(); }, [loadAll]);
-
   // ── Filtered items (UNCHANGED) ────────────────────────────────────────────
   const filteredItems = useMemo(() => {
     return items.filter(item => {
@@ -2130,134 +2173,234 @@ export function Assets() {
       </div>
 
       {/* ══ Add / Edit Dialog (unchanged logic) ══════════════════════════════ */}
-      <Dialog open={showForm} onOpenChange={v => { if (!v) setShowForm(false); }}>
-        <DialogContent className="max-w-xl w-[95vw] max-h-[90vh] overflow-hidden p-0">
+    {/* ══ Add / Edit Dialog (unchanged logic) ══════════════════════════════ */}
+<Dialog open={showForm} onOpenChange={v => { if (!v) setShowForm(false); }}>
+  <DialogContent className="max-w-xl w-[95vw] max-h-[90vh] overflow-hidden p-0">
 
-          <div className="bg-gradient-to-r from-blue-700 to-blue-600 text-white px-4 py-3 flex items-center justify-between rounded-t-lg">
-            <div>
-              <h2 className="text-base font-semibold">{editingItem ? 'Edit Item' : 'Add Inventory Item'}</h2>
-              <p className="text-xs text-blue-100">Fill in the details below</p>
-            </div>
-            <DialogClose asChild>
-              <button className="p-1.5 rounded-full hover:bg-white/20 transition">
-                <X className="h-4 w-4" />
-              </button>
-            </DialogClose>
-          </div>
+    <div className="bg-gradient-to-r from-blue-700 to-blue-600 text-white px-4 py-3 flex items-center justify-between rounded-t-lg">
+      <div>
+        <h2 className="text-base font-semibold">{editingItem ? 'Edit Item' : 'Add Inventory Item'}</h2>
+        <p className="text-xs text-blue-100">Fill in the details below</p>
+      </div>
+      <DialogClose asChild>
+        <button className="p-1.5 rounded-full hover:bg-white/20 transition">
+          <X className="h-4 w-4" />
+        </button>
+      </DialogClose>
+    </div>
 
-          <div className="p-4 overflow-y-auto max-h-[75vh] space-y-5">
+    <div className="p-4 overflow-y-auto max-h-[75vh] space-y-5">
 
-            <div>
-              <SH icon={<Package className="h-3 w-3" />} title="Item Info" />
-              <div className="grid grid-cols-2 gap-x-3 gap-y-2.5">
+      <div>
+        <SH icon={<Package className="h-3 w-3" />} title="Item Info" />
+        <div className="grid grid-cols-2 gap-x-3 gap-y-2.5">
 
-                <div className="col-span-2">
-                  <label className={L}>Item Name <span className="text-red-400">*</span></label>
-                  <Input className={F} placeholder="e.g. King Size Bed"
-                    value={formData.item_name}
-                    onChange={e => setFormData(p => ({ ...p, item_name: e.target.value }))} />
-                </div>
-
-                <div>
-                  <label className={L}>Category <span className="text-red-400">*</span></label>
-                  <Select value={formData.category_id}
-                    onValueChange={v => {
-                      const selected = categories.find(c => String(c.id) === v);
-                      setFormData(p => ({ ...p, category_id: v, category_name: selected?.name || '' }));
-                    }}>
-                    <SelectTrigger className={F}>
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories.length > 0 ? categories.map(c => (
-                        <SelectItem key={c.id} value={String(c.id)} className={SI}>{c.name}</SelectItem>
-                      )) : (
-                        <SelectItem value="__none__" disabled className={SI}>
-                          No categories — add values to "Category" in Masters &gt; Properties
-                        </SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <label className={L}>Property <span className="text-red-400">*</span></label>
-                  <Select value={formData.property_id}
-                    onValueChange={v => {
-                      const selected = properties.find(p => String(p.id) === v);
-                      setFormData(p => ({ ...p, property_id: v, property_name: selected?.name || '' }));
-                    }}>
-                    <SelectTrigger className={F}>
-                      <Building className="h-3 w-3 text-gray-400 mr-1.5 flex-shrink-0" />
-                      <SelectValue placeholder="Select property" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {properties.map(p => (
-                        <SelectItem key={p.id} value={String(p.id)} className={SI}>{p.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <SH icon={<IndianRupee className="h-3 w-3" />} title="Stock & Price" color="text-green-600" />
-              <div className="grid grid-cols-3 gap-x-3 gap-y-2.5">
-
-                <div>
-                  <label className={L}>Quantity <span className="text-red-400">*</span></label>
-                  <Input type="number" min={0} className={F} placeholder="0"
-                    value={formData.quantity}
-                    onChange={e => setFormData(p => ({ ...p, quantity: parseInt(e.target.value) || 0 }))} />
-                </div>
-
-                <div>
-                  <label className={L}>Unit Price (₹) <span className="text-red-400">*</span></label>
-                  <Input type="number" min={0} step="0.01" className={F} placeholder="0.00"
-                    value={formData.unit_price}
-                    onChange={e => setFormData(p => ({ ...p, unit_price: parseFloat(e.target.value) || 0 }))} />
-                </div>
-
-                <div>
-                  <label className={L}>Min Stock Level</label>
-                  <Input type="number" min={0} className={F} placeholder="10"
-                    value={formData.min_stock_level}
-                    onChange={e => setFormData(p => ({ ...p, min_stock_level: parseInt(e.target.value) || 0 }))} />
-                </div>
-
-                <div className="col-span-3 bg-blue-50 rounded-md px-3 py-1.5 flex justify-between items-center">
-                  <span className="text-[11px] text-blue-700 font-semibold">Total Value Preview</span>
-                  <span className="text-[12px] font-bold text-blue-800">
-                    ₹{(formData.quantity * formData.unit_price).toLocaleString('en-IN')}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <SH icon={<StickyNote className="h-3 w-3" />} title="Notes" color="text-amber-600" />
-              <Textarea
-                className="text-[11px] rounded-md border-gray-200 bg-gray-50 focus:bg-white focus:border-blue-400 focus:ring-0 min-h-[56px] resize-none transition-colors"
-                placeholder="Additional notes about this item…"
-                rows={2}
-                value={formData.notes}
-                onChange={e => setFormData(p => ({ ...p, notes: e.target.value }))}
-              />
-            </div>
-
-            <Button
-              disabled={submitting}
-              onClick={handleSubmit}
-              className="w-full h-8 text-[11px] font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg shadow-sm"
+          {/* Searchable Item Name Dropdown */}
+          <div className="col-span-2">
+            <label className={L}>Item Name <span className="text-red-400">*</span></label>
+            <Select 
+              value={formData.item_name}
+              onValueChange={v => {
+                setFormData(p => ({ ...p, item_name: v }));
+                setItemSearchTerm('');
+              }}
             >
-              {submitting ? (
-                <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />Saving…</>
-              ) : editingItem ? 'Update Item' : 'Add Item'}
-            </Button>
+              <SelectTrigger className={F}>
+                <SelectValue placeholder="Select purchased item" />
+              </SelectTrigger>
+              <SelectContent className="max-h-[300px]">
+                <div className="sticky top-0 bg-white p-2 border-b z-10">
+                  <div className="relative">
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+                    <Input
+                      placeholder="Search items..."
+                      className="pl-7 h-7 text-xs"
+                      value={itemSearchTerm}
+                      onChange={(e) => setItemSearchTerm(e.target.value)}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </div>
+                </div>
+                <div className="py-1">
+                  {purchasedItems
+                    .filter(item => item.label.toLowerCase().includes(itemSearchTerm.toLowerCase()))
+                    .map((item, idx) => (
+                      <SelectItem key={idx} value={item.value} className={SI}>
+                        {item.label}
+                      </SelectItem>
+                    ))}
+                  {purchasedItems.filter(item => 
+                    item.label.toLowerCase().includes(itemSearchTerm.toLowerCase())
+                  ).length === 0 && (
+                    <div className="px-2 py-3 text-center">
+                      <p className="text-xs text-gray-400">No items found</p>
+                    </div>
+                  )}
+                </div>
+              </SelectContent>
+            </Select>
           </div>
-        </DialogContent>
-      </Dialog>
+
+          {/* Searchable Category Dropdown */}
+          <div>
+            <label className={L}>Category <span className="text-red-400">*</span></label>
+            <Select 
+              value={formData.category_id}
+              onValueChange={v => {
+                const selected = categories.find(c => String(c.id) === v);
+                setFormData(p => ({ ...p, category_id: v, category_name: selected?.name || '' }));
+                setCategorySearchTerm('');
+              }}
+            >
+              <SelectTrigger className={F}>
+                <SelectValue placeholder="Select category" />
+              </SelectTrigger>
+              <SelectContent className="max-h-[300px]">
+                <div className="sticky top-0 bg-white p-2 border-b z-10">
+                  <div className="relative">
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+                    <Input
+                      placeholder="Search categories..."
+                      className="pl-7 h-7 text-xs"
+                      value={categorySearchTerm}
+                      onChange={(e) => setCategorySearchTerm(e.target.value)}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </div>
+                </div>
+                <div className="py-1">
+                  {categories.length > 0 ? (
+                    categories
+                      .filter(c => c.name.toLowerCase().includes(categorySearchTerm.toLowerCase()))
+                      .map(c => (
+                        <SelectItem key={c.id} value={String(c.id)} className={SI}>
+                          {c.name}
+                        </SelectItem>
+                      ))
+                  ) : (
+                    <SelectItem value="__none__" disabled className={SI}>
+                      No categories — add values to "Category" in Masters &gt; Properties
+                    </SelectItem>
+                  )}
+                  {categories.length > 0 && categories.filter(c => 
+                    c.name.toLowerCase().includes(categorySearchTerm.toLowerCase())
+                  ).length === 0 && (
+                    <div className="px-2 py-3 text-center">
+                      <p className="text-xs text-gray-400">No categories found</p>
+                    </div>
+                  )}
+                </div>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Searchable Property Dropdown */}
+          <div>
+            <label className={L}>Property <span className="text-red-400">*</span></label>
+            <Select 
+              value={formData.property_id}
+              onValueChange={v => {
+                const selected = properties.find(p => String(p.id) === v);
+                setFormData(p => ({ ...p, property_id: v, property_name: selected?.name || '' }));
+                setPropertySearchTerm('');
+              }}
+            >
+              <SelectTrigger className={F}>
+                <Building className="h-3 w-3 text-gray-400 mr-1.5 flex-shrink-0" />
+                <SelectValue placeholder="Select property" />
+              </SelectTrigger>
+              <SelectContent className="max-h-[300px]">
+                <div className="sticky top-0 bg-white p-2 border-b z-10">
+                  <div className="relative">
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+                    <Input
+                      placeholder="Search properties..."
+                      className="pl-7 h-7 text-xs"
+                      value={propertySearchTerm}
+                      onChange={(e) => setPropertySearchTerm(e.target.value)}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </div>
+                </div>
+                <div className="py-1">
+                  {properties
+                    .filter(p => p.name.toLowerCase().includes(propertySearchTerm.toLowerCase()))
+                    .map(p => (
+                      <SelectItem key={p.id} value={String(p.id)} className={SI}>
+                        {p.name}
+                      </SelectItem>
+                    ))}
+                  {properties.filter(p => 
+                    p.name.toLowerCase().includes(propertySearchTerm.toLowerCase())
+                  ).length === 0 && (
+                    <div className="px-2 py-3 text-center">
+                      <p className="text-xs text-gray-400">No properties found</p>
+                    </div>
+                  )}
+                </div>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <SH icon={<IndianRupee className="h-3 w-3" />} title="Stock & Price" color="text-green-600" />
+        <div className="grid grid-cols-3 gap-x-3 gap-y-2.5">
+
+          <div>
+            <label className={L}>Quantity <span className="text-red-400">*</span></label>
+            <Input type="number" min={0} className={F} placeholder="0"
+              value={formData.quantity}
+              onChange={e => setFormData(p => ({ ...p, quantity: parseInt(e.target.value) || 0 }))} />
+          </div>
+
+          <div>
+            <label className={L}>Unit Price (₹) <span className="text-red-400">*</span></label>
+            <Input type="number" min={0} step="0.01" className={F} placeholder="0.00"
+              value={formData.unit_price}
+              onChange={e => setFormData(p => ({ ...p, unit_price: parseFloat(e.target.value) || 0 }))} />
+          </div>
+
+          <div>
+            <label className={L}>Min Stock Level</label>
+            <Input type="number" min={0} className={F} placeholder="10"
+              value={formData.min_stock_level}
+              onChange={e => setFormData(p => ({ ...p, min_stock_level: parseInt(e.target.value) || 0 }))} />
+          </div>
+
+          <div className="col-span-3 bg-blue-50 rounded-md px-3 py-1.5 flex justify-between items-center">
+            <span className="text-[11px] text-blue-700 font-semibold">Total Value Preview</span>
+            <span className="text-[12px] font-bold text-blue-800">
+              ₹{(formData.quantity * formData.unit_price).toLocaleString('en-IN')}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <SH icon={<StickyNote className="h-3 w-3" />} title="Notes" color="text-amber-600" />
+        <Textarea
+          className="text-[11px] rounded-md border-gray-200 bg-gray-50 focus:bg-white focus:border-blue-400 focus:ring-0 min-h-[56px] resize-none transition-colors"
+          placeholder="Additional notes about this item…"
+          rows={2}
+          value={formData.notes}
+          onChange={e => setFormData(p => ({ ...p, notes: e.target.value }))}
+        />
+      </div>
+
+      <Button
+        disabled={submitting}
+        onClick={handleSubmit}
+        className="w-full h-8 text-[11px] font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg shadow-sm"
+      >
+        {submitting ? (
+          <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />Saving…</>
+        ) : editingItem ? 'Update Item' : 'Add Item'}
+      </Button>
+    </div>
+  </DialogContent>
+</Dialog>
     </div>
   );
 }
