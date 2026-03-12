@@ -342,16 +342,17 @@ import { request } from "@/lib/api";
 export type Payment = {
   id: number;
   tenant_id: number;
-  booking_id: number;
+  booking_id: number | null;
   amount: number;
   payment_date: string;
-  payment_mode: 'cash' | 'online' | 'bank_transfer' | 'cheque' | 'card';
+  payment_mode: 'cash' | 'cheque' | 'online' | 'bank_transfer' | 'card';
+  bank_name?: string;
   transaction_id?: string;
-  status: 'pending' | 'completed' | 'failed' | 'refunded';
+  payment_proof?: string;
+  proof_uploaded_at?: string;
   month: string;
   year: number;
-  due_date?: string;
-  notes?: string;
+  remark?: string;
   payment_type: 'rent' | 'security_deposit' | 'maintenance' | 'electricity' | 'other';
   created_at: string;
   updated_at: string;
@@ -368,73 +369,138 @@ export type Payment = {
 
 export type Receipt = {
   id: number;
-  receipt_number: string;
-  payment_id: number;
-  tenant_id: number;
   amount: number;
-  payment_method?: string;
   payment_date: string;
-  description?: string;
-  is_cancelled: boolean;
+  payment_mode: string;
+  bank_name?: string;
+  transaction_id?: string;
+  remark?: string;
+  payment_proof?: string;
+  month: string;
+  year: number;
   created_at: string;
-  tenant?: {
-    full_name: string;
-    email: string;
-    phone: string;
-  };
+  tenant_name: string;
+  tenant_phone?: string;
+  tenant_email?: string;
+  room_number?: string;
+  property_name?: string;
+  monthly_rent?: number;
+  bed_number?: number;
+  bed_type?: string;
 };
 
 export type PaymentStats = {
   total_collected: number;
-  pending_amount: number;
   total_transactions: number;
+  average_payment: number;
   online_payments: number;
   cash_payments: number;
   card_payments: number;
   bank_transfers: number;
   cheque_payments: number;
-  overdue_amount: number;
-  overdue_count: number;
+  current_month_collected: number;
+  rent_collected: number;
+  deposit_collected: number;
+  maintenance_collected: number;
 };
 
-export type RentHistory = {
+export type MonthRent = {
   month: string;
   month_key: string;
   year: number;
   month_num: number;
-  rentAmount: number;
-  paidAmount: number;
-  pendingAmount: number;
+  base_rent: number;
+  carried_forward: number;
+  effective_rent: number;
+  paid_amount: number;
+  pending_amount: number;
   status: 'paid' | 'partial' | 'pending' | 'overdue';
   isCurrentMonth: boolean;
   isPastMonth: boolean;
+  isFirstMonth?: boolean;
   payments: {
     id: number;
     amount: number;
-    status: string;
     date: string;
     mode: string;
+    bank_name?: string;
+    transaction_id?: string;
+    remark?: string;
   }[];
-  lastPaymentDate: string | null;
 };
 
 export type TenantRentSummary = {
-  tenant_id: number;
-  tenant_name: string;
-  room_id: number;
-  room_number: string;
-  bed_number: number;
-  bed_type: string;
+  tenant: {
+    id: number;
+    name: string;
+    email?: string;
+    phone?: string;
+  };
+  bed_assignment: {
+    id: number;
+    bed_number: number;
+    bed_type: string;
+    monthly_rent: number;
+    is_couple: boolean;
+    assignment_date: string;
+    room: {
+      id: number;
+      room_number: string;
+      floor: string;
+      sharing_type: string;
+      has_ac: boolean;
+      has_attached_bathroom: boolean;
+      has_balcony: boolean;
+    };
+    property: {
+      id: number;
+      name: string;
+      address: string;
+    };
+  } | null;
   monthly_rent: number;
-  current_month_rent: number;
-  paid_this_month: number;
-  pending_this_month: number;
-  previous_pending: number;
-  total_paid: number;
+  current_month: {
+    paid: number;
+    pending: number;
+    is_paid: boolean;
+    is_partial: boolean;
+  };
+  overall: {
+    total_paid: number;
+    expected_total: number;
+    total_pending: number;
+  };
+  payments: Payment[];
+};
+
+export type PaymentFormData = {
+  tenant: {
+    id: number;
+    name: string;
+    email?: string;
+    phone?: string;
+  };
+  room_info: {
+    room_number: string;
+    bed_number: number;
+    bed_type: string;
+    property_name: string;
+  };
+  monthly_rent: number;
+  previous_month: {
+    month: string;
+    year: number;
+    paid: number;
+    pending: number;
+  };
+  current_month: {
+    month: string;
+    year: number;
+    paid: number;
+    pending: number;
+  };
   total_pending: number;
-  last_payment_date: string | null;
-  next_due_date: string | null;
-  months: RentHistory[];
+  suggested_amount: number;
 };
 
 // Create a new payment
@@ -485,7 +551,7 @@ export async function getPaymentsByTenant(tenantId: number): Promise<any> {
   }
 }
 
-// Get tenant rent summary with month-wise history
+// Get tenant rent summary
 export async function getTenantRentSummary(tenantId: number): Promise<any> {
   try {
     const response = await request(`/api/payments/tenant/${tenantId}/summary`);
@@ -497,9 +563,9 @@ export async function getTenantRentSummary(tenantId: number): Promise<any> {
 }
 
 // Get month-wise rent history
-export async function getMonthWiseRentHistory(tenantId: number, months: number = 6): Promise<any> {
+export async function getMonthWiseRentHistory(tenantId: number): Promise<any> {
   try {
-    const response = await request(`/api/payments/tenant/${tenantId}/history?months=${months}`);
+    const response = await request(`/api/payments/tenant/${tenantId}/history`);
     return response;
   } catch (error) {
     console.error('Error fetching rent history:', error);
@@ -507,24 +573,25 @@ export async function getMonthWiseRentHistory(tenantId: number, months: number =
   }
 }
 
-// Update payment status
-export async function updatePaymentStatus(id: number, status: string, transactionId?: string): Promise<any> {
+// Get payment form data
+export async function getTenantPaymentFormData(tenantId: number): Promise<any> {
   try {
-    const response = await request(`/api/payments/${id}/status`, {
-      method: 'PATCH',
-      body: JSON.stringify({ status, transaction_id: transactionId }),
-    });
+    const response = await request(`/api/payments/tenant/${tenantId}/payment-form`);
     return response;
   } catch (error) {
-    console.error('Error updating payment status:', error);
+    console.error('Error fetching payment form data:', error);
     throw error;
   }
 }
 
 // Get payment stats
-export async function getPaymentStats(propertyId?: number): Promise<any> {
+export async function getPaymentStats(propertyId?: number, tenantId?: number): Promise<any> {
   try {
-    const url = propertyId ? `/api/payments/stats?propertyId=${propertyId}` : '/api/payments/stats';
+    const params = new URLSearchParams();
+    if (propertyId) params.append('propertyId', propertyId.toString());
+    if (tenantId) params.append('tenantId', tenantId.toString());
+    
+    const url = `/api/payments/stats${params.toString() ? `?${params.toString()}` : ''}`;
     const response = await request(url);
     return response;
   } catch (error) {
@@ -533,61 +600,52 @@ export async function getPaymentStats(propertyId?: number): Promise<any> {
   }
 }
 
-// Get pending payments
-export async function getPendingPayments(tenantId?: number, overdueOnly?: boolean): Promise<any> {
+// Get all receipts
+export async function getReceipts(filters?: { tenant_id?: number; start_date?: string; end_date?: string }): Promise<any> {
   try {
-    let url = '/api/payments/pending';
     const params = new URLSearchParams();
-    if (tenantId) params.append('tenant_id', tenantId.toString());
-    if (overdueOnly) params.append('overdue_only', 'true');
-    if (params.toString()) url += `?${params.toString()}`;
+    if (filters?.tenant_id) params.append('tenant_id', filters.tenant_id.toString());
+    if (filters?.start_date) params.append('start_date', filters.start_date);
+    if (filters?.end_date) params.append('end_date', filters.end_date);
     
+    const url = `/api/payments/receipts${params.toString() ? `?${params.toString()}` : ''}`;
     const response = await request(url);
     return response;
   } catch (error) {
-    console.error('Error fetching pending payments:', error);
+    console.error('Error fetching receipts:', error);
     throw error;
   }
 }
 
-// Get tenant's active booking with bed details
-export async function getTenantActiveBooking(tenantId: number): Promise<any> {
+// Get receipt by ID
+export async function getReceiptById(id: number): Promise<any> {
   try {
-    const response = await request(`/api/bookings?tenant_id=${tenantId}&status=active`);
-    if (response.success && response.data && response.data.length > 0) {
-      return response.data[0];
-    }
-    return null;
-  } catch (error) {
-    console.error('Error fetching tenant booking:', error);
-    throw error;
-  }
-}
-
-// Get tenant's bed assignment details
-export async function getTenantBedAssignment(tenantId: number): Promise<any> {
-  try {
-    const response = await request(`/api/rooms/tenant-assignment/${tenantId}`);
+    const response = await request(`/api/payments/receipts/${id}`);
     return response;
   } catch (error) {
-    console.error('Error fetching tenant bed assignment:', error);
+    console.error('Error fetching receipt:', error);
     throw error;
   }
 }
 
-// lib/paymentApi.ts - Add proof upload function
+// Preview receipt (opens in new tab)
+export function previewReceipt(id: number): void {
+  window.open(`/api/payments/receipts/${id}/preview`, '_blank');
+}
 
+// Download receipt PDF
+export function downloadReceipt(id: number): void {
+  window.open(`/api/payments/receipts/${id}/download`, '_blank');
+}
+
+// Upload payment proof
 export async function uploadPaymentProof(paymentId: number, file: File): Promise<any> {
   try {
     const formData = new FormData();
     formData.append('proof', file);
     
-    const token = localStorage.getItem('admin_token');
-    const response = await request(`/api/payments/${paymentId}/proof`, {
+    const response = await fetch(`/api/payments/${paymentId}/proof`, {
       method: 'POST',
-      headers: {
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-      },
       body: formData,
     });
     
@@ -602,23 +660,103 @@ export async function uploadPaymentProof(paymentId: number, file: File): Promise
   }
 }
 
+// Get payment proof
 export async function getPaymentProof(paymentId: number): Promise<string | null> {
   try {
-    const token = localStorage.getItem('admin_token');
-    const response = await request(`/api/payments/${paymentId}/proof`, {
-      headers: {
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-      },
-    });
+    const response = await fetch(`/api/payments/${paymentId}/proof`);
     
     if (!response.ok) {
       return null;
     }
     
     const data = await response.json();
-    return data.proof_url || null;
+    return data.data?.proof_url || null;
   } catch (error) {
     console.error('Error fetching payment proof:', error);
     return null;
+  }
+}
+
+// Get tenant's bed assignment
+export async function getTenantBedAssignment(tenantId: number): Promise<any> {
+  try {
+    const response = await fetch(`/api/rooms/tenant-bed/${tenantId}`);
+    const data = await response.json();
+    return data.success ? data.data : null;
+  } catch (error) {
+    console.error('Error fetching tenant bed assignment:', error);
+    return null;
+  }
+}
+
+// Add to paymentRecordApi.ts
+
+export async function createDemandPayment(data: any): Promise<any> {
+  try {
+    const response = await request('/api/payments/demands', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    return response;
+  } catch (error) {
+    console.error('Error creating demand payment:', error);
+    throw error;
+  }
+}
+
+export async function getDemands(filters?: any): Promise<any> {
+  try {
+    const params = new URLSearchParams();
+    if (filters?.status && filters.status !== 'all') params.append('status', filters.status);
+    if (filters?.tenant_id) params.append('tenant_id', filters.tenant_id.toString());
+    if (filters?.from_date) params.append('from_date', filters.from_date);
+    if (filters?.to_date) params.append('to_date', filters.to_date);
+    
+    const queryString = params.toString();
+    const url = `/api/payments/demands${queryString ? `?${queryString}` : ''}`;
+    
+    console.log('Fetching demands from:', url);
+    const response = await request(url);
+    
+    console.log('Demands API response:', response);
+    
+    // Check if response exists and has data
+    if (response && response.success) {
+      return {
+        success: true,
+        data: response.data || [],
+        count: response.count || 0
+      };
+    } else {
+      // If API returns success false but might have data
+      return {
+        success: false,
+        data: response?.data || [],
+        count: response?.count || 0,
+        message: response?.message || 'Unknown error'
+      };
+    }
+  } catch (error: any) {
+    console.error('Error fetching demands:', error);
+    // Return empty array on error
+    return {
+      success: false,
+      data: [],
+      count: 0,
+      message: error.message || 'Failed to fetch demands'
+    };
+  }
+}
+
+export async function updateDemandStatus(id: number, status: string): Promise<any> {
+  try {
+    const response = await request(`/api/payments/demands/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    });
+    return response;
+  } catch (error) {
+    console.error('Error updating demand status:', error);
+    throw error;
   }
 }

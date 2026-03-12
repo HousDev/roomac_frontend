@@ -287,53 +287,25 @@ import { format, parseISO } from 'date-fns';
 import { TenantProfile } from '@/lib/tenantDetailsApi';
 import { type StaffMember } from '@/lib/staffApi';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// HOW TO GET SALUTATION IN THE PARENT (TenantProfileClientPage.tsx):
-//
-//  1. import { getAllStaff, type StaffMember } from '@/lib/staffApi'
-//
-//  2. const [propertyManagerStaff, setPropertyManagerStaff] =
-//       useState<StaffMember | null>(null)
-//
-//  3. Copy this function into the parent (same as page.tsx):
-//
-//     const fetchPropertyManagerStaff = useCallback(async (tenantData: TenantProfile) => {
-//       try {
-//         const allStaff = await getAllStaff();
-//         if (tenantData.property_manager_name && allStaff.length > 0) {
-//           const managerName = tenantData.property_manager_name.toLowerCase().trim();
-//           const matched = allStaff.find(s =>
-//             s.name.toLowerCase().trim() === managerName ||
-//             `${s.salutation} ${s.name}`.toLowerCase().trim() === managerName ||
-//             s.name.toLowerCase().includes(managerName) ||
-//             managerName.includes(s.name.toLowerCase())
-//           );
-//           if (matched) { setPropertyManagerStaff(matched); return; }
-//         }
-//         if (tenantData.property_manager_phone && allStaff.length > 0) {
-//           const matched = allStaff.find(s =>
-//             s.phone === tenantData.property_manager_phone ||
-//             s.whatsapp_number === tenantData.property_manager_phone
-//           );
-//           if (matched) { setPropertyManagerStaff(matched); }
-//         }
-//       } catch (err) {
-//         console.error('Error fetching staff:', err);
-//       }
-//     }, []);
-//
-//  4. Call it after profile loads:
-//     fetchPropertyManagerStaff(profileData)
-//
-//  5. Pass to this component:
-//     <AccommodationTab ... propertyManagerStaff={propertyManagerStaff} />
-// ─────────────────────────────────────────────────────────────────────────────
-
 interface AccommodationTabProps {
   profile: TenantProfile;
   isMobile?: boolean;
   propertyManagerStaff?: StaffMember | null;
 }
+
+// Helper function to format sharing type
+const formatSharingType = (type?: string): string => {
+  if (!type) return 'Not specified';
+  
+  const lower = type.toLowerCase();
+  if (lower.includes('single')) return 'Single Occupancy';
+  if (lower.includes('double')) return 'Double Sharing';
+  if (lower.includes('triple')) return 'Triple Sharing';
+  if (lower.includes('other')) return 'Custom Sharing';
+  
+  // Capitalize first letter
+  return type.charAt(0).toUpperCase() + type.slice(1);
+};
 
 export default function AccommodationTab({
   profile,
@@ -349,6 +321,49 @@ export default function AccommodationTab({
     if (!dateString) return 'N/A';
     try { return format(parseISO(dateString), 'dd MMM yyyy'); }
     catch { return 'Invalid Date'; }
+  };
+
+  // ── Get the correct rent amount from tenant_rent (bed_assignments) first ──
+  const getRentAmount = (): number => {
+    // First priority: tenant_rent from bed_assignments
+    if (profile.tenant_rent) {
+      return Number(profile.tenant_rent);
+    }
+    // Second priority: rent_per_bed from rooms table
+    if (profile.rent_per_bed) {
+      return Number(profile.rent_per_bed);
+    }
+    // Third priority: monthly_rent from bookings
+    if (profile.monthly_rent) {
+      return Number(profile.monthly_rent);
+    }
+    return 0;
+  };
+
+  const rentAmount = getRentAmount();
+
+  // ── Get bed display with type ──
+  const getBedDisplay = (): string => {
+    if (!profile.bed_number) return 'N/A';
+    
+    let bedDisplay = `#${profile.bed_number}`;
+    if (profile.bed_type) {
+      bedDisplay += ` (${profile.bed_type})`;
+    }
+    return bedDisplay;
+  };
+
+  // ── Get sharing type from room data ──
+  const getSharingType = (): string => {
+    // Try to get from profile.sharing_type first (from rooms table)
+    if (profile.sharing_type) {
+      return formatSharingType(profile.sharing_type);
+    }
+    // Fallback to preferred_sharing if no room sharing_type
+    if (profile.preferred_sharing) {
+      return formatSharingType(profile.preferred_sharing);
+    }
+    return 'Not specified';
   };
 
   // ── Same helpers as page.tsx ───────────────────────────────────────────────
@@ -367,6 +382,18 @@ export default function AccommodationTab({
   const getManagerPhoto = () => propertyManagerStaff?.photo_url || null;
 
   const hasManager = !!(profile.property_manager_name || profile.manager_name || propertyManagerStaff);
+
+  // Debug log
+  console.log("🏠 AccommodationTab - Profile data:", {
+    tenant_rent: profile.tenant_rent,
+    rent_per_bed: profile.rent_per_bed,
+    monthly_rent: profile.monthly_rent,
+    final_rent: rentAmount,
+    bed_type: profile.bed_type,
+    is_couple: profile.is_couple,
+    sharing_type: profile.sharing_type, // This should now show
+    preferred_sharing: profile.preferred_sharing
+  });
 
   // ── No accommodation ───────────────────────────────────────────────────────
   if (!hasAccommodation) {
@@ -406,20 +433,6 @@ export default function AccommodationTab({
   if (isMobile) {
     return (
       <div className="space-y-3">
-
-        {/* Status */}
-        {/* <div className={`flex items-center justify-between rounded-lg px-3 py-2 border ${isActive ? 'bg-green-50 border-green-100' : 'bg-red-50 border-red-100'}`}>
-          <div className="flex items-center gap-1.5">
-            {isActive
-              ? <><CheckCircle className="h-3.5 w-3.5 text-green-500" /><span className="text-xs font-medium text-green-700">Active</span></>
-              : <><XCircle className="h-3.5 w-3.5 text-red-500" /><span className="text-xs font-medium text-red-700">Inactive</span></>
-            }
-          </div>
-          {profile.check_in_date && (
-            <span className="text-[10px] text-slate-400">Check-in: {formatDate(profile.check_in_date)}</span>
-          )}
-        </div> */}
-
         {/* Property */}
         <div className="border border-slate-200 rounded-lg p-3 bg-white">
           <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-1.5">Property</p>
@@ -445,7 +458,7 @@ export default function AccommodationTab({
           </div>
           <div className="border border-slate-200 rounded-lg p-3 bg-white">
             <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-1">Bed</p>
-            <p className="text-xl font-bold text-slate-800">{profile.bed_number || 'N/A'}</p>
+            <p className="text-xl font-bold text-slate-800">{getBedDisplay()}</p>
           </div>
           <div className="border border-slate-200 rounded-lg p-3 bg-white">
             <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-1">Room Type</p>
@@ -454,26 +467,33 @@ export default function AccommodationTab({
           <div className="border border-slate-200 rounded-lg p-3 bg-white">
             <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-1">Rent / Month</p>
             <p className="text-sm font-semibold text-slate-800">
-              ₹{profile.rent_per_bed
-                ? Number(profile.rent_per_bed).toLocaleString('en-IN')
-                : profile.monthly_rent
-                  ? Number(profile.monthly_rent).toLocaleString('en-IN')
-                  : 'N/A'}
+              ₹{rentAmount ? rentAmount.toLocaleString('en-IN') : 'N/A'}
             </p>
           </div>
         </div>
 
-        {/* Sharing */}
-        {profile.preferred_sharing && (
-          <div className="flex items-center gap-2 px-1">
+        {/* Sharing Type - FIXED: Now using sharing_type from rooms table */}
+        <div className="flex items-center justify-between px-1">
+          <div className="flex items-center gap-2">
             <Users className="h-3.5 w-3.5 text-slate-400" />
             <span className="text-xs text-slate-500">Sharing:</span>
-            <Badge variant="outline" className="text-[10px] px-2 py-0">{profile.preferred_sharing}</Badge>
-            {profile.bed_assigned_at && (
-              <span className="text-[10px] text-slate-400 ml-auto">Since {formatDate(profile.bed_assigned_at)}</span>
-            )}
+            <Badge variant="outline" className="text-[10px] px-2 py-0">
+              {getSharingType()}
+            </Badge>
           </div>
-        )}
+          {profile.bed_assigned_at && (
+            <span className="text-[10px] text-slate-400">Since {formatDate(profile.bed_assigned_at)}</span>
+          )}
+        </div>
+
+        {/* Couple Badge */}
+        {/* {profile.is_couple && (
+          <div className="flex justify-end px-1">
+            <Badge className="bg-pink-100 text-pink-700 border-pink-200">
+              👫 Couple Booking
+            </Badge>
+          </div>
+        )} */}
 
         {/* Property Manager — salutation from staff API */}
         {hasManager && (
@@ -487,7 +507,6 @@ export default function AccommodationTab({
                 }
               </div>
               <div>
-                {/* salutation + name from staffApi */}
                 <p className="text-xs font-semibold text-slate-800">{getManagerDisplayName()}</p>
                 <p className="text-[10px] text-slate-400">{getManagerRole()}</p>
               </div>
@@ -526,12 +545,11 @@ export default function AccommodationTab({
             </div>
           </div>
         )}
-
       </div>
     );
   }
 
-  // ── DESKTOP VIEW (original preserved, manager section updated with salutation) ──
+  // ── DESKTOP VIEW ───────────────────────────────────────────────────────────
   return (
     <>
       {/* Status Card */}
@@ -594,9 +612,9 @@ export default function AccommodationTab({
             <div className="space-y-1">
               <div className="flex items-center gap-2 text-gray-500">
                 <Bed className="h-4 w-4" />
-                <Label>Bed Number</Label>
+                <Label>Bed</Label>
               </div>
-              <p className="text-lg font-semibold">{profile.bed_number || 'N/A'}</p>
+              <p className="text-lg font-semibold">{getBedDisplay()}</p>
             </div>
 
             <div className="space-y-1">
@@ -613,11 +631,7 @@ export default function AccommodationTab({
                 <Label>Monthly Rent</Label>
               </div>
               <p className="text-lg font-semibold text-green-600">
-                ₹ {profile.rent_per_bed
-                  ? Number(profile.rent_per_bed).toLocaleString('en-IN')
-                  : profile.monthly_rent
-                    ? Number(profile.monthly_rent).toLocaleString('en-IN')
-                    : 'N/A'}
+                ₹ {rentAmount ? rentAmount.toLocaleString('en-IN') : 'N/A'}
               </p>
             </div>
 
@@ -626,9 +640,18 @@ export default function AccommodationTab({
                 <Users className="h-4 w-4" />
                 <Label>Sharing</Label>
               </div>
-              <p className="text-lg font-semibold">{profile.preferred_sharing || 'Not specified'}</p>
+              <p className="text-lg font-semibold">{getSharingType()}</p>
             </div>
           </div>
+
+          {/* Couple Badge
+          {profile.is_couple && (
+            <div className="mt-3 flex">
+              <Badge className="bg-pink-100 text-pink-700 border-pink-200">
+                👫 Couple Booking
+              </Badge>
+            </div>
+          )} */}
 
           {profile.bed_assigned_at && (
             <div className="mt-4 pt-4 border-t">
@@ -640,7 +663,7 @@ export default function AccommodationTab({
         </CardContent>
       </Card>
 
-      {/* Property Manager — salutation from staffApi */}
+      {/* Property Manager */}
       {hasManager && (
         <Card className="mt-4">
           <CardHeader>
@@ -654,7 +677,6 @@ export default function AccommodationTab({
                   <User className="h-4 w-4" />
                   <Label>Manager Name</Label>
                 </div>
-                {/* salutation prepended from staffApi */}
                 <p className="text-lg font-semibold">{getManagerDisplayName()}</p>
                 <p className="text-xs text-gray-400">{getManagerRole()}</p>
               </div>

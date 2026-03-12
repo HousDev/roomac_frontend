@@ -1228,11 +1228,13 @@ import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, Di
 import { Badge } from '@/components/ui/badge';
 import { 
   Plus, CreditCard, FileText, Download, Search, 
-  AlertCircle, CheckCircle, XCircle, Bell, Send,
-  IndianRupee, X, Home, Bed, User, CalendarDays,
+  AlertCircle, CheckCircle, XCircle, Bell,
+  IndianRupee, X, Bed, User, CalendarDays,
   Upload, Eye, Clock, TrendingUp, TrendingDown,
   Building, MapPin, Wifi, Wind, Bath, Maximize,
-  Loader2
+  Loader2, Printer, EyeIcon, Banknote, Receipt,
+  Send, Home, Calendar, AlertTriangle, CheckCircle2,
+  Clock3, XCircle as XCircleIcon
 } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from "sonner";
@@ -1245,123 +1247,97 @@ import { listTenants, type Tenant } from '@/lib/tenantApi';
 import * as paymentApi from '@/lib/paymentRecordApi';
 
 // Types
-interface BedAssignment {
-  id: number;
-  bed_number: number;
-  bed_type: string;
-  tenant_rent: number;
-  is_couple: boolean;
-  created_at: string;
-  room: {
-    id: number;
-    room_number: string;
-    floor: string;
-    sharing_type: string;
-    has_ac: boolean;
-    has_attached_bathroom: boolean;
-    has_balcony: boolean;
-  };
-  property: {
+interface PaymentFormData {
+  tenant: {
     id: number;
     name: string;
-    address: string;
-  };
-}
-
-interface MonthRent {
-  month: string;
-  month_key: string;
-  year: number;
-  month_num: number;
-  rentAmount: number;
-  paidAmount: number;
-  pendingAmount: number;
-  status: 'paid' | 'partial' | 'pending' | 'overdue';
-  isCurrentMonth: boolean;
-  isPastMonth: boolean;
-  isFirstMonth?: boolean;
-  payments: {
-    id: number;
-    amount: number;
-    status: string;
-    date: string;
-    mode: string;
-    transaction_id?: string;
-  }[];
-  lastPaymentDate: string | null;
-}
-
-interface RentSummary {
-  tenant_id: number;
-  tenant_name: string;
-  bed_assignment: BedAssignment | null;
-  monthly_rent: number;
-  current_month_rent: number;
-  paid_this_month: number;
-  pending_this_month: number;
-  previous_pending: number;
-  total_paid: number;
-  total_pending: number;
-  last_payment_date: string | null;
-  next_due_date: string | null;
-  months: MonthRent[];
-}
-
-type Receipt = {
-  id: number;
-  receipt_number: string;
-  payment_id: number;
-  tenant_id: number;
-  amount: number;
-  payment_method?: string;
-  payment_date: string;
-  description?: string;
-  is_cancelled: boolean;
-  created_at: string;
-  tenants?: {
-    full_name: string;
     email?: string;
     phone?: string;
   };
-};
+  room_info: {
+    room_number: string;
+    bed_number: number;
+    bed_type: string;
+    property_name: string;
+  };
+  monthly_rent: number;
+  previous_month: {
+    month: string;
+    year: number;
+    pending: number;
+    paid: number;
+  };
+  current_month: {
+    month: string;
+    year: number;
+    paid: number;
+    pending: number;
+  };
+  total_pending: number;
+  suggested_amount: number;
+}
+
+interface DemandPayment {
+  id: number;
+  tenant_id: number;
+  amount: number;
+  due_date: string;
+  payment_type: string;
+  description: string;
+  late_fee: number;
+  status: 'pending' | 'paid' | 'partial' | 'overdue' | 'cancelled';
+  created_at: string;
+  tenant_name?: string;
+  tenant_phone?: string;
+  room_number?: string;
+  bed_number?: number;
+  property_name?: string;
+}
 
 export default function PaymentsPage() {
-  const [payments, setPayments] = useState<any[]>([]);
-  const [receipts, setReceipts] = useState<Receipt[]>([]);
+  const [payments, setPayments] = useState<paymentApi.Payment[]>([]);
+  const [receipts, setReceipts] = useState<paymentApi.Receipt[]>([]);
+  const [demands, setDemands] = useState<DemandPayment[]>([]);
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAddPaymentOpen, setIsAddPaymentOpen] = useState(false);
   const [isDemandPaymentOpen, setIsDemandPaymentOpen] = useState(false);
   const [bookingLoading, setBookingLoading] = useState(false);
-  const [rentSummary, setRentSummary] = useState<RentSummary | null>(null);
+  const [paymentFormData, setPaymentFormData] = useState<PaymentFormData | null>(null);
   
   // Proof upload states
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [proofPreview, setProofPreview] = useState<string | null>(null);
+  const [selectedReceipt, setSelectedReceipt] = useState<any>(null);
+const [isReceiptPreviewOpen, setIsReceiptPreviewOpen] = useState(false);
 
   // Filters
   const [filters, setFilters] = useState({
     date: '',
     tenant: '',
-    notes: '',
+    remark: '',
     amount: '',
     method: '',
     transactionId: '',
-    dueDate: '',
-    status: ''
+  });
+
+  const [demandFilters, setDemandFilters] = useState({
+    status: '',
+    tenant: '',
+    from_date: '',
+    to_date: ''
   });
 
   const [stats, setStats] = useState({
     total_collected: 0,
-    pending_amount: 0,
     total_transactions: 0,
     online_payments: 0,
     cash_payments: 0,
     card_payments: 0,
     bank_transfers: 0,
     cheque_payments: 0,
-    overdue_amount: 0,
-    overdue_count: 0
+    current_month_collected: 0,
+    rent_collected: 0,
   });
 
   const [newPayment, setNewPayment] = useState({
@@ -1370,11 +1346,10 @@ export default function PaymentsPage() {
     payment_type: 'rent',
     amount: '',
     payment_mode: 'cash',
+    bank_name: '',
     transaction_id: '',
     payment_date: new Date().toISOString().split('T')[0],
-    due_date: '',
-    status: 'completed',
-    notes: ''
+    remark: ''
   });
 
   const [demandPayment, setDemandPayment] = useState({
@@ -1399,6 +1374,7 @@ export default function PaymentsPage() {
       await Promise.all([
         loadPayments(),
         loadReceipts(),
+        loadDemands(),
         loadTenants(),
         loadStats()
       ]);
@@ -1422,7 +1398,7 @@ export default function PaymentsPage() {
 
   const loadReceipts = async () => {
     try {
-      const response = await paymentApi.listReceipts({ is_cancelled: false });
+      const response = await paymentApi.getReceipts();
       if (response.success) {
         setReceipts(response.data || []);
       }
@@ -1430,6 +1406,48 @@ export default function PaymentsPage() {
       console.error('Error loading receipts:', error);
     }
   };
+
+const loadDemands = async () => {
+  try {
+    console.log('Fetching demands...');
+    const response = await paymentApi.getDemands();
+    console.log('Demands response:', response);
+    
+    if (response && response.data) {
+      // Enhance demands with tenant room/bed info and ensure numbers
+      const enhancedDemands = await Promise.all(
+        response.data.map(async (demand: DemandPayment) => {
+          // Ensure amount and late_fee are numbers
+          const processedDemand = {
+            ...demand,
+            amount: Number(demand.amount),
+            late_fee: Number(demand.late_fee || 0)
+          };
+          
+          try {
+            const bedAssignment = await paymentApi.getTenantBedAssignment(demand.tenant_id);
+            return {
+              ...processedDemand,
+              room_number: bedAssignment?.room?.room_number,
+              bed_number: bedAssignment?.bed_number,
+              property_name: bedAssignment?.property?.name
+            };
+          } catch (error) {
+            console.warn(`Could not fetch bed assignment for tenant ${demand.tenant_id}:`, error);
+            return processedDemand;
+          }
+        })
+      );
+      setDemands(enhancedDemands);
+    } else {
+      console.warn('No demands data received:', response);
+      setDemands([]);
+    }
+  } catch (error) {
+    console.error('Error loading demands:', error);
+    setDemands([]);
+  }
+};
 
   const loadTenants = async () => {
     try {
@@ -1453,229 +1471,21 @@ export default function PaymentsPage() {
     }
   };
 
-  const fetchTenantBedAssignment = async (tenantId: string) => {
-    try {
-      const response = await fetch(`/api/rooms/tenant-bed/${tenantId}`);
-      const data = await response.json();
-      return data.success ? data.data : null;
-    } catch (error) {
-      console.error('Error fetching bed assignment:', error);
-      return null;
-    }
-  };
-
-const calculateRentSummary = (
-  tenantId: number,
-  tenantName: string,
-  bedAssignment: BedAssignment | null,
-  payments: any[]
-): RentSummary => {
-  // Ensure monthlyRent is a number
-  const monthlyRent = Number(bedAssignment?.tenant_rent) || 0;
-  
-  if (!bedAssignment) {
-    return {
-      tenant_id: tenantId,
-      tenant_name: tenantName,
-      bed_assignment: null,
-      monthly_rent: 0,
-      current_month_rent: 0,
-      paid_this_month: 0,
-      pending_this_month: 0,
-      previous_pending: 0,
-      total_paid: 0,
-      total_pending: 0,
-      last_payment_date: null,
-      next_due_date: null,
-      months: []
-    };
-  }
-
-  const currentDate = new Date();
-  const currentYear = currentDate.getFullYear();
-  const currentMonth = currentDate.getMonth();
-  
-  const assignmentDate = bedAssignment.created_at ? new Date(bedAssignment.created_at) : new Date();
-  const startYear = assignmentDate.getFullYear();
-  const startMonth = assignmentDate.getMonth();
-  
-  const totalMonths = (currentYear - startYear) * 12 + (currentMonth - startMonth) + 1;
-  
-  const months: MonthRent[] = [];
-  let totalPaid = 0;
-  let previousPending = 0;
-  let paidThisMonth = 0;
-  
-  for (let i = 0; i < totalMonths; i++) {
-    const date = new Date(startYear, startMonth + i, 1);
-    const monthDisplay = date.toLocaleString('default', { month: 'long' }) + ' ' + date.getFullYear();
-    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-    
-    // Find payments for this specific month and ensure amounts are numbers
-    const monthPayments = payments
-      .filter(p => {
-        const paymentDate = new Date(p.payment_date);
-        return paymentDate.getMonth() === date.getMonth() && 
-               paymentDate.getFullYear() === date.getFullYear();
-      })
-      .map(p => ({
-        ...p,
-        amount: Number(p.amount) || 0
-      }));
-    
-    const completedPayments = monthPayments.filter(p => p.status === 'completed');
-    const paidAmount = completedPayments.reduce((sum, p) => sum + p.amount, 0);
-    
-    const isCurrentMonth = i === totalMonths - 1;
-    const isPastMonth = date < new Date(currentYear, currentMonth, 1);
-    const isFirstMonth = i === 0;
-    
-    const pendingAmount = Math.max(0, monthlyRent - paidAmount);
-    
-    let status: 'paid' | 'partial' | 'pending' | 'overdue' = 'pending';
-    if (paidAmount >= monthlyRent) {
-      status = 'paid';
-    } else if (paidAmount > 0) {
-      status = 'partial';
-    } else if (isPastMonth) {
-      status = 'overdue';
-    }
-    
-    months.push({
-      month: monthDisplay,
-      month_key: monthKey,
-      year: date.getFullYear(),
-      month_num: date.getMonth() + 1,
-      rentAmount: monthlyRent,
-      paidAmount,
-      pendingAmount,
-      status,
-      isCurrentMonth,
-      isPastMonth,
-      isFirstMonth,
-      payments: monthPayments.map(p => ({
-        id: p.id,
-        amount: p.amount,
-        status: p.status,
-        date: p.payment_date,
-        mode: p.payment_mode,
-        transaction_id: p.transaction_id
-      })),
-      lastPaymentDate: completedPayments[0]?.payment_date || null
-    });
-    
-    totalPaid += paidAmount;
-    
-    if (!isCurrentMonth) {
-      previousPending += pendingAmount;
-    }
-    
-    if (isCurrentMonth) {
-      paidThisMonth = paidAmount;
-    }
-  }
-
-  const currentMonthPending = Math.max(0, monthlyRent - paidThisMonth);
-  const totalToPayNow = monthlyRent + previousPending - paidThisMonth;
-
-  // Ensure all values are numbers and not NaN
-  const safeNumber = (value: any): number => {
-    const num = Number(value);
-    return isNaN(num) ? 0 : num;
-  };
-
-  return {
-    tenant_id: safeNumber(tenantId),
-    tenant_name: tenantName,
-    bed_assignment: bedAssignment,
-    monthly_rent: safeNumber(monthlyRent),
-    current_month_rent: safeNumber(monthlyRent),
-    paid_this_month: safeNumber(paidThisMonth),
-    pending_this_month: safeNumber(currentMonthPending),
-    previous_pending: safeNumber(previousPending),
-    total_paid: safeNumber(totalPaid),
-    total_pending: safeNumber(previousPending + currentMonthPending),
-    last_payment_date: months[months.length - 1]?.lastPaymentDate || null,
-    next_due_date: null,
-    months
-  };
-};
-
-const handleTenantSelect = async (tenantId: string) => {
-  setNewPayment(prev => ({ ...prev, tenant_id: tenantId, booking_id: null, amount: '' }));
-  setRentSummary(null);
-  
-  if (!tenantId) return;
-
-  setBookingLoading(true);
-  try {
-    const tenant = tenants.find(t => t.id.toString() === tenantId);
-    
-    const bedAssignment = await fetchTenantBedAssignment(tenantId);
-    
-    const paymentsResponse = await paymentApi.getPaymentsByTenant(parseInt(tenantId));
-    const tenantPayments = paymentsResponse.success ? paymentsResponse.data : [];
-    
-    const summary = calculateRentSummary(
-      parseInt(tenantId),
-      tenant?.full_name || 'Unknown',
-      bedAssignment,
-      tenantPayments
-    );
-    
-    setRentSummary(summary);
-    
-    // Calculate total to pay with proper number conversion
-    if (summary.monthly_rent > 0) {
-      const currentMonthRent = Number(summary.current_month_rent) || 0;
-      const previousPending = Number(summary.previous_pending) || 0;
-      const paidThisMonth = Number(summary.paid_this_month) || 0;
-      
-      const totalToPay = currentMonthRent + previousPending - paidThisMonth;
-      
-      setNewPayment(prev => ({
-        ...prev,
-        amount: totalToPay.toString(),
-      }));
-    }
-    
-  } catch (error) {
-    console.error('Error loading tenant details:', error);
-    toast.error('Failed to load tenant details');
-  } finally {
-    setBookingLoading(false);
-  }
-};
-
-
-  const handleDemandTenantSelect = async (tenantId: string) => {
-    setDemandPayment(prev => ({ ...prev, tenant_id: tenantId }));
-    setRentSummary(null);
+  // YOUR EXISTING LOGICAL CODE - PRESERVED EXACTLY
+  const handleTenantSelect = async (tenantId: string) => {
+    setNewPayment(prev => ({ ...prev, tenant_id: tenantId, booking_id: null, amount: '' }));
+    setPaymentFormData(null);
     
     if (!tenantId) return;
 
     setBookingLoading(true);
     try {
-      const tenant = tenants.find(t => t.id.toString() === tenantId);
-      
-      const bedAssignment = await fetchTenantBedAssignment(tenantId);
-      
-      const paymentsResponse = await paymentApi.getPaymentsByTenant(parseInt(tenantId));
-      const tenantPayments = paymentsResponse.success ? paymentsResponse.data : [];
-      
-      const summary = calculateRentSummary(
-        parseInt(tenantId),
-        tenant?.full_name || 'Unknown',
-        bedAssignment,
-        tenantPayments
-      );
-      
-      setRentSummary(summary);
-      
-      if (summary.monthly_rent > 0) {
-        setDemandPayment(prev => ({
+      const formResponse = await paymentApi.getTenantPaymentFormData(parseInt(tenantId));
+      if (formResponse.success) {
+        setPaymentFormData(formResponse.data);
+        setNewPayment(prev => ({
           ...prev,
-          amount: summary.monthly_rent + summary.previous_pending,
+          amount: formResponse.data.suggested_amount.toString()
         }));
       }
       
@@ -1686,6 +1496,47 @@ const handleTenantSelect = async (tenantId: string) => {
       setBookingLoading(false);
     }
   };
+
+  const handleDemandTenantSelect = async (tenantId: string) => {
+    setDemandPayment(prev => ({ ...prev, tenant_id: tenantId }));
+    setPaymentFormData(null);
+    
+    if (!tenantId) return;
+
+    setBookingLoading(true);
+    try {
+      const formResponse = await paymentApi.getTenantPaymentFormData(parseInt(tenantId));
+      if (formResponse.success) {
+        setPaymentFormData(formResponse.data);
+        setDemandPayment(prev => ({
+          ...prev,
+          amount: formResponse.data.suggested_amount
+        }));
+      }
+      
+    } catch (error) {
+      console.error('Error loading tenant details:', error);
+      toast.error('Failed to load tenant details');
+    } finally {
+      setBookingLoading(false);
+    }
+  };
+
+  // Add this function to handle receipt preview
+const handlePreviewReceipt = async (receiptId: number) => {
+  try {
+    const response = await paymentApi.getReceiptById(receiptId);
+    if (response.success) {
+      setSelectedReceipt(response.data);
+      setIsReceiptPreviewOpen(true);
+    } else {
+      toast.error('Failed to load receipt');
+    }
+  } catch (error) {
+    console.error('Error loading receipt:', error);
+    toast.error('Failed to load receipt');
+  }
+};
 
   const handleAddPayment = async () => {
     if (!newPayment.tenant_id || !newPayment.amount) {
@@ -1700,37 +1551,17 @@ const handleTenantSelect = async (tenantId: string) => {
         payment_type: newPayment.payment_type,
         amount: parseFloat(newPayment.amount),
         payment_mode: newPayment.payment_mode,
+        bank_name: newPayment.bank_name || null,
         transaction_id: newPayment.transaction_id || null,
         payment_date: newPayment.payment_date,
-        due_date: newPayment.due_date || null,
-        status: newPayment.status,
-        notes: newPayment.notes || null,
+        remark: newPayment.remark || null,
       };
 
       const response = await paymentApi.createPayment(payload);
 
       if (response.success && response.data) {
-        // If there's a proof file and payment mode is online, upload it
-        if (proofFile && newPayment.payment_mode === 'online') {
-          const formData = new FormData();
-          formData.append('proof', proofFile);
-          
-          await fetch(`/api/payments/${response.data.id}/proof`, {
-            method: 'POST',
-            body: formData,
-          });
-        }
-        
-        // Create receipt for completed payment
-        if (newPayment.status === 'completed') {
-          await paymentApi.createReceipt({
-            payment_id: response.data.id,
-            tenant_id: parseInt(newPayment.tenant_id),
-            amount: parseFloat(newPayment.amount),
-            payment_method: newPayment.payment_mode,
-            payment_date: newPayment.payment_date,
-            description: `Payment for ${newPayment.payment_type}`,
-          });
+        if (proofFile) {
+          await paymentApi.uploadPaymentProof(response.data.id, proofFile);
         }
         
         toast.success('Payment added successfully');
@@ -1751,28 +1582,24 @@ const handleTenantSelect = async (tenantId: string) => {
       return;
     }
 
+    setBookingLoading(true);
     try {
-      const totalAmount = demandPayment.include_late_fee && demandPayment.late_fee_amount > 0
-        ? demandPayment.amount + demandPayment.late_fee_amount
-        : demandPayment.amount;
-
       const payload = {
         tenant_id: parseInt(demandPayment.tenant_id),
-        amount: totalAmount,
-        payment_date: new Date().toISOString().split('T')[0],
-        payment_mode: 'pending',
-        status: 'pending',
-        notes: demandPayment.description
-          ? `${demandPayment.description}${demandPayment.include_late_fee ? ` (Late fee: ₹${demandPayment.late_fee_amount})` : ''}`
-          : demandPayment.include_late_fee ? `Late fee included: ₹${demandPayment.late_fee_amount}` : null,
+        amount: demandPayment.amount,
         due_date: demandPayment.due_date,
-        payment_type: demandPayment.payment_type
+        payment_type: demandPayment.payment_type,
+        description: demandPayment.description,
+        include_late_fee: demandPayment.include_late_fee,
+        late_fee_amount: demandPayment.late_fee_amount,
+        send_email: demandPayment.send_email,
+        send_sms: demandPayment.send_sms
       };
 
-      const response = await paymentApi.createPayment(payload);
+      const response = await paymentApi.createDemandPayment(payload);
 
       if (response.success) {
-        toast.success('Payment demand created successfully');
+        toast.success('Payment demand sent to tenant successfully');
         setIsDemandPaymentOpen(false);
         resetDemandPaymentForm();
         await loadData();
@@ -1780,43 +1607,15 @@ const handleTenantSelect = async (tenantId: string) => {
         toast.error(response.message || 'Failed to create payment demand');
       }
     } catch (error: any) {
+      console.error('Error creating demand:', error);
       toast.error(error.message || 'Failed to create payment demand');
+    } finally {
+      setBookingLoading(false);
     }
   };
 
-  const downloadReceipt = (receipt: Receipt) => {
-    const receiptContent = `
-ROOMAC - Payment Receipt
-========================
-
-Receipt Number: ${receipt.receipt_number}
-Date: ${receipt.payment_date ? new Date(receipt.payment_date).toLocaleDateString() : ''}
-
-Tenant: ${receipt.tenants?.full_name || ''}
-Email: ${receipt.tenants?.email || ''}
-
-Amount Paid: ₹${receipt.amount.toLocaleString()}
-Payment Method: ${receipt.payment_method || 'N/A'}
-Description: ${receipt.description || ''}
-
-Thank you for your payment!
-    `.trim();
-
-    const blob = new Blob([receiptContent], { type: 'text/plain' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${receipt.receipt_number || 'receipt'}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    window.URL.revokeObjectURL(url);
-    document.body.removeChild(a);
-
-    toast({ title: 'Success', description: 'Receipt downloaded' });
-  };
-
   const resetPaymentForm = () => {
-    setRentSummary(null);
+    setPaymentFormData(null);
     setProofFile(null);
     setProofPreview(null);
     setNewPayment({
@@ -1825,16 +1624,15 @@ Thank you for your payment!
       payment_type: 'rent',
       amount: '',
       payment_mode: 'cash',
+      bank_name: '',
       transaction_id: '',
       payment_date: new Date().toISOString().split('T')[0],
-      due_date: '',
-      status: 'completed',
-      notes: ''
+      remark: ''
     });
   };
 
   const resetDemandPaymentForm = () => {
-    setRentSummary(null);
+    setPaymentFormData(null);
     setDemandPayment({
       tenant_id: '',
       payment_type: 'rent',
@@ -1848,74 +1646,6 @@ Thank you for your payment!
     });
   };
 
-  const updatePaymentStatus = async (paymentId: number, newStatus: string) => {
-    try {
-      const response = await paymentApi.updatePaymentStatus(paymentId, newStatus);
-
-      if (response.success) {
-        toast.success('Payment status updated');
-        await loadData();
-      } else {
-        toast.error(response.message || 'Failed to update payment status');
-      }
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to update payment status');
-    }
-  };
-
-  const getStatusBadge = (status: string) => {
-    const variants: Record<string, { className: string, icon: any }> = {
-      completed: { className: 'bg-green-100 text-green-800 border-green-200', icon: CheckCircle },
-      pending: { className: 'bg-yellow-100 text-yellow-800 border-yellow-200', icon: AlertCircle },
-      failed: { className: 'bg-red-100 text-red-800 border-red-200', icon: XCircle },
-      refunded: { className: 'bg-purple-100 text-purple-800 border-purple-200', icon: XCircle }
-    };
-
-    const config = variants[status] || variants.pending;
-    const Icon = config.icon;
-
-    return (
-      <Badge variant="outline" className={`${config.className} flex items-center gap-1 text-[10px] px-1.5 py-0`}>
-        <Icon className="h-2.5 w-2.5" />
-        {status}
-      </Badge>
-    );
-  };
-
-  const filteredPayments = payments.filter(payment => {
-    const tenant = tenants.find(t => t.id.toString() === payment.tenant_id.toString());
-    const tenantName = tenant?.full_name || payment.tenant_name || '';
-    
-    const matchesDate = !filters.date || 
-      (payment.payment_date && format(new Date(payment.payment_date), 'dd MMM yyyy')
-        .toLowerCase().includes(filters.date.toLowerCase()));
-    
-    const matchesTenant = !filters.tenant ||
-      tenantName.toLowerCase().includes(filters.tenant.toLowerCase());
-    
-    const matchesNotes = !filters.notes ||
-      (payment.notes && payment.notes.toLowerCase().includes(filters.notes.toLowerCase()));
-    
-    const matchesAmount = !filters.amount ||
-      payment.amount.toString().includes(filters.amount);
-    
-    const matchesMethod = !filters.method ||
-      (payment.payment_mode && payment.payment_mode.toLowerCase().includes(filters.method.toLowerCase()));
-    
-    const matchesTransactionId = !filters.transactionId ||
-      (payment.transaction_id && payment.transaction_id.toLowerCase().includes(filters.transactionId.toLowerCase()));
-    
-    const matchesDueDate = !filters.dueDate ||
-      (payment.due_date && format(new Date(payment.due_date), 'dd MMM yyyy')
-        .toLowerCase().includes(filters.dueDate.toLowerCase()));
-    
-    const matchesStatus = !filters.status ||
-      payment.status.toLowerCase().includes(filters.status.toLowerCase());
-
-    return matchesDate && matchesTenant && matchesNotes && matchesAmount && 
-           matchesMethod && matchesTransactionId && matchesDueDate && matchesStatus;
-  });
-
   const getTenantName = (tenantId: number) => {
     const tenant = tenants.find(t => t.id === tenantId);
     return tenant?.full_name || 'Unknown Tenant';
@@ -1926,166 +1656,189 @@ Thank you for your payment!
     return tenant?.phone || '';
   };
 
-  // Bed Assignment Details Component
-// Bed Assignment Details Component
-const BedAssignmentDetails = ({ assignment }: { assignment: BedAssignment | null }) => {
-  if (!assignment) {
+  const getDemandStatusBadge = (status: string) => {
+    const variants: Record<string, { className: string, icon: any }> = {
+      pending: { className: 'bg-yellow-100 text-yellow-800 border-yellow-200', icon: Clock3 },
+      paid: { className: 'bg-green-100 text-green-800 border-green-200', icon: CheckCircle2 },
+      partial: { className: 'bg-blue-100 text-blue-800 border-blue-200', icon: AlertCircle },
+      overdue: { className: 'bg-red-100 text-red-800 border-red-200', icon: AlertTriangle },
+      cancelled: { className: 'bg-gray-100 text-gray-800 border-gray-200', icon: XCircleIcon }
+    };
+
+    const config = variants[status] || variants.pending;
+    const Icon = config.icon;
+
     return (
-      <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
-        <p className="text-xs text-amber-700">No active bed assignment found for this tenant.</p>
+      <Badge variant="outline" className={`${config.className} flex items-center gap-1 text-xs px-2 py-1`}>
+        <Icon className="h-3 w-3" />
+        {status}
+      </Badge>
+    );
+  };
+
+  // Bed Assignment Details Component - Table Row Format
+  const BedAssignmentTable = ({ formData }: { formData: PaymentFormData | null }) => {
+    if (!formData?.room_info) return null;
+
+    return (
+      <div className="bg-white rounded-lg border border-slate-200 mb-4 overflow-hidden">
+        <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
+          <h4 className="text-xs font-semibold text-slate-700 flex items-center gap-2">
+            <Bed className="h-3.5 w-3.5" />
+            Bed Assignment Details
+          </h4>
+        </div>
+        <div className="p-4">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50">
+              <tr>
+                <th className="text-left p-2 text-xs font-medium text-slate-600">Property</th>
+                <th className="text-left p-2 text-xs font-medium text-slate-600">Room</th>
+                <th className="text-left p-2 text-xs font-medium text-slate-600">Bed #</th>
+                <th className="text-left p-2 text-xs font-medium text-slate-600">Bed Type</th>
+                <th className="text-left p-2 text-xs font-medium text-slate-600">Monthly Rent</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="border-t border-slate-200">
+                <td className="p-2 text-sm">{formData.room_info.property_name}</td>
+                <td className="p-2 text-sm">{formData.room_info.room_number}</td>
+                <td className="p-2 text-sm font-medium">#{formData.room_info.bed_number}</td>
+                <td className="p-2 text-sm capitalize">{formData.room_info.bed_type}</td>
+                <td className="p-2 text-sm font-semibold text-green-600">₹{formData.monthly_rent.toLocaleString()}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     );
-  }
+  };
 
-  return (
-    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
-      <h4 className="text-xs font-semibold text-blue-800 mb-2 flex items-center gap-1">
-        <Bed className="h-3 w-3" />
-        Bed Assignment Details
-      </h4>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
-        <div>
-          <p className="text-blue-600">Bed</p>
-          <p className="font-medium">#{assignment.bed_number} ({assignment.bed_type || 'Standard'})</p>
+  // Rent Summary Table Component
+  const RentSummaryTable = ({ formData }: { formData: PaymentFormData | null }) => {
+    if (!formData) return null;
+
+    return (
+      <div className="bg-white rounded-lg border border-slate-200 mb-4 overflow-hidden">
+        <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
+          <h4 className="text-xs font-semibold text-slate-700 flex items-center gap-2">
+            <IndianRupee className="h-3.5 w-3.5" />
+            Rent Summary
+          </h4>
         </div>
-        <div>
-          <p className="text-blue-600">Monthly Rent</p>
-          <p className="font-medium text-green-600">₹{(assignment.tenant_rent || 0).toLocaleString()}</p>
-        </div>
-        <div>
-          <p className="text-blue-600">Room</p>
-          <p className="font-medium">{assignment.room?.room_number || 'N/A'} 
-            {assignment.room?.floor && ` (Floor ${assignment.room.floor})`}
-          </p>
-        </div>
-        <div>
-          <p className="text-blue-600">Property</p>
-          <p className="font-medium truncate">{assignment.property?.name || 'N/A'}</p>
+        <div className="p-4">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50">
+              <tr>
+                <th className="text-left p-2 text-xs font-medium text-slate-600">Month</th>
+                <th className="text-right p-2 text-xs font-medium text-slate-600">Rent</th>
+                <th className="text-right p-2 text-xs font-medium text-slate-600">Paid</th>
+                <th className="text-right p-2 text-xs font-medium text-slate-600">Pending</th>
+                <th className="text-center p-2 text-xs font-medium text-slate-600">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {/* Previous Month - if has pending */}
+              {formData.previous_month.pending > 0 && (
+                <tr className="border-t border-slate-200">
+                  <td className="p-2 text-sm">{formData.previous_month.month} {formData.previous_month.year}</td>
+                  <td className="p-2 text-right">₹{formData.monthly_rent.toLocaleString()}</td>
+                  <td className="p-2 text-right text-green-600">₹{formData.previous_month.paid.toLocaleString()}</td>
+                  <td className="p-2 text-right text-amber-600 font-medium">₹{formData.previous_month.pending.toLocaleString()}</td>
+                  <td className="p-2 text-center">
+                    <Badge className="bg-amber-100 text-amber-800">Partial</Badge>
+                  </td>
+                </tr>
+              )}
+              
+              {/* Current Month */}
+              <tr className="border-t border-slate-200">
+                <td className="p-2 text-sm font-medium">{formData.current_month.month} {formData.current_month.year} (Current)</td>
+                <td className="p-2 text-right">₹{formData.monthly_rent.toLocaleString()}</td>
+                <td className="p-2 text-right text-green-600">₹{formData.current_month.paid.toLocaleString()}</td>
+                <td className="p-2 text-right text-amber-600 font-medium">₹{formData.current_month.pending.toLocaleString()}</td>
+                <td className="p-2 text-center">
+                  {formData.current_month.paid === 0 ? (
+                    <Badge variant="outline" className="bg-slate-100">Pending</Badge>
+                  ) : formData.current_month.paid >= formData.monthly_rent ? (
+                    <Badge className="bg-green-100 text-green-800">Paid</Badge>
+                  ) : (
+                    <Badge className="bg-blue-100 text-blue-800">Partial</Badge>
+                  )}
+                </td>
+              </tr>
+
+              {/* Total Row */}
+              <tr className="border-t-2 border-slate-300 bg-slate-50">
+                <td className="p-2 text-sm font-bold" colSpan={2}>Total to Pay</td>
+                <td className="p-2 text-right font-bold text-green-600">₹{formData.current_month.paid.toLocaleString()}</td>
+                <td className="p-2 text-right font-bold text-amber-600">₹{formData.total_pending.toLocaleString()}</td>
+                <td className="p-2 text-center">
+                  <Badge className="bg-purple-100 text-purple-800 font-semibold">
+                    ₹{formData.suggested_amount.toLocaleString()}
+                  </Badge>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
-    </div>
-  );
-};
+    );
+  };
 
-  // Rent History Component
-// Rent History Component
-const RentHistoryComponent = ({ summary }: { summary: RentSummary }) => {
-  if (!summary) return null;
+  // Filtered payments
+  const filteredPayments = payments.filter(payment => {
+    const tenantName = getTenantName(payment.tenant_id).toLowerCase();
+    
+    const matchesDate = !filters.date || 
+      format(new Date(payment.payment_date), 'dd/MM/yy').includes(filters.date);
+    
+    const matchesTenant = !filters.tenant ||
+      tenantName.includes(filters.tenant.toLowerCase());
+    
+    const matchesRemark = !filters.remark ||
+      (payment.remark && payment.remark.toLowerCase().includes(filters.remark.toLowerCase()));
+    
+    const matchesAmount = !filters.amount ||
+      payment.amount.toString().includes(filters.amount);
+    
+    const matchesMethod = !filters.method ||
+      payment.payment_mode.toLowerCase().includes(filters.method.toLowerCase());
+    
+    const matchesTransactionId = !filters.transactionId ||
+      (payment.transaction_id && payment.transaction_id.toLowerCase().includes(filters.transactionId.toLowerCase()));
 
-  // Ensure all values are numbers
-  const currentMonthRent = Number(summary.current_month_rent) || 0;
-  const paidThisMonth = Number(summary.paid_this_month) || 0;
-  const previousPending = Number(summary.previous_pending) || 0;
+    return matchesDate && matchesTenant && matchesRemark && matchesAmount && 
+           matchesMethod && matchesTransactionId;
+  });
+
+  // Filtered demands - with null checks to prevent crashes
+const filteredDemands = demands.filter(demand => {
+  const tenantName = getTenantName(demand.tenant_id).toLowerCase();
   
-  const totalToPayNow = currentMonthRent + previousPending - paidThisMonth;
+  const matchesStatus = demandFilters.status === 'all' || !demandFilters.status || demand.status === demandFilters.status;
+  const matchesTenant = !demandFilters.tenant || tenantName.includes(demandFilters.tenant.toLowerCase());
+  const matchesFromDate = !demandFilters.from_date || new Date(demand.created_at) >= new Date(demandFilters.from_date);
+  const matchesToDate = !demandFilters.to_date || new Date(demand.created_at) <= new Date(demandFilters.to_date);
 
-  return (
-    <div className="space-y-3 mb-4">
-      <BedAssignmentDetails assignment={summary.bed_assignment} />
+  return matchesStatus && matchesTenant && matchesFromDate && matchesToDate;
+});
 
-      {summary.bed_assignment ? (
-        <>
-          {/* Summary Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-            <div className="bg-blue-50 p-2 rounded border border-blue-200">
-              <p className="text-[10px] text-blue-600">Current Month</p>
-              <p className="text-sm font-bold text-blue-700">
-                ₹{currentMonthRent.toLocaleString('en-IN')}
-              </p>
-            </div>
-            <div className="bg-green-50 p-2 rounded border border-green-200">
-              <p className="text-[10px] text-green-600">Paid This Month</p>
-              <p className="text-sm font-bold text-green-700">
-                ₹{paidThisMonth.toLocaleString('en-IN')}
-              </p>
-            </div>
-            <div className="bg-yellow-50 p-2 rounded border border-yellow-200">
-              <p className="text-[10px] text-yellow-600">Previous Pending</p>
-              <p className="text-sm font-bold text-yellow-700">
-                ₹{previousPending.toLocaleString('en-IN')}
-              </p>
-            </div>
-            <div className="bg-purple-50 p-2 rounded border border-purple-200">
-              <p className="text-[10px] text-purple-600">Total to Pay</p>
-              <p className="text-sm font-bold text-purple-700">
-                ₹{isNaN(totalToPayNow) ? '0' : totalToPayNow.toLocaleString('en-IN')}
-              </p>
-            </div>
-          </div>
-
-          {/* Month-wise Table */}
-          {summary.months && summary.months.length > 0 && (
-            <div className="border rounded overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead className="bg-gray-100">
-                  <tr>
-                    <th className="p-2 text-left">Month</th>
-                    <th className="p-2 text-right">Expected</th>
-                    <th className="p-2 text-right">Paid</th>
-                    <th className="p-2 text-right">Pending</th>
-                    <th className="p-2 text-center">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {summary.months.map((month) => {
-                    const rentAmount = Number(month.rentAmount) || 0;
-                    const paidAmount = Number(month.paidAmount) || 0;
-                    const pendingAmount = Number(month.pendingAmount) || 0;
-                    
-                    return (
-                      <tr key={month.month_key} className="border-t">
-                        <td className="p-2">
-                          {month.month}
-                          {month.isCurrentMonth && (
-                            <span className="ml-1 text-[8px] bg-blue-100 text-blue-600 px-1 py-0.5 rounded">Current</span>
-                          )}
-                        </td>
-                        <td className="p-2 text-right">₹{rentAmount.toLocaleString('en-IN')}</td>
-                        <td className="p-2 text-right text-green-600">
-                          {paidAmount > 0 ? `₹${paidAmount.toLocaleString('en-IN')}` : '-'}
-                        </td>
-                        <td className="p-2 text-right text-yellow-600">
-                          {pendingAmount > 0 ? `₹${pendingAmount.toLocaleString('en-IN')}` : '-'}
-                        </td>
-                        <td className="p-2 text-center">
-                          {month.status === 'paid' && <Badge className="bg-green-100 text-green-800 text-[8px]">Paid</Badge>}
-                          {month.status === 'partial' && <Badge className="bg-yellow-100 text-yellow-800 text-[8px]">Partial</Badge>}
-                          {month.status === 'pending' && <Badge variant="outline" className="text-[8px]">Pending</Badge>}
-                          {month.status === 'overdue' && <Badge className="bg-red-100 text-red-800 text-[8px]">Overdue</Badge>}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </>
-      ) : (
-        <div className="text-center py-4 bg-gray-50 rounded">
-          <p className="text-xs text-gray-500">No rent history available. Please assign a bed first.</p>
-        </div>
-      )}
-    </div>
-  );
+const handleUpdateDemandStatus = async (demandId: number, newStatus: string) => {
+  try {
+    const response = await paymentApi.updateDemandStatus(demandId, newStatus);
+    if (response.success) {
+      toast.success(`Demand status updated to ${newStatus}`);
+      // Refresh demands list
+      loadDemands();
+    } else {
+      toast.error(response.message || 'Failed to update status');
+    }
+  } catch (error) {
+    console.error('Error updating demand status:', error);
+    toast.error('Failed to update status');
+  }
 };
-
-  // Stat Card Component
-  const StatCard = ({ title, value, icon: Icon, color, bgColor }: any) => (
-    <Card className={`${bgColor} border-0 shadow-sm`}>
-      <CardContent className="p-2 sm:p-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-[10px] sm:text-xs text-slate-600 font-medium">{title}</p>
-            <p className="text-sm sm:text-base font-bold text-slate-800">{value}</p>
-          </div>
-          <div className={`p-1.5 rounded-lg ${color}`}>
-            <Icon className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
 
   return (
     <div className="bg-slate-50">
@@ -2100,18 +1853,11 @@ const RentHistoryComponent = ({ summary }: { summary: RentSummary }) => {
             bgColor="bg-gradient-to-br from-blue-50 to-blue-100"
           />
           <StatCard
-            title="Pending"
-            value={`₹${stats?.pending_amount?.toLocaleString() || '0'}`}
-            icon={AlertCircle}
-            color="bg-yellow-600"
-            bgColor="bg-gradient-to-br from-yellow-50 to-yellow-100"
-          />
-          <StatCard
-            title="Overdue"
-            value={`₹${stats?.overdue_amount?.toLocaleString() || '0'}`}
-            icon={Clock}
-            color="bg-red-600"
-            bgColor="bg-gradient-to-br from-red-50 to-red-100"
+            title="This Month"
+            value={`₹${stats?.current_month_collected?.toLocaleString() || '0'}`}
+            icon={TrendingUp}
+            color="bg-green-600"
+            bgColor="bg-gradient-to-br from-green-50 to-green-100"
           />
           <StatCard
             title="Transactions"
@@ -2120,15 +1866,23 @@ const RentHistoryComponent = ({ summary }: { summary: RentSummary }) => {
             color="bg-purple-600"
             bgColor="bg-gradient-to-br from-purple-50 to-purple-100"
           />
+          <StatCard
+            title="Rent Collected"
+            value={`₹${stats?.rent_collected?.toLocaleString() || '0'}`}
+            icon={Banknote}
+            color="bg-amber-600"
+            bgColor="bg-gradient-to-br from-amber-50 to-amber-100"
+          />
         </div>
 
         {/* Tabs Container */}
         <Tabs defaultValue="payments" className="w-full">
           {/* Tabs Header Row */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2 sticky top-28 z-10">
-            <TabsList className="h-8 w-full sm:w-auto grid grid-cols-2 sm:inline-flex">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2 sticky top-28 z-10 bg-slate-50 py-2">
+            <TabsList className="h-8 w-full sm:w-auto grid grid-cols-3 sm:inline-flex">
               <TabsTrigger value="payments" className="text-xs px-3 py-1">Payments</TabsTrigger>
               <TabsTrigger value="receipts" className="text-xs px-3 py-1">Receipts</TabsTrigger>
+              <TabsTrigger value="demands" className="text-xs px-3 py-1">Demands</TabsTrigger>
             </TabsList>
             
             <div className="flex justify-end gap-2">
@@ -2154,290 +1908,226 @@ const RentHistoryComponent = ({ summary }: { summary: RentSummary }) => {
 
           {/* Payments Tab Content */}
           <TabsContent value="payments" className="space-y-2 mt-0">
-            <Card className="border-0 shadow-sm">
-              <div className="relative">
-                {/* Sticky Header Table */}
-                <div className="overflow-auto max-h-[calc(100vh-320px)] md:max-h-[calc(100vh-240px)]">
-                  <Table>
-                    <TableHeader className="sticky top-0 z-20 bg-white">
-                      {/* Column Headers */}
-                      <TableRow className="bg-slate-100">
-                        <TableHead className="text-xs font-semibold py-2">Date</TableHead>
-                        <TableHead className="text-xs font-semibold py-2">Tenant</TableHead>
-                        <TableHead className="text-xs font-semibold py-2">Notes</TableHead>
-                        <TableHead className="text-xs font-semibold py-2">Amount</TableHead>
-                        <TableHead className="text-xs font-semibold py-2">Method</TableHead>
-                        <TableHead className="text-xs font-semibold py-2">Transaction ID</TableHead>
-                        <TableHead className="text-xs font-semibold py-2">Due Date</TableHead>
-                        <TableHead className="text-xs font-semibold py-2">Status</TableHead>
-                        <TableHead className="text-xs font-semibold py-2">Actions</TableHead>
-                      </TableRow>
-                      
-                      {/* Filter Row */}
-                      <TableRow className="bg-slate-50 sticky top-[41px] z-20">
-                        <TableHead className="p-1">
-                          <Input
-                            placeholder="Filter"
-                            value={filters.date}
-                            onChange={(e) => setFilters({ ...filters, date: e.target.value })}
-                            className="h-7 text-xs"
-                          />
-                        </TableHead>
-                        <TableHead className="p-1">
-                          <Input
-                            placeholder="Filter"
-                            value={filters.tenant}
-                            onChange={(e) => setFilters({ ...filters, tenant: e.target.value })}
-                            className="h-7 text-xs"
-                          />
-                        </TableHead>
-                        <TableHead className="p-1">
-                          <Input
-                            placeholder="Filter"
-                            value={filters.notes}
-                            onChange={(e) => setFilters({ ...filters, notes: e.target.value })}
-                            className="h-7 text-xs"
-                          />
-                        </TableHead>
-                        <TableHead className="p-1">
-                          <Input
-                            placeholder="Filter"
-                            value={filters.amount}
-                            onChange={(e) => setFilters({ ...filters, amount: e.target.value })}
-                            className="h-7 text-xs"
-                          />
-                        </TableHead>
-                        <TableHead className="p-1">
-                          <Input
-                            placeholder="Filter"
-                            value={filters.method}
-                            onChange={(e) => setFilters({ ...filters, method: e.target.value })}
-                            className="h-7 text-xs"
-                          />
-                        </TableHead>
-                        <TableHead className="p-1">
-                          <Input
-                            placeholder="Filter"
-                            value={filters.transactionId}
-                            onChange={(e) => setFilters({ ...filters, transactionId: e.target.value })}
-                            className="h-7 text-xs"
-                          />
-                        </TableHead>
-                        <TableHead className="p-1">
-                          <Input
-                            placeholder="Filter"
-                            value={filters.dueDate}
-                            onChange={(e) => setFilters({ ...filters, dueDate: e.target.value })}
-                            className="h-7 text-xs"
-                          />
-                        </TableHead>
-                        <TableHead className="p-1">
-                          <Input
-                            placeholder="Filter"
-                            value={filters.status}
-                            onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-                            className="h-7 text-xs"
-                          />
-                        </TableHead>
-                        <TableHead className="p-1"></TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    
-                    <TableBody>
-                      {loading ? (
-                        <TableRow>
-                          <TableCell colSpan={9} className="text-center py-8 text-xs text-slate-500">
-                            <div className="flex justify-center items-center">
-                              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mr-2" />
-                              Loading payments...
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ) : filteredPayments.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={9} className="text-center py-8 text-xs text-slate-500">
-                            <CreditCard className="h-8 w-8 mx-auto mb-2 text-slate-300" />
-                            No payments found
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        filteredPayments.map((payment) => (
-                          <TableRow key={payment.id} className="hover:bg-slate-50">
-                            <TableCell className="py-2 text-xs whitespace-nowrap">
-                              {payment.payment_date ? format(new Date(payment.payment_date), 'dd/MM/yy') : '-'}
-                            </TableCell>
-                            <TableCell className="py-2">
-                              <p className="text-xs font-medium whitespace-nowrap">{getTenantName(payment.tenant_id)}</p>
-                              <p className="text-[10px] text-slate-500 whitespace-nowrap">{getTenantPhone(payment.tenant_id)}</p>
-                            </TableCell>
-                            <TableCell className="py-2 text-xs max-w-[120px] truncate">
-                              {payment.notes || '-'}
-                            </TableCell>
-                            <TableCell className="py-2 text-xs font-medium whitespace-nowrap">
-                              ₹{payment.amount.toLocaleString()}
-                            </TableCell>
-                            <TableCell className="py-2 text-xs capitalize whitespace-nowrap">
-                              {payment.payment_mode || '-'}
-                            </TableCell>
-                            <TableCell className="py-2 text-[10px] font-mono whitespace-nowrap">
-                              {payment.transaction_id ? payment.transaction_id.substring(0, 8) + '...' : '-'}
-                            </TableCell>
-                            <TableCell className="py-2 text-xs whitespace-nowrap">
-                              {payment.due_date ? format(new Date(payment.due_date), 'dd/MM/yy') : '-'}
-                            </TableCell>
-                            <TableCell className="py-2 whitespace-nowrap">
-                              {getStatusBadge(payment.status)}
-                            </TableCell>
-                            <TableCell className="py-2 whitespace-nowrap">
-                              {payment.status === 'pending' && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-6 text-[10px] px-2"
-                                  onClick={() => updatePaymentStatus(payment.id, 'completed')}
-                                >
-                                  Mark Paid
-                                </Button>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
-              </div>
-            </Card>
+            <PaymentsTable 
+              payments={filteredPayments}
+              loading={loading}
+              filters={filters}
+              setFilters={setFilters}
+              getTenantName={getTenantName}
+              getTenantPhone={getTenantPhone}
+            />
           </TabsContent>
 
-          {/* Receipts Tab Content */}
-          <TabsContent value="receipts" className="mt-0">
+          {/* Demands Tab Content */}
+          <TabsContent value="demands" className="mt-0">
             <Card className="border-0 shadow-sm">
-              <CardHeader className="p-3 bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-t-lg sticky top-0 z-10">
+              <CardHeader className="p-3 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-t-lg sticky top-0 z-10">
                 <CardTitle className="flex items-center gap-2 text-sm">
-                  <FileText className="h-4 w-4" />
-                  Payment Receipts
+                  <Bell className="h-4 w-4" />
+                  Payment Demands
                 </CardTitle>
-                <CardDescription className="text-blue-50 text-xs">
-                  View and download payment receipts
+                <CardDescription className="text-orange-100 text-xs">
+                  View and manage payment requests sent to tenants
                 </CardDescription>
               </CardHeader>
 
               <CardContent className="p-2">
-                <div className="overflow-auto max-h-[calc(100vh-380px)]">
+                {/* Demand Filters */}
+                <div className="grid grid-cols-4 gap-2 mb-3 p-2 bg-slate-50 rounded-lg">
+                  <Input
+                    placeholder="Filter by tenant"
+                    value={demandFilters.tenant}
+                    onChange={(e) => setDemandFilters({ ...demandFilters, tenant: e.target.value })}
+                    className="h-8 text-xs"
+                  />
+                  <Select value={demandFilters.status} onValueChange={(value) => setDemandFilters({ ...demandFilters, status: value })}>
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="All Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Status</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="paid">Paid</SelectItem>
+                      <SelectItem value="partial">Partial</SelectItem>
+                      <SelectItem value="overdue">Overdue</SelectItem>
+                      <SelectItem value="cancelled">Cancelled</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    type="date"
+                    placeholder="From"
+                    value={demandFilters.from_date}
+                    onChange={(e) => setDemandFilters({ ...demandFilters, from_date: e.target.value })}
+                    className="h-8 text-xs"
+                  />
+                  <Input
+                    type="date"
+                    placeholder="To"
+                    value={demandFilters.to_date}
+                    onChange={(e) => setDemandFilters({ ...demandFilters, to_date: e.target.value })}
+                    className="h-8 text-xs"
+                  />
+                </div>
+
+                <div className="overflow-auto max-h-[calc(100vh-420px)]">
                   <Table>
                     <TableHeader className="sticky top-0 z-10 bg-white">
                       <TableRow className="bg-slate-100">
-                        <TableHead className="text-xs py-2">Receipt No.</TableHead>
                         <TableHead className="text-xs py-2">Date</TableHead>
                         <TableHead className="text-xs py-2">Tenant</TableHead>
                         <TableHead className="text-xs py-2">Amount</TableHead>
-                        <TableHead className="text-xs py-2">Method</TableHead>
+                        <TableHead className="text-xs py-2">Late Fee</TableHead>
+                        <TableHead className="text-xs py-2">Total</TableHead>
+                        <TableHead className="text-xs py-2">Due Date</TableHead>
+                        <TableHead className="text-xs py-2">Status</TableHead>
+                        <TableHead className="text-xs py-2">Room/Bed</TableHead>
                         <TableHead className="text-xs py-2">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
-                    <TableBody>
-                      {loading ? (
-                        <TableRow>
-                          <TableCell colSpan={6} className="text-center py-8 text-xs text-slate-500">
-                            <div className="flex justify-center items-center">
-                              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mr-2" />
-                              Loading receipts...
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ) : receipts.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={6} className="text-center py-8 text-xs text-slate-500">
-                            <FileText className="h-8 w-8 mx-auto mb-2 text-slate-300" />
-                            No receipts found
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        receipts.map((receipt) => {
-                          const tenant = tenants.find(t => t.id.toString() === receipt.tenant_id.toString());
-                          return (
-                            <TableRow key={receipt.id}>
-                              <TableCell className="py-2 text-xs font-mono whitespace-nowrap">
-                                {receipt.receipt_number}
-                              </TableCell>
-                              <TableCell className="py-2 text-xs whitespace-nowrap">
-                                {receipt.payment_date ? format(new Date(receipt.payment_date), 'dd/MM/yy') : '-'}
-                              </TableCell>
-                              <TableCell className="py-2">
-                                <p className="text-xs whitespace-nowrap">{tenant?.full_name || 'N/A'}</p>
-                              </TableCell>
-                              <TableCell className="py-2 text-xs font-medium whitespace-nowrap">
-                                ₹{receipt.amount.toLocaleString()}
-                              </TableCell>
-                              <TableCell className="py-2 text-xs capitalize whitespace-nowrap">
-                                {receipt.payment_method || '-'}
-                              </TableCell>
-                              <TableCell className="py-2 whitespace-nowrap">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-6 text-[10px] px-2"
-                                  onClick={() => downloadReceipt(receipt)}
-                                >
-                                  <Download className="h-3 w-3 mr-1" />
-                                  Download
-                                </Button>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })
-                      )}
-                    </TableBody>
+<TableBody>
+  {loading ? (
+    <TableRow>
+      <TableCell colSpan={8} className="text-center py-8 text-xs text-slate-500">
+        <div className="flex justify-center items-center">
+          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-orange-600 mr-2" />
+          Loading demands...
+        </div>
+      </TableCell>
+    </TableRow>
+  ) : filteredDemands.length === 0 ? (
+    <TableRow>
+      <TableCell colSpan={8} className="text-center py-8 text-xs text-slate-500">
+        <Bell className="h-8 w-8 mx-auto mb-2 text-slate-300" />
+        No demands found
+      </TableCell>
+    </TableRow>
+  ) : (
+    filteredDemands.map((demand) => (
+      <TableRow key={demand.id} className="hover:bg-slate-50">
+        <TableCell className="py-2 text-xs whitespace-nowrap">
+          {format(new Date(demand.created_at), 'dd/MM/yy')}
+        </TableCell>
+        <TableCell className="py-2">
+          <p className="text-xs font-medium">{getTenantName(demand.tenant_id)}</p>
+          <p className="text-[10px] text-slate-500">{getTenantPhone(demand.tenant_id)}</p>
+        </TableCell>
+        <TableCell className="py-2 text-xs font-medium">
+          ₹{Number(demand.amount).toLocaleString('en-IN')}
+        </TableCell>
+        <TableCell className="py-2 text-xs text-amber-600">
+          {demand.late_fee > 0 ? `+₹${Number(demand.late_fee).toLocaleString('en-IN')}` : '-'}
+        </TableCell>
+        <TableCell className="py-2 text-xs font-bold text-purple-600">
+          ₹{(Number(demand.amount) + Number(demand.late_fee || 0)).toLocaleString('en-IN')}
+        </TableCell>
+        <TableCell className="py-2 text-xs whitespace-nowrap">
+          <span className={new Date(demand.due_date) < new Date() && demand.status === 'pending' ? 'text-red-600 font-medium' : ''}>
+            {format(new Date(demand.due_date), 'dd/MM/yy')}
+          </span>
+        </TableCell>
+        <TableCell className="py-2">
+          {getDemandStatusBadge(demand.status)}
+        </TableCell>
+        <TableCell className="py-2 text-xs">
+          {demand.room_number || 'N/A'} {demand.bed_number ? `(B-${demand.bed_number})` : ''}
+        </TableCell>
+<TableCell className="py-2">
+  <Select
+    value={demand.status}
+    onValueChange={(newStatus) => handleUpdateDemandStatus(demand.id, newStatus)}
+  >
+    <SelectTrigger className="h-7 w-24 text-xs">
+      <SelectValue />
+    </SelectTrigger>
+    <SelectContent>
+      <SelectItem value="pending">Pending</SelectItem>
+      <SelectItem value="paid">Paid</SelectItem>
+      <SelectItem value="partial">Partial</SelectItem>
+      <SelectItem value="overdue">Overdue</SelectItem>
+      <SelectItem value="cancelled">Cancelled</SelectItem>
+    </SelectContent>
+  </Select>
+</TableCell>
+      </TableRow>
+    ))
+  )}
+</TableBody>
                   </Table>
                 </div>
               </CardContent>
             </Card>
           </TabsContent>
+
+          {/* Receipts Tab Content */}
+          <TabsContent value="receipts" className="mt-0">
+            <ReceiptsTable 
+              receipts={receipts}
+              loading={loading}
+              getTenantName={getTenantName}
+            />
+          </TabsContent>
         </Tabs>
       </div>
 
-      {/* Add Payment Dialog */}
+      {/* Add Payment Dialog - Your existing code with horizontal layout */}
       <Dialog open={isAddPaymentOpen} onOpenChange={setIsAddPaymentOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0">
-          <DialogHeader className="relative bg-gradient-to-r from-blue-600 to-cyan-500 text-white p-4 rounded-t-lg sticky top-0 z-10">
-            <DialogClose asChild>
-              <button className="absolute right-4 top-4 text-white/80 hover:text-white transition">
-                <X className="h-5 w-5" />
-              </button>
-            </DialogClose>
-            <DialogTitle className="flex items-center gap-2 text-lg">
-              <Plus className="h-5 w-5" />
-              Record New Payment
-            </DialogTitle>
-            <DialogDescription className="text-blue-50 text-sm">
-              Add a new payment record for a tenant
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="max-w-4xl max-h-[600px] p-0 gap-0 overflow-auto">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 rounded-t-lg sticky top-0 z-20">
+            <div className="flex items-center justify-between">
+              <div>
+                <DialogTitle className="text-white text-lg font-semibold flex items-center gap-2">
+                  <div className="p-1 bg-white/20 rounded-lg">
+                    <Plus className="h-5 w-5" />
+                  </div>
+                  Record New Payment
+                </DialogTitle>
+                <DialogDescription className="text-blue-100 text-sm mt-1">
+                  Add a new payment record for a tenant
+                </DialogDescription>
+              </div>
+              <DialogClose asChild>
+                <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 h-8 w-8">
+                  <X className="h-4 w-4" />
+                </Button>
+              </DialogClose>
+            </div>
+          </div>
 
-          <div className="p-4 space-y-3">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Tenant *</Label>
+          {/* Form Content */}
+          <div className="p-6">
+            {/* Tenant Selection Row */}
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-slate-700">Tenant *</Label>
                 <Select value={newPayment.tenant_id} onValueChange={handleTenantSelect}>
-                  <SelectTrigger className="h-8 text-sm">
-                    <SelectValue placeholder="Select tenant" />
+                  <SelectTrigger className="h-10 bg-white border-slate-200">
+                    <SelectValue placeholder="Choose a tenant..." />
                   </SelectTrigger>
                   <SelectContent>
                     {tenants.map(tenant => (
                       <SelectItem key={tenant.id} value={tenant.id.toString()}>
-                        {tenant.full_name}
+                        <div className="flex items-center gap-2">
+                          <User className="h-3.5 w-3.5 text-slate-400" />
+                          <span>{tenant.full_name}</span>
+                          <span className="text-xs text-slate-400">({tenant.phone})</span>
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                {bookingLoading && <p className="text-[10px] text-slate-400">Loading tenant details...</p>}
+                {bookingLoading && (
+                  <div className="flex items-center gap-2 mt-1 text-blue-600">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    <span className="text-xs">Loading tenant details...</span>
+                  </div>
+                )}
               </div>
 
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Payment Type</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-slate-700">Payment Type</Label>
                 <Select value={newPayment.payment_type} onValueChange={(value) => setNewPayment({ ...newPayment, payment_type: value })}>
-                  <SelectTrigger className="h-8 text-sm">
+                  <SelectTrigger className="h-10">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -2450,107 +2140,106 @@ const RentHistoryComponent = ({ summary }: { summary: RentSummary }) => {
               </div>
             </div>
 
-            {/* Rent Summary */}
-            {rentSummary && <RentHistoryComponent summary={rentSummary} />}
+            {/* Bed Assignment Table */}
+            {paymentFormData && <BedAssignmentTable formData={paymentFormData} />}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-<div className="space-y-1">
-  <Label className="text-xs font-medium">Amount (₹) *</Label>
-  <Input
-    type="number"
-    placeholder="Enter amount"
-    value={newPayment.amount}
-    onChange={(e) => setNewPayment({ ...newPayment, amount: e.target.value })}
-    className="h-8 text-sm"
-  />
-  {rentSummary && (
-    <p className="text-[10px] text-purple-600 mt-1">
-      Suggested amount: ₹{
-        (Number(rentSummary.current_month_rent) + 
-         Number(rentSummary.previous_pending) - 
-         Number(rentSummary.paid_this_month))
-        .toLocaleString('en-IN')
-      }
-    </p>
-  )}
-</div>
+            {/* Rent Summary Table */}
+            {paymentFormData && <RentSummaryTable formData={paymentFormData} />}
 
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Payment Mode *</Label>
-                <Select value={newPayment.payment_mode} onValueChange={(value) => setNewPayment({ ...newPayment, payment_mode: value })}>
-                  <SelectTrigger className="h-8 text-sm">
+            {/* Payment Details Grid */}
+            <div className="grid grid-cols-4 gap-3 mb-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-slate-700">Amount (₹) *</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">₹</span>
+                  <Input
+                    type="number"
+                    placeholder="0.00"
+                    value={newPayment.amount}
+                    onChange={(e) => setNewPayment({ ...newPayment, amount: e.target.value })}
+                    className="pl-8 h-10"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-slate-700">Payment Mode *</Label>
+                <Select 
+                  value={newPayment.payment_mode} 
+                  onValueChange={(value) => setNewPayment({ ...newPayment, payment_mode: value, bank_name: '' })}
+                >
+                  <SelectTrigger className="h-10">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="cash">Cash</SelectItem>
-                    <SelectItem value="online">Online</SelectItem>
-                    <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
-                    <SelectItem value="cheque">Cheque</SelectItem>
-                    <SelectItem value="card">Card</SelectItem>
+                    <SelectItem value="cash">💵 Cash</SelectItem>
+                    <SelectItem value="online">🌐 Online</SelectItem>
+                    <SelectItem value="bank_transfer">🏦 Bank Transfer</SelectItem>
+                    <SelectItem value="cheque">📝 Cheque</SelectItem>
+                    <SelectItem value="card">💳 Card</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Transaction ID</Label>
-                <Input
-                  placeholder="Optional"
-                  value={newPayment.transaction_id}
-                  onChange={(e) => setNewPayment({ ...newPayment, transaction_id: e.target.value })}
-                  className="h-8 text-sm"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Status</Label>
-                <Select value={newPayment.status} onValueChange={(value) => setNewPayment({ ...newPayment, status: value })}>
-                  <SelectTrigger className="h-8 text-sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="completed">Completed</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="failed">Failed</SelectItem>
-                    <SelectItem value="refunded">Refunded</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Payment Date</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-slate-700">Payment Date</Label>
                 <Input
                   type="date"
                   value={newPayment.payment_date}
                   onChange={(e) => setNewPayment({ ...newPayment, payment_date: e.target.value })}
-                  className="h-8 text-sm"
+                  className="h-10"
                 />
               </div>
 
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Due Date</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-slate-700">Remark</Label>
                 <Input
-                  type="date"
-                  value={newPayment.due_date}
-                  onChange={(e) => setNewPayment({ ...newPayment, due_date: e.target.value })}
-                  className="h-8 text-sm"
+                  placeholder="Add notes"
+                  value={newPayment.remark}
+                  onChange={(e) => setNewPayment({ ...newPayment, remark: e.target.value })}
+                  className="h-10"
                 />
               </div>
             </div>
 
-            {/* Proof Upload Field */}
-            {newPayment.payment_mode === 'online' && (
-              <div className="space-y-2 border rounded-lg p-3 bg-slate-50">
-                <Label className="text-xs font-medium">Payment Proof (Screenshot)</Label>
-                <div className="flex items-center gap-3">
+            {/* Conditional Fields Row */}
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              {(newPayment.payment_mode === 'bank_transfer' || newPayment.payment_mode === 'online') && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium text-slate-700">Bank Name</Label>
+                  <Input
+                    placeholder="Enter bank name"
+                    value={newPayment.bank_name}
+                    onChange={(e) => setNewPayment({ ...newPayment, bank_name: e.target.value })}
+                    className="h-10"
+                  />
+                </div>
+              )}
+
+              {(newPayment.payment_mode === 'online' || newPayment.payment_mode === 'bank_transfer' || newPayment.payment_mode === 'cheque') && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium text-slate-700">Transaction ID</Label>
+                  <Input
+                    placeholder="Optional"
+                    value={newPayment.transaction_id}
+                    onChange={(e) => setNewPayment({ ...newPayment, transaction_id: e.target.value })}
+                    className="h-10"
+                  />
+                </div>
+              )}
+
+              {(newPayment.payment_mode === 'online' || newPayment.payment_mode === 'bank_transfer') && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium text-slate-700">Proof</Label>
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="h-8 text-xs"
+                    className="h-10 w-full justify-start"
                     onClick={() => document.getElementById('proof-upload')?.click()}
                   >
-                    <Upload className="h-3 w-3 mr-1" />
-                    {proofFile ? 'Change File' : 'Upload Proof'}
+                    <Upload className="h-4 w-4 mr-2" />
+                    {proofFile ? proofFile.name : 'Upload proof'}
                   </Button>
                   <input
                     type="file"
@@ -2571,104 +2260,96 @@ const RentHistoryComponent = ({ summary }: { summary: RentSummary }) => {
                       }
                     }}
                   />
-                  {proofFile && (
-                    <span className="text-xs text-slate-600 truncate max-w-[200px]">
-                      {proofFile.name}
-                    </span>
-                  )}
                 </div>
-                {proofPreview && (
-                  <div className="mt-2">
-                    <img 
-                      src={proofPreview} 
-                      alt="Preview" 
-                      className="max-h-32 rounded border border-slate-200"
-                    />
-                  </div>
-                )}
-                <p className="text-[10px] text-slate-400">
-                  Upload screenshot of online payment (JPG, PNG, PDF up to 5MB)
-                </p>
+              )}
+            </div>
+
+            {/* Proof Preview */}
+            {proofPreview && (
+              <div className="mb-4">
+                <img src={proofPreview} alt="Preview" className="h-20 rounded border" />
               </div>
             )}
-
-            <div className="space-y-1">
-              <Label className="text-xs font-medium">Notes</Label>
-              <Input
-                placeholder="Additional notes"
-                value={newPayment.notes}
-                onChange={(e) => setNewPayment({ ...newPayment, notes: e.target.value })}
-                className="h-8 text-sm"
-              />
-            </div>
           </div>
 
-          <DialogFooter className="p-4 bg-slate-50 rounded-b-lg grid grid-cols-2 gap-2 sm:flex sm:justify-end">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsAddPaymentOpen(false)}
-              className="w-full sm:w-auto"
-            >
-              Cancel
-            </Button>
-            <Button
-              size="sm"
-              onClick={handleAddPayment}
-              className="w-full sm:w-auto bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white"
-            >
-              Add Payment
-            </Button>
+          {/* Footer */}
+          <DialogFooter className="px-6 py-4 bg-slate-50 border-t border-slate-200 rounded-b-lg sticky bottom-0">
+            <div className="flex justify-end gap-3 w-full">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsAddPaymentOpen(false);
+                  resetPaymentForm();
+                }}
+                className="px-6"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleAddPayment}
+                className="px-6 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Payment
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Demand Payment Dialog */}
       <Dialog open={isDemandPaymentOpen} onOpenChange={setIsDemandPaymentOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0">
-          <DialogHeader className="bg-gradient-to-r from-orange-500 to-red-500 text-white p-4 rounded-t-lg sticky top-0 z-10">
-            <DialogClose asChild>
-              <button className="absolute right-4 top-4 text-white/80 hover:text-white transition">
-                <X className="h-5 w-5" />
-              </button>
-            </DialogClose>
-            <DialogTitle className="flex items-center gap-2 text-lg">
-              <Bell className="h-5 w-5" />
-              Demand Payment
-            </DialogTitle>
-            <DialogDescription className="text-orange-50 text-sm">
-              Create a payment request and notify the tenant
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="max-w-4xl max-h-[600px] p-0 gap-0 overflow-auto">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-orange-500 to-red-500 px-6 py-4 rounded-t-lg sticky top-0">
+            <div className="flex items-center justify-between">
+              <div>
+                <DialogTitle className="text-white text-lg font-semibold flex items-center gap-2">
+                  <div className="p-1 bg-white/20 rounded-lg">
+                    <Bell className="h-5 w-5" />
+                  </div>
+                  Demand Payment
+                </DialogTitle>
+                <DialogDescription className="text-orange-100 text-sm mt-1">
+                  Create a payment request and notify the tenant
+                </DialogDescription>
+              </div>
+              <DialogClose asChild>
+                <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 h-8 w-8">
+                  <X className="h-4 w-4" />
+                </Button>
+              </DialogClose>
+            </div>
+          </div>
 
-          <div className="p-4 space-y-3">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Tenant *</Label>
+          {/* Form Content */}
+          <div className="p-6">
+            {/* Top Row */}
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-slate-700">Tenant *</Label>
                 <Select value={demandPayment.tenant_id} onValueChange={handleDemandTenantSelect}>
-                  <SelectTrigger className="h-8 text-sm">
+                  <SelectTrigger className="h-10">
                     <SelectValue placeholder="Select tenant" />
                   </SelectTrigger>
                   <SelectContent>
                     {tenants.map(tenant => (
                       <SelectItem key={tenant.id} value={tenant.id.toString()}>
-                        {tenant.full_name}
+                        {tenant.full_name} - {tenant.phone}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                {bookingLoading && <p className="text-[10px] text-slate-400">Loading tenant details...</p>}
               </div>
 
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Payment Type</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-slate-700">Payment Type</Label>
                 <Select value={demandPayment.payment_type} onValueChange={(value) => setDemandPayment({ ...demandPayment, payment_type: value })}>
-                  <SelectTrigger className="h-8 text-sm">
+                  <SelectTrigger className="h-10">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="rent">Rent</SelectItem>
-                    <SelectItem value="security_deposit">Security Deposit</SelectItem>
                     <SelectItem value="maintenance">Maintenance</SelectItem>
                     <SelectItem value="electricity">Electricity</SelectItem>
                   </SelectContent>
@@ -2676,104 +2357,389 @@ const RentHistoryComponent = ({ summary }: { summary: RentSummary }) => {
               </div>
             </div>
 
-            {/* Rent Summary for Demand */}
-            {rentSummary && <RentHistoryComponent summary={rentSummary} />}
+            {/* Bed Assignment Table for Demand */}
+            {paymentFormData && <BedAssignmentTable formData={paymentFormData} />}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Amount (₹) *</Label>
+            {/* Rent Summary Table for Demand */}
+            {paymentFormData && <RentSummaryTable formData={paymentFormData} />}
+
+            {/* Amount and Due Date Row */}
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-slate-700">Amount (₹) *</Label>
                 <Input
                   type="number"
                   placeholder="Enter amount"
                   value={demandPayment.amount || ''}
                   onChange={(e) => setDemandPayment({ ...demandPayment, amount: parseFloat(e.target.value) || 0 })}
-                  className="h-8 text-sm"
+                  className="h-10"
                 />
               </div>
 
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Due Date *</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-slate-700">Due Date *</Label>
                 <Input
                   type="date"
                   value={demandPayment.due_date}
                   onChange={(e) => setDemandPayment({ ...demandPayment, due_date: e.target.value })}
-                  className="h-8 text-sm"
+                  className="h-10"
                 />
               </div>
             </div>
 
-            <div className="space-y-1">
-              <Label className="text-xs font-medium">Description</Label>
+            {/* Description */}
+            <div className="mb-4">
+              <Label className="text-xs font-medium text-slate-700">Description</Label>
               <Textarea
                 placeholder="Enter payment description"
                 value={demandPayment.description}
                 onChange={(e) => setDemandPayment({ ...demandPayment, description: e.target.value })}
                 rows={2}
-                className="text-sm"
+                className="mt-1"
               />
             </div>
 
-            <div className="bg-slate-50 p-3 rounded-lg space-y-2">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs font-medium">Late Fee Settings</Label>
-                <div className="flex items-center gap-2">
+            {/* Options Row */}
+            <div className="grid grid-cols-3 gap-4 mb-4">
+              {/* Late Fee */}
+              <div className="bg-slate-50 p-3 rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <Label className="text-xs font-medium">Late Fee</Label>
                   <input
                     type="checkbox"
-                    id="include-late-fee"
                     checked={demandPayment.include_late_fee}
                     onChange={(e) => setDemandPayment({ ...demandPayment, include_late_fee: e.target.checked })}
-                    className="h-3 w-3"
+                    className="h-4 w-4"
                   />
-                  <Label htmlFor="include-late-fee" className="text-xs">Include</Label>
                 </div>
+                {demandPayment.include_late_fee && (
+                  <Input
+                    type="number"
+                    placeholder="Amount"
+                    value={demandPayment.late_fee_amount || ''}
+                    onChange={(e) => setDemandPayment({ ...demandPayment, late_fee_amount: parseFloat(e.target.value) || 0 })}
+                    className="h-8 text-sm"
+                  />
+                )}
               </div>
 
-              {demandPayment.include_late_fee && (
-                <Input
-                  type="number"
-                  placeholder="Late fee amount"
-                  value={demandPayment.late_fee_amount || ''}
-                  onChange={(e) => setDemandPayment({ ...demandPayment, late_fee_amount: parseFloat(e.target.value) || 0 })}
-                  className="h-8 text-sm"
-                />
-              )}
-            </div>
-
-            <div className="bg-slate-50 p-3 rounded-lg space-y-2">
-              <Label className="text-xs font-medium">Notifications</Label>
-              <div className="flex gap-3">
-                <div className="flex items-center gap-1">
-                  <input type="checkbox" id="send-email" checked={demandPayment.send_email} onChange={(e) => setDemandPayment({ ...demandPayment, send_email: e.target.checked })} className="h-3 w-3" />
-                  <Label htmlFor="send-email" className="text-xs">Email</Label>
-                </div>
-                <div className="flex items-center gap-1">
-                  <input type="checkbox" id="send-sms" checked={demandPayment.send_sms} onChange={(e) => setDemandPayment({ ...demandPayment, send_sms: e.target.checked })} className="h-3 w-3" />
-                  <Label htmlFor="send-sms" className="text-xs">SMS</Label>
+              {/* Notifications */}
+              <div className="bg-slate-50 p-3 rounded-lg col-span-2">
+                <Label className="text-xs font-medium block mb-2">Send Notifications</Label>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2">
+                    <input type="checkbox" checked={demandPayment.send_email} onChange={(e) => setDemandPayment({ ...demandPayment, send_email: e.target.checked })} />
+                    <span className="text-sm">Email</span>
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input type="checkbox" checked={demandPayment.send_sms} onChange={(e) => setDemandPayment({ ...demandPayment, send_sms: e.target.checked })} />
+                    <span className="text-sm">SMS</span>
+                  </label>
                 </div>
               </div>
             </div>
+
+            {/* Amount Summary Cards */}
+            {demandPayment.amount > 0 && (
+              <div className="grid grid-cols-3 gap-3 mt-4">
+                <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                  <p className="text-xs text-blue-600">Base Amount</p>
+                  <p className="text-lg font-bold text-blue-700">₹{demandPayment.amount.toLocaleString()}</p>
+                </div>
+                {demandPayment.include_late_fee && demandPayment.late_fee_amount > 0 && (
+                  <div className="bg-amber-50 p-3 rounded-lg border border-amber-200">
+                    <p className="text-xs text-amber-600">Late Fee</p>
+                    <p className="text-lg font-bold text-amber-700">+ ₹{demandPayment.late_fee_amount.toLocaleString()}</p>
+                  </div>
+                )}
+                <div className="bg-purple-50 p-3 rounded-lg border border-purple-200">
+                  <p className="text-xs text-purple-600">Total Amount</p>
+                  <p className="text-lg font-bold text-purple-700">
+                    ₹{(demandPayment.amount + (demandPayment.include_late_fee ? demandPayment.late_fee_amount : 0)).toLocaleString()}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
 
-          <DialogFooter className="p-4 bg-slate-50 rounded-b-lg grid grid-cols-2 gap-2 sm:flex sm:justify-end">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsDemandPaymentOpen(false)}
-              className="w-full sm:w-auto"
-            >
-              Cancel
-            </Button>
-            <Button
-              size="sm"
-              onClick={handleDemandPayment}
-              className="w-full sm:w-auto bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white"
-            >
-              <Send className="h-3.5 w-3.5 mr-1" />
-              Send Demand
-            </Button>
+          {/* Footer */}
+          <DialogFooter className="px-6 py-4 bg-slate-50 border-t border-slate-200 rounded-b-lg sticky bottom-0">
+            <div className="flex justify-end gap-3 w-full">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsDemandPaymentOpen(false);
+                  resetDemandPaymentForm();
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleDemandPayment}
+                disabled={bookingLoading}
+                className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white"
+              >
+                {bookingLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-4 w-4 mr-2" />
+                    Send Demand
+                  </>
+                )}
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
   );
 }
+
+// Stat Card Component
+const StatCard = ({ title, value, icon: Icon, color, bgColor }: any) => (
+  <Card className={`${bgColor} border-0 shadow-sm`}>
+    <CardContent className="p-2 sm:p-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-[10px] sm:text-xs text-slate-600 font-medium">{title}</p>
+          <p className="text-sm sm:text-base font-bold text-slate-800">{value}</p>
+        </div>
+        <div className={`p-1.5 rounded-lg ${color}`}>
+          <Icon className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
+        </div>
+      </div>
+    </CardContent>
+  </Card>
+);
+
+// Payments Table Component
+const PaymentsTable = ({ payments, loading, filters, setFilters, getTenantName, getTenantPhone }: any) => (
+  <Card className="border-0 shadow-sm">
+    <div className="relative">
+      <div className="overflow-auto max-h-[calc(100vh-320px)] md:max-h-[calc(100vh-240px)]">
+        <Table>
+          <TableHeader className="sticky top-0 z-20 bg-white">
+            <TableRow className="bg-slate-100">
+              <TableHead className="text-xs font-semibold py-2">Date</TableHead>
+              <TableHead className="text-xs font-semibold py-2">Tenant</TableHead>
+              <TableHead className="text-xs font-semibold py-2">Remark</TableHead>
+              <TableHead className="text-xs font-semibold py-2">Amount</TableHead>
+              <TableHead className="text-xs font-semibold py-2">Method/Bank</TableHead>
+              <TableHead className="text-xs font-semibold py-2">Transaction ID</TableHead>
+              <TableHead className="text-xs font-semibold py-2">Month/Year</TableHead>
+            </TableRow>
+            
+            {/* Filter Row */}
+            <TableRow className="bg-slate-50 sticky top-[41px] z-20">
+              <TableHead className="p-1">
+                <Input
+                  placeholder="Filter"
+                  value={filters.date}
+                  onChange={(e) => setFilters({ ...filters, date: e.target.value })}
+                  className="h-7 text-xs"
+                />
+              </TableHead>
+              <TableHead className="p-1">
+                <Input
+                  placeholder="Filter"
+                  value={filters.tenant}
+                  onChange={(e) => setFilters({ ...filters, tenant: e.target.value })}
+                  className="h-7 text-xs"
+                />
+              </TableHead>
+              <TableHead className="p-1">
+                <Input
+                  placeholder="Filter"
+                  value={filters.remark}
+                  onChange={(e) => setFilters({ ...filters, remark: e.target.value })}
+                  className="h-7 text-xs"
+                />
+              </TableHead>
+              <TableHead className="p-1">
+                <Input
+                  placeholder="Filter"
+                  value={filters.amount}
+                  onChange={(e) => setFilters({ ...filters, amount: e.target.value })}
+                  className="h-7 text-xs"
+                />
+              </TableHead>
+              <TableHead className="p-1">
+                <Input
+                  placeholder="Filter"
+                  value={filters.method}
+                  onChange={(e) => setFilters({ ...filters, method: e.target.value })}
+                  className="h-7 text-xs"
+                />
+              </TableHead>
+              <TableHead className="p-1">
+                <Input
+                  placeholder="Filter"
+                  value={filters.transactionId}
+                  onChange={(e) => setFilters({ ...filters, transactionId: e.target.value })}
+                  className="h-7 text-xs"
+                />
+              </TableHead>
+              <TableHead className="p-1"></TableHead>
+            </TableRow>
+          </TableHeader>
+          
+          <TableBody>
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={7} className="text-center py-8 text-xs text-slate-500">
+                  <div className="flex justify-center items-center">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mr-2" />
+                    Loading payments...
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : payments.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={7} className="text-center py-8 text-xs text-slate-500">
+                  <CreditCard className="h-8 w-8 mx-auto mb-2 text-slate-300" />
+                  No payments found
+                </TableCell>
+              </TableRow>
+            ) : (
+              payments.map((payment: any) => (
+                <TableRow key={payment.id} className="hover:bg-slate-50">
+                  <TableCell className="py-2 text-xs whitespace-nowrap">
+                    {format(new Date(payment.payment_date), 'dd/MM/yy')}
+                  </TableCell>
+                  <TableCell className="py-2">
+                    <p className="text-xs font-medium whitespace-nowrap">{getTenantName(payment.tenant_id)}</p>
+                    <p className="text-[10px] text-slate-500 whitespace-nowrap">{getTenantPhone(payment.tenant_id)}</p>
+                  </TableCell>
+                  <TableCell className="py-2 text-xs max-w-[120px] truncate">
+                    {payment.remark || '-'}
+                  </TableCell>
+                  <TableCell className="py-2 text-xs font-medium whitespace-nowrap">
+                    ₹{payment.amount.toLocaleString()}
+                  </TableCell>
+                  <TableCell className="py-2">
+                    <p className="text-xs capitalize whitespace-nowrap">{payment.payment_mode}</p>
+                    {payment.bank_name && (
+                      <p className="text-[10px] text-slate-500 whitespace-nowrap">{payment.bank_name}</p>
+                    )}
+                  </TableCell>
+                  <TableCell className="py-2 text-[10px] font-mono whitespace-nowrap">
+                    {payment.transaction_id ? payment.transaction_id.substring(0, 8) + '...' : '-'}
+                  </TableCell>
+                  <TableCell className="py-2 text-xs whitespace-nowrap">
+                    {payment.month} {payment.year}
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  </Card>
+);
+
+// Receipts Table Component
+const ReceiptsTable = ({ receipts, loading, getTenantName }: any) => (
+  <Card className="border-0 shadow-sm">
+    <CardHeader className="p-3 bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-t-lg sticky top-0 z-10">
+      <CardTitle className="flex items-center gap-2 text-sm">
+        <Receipt className="h-4 w-4" />
+        Payment Receipts
+      </CardTitle>
+      <CardDescription className="text-blue-50 text-xs">
+        View and download payment receipts
+      </CardDescription>
+    </CardHeader>
+
+    <CardContent className="p-2">
+      <div className="overflow-auto max-h-[calc(100vh-380px)]">
+        <Table>
+          <TableHeader className="sticky top-0 z-10 bg-white">
+            <TableRow className="bg-slate-100">
+              <TableHead className="text-xs py-2">Date</TableHead>
+              <TableHead className="text-xs py-2">Tenant</TableHead>
+              <TableHead className="text-xs py-2">Amount</TableHead>
+              <TableHead className="text-xs py-2">Method/Bank</TableHead>
+              <TableHead className="text-xs py-2">Room/Bed</TableHead>
+              <TableHead className="text-xs py-2 text-center">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-8 text-xs text-slate-500">
+                  <div className="flex justify-center items-center">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mr-2" />
+                    Loading receipts...
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : receipts.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-8 text-xs text-slate-500">
+                  <Receipt className="h-8 w-8 mx-auto mb-2 text-slate-300" />
+                  No receipts found
+                </TableCell>
+              </TableRow>
+            ) : (
+              receipts.map((receipt: any) => (
+                <TableRow key={receipt.id}>
+                  <TableCell className="py-2 text-xs whitespace-nowrap">
+                    {format(new Date(receipt.payment_date), 'dd/MM/yy')}
+                  </TableCell>
+                  <TableCell className="py-2">
+                    <p className="text-xs whitespace-nowrap">{receipt.tenant_name}</p>
+                    {receipt.tenant_phone && (
+                      <p className="text-[10px] text-slate-500">{receipt.tenant_phone}</p>
+                    )}
+                  </TableCell>
+                  <TableCell className="py-2 text-xs font-medium whitespace-nowrap">
+                    ₹{receipt.amount.toLocaleString()}
+                  </TableCell>
+                  <TableCell className="py-2">
+                    <p className="text-xs capitalize whitespace-nowrap">{receipt.payment_mode}</p>
+                    {receipt.bank_name && (
+                      <p className="text-[10px] text-slate-500">{receipt.bank_name}</p>
+                    )}
+                  </TableCell>
+                  <TableCell className="py-2">
+                    <p className="text-xs whitespace-nowrap">{receipt.room_number || 'N/A'}</p>
+                    {receipt.bed_number && (
+                      <p className="text-[10px] text-slate-500">Bed #{receipt.bed_number}</p>
+                    )}
+                  </TableCell>
+                  <TableCell className="py-2">
+                    <div className="flex items-center gap-1 justify-center">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 w-7 p-0"
+                        onClick={() => paymentApi.previewReceipt(receipt.id)}
+                        title="Preview Receipt"
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 w-7 p-0"
+                        onClick={() => paymentApi.downloadReceipt(receipt.id)}
+                        title="Download Receipt"
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+    </CardContent>
+  </Card>
+);
