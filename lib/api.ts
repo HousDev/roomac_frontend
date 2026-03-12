@@ -162,5 +162,5 @@ export const apiPut = <T = any>(url: string, body: any) =>
   });
 
 // DELETE
-export const apiDelete = <T = any>(url: string) =>
+export const apiDelete = <T = any>(url: string, p0: { ids: string[]; }) =>
   request<T>(url, { method: "DELETE" });
