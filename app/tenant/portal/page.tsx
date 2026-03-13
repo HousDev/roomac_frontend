@@ -302,55 +302,90 @@ export default function TenantPortalPage() {
   }, []);
 
   // ─── Fetch property manager staff by matching property_manager_name or staff_id ──
-  const fetchPropertyManagerStaff = useCallback(async (tenantData: TenantProfile) => {
-    try {
-      const allStaff = await getAllStaff();
-      
-      // Try to match by property_manager_name from tenant profile
-      if (tenantData.property_manager_name && allStaff.length > 0) {
-        const managerName = tenantData.property_manager_name.toLowerCase().trim();
-        
-        // Find staff whose name matches property_manager_name
-        const matched = allStaff.find(s => 
-          s.name.toLowerCase().trim() === managerName ||
-          `${s.salutation} ${s.name}`.toLowerCase().trim() === managerName ||
-          s.name.toLowerCase().includes(managerName) ||
-          managerName.includes(s.name.toLowerCase())
-        );
-        
-        if (matched) {
-          console.log('✅ Found property manager staff:', matched);
-          setPropertyManagerStaff(matched);
-          return;
-        }
-      }
-      
-      // If tenant has a staff_id field, match by that
-      const tenantAny = tenantData as any;
-      if (tenantAny.staff_id && allStaff.length > 0) {
-        const matched = allStaff.find(s => s.id === tenantAny.staff_id);
-        if (matched) {
-          console.log('✅ Found property manager by staff_id:', matched);
-          setPropertyManagerStaff(matched);
-          return;
-        }
-      }
-      
-      // If property_manager_phone matches, use that
-      if (tenantData.property_manager_phone && allStaff.length > 0) {
-        const matched = allStaff.find(s => 
-          s.phone === tenantData.property_manager_phone ||
-          s.whatsapp_number === tenantData.property_manager_phone
-        );
-        if (matched) {
-          console.log('✅ Found property manager by phone:', matched);
-          setPropertyManagerStaff(matched);
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching staff for property manager:', error);
+// ─── Fetch property manager staff by matching property_manager_name or staff_id ──
+const fetchPropertyManagerStaff = useCallback(async (tenantData: TenantProfile) => {
+  try {
+    const allStaff = await getAllStaff();
+    console.log('📋 All staff loaded:', allStaff);
+    
+    // Log the first staff member to see available fields
+    if (allStaff.length > 0) {
+      console.log('📋 Staff data structure sample:', {
+        id: allStaff[0].id,
+        name: allStaff[0].name,
+        role: allStaff[0].role,
+        role_name: allStaff[0].role_name,
+        staff_role_id: allStaff[0].staff_role_id,
+        // Log all keys to see what's available
+        all_keys: Object.keys(allStaff[0])
+      });
     }
-  }, []);
+    
+    // Try to match by staff_id first (most reliable)
+    const tenantAny = tenantData as any;
+    if (tenantAny.staff_id && allStaff.length > 0) {
+      const matched = allStaff.find(s => s.id === tenantAny.staff_id);
+      if (matched) {
+        console.log('✅ Found property manager by staff_id:', matched);
+        console.log('✅ Staff role_name:', matched.role_name);
+        setPropertyManagerStaff(matched);
+        return;
+      }
+    }
+    
+    // Try to match by property_manager_name from tenant profile
+    if (tenantData.property_manager_name && allStaff.length > 0) {
+      const managerName = tenantData.property_manager_name.toLowerCase().trim();
+      
+      // Find staff whose name matches property_manager_name
+      const matched = allStaff.find(s => {
+        const staffFullName = `${s.salutation || ''} ${s.name}`.toLowerCase().trim();
+        return staffFullName === managerName || 
+               s.name.toLowerCase().trim() === managerName ||
+               managerName.includes(s.name.toLowerCase());
+      });
+      
+      if (matched) {
+        console.log('✅ Found property manager by name:', matched);
+        console.log('✅ Staff role_name:', matched.role_name);
+        setPropertyManagerStaff(matched);
+        return;
+      }
+    }
+    
+    // If property_manager_phone matches, use that
+    if (tenantData.property_manager_phone && allStaff.length > 0) {
+      const matched = allStaff.find(s => 
+        s.phone === tenantData.property_manager_phone ||
+        s.whatsapp_number === tenantData.property_manager_phone
+      );
+      if (matched) {
+        console.log('✅ Found property manager by phone:', matched);
+        console.log('✅ Staff role_name:', matched.role_name);
+        setPropertyManagerStaff(matched);
+        return;
+      }
+    }
+    
+    // If still no match, try to find staff with matching name from property
+    if (tenantData.property_name && allStaff.length > 0) {
+      // Some staff might have names related to the property
+      const propertyNameWords = tenantData.property_name.toLowerCase().split(' ');
+      const matched = allStaff.find(s => {
+        const staffName = s.name.toLowerCase();
+        return propertyNameWords.some(word => word.length > 3 && staffName.includes(word));
+      });
+      
+      if (matched) {
+        console.log('✅ Found property manager by property name match:', matched);
+        setPropertyManagerStaff(matched);
+      }
+    }
+    
+  } catch (error) {
+    console.error('Error fetching staff for property manager:', error);
+  }
+}, []);
 
   // Fetch data
   const fetchAllData = useCallback(async () => {
@@ -718,10 +753,31 @@ const getManagerDisplayName = () => {
   return tenant?.property_manager_name || "—";
 };
 
-  const getManagerRole = () => {
-    if (propertyManagerStaff?.role) return propertyManagerStaff.role;
+const getManagerRole = () => {
+  // First priority: role_name from staff data (this comes from masters)
+  if (propertyManagerStaff?.role_name) {
+    return propertyManagerStaff.role_name;
+  }
+  
+  // Second priority: role field from staff data
+  if (propertyManagerStaff?.role) {
+    return propertyManagerStaff.role;
+  }
+  
+  // Third priority: if staff has designation
+  if (propertyManagerStaff && 'designation' in propertyManagerStaff && propertyManagerStaff.designation) {
+    return propertyManagerStaff.designation;
+  }
+  
+  // If we have property manager name but no role, try to infer from tenant data
+  if (tenant?.property_manager_name) {
+    // Check if the property manager might be a "Manager"
     return "Property Manager";
-  };
+  }
+  
+  // Default fallback
+  return "Property Manager";
+};
 
   const getManagerPhone = () => {
     if (propertyManagerStaff?.phone) return propertyManagerStaff.phone;
@@ -1239,7 +1295,7 @@ className={`p-2.5 sm:p-3 rounded-md border cursor-pointer transition-all hover:s
             <CardHeader className="pb-2 px-4 sm:px-6">
               <CardTitle className="text-sm sm:text-base font-semibold flex items-center gap-2">
                 <User className="h-4 w-4 sm:h-5 sm:w-5 text-[#0149ab]" />
-                Property Manager
+                Property Manager 
               </CardTitle>
             </CardHeader>
             <CardContent className="px-4 sm:px-6">
@@ -1294,7 +1350,7 @@ className={`p-2.5 sm:p-3 rounded-md border cursor-pointer transition-all hover:s
     <div className="relative px-4 sm:px-6 py-3 sm:py-4 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]">
       
       <DialogTitle className="text-white text-base sm:text-lg font-semibold">
-        Raise a Complaint
+        Raise a Complaint 
       </DialogTitle>
 
       {/* Close Icon */}

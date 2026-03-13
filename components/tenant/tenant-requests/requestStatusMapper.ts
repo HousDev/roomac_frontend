@@ -1,4 +1,4 @@
-// utils/requestStatusMapper.ts
+// component/tenant/requestStatusMapper.ts
 
 // Define the possible status values for each request type
 export type RequestStatus = 
