@@ -126,6 +126,7 @@ export const createPurchase = async (data: CreatePurchasePayload): Promise<Singl
 };
 
 // Update a purchase
+// Update a purchase
 export const updatePurchase = async (id: string | number, data: Partial<CreatePurchasePayload>): Promise<any> => {
   return request(`/api/material-purchases/${id}`, {
     method: "PUT",
@@ -158,3 +159,4 @@ export const bulkDeletePurchases = async (ids: (string | number)[]): Promise<Bul
 export const getPurchaseStats = async (): Promise<PurchaseStatsResponse> => {
   return request<PurchaseStatsResponse>("/api/material-purchases/stats", { method: "GET" });
 };
+

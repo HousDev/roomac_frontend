@@ -3496,6 +3496,7 @@ import {
 } from "@/lib/moveOutInspectionApi";
 import { getHandovers } from "@/lib/handoverApi";
 
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface InspectionItem {
   id?: string;
@@ -4445,8 +4446,43 @@ const items = (Array.isArray(rawItems) ? rawItems : []).map(item => ({
     }
   };
 
-  const handlePrint = () => window.print();
+const handlePrint = () => {
+  const printContent = document.getElementById('inspection-report-print');
+  if (!printContent) return;
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) return;
 
+  const styles = Array.from(document.styleSheets)
+    .map(sheet => {
+      try {
+        return Array.from(sheet.cssRules).map(rule => rule.cssText).join('\n');
+      } catch { return ''; }
+    }).join('\n');
+
+  printWindow.document.write(`
+    <html>
+      <head>
+        <title>Move-Out Inspection Report</title>
+        <style>${styles}</style>
+        <style>
+          body { background: white; padding: 20px; }
+          .no-print { display: none !important; }
+          @media print { body { margin: 10mm; } }
+        </style>
+      </head>
+      <body>
+        <div style="text-align:center; margin-bottom: 16px; border-bottom: 2px solid #e5e7eb; padding-bottom: 12px;">
+          <h1 style="font-size:18px; font-weight:700; color:#1e3a8a; margin:0;">Move-Out Inspection Report</h1>
+          <p style="font-size:11px; color:#6b7280; margin:4px 0 0 0;">${viewItem?.tenant_name} — ${viewItem?.property_name}</p>
+        </div>
+        ${printContent.innerHTML}
+      </body>
+    </html>
+  `);
+  printWindow.document.close();
+  printWindow.focus();
+  setTimeout(() => { printWindow.print(); printWindow.close(); }, 800);
+};
   // ── OTP Verification ─────────────────────────────────────────────────────────
   const handleInitiateOTP = () => {
     if (!viewItem) return;
@@ -5168,8 +5204,7 @@ const items = (Array.isArray(rawItems) ? rawItems : []).map(item => ({
 </div>
             </div>
 
-            <div className="p-4 overflow-y-auto max-h-[75vh] space-y-4">
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+<div id="inspection-report-print" className="p-4 overflow-y-auto max-h-[75vh] space-y-4">              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {[
                   ['Tenant', viewItem.tenant_name],
                   ['Phone', viewItem.tenant_phone],
@@ -5256,7 +5291,7 @@ const items = (Array.isArray(rawItems) ? rawItems : []).map(item => ({
               )}
 
               {viewItem.notes && (
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3  no-print">
                   <p className="text-[10px] font-bold text-amber-800 mb-1">Additional Notes</p>
                   <p className="text-[11px] text-amber-700">{viewItem.notes}</p>
                 </div>
