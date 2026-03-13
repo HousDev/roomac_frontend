@@ -1167,7 +1167,7 @@ const [handoverSearchTerm, setHandoverSearchTerm] = useState('');
             {step === 1 && (
               <>
                 <div>
-                  <SH icon={<Receipt className="h-3 w-3"/>} title="Link from Handover (optional)"/>
+                  <SH icon={<Receipt className="h-3 w-3"/>} title="Active Tenant Handover"/>
                  <Select 
   value={formData.handover_id || ''} 
   onValueChange={(v) => {
@@ -1176,7 +1176,7 @@ const [handoverSearchTerm, setHandoverSearchTerm] = useState('');
   }}
 >
   <SelectTrigger className={F}>
-    <SelectValue placeholder="Auto-fill from active handover…"/>
+    <SelectValue placeholder="select from active handover tenant"/>
   </SelectTrigger>
   <SelectContent className="max-h-[300px]">
     {/* Search input */}
