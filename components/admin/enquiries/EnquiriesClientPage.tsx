@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogClose } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Eye, Phone, Mail, Calendar, Trash2, Edit, BarChart, Search, Save, RefreshCw, Filter, X } from "lucide-react";
+import { Plus, Eye, Phone, Mail, Calendar, Trash2, Edit, BarChart, Search, Save, RefreshCw, Filter, X, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import {
   getEnquiries,
@@ -22,6 +22,7 @@ import {
   addFollowup,
   getEnquiryStats,
   getEnquiryById,
+  convertEnquiryToTenant,
   type Enquiry,
   type CreateEnquiryPayload,
   type UpdateEnquiryPayload,
@@ -71,8 +72,7 @@ export default function EnquiriesClientPage({
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const initialLoadDone = useRef(false);
   const [scheduleVisitEnquiry, setScheduleVisitEnquiry] = useState<Enquiry | null>(null);
-  // Add this state in the component
-const [convertEnquiry, setConvertEnquiry] = useState<Enquiry | null>(null);
+  const [convertEnquiry, setConvertEnquiry] = useState<Enquiry | null>(null);
 
   // Column search states
   const [columnFilters, setColumnFilters] = useState({
@@ -334,11 +334,6 @@ const [convertEnquiry, setConvertEnquiry] = useState<Enquiry | null>(null);
     setShowEditDialog(true);
   }, [formatDateForInput]);
 
-  // Add this function
-const handleConvertToTenant = (enquiry: Enquiry) => {
-  setConvertEnquiry(enquiry);
-};
-
   // Update enquiry handler
   const handleUpdateEnquiry = useCallback(async () => {
     if (!selectedEnquiry) return;
@@ -392,11 +387,19 @@ const handleConvertToTenant = (enquiry: Enquiry) => {
       if (selectedEnquiry?.id === id) {
         setSelectedEnquiry({ ...selectedEnquiry, status });
       }
+
+      // If status is converted, open the conversion dialog
+      if (status === 'converted') {
+        const enquiry = enquiries.find(e => e.id === id);
+        if (enquiry) {
+          setConvertEnquiry(enquiry);
+        }
+      }
     } catch (error) {
       console.error("Error updating status:", error);
       toast.error("Failed to update status");
     }
-  }, [selectedEnquiry]);
+  }, [selectedEnquiry, enquiries]);
 
   const handleAddFollowup = useCallback(async () => {
     if (!followupText.trim()) {
@@ -463,7 +466,13 @@ const handleConvertToTenant = (enquiry: Enquiry) => {
 
   // Handle schedule visit
   const handleScheduleVisit = (enquiry: Enquiry) => {
+    console.log("Opening schedule dialog for:", enquiry.tenant_name);
     setScheduleVisitEnquiry(enquiry);
+  };
+
+  // Handle convert to tenant
+  const handleConvertToTenant = (enquiry: Enquiry) => {
+    setConvertEnquiry(enquiry);
   };
 
   // Get status badge component
@@ -718,6 +727,7 @@ const handleConvertToTenant = (enquiry: Enquiry) => {
                           {/* Actions */}
                           <TableCell className="px-2 sm:px-4 py-2 sm:py-3">
                             <div className="flex items-center justify-end gap-1 whitespace-nowrap">
+                              {/* Schedule Visit Button */}
                               <Button
                                 size="sm"
                                 variant="ghost"
@@ -731,6 +741,7 @@ const handleConvertToTenant = (enquiry: Enquiry) => {
                                 <Calendar className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                               </Button>
 
+                              {/* View Details Button */}
                               <Button
                                 size="sm"
                                 variant="ghost"
@@ -741,6 +752,7 @@ const handleConvertToTenant = (enquiry: Enquiry) => {
                                 <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                               </Button>
 
+                              {/* Edit Button */}
                               <Button
                                 size="sm"
                                 variant="ghost"
@@ -751,6 +763,23 @@ const handleConvertToTenant = (enquiry: Enquiry) => {
                                 <Edit className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                               </Button>
 
+                              {/* Convert to Tenant Button (only if not converted) */}
+                              {enquiry.status !== 'converted' && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleConvertToTenant(enquiry);
+                                  }}
+                                  className="h-7 w-7 sm:h-8 sm:w-8 p-0 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                                  title="Convert to Tenant"
+                                >
+                                  <UserPlus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                                </Button>
+                              )}
+
+                              {/* Status Dropdown */}
                               <Select
                                 value={enquiry.status || "new"}
                                 onValueChange={(value) => handleUpdateStatus(enquiry.id, value)}
@@ -767,6 +796,7 @@ const handleConvertToTenant = (enquiry: Enquiry) => {
                                 </SelectContent>
                               </Select>
 
+                              {/* Delete Button */}
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -805,6 +835,11 @@ const handleConvertToTenant = (enquiry: Enquiry) => {
         onDelete={handleDeleteEnquiry}
         onEnquiryUpdate={() => {
           loadData(true);
+        }}
+        onConvertToTenant={() => {
+          if (selectedEnquiry) {
+            setConvertEnquiry(selectedEnquiry);
+          }
         }}
       />
 
@@ -864,7 +899,7 @@ const handleConvertToTenant = (enquiry: Enquiry) => {
         </DialogContent>
       </Dialog>
 
-      {/* Schedule Visit Dialog - OUTSIDE all other Dialogs */}
+      {/* Schedule Visit Dialog */}
       <ScheduleVisitDialog
         enquiryId={scheduleVisitEnquiry?.id || ""}
         tenantName={scheduleVisitEnquiry?.tenant_name || ""}
@@ -879,6 +914,20 @@ const handleConvertToTenant = (enquiry: Enquiry) => {
               }
             });
           }
+          setScheduleVisitEnquiry(null);
+        }}
+      />
+
+      {/* Convert to Tenant Dialog */}
+      <ConvertToTenantDialog
+        enquiryId={convertEnquiry?.id || ""}
+        tenantName={convertEnquiry?.tenant_name || ""}
+        isOpen={!!convertEnquiry}
+        onClose={() => setConvertEnquiry(null)}
+        onConverted={() => {
+          loadData(true);
+          setShowViewDialog(false);
+          setConvertEnquiry(null);
         }}
       />
 

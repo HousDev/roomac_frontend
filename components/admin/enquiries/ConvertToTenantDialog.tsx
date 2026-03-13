@@ -2,10 +2,10 @@
 import { useState } from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, UserPlus, X, ArrowRight, CheckCircle } from "lucide-react";
+import { AlertTriangle, UserPlus, X, ArrowRight, CheckCircle, ExternalLink } from "lucide-react";
 import { convertEnquiryToTenant } from "@/lib/enquiryApi";
 import { toast } from "sonner";
-import { useRouter } from "@/src/compat/next-navigation";
+import { useRouter } from "next/navigation";
 
 interface ConvertToTenantDialogProps {
   enquiryId: string;
@@ -51,7 +51,7 @@ const ConvertToTenantDialog = ({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={converted ? undefined : onClose}>
       <DialogContent className="max-w-md w-[95vw] p-0 rounded-xl border-0 shadow-2xl overflow-hidden">
         {/* Header */}
         <div className={`bg-gradient-to-r ${converted ? 'from-green-700 to-green-600' : 'from-amber-700 to-amber-600'} text-white px-5 py-4 flex items-start justify-between`}>
@@ -76,12 +76,14 @@ const ConvertToTenantDialog = ({
               }
             </p>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1 rounded-md hover:bg-white/15 transition"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          {!converted && (
+            <button
+              onClick={onClose}
+              className="p-1 rounded-md hover:bg-white/15 transition"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
 
         {/* Body */}
@@ -177,6 +179,7 @@ const ConvertToTenantDialog = ({
                   className="flex-1 bg-green-600 hover:bg-green-700 text-sm"
                 >
                   View Tenant
+                  <ExternalLink className="h-3.5 w-3.5 ml-1" />
                 </Button>
               </div>
             </>

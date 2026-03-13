@@ -1,6 +1,6 @@
 // components/admin/enquiries/ScheduleVisitDialog.tsx
 import { useState } from "react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -42,7 +42,6 @@ const ScheduleVisitDialog = ({
       const response = await scheduleVisit(enquiryId, visitData);
       toast.success(response.message || "Visit scheduled successfully");
       onVisitScheduled();
-      onClose();
       
       // Reset form
       setVisitData({
@@ -65,6 +64,9 @@ const ScheduleVisitDialog = ({
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-md w-[95vw] p-0 rounded-xl border-0 shadow-2xl overflow-hidden">
+        {/* Hidden DialogTitle for accessibility */}
+        <DialogTitle className="sr-only">Schedule Visit</DialogTitle>
+        
         {/* Header */}
         <div className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white px-5 py-4 flex items-start justify-between">
           <div>
@@ -141,13 +143,14 @@ const ScheduleVisitDialog = ({
               variant="outline"
               onClick={onClose}
               className="flex-1 text-sm"
+              disabled={isSubmitting}
             >
               Cancel
             </Button>
             <Button
               onClick={handleSubmit}
               disabled={!visitData.scheduled_date || isSubmitting}
-              className="flex-1 bg-blue-600 hover:bg-white-700 text-sm"
+              className="flex-1 bg-blue-900 hover:bg-blue-600 text-sm"
             >
               {isSubmitting ? "Scheduling..." : "Schedule Visit"}
             </Button>

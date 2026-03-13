@@ -225,12 +225,32 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Label } from "@/components/ui/label";
 import { Info as IconInfo, Calendar, Home, Phone, Mail, User, MapPin, Building, Bed, Hash, CalendarDays } from "lucide-react";
 import type { TenantProfile } from "@/lib/tenantDetailsApi";
+import { useEffect } from "react";
 
 interface AccountInformationProps {
   tenant: TenantProfile | null;
 }
 
 export default function AccountInformation({ tenant }: AccountInformationProps) {
+  // Debug logging to see what data is coming from API
+  useEffect(() => {
+    if (tenant) {
+      console.log('🏠 AccountInformation - Tenant data:', {
+        property_name: tenant.property_name,
+        property_address: tenant.property_address,
+        property_state: tenant.property_state,
+        property_area: tenant.property_area,
+        property_city_id: tenant.property_city_id,
+        property_manager_name: tenant.property_manager_name,
+        property_manager_phone: tenant.property_manager_phone,
+        tenant_rent: tenant.tenant_rent,
+        rent_per_bed: tenant.rent_per_bed,
+        bed_type: tenant.bed_type,
+        is_couple: tenant.is_couple
+      });
+    }
+  }, [tenant]);
+
   // Format date helper
   const formatDate = (dateString?: string) => {
     if (!dateString) return "N/A";
@@ -243,6 +263,58 @@ export default function AccountInformation({ tenant }: AccountInformationProps) 
     } catch {
       return "N/A";
     }
+  };
+
+  // Get the correct rent amount (from tenant_rent first, then fallback)
+  const getRentAmount = (): number => {
+    if (tenant?.tenant_rent) {
+      return Number(tenant.tenant_rent);
+    }
+    if (tenant?.rent_per_bed) {
+      return Number(tenant.rent_per_bed);
+    }
+    if (tenant?.monthly_rent) {
+      return Number(tenant.monthly_rent);
+    }
+    return 0;
+  };
+
+  const rentAmount = getRentAmount();
+
+  // Get bed display with type
+  const getBedDisplay = (): string => {
+    if (!tenant?.bed_number) return "—";
+    
+    let bedDisplay = `#${tenant.bed_number}`;
+    if (tenant.bed_type) {
+      bedDisplay += ` (${tenant.bed_type})`;
+    }
+    return bedDisplay;
+  };
+
+  // Get sharing type
+  const getSharingType = (): string => {
+    if (tenant?.sharing_type) {
+      const type = tenant.sharing_type.toLowerCase();
+      if (type.includes('single')) return 'Single Occupancy';
+      if (type.includes('double')) return 'Double Sharing';
+      if (type.includes('triple')) return 'Triple Sharing';
+      return tenant.sharing_type;
+    }
+    if (tenant?.preferred_sharing) {
+      return tenant.preferred_sharing;
+    }
+    return "—";
+  };
+
+  // Get location display
+  const getLocationDisplay = (): string => {
+    const parts = [];
+    if (tenant?.property_area) parts.push(tenant.property_area);
+    if (tenant?.property_city_id) parts.push(`City ID: ${tenant.property_city_id}`);
+    if (tenant?.property_state) parts.push(tenant.property_state);
+    
+    return parts.length > 0 ? parts.join(', ') : tenant?.property_address || "—";
   };
 
   // If tenant is null, show loading state
@@ -279,7 +351,6 @@ export default function AccountInformation({ tenant }: AccountInformationProps) 
             <User className="h-4 w-4 text-gray-500" />
             Personal Details
           </h3>
-          {/* MOBILE: 2-column grid | DESKTOP: 2-column grid */}
           <div className="grid grid-cols-2 gap-3 md:grid-cols-2 md:gap-4">
             {/* Full Name */}
             <div className="bg-gray-50 p-3 rounded-lg md:bg-transparent md:p-0 md:rounded-none">
@@ -305,7 +376,9 @@ export default function AccountInformation({ tenant }: AccountInformationProps) 
                 <Phone className="h-3 w-3" /> Phone
               </Label>
               <Label className="text-xs text-gray-500 hidden md:block">Phone</Label>
-              <p className="text-xs md:text-base text-gray-900 truncate">{tenant.country_code} {tenant.phone || "N/A"}</p>
+              <p className="text-xs md:text-base text-gray-900 truncate">
+                {tenant.country_code ? `${tenant.country_code} ` : ""}{tenant.phone || "N/A"}
+              </p>
             </div>
             
             {/* Status */}
@@ -333,7 +406,7 @@ export default function AccountInformation({ tenant }: AccountInformationProps) 
                 <User className="h-3 w-3" /> Gender
               </Label>
               <Label className="text-xs text-gray-500 hidden md:block">Gender</Label>
-              <p className="text-xs md:text-base text-gray-900">{tenant.gender || "—"}</p>
+              <p className="text-xs md:text-base text-gray-900 capitalize">{tenant.gender || "—"}</p>
             </div>
             
             {/* Date of Birth */}
@@ -353,7 +426,6 @@ export default function AccountInformation({ tenant }: AccountInformationProps) 
             <Home className="h-4 w-4 text-gray-500" />
             Property Details
           </h3>
-          {/* MOBILE: 2-column grid | DESKTOP: 2-column grid */}
           <div className="grid grid-cols-2 gap-3 md:grid-cols-2 md:gap-4">
             {/* Property Name */}
             <div className="bg-gray-50 p-3 rounded-lg md:bg-transparent md:p-0 md:rounded-none">
@@ -373,13 +445,13 @@ export default function AccountInformation({ tenant }: AccountInformationProps) 
               <p className="text-xs md:text-base text-gray-900">{tenant.room_number || "—"}</p>
             </div>
             
-            {/* Bed Number */}
+            {/* Bed Number with Type */}
             <div className="bg-gray-50 p-3 rounded-lg md:bg-transparent md:p-0 md:rounded-none">
               <Label className="text-[10px] text-gray-500 flex items-center gap-1 mb-1 md:hidden">
                 <Bed className="h-3 w-3" /> Bed
               </Label>
               <Label className="text-xs text-gray-500 hidden md:block">Bed</Label>
-              <p className="text-xs md:text-base text-gray-900">{tenant.bed_number || "—"}</p>
+              <p className="text-xs md:text-base text-gray-900">{getBedDisplay()}</p>
             </div>
             
             {/* Floor */}
@@ -397,7 +469,16 @@ export default function AccountInformation({ tenant }: AccountInformationProps) 
                 <Home className="h-3 w-3" /> Type
               </Label>
               <Label className="text-xs text-gray-500 hidden md:block">Room Type</Label>
-              <p className="text-xs md:text-base text-gray-900 capitalize truncate">{tenant.room_type?.replace('_', ' ') || "—"}</p>
+              <p className="text-xs md:text-base text-gray-900 capitalize truncate">{tenant.room_type?.replace(/_/g, ' ') || "—"}</p>
+            </div>
+            
+            {/* Sharing Type */}
+            <div className="bg-gray-50 p-3 rounded-lg md:bg-transparent md:p-0 md:rounded-none">
+              <Label className="text-[10px] text-gray-500 flex items-center gap-1 mb-1 md:hidden">
+                <Home className="h-3 w-3" /> Sharing
+              </Label>
+              <Label className="text-xs text-gray-500 hidden md:block">Sharing</Label>
+              <p className="text-xs md:text-base text-gray-900">{getSharingType()}</p>
             </div>
             
             {/* Monthly Rent */}
@@ -406,70 +487,50 @@ export default function AccountInformation({ tenant }: AccountInformationProps) 
                 <span className="text-xs">₹</span> Rent
               </Label>
               <Label className="text-xs text-gray-500 hidden md:block">Monthly Rent</Label>
-              <p className="text-xs md:text-base text-gray-900 font-medium">
-                ₹{tenant.rent_per_bed?.toLocaleString('en-IN') || tenant.monthly_rent?.toLocaleString('en-IN') || "—"}
+              <p className="text-xs md:text-base text-gray-900 font-medium text-green-600">
+                ₹{rentAmount ? rentAmount.toLocaleString('en-IN') : "—"}
               </p>
             </div>
           </div>
+
+          {/* Couple Badge */}
+          {/* {tenant.is_couple && (
+            <div className="mt-2 flex justify-end">
+              <span className="inline-flex items-center gap-1 px-2 py-1 bg-pink-100 text-pink-700 rounded-md text-xs">
+                👫 Couple Booking
+              </span>
+            </div>
+          )} */}
         </div>
 
-        {/* Property Address - WITH CITY & STATE */}
-        {(tenant.property_address || tenant.property_city || tenant.property_state) && (
+        {/* Property Address */}
+        {(tenant.property_address || tenant.property_area || tenant.property_state) && (
           <div className="border-t border-gray-100 pt-4">
             <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
               <MapPin className="h-4 w-4 text-gray-500" />
-              Property Address
+              Property Location
             </h3>
             
-            {/* Full Address - Full width on mobile */}
-            <div className="bg-gray-50 p-3 rounded-lg mb-3 md:hidden">
-              <Label className="text-[10px] text-gray-500 flex items-center gap-1 mb-1">
-                <MapPin className="h-3 w-3" /> Address
-              </Label>
-              <p className="text-xs text-gray-900">
-                {tenant.property_address || ""}
-                {tenant.property_address && (tenant.property_city || tenant.property_state) ? ", " : ""}
-                {tenant.property_city || ""}
-                {tenant.property_city && tenant.property_state ? ", " : ""}
-                {tenant.property_state || ""}
-              </p>
+            {/* Mobile view */}
+            <div className="md:hidden space-y-3">
+              {/* Full Address */}
+              <div className="bg-gray-50 p-3 rounded-lg">
+                <Label className="text-[10px] text-gray-500 flex items-center gap-1 mb-1">
+                  <MapPin className="h-3 w-3" /> Address
+                </Label>
+                <p className="text-xs text-gray-900">{getLocationDisplay()}</p>
+              </div>
             </div>
             
-            {/* Mobile: City & State in 2-column grid */}
-            <div className="grid grid-cols-2 gap-3 md:hidden">
-              {tenant.property_city && (
-                <div className="bg-gray-50 p-3 rounded-lg">
-                  <Label className="text-[10px] text-gray-500 flex items-center gap-1 mb-1">
-                    <MapPin className="h-3 w-3" /> City
-                  </Label>
-                  <p className="text-xs font-medium">{tenant.property_city}</p>
-                </div>
-              )}
-              {tenant.property_state && (
-                <div className="bg-gray-50 p-3 rounded-lg">
-                  <Label className="text-[10px] text-gray-500 flex items-center gap-1 mb-1">
-                    <MapPin className="h-3 w-3" /> State
-                  </Label>
-                  <p className="text-xs font-medium">{tenant.property_state}</p>
-                </div>
-              )}
-            </div>
-            
-            {/* Desktop view - separate fields */}
+            {/* Desktop view */}
             <div className="hidden md:grid md:grid-cols-2 md:gap-4">
               <div>
                 <Label className="text-xs text-gray-500">Address</Label>
-                <p className="mt-1 text-gray-900">{tenant.property_address || "N/A"}</p>
+                <p className="mt-1 text-gray-900">{tenant.property_address || "—"}</p>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-xs text-gray-500">City</Label>
-                  <p className="mt-1 text-gray-900">{tenant.property_city || "N/A"}</p>
-                </div>
-                <div>
-                  <Label className="text-xs text-gray-500">State</Label>
-                  <p className="mt-1 text-gray-900">{tenant.property_state || "N/A"}</p>
-                </div>
+              <div>
+                <Label className="text-xs text-gray-500">Area / Location</Label>
+                <p className="mt-1 text-gray-900">{tenant.property_area || "—"}</p>
               </div>
             </div>
           </div>
@@ -479,7 +540,6 @@ export default function AccountInformation({ tenant }: AccountInformationProps) 
         {(tenant.property_manager_name || tenant.manager_name) && (
           <div className="border-t border-gray-100 pt-4">
             <h3 className="text-sm font-semibold text-gray-900 mb-3">Property Manager</h3>
-            {/* MOBILE: 2-column grid | DESKTOP: 2-column grid */}
             <div className="grid grid-cols-2 gap-3 md:grid-cols-2 md:gap-4">
               <div className="bg-gray-50 p-3 rounded-lg md:bg-transparent md:p-0 md:rounded-none">
                 <Label className="text-[10px] text-gray-500 flex items-center gap-1 mb-1 md:hidden">
@@ -503,7 +563,6 @@ export default function AccountInformation({ tenant }: AccountInformationProps) 
         {(tenant.check_in_date || tenant.lockin_period_months || tenant.notice_period_days) && (
           <div className="border-t border-gray-100 pt-4">
             <h3 className="text-sm font-semibold text-gray-900 mb-3">Contract Terms</h3>
-            {/* MOBILE: 2-column grid | DESKTOP: 3-column grid */}
             <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4">
               {tenant.check_in_date && (
                 <div className="bg-gray-50 p-3 rounded-lg md:bg-transparent md:p-0 md:rounded-none">

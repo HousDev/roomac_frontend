@@ -27,8 +27,8 @@ interface EnquiryVisitsTabProps {
 const EnquiryVisitsTab = ({ enquiryId, tenantName, onVisitChange }: EnquiryVisitsTabProps) => {
   const [visits, setVisits] = useState<Visit[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showScheduleDialog, setShowScheduleDialog] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
+  const [showScheduleDialog, setShowScheduleDialog] = useState(false);
 
   const loadVisits = async () => {
     setLoading(true);
@@ -54,7 +54,7 @@ const EnquiryVisitsTab = ({ enquiryId, tenantName, onVisitChange }: EnquiryVisit
     try {
       await updateVisitStatus(visitId, newStatus);
       toast.success(`Visit marked as ${newStatus.replace('_', ' ')}`);
-      loadVisits();
+      await loadVisits(); // Reload to get updated data
       if (onVisitChange) onVisitChange();
     } catch (error: any) {
       toast.error(error.message || "Failed to update status");
@@ -114,6 +114,12 @@ const EnquiryVisitsTab = ({ enquiryId, tenantName, onVisitChange }: EnquiryVisit
     return visitDate < today;
   };
 
+  const handleVisitScheduled = () => {
+    loadVisits();
+    setShowScheduleDialog(false);
+    if (onVisitChange) onVisitChange();
+  };
+
   if (loading) {
     return (
       <div className="py-4 text-center text-sm text-gray-500">
@@ -126,11 +132,13 @@ const EnquiryVisitsTab = ({ enquiryId, tenantName, onVisitChange }: EnquiryVisit
     <div className="space-y-4">
       {/* Header with Schedule Button */}
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-gray-700">Scheduled Visits</h3>
+        <h3 className="text-sm font-semibold text-gray-700">
+          Scheduled Visits ({visits.length})
+        </h3>
         <Button
           size="sm"
           onClick={() => setShowScheduleDialog(true)}
-          className="h-7 px-2 text-xs bg-blue-600 hover:bg-blue-900"
+          className="h-7 px-2 text-xs bg-blue-900 hover:bg-blue-700"
         >
           <CalendarPlus className="h-3 w-3 mr-1" />
           Schedule New
@@ -193,7 +201,7 @@ const EnquiryVisitsTab = ({ enquiryId, tenantName, onVisitChange }: EnquiryVisit
                 </div>
               )}
 
-              {/* Actions (for scheduled visits) */}
+              {/* Actions - Show different options based on current status */}
               {visit.status === 'scheduled' && (
                 <div className="flex flex-wrap gap-1 mt-2 pt-2 border-t">
                   <Button
@@ -229,6 +237,51 @@ const EnquiryVisitsTab = ({ enquiryId, tenantName, onVisitChange }: EnquiryVisit
                 </div>
               )}
 
+              {visit.status === 'completed' && (
+                <div className="flex gap-1 mt-2 pt-2 border-t">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => handleStatusUpdate(visit.id, 'scheduled')}
+                    disabled={updatingStatus === visit.id}
+                    className="h-6 px-2 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                  >
+                    <RotateCcw className="h-3 w-3 mr-1" />
+                    Revert to Scheduled
+                  </Button>
+                </div>
+              )}
+
+              {visit.status === 'no_show' && (
+                <div className="flex gap-1 mt-2 pt-2 border-t">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => handleStatusUpdate(visit.id, 'scheduled')}
+                    disabled={updatingStatus === visit.id}
+                    className="h-6 px-2 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                  >
+                    <RotateCcw className="h-3 w-3 mr-1" />
+                    Reschedule
+                  </Button>
+                </div>
+              )}
+
+              {visit.status === 'cancelled' && (
+                <div className="flex gap-1 mt-2 pt-2 border-t">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => handleStatusUpdate(visit.id, 'scheduled')}
+                    disabled={updatingStatus === visit.id}
+                    className="h-6 px-2 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                  >
+                    <RotateCcw className="h-3 w-3 mr-1" />
+                    Re-schedule
+                  </Button>
+                </div>
+              )}
+
               {/* Footer */}
               <div className="flex justify-between items-center mt-2 text-[10px] text-gray-400">
                 <span>Scheduled by: {visit.created_by}</span>
@@ -245,10 +298,7 @@ const EnquiryVisitsTab = ({ enquiryId, tenantName, onVisitChange }: EnquiryVisit
         tenantName={tenantName}
         isOpen={showScheduleDialog}
         onClose={() => setShowScheduleDialog(false)}
-        onVisitScheduled={() => {
-          loadVisits();
-          if (onVisitChange) onVisitChange();
-        }}
+        onVisitScheduled={handleVisitScheduled}
       />
     </div>
   );

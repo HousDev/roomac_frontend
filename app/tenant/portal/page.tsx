@@ -1495,14 +1495,14 @@ className={`p-2.5 sm:p-3 rounded-md border cursor-pointer transition-all hover:s
     {/* Body */}
     <div className="px-4 py-3 space-y-2.5">
 
-      {tenant?.lockin_period_months && (
+      {/* {tenant?.lockin_period_months && (
         <div className="p-2 bg-yellow-50 border border-yellow-200 rounded-lg">
           <p className="text-[11px] font-medium text-yellow-800">Lock-in Period Information</p>
           <p className="text-[10px] text-yellow-700 mt-0.5">
             Lock-in: {tenant.lockin_period_months} months
           </p>
         </div>
-      )}
+      )} */}
 
       {/* Row 1: Leave Type + Start Date + End Date */}
       <div className="grid grid-cols-3 gap-2">
@@ -1570,6 +1570,7 @@ className={`p-2.5 sm:p-3 rounded-md border cursor-pointer transition-all hover:s
           <Label className="text-[11px] font-medium">Emergency Contact</Label>
           <Input
             value={leaveRequest.emergency_contact}
+            maxLength={10}
             onChange={(e) => setLeaveRequest({ ...leaveRequest, emergency_contact: e.target.value })}
             placeholder="Emergency contact number"
             className="mt-1 h-8 text-xs"

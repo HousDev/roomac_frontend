@@ -24,7 +24,8 @@ import {
   CheckCircle,
   XCircle,
   AlertCircle,
-  RotateCcw
+  RotateCcw,
+  UserPlus
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
@@ -41,6 +42,7 @@ interface EnquiryViewDialogProps {
   formatDateForDisplay: (dateString: string) => string;
   onDelete: (id: string) => void;
   onEnquiryUpdate?: () => void;
+  onConvertToTenant?: () => void;
 }
 
 const EnquiryViewDialog = ({
@@ -54,6 +56,7 @@ const EnquiryViewDialog = ({
   formatDateForDisplay,
   onDelete,
   onEnquiryUpdate,
+  onConvertToTenant,
 }: EnquiryViewDialogProps) => {
   const [isAddingFollowup, setIsAddingFollowup] = useState(false);
   const [activeTab, setActiveTab] = useState("followups");
@@ -296,13 +299,28 @@ const EnquiryViewDialog = ({
 
           {/* Actions */}
           <div className="px-4 py-3 bg-slate-50 flex items-center justify-between border-t border-slate-200">
-            <button
-              onClick={handleDeleteClick}
-              className="flex items-center gap-1.5 text-[11px] font-medium text-red-500 hover:text-red-700 transition"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              Delete Enquiry
-            </button>
+            <div className="flex items-center gap-3">
+              {/* Convert to Tenant Button */}
+              {localEnquiry.status !== 'converted' && onConvertToTenant && (
+                <button
+                  onClick={onConvertToTenant}
+                  className="flex items-center gap-1.5 text-[11px] font-medium text-emerald-600 hover:text-emerald-700 transition"
+                >
+                  <UserPlus className="h-3.5 w-3.5" />
+                  Convert to Tenant
+                </button>
+              )}
+              
+              {/* Delete Button */}
+              <button
+                onClick={handleDeleteClick}
+                className="flex items-center gap-1.5 text-[11px] font-medium text-red-500 hover:text-red-700 transition"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                Delete
+              </button>
+            </div>
+            
             <button
               onClick={onClose}
               className="text-[11px] font-medium text-slate-600 hover:text-slate-800 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-white transition"
