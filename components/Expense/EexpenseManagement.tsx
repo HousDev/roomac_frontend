@@ -805,6 +805,53 @@ function SearchableDropdown({
   );
 }
 
+/* ─── Receipt Thumbnail Component ────────────────────────────────────────── */
+const ReceiptThumbnail = ({ url, filename, onClick }: { url: string; filename?: string; onClick: () => void }) => {
+  const [error, setError] = useState(false);
+  const isPdf = filename?.toLowerCase().endsWith('.pdf') || url?.toLowerCase().includes('.pdf');
+
+  return (
+    <div 
+      onClick={onClick}
+      style={{
+        width: 32,
+        height: 32,
+        borderRadius: 6,
+        overflow: "hidden",
+        border: "1px solid #E2E8F4",
+        cursor: "pointer",
+        background: "#F8FAFF",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        transition: "all 0.2s",
+      }}
+      onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#3B5BDB")}
+      onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#E2E8F4")}
+    >
+      {!error && !isPdf ? (
+        <img 
+          src={url} 
+          alt="receipt"
+          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          onError={() => setError(true)}
+        />
+      ) : isPdf ? (
+        <svg width="16" height="16" fill="none" stroke="#E53E3E" strokeWidth="2" viewBox="0 0 24 24">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+          <polyline points="14 2 14 8 20 8" />
+        </svg>
+      ) : (
+        <svg width="16" height="16" fill="none" stroke="#8892A4" strokeWidth="2" viewBox="0 0 24 24">
+          <rect x="2" y="2" width="20" height="20" rx="2.18" />
+          <circle cx="8.5" cy="8.5" r="1.5" />
+          <polyline points="21 15 16 10 5 21" />
+        </svg>
+      )}
+    </div>
+  );
+};
+
 /* ─── Main Component ────────────────────────────────────────────────────────── */
 export default function ExpensesManagement() {
   const [expenses, setExpenses]   = useState<any[]>([]);
@@ -837,10 +884,6 @@ export default function ExpensesManagement() {
   const [filterStatus, setFilterStatus] = useState("All");
   const [filterProp,   setFilterProp]   = useState("All");
   const [search,       setSearch]       = useState("");
-
-  // Mobile
-  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
-
 
   /* ── Load master data once ─────────────────────────────────────────────── */
   const loadMasterData = useCallback(async () => {
@@ -1007,7 +1050,7 @@ export default function ExpensesManagement() {
     setEditId(exp.id);
     setErrors({});
     setReceiptFile(null);
-    setReceiptPreview(exp.receipt_name || "");
+    setReceiptPreview(exp.receipt_url || "");
     setShowModal(true);
   }
 
@@ -1057,24 +1100,55 @@ export default function ExpensesManagement() {
     }
   }
 
-  /* ── Delete ────────────────────────────────────────────────────────────── */
+  /* ── Delete with SweetAlert2 ───────────────────────────────────────────── */
   async function handleDelete(id: number, desc: string) {
     const result = await Swal.fire({
-      title: "Delete Expense?",
-      text: `"${desc}" will be permanently deleted.`,
+      title: "Are you sure?",
+      text: `You are about to delete "${desc}"`,
       icon: "warning",
       showCancelButton: true,
-      confirmButtonColor: "#E53E3E",
+      confirmButtonColor: "#d33",
       cancelButtonColor: "#3085d6",
-      confirmButtonText: "Yes, delete",
+      confirmButtonText: "Yes, delete it!",
+      cancelButtonText: "Cancel",
+      background: "#fff",
+      backdrop: `rgba(0,0,0,0.4)`,
+      width: '400px',
+      padding: '1.5rem',
+      customClass: {
+        title: "text-lg font-bold",
+        popup: "rounded-xl",
+        confirmButton:
+          "bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-lg",
+        cancelButton:
+          "bg-gray-500 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg",
+      },
+      buttonsStyling: false,
     });
+
     if (!result.isConfirmed) return;
+
     try {
       await deleteExpense(id);
-      toast.success("Expense deleted");
+      
+      await Swal.fire({
+        title: "Deleted!",
+        text: "Expense has been deleted successfully.",
+        icon: "success",
+        timer: 2000,
+        showConfirmButton: false,
+        background: "#fff",
+        width: '350px',
+        padding: '1rem',
+        customClass: {
+          popup: "rounded-xl",
+          title: "text-lg font-bold text-green-600",
+        },
+      });
+      
       await loadExpenses();
     } catch (err: any) {
-      toast.error(err.message || "Failed to delete");
+      toast.error(err.message || "Failed to delete expense");
     }
   }
 
@@ -1086,6 +1160,36 @@ export default function ExpensesManagement() {
       setReceiptPreview(file.name);
     }
   }
+
+  /* ── Export to Excel ───────────────────────────────────────────────────── */
+  const handleExportToExcel = async () => {
+    try {
+      // Simple CSV export
+      const headers = ['Property', 'Category', 'Description', 'Amount', 'Paid By', 'Date', 'Status', 'Added By'];
+      const rows = filtered.map(e => [
+        e.property_name,
+        e.category_name,
+        e.description,
+        e.amount,
+        e.paid_by_name,
+        e.expense_date,
+        e.status,
+        e.added_by_name
+      ]);
+      
+      const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `expenses_${new Date().toISOString().split('T')[0]}.csv`;
+      a.click();
+      
+      toast.success("Exported successfully");
+    } catch {
+      toast.error("Export failed");
+    }
+  };
 
   /* ── Computed values ───────────────────────────────────────────────────── */
   const iTotal = itemsTotal(form.items);
@@ -1208,24 +1312,33 @@ export default function ExpensesManagement() {
       />
 
       {/* ── STICKY HEADER + COMPACT STATS ────────────────────────────────── */}
-      <div style={{ position: "sticky", top: 0, zIndex: 100, background: "#F4F6FB" }}>
-        {/* Top row */}
-        <div style={{ background: "#fff", borderBottom: "1px solid #E8ECF4", padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8 }}>
+      <div style={{ position: "sticky", top: 0, zIndex: 100, background: "" }}>
+        {/* Top bar: title + add button */}
+        <div style={{ background: "", borderBottom: "1px solid #E8ECF4", padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+            {/* <div style={{ width: 32, height: 32, background: "linear-gradient(135deg,#1A2B6D,#3B5BDB)", borderRadius: 9, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <svg width="15" height="15" fill="none" stroke="#fff" strokeWidth="2" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
+            </div> */}
+            {/* <div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: "#1A2B6D", lineHeight: 1.2 }}>Expense Management</div>
+              <div style={{ fontSize: 10, color: "#8892A4" }}>Track all PG expenses</div>
+            </div> */}
+          </div>
           <button
             onClick={openAdd}
-            style={{ background: "linear-gradient(135deg,#1A2B6D,#3B5BDB)", color: "#fff", border: "none", borderRadius: 8, padding: "7px 14px", fontWeight: 700, fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, boxShadow: "0 3px 10px rgba(59,91,219,0.3)", whiteSpace: "nowrap" }}
+            style={{ background: "linear-gradient(135deg,#1A2B6D,#3B5BDB)", color: "#fff", border: "none", borderRadius: 8, padding: "7px 14px", fontWeight: 700, fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, boxShadow: "0 3px 10px rgba(59,91,219,0.3)", whiteSpace: "nowrap", flexShrink: 0 }}
           >
             <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             Add Expense
           </button>
         </div>
-        {/* Compact stat cards */}
+        {/* Compact stat cards — 4 in a row, 2x2 on mobile */}
         <div className="exp-stat-grid" style={{ padding: "10px 14px 0", display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8 }}>
           {[
-            { label: "Total Items", val: fmt(stats.total_amount || 0), sub: `${stats.total_count || expenses.length} records`, icon: "💰", c: "#1A2B6D", bg: "bg-gradient-to-br from-blue-50 to-blue-100", iconBg: "bg-blue-600" },
-            { label: "Total Value", val: fmt(stats.paid_amount || 0), sub: `${stats.paid_count || 0} paid`, icon: "✅", c: "#1B7A4E", bg: "bg-gradient-to-br from-green-50 to-green-100", iconBg: "bg-green-600" },
-            { label: "Low Stock", val: fmt(stats.pending_amount || 0), sub: `${stats.pending_count || 0} pending`, icon: "⏳", c: "#B45309", bg: "bg-gradient-to-br from-orange-50 to-orange-100", iconBg: "bg-orange-600" },
-            { label: "Out of Stock", val: fmt(expenses.filter((e:any)=>e.expense_date?.startsWith(new Date().toISOString().slice(0,7))).reduce((s:number,e:any)=>s+Number(e.amount),0)), sub: new Date().toLocaleString("en-IN",{month:"short",year:"numeric"}), icon: "📅", c: "#6B21A8", bg: "bg-gradient-to-br from-purple-50 to-purple-100", iconBg: "bg-purple-600" },
+            { label: "Total", val: fmt(stats.total_amount || 0), sub: `${stats.total_count || expenses.length} records`, icon: "💰", c: "#1A2B6D", ibg: "#EEF1FB" },
+            { label: "Paid", val: fmt(stats.paid_amount || 0), sub: `${stats.paid_count || 0} paid`, icon: "✅", c: "#1B7A4E", ibg: "#E8F5F0" },
+            { label: "Pending", val: fmt(stats.pending_amount || 0), sub: `${stats.pending_count || 0} pending`, icon: "⏳", c: "#B45309", ibg: "#FFF8EC" },
+            { label: "This Month", val: fmt(expenses.filter((e:any)=>e.expense_date?.startsWith(new Date().toISOString().slice(0,7))).reduce((s:number,e:any)=>s+Number(e.amount),0)), sub: new Date().toLocaleString("en-IN",{month:"short",year:"numeric"}), icon: "📅", c: "#6B21A8", ibg: "#F5F0FF" },
           ].map((c, i) => (
             <div key={i} style={{ background: "#fff", borderRadius: 10, padding: "10px 12px", border: "1px solid #E8ECF4", boxShadow: "0 1px 4px rgba(0,0,0,0.04)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
               <div style={{ minWidth: 0 }}>
@@ -1233,7 +1346,7 @@ export default function ExpensesManagement() {
                 <div style={{ fontSize: 13, fontWeight: 800, color: c.c, lineHeight: 1.2 }}>{c.val}</div>
                 <div style={{ fontSize: 9, color: "#B0BAC9", marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.sub}</div>
               </div>
-              <div style={{ width: 28, height: 28, borderRadius: 8, background: i===0?"#EEF1FB":i===1?"#E8F5F0":i===2?"#FFF8EC":"#F5F0FF", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0 }}>{c.icon}</div>
+              <div style={{ width: 28, height: 28, borderRadius: 8, background: c.ibg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0 }}>{c.icon}</div>
             </div>
           ))}
         </div>
@@ -1253,7 +1366,6 @@ export default function ExpensesManagement() {
         >
           {/* Filters bar */}
           <div
-            className="exp-filter-wrap"
             style={{
               padding: "12px 14px",
               borderBottom: "1px solid #F0F3FA",
@@ -1263,23 +1375,11 @@ export default function ExpensesManagement() {
               alignItems: "center",
             }}
           >
-            {/* Search */}
-            <div
-              style={{ position: "relative", flex: "1 1 180px", minWidth: 160 }}
-            >
+            {/* Search — always full width on mobile */}
+            <div style={{ position: "relative", flex: "1 1 200px", minWidth: 0 }}>
               <svg
-                style={{
-                  position: "absolute",
-                  left: 10,
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                }}
-                width="13"
-                height="13"
-                fill="none"
-                stroke="#8892A4"
-                strokeWidth="2"
-                viewBox="0 0 24 24"
+                style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}
+                width="13" height="13" fill="none" stroke="#8892A4" strokeWidth="2" viewBox="0 0 24 24"
               >
                 <circle cx="11" cy="11" r="8" />
                 <line x1="21" y1="21" x2="16.65" y2="16.65" />
@@ -1296,54 +1396,13 @@ export default function ExpensesManagement() {
                   fontSize: 12,
                   background: "#F8FAFF",
                   outline: "none",
-                  boxSizing: "border-box",
                   color: "#374151",
                 }}
               />
             </div>
 
-            {/* Mobile: toggle more filters */}
-            <button
-              onClick={() => setMobileFiltersOpen((o) => !o)}
-              style={{
-                display: "none",
-                padding: "8px 12px",
-                border: "1px solid #E8ECF4",
-                borderRadius: 9,
-                fontSize: 12,
-                background: "#F8FAFF",
-                cursor: "pointer",
-                alignItems: "center",
-                gap: 6,
-                color: "#374151",
-              }}
-              className="mobile-filter-btn"
-            >
-              <svg
-                width="13"
-                height="13"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                viewBox="0 0 24 24"
-              >
-                <line x1="4" y1="6" x2="20" y2="6" />
-                <line x1="8" y1="12" x2="16" y2="12" />
-                <line x1="11" y1="18" x2="13" y2="18" />
-              </svg>
-              Filters
-            </button>
-
-            {/* Filter selects */}
-            <div
-              style={{
-                display: "flex",
-                gap: 8,
-                flexWrap: "wrap",
-                flex: "1 1 auto",
-              }}
-              className="filter-selects"
-            >
+            {/* Filter selects — always visible, wrap on mobile */}
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", flex: "1 1 auto" }}>
               <select
                 value={filterProp}
                 onChange={(e) => setFilterProp(e.target.value)}
@@ -1531,13 +1590,14 @@ export default function ExpensesManagement() {
                           <td style={{ padding: "11px 14px", fontSize: 13, fontWeight: 800, color: "#1A2B6D", whiteSpace: "nowrap" }}>{fmt(exp.amount)}</td>
                           {/* Paid By */}
                           <td style={{ padding: "11px 14px", fontSize: 12, color: "#374151", whiteSpace: "nowrap" }}>{exp.paid_by_name}</td>
-                          {/* Receipt */}
+                          {/* Receipt - Now with thumbnail */}
                           <td style={{ padding: "11px 14px" }}>
                             {exp.receipt_url ? (
-                              <a href={exp.receipt_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "#E8F5F0", color: "#1B7A4E", padding: "3px 9px", borderRadius: 7, fontSize: 11, fontWeight: 600, whiteSpace: "nowrap", textDecoration: "none" }}>
-                                <svg width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
-                                Receipt
-                              </a>
+                              <ReceiptThumbnail 
+                                url={exp.receipt_url} 
+                                filename={exp.receipt_name}
+                                onClick={() => setViewItem(exp)}
+                              />
                             ) : (
                               <span style={{ color: "#CBD5E1", fontSize: 12 }}>—</span>
                             )}
@@ -2365,36 +2425,55 @@ export default function ExpensesManagement() {
                     <div style={{ fontSize: 13, color: "#374151", fontWeight: 400, background: "#F8FAFF", borderRadius: 8, padding: "8px 12px", border: "1px solid #E8ECF4" }}>{viewItem.notes}</div>
                   </div>
                 )}
-                {/* Receipt — PDF/image preview + open link */}
+                {/* Receipt — preview + open */}
                 {viewItem.receipt_url && (
                   <div style={{ gridColumn: "1/-1" }}>
-                    <div style={{ fontSize: 10, color: "#8892A4", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Receipt</div>
-                    <div style={{ background: "#F8FAFF", border: "1.5px solid #E2E8F4", borderRadius: 12, padding: "12px 14px", display: "flex", alignItems: "center", gap: 12 }}>
-                      {/* Icon */}
-                      <div style={{ width: 40, height: 40, background: "#EEF1FB", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <div style={{ fontSize: 10, color: "#8892A4", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>Receipt</div>
+                    {/* Actual preview */}
+                    {viewItem.receipt_name?.toLowerCase().endsWith(".pdf") ? (
+                      /* PDF embed */
+                      <div style={{ borderRadius: 12, overflow: "hidden", border: "1.5px solid #E2E8F4", marginBottom: 10, background: "#F8FAFF" }}>
+                        <iframe
+                          src={viewItem.receipt_url}
+                          title="Receipt PDF"
+                          style={{ width: "100%", height: 340, border: "none", display: "block" }}
+                        />
+                      </div>
+                    ) : (
+                      /* Image preview */
+                      <div style={{ borderRadius: 12, overflow: "hidden", border: "1.5px solid #E2E8F4", marginBottom: 10, background: "#F8FAFF", display: "flex", alignItems: "center", justifyContent: "center", minHeight: 180 }}>
+                        <img
+                          src={viewItem.receipt_url}
+                          alt="Receipt"
+                          style={{ maxWidth: "100%", maxHeight: 320, objectFit: "contain", display: "block" }}
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                        />
+                      </div>
+                    )}
+                    {/* File row — name + open button */}
+                    <div style={{ background: "#F8FAFF", border: "1.5px solid #E2E8F4", borderRadius: 10, padding: "10px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+                      <div style={{ width: 34, height: 34, background: "#EEF1FB", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                         {viewItem.receipt_name?.toLowerCase().endsWith(".pdf") ? (
-                          <svg width="20" height="20" fill="none" stroke="#3B5BDB" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="12" y2="17"/></svg>
+                          <svg width="17" height="17" fill="none" stroke="#3B5BDB" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
                         ) : (
-                          <svg width="20" height="20" fill="none" stroke="#3B5BDB" strokeWidth="1.8" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21,15 16,10 5,21"/></svg>
+                          <svg width="17" height="17" fill="none" stroke="#3B5BDB" strokeWidth="1.8" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21,15 16,10 5,21"/></svg>
                         )}
                       </div>
-                      {/* Filename */}
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 12, fontWeight: 600, color: "#1A2B6D", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {viewItem.receipt_name || "Receipt file"}
                         </div>
-                        <div style={{ fontSize: 10, color: "#8892A4", marginTop: 2 }}>
+                        <div style={{ fontSize: 10, color: "#8892A4", marginTop: 1 }}>
                           {viewItem.receipt_name?.toLowerCase().endsWith(".pdf") ? "PDF Document" : "Image file"}
                         </div>
                       </div>
-                      {/* Open button */}
                       <a
                         href={viewItem.receipt_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "linear-gradient(135deg,#1A2B6D,#3B5BDB)", color: "#fff", padding: "7px 14px", borderRadius: 8, fontSize: 12, fontWeight: 600, textDecoration: "none", whiteSpace: "nowrap", flexShrink: 0 }}
+                        style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "linear-gradient(135deg,#1A2B6D,#3B5BDB)", color: "#fff", padding: "6px 13px", borderRadius: 8, fontSize: 11, fontWeight: 600, textDecoration: "none", whiteSpace: "nowrap", flexShrink: 0 }}
                       >
-                        <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15,3 21,3 21,9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                        <svg width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15,3 21,3 21,9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                         Open
                       </a>
                     </div>
@@ -2464,17 +2543,12 @@ export default function ExpensesManagement() {
         ::-webkit-scrollbar-track { background: #F0F3FA; }
         ::-webkit-scrollbar-thumb { background: #C5CEE0; border-radius: 10px; }
 
-        /* Mobile: stack stat cards 2x2 */
-        @media (max-width: 480px) {
+        /* Mobile ≤ 600px */
+        @media (max-width: 600px) {
+          /* Stat cards: 2 columns */
           .exp-stat-grid { grid-template-columns: repeat(2,1fr) !important; }
-          .exp-filter-wrap { flex-direction: column !important; }
-          .exp-filter-wrap select { width: 100% !important; flex: none !important; }
+          /* Footer totals: stack */
           .exp-footer-totals { flex-direction: column !important; align-items: flex-start !important; gap: 4px !important; }
-        }
-        @media (max-width: 640px) {
-          .mobile-filter-btn { display: flex !important; }
-          .filter-selects { display: none !important; }
-          .filter-selects.open { display: flex !important; flex-direction: column; width: 100%; }
         }
       `}</style>
     </div>

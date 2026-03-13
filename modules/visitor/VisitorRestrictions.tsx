@@ -717,19 +717,19 @@ export function VisitorRestrictions() {
     setSubmitting(true);
     try {
       // FIX: Build payload carefully — don't send empty strings for optional fields
-      const payload: RestrictionPayload = {
-        property_id:      formData.property_id?.trim() || undefined,
-        property_name:    formData.property_name.trim(),
-        restriction_type: formData.restriction_type,
-        description:      formData.description.trim(),
-        is_active:        formData.is_active ?? true,
-        start_time:       formData.start_time
-          ? new Date(formData.start_time).toISOString()
-          : undefined,
-        end_time:         formData.end_time
-          ? new Date(formData.end_time).toISOString()
-          : undefined,
-      };
+     const payload: RestrictionPayload = {
+  property_id: formData.property_id ? String(formData.property_id).trim() || undefined : undefined,  // ✅
+  property_name:    formData.property_name.trim(),
+  restriction_type: formData.restriction_type,
+  description:      formData.description.trim(),
+  is_active:        formData.is_active ?? true,
+  start_time:       formData.start_time
+    ? new Date(formData.start_time).toISOString()
+    : undefined,
+  end_time:         formData.end_time
+    ? new Date(formData.end_time).toISOString()
+    : undefined,
+};
 
       if (editingItem) {
         await updateRestriction(editingItem.id, payload);

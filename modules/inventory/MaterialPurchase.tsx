@@ -1882,28 +1882,32 @@ const handleDownloadPDF = (purchase: MaterialPurchaseType) => {
               <h2 className="text-base font-semibold">Purchase Details</h2>
               <p className="text-xs text-emerald-100">View complete purchase information</p>
             </div>
-          <div className="flex items-center gap-2">
-  <button 
+        <div className="flex items-center gap-2">
+  {/* Download PDF — Red */}
+  <button
     onClick={() => selectedPurchase && handleDownloadPDF(selectedPurchase)}
-    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-white/20 text-white text-[11px] font-medium transition-colors"
+    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-[11px] font-medium transition-colors"
   >
     <Download className="h-3.5 w-3.5" />
-    <span className="hidden sm:inline"> Download PDF</span>
+    <span className="hidden sm:inline">Download PDF</span>
   </button>
-  <button 
+
+  {/* Print — Blue */}
+  <button
     onClick={() => selectedPurchase && handlePrint(selectedPurchase)}
-    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-white/20 text-white text-[11px] font-medium transition-colors"
+    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-500 hover:bg-blue-600 text-white text-[11px] font-medium transition-colors"
   >
     <Printer className="h-3.5 w-3.5" />
-    <span className="hidden sm:inline">Print</span>
+    <span className="hidden sm:inline">Print Page</span>
   </button>
+
+  {/* Close */}
   <DialogClose asChild>
-    <button className="p-1.5 rounded-full hover:bg-white/20 transition">
-      <X className="h-4 w-4" />
+    <button className="p-1.5 rounded-full hover:bg-white/20 transition ml-1">
+      <X className="h-4 w-4 text-white" />
     </button>
   </DialogClose>
-</div>
-          </div>
+</div>  </div>
 
           {selectedPurchase && (
             <div className="p-4 overflow-y-auto max-h-[75vh] space-y-5">
