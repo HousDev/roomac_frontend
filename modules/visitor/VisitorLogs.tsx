@@ -268,54 +268,93 @@ export function VisitorLogs() {
   };
 
   // ── Block visitor ──────────────────────────────────────────────────────
-  const handleBlock = async (log: VisitorLog) => {
-    const { value: reason } = await Swal.fire({
-      title: 'Block Visitor',
-      input: 'textarea',
-      inputLabel: `Reason for blocking ${log.visitor_name}`,
-      inputPlaceholder: 'Enter reason…',
-      showCancelButton: true,
-      confirmButtonText: 'Block',
-      confirmButtonColor: '#d33',
-      width: '400px',
-      customClass: { popup: 'rounded-xl shadow-2xl' },
-    });
-    if (!reason) return;
-    try {
-      await blockVisitor({
-        visitor_name:    log.visitor_name,
-        visitor_phone:   log.visitor_phone,
-        id_proof_number: log.id_proof_number,
-        reason,
-        blocked_by:      guardName || 'Security',
-      });
-      toast.success(`${log.visitor_name} blocked successfully`);
-    } catch (err: any) {
-      toast.error(err?.message || 'Block failed');
+ const handleBlock = async (log: VisitorLog) => {
+  const { value: reason } = await Swal.fire({
+    title: 'Block Visitor',
+    input: 'textarea',
+    inputLabel: `Reason for blocking ${log.visitor_name}`,
+    inputPlaceholder: 'Enter reason...',
+    showCancelButton: true,
+    confirmButtonText: 'Block',
+    cancelButtonText: 'Cancel',
+    width: '420px',
+
+    confirmButtonColor: '#dc2626',
+    cancelButtonColor: '#6b7280',
+
+    buttonsStyling: true,
+
+    customClass: {
+      popup: 'rounded-xl shadow-2xl',
+    },
+
+    didOpen: () => {
+      const confirmBtn = document.querySelector('.swal2-confirm') as HTMLElement;
+      const cancelBtn = document.querySelector('.swal2-cancel') as HTMLElement;
+
+      if (confirmBtn) {
+        confirmBtn.style.background = '#dc2626';
+        confirmBtn.style.color = '#fff';
+        confirmBtn.style.padding = '8px 18px';
+        confirmBtn.style.borderRadius = '6px';
+        confirmBtn.style.fontWeight = '600';
+        confirmBtn.style.display = 'inline-block'; // force visible
+      }
+
+      if (cancelBtn) {
+        cancelBtn.style.background = '#6b7280';
+        cancelBtn.style.color = '#fff';
+        cancelBtn.style.padding = '8px 18px';
+        cancelBtn.style.borderRadius = '6px';
+        cancelBtn.style.marginRight = '8px';
+        cancelBtn.style.display = 'inline-block'; // force visible
+      }
     }
-  };
+  });
+
+  if (!reason) return;
+
+  try {
+    await blockVisitor({
+      visitor_name: log.visitor_name,
+      visitor_phone: log.visitor_phone,
+      id_proof_number: log.id_proof_number,
+      reason,
+      blocked_by: guardName || 'Security',
+    });
+
+    toast.success(`${log.visitor_name} blocked successfully`);
+  } catch (err: any) {
+    toast.error(err?.message || 'Block failed');
+  }
+};
 
   // Add this after handleBlock function:
 const handleUnblock = async (log: VisitorLog) => {
   const result = await Swal.fire({
-    title: 'Unblock Visitor?',
+    title: 'Unblock Visitor',
     html: `
       <div style="text-align:left;font-size:13px;">
         <p><b>Name:</b> ${log.visitor_name}</p>
         <p><b>Phone:</b> ${log.visitor_phone}</p>
         <p><b>Aadhar:</b> ${log.id_proof_number}</p>
-        <p style="margin-top:8px;color:#6b7280;font-size:12px;">This will allow the visitor to enter again.</p>
+
+        <p style="margin-top:10px;color:#6b7280;font-size:12px;">
+          This will allow the visitor to enter again.
+        </p>
       </div>
     `,
-    icon: 'question',
     showCancelButton: true,
+    confirmButtonText: 'Unblock',
+    cancelButtonText: 'Cancel',
     confirmButtonColor: '#16a34a',
     cancelButtonColor: '#6b7280',
-    confirmButtonText: 'Yes, Unblock!',
-    width: '400px',
+    width: '420px',
     customClass: { popup: 'rounded-xl shadow-2xl' },
   });
+
   if (!result.isConfirmed) return;
+
   try {
     await unblockVisitor(log.visitor_phone, log.id_proof_number);
     toast.success(`${log.visitor_name} unblocked successfully`);
@@ -452,8 +491,8 @@ const handleUnblock = async (log: VisitorLog) => {
 
 <div className={`overflow-auto rounded-b-lg transition-all duration-300 ${
   selectedItems.size > 0
-    ? 'max-h-[250px] md:max-h-[420px]'
-    : 'max-h-[280px] md:max-h-[430px]'
+    ? 'max-h-[250px] md:max-h-[450px]'
+    : 'max-h-[280px] md:max-h-[400px]'
 }`}>
   <div className="min-w-[1100px]">
                 <Table>
