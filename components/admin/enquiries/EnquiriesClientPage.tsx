@@ -375,31 +375,34 @@ export default function EnquiriesClientPage({
     }
   }, [selectedEnquiry, editEnquiryData, properties, formatDateForDatabase, loadData]);
 
-  const handleUpdateStatus = useCallback(async (id: string, status: string) => {
-    try {
-      await updateEnquiryStatus(id, status);
-      toast.success("Status updated");
 
-      setEnquiries(prev => prev.map(enquiry =>
-        enquiry.id === id ? { ...enquiry, status } : enquiry
-      ));
-
-      if (selectedEnquiry?.id === id) {
-        setSelectedEnquiry({ ...selectedEnquiry, status });
+const handleUpdateStatus = useCallback(async (id: string, status: string) => {
+  try {
+    // If status is 'converted', trigger the conversion dialog instead
+    if (status === 'converted') {
+      const enquiry = enquiries.find(e => e.id === id);
+      if (enquiry) {
+        setConvertEnquiry(enquiry);
       }
-
-      // If status is converted, open the conversion dialog
-      if (status === 'converted') {
-        const enquiry = enquiries.find(e => e.id === id);
-        if (enquiry) {
-          setConvertEnquiry(enquiry);
-        }
-      }
-    } catch (error) {
-      console.error("Error updating status:", error);
-      toast.error("Failed to update status");
+      return; // Don't proceed with status update
     }
-  }, [selectedEnquiry, enquiries]);
+
+    // For other statuses, just update normally
+    await updateEnquiryStatus(id, status);
+    toast.success("Status updated");
+
+    setEnquiries(prev => prev.map(enquiry =>
+      enquiry.id === id ? { ...enquiry, status } : enquiry
+    ));
+
+    if (selectedEnquiry?.id === id) {
+      setSelectedEnquiry({ ...selectedEnquiry, status });
+    }
+  } catch (error) {
+    console.error("Error updating status:", error);
+    toast.error("Failed to update status");
+  }
+}, [selectedEnquiry, enquiries]);
 
   const handleAddFollowup = useCallback(async () => {
     if (!followupText.trim()) {
@@ -781,22 +784,28 @@ const handleConvertToTenant = (enquiry: Enquiry) => {
                               )}
 
                               {/* Status Dropdown */}
-                              <Select
-                                value={enquiry.status || "new"}
-                                onValueChange={(value) => handleUpdateStatus(enquiry.id, value)}
-                              >
-                                <SelectTrigger className="h-7 sm:h-8 w-20 sm:w-24 text-[10px] sm:text-xs">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {["new", "contacted", "interested", "not_interested", "converted", "closed"].map((status) => (
-                                    <SelectItem key={status} value={status} className="text-[10px] sm:text-xs">
-                                      {status.replace("_", " ")}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-
+<Select
+  value={enquiry.status || "new"}
+  onValueChange={(value) => handleUpdateStatus(enquiry.id, value)}
+>
+  <SelectTrigger className="h-7 sm:h-8 w-20 sm:w-24 text-[10px] sm:text-xs">
+    <SelectValue />
+  </SelectTrigger>
+  <SelectContent>
+    {["new", "contacted", "interested", "not_interested", "closed"].map((status) => (
+      <SelectItem key={status} value={status} className="text-[10px] sm:text-xs">
+        {status.replace("_", " ")}
+      </SelectItem>
+    ))}
+    {/* Show converted as a separate option with different styling */}
+    <SelectItem 
+      value="converted" 
+      className="text-[10px] sm:text-xs text-purple-600 font-medium border-t border-gray-200 mt-1 pt-1"
+    >
+      ⚡ Convert to Tenant
+    </SelectItem>
+  </SelectContent>
+</Select>
                               {/* Delete Button */}
                               <Button
                                 variant="ghost"

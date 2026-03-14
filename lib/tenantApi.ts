@@ -998,7 +998,6 @@ export async function getDeletedTenants(): Promise<ApiResult<Tenant[]>> {
   });
 }
 
-
 // Get tenant payments
 export async function getTenantPayments(tenantId: string | number): Promise<ApiResult<any[]>> {
   try {
@@ -1031,4 +1030,33 @@ export async function getTenantPaymentFormData(tenantId: string | number): Promi
       data: null,
     };
   }
+}
+
+// Get tenant's current assignment (room and bed details)
+export async function getTenantAssignment(tenantId: string | number): Promise<ApiResult<any>> {
+  try {
+    const response = await request<ApiResult<any>>(`/api/rooms/tenant-bed/${tenantId}`, {
+      method: "GET",
+    });
+    return response;
+  } catch (error) {
+    console.error("Error fetching tenant assignment:", error);
+    return {
+      success: false,
+      message: "Failed to fetch tenant assignment",
+      data: null,
+    };
+  }
+}
+
+// View document (opens in new tab)
+export function viewDocument(url: string) {
+  if (!url) {
+    toast.error("Document URL not available");
+    return;
+  }
+  
+  // If it's a relative URL, prepend the API base URL
+  const fullUrl = url.startsWith('http') ? url : `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}${url}`;
+  window.open(fullUrl, '_blank');
 }
