@@ -19,6 +19,7 @@ import type { Column, FilterConfig, BulkAction, ActionButton } from "@/component
 import { TenantForm } from "@/components/admin/tenants/tenant-form";
 import TenantImportModal from "./tenant-import-modal";
 import Swal from "sweetalert2";
+import Link from 'next/link';
 
 interface TenantsClientProps {
   initialData: Tenant[];
@@ -1586,8 +1587,11 @@ const columns: Column<Tenant>[] = useMemo(() => [    {
                   {/* Name Column */}
 
 {/* Name Column */}
-<td className="px-3 py-2.5 cursor-pointer" onClick={() => { setSelectedTenant(tenant); setIsViewDialogOpen(true); }}>
-  <div className="flex items-center gap-2 min-w-0">
+<td className="px-3 py-2.5 cursor-pointer" >
+   <Link 
+    href={`/admin/tenants/${tenant.id}`}
+    className="flex items-center gap-2 min-w-0 group cursor-pointer"
+  >
      <div>
         {tenant.photo_url ? (
           <img src={tenant.photo_url} alt="" className="w-7 h-7 rounded-full object-cover flex-shrink-0 ring-1 ring-gray-200" />
@@ -1612,7 +1616,7 @@ const columns: Column<Tenant>[] = useMemo(() => [    {
         <div className="text-[10px] text-gray-400 capitalize leading-tight">{tenant.gender?.toLowerCase() || 'N/A'}</div>
         <div className="text-[9px] text-blue-600 font-semibold">TID-{tenant.id}</div>
      </div>
-  </div>
+  </Link>
 </td>
 
                   {/* Contact Column */}
@@ -1728,9 +1732,15 @@ const columns: Column<Tenant>[] = useMemo(() => [    {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-44">
-                        <DropdownMenuItem className="text-xs" onClick={() => { setSelectedTenant(tenant); setIsViewDialogOpen(true); }}>
-                          <Eye className="w-3 h-3 mr-2 text-gray-500" /> View Details
-                        </DropdownMenuItem>
+                        <DropdownMenuItem className="text-xs p-0">
+        <Link 
+          href={`/admin/tenants/${tenant.id}`}
+          className="flex items-center w-full px-2 py-1.5 text-gray-700 hover:text-blue-600"
+        >
+          <Eye className="w-3 h-3 mr-2 text-gray-500" />
+          View Details
+        </Link>
+      </DropdownMenuItem>
                         <DropdownMenuItem className="text-xs" onClick={() => { setSelectedTenant(tenant); setIsEditDialogOpen(true); }}>
                           <Edit className="w-3 h-3 mr-2 text-gray-500" /> Edit
                         </DropdownMenuItem>

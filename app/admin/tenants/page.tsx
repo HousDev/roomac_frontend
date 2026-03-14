@@ -1,6 +1,6 @@
+// app/admin/tenants/page.tsx
 "use client"
 
-// app/admin/tenants/page.tsx
 import { useState, useEffect } from "react";
 import TenantsClient from "@/components/admin/tenants/tenants-client";
 import { listTenants, Tenant } from "@/lib/tenantApi";

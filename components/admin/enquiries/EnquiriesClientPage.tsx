@@ -471,9 +471,10 @@ export default function EnquiriesClientPage({
   };
 
   // Handle convert to tenant
-  const handleConvertToTenant = (enquiry: Enquiry) => {
-    setConvertEnquiry(enquiry);
-  };
+const handleConvertToTenant = (enquiry: Enquiry) => {
+  setConvertEnquiry(enquiry);
+};
+
 
   // Get status badge component
   const getStatusBadge = useCallback((status: string) => {
@@ -918,18 +919,24 @@ export default function EnquiriesClientPage({
         }}
       />
 
-      {/* Convert to Tenant Dialog */}
-      <ConvertToTenantDialog
-        enquiryId={convertEnquiry?.id || ""}
-        tenantName={convertEnquiry?.tenant_name || ""}
-        isOpen={!!convertEnquiry}
-        onClose={() => setConvertEnquiry(null)}
-        onConverted={() => {
-          loadData(true);
-          setShowViewDialog(false);
-          setConvertEnquiry(null);
-        }}
-      />
+<ConvertToTenantDialog
+  enquiryId={convertEnquiry?.id || ""}
+  tenantName={convertEnquiry?.tenant_name || ""}
+  isOpen={!!convertEnquiry}
+  onClose={() => setConvertEnquiry(null)}
+  onConverted={() => {
+    // Force a fresh load of data
+    loadData(true);
+    // Close the view dialog if it's open
+    setShowViewDialog(false);
+    // Clear the selected enquiry
+    setSelectedEnquiry(null);
+    // Close the convert dialog
+    setConvertEnquiry(null);
+    // Show success message
+    toast.success("Enquiry converted to tenant successfully");
+  }}
+/>
 
       <style>{`
         /* First direct grid child = the 6 status cards grid */
