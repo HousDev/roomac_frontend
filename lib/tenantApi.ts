@@ -376,6 +376,25 @@ export async function getTenant(id: string | number): Promise<ApiResult<Tenant>>
   return enhancedFetch<ApiResult<Tenant>>(`/api/tenants/${id}`, { method: "GET" });
 }
 
+// Add to lib/tenantApi.ts
+
+// Get tenant by ID
+export async function getTenantById(id: string): Promise<ApiResult<Tenant>> {
+  try {
+    const response = await request<ApiResult<Tenant>>(`/api/tenants/${id}`, {
+      method: "GET",
+    });
+    return response;
+  } catch (error) {
+    console.error("Error fetching tenant:", error);
+    return {
+      success: false,
+      message: "Failed to fetch tenant details",
+      data: null as any,
+    };
+  }
+}
+
 // Create tenant with FormData (for file uploads)
 export async function createTenant(formData: FormData): Promise<ApiResult<{ id: number }>> {
   console.log('🔍 Creating tenant with FormData');
@@ -977,4 +996,39 @@ export async function getDeletedTenants(): Promise<ApiResult<Tenant[]>> {
   return enhancedFetch<ApiResult<Tenant[]>>(`/api/tenants/deleted`, { 
     method: "GET" 
   });
+}
+
+
+// Get tenant payments
+export async function getTenantPayments(tenantId: string | number): Promise<ApiResult<any[]>> {
+  try {
+    const response = await request<ApiResult<any[]>>(`/api/payments/tenant/${tenantId}`, {
+      method: "GET",
+    });
+    return response;
+  } catch (error) {
+    console.error("Error fetching tenant payments:", error);
+    return {
+      success: false,
+      message: "Failed to fetch tenant payments",
+      data: [],
+    };
+  }
+}
+
+// Get tenant payment summary with month-wise history
+export async function getTenantPaymentFormData(tenantId: string | number): Promise<ApiResult<any>> {
+  try {
+    const response = await request<ApiResult<any>>(`/api/payments/tenant/${tenantId}/payment-form`, {
+      method: "GET",
+    });
+    return response;
+  } catch (error) {
+    console.error("Error fetching tenant payment form data:", error);
+    return {
+      success: false,
+      message: "Failed to fetch tenant payment data",
+      data: null,
+    };
+  }
 }

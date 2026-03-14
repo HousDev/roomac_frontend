@@ -30,6 +30,7 @@ import AdminPropertyIdPage from '../app/admin/properties/[id]/page';
 
 import AdminRoomsPage from "../app/admin/rooms/page";
 import AdminTenantsPage from "../app/admin/tenants/page";
+import AdminTenantDetailPage from "../app/admin/tenants/[id]/page";
 import AdminPaymentsPage from "../app/admin/payments/page";
 import AdminReportsPage from "../app/admin/reports/page";
 import AdminEnquiriesPage from "../app/admin/enquiries/page";
@@ -129,6 +130,7 @@ console.log(user)
 
             <Route path="rooms" element={<AdminRoomsPage />} />
             <Route path="tenants" element={<AdminTenantsPage />} />
+            <Route path="tenants/:id" element={<AdminTenantDetailPage />} />
             <Route path="payments" element={<AdminPaymentsPage />} />
             <Route path="expenses" element={<ExpensesManagement />} />
 
