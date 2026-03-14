@@ -691,12 +691,8 @@ const handleSubmit = async (e: React.FormEvent) => {
                       <Calendar className="absolute left-2.5 top-2 h-3.5 w-3.5 text-gray-300"/>
                       <Input type="date" value={formData.check_in_date}
                         onChange={e=>{
-                          const sel=new Date(e.target.value);
-                          const today=new Date();today.setHours(0,0,0,0);
-                          if(sel<today){toast.error("Check-in date cannot be in the past");return;}
                           handleInputChange("check_in_date",e.target.value);
                         }}
-                        min={new Date().toISOString().split("T")[0]}
                         className={`pl-8 ${F}`}/>
                     </div>
                     {formData.check_in_date&&<p className="text-[10px] text-gray-400 mt-0.5">Tenant move-in date</p>}
