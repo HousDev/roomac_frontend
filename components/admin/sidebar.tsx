@@ -16,7 +16,9 @@ import {
   Link2,
   Search,
   Package,
-  Users as VisitorsIcon // Add this for visitors
+  Users as VisitorsIcon,
+  FilePlus,
+  Files
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -37,19 +39,25 @@ const inventoryItems = [
   { href: '/admin/inventory/inspection', label: 'Move-Out Inspection', icon: FileText },
   { href: '/admin/inventory/settlements', label: 'Settlements', icon: Receipt },
   { href: '/admin/inventory/penalty-rules', label: 'Penalty Rules', icon: Receipt },
-
 ];
 
 const visitorItems = [
   { href: '/admin/visitors/dashboard', label: 'Dashboard', icon: LayoutGrid },
-  // { href: '/admin/visitors/new-entry', label: 'New Entry', icon: PlusCircle },
   { href: '/admin/visitors/logs', label: 'Visitor Logs', icon: FileText },
   { href: '/admin/visitors/restrictions', label: 'Restrictions', icon: AlertCircle },
 ];
 
+// Add document items
+const documentItems = [
+  { href: '/admin/document-center', label: 'Dashboard', icon: LayoutGrid },
+  { href: '/admin/document-center/create', label: 'Create Document', icon: FilePlus },
+  { href: '/admin/document-center/all', label: 'All Documents', icon: Files },
+  { href: '/admin/document-center/templates', label: 'Templates', icon: Layout },
+];
+
 // Separate component for submenu items with tooltip
-function SubmenuItemWithTooltip({ reqItem, reqActive, sidebarOpen }: { 
-  reqItem: any; 
+function SubmenuItemWithTooltip({ reqItem, reqActive, sidebarOpen }: {
+  reqItem: any;
   reqActive: boolean;
   sidebarOpen: boolean;
 }) {
@@ -122,17 +130,17 @@ function SubmenuItemWithTooltip({ reqItem, reqActive, sidebarOpen }: {
 }
 
 // Separate component for collapsed sidebar items with tooltip
-function CollapsedSidebarItem({ 
-  item, 
-  active, 
-  sidebarOpen, 
+function CollapsedSidebarItem({
+  item,
+  active,
+  sidebarOpen,
   setSidebarOpen,
   handleIconClick,
   isRequestItem = false,
   onClick
-}: { 
-  item: any; 
-  active: boolean; 
+}: {
+  item: any;
+  active: boolean;
   sidebarOpen: boolean;
   setSidebarOpen?: (open: boolean) => void;
   handleIconClick: (e: React.MouseEvent, href: string) => void;
@@ -247,6 +255,7 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [inventoryOpen, setInventoryOpen] = useState(false);
   const [visitorsOpen, setVisitorsOpen] = useState(false);
+  const [documentsOpen, setDocumentsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
   const [settings, setSettings] = useState<SettingsData | null>(null);
@@ -272,12 +281,14 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
   }, []);
 
   // Add this function to close all submenus
-const closeAllSubmenus = useCallback(() => {
-  setRequestsOpen(false);
-  setInventoryOpen(false);
-  setVisitorsOpen(false);
-  setSettingsOpen(false);
-}, []);
+  const closeAllSubmenus = useCallback(() => {
+    setRequestsOpen(false);
+    setInventoryOpen(false);
+    setVisitorsOpen(false);
+    setSettingsOpen(false);
+    setDocumentsOpen(false);
+  }, []);
+
   // Handle click outside for mobile sidebar
   const sidebarRef = useRef<HTMLDivElement>(null);
   const { logout } = useAuth();
@@ -302,17 +313,16 @@ const closeAllSubmenus = useCallback(() => {
   // Close mobile sidebar on route change
   useEffect(() => {
     setMobileSidebarOpen(false);
-      closeAllSubmenus(); // Add this line to close all submenus when route changes
-
-  }, [pathname,closeAllSubmenus]);
+    closeAllSubmenus();
+  }, [pathname, closeAllSubmenus]);
 
   // Auto-expand settings dropdown if on a settings page
   useEffect(() => {
     if (!pathname) return;
-    
+
     const isSettingsPage = pathname.includes('/admin/settings') ||
-                          pathname.includes('/admin/settings/integration') ||
-                          pathname === '/admin/settings';
+      pathname.includes('/admin/settings/integration') ||
+      pathname === '/admin/settings';
     if (isSettingsPage) {
       setSettingsOpen(true);
     }
@@ -321,14 +331,14 @@ const closeAllSubmenus = useCallback(() => {
   // Auto-expand requests dropdown if on a request page
   useEffect(() => {
     if (!pathname) return;
-    
+
     const isRequestPage = pathname.includes('/admin/complaints') ||
-                         pathname.includes('/admin/maintenance') ||
-                         pathname.includes('/admin/receipts') ||
-                         pathname.includes('/admin/leave-requests') ||
-                         pathname.includes('/admin/vacate-requests') ||
-                         pathname.includes('/admin/change-bed-requests') ||
-                         pathname.includes('/admin/account-deletion-requests');
+      pathname.includes('/admin/maintenance') ||
+      pathname.includes('/admin/receipts') ||
+      pathname.includes('/admin/leave-requests') ||
+      pathname.includes('/admin/vacate-requests') ||
+      pathname.includes('/admin/change-bed-requests') ||
+      pathname.includes('/admin/account-deletion-requests');
     if (isRequestPage) {
       setRequestsOpen(true);
     }
@@ -337,7 +347,7 @@ const closeAllSubmenus = useCallback(() => {
   // Auto-expand inventory dropdown if on inventory pages
   useEffect(() => {
     if (!pathname) return;
-    
+
     const isInventoryPage = pathname.includes('/admin/inventory');
     if (isInventoryPage) {
       setInventoryOpen(true);
@@ -347,10 +357,20 @@ const closeAllSubmenus = useCallback(() => {
   // Auto-expand visitors dropdown if on visitors pages
   useEffect(() => {
     if (!pathname) return;
-    
+
     const isVisitorsPage = pathname.includes('/admin/visitors');
     if (isVisitorsPage) {
       setVisitorsOpen(true);
+    }
+  }, [pathname]);
+
+  // Auto-expand documents dropdown if on document center pages
+  useEffect(() => {
+    if (!pathname) return;
+
+    const isDocumentsPage = pathname.includes('/admin/document-center');
+    if (isDocumentsPage) {
+      setDocumentsOpen(true);
     }
   }, [pathname]);
 
@@ -362,8 +382,7 @@ const closeAllSubmenus = useCallback(() => {
     { href: '/admin/payments', label: 'Payments', icon: CreditCard },
     { href: '/admin/expenses', label: 'Expenses', icon: Receipt },
     { href: '/admin/reports', label: 'Reports', icon: BarChart3 },
-    { href: '/admin/document-center', label: 'Document', icon: FileText },
-    { href: '/admin/templates', label: 'Templates', icon: Layout },
+    { href: '/admin/document-center', label: 'Documents', icon: FileText },
     { href: '/admin/enquiries', label: 'Enquiries', icon: Mail },
     { href: '/admin/notifications', label: 'Notifications', icon: Bell },
     { href: '/admin/staff', label: 'Staffs', icon: UserCog },
@@ -374,7 +393,6 @@ const closeAllSubmenus = useCallback(() => {
     { href: '/admin/masters', label: 'Masters', icon: LayoutGrid },
     { href: '/admin/settings', label: 'Settings', icon: Settings },
     { href: '/admin/profile', label: 'Profile', icon: UserCircle },
-
   ];
 
   const requestItems = [
@@ -440,12 +458,13 @@ const closeAllSubmenus = useCallback(() => {
     ...settingsItems,
     ...inventoryItems,
     ...visitorItems,
+    ...documentItems,
   ];
 
   const filteredItems = searchQuery.trim()
     ? allSearchableItems.filter(item =>
-        item.label.toLowerCase().includes(searchQuery.toLowerCase())
-      )
+      item.label.toLowerCase().includes(searchQuery.toLowerCase())
+    )
     : [];
 
   // Desktop sidebar toggle button
@@ -473,12 +492,32 @@ const closeAllSubmenus = useCallback(() => {
     const isSettingsActive = settingsItems.some(setting => isActive(setting.href));
     const isInventoryActive = inventoryItems.some(inv => isActive(inv.href));
     const isVisitorsActive = visitorItems.some(vis => isActive(vis.href));
-    const isNotificationsItem = index === 10; // Notifications
-    const isInventoryItem = index === 14; // Inventory Management
-    const isVisitorsItem = index === 15; // Visitor Management
-    const isSettingsItem = index === 17; // Settings
+    const isDocumentsActive = documentItems.some(doc => isActive(doc.href));
+    const isDocumentsItem = index === 7; // Document Center
+    const isNotificationsItem = index === 9; // Notifications
+    const isInventoryItem = index === 13; // Inventory
+    const isVisitorsItem = index === 14; // Visitors
+    const isSettingsItem = index === 16; // Settings
 
     if (!sidebarOpen) {
+      if (isDocumentsItem) {
+        return (
+          <li key="documents-collapsed" className="flex justify-center">
+            <CollapsedSidebarItem
+              item={{ href: '#', label: 'Documents', icon: FileText }}
+              active={isDocumentsActive}
+              sidebarOpen={sidebarOpen}
+              setSidebarOpen={setSidebarOpen}
+              handleIconClick={handleIconClick}
+              onClick={() => {
+                if (setSidebarOpen) setSidebarOpen(true);
+                setDocumentsOpen(!documentsOpen);
+              }}
+            />
+          </li>
+        );
+      }
+
       if (isNotificationsItem) {
         return (
           <React.Fragment key={item.href}>
@@ -577,6 +616,55 @@ const closeAllSubmenus = useCallback(() => {
     }
 
     // Expanded view
+    if (isDocumentsItem) {
+      return (
+        <li key="documents-group">
+          <button
+            onClick={() => setDocumentsOpen(!documentsOpen)}
+            className={`
+              relative group flex items-center justify-between w-full px-2.5 py-2 rounded-xl transition-all duration-200
+              ${isDocumentsActive
+                ? 'bg-[#F5C000]/15 text-[#F5C000]'
+                : 'text-blue-100 hover:bg-white/10 hover:text-white'
+              }
+            `}
+          >
+            {isDocumentsActive && (
+              <span className="absolute left-0 top-2 bottom-2 w-0.5 rounded-full bg-[#F5C000]" />
+            )}
+            <div className="flex items-center gap-2.5">
+              <div className={`h-8 w-8 rounded-xl flex items-center justify-center transition-all flex-shrink-0
+                ${isDocumentsActive ? 'bg-[#F5C000]/20 text-[#F5C000]' : 'bg-white/10 text-blue-200 group-hover:bg-white/15 group-hover:text-white'}`}>
+                <Icon className="h-4 w-4" />
+              </div>
+              <span className="font-normal tracking-wide whitespace-nowrap text-xs">{item.label}</span>
+            </div>
+            {documentsOpen ? (
+              <ChevronDown className="h-3.5 w-3.5 flex-shrink-0 text-blue-300" />
+            ) : (
+              <ChevronRight className="h-3.5 w-3.5 flex-shrink-0 text-blue-300" />
+            )}
+          </button>
+
+          {documentsOpen && (
+            <ul className="space-y-0.5 mt-0.5 ml-2">
+              {documentItems.map((docItem) => {
+                const docActive = isActive(docItem.href);
+                return (
+                  <SubmenuItemWithTooltip
+                    key={docItem.href}
+                    reqItem={docItem}
+                    reqActive={docActive}
+                    sidebarOpen={sidebarOpen}
+                  />
+                );
+              })}
+            </ul>
+          )}
+        </li>
+      );
+    }
+
     if (isNotificationsItem) {
       return (
         <li key="notifications-requests-group">
@@ -635,9 +723,9 @@ const closeAllSubmenus = useCallback(() => {
                 {requestItems.map((reqItem) => {
                   const reqActive = isActive(reqItem.href);
                   return (
-                    <SubmenuItemWithTooltip 
+                    <SubmenuItemWithTooltip
                       key={reqItem.href}
-                      reqItem={reqItem} 
+                      reqItem={reqItem}
                       reqActive={reqActive}
                       sidebarOpen={sidebarOpen}
                     />
@@ -783,9 +871,9 @@ const closeAllSubmenus = useCallback(() => {
               {settingsItems.map((settingItem) => {
                 const settingActive = isActive(settingItem.href);
                 return (
-                  <SubmenuItemWithTooltip 
+                  <SubmenuItemWithTooltip
                     key={settingItem.href}
-                    reqItem={settingItem} 
+                    reqItem={settingItem}
                     reqActive={settingActive}
                     sidebarOpen={sidebarOpen}
                   />
@@ -802,8 +890,7 @@ const closeAllSubmenus = useCallback(() => {
       <li key={item.href}>
         <Link
           href={item.href}
-                onClick={() => closeAllSubmenus()} // Add this onClick handler
-
+          onClick={() => closeAllSubmenus()}
           className={`
             relative group flex items-center gap-2.5 px-2.5 py-2 rounded-xl transition-all duration-200
             ${active

@@ -32,14 +32,11 @@ import AdminRoomsPage from "../app/admin/rooms/page";
 import AdminTenantsPage from "../app/admin/tenants/page";
 import AdminPaymentsPage from "../app/admin/payments/page";
 import AdminReportsPage from "../app/admin/reports/page";
-import AdminDocumentCenterPage from "../app/admin/document-center/page";
-import AdminTemplatesPage from "../app/admin/templates/page";
 import AdminEnquiriesPage from "../app/admin/enquiries/page";
 import AdminNotificationsPage from "../app/admin/notifications/page";
 import AdminStaffPage from "../app/admin/staff/page";
 import AdminOffersPage from "../app/admin/offers/page";
 import AdminAddOnsPage from "../app/admin/add-ons/page";
-import AdminInventoryPage from "../app/admin/page";
 
 import AdminMastersPage from "../app/admin/masters/page";
 import AdminMastersValues from "../app/admin/masters/[itemId]/page";
@@ -80,6 +77,10 @@ import { NewVisitorEntry } from "@/modules/visitor/NewVisitorEntry";
 import { VisitorRestrictions } from "@/modules/visitor/VisitorRestrictions";
 import { PenaltyRules } from "@/modules/inventory/PenaltyRules";
 import ExpensesManagement from "@/components/Expense/EexpenseManagement";
+import { DocumentCenter } from "@/modules/documents/DocumentCenter";
+import { TemplateManager } from "@/modules/documents/TemplateManager";
+import { DocumentCreate } from "@/modules/documents/DocumentCreate";
+import { DocumentList } from "@/modules/documents/DocumentList";
 
 
 function App() {
@@ -132,8 +133,6 @@ console.log(user)
             <Route path="expenses" element={<ExpensesManagement />} />
 
             <Route path="reports" element={<AdminReportsPage />} />
-            <Route path="document-center" element={<AdminDocumentCenterPage />} />
-            <Route path="templates" element={<AdminTemplatesPage />} />
             <Route path="enquiries" element={<AdminEnquiriesPage />} />
             <Route path="notifications" element={<AdminNotificationsPage />} />
             <Route path="staff" element={<AdminStaffPage />} />
@@ -154,6 +153,10 @@ console.log(user)
             <Route path="visitors/new-entry" element={<NewVisitorEntry />} />
             <Route path="visitors/restrictions" element={<VisitorRestrictions/>} />
 
+            <Route path="document-center" element={<DocumentCenter />} />
+            <Route path="document-center/templates" element={<TemplateManager />} />
+            <Route path="document-center/create" element={<DocumentCreate />} />
+            <Route path="document-center/all" element={<DocumentList />} />
 
             <Route path="masters" element={<AdminMastersPage />} />
             <Route path="masters/:itemId" element={<AdminMastersValues />} />
