@@ -416,13 +416,13 @@ export function PenaltyRules() {
 
   // ════════════════════════════════════════════════════════════════════════════
   return (
-    <div className="bg-gray-50 min-h-screen">
+    <div className="bg-gray-50 ">
 
       {/* ── HEADER — fully responsive ────────────────────────────────────── */}
-      <div className="sticky top-0 z-20">
+      <div className="sticky top-20 z-10">
 
         {/* Top row: title + actions */}
-        <div className="px-3 sm:px-5 pt-3 pb-2 flex items-end justify-end gap-2">
+        <div className="px-0 sm:px-0 pt-0 pb-2 flex items-end justify-end gap-2">
 
           {/* Action buttons */}
           <div className="flex items-end justify-end gap-1.5 flex-shrink-0">
@@ -479,7 +479,7 @@ export function PenaltyRules() {
         </div>
 
         {/* Stats row */}
-        <div className="px-3 sm:px-5 pb-3">
+        <div className="px-0 sm:px-0 pb-3">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
             <StatCard 
               title="Total Rules" 
@@ -524,7 +524,7 @@ export function PenaltyRules() {
       <div className="relative">
 
         {/* Table area */}
-        <main className="p-3 sm:p-4">
+        <main className="p-0 sm:p-0">
           <Card className="border rounded-lg shadow-sm">
             <div className="flex items-center justify-between px-3 py-2 border-b bg-white rounded-t-lg">
               <span className="text-sm font-semibold text-gray-700">
@@ -537,8 +537,7 @@ export function PenaltyRules() {
               )}
             </div>
 
-            <div className="overflow-auto max-h-[calc(100vh-320px)]">
-              <div className="min-w-[900px]">
+<div className="overflow-auto rounded-b-lg transition-all duration-300 max-h-[350px] md:max-h-[460px]">              <div className="min-w-[900px]">
                 <Table>
                   <TableHeader className="sticky top-0 z-10 bg-gray-50">
                     <TableRow>

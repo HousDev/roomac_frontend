@@ -260,11 +260,11 @@ const [handoverSearchTerm, setHandoverSearchTerm] = useState('');
 
   // ──────────────────────────────────────────────────────────────────────────
   return (
-    <div className="bg-gray-50 min-h-screen">
+    <div className="bg-gray-50 ">
 
       {/* HEADER */}
-      <div className="sticky top-0 z-20">
-        <div className="px-3 sm:px-5 pt-3 pb-2 flex justify-end gap-1.5">
+      <div className="sticky top-20 z-10">
+        <div className="px-0 sm:px-0 pt-0 pb-0 flex justify-end gap-1.5">
           <button onClick={() => setSidebarOpen(o => !o)}
             className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border text-[11px] font-medium transition-colors
               ${sidebarOpen || hasFilters ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
@@ -284,7 +284,7 @@ const [handoverSearchTerm, setHandoverSearchTerm] = useState('');
           </button>
         </div>
 
-        <div className="px-3 sm:px-5 pb-3 grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+        <div className="px-0 sm:px-0 pb-3 mt-2 grid grid-cols-2 sm:grid-cols-4 gap-1.5">
           <StatCard title="Total"             value={stats.total}             icon={Receipt}       color="bg-blue-600"    bg="bg-gradient-to-br from-blue-50 to-blue-100"/>
           <StatCard title="Pending"           value={stats.pending}           icon={AlertTriangle} color="bg-amber-600"   bg="bg-gradient-to-br from-amber-50 to-amber-100"/>
           <StatCard title="Paid / Completed"  value={stats.paid}              icon={ShieldCheck}   color="bg-emerald-600" bg="bg-gradient-to-br from-emerald-50 to-emerald-100"/>
@@ -293,7 +293,7 @@ const [handoverSearchTerm, setHandoverSearchTerm] = useState('');
       </div>
 
       {/* TABLE */}
-      <div className="relative p-3 sm:p-4">
+      <div className="relative p-0 sm:p-0">
         <Card className="border rounded-lg shadow-sm">
           <div className="flex items-center justify-between px-3 py-2 border-b bg-white rounded-t-lg">
             <span className="text-sm font-semibold text-gray-700">
@@ -310,8 +310,11 @@ const [handoverSearchTerm, setHandoverSearchTerm] = useState('');
             </div>
           </div>
 
-          <div className="w-full overflow-x-auto overflow-y-auto max-h-[calc(100vh-310px)]">
-            <table className="w-full text-[11px] border-collapse" style={{ minWidth: '1380px' }}>
+<div className={`w-full overflow-x-auto overflow-y-auto rounded-b-lg transition-all duration-300 ${
+  selectedItems.size > 0
+    ? 'max-h-[350px] md:max-h-[450px]'
+    : 'max-h-[350px] md:max-h-[450px]'
+}`}>            <table className="w-full text-[11px] border-collapse" style={{ minWidth: '1380px' }}>
               <thead className="sticky top-0 z-10">
                 <tr className="bg-gray-50 border-b-2 border-gray-200">
                   <th className="py-2 px-2 w-8">
