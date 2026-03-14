@@ -208,7 +208,64 @@ export const getEnquiryStats = async (): Promise<StatsResponse> => {
 
 // lib/enquiryApi.ts - Update the visit API functions with correct paths
 
-// Visit API functions - UPDATED WITH CORRECT PATHS
+
+export const getUpcomingVisits = async (days: number = 7): Promise<{ success: boolean; data: Visit[] }> => {
+  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+  const response = await fetch(`${apiUrl}/api/enquiries/visits/upcoming?days=${days}`, {
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+  });
+  
+  if (!response.ok) {
+    throw new Error('Failed to fetch upcoming visits');
+  }
+  
+  return response.json();
+};
+
+export const getTodayVisits = async (): Promise<{ success: boolean; data: Visit[] }> => {
+  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+  const response = await fetch(`${apiUrl}/api/enquiries/visits/today`, {
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+  });
+  
+  if (!response.ok) {
+    throw new Error('Failed to fetch today\'s visits');
+  }
+  
+  return response.json();
+};
+
+
+// lib/enquiryApi.ts - Add this function
+
+// lib/enquiryApi.ts - Add this function
+
+// Convert enquiry to tenant
+export const convertEnquiryToTenant = async (enquiryId: string): Promise<{ success: boolean; message: string; tenant_id?: number }> => {
+  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+  const response = await fetch(`${apiUrl}/api/enquiries/${enquiryId}/convert-to-tenant`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+  });
+  
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Failed to convert enquiry to tenant');
+  }
+  
+  return response.json();
+};
+
+// Make sure your visit API functions have the correct paths:
 export const getVisits = async (enquiryId: string): Promise<{ success: boolean; data: Visit[] }> => {
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
   const response = await fetch(`${apiUrl}/api/enquiries/enquiry/${enquiryId}/visits`, {
@@ -258,60 +315,6 @@ export const updateVisitStatus = async (visitId: string, status: Visit['status']
   if (!response.ok) {
     const error = await response.json();
     throw new Error(error.message || 'Failed to update visit status');
-  }
-  
-  return response.json();
-};
-
-export const getUpcomingVisits = async (days: number = 7): Promise<{ success: boolean; data: Visit[] }> => {
-  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-  const response = await fetch(`${apiUrl}/api/enquiries/visits/upcoming?days=${days}`, {
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    credentials: 'include',
-  });
-  
-  if (!response.ok) {
-    throw new Error('Failed to fetch upcoming visits');
-  }
-  
-  return response.json();
-};
-
-export const getTodayVisits = async (): Promise<{ success: boolean; data: Visit[] }> => {
-  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-  const response = await fetch(`${apiUrl}/api/enquiries/visits/today`, {
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    credentials: 'include',
-  });
-  
-  if (!response.ok) {
-    throw new Error('Failed to fetch today\'s visits');
-  }
-  
-  return response.json();
-};
-
-
-// lib/enquiryApi.ts - Add this function
-
-// Convert enquiry to tenant
-export const convertEnquiryToTenant = async (enquiryId: string): Promise<{ success: boolean; message: string; tenant_id?: number }> => {
-  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-  const response = await fetch(`${apiUrl}/api/enquiries/${enquiryId}/convert-to-tenant`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    credentials: 'include',
-  });
-  
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.message || 'Failed to convert enquiry to tenant');
   }
   
   return response.json();

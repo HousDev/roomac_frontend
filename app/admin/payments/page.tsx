@@ -2985,7 +2985,7 @@ export default function PaymentsPage() {
           <Bed className="h-3 w-3" />
           Bed Assignment Details
         </h4>
-        <div className="grid grid-cols-2 gap-2 text-xs">
+        <div className="grid grid-cols-3 gap-2 text-xs">
           <div>
             <p className="text-blue-600">Bed</p>
             <p className="font-medium">#{formData.room_info.bed_number} ({formData.room_info.bed_type})</p>
