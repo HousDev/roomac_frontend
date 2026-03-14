@@ -3856,7 +3856,8 @@ import {
   Loader2, Printer, EyeIcon, Banknote, Receipt,
   Send, Home, Calendar, AlertTriangle, CheckCircle2,
   Clock3, XCircle as XCircleIcon,
-  Trash2
+  Trash2,
+  ChevronDown
 } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from "sonner";
@@ -3926,6 +3927,8 @@ export default function PaymentsPage() {
   const [isDemandPaymentOpen, setIsDemandPaymentOpen] = useState(false);
   const [bookingLoading, setBookingLoading] = useState(false);
   const [paymentFormData, setPaymentFormData] = useState<PaymentFormData | null>(null);
+  const [activeTab, setActiveTab] = useState('payments');
+
 
   // Proof upload states
   const [proofFile, setProofFile] = useState<File | null>(null);
@@ -3940,6 +3943,12 @@ const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
 const [rejectionReason, setRejectionReason] = useState('');
 const [actionLoading, setActionLoading] = useState(false);
+// Add this state near your other useState declarations
+const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
+const [approvingPayment, setApprovingPayment] = useState<any>(null);
+const [highlightedReceipt, setHighlightedReceipt] = useState<number | null>(null);
+// Add this with your other useState declarations
+const [expandedRows, setExpandedRows] = useState<number[]>([]);
 
 
   // Filters
@@ -4015,6 +4024,31 @@ const [actionLoading, setActionLoading] = useState(false);
       setLoading(false);
     }
   };
+
+  // In the main component, add useEffect to clear highlight after some time
+useEffect(() => {
+  if (highlightedReceipt) {
+    const timer = setTimeout(() => {
+      setHighlightedReceipt(null);
+    }, 3000);
+    return () => clearTimeout(timer);
+  }
+}, [highlightedReceipt]);
+
+// Update the onViewReceipt handler
+const handleViewReceipt = (receiptId: number) => {
+  setHighlightedReceipt(receiptId);
+  handlePreviewReceipt(receiptId);
+};
+
+// Toggle row expansion
+const toggleRowExpansion = (paymentId: number) => {
+  setExpandedRows(prev => 
+    prev.includes(paymentId) 
+      ? prev.filter(id => id !== paymentId) 
+      : [...prev, paymentId]
+  );
+};
 
   const loadPayments = async () => {
     try {
@@ -4158,11 +4192,14 @@ const handleTenantSelect = async (tenantId: string) => {
 
   // Add this function to handle receipt preview
 const handlePreviewReceipt = async (receiptId: number) => {
+   console.log('Preview receipt clicked:', receiptId);
   try {
     const response = await paymentApi.getReceiptById(receiptId);
+    console.log('Receipt data response:', response);
     if (response.success) {
       setSelectedReceipt(response.data);
       setIsReceiptPreviewOpen(true);
+      console.log('Receipt preview opened');
     } else {
       toast.error('Failed to load receipt');
     }
@@ -4311,16 +4348,22 @@ const handleAddPayment = async () => {
   };
 
   // Payment action handlers
-const handleApprovePayment = async (paymentId: number) => {
-  if (!confirm('Are you sure you want to approve this payment? A receipt will be generated.')) {
-    return;
-  }
+// Add this handler
+const handleApproveClick = (payment: any) => {
+  setApprovingPayment(payment);
+  setIsApproveDialogOpen(true);
+};
+
+const handleConfirmApprove = async () => {
+  if (!approvingPayment) return;
   
   setActionLoading(true);
   try {
-    const response = await paymentApi.approvePayment(paymentId, 1); // Replace 1 with actual user ID
+    const response = await paymentApi.approvePayment(approvingPayment.id, 1); // Replace 1 with actual user ID
     if (response.success) {
       toast.success('Payment approved successfully');
+      setIsApproveDialogOpen(false);
+      setApprovingPayment(null);
       await loadData(); // Refresh data
     } else {
       toast.error(response.message || 'Failed to approve payment');
@@ -4654,7 +4697,7 @@ const handleUpdateDemandStatus = async (demandId: number, newStatus: string) => 
         </div>
 
         {/* Tabs Container */}
-        <Tabs defaultValue="payments" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           {/* Tabs Header Row */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2 sticky top-28 z-10 bg-slate-50 py-2">
             <TabsList className="h-8 w-full sm:w-auto grid grid-cols-3 sm:inline-flex">
@@ -4694,7 +4737,7 @@ const handleUpdateDemandStatus = async (demandId: number, newStatus: string) => 
               getTenantName={getTenantName}
               getTenantPhone={getTenantPhone}
               // Add these props
-  onApprove={handleApprovePayment}
+   onApprove={handleApproveClick} 
   onReject={(payment) => {
     setSelectedPayment(payment);
     setIsRejectDialogOpen(true);
@@ -4719,6 +4762,15 @@ const handleUpdateDemandStatus = async (demandId: number, newStatus: string) => 
     setIsDeleteDialogOpen(true);
   }}
   actionLoading={actionLoading}
+    onApproveClick={handleApproveClick}
+  setActiveTab={setActiveTab}
+  expandedRows={expandedRows}
+  onToggleExpand={toggleRowExpansion}
+  onViewReceipt={(receiptId) => {
+    // Open receipt preview
+    handlePreviewReceipt(receiptId);
+  }}
+
             />
           </TabsContent>
 
@@ -4868,6 +4920,9 @@ const handleUpdateDemandStatus = async (demandId: number, newStatus: string) => 
               receipts={receipts}
               loading={loading}
               getTenantName={getTenantName}
+              highlightedReceipt={highlightedReceipt}
+    onPreviewReceipt={handlePreviewReceipt}
+    onDownloadReceipt={paymentApi.downloadReceipt}
             />
           </TabsContent>
         </Tabs>
@@ -5346,6 +5401,62 @@ const handleUpdateDemandStatus = async (demandId: number, newStatus: string) => 
         </DialogContent>
       </Dialog>
 
+{/* Approve Payment Dialog */}
+<Dialog open={isApproveDialogOpen} onOpenChange={setIsApproveDialogOpen}>
+  <DialogContent className="max-w-md">
+    <DialogHeader>
+      <DialogTitle className="flex items-center gap-2">
+        <CheckCircle2 className="h-5 w-5 text-green-600" />
+        Approve Payment
+      </DialogTitle>
+      <DialogDescription>
+        Are you sure you want to approve this payment? A receipt will be generated and the you will be able to view it .
+      </DialogDescription>
+    </DialogHeader>
+    
+    {approvingPayment && (
+      <div className="py-4">
+        <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+          <p className="text-sm font-medium text-green-800">
+            {getTenantName(approvingPayment.tenant_id)}
+          </p>
+          <p className="text-xs text-green-600 mt-1">
+            Amount: ₹{approvingPayment.amount.toLocaleString()} • {approvingPayment.month} {approvingPayment.year}
+          </p>
+          <p className="text-xs text-green-600">
+            Mode: {approvingPayment.payment_mode}
+          </p>
+        </div>
+      </div>
+    )}
+    
+    <DialogFooter>
+      <Button
+        variant="outline"
+        onClick={() => {
+          setIsApproveDialogOpen(false);
+          setApprovingPayment(null);
+        }}
+      >
+        Cancel
+      </Button>
+      <Button
+        onClick={handleConfirmApprove}
+        disabled={actionLoading}
+        className="bg-green-600 hover:bg-green-700 text-white"
+      >
+        {actionLoading ? (
+          <>
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            Approving...
+          </>
+        ) : (
+          'Approve Payment'
+        )}
+      </Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
 
       {/* Reject Payment Dialog */}
 <Dialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
@@ -5633,6 +5744,133 @@ const handleUpdateDemandStatus = async (demandId: number, newStatus: string) => 
     </DialogFooter>
   </DialogContent>
 </Dialog>
+
+{/* Receipt Preview Dialog */}
+<Dialog open={isReceiptPreviewOpen} onOpenChange={setIsReceiptPreviewOpen}>
+  <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+    <DialogHeader>
+      <DialogTitle className="flex items-center gap-2">
+        <Receipt className="h-5 w-5 text-blue-600" />
+        Payment Receipt
+      </DialogTitle>
+      <DialogDescription>
+        Receipt #{selectedReceipt?.id} - {selectedReceipt?.month} {selectedReceipt?.year}
+      </DialogDescription>
+    </DialogHeader>
+    
+    {selectedReceipt && (
+      <div className="py-4">
+        {/* Receipt Content */}
+        <div className="bg-white rounded-lg border border-slate-200 p-6">
+          {/* Header */}
+          <div className="text-center border-b border-slate-200 pb-4 mb-4">
+            <h2 className="text-2xl font-bold text-slate-800">ROOMAC</h2>
+            <p className="text-sm text-slate-500">Premium Living Spaces</p>
+            <p className="text-xs text-slate-400 mt-1">Payment Receipt</p>
+          </div>
+
+          {/* Receipt Details Grid */}
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div>
+              <p className="text-xs text-slate-500">Receipt No.</p>
+              <p className="text-sm font-medium">#{selectedReceipt.id}</p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-500">Date</p>
+              <p className="text-sm font-medium">
+                {format(new Date(selectedReceipt.payment_date), 'dd MMM yyyy')}
+              </p>
+            </div>
+          </div>
+
+          {/* Tenant Details */}
+          <div className="bg-slate-50 p-3 rounded-lg mb-4">
+            <p className="text-xs font-medium text-slate-700 mb-2">Tenant Details</p>
+            <p className="text-sm">{selectedReceipt.tenant_name}</p>
+            {selectedReceipt.tenant_phone && (
+              <p className="text-xs text-slate-600">{selectedReceipt.tenant_phone}</p>
+            )}
+            {selectedReceipt.tenant_email && (
+              <p className="text-xs text-slate-600">{selectedReceipt.tenant_email}</p>
+            )}
+          </div>
+
+          {/* Property Details */}
+          <div className="bg-slate-50 p-3 rounded-lg mb-4">
+            <p className="text-xs font-medium text-slate-700 mb-2">Property Details</p>
+            <p className="text-sm">{selectedReceipt.property_name || 'N/A'}</p>
+            <p className="text-xs text-slate-600">
+              Room: {selectedReceipt.room_number || 'N/A'} 
+              {selectedReceipt.bed_number && ` • Bed #${selectedReceipt.bed_number}`}
+            </p>
+          </div>
+
+          {/* Payment Details */}
+          <div className="bg-blue-50 p-4 rounded-lg mb-4">
+            <p className="text-xs font-medium text-blue-700 mb-3">Payment Details</p>
+            <div className="flex justify-between mb-2">
+              <span className="text-sm text-blue-600">Amount Paid:</span>
+              <span className="text-lg font-bold text-blue-700">
+                ₹{selectedReceipt.amount.toLocaleString()}
+              </span>
+            </div>
+            <div className="flex justify-between mb-2">
+              <span className="text-xs text-blue-600">Payment Mode:</span>
+              <span className="text-sm font-medium capitalize">{selectedReceipt.payment_mode}</span>
+            </div>
+            {selectedReceipt.bank_name && (
+              <div className="flex justify-between mb-2">
+                <span className="text-xs text-blue-600">Bank:</span>
+                <span className="text-sm">{selectedReceipt.bank_name}</span>
+              </div>
+            )}
+            {selectedReceipt.transaction_id && (
+              <div className="flex justify-between mb-2">
+                <span className="text-xs text-blue-600">Transaction ID:</span>
+                <span className="text-xs font-mono">{selectedReceipt.transaction_id}</span>
+              </div>
+            )}
+            <div className="flex justify-between">
+              <span className="text-xs text-blue-600">Period:</span>
+              <span className="text-sm">{selectedReceipt.month} {selectedReceipt.year}</span>
+            </div>
+          </div>
+
+          {/* Remark if exists */}
+          {selectedReceipt.remark && (
+            <div className="bg-yellow-50 p-3 rounded-lg mb-4">
+              <p className="text-xs font-medium text-yellow-700 mb-1">Remark:</p>
+              <p className="text-sm text-yellow-800">{selectedReceipt.remark}</p>
+            </div>
+          )}
+
+          {/* Footer */}
+          <div className="text-center text-xs text-slate-400 mt-4 pt-4 border-t border-slate-200">
+            <p>This is a computer generated receipt. No signature required.</p>
+            <p className="mt-1">Generated on: {format(new Date(selectedReceipt.created_at), 'dd MMM yyyy, hh:mm a')}</p>
+          </div>
+        </div>
+
+        {/* Download Button */}
+        <div className="flex justify-end mt-4">
+          <Button
+            onClick={() => paymentApi.downloadReceipt(selectedReceipt.id)}
+            className="bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Download PDF
+          </Button>
+        </div>
+      </div>
+    )}
+    
+    <DialogFooter>
+      <Button variant="outline" onClick={() => setIsReceiptPreviewOpen(false)}>
+        Close
+      </Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
     </div>
   );
 }
@@ -5672,7 +5910,93 @@ const PaymentStatusBadge = ({ status }: { status: string }) => {
     </Badge>
   );
 };
+
+// Child Table Component for Payment Transactions
+const PaymentTransactionsTable = ({ payment }: { payment: any }) => {
+  // Mock transaction data - replace with actual data from your backend
+  const transactions = payment.transactions || [
+    {
+      id: 1,
+      date: payment.payment_date,
+      amount: payment.amount,
+      mode: payment.payment_mode,
+      bank: payment.bank_name || '-',
+      transaction_id: payment.transaction_id || '-',
+      status: 'completed',
+      reference: `TXN-${payment.id}`
+    }
+  ];
+
+  return (
+    <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+      <h4 className="text-xs font-semibold text-slate-700 mb-3 flex items-center gap-2">
+        <FileText className="h-3.5 w-3.5" />
+        Transaction Details
+      </h4>
+      
+      <Table>
+        <TableHeader>
+          <TableRow className="bg-slate-100">
+            <TableHead className="text-xs py-2">Date</TableHead>
+            <TableHead className="text-xs py-2">Transaction ID</TableHead>
+            <TableHead className="text-xs py-2">Amount</TableHead>
+            <TableHead className="text-xs py-2">Mode</TableHead>
+            <TableHead className="text-xs py-2">Bank</TableHead>
+            <TableHead className="text-xs py-2">Reference</TableHead>
+            <TableHead className="text-xs py-2">Status</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {transactions.map((txn: any) => (
+            <TableRow key={txn.id} className="bg-white">
+              <TableCell className="py-2 text-xs">
+                {format(new Date(txn.date), 'dd/MM/yy')}
+              </TableCell>
+              <TableCell className="py-2 text-xs font-mono">
+                {txn.transaction_id}
+              </TableCell>
+              <TableCell className="py-2 text-xs font-medium">
+                ₹{txn.amount.toLocaleString()}
+              </TableCell>
+              <TableCell className="py-2 text-xs capitalize">
+                {txn.mode}
+              </TableCell>
+              <TableCell className="py-2 text-xs">
+                {txn.bank}
+              </TableCell>
+              <TableCell className="py-2 text-xs">
+                {txn.reference}
+              </TableCell>
+              <TableCell className="py-2">
+                <Badge className="bg-green-100 text-green-800 text-xs">
+                  {txn.status}
+                </Badge>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+      
+      {/* Payment Summary */}
+      <div className="mt-3 grid grid-cols-3 gap-2">
+        <div className="bg-white p-2 rounded border border-slate-200">
+          <p className="text-xs text-slate-500">Total Amount</p>
+          <p className="text-sm font-bold text-green-600">₹{payment.amount.toLocaleString()}</p>
+        </div>
+        <div className="bg-white p-2 rounded border border-slate-200">
+          <p className="text-xs text-slate-500">Payment Date</p>
+          <p className="text-sm font-medium">{format(new Date(payment.payment_date), 'dd MMM yyyy')}</p>
+        </div>
+        <div className="bg-white p-2 rounded border border-slate-200">
+          <p className="text-xs text-slate-500">Status</p>
+          <PaymentStatusBadge status={payment.status || 'pending'} />
+        </div>
+      </div>
+    </div>
+  );
+};
 // Payments Table Component
+// Enhanced Payments Table Component with Expandable Rows
 const PaymentsTable = ({ 
   payments, 
   loading, 
@@ -5684,7 +6008,11 @@ const PaymentsTable = ({
   onReject,
   onEdit,
   onDelete,
-  actionLoading 
+  actionLoading,
+  onViewReceipt,
+  setActiveTab,
+  expandedRows,
+  onToggleExpand
 }: any) => (
   <Card className="border-0 shadow-sm">
     <div className="relative">
@@ -5692,6 +6020,7 @@ const PaymentsTable = ({
         <Table>
           <TableHeader className="sticky top-0 z-20 bg-white">
             <TableRow className="bg-slate-100">
+              <TableHead className="text-xs font-semibold py-2 w-8"></TableHead>
               <TableHead className="text-xs font-semibold py-2">Date</TableHead>
               <TableHead className="text-xs font-semibold py-2">Tenant</TableHead>
               <TableHead className="text-xs font-semibold py-2">Amount</TableHead>
@@ -5705,6 +6034,7 @@ const PaymentsTable = ({
 
             {/* Filter Row */}
             <TableRow className="bg-slate-50 sticky top-[41px] z-20">
+              <TableHead className="p-1"></TableHead>
               <TableHead className="p-1">
                 <Input
                   placeholder="Filter"
@@ -5762,7 +6092,7 @@ const PaymentsTable = ({
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-8 text-xs text-slate-500">
+                <TableCell colSpan={10} className="text-center py-8 text-xs text-slate-500">
                   <div className="flex justify-center items-center">
                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mr-2" />
                     Loading payments...
@@ -5771,117 +6101,147 @@ const PaymentsTable = ({
               </TableRow>
             ) : payments.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-8 text-xs text-slate-500">
+                <TableCell colSpan={10} className="text-center py-8 text-xs text-slate-500">
                   <CreditCard className="h-8 w-8 mx-auto mb-2 text-slate-300" />
                   No payments found
                 </TableCell>
               </TableRow>
             ) : (
               payments.map((payment: any) => {
-                // Determine status (default to 'pending' if not set)
                 const paymentStatus = payment.status || 'pending';
+                const isExpanded = expandedRows.includes(payment.id);
                 
                 return (
-                  <TableRow key={payment.id} className="hover:bg-slate-50">
-                    <TableCell className="py-2 text-xs whitespace-nowrap">
-                      {format(new Date(payment.payment_date), 'dd/MM/yy')}
-                    </TableCell>
-                    <TableCell className="py-2">
-                      <p className="text-xs font-medium whitespace-nowrap">{getTenantName(payment.tenant_id)}</p>
-                      <p className="text-[10px] text-slate-500 whitespace-nowrap">{getTenantPhone(payment.tenant_id)}</p>
-                    </TableCell>
-                    <TableCell className="py-2 text-xs font-medium whitespace-nowrap">
-                      ₹{payment.amount.toLocaleString()}
-                    </TableCell>
-                    <TableCell className="py-2">
-                      <p className="text-xs capitalize whitespace-nowrap">{payment.payment_mode}</p>
-                      {payment.bank_name && (
-                        <p className="text-[10px] text-slate-500 whitespace-nowrap">{payment.bank_name}</p>
-                      )}
-                    </TableCell>
-                    <TableCell className="py-2 text-[10px] font-mono whitespace-nowrap">
-                      {payment.transaction_id ? payment.transaction_id.substring(0, 8) + '...' : '-'}
-                    </TableCell>
-                    <TableCell className="py-2 text-xs whitespace-nowrap">
-                      {payment.month} {payment.year}
-                    </TableCell>
-                    <TableCell className="py-2 text-xs max-w-[120px] truncate">
-                      {payment.remark || '-'}
-                    </TableCell>
-                    <TableCell className="py-2">
-                      <PaymentStatusBadge status={paymentStatus} />
-                    </TableCell>
-                    <TableCell className="py-2">
-                      <div className="flex items-center gap-1 justify-end">
-                        {/* View Receipt - Only for approved payments */}
-                        {paymentStatus === 'approved' && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-7 w-7 p-0 text-blue-600"
-                            onClick={() => paymentApi.previewReceipt(payment.id)}
-                            title="View Receipt"
-                          >
-                            <Receipt className="h-3.5 w-3.5" />
-                          </Button>
+                  <>
+                    {/* Parent Row */}
+                    <TableRow 
+                      key={payment.id} 
+                      className={`hover:bg-slate-50 cursor-pointer transition-colors ${
+                        isExpanded ? 'bg-slate-50 border-b-0' : ''
+                      }`}
+                      onClick={() => onToggleExpand(payment.id)}
+                    >
+                      <TableCell className="py-2">
+                        <ChevronDown 
+                          className={`h-4 w-4 text-slate-400 transition-transform duration-200 ${
+                            isExpanded ? 'rotate-180' : ''
+                          }`}
+                        />
+                      </TableCell>
+                      <TableCell className="py-2 text-xs whitespace-nowrap">
+                        {format(new Date(payment.payment_date), 'dd/MM/yy')}
+                      </TableCell>
+                      <TableCell className="py-2">
+                        <p className="text-xs font-medium whitespace-nowrap">{getTenantName(payment.tenant_id)}</p>
+                        <p className="text-[10px] text-slate-500 whitespace-nowrap">{getTenantPhone(payment.tenant_id)}</p>
+                      </TableCell>
+                      <TableCell className="py-2 text-xs font-medium whitespace-nowrap">
+                        ₹{payment.amount.toLocaleString()}
+                      </TableCell>
+                      <TableCell className="py-2">
+                        <p className="text-xs capitalize whitespace-nowrap">{payment.payment_mode}</p>
+                        {payment.bank_name && (
+                          <p className="text-[10px] text-slate-500 whitespace-nowrap">{payment.bank_name}</p>
                         )}
-                        
-                        {/* Approve Button - Only for pending payments */}
-                        {paymentStatus === 'pending' && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-7 w-7 p-0 text-green-600"
-                            onClick={() => onApprove(payment.id)}
-                            title="Approve Payment"
-                            disabled={actionLoading}
-                          >
-                            <CheckCircle2 className="h-3.5 w-3.5" />
-                          </Button>
-                        )}
-                        
-                        {/* Reject Button - Only for pending payments */}
-                        {paymentStatus === 'pending' && (
+                      </TableCell>
+                      <TableCell className="py-2 text-[10px] font-mono whitespace-nowrap">
+                        {payment.transaction_id ? payment.transaction_id.substring(0, 8) + '...' : '-'}
+                      </TableCell>
+                      <TableCell className="py-2 text-xs whitespace-nowrap">
+                        {payment.month} {payment.year}
+                      </TableCell>
+                      <TableCell className="py-2 text-xs max-w-[120px] truncate">
+                        {payment.remark || '-'}
+                      </TableCell>
+                      <TableCell className="py-2">
+                        <PaymentStatusBadge status={paymentStatus} />
+                      </TableCell>
+                      <TableCell className="py-2" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center gap-1 justify-end">
+                          {/* View Receipt */}
+                          {payment.status === 'approved' && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 w-7 p-0 text-blue-600"
+                              onClick={() => {
+                                setActiveTab('receipts');
+                                setTimeout(() => onViewReceipt(payment.id), 100);
+                              }}
+                              title="View Receipt"
+                            >
+                              <Receipt className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                          
+                          {/* Approve Button */}
+                          {paymentStatus === 'pending' && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 w-7 p-0 text-green-600"
+                              onClick={() => onApprove(payment)}
+                              title="Approve Payment"
+                              disabled={actionLoading}
+                            >
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                          
+                          {/* Reject Button */}
+                          {paymentStatus === 'pending' && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 w-7 p-0 text-red-600"
+                              onClick={() => onReject(payment)}
+                              title="Reject Payment"
+                              disabled={actionLoading}
+                            >
+                              <XCircle className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                          
+                          {/* Edit Button */}
+                          {(paymentStatus === 'pending' || paymentStatus === 'rejected') && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 w-7 p-0 text-blue-600"
+                              onClick={() => onEdit(payment)}
+                              title="Edit Payment"
+                              disabled={actionLoading}
+                            >
+                              <FileText className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                          
+                          {/* Delete Button */}
                           <Button
                             size="sm"
                             variant="ghost"
                             className="h-7 w-7 p-0 text-red-600"
-                            onClick={() => onReject(payment)}
-                            title="Reject Payment"
+                            onClick={() => onDelete(payment)}
+                            title="Delete Payment"
                             disabled={actionLoading}
                           >
-                            <XCircle className="h-3.5 w-3.5" />
+                            <Trash2 className="h-3.5 w-3.5" />
                           </Button>
-                        )}
-                        
-                        {/* Edit Button - For pending OR rejected payments */}
-                        {(paymentStatus === 'pending' || paymentStatus === 'rejected') && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-7 w-7 p-0 text-blue-600"
-                            onClick={() => onEdit(payment)}
-                            title="Edit Payment"
-                            disabled={actionLoading}
-                          >
-                            <FileText className="h-3.5 w-3.5" />
-                          </Button>
-                        )}
-                        
-                        {/* Delete Button - Always visible (admin only) */}
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 w-7 p-0 text-red-600"
-                          onClick={() => onDelete(payment)}
-                          title="Delete Payment"
-                          disabled={actionLoading}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                    
+                    {/* Expanded Child Row */}
+                    {isExpanded && (
+                      <TableRow className="bg-slate-50">
+                        <TableCell colSpan={10} className="p-0 border-t-0">
+                          <div className="animate-in slide-in-from-top-1 duration-200">
+                            <PaymentTransactionsTable payment={payment} />
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </>
                 );
               })
             )}
@@ -5893,7 +6253,14 @@ const PaymentsTable = ({
 );
 
 // Receipts Table Component
-const ReceiptsTable = ({ receipts, loading, getTenantName }: any) => (
+const ReceiptsTable = ({ 
+  receipts, 
+  loading, 
+  getTenantName,
+  highlightedReceipt, // Add this prop
+  onPreviewReceipt,
+  onDownloadReceipt
+}: any) => (
   <Card className="border-0 shadow-sm">
     <CardHeader className="p-3 bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-t-lg sticky top-0 z-10">
       <CardTitle className="flex items-center gap-2 text-sm">
@@ -5921,7 +6288,8 @@ const ReceiptsTable = ({ receipts, loading, getTenantName }: any) => (
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-8 text-xs text-slate-500">
+                {/* Changed colSpan from 9 to 6 to match number of columns */}
+                <TableCell colSpan={6} className="text-center py-8 text-xs text-slate-500">
                   <div className="flex justify-center items-center">
                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mr-2" />
                     Loading receipts...
@@ -5930,14 +6298,20 @@ const ReceiptsTable = ({ receipts, loading, getTenantName }: any) => (
               </TableRow>
             ) : receipts.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-8 text-xs text-slate-500">
+                {/* Changed colSpan from 9 to 6 */}
+                <TableCell colSpan={6} className="text-center py-8 text-xs text-slate-500">
                   <Receipt className="h-8 w-8 mx-auto mb-2 text-slate-300" />
                   No receipts found
                 </TableCell>
               </TableRow>
             ) : (
               receipts.map((receipt: any) => (
-                <TableRow key={receipt.id}>
+                <TableRow 
+                  key={receipt.id}  
+                  className={`hover:bg-slate-50 ${
+                    receipt.id === highlightedReceipt ? 'bg-green-50 animate-pulse' : ''
+                  }`}
+                >
                   <TableCell className="py-2 text-xs whitespace-nowrap">
                     {format(new Date(receipt.payment_date), 'dd/MM/yy')}
                   </TableCell>
@@ -5968,7 +6342,7 @@ const ReceiptsTable = ({ receipts, loading, getTenantName }: any) => (
                         size="sm"
                         variant="ghost"
                         className="h-7 w-7 p-0"
-                        onClick={() => paymentApi.previewReceipt(receipt.id)}
+                        onClick={() => onPreviewReceipt(receipt.id)}
                         title="Preview Receipt"
                       >
                         <Eye className="h-3.5 w-3.5" />
@@ -5977,7 +6351,7 @@ const ReceiptsTable = ({ receipts, loading, getTenantName }: any) => (
                         size="sm"
                         variant="ghost"
                         className="h-7 w-7 p-0"
-                        onClick={() => paymentApi.downloadReceipt(receipt.id)}
+                        onClick={() => onDownloadReceipt(receipt.id)}
                         title="Download Receipt"
                       >
                         <Download className="h-3.5 w-3.5" />
