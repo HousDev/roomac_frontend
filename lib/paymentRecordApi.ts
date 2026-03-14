@@ -354,6 +354,7 @@ export type Payment = {
   year: number;
   remark?: string;
   payment_type: 'rent' | 'security_deposit' | 'maintenance' | 'electricity' | 'other';
+  status: 'pending' | 'approved' | 'rejected';
   created_at: string;
   updated_at: string;
   // Joined fields
@@ -473,6 +474,8 @@ export type TenantRentSummary = {
   payments: Payment[];
 };
 
+// In lib/paymentRecordApi.ts - Update the PaymentFormData type
+
 export type PaymentFormData = {
   tenant: {
     id: number;
@@ -481,26 +484,68 @@ export type PaymentFormData = {
     phone?: string;
   };
   room_info: {
+    room_id: number;
     room_number: string;
     bed_number: number;
     bed_type: string;
+    property_id: number;
     property_name: string;
   };
   monthly_rent: number;
+  check_in_date?: string;
+  joining_date: string;
+  joining_month: number;
+  joining_year: number;
+  total_months_since_joining: number;
+  
   previous_month: {
     month: string;
     year: number;
     paid: number;
     pending: number;
+    status?: string;
   };
+  
   current_month: {
     month: string;
     year: number;
     paid: number;
     pending: number;
+    status?: string;
   };
+  
+  month_wise_history: Array<{
+    month: string;
+    month_num: number;
+    year: number;
+    month_key: string;
+    rent: number;
+    paid: number;
+    pending: number;
+    isCurrentMonth: boolean;
+    isPastMonth: boolean;
+    status: string;
+    payments?: Array<any>;
+  }>;
+  
+    // Add this field - list of months with pending amounts
+  unpaid_months: Array<{
+    month: string;
+    month_num: number;
+    year: number;
+    month_key: string;
+    pending: number;
+    display: string; // e.g., "January 2026 (₹2,000 pending)"
+  }>;
+
+  recent_months: Array<any>;
+  total_paid: number;
+  total_expected: number;
   total_pending: number;
   suggested_amount: number;
+  payment_count: number;
+  last_payment_date?: string;
+  note?: string;
 };
 
 // Create a new payment
@@ -757,6 +802,61 @@ export async function updateDemandStatus(id: number, status: string): Promise<an
     return response;
   } catch (error) {
     console.error('Error updating demand status:', error);
+    throw error;
+  }
+}
+
+// Add API functions for payment actions
+export async function approvePayment(id: number, approvedBy?: number): Promise<any> {
+  try {
+    const response = await request(`/api/payments/${id}/approve`, {
+      method: 'POST',
+      body: JSON.stringify({ approved_by: approvedBy }),
+    });
+    return response;
+  } catch (error) {
+    console.error('Error approving payment:', error);
+    throw error;
+  }
+}
+
+export async function rejectPayment(id: number, reason: string, rejectedBy?: number): Promise<any> {
+  try {
+    const response = await request(`/api/payments/${id}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ 
+        rejection_reason: reason,
+        rejected_by: rejectedBy 
+      }),
+    });
+    return response;
+  } catch (error) {
+    console.error('Error rejecting payment:', error);
+    throw error;
+  }
+}
+
+export async function updatePayment(id: number, data: any): Promise<any> {
+  try {
+    const response = await request(`/api/payments/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+    return response;
+  } catch (error) {
+    console.error('Error updating payment:', error);
+    throw error;
+  }
+}
+
+export async function deletePayment(id: number): Promise<any> {
+  try {
+    const response = await request(`/api/payments/${id}`, {
+      method: 'DELETE',
+    });
+    return response;
+  } catch (error) {
+    console.error('Error deleting payment:', error);
     throw error;
   }
 }
