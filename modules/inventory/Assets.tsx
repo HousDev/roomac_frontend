@@ -370,13 +370,13 @@ useEffect(() => { loadCategories(); loadProperties(); loadPurchasedItems(); }, [
 
   // ════════════════════════════════════════════════════════════════════════════
   return (
-    <div className="bg-gray-50 min-h-screen">
+    <div className="bg-gray-50 ">
 
       {/* ── HEADER — fully responsive ────────────────────────────────────── */}
-      <div className="sticky top-0 z-20  ">
+      <div className="sticky top-16 z-10  ">
 
         {/* Top row: title + actions */}
-        <div className="px-3 sm:px-5 pt-3 pb-2 flex items-end justify-end gap-2">
+        <div className="px-0 sm:px-0 pt-0 pb-2 flex items-end justify-end gap-2">
 
           {/* Title */}
           {/* <div className="min-w-0">
@@ -443,7 +443,7 @@ useEffect(() => { loadCategories(); loadProperties(); loadPurchasedItems(); }, [
         </div>
 
         {/* Stats row — scrollable on xs, grid on sm+ */}
-        <div className="px-3 sm:px-5 pb-3">
+        <div className="px-0 sm:px-0 pb-3">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
             <StatCard title="Total Items"  value={stats.total_items}
               icon={Boxes}         color="bg-blue-600"   bg="bg-gradient-to-br from-blue-50 to-blue-100" />
@@ -461,7 +461,7 @@ useEffect(() => { loadCategories(); loadProperties(); loadPurchasedItems(); }, [
       <div className="relative">
 
         {/* Table area */}
-        <main className="p-3 sm:p-4">
+        <main className="p-0 sm:p-0">
           <Card className="border rounded-lg shadow-sm">
             <div className="flex items-center justify-between px-3 py-2 border-b bg-white rounded-t-lg">
               <span className="text-sm font-semibold text-gray-700">
@@ -474,8 +474,16 @@ useEffect(() => { loadCategories(); loadProperties(); loadPurchasedItems(); }, [
               )}
             </div>
 
-            <div className="overflow-auto max-h-[calc(100vh-320px)]">
-              <div className="min-w-[900px]">
+<div 
+  className="overflow-auto"
+  style={{
+    maxHeight: typeof window !== 'undefined' 
+      ? window.innerWidth < 768 
+        ? 'calc(100vh - 300px)'  // mobile
+        : 'calc(100vh - 270px)'  // desktop
+      : 'calc(100vh - 320px)'
+  }}
+>  <div className="min-w-[900px]">
                 <Table>
                   <TableHeader className="sticky top-0 z-10 bg-gray-50">
                     <TableRow>

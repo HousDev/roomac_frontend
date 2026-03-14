@@ -840,12 +840,11 @@ export function VisitorRestrictions() {
 
   // ═══════════════════════════════════════════════════════════════════════
   return (
-    <div className="bg-gray-50 min-h-screen">
+    <div className="bg-gray-50 ">
 
       {/* ── HEADER ───────────────────────────────────────────────────── */}
-      <div className="sticky top-0 z-20">
-        <div className="px-3 sm:px-5 pt-3 pb-2 flex items-end justify-end gap-2">
-          <div className="flex items-end justify-end gap-1.5 flex-shrink-0">
+      <div className="sticky top-20 z-10">
+<div className="px-0 sm:px-0 mt-0 md:-mt-3 pb-0 flex items-end justify-end gap-2">          <div className="flex items-end justify-end gap-1.5 flex-shrink-0">
             <button onClick={() => setSidebarOpen(o => !o)}
               className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border text-[11px] font-medium transition-colors
                 ${sidebarOpen || hasFilters ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
@@ -879,7 +878,7 @@ export function VisitorRestrictions() {
         </div>
 
         {/* Stats */}
-        <div className="px-3 sm:px-5 pb-3">
+        <div className="px-0 sm:px-0 pb-3 pt-2">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
             <StatCard title="Total"            value={stats.total}            icon={ShieldAlert}   color="bg-blue-600"  bg="bg-gradient-to-br from-blue-50 to-blue-100" />
             <StatCard title="Active"           value={stats.active}           icon={CheckCircle}   color="bg-green-600" bg="bg-gradient-to-br from-green-50 to-green-100" />
@@ -891,7 +890,7 @@ export function VisitorRestrictions() {
 
       {/* ── BODY ─────────────────────────────────────────────────────── */}
       <div className="relative">
-        <main className="p-3 sm:p-4">
+        <main className="p-0 sm:p-0">
 
           {selectedItems.size > 0 && (
             <div className="flex items-center gap-2 mb-3 flex-wrap">
@@ -920,8 +919,11 @@ export function VisitorRestrictions() {
               )}
             </div>
 
-            <div className="overflow-auto max-h-[calc(100vh-300px)]">
-              <div className="min-w-[900px]">
+<div className={`overflow-auto rounded-b-lg transition-all duration-300 ${
+  selectedItems.size > 0
+    ? 'max-h-[340px] md:max-h-[420px]'
+    : 'max-h-[350px] md:max-h-[450px]'
+}`}>              <div className="min-w-[900px]">
                 <Table>
                   <TableHeader className="sticky top-0 z-10 bg-gray-50">
                     <TableRow>

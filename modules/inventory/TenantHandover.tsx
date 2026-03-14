@@ -976,11 +976,11 @@ const handlePrint = () => {
 
   // ════════════════════════════════════════════════════════════════════════════
   return (
-    <div className="bg-gray-50 min-h-screen">
+    <div className="bg-gray-50 ">
 
       {/* ── HEADER ────────────────────────────────────────────────────────── */}
-      <div className="sticky top-0 z-20">
-        <div className="px-3 sm:px-5 pt-3 pb-2 flex items-end justify-end gap-2">
+      <div className="sticky top-20 z-10">
+        <div className="px-0 sm:px-0 pt-0 pb-2 flex items-end justify-end gap-2">
           <div className="flex items-end justify-end gap-1.5 flex-shrink-0">
 
             <button onClick={() => setSidebarOpen(o => !o)}
@@ -1016,7 +1016,7 @@ const handlePrint = () => {
         </div>
 
         {/* Stats */}
-        <div className="px-3 sm:px-5 pb-3">
+        <div className="px-0 sm:px-0 pb-3">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
             <StatCard title="Total Handovers" value={stats.total}
               icon={FileText} color="bg-blue-600" bg="bg-gradient-to-br from-blue-50 to-blue-100" />
@@ -1032,7 +1032,7 @@ const handlePrint = () => {
 
       {/* ── BODY ─────────────────────────────────────────────────────────── */}
       <div className="relative">
-        <main className="p-3 sm:p-4">
+        <main className="p-0 sm:p-0">
           <Card className="border rounded-lg shadow-sm">
             <div className="flex items-center justify-between px-3 py-2 border-b bg-white rounded-t-lg">
               <span className="text-sm font-semibold text-gray-700">
@@ -1058,8 +1058,11 @@ const handlePrint = () => {
               </div>
             </div>
 
-            <div className="overflow-auto max-h-[calc(100vh-310px)]">
-              <div className="min-w-[1000px]">
+<div className={`overflow-auto rounded-b-lg transition-all duration-300 ${
+  selectedItems.size > 0
+    ? 'max-h-[350px] md:max-h-[460px]'
+    : 'max-h-[350px] md:max-h-[460px]'
+}`}>              <div className="min-w-[1000px]">
                 <Table>
                   <TableHeader className="sticky top-0 z-10 bg-gray-50">
                     <TableRow>
