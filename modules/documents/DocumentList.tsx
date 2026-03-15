@@ -1467,6 +1467,18 @@ export function DocumentList() {
     completed: docs.filter(d => d.status === "Completed").length,
   }), [docs]);
 
+  const getStepFromStatus = (status: string): number => {
+  const stepMap: Record<string, number> = {
+    'Created': 1,
+    'Sent': 2,
+    'Viewed': 3,
+    'Signed': 4,
+    'Completed': 5,
+    'Expired': 0,
+    'Cancelled': 0
+  };
+  return stepMap[status] || 0;
+};
   // ── Load ────────────────────────────────────────────────────────────────────
   const loadDocs = useCallback(async () => {
     setLoading(true);
@@ -1778,12 +1790,28 @@ ${doc.html_content}
                       <TableCell className="py-2 px-3">
                         <span className="font-mono text-[11px] font-bold text-blue-600">{d.document_number}</span>
                       </TableCell>
-                      <TableCell className="py-2 px-3">
-                        <p className="text-[11px] font-semibold text-gray-800 max-w-[160px] truncate">{d.document_name}</p>
-                        {d.signature_required && (
-                          <Badge className="bg-purple-50 text-purple-600 border border-purple-200 text-[9px] px-1.5 py-0 mt-0.5">Signature Req.</Badge>
-                        )}
-                      </TableCell>
+                      <TableCell className="py-2 px-3 align-top">
+  <div className="flex flex-col">
+    <p className="text-[11px] font-semibold text-gray-800">{d.document_name}</p>
+    <p className="text-[10px] text-gray-500 mt-0.5">{d.tenant_name}</p>
+    <div className="flex items-center gap-1 mt-1">
+      {[1, 2, 3, 4, 5].map((step) => {
+        const currentStep = getStepFromStatus(d.status);
+        return (
+          <div
+            key={step}
+            className={`w-1.5 h-1.5 rounded-full ${
+              step <= currentStep ? 'bg-blue-600' : 'bg-gray-200'
+            }`}
+          />
+        );
+      })}
+      <span className="text-[9px] text-gray-500 ml-1">
+        {getStepFromStatus(d.status)}/5
+      </span>
+    </div>
+  </div>
+</TableCell>
                       <TableCell className="py-2 px-3">
                         <p className="text-[11px] font-semibold text-gray-800">{d.tenant_name}</p>
                         {d.tenant_phone && <p className="text-[10px] text-gray-500 flex items-center gap-1"><Phone className="h-2.5 w-2.5" />{d.tenant_phone}</p>}
