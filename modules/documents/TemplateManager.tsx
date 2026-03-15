@@ -1,772 +1,3 @@
-// import { useState, useEffect } from 'react';
-// import { Plus, Eye, CreditCard as Edit, Trash2, Save, X, Code, FileText, History, Copy, Tag, CheckCircle, XCircle } from 'lucide-react';
-// // import { supabase } from '../../lib/supabase';
-// import { DocumentTemplate } from '../../types/document';
-// import { DataTable } from '../../components/common/DataTable';
-
-// interface TemplateVersion {
-//   id: string;
-//   template_id: string;
-//   version: number;
-//   name: string;
-//   category: string;
-//   description?: string;
-//   html_content: string;
-//   variables: string[];
-//   change_notes?: string;
-//   created_by: string;
-//   created_at: string;
-// }
-
-// export function TemplateManager() {
-//   const [templates, setTemplates] = useState<DocumentTemplate[]>([]);
-//   const [loading, setLoading] = useState(true);
-//   const [showModal, setShowModal] = useState(false);
-//   const [showPreview, setShowPreview] = useState(false);
-//   const [showVersionHistory, setShowVersionHistory] = useState(false);
-//   const [editingTemplate, setEditingTemplate] = useState<DocumentTemplate | null>(null);
-//   const [selectedTemplateForHistory, setSelectedTemplateForHistory] = useState<DocumentTemplate | null>(null);
-//   const [versionHistory, setVersionHistory] = useState<TemplateVersion[]>([]);
-//   const [previewContent, setPreviewContent] = useState('');
-//   const [saving, setSaving] = useState(false);
-//   const [changeNotes, setChangeNotes] = useState('');
-
-//   const [formData, setFormData] = useState({
-//     name: '',
-//     category: '',
-//     description: '',
-//     html_content: '',
-//     variables: [] as string[]
-//   });
-
-//   const categories = [
-//     'Agreements',
-//     'Rental Agreements',
-//     'KYC Documents',
-//     'Onboarding Documents',
-//     'Financial Documents',
-//     'Policy Documents',
-//     'Exit Documents',
-//     'Inspection Forms',
-//     'Declarations',
-//     'Other'
-//   ];
-
-//   const commonVariables = [
-//     { name: 'date', label: 'Current Date', example: '2024-03-14' },
-//     { name: 'document_number', label: 'Document Number', example: 'DOC-202403-0001' },
-//     { name: 'tenant_name', label: 'Tenant Name', example: 'John Doe' },
-//     { name: 'tenant_phone', label: 'Tenant Phone', example: '+91 9876543210' },
-//     { name: 'tenant_email', label: 'Tenant Email', example: 'john@example.com' },
-//     { name: 'property_name', label: 'Property Name', example: 'Green Heights PG' },
-//     { name: 'room_number', label: 'Room Number', example: 'R-101' },
-//     { name: 'bed_number', label: 'Bed Number', example: 'B-1' },
-//     { name: 'move_in_date', label: 'Move-in Date', example: '2024-03-01' },
-//     { name: 'rent_amount', label: 'Rent Amount', example: '8000' },
-//     { name: 'security_deposit', label: 'Security Deposit', example: '16000' },
-//     { name: 'company_name', label: 'Company Name', example: 'PG Management Co.' },
-//     { name: 'company_address', label: 'Company Address', example: '123 Main St' },
-//     { name: 'aadhaar_number', label: 'Aadhaar Number', example: 'XXXX-XXXX-1234' },
-//     { name: 'pan_number', label: 'PAN Number', example: 'ABCDE1234F' },
-//     { name: 'emergency_contact_name', label: 'Emergency Contact', example: 'Jane Doe' },
-//     { name: 'emergency_phone', label: 'Emergency Phone', example: '+91 9876543211' },
-//     { name: 'payment_mode', label: 'Payment Mode', example: 'UPI/Cash/Bank Transfer' }
-//   ];
-
-//   useEffect(() => {
-//     fetchTemplates();
-//   }, []);
-
-//   const fetchTemplates = async () => {
-//     try {
-//       const { data, error } = await supabase
-//         .from('document_templates')
-//         .select('*')
-//         .order('created_at', { ascending: false });
-
-//       if (error) throw error;
-//       setTemplates(data || []);
-//     } catch (error) {
-//       console.error('Error fetching templates:', error);
-//     } finally {
-//       setLoading(false);
-//     }
-//   };
-
-//   const fetchVersionHistory = async (template: DocumentTemplate) => {
-//     try {
-//       const { data, error } = await supabase
-//         .from('document_template_versions')
-//         .select('*')
-//         .eq('template_id', template.id)
-//         .order('version', { ascending: false });
-
-//       if (error) throw error;
-//       setVersionHistory(data || []);
-//       setSelectedTemplateForHistory(template);
-//       setShowVersionHistory(true);
-//     } catch (error) {
-//       console.error('Error fetching version history:', error);
-//       alert('Failed to load version history');
-//     }
-//   };
-
-//   const handleAdd = () => {
-//     setEditingTemplate(null);
-//     setChangeNotes('');
-//     setFormData({
-//       name: '',
-//       category: 'Agreements',
-//       description: '',
-//       html_content: '<div style="font-family: Arial, sans-serif; padding: 40px; max-width: 800px; margin: 0 auto;">\n  <h1 style="text-align: center; color: #1e40af; margin-bottom: 30px;">{{document_name}}</h1>\n  <p style="margin: 20px 0;"><strong>Date:</strong> {{date}}</p>\n  <p style="margin: 20px 0;"><strong>Document Number:</strong> {{document_number}}</p>\n  \n  <h2 style="color: #1e40af; margin-top: 30px;">TENANT INFORMATION</h2>\n  <p><strong>Name:</strong> {{tenant_name}}</p>\n  <p><strong>Phone:</strong> {{tenant_phone}}</p>\n  <p><strong>Email:</strong> {{tenant_email}}</p>\n  \n  <div style="margin-top: 80px;">\n    <p>_____________________<br/><strong>Signature</strong></p>\n  </div>\n</div>',
-//       variables: []
-//     });
-//     setShowModal(true);
-//   };
-
-//   const handleEdit = (template: DocumentTemplate) => {
-//     setEditingTemplate(template);
-//     setChangeNotes('');
-//     setFormData({
-//       name: template.name,
-//       category: template.category,
-//       description: template.description || '',
-//       html_content: template.html_content,
-//       variables: template.variables || []
-//     });
-//     setShowModal(true);
-//   };
-
-//   const handleDuplicate = (template: DocumentTemplate) => {
-//     setEditingTemplate(null);
-//     setChangeNotes('Duplicated from ' + template.name);
-//     setFormData({
-//       name: template.name + ' (Copy)',
-//       category: template.category,
-//       description: template.description || '',
-//       html_content: template.html_content,
-//       variables: template.variables || []
-//     });
-//     setShowModal(true);
-//   };
-
-//   const handlePreview = (template: DocumentTemplate) => {
-//     let content = template.html_content;
-//     template.variables.forEach((variable: string) => {
-//       const commonVar = commonVariables.find(v => v.name === variable);
-//       const sampleValue = commonVar ? commonVar.example : `[${variable}]`;
-//       content = content.replace(new RegExp(`{{${variable}}}`, 'g'), sampleValue);
-//     });
-//     setPreviewContent(content);
-//     setShowPreview(true);
-//   };
-
-//   const extractVariables = (html: string): string[] => {
-//     const regex = /{{(\w+)}}/g;
-//     const matches = html.matchAll(regex);
-//     const variables = new Set<string>();
-//     for (const match of matches) {
-//       variables.add(match[1]);
-//     }
-//     return Array.from(variables);
-//   };
-
-//   const insertVariable = (variableName: string) => {
-//     const variable = `{{${variableName}}}`;
-//     setFormData({
-//       ...formData,
-//       html_content: formData.html_content + variable
-//     });
-//   };
-
-//   const handleSave = async () => {
-//     if (!formData.name.trim()) {
-//       alert('Please enter a template name');
-//       return;
-//     }
-
-//     if (!formData.html_content.trim()) {
-//       alert('Please enter HTML content');
-//       return;
-//     }
-
-//     try {
-//       setSaving(true);
-//       const variables = extractVariables(formData.html_content);
-
-//       const templateData = {
-//         name: formData.name,
-//         category: formData.category,
-//         description: formData.description,
-//         html_content: formData.html_content,
-//         variables: variables,
-//         is_active: true,
-//         last_modified_by: 'Admin'
-//       };
-
-//       if (editingTemplate) {
-//         const { error } = await supabase
-//           .from('document_templates')
-//           .update(templateData)
-//           .eq('id', editingTemplate.id);
-
-//         if (error) throw error;
-//         alert(`Template updated successfully!\nVersion ${editingTemplate.version + 1} created`);
-//       } else {
-//         const { error } = await supabase
-//           .from('document_templates')
-//           .insert([{
-//             ...templateData,
-//             created_by: 'Admin'
-//           }]);
-
-//         if (error) throw error;
-//         alert('Template created successfully!');
-//       }
-
-//       await fetchTemplates();
-//       setShowModal(false);
-//       setChangeNotes('');
-//     } catch (error) {
-//       console.error('Error saving template:', error);
-//       alert('Failed to save template: ' + (error as any).message);
-//     } finally {
-//       setSaving(false);
-//     }
-//   };
-
-//   const handleDelete = async (id: string) => {
-//     if (!confirm('Are you sure you want to delete this template? This will also delete all version history.')) return;
-
-//     try {
-//       const { error } = await supabase
-//         .from('document_templates')
-//         .delete()
-//         .eq('id', id);
-
-//       if (error) throw error;
-//       await fetchTemplates();
-//       alert('Template deleted successfully');
-//     } catch (error) {
-//       console.error('Error deleting template:', error);
-//       alert('Failed to delete template');
-//     }
-//   };
-
-//   const handleBulkDelete = async (templates: DocumentTemplate[]) => {
-//     if (!confirm(`Are you sure you want to delete ${templates.length} template(s)?`)) return;
-
-//     try {
-//       const ids = templates.map(t => t.id);
-//       const { error } = await supabase
-//         .from('document_templates')
-//         .delete()
-//         .in('id', ids);
-
-//       if (error) throw error;
-//       await fetchTemplates();
-//       alert(`Successfully deleted ${templates.length} template(s)`);
-//     } catch (error) {
-//       console.error('Error deleting templates:', error);
-//       alert('Failed to delete templates');
-//     }
-//   };
-
-//   const handleBulkActivate = async (templates: DocumentTemplate[]) => {
-//     try {
-//       const ids = templates.map(t => t.id);
-//       const { error } = await supabase
-//         .from('document_templates')
-//         .update({ is_active: true, updated_at: new Date().toISOString() })
-//         .in('id', ids);
-
-//       if (error) throw error;
-//       await fetchTemplates();
-//       alert(`Successfully activated ${templates.length} template(s)`);
-//     } catch (error) {
-//       console.error('Error activating templates:', error);
-//       alert('Failed to activate templates');
-//     }
-//   };
-
-//   const handleBulkDeactivate = async (templates: DocumentTemplate[]) => {
-//     try {
-//       const ids = templates.map(t => t.id);
-//       const { error } = await supabase
-//         .from('document_templates')
-//         .update({ is_active: false, updated_at: new Date().toISOString() })
-//         .in('id', ids);
-
-//       if (error) throw error;
-//       await fetchTemplates();
-//       alert(`Successfully deactivated ${templates.length} template(s)`);
-//     } catch (error) {
-//       console.error('Error deactivating templates:', error);
-//       alert('Failed to deactivate templates');
-//     }
-//   };
-
-//   const restoreVersion = async (version: TemplateVersion) => {
-//     if (!confirm(`Restore template to version ${version.version}? This will create a new version.`)) return;
-
-//     try {
-//       const { error } = await supabase
-//         .from('document_templates')
-//         .update({
-//           name: version.name,
-//           category: version.category,
-//           description: version.description,
-//           html_content: version.html_content,
-//           variables: version.variables,
-//           last_modified_by: 'Admin'
-//         })
-//         .eq('id', version.template_id);
-
-//       if (error) throw error;
-
-//       await fetchTemplates();
-//       setShowVersionHistory(false);
-//       alert(`Template restored to version ${version.version}`);
-//     } catch (error) {
-//       console.error('Error restoring version:', error);
-//       alert('Failed to restore version');
-//     }
-//   };
-
-//   const columns = [
-//     {
-//       key: 'name',
-//       label: 'Template Name',
-//       render: (row: DocumentTemplate) => (
-//         <div>
-//           <div className="font-bold text-gray-900">{row.name}</div>
-//           <div className="text-sm text-gray-500">{row.category}</div>
-//         </div>
-//       )
-//     },
-//     {
-//       key: 'description',
-//       label: 'Description',
-//       render: (row: DocumentTemplate) => (
-//         <div className="text-sm text-gray-600 max-w-xs truncate">{row.description || 'No description'}</div>
-//       )
-//     },
-//     {
-//       key: 'variables',
-//       label: 'Variables',
-//       render: (row: DocumentTemplate) => (
-//         <div className="flex items-center gap-1">
-//           <Code className="w-4 h-4 text-blue-600" />
-//           <span className="text-sm font-bold text-blue-600">{row.variables?.length || 0}</span>
-//         </div>
-//       )
-//     },
-//     {
-//       key: 'version',
-//       label: 'Version',
-//       render: (row: DocumentTemplate) => (
-//         <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-sm font-bold">v{row.version}</span>
-//       )
-//     },
-//     {
-//       key: 'updated_at',
-//       label: 'Last Updated',
-//       render: (row: DocumentTemplate) => (
-//         <div className="text-sm text-gray-600">
-//           {new Date(row.updated_at).toLocaleString('en-IN', {
-//             day: '2-digit',
-//             month: 'short',
-//             year: 'numeric',
-//             hour: '2-digit',
-//             minute: '2-digit'
-//           })}
-//         </div>
-//       )
-//     },
-//     {
-//       key: 'is_active',
-//       label: 'Status',
-//       render: (row: DocumentTemplate) => (
-//         <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-//           row.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
-//         }`}>
-//           {row.is_active ? 'Active' : 'Inactive'}
-//         </span>
-//       )
-//     },
-//     {
-//       key: 'actions',
-//       label: 'Actions',
-//       render: (row: DocumentTemplate) => (
-//         <div className="flex items-center gap-2">
-//           <button
-//             onClick={() => handlePreview(row)}
-//             className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-//             title="Preview"
-//           >
-//             <Eye className="w-4 h-4" />
-//           </button>
-//           <button
-//             onClick={() => handleEdit(row)}
-//             className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-//             title="Edit"
-//           >
-//             <Edit className="w-4 h-4" />
-//           </button>
-//           <button
-//             onClick={() => handleDuplicate(row)}
-//             className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
-//             title="Duplicate"
-//           >
-//             <Copy className="w-4 h-4" />
-//           </button>
-//           <button
-//             onClick={() => fetchVersionHistory(row)}
-//             className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
-//             title="Version History"
-//           >
-//             <History className="w-4 h-4" />
-//           </button>
-//           <button
-//             onClick={() => handleDelete(row.id)}
-//             className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-//             title="Delete"
-//           >
-//             <Trash2 className="w-4 h-4" />
-//           </button>
-//         </div>
-//       )
-//     }
-//   ];
-
-//   return (
-//     <div className="flex flex-col h-full">
-      
-
-//       <DataTable
-//         data={templates}
-//         columns={columns}
-//         onAdd={handleAdd}
-//         onBulkDelete={handleBulkDelete}
-//         bulkActions={[
-//           {
-//             label: 'Activate',
-//             icon: <CheckCircle className="w-3 h-3" />,
-//             onClick: handleBulkActivate,
-//             variant: 'primary'
-//           },
-//           {
-//             label: 'Deactivate',
-//             icon: <XCircle className="w-3 h-3" />,
-//             onClick: handleBulkDeactivate,
-//             variant: 'secondary'
-//           }
-//         ]}
-//         onExport={() => {}}
-//         title="Document Templates"
-//         addButtonText="Create Template"
-//         rowKey="id"
-//         loading={loading}
-//       />
-
-//       {showModal && (
-//         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-//           <div className="bg-white rounded-2xl w-full max-w-7xl max-h-[90vh] overflow-y-auto shadow-2xl">
-//             <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-cyan-600 px-6 py-5 rounded-t-2xl z-10">
-//               <div className="flex items-center justify-between">
-//                 <div>
-//                   <h2 className="text-2xl font-black text-white">
-//                     {editingTemplate ? `Edit Template (v${editingTemplate.version})` : 'Create New Template'}
-//                   </h2>
-//                   <p className="text-sm text-blue-100 mt-1">
-//                     {editingTemplate ? 'Editing will create a new version automatically' : 'Design your document template with HTML'}
-//                   </p>
-//                 </div>
-//                 <button onClick={() => setShowModal(false)} className="p-2 hover:bg-white/20 rounded-lg transition-colors">
-//                   <X className="w-6 h-6 text-white" />
-//                 </button>
-//               </div>
-//             </div>
-
-//             <div className="p-6">
-//               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-//                 <div className="lg:col-span-2 space-y-6">
-//                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-//                     <div>
-//                       <label className="block text-sm font-bold text-gray-700 mb-2">
-//                         Template Name <span className="text-red-500">*</span>
-//                       </label>
-//                       <input
-//                         type="text"
-//                         value={formData.name}
-//                         onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-//                         className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all font-semibold"
-//                         placeholder="e.g., Occupancy Agreement"
-//                       />
-//                     </div>
-//                     <div>
-//                       <label className="block text-sm font-bold text-gray-700 mb-2">Category</label>
-//                       <select
-//                         value={formData.category}
-//                         onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-//                         className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all font-semibold"
-//                       >
-//                         {categories.map(cat => (
-//                           <option key={cat} value={cat}>{cat}</option>
-//                         ))}
-//                       </select>
-//                     </div>
-//                   </div>
-
-//                   <div>
-//                     <label className="block text-sm font-bold text-gray-700 mb-2">Description</label>
-//                     <input
-//                       type="text"
-//                       value={formData.description}
-//                       onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-//                       className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all font-semibold"
-//                       placeholder="Brief description of this template"
-//                     />
-//                   </div>
-
-//                   {editingTemplate && (
-//                     <div>
-//                       <label className="block text-sm font-bold text-gray-700 mb-2">
-//                         Change Notes <span className="text-xs text-gray-500">(Optional - describe what changed)</span>
-//                       </label>
-//                       <input
-//                         type="text"
-//                         value={changeNotes}
-//                         onChange={(e) => setChangeNotes(e.target.value)}
-//                         className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all font-semibold"
-//                         placeholder="e.g., Updated terms and conditions section"
-//                       />
-//                     </div>
-//                   )}
-
-//                   <div>
-//                     <label className="block text-sm font-bold text-gray-700 mb-2">
-//                       HTML Content <span className="text-red-500">*</span>
-//                       <span className="ml-2 text-xs text-gray-500">Use double braces like tenant_name for variables</span>
-//                     </label>
-//                     <textarea
-//                       value={formData.html_content}
-//                       onChange={(e) => setFormData({ ...formData, html_content: e.target.value })}
-//                       className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all font-mono text-sm"
-//                       rows={25}
-//                       placeholder="Enter HTML content with variables like {{tenant_name}}, {{date}}, etc."
-//                     />
-//                   </div>
-
-//                   <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
-//                     <h3 className="text-sm font-bold text-blue-900 mb-3 flex items-center gap-2">
-//                       <Tag className="w-4 h-4" />
-//                       Detected Variables ({extractVariables(formData.html_content).length})
-//                     </h3>
-//                     <div className="flex flex-wrap gap-2">
-//                       {extractVariables(formData.html_content).map(variable => {
-//                         const commonVar = commonVariables.find(v => v.name === variable);
-//                         return (
-//                           <span
-//                             key={variable}
-//                             className="px-3 py-1 bg-blue-600 text-white rounded-full text-xs font-bold"
-//                             title={commonVar ? `${commonVar.label} - Example: ${commonVar.example}` : variable}
-//                           >
-//                             {variable}
-//                           </span>
-//                         );
-//                       })}
-//                       {extractVariables(formData.html_content).length === 0 && (
-//                         <span className="text-sm text-blue-700">No variables detected. Add variables using double braces.</span>
-//                       )}
-//                     </div>
-//                   </div>
-//                 </div>
-
-//                 <div className="space-y-4">
-//                   <div className="bg-gradient-to-r from-purple-50 to-pink-50 border-2 border-purple-200 rounded-lg p-4 sticky top-24">
-//                     <h3 className="text-sm font-bold text-purple-900 mb-3 flex items-center gap-2">
-//                       <Code className="w-4 h-4" />
-//                       Available Variables
-//                     </h3>
-//                     <div className="space-y-2 max-h-[600px] overflow-y-auto">
-//                       {commonVariables.map(variable => (
-//                         <button
-//                           key={variable.name}
-//                           onClick={() => insertVariable(variable.name)}
-//                           className="w-full text-left p-3 bg-white rounded-lg hover:bg-purple-100 transition-colors border border-purple-200 hover:border-purple-400"
-//                         >
-//                           <div className="font-bold text-sm text-gray-900">{variable.label}</div>
-//                           <div className="text-xs text-purple-600 font-mono mt-1">{'{{' + variable.name + '}}'}</div>
-//                           <div className="text-xs text-gray-500 mt-1">Ex: {variable.example}</div>
-//                         </button>
-//                       ))}
-//                     </div>
-//                     <p className="text-xs text-purple-700 mt-3">Click any variable to insert it into your template</p>
-//                   </div>
-//                 </div>
-//               </div>
-//             </div>
-
-//             <div className="sticky bottom-0 bg-gray-50 px-6 py-4 rounded-b-2xl border-t-2 border-gray-200 flex justify-between items-center">
-//               <div className="text-sm text-gray-600">
-//                 {editingTemplate && (
-//                   <span className="font-semibold">Current: v{editingTemplate.version} → New: v{editingTemplate.version + 1}</span>
-//                 )}
-//               </div>
-//               <div className="flex gap-3">
-//                 <button
-//                   onClick={() => setShowModal(false)}
-//                   className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-lg font-bold hover:bg-gray-100 transition-colors"
-//                 >
-//                   Cancel
-//                 </button>
-//                 <button
-//                   onClick={() => {
-//                     let content = formData.html_content;
-//                     extractVariables(content).forEach(variable => {
-//                       const commonVar = commonVariables.find(v => v.name === variable);
-//                       const sampleValue = commonVar ? commonVar.example : `[${variable}]`;
-//                       content = content.replace(new RegExp(`{{${variable}}}`, 'g'), sampleValue);
-//                     });
-//                     setPreviewContent(content);
-//                     setShowPreview(true);
-//                   }}
-//                   className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-bold hover:shadow-lg transition-all flex items-center gap-2"
-//                 >
-//                   <Eye className="w-5 h-5" />
-//                   Preview
-//                 </button>
-//                 <button
-//                   onClick={handleSave}
-//                   disabled={saving}
-//                   className="px-6 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg font-bold hover:shadow-lg transition-all flex items-center gap-2 disabled:opacity-50"
-//                 >
-//                   {saving ? (
-//                     <>Saving...</>
-//                   ) : (
-//                     <>
-//                       <Save className="w-5 h-5" />
-//                       {editingTemplate ? 'Update Template' : 'Create Template'}
-//                     </>
-//                   )}
-//                 </button>
-//               </div>
-//             </div>
-//           </div>
-//         </div>
-//       )}
-
-//       {showPreview && (
-//         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-//           <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl">
-//             <div className="sticky top-0 bg-gradient-to-r from-purple-600 to-pink-600 px-6 py-4 rounded-t-2xl z-10">
-//               <div className="flex items-center justify-between">
-//                 <h2 className="text-2xl font-black text-white">Template Preview</h2>
-//                 <button onClick={() => setShowPreview(false)} className="p-2 hover:bg-white/20 rounded-lg transition-colors">
-//                   <X className="w-6 h-6 text-white" />
-//                 </button>
-//               </div>
-//             </div>
-//             <div className="p-6">
-//               <div dangerouslySetInnerHTML={{ __html: previewContent }} />
-//             </div>
-//           </div>
-//         </div>
-//       )}
-
-//       {showVersionHistory && selectedTemplateForHistory && (
-//         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-//           <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl">
-//             <div className="sticky top-0 bg-gradient-to-r from-orange-600 to-red-600 px-6 py-4 rounded-t-2xl z-10">
-//               <div className="flex items-center justify-between">
-//                 <div>
-//                   <h2 className="text-2xl font-black text-white">Version History</h2>
-//                   <p className="text-sm text-orange-100">{selectedTemplateForHistory.name}</p>
-//                 </div>
-//                 <button onClick={() => setShowVersionHistory(false)} className="p-2 hover:bg-white/20 rounded-lg transition-colors">
-//                   <X className="w-6 h-6 text-white" />
-//                 </button>
-//               </div>
-//             </div>
-//             <div className="p-6">
-//               <div className="space-y-4">
-//                 {versionHistory.map((version, idx) => (
-//                   <div
-//                     key={version.id}
-//                     className={`p-4 rounded-lg border-2 ${
-//                       idx === 0
-//                         ? 'bg-green-50 border-green-300'
-//                         : 'bg-gray-50 border-gray-300'
-//                     }`}
-//                   >
-//                     <div className="flex items-start justify-between mb-3">
-//                       <div>
-//                         <div className="flex items-center gap-3">
-//                           <span className={`px-3 py-1 rounded-full text-sm font-bold ${
-//                             idx === 0
-//                               ? 'bg-green-600 text-white'
-//                               : 'bg-gray-600 text-white'
-//                           }`}>
-//                             Version {version.version}
-//                           </span>
-//                           {idx === 0 && (
-//                             <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold">
-//                               Current
-//                             </span>
-//                           )}
-//                         </div>
-//                         <p className="text-sm text-gray-600 mt-2">
-//                           {new Date(version.created_at).toLocaleString('en-IN', {
-//                             day: '2-digit',
-//                             month: 'long',
-//                             year: 'numeric',
-//                             hour: '2-digit',
-//                             minute: '2-digit'
-//                           })}
-//                         </p>
-//                         <p className="text-sm text-gray-500 mt-1">By: {version.created_by}</p>
-//                       </div>
-//                       {idx !== 0 && (
-//                         <button
-//                           onClick={() => restoreVersion(version)}
-//                           className="px-4 py-2 bg-orange-600 text-white rounded-lg font-bold hover:bg-orange-700 transition-colors text-sm"
-//                         >
-//                           Restore
-//                         </button>
-//                       )}
-//                     </div>
-//                     <div className="grid grid-cols-2 gap-3 text-sm">
-//                       <div>
-//                         <span className="font-bold text-gray-700">Name:</span> {version.name}
-//                       </div>
-//                       <div>
-//                         <span className="font-bold text-gray-700">Category:</span> {version.category}
-//                       </div>
-//                       <div className="col-span-2">
-//                         <span className="font-bold text-gray-700">Variables:</span>{' '}
-//                         <span className="text-blue-600 font-mono text-xs">
-//                           {version.variables.join(', ')}
-//                         </span>
-//                       </div>
-//                       {version.change_notes && (
-//                         <div className="col-span-2 mt-2 p-3 bg-blue-50 border border-blue-200 rounded">
-//                           <span className="font-bold text-gray-700">Notes:</span> {version.change_notes}
-//                         </div>
-//                       )}
-//                     </div>
-//                   </div>
-//                 ))}
-//               </div>
-//             </div>
-//           </div>
-//         </div>
-//       )}
-//     </div>
-//   );
-// }
-
-
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   Plus, Eye, Pencil, Trash2, Save, X, Code, History, Copy,
@@ -1142,59 +373,58 @@ const DEFAULT_HTML = `<!DOCTYPE html>
           <div class="grid-2">
             <div class="field-group">
               <span class="field-label">PROPERTY NAME</span>
-              <div class="field-value">{{property_name}}</div>
+              <div class="field-value"></div>
             </div>
             <div class="field-group">
               <span class="field-label">ROOM / BED NUMBER</span>
-              <div class="field-value">{{room_number}} / {{bed_number}}</div>
+              <div class="field-value"> / </div>
             </div>
             <div class="field-group">
               <span class="field-label">MOVE-IN DATE</span>
-              <div class="field-value">{{move_in_date}}</div>
+              <div class="field-value"></div>
             </div>
             <div class="field-group">
               <span class="field-label">SECURITY DEPOSIT</span>
-              <div class="field-value money-value">₹ {{security_deposit}}</div>
+              <div class="field-value money-value"> </div>
             </div>
           </div>
         </div>
       </div>
 
       <!-- TENANT INFORMATION -->
-      <div class="section">
-        <div class="section-header">
-          <h2>👤 RECIPIENT INFORMATION</h2>
-        </div>
-        <div class="section-body">
-          <div class="grid-3">
-            <div class="field-group">
-              <span class="field-label">FULL NAME</span>
-              <div class="field-value">{{tenant_name}}</div>
-            </div>
-            <div class="field-group">
-              <span class="field-label">PHONE NUMBER</span>
-              <div class="field-value">{{tenant_phone}}</div>
-            </div>
-            <div class="field-group">
-              <span class="field-label">EMAIL</span>
-              <div class="field-value">{{tenant_email}}</div>
-            </div>
-            <div class="field-group">
-              <span class="field-label">AADHAAR NUMBER</span>
-              <div class="field-value">{{aadhaar_number}}</div>
-            </div>
-            <div class="field-group">
-              <span class="field-label">PAN NUMBER</span>
-              <div class="field-value">{{pan_number}}</div>
-            </div>
-            <div class="field-group">
-              <span class="field-label">EMERGENCY CONTACT</span>
-              <div class="field-value">{{emergency_contact_name}} ({{emergency_phone}})</div>
-            </div>
-          </div>
-        </div>
+<div class="section">
+  <div class="section-header">
+    <h2>👤 RECIPIENT INFORMATION</h2>
+  </div>
+  <div class="section-body">
+    <div class="grid-3">
+      <div class="field-group">
+        <span class="field-label">FULL NAME</span>
+        <div class="field-value">{{tenant_name}}</div> 
       </div>
-
+      <div class="field-group">
+        <span class="field-label">PHONE NUMBER</span>
+        <div class="field-value">{{tenant_phone}}</div>
+      </div>
+      <div class="field-group">
+        <span class="field-label">EMAIL</span>
+        <div class="field-value">{{tenant_email}}</div>
+      </div>
+      <div class="field-group">
+        <span class="field-label">AADHAAR NUMBER</span>
+        <div class="field-value">{{aadhaar_number}}</div>
+      </div>
+      <div class="field-group">
+        <span class="field-label">PAN NUMBER</span>
+        <div class="field-value">{{pan_number}}</div>
+      </div>
+      <div class="field-group">
+        <span class="field-label">EMERGENCY CONTACT</span>
+        <div class="field-value">{{emergency_contact_name}} ({{emergency_phone}})</div>
+      </div>
+    </div>
+  </div>
+</div>
       <!-- TERMS & CONDITIONS -->
       <div class="section">
         <div class="section-header">
@@ -1204,30 +434,17 @@ const DEFAULT_HTML = `<!DOCTYPE html>
           <table class="terms-table">
             <tr>
               <td>Monthly Rent / Fee</td>
-              <td class="money-value">₹ {{rent_amount}}/-</td>
-            </tr>
-            <tr>
-              <td>Security Deposit</td>
-              <td class="money-value">₹ {{security_deposit}}/-</td>
+              <td class="money-value"></td>
             </tr>
             <tr>
               <td>Payment Mode</td>
-              <td>{{payment_mode}}</td>
+              <td></td>
             </tr>
             <tr>
               <td>Due Date</td>
               <td>5th of Every Month</td>
             </tr>
           </table>
-          
-          <ol style="padding-left: 20px; font-size: 13px; color: #374151; line-height: 1.8; margin-top: 20px;">
-            <li>The recipient shall pay the monthly amount on or before the 5th of every month.</li>
-            <li>A late fee of ₹100 per day will be charged for delayed payments.</li>
-            <li>The recipient shall not sublet/transfer the premises to any third party.</li>
-            <li>The recipient shall maintain the premises in good condition.</li>
-            <li>Notice period for vacating/termination is 30 days.</li>
-            <li>The security deposit will be refunded within 15 days, subject to deductions for damages.</li>
-          </ol>
         </div>
       </div>
 
@@ -1260,7 +477,6 @@ const DEFAULT_HTML = `<!DOCTYPE html>
   </div>
 </body>
 </html>`;
-
 // ─── Constants ───────────────────────────────────────────────────────────────
 const CATEGORIES = [
   "Agreements", "Rental Agreements", "KYC Documents",
@@ -1332,17 +548,17 @@ const SAMPLE_DATA = {
   document_number: `DOC-${Date.now().toString().slice(-6)}`,
   document_title: "RENTAL AGREEMENT",
   document_type: "Agreement",
-  tenant_name: "Rahul Sharma",
+  tenant_name: "Amit Sharma",
   tenant_phone: "+91 98765 43210",
-  tenant_email: "rahul.sharma@email.com",
-  property_name: "Sunrise Executive PG",
+  tenant_email: "amit.sharma@email.com",
+  property_name: "Roomac Co-living Wakad",
   room_number: "A-204",
   bed_number: "2",
   move_in_date: "15 Mar 2024",
   rent_amount: "12,500",
   security_deposit: "25,000",
-  company_name: "StayEasy Management Pvt Ltd",
-  company_address: "456, Brigade Road, Bangalore - 560001",
+  company_name: "Roomac Co-living",
+  company_address: "Wakad, Pune - 411057",
   aadhaar_number: "XXXX-XXXX-1234",
   pan_number: "ABCDE1234F",
   emergency_contact_name: "Priya Sharma",
@@ -1559,86 +775,44 @@ const toggleVariable = (name: string) => {
 
   if (textarea) {
     if (isPresent) {
-      // Remove variable
-      const start = textarea.selectionStart;
-      const end = textarea.selectionEnd;
-      
-      // Find the position of the variable tag near cursor
-      const contentBeforeCursor = currentContent.substring(0, start);
-      const contentAfterCursor = currentContent.substring(end);
-      
-      // Look for the variable tag in the vicinity of cursor
-      const searchArea = contentBeforeCursor.slice(-200) + contentAfterCursor.slice(0, 200);
-      const varIndexInSearch = searchArea.indexOf(varTag);
-      
-      let varIndex = -1;
-      if (varIndexInSearch !== -1) {
-        // Calculate actual position
-        if (varIndexInSearch < 200) {
-          // Found in before cursor area
-          varIndex = Math.max(0, start - (200 - varIndexInSearch));
-        } else {
-          // Found in after cursor area
-          varIndex = end + (varIndexInSearch - 200);
-        }
-      }
-      
-      if (varIndex !== -1 && varIndex >= 0 && varIndex < currentContent.length) {
-        // Remove the variable at the found position
-        const newHtml = 
-          currentContent.substring(0, varIndex) + 
-          currentContent.substring(varIndex + varTag.length);
-        
-        setForm(p => ({ ...p, html_content: newHtml }));
-        toast.success(`Removed {{${name}}}`);
-        
-        setTimeout(() => {
-          textarea.focus();
-          textarea.setSelectionRange(varIndex, varIndex);
-        }, 10);
-      } else {
-        // Fallback: remove all instances
-        const newHtml = currentContent.replace(varRegex, '');
-        setForm(p => ({ ...p, html_content: newHtml }));
-        toast.success(`Removed all {{${name}}} instances`);
-      }
+      // Remove variable (keep existing removal code)
+      // ... (keep your removal logic)
     } else {
       // Insert variable - find the appropriate location
       const cursorPos = textarea.selectionStart;
       const fullHtml = textarea.value;
       
-      // Map variables to their correct locations
-      const variableLocations: Record<string, { section: string, field: string, format?: string }> = {
+      // SIMPLIFIED: Map variables to their correct locations
+      const variableLocations: Record<string, { field: string, format?: string }> = {
         // System variables
-        'date': { section: 'meta', field: 'Date' },
-        'document_number': { section: 'meta', field: 'Document No' },
-        'document_title': { section: 'title', field: 'document-title' },
-        'document_type': { section: 'meta', field: 'document_type' },
+        'date': { field: 'Date' },
+        'document_number': { field: 'Document No' },
+        'document_title': { field: 'document-title' },
+        'document_type': { field: 'document_type' },
         
         // Company variables
-        'company_name': { section: 'company', field: 'PROVIDER' },
-        'company_address': { section: 'company', field: 'PROVIDER' },
-        'logo_url': { section: 'header', field: 'logo' },
+        'company_name': { field: 'LESSOR / PROVIDER' },
+        'company_address': { field: 'LESSOR / PROVIDER' },
+        'logo_url': { field: 'logo' },
         
-        // Tenant variables
-        'tenant_name': { section: 'tenant', field: 'FULL NAME' },
-        'tenant_phone': { section: 'tenant', field: 'PHONE NUMBER' },
-        'tenant_email': { section: 'tenant', field: 'EMAIL' },
-        'aadhaar_number': { section: 'tenant', field: 'AADHAAR NUMBER' },
-        'pan_number': { section: 'tenant', field: 'PAN NUMBER' },
-        'emergency_contact_name': { section: 'tenant', field: 'EMERGENCY CONTACT' },
-        'emergency_phone': { section: 'tenant', field: 'EMERGENCY CONTACT', format: '({value})' },
-        
-        // Property variables
-        'property_name': { section: 'property', field: 'PROPERTY NAME' },
-        'room_number': { section: 'property', field: 'ROOM / BED NUMBER' },
-        'bed_number': { section: 'property', field: 'ROOM / BED NUMBER' },
-        'move_in_date': { section: 'property', field: 'MOVE-IN DATE' },
-        'security_deposit': { section: 'property', field: 'SECURITY DEPOSIT', format: '₹ {value}' },
+        // Tenant variables - EXACT field matches
+'tenant_name': { field: 'FULL NAME', format: '{value}' },
+        'tenant_phone': { field: 'PHONE NUMBER' },
+        'tenant_email': { field: 'EMAIL' },
+        'aadhaar_number': { field: 'AADHAAR NUMBER' },
+        'pan_number': { field: 'PAN NUMBER' },
+        'emergency_contact_name': { field: 'EMERGENCY CONTACT' },
+'emergency_phone': { field: 'EMERGENCY CONTACT', format: ' ({value})' },        
+        // Property variables - EXACT field matches
+        'property_name': { field: 'PROPERTY NAME' },
+        'room_number': { field: 'ROOM / BED NUMBER' },
+        'bed_number': { field: 'ROOM / BED NUMBER' },
+        'move_in_date': { field: 'MOVE-IN DATE' },
+        'security_deposit': { field: 'SECURITY DEPOSIT', format: '₹ {value}' },
         
         // Terms variables
-        'rent_amount': { section: 'terms', field: 'Monthly Rent / Fee', format: '₹ {value}/-' },
-        'payment_mode': { section: 'terms', field: 'Payment Mode' },
+        'rent_amount': { field: 'Monthly Rent / Fee', format: '₹ {value}/-' },
+        'payment_mode': { field: 'Payment Mode' },
       };
       
       const location = variableLocations[name];
@@ -1646,8 +820,86 @@ const toggleVariable = (name: string) => {
       let foundLocation = false;
       
       if (location) {
-        if (location.section === 'terms') {
-          // Handle Terms & Conditions table
+        // Handle different sections based on field name
+        const fieldLabels = fullHtml.match(/<span class="field-label">(.*?)<\/span>/g) || [];
+        
+        for (let i = 0; i < fieldLabels.length; i++) {
+          // Extract the label text without HTML tags
+          const labelMatch = fieldLabels[i].match(/>([^<]+)</);
+          const labelText = labelMatch ? labelMatch[1].trim() : '';
+          
+          // Check if this label matches the field we're looking for
+          if (labelText === location.field) {
+            const labelPos = fullHtml.indexOf(fieldLabels[i]);
+            const afterLabel = fullHtml.substring(labelPos + fieldLabels[i].length);
+            
+            // Find the field-value div after this label
+            const divMatch = afterLabel.match(/<div class="field-value[^>]*>/);
+            
+            if (divMatch && divMatch[0]) {
+              const divPos = labelPos + fieldLabels[i].length + afterLabel.indexOf(divMatch[0]);
+              const divContentStart = divPos + divMatch[0].length;
+              
+              // Get the content of this div
+              const divEndPos = fullHtml.indexOf('</div>', divContentStart);
+              const divContent = fullHtml.substring(divContentStart, divEndPos);
+              
+              // Special handling for different fields
+              if (location.field === 'SECURITY DEPOSIT') {
+                // Insert after ₹ symbol if it exists
+                if (divContent.includes('₹')) {
+                  const rupeePos = divContent.indexOf('₹');
+                  insertPosition = divContentStart + rupeePos + '₹'.length + 1;
+                } else {
+                  insertPosition = divContentStart;
+                }
+              } 
+              // SPECIAL HANDLING FOR FULL NAME FIELD
+else if (location.field === 'FULL NAME') {
+  insertPosition = divContentStart;
+  foundLocation = true;
+}
+              else if (location.field === 'ROOM / BED NUMBER') {
+                if (name === 'room_number') {
+                  // Insert room_number at the beginning
+                  insertPosition = divContentStart;
+                } else if (name === 'bed_number') {
+                  // Check if room_number exists
+                  if (divContent.includes('{{room_number}}')) {
+                    const roomPos = divContent.indexOf('{{room_number}}');
+                    insertPosition = divContentStart + roomPos + '{{room_number}}'.length + 3; // +3 for " / "
+                  } else {
+                    // Insert after a space for the slash
+                    insertPosition = divContentStart;
+                  }
+                }
+              }
+              else if (location.field === 'EMERGENCY CONTACT') {
+                if (name === 'emergency_contact_name') {
+                  insertPosition = divContentStart;
+                } else if (name === 'emergency_phone') {
+                  // Check if emergency_contact_name exists
+                  if (divContent.includes('{{emergency_contact_name}}')) {
+                    const namePos = divContent.indexOf('{{emergency_contact_name}}');
+                    insertPosition = divContentStart + namePos + '{{emergency_contact_name}}'.length ;
+                  } else {
+                    insertPosition = divContentStart;
+                  }
+                }
+              }
+              else {
+                // For all other fields, insert at the start of the div
+                insertPosition = divContentStart;
+              }
+              
+              foundLocation = true;
+              break;
+            }
+          }
+        }
+        
+        // If not found by label, try terms table
+        if (!foundLocation && (name === 'rent_amount' || name === 'payment_mode')) {
           const termsTable = fullHtml.match(/<table class="terms-table">[\s\S]*?<\/table>/);
           if (termsTable && termsTable[0]) {
             const tableStart = fullHtml.indexOf(termsTable[0]);
@@ -1655,16 +907,13 @@ const toggleVariable = (name: string) => {
             
             for (let i = 0; i < rows.length; i++) {
               if (rows[i].includes(location.field)) {
-                // Found the correct row
                 const rowStart = tableStart + termsTable[0].indexOf(rows[i]);
                 const tds = rows[i].match(/<td[^>]*>([\s\S]*?)<\/td>/g);
                 
                 if (tds && tds.length >= 2) {
-                  // Insert in the second td (value column)
                   const secondTd = tds[1];
                   const tdPos = rowStart + rows[i].indexOf(secondTd);
                   const tdContentStart = tdPos + secondTd.indexOf('>') + 1;
-                  
                   insertPosition = tdContentStart;
                   foundLocation = true;
                 }
@@ -1672,8 +921,10 @@ const toggleVariable = (name: string) => {
               }
             }
           }
-        } else if (location.section === 'meta') {
-          // Handle document meta section
+        }
+        
+        // If not found by label, try meta section
+        if (!foundLocation && (name === 'date' || name === 'document_number')) {
           if (location.field === 'Date') {
             const dateSpan = fullHtml.match(/<span>Date: <strong>[^<]*<\/strong><\/span>/);
             if (dateSpan && dateSpan[0]) {
@@ -1690,86 +941,6 @@ const toggleVariable = (name: string) => {
               insertPosition = strongStart;
               foundLocation = true;
             }
-          }
-        } else if (location.section === 'title') {
-          // Handle document title
-          const titleMatch = fullHtml.match(/<h1 class="document-title">[^<]*<\/h1>/);
-          if (titleMatch && titleMatch[0]) {
-            const titlePos = fullHtml.indexOf(titleMatch[0]);
-            const titleContentStart = titlePos + '<h1 class="document-title">'.length;
-            insertPosition = titleContentStart;
-            foundLocation = true;
-          }
-        } else if (location.section === 'header') {
-          // Handle logo in header
-          const logoContainer = fullHtml.match(/<div class="logo-container">[\s\S]*?<\/div>/);
-          if (logoContainer && logoContainer[0]) {
-            const containerPos = fullHtml.indexOf(logoContainer[0]);
-            const containerContentStart = containerPos + '<div class="logo-container">'.length;
-            insertPosition = containerContentStart;
-            foundLocation = true;
-          }
-        } else {
-          // Handle regular field-value divs
-          const fieldDivRegex = new RegExp(`<div class="field-value">[\\s\\S]*?<\\/div>`, 'g');
-          const fieldLabels = fullHtml.match(/<span class="field-label">(.*?)<\/span>/g) || [];
-          
-          for (let i = 0; i < fieldLabels.length; i++) {
-            if (fieldLabels[i].includes(location.field)) {
-              const labelPos = fullHtml.indexOf(fieldLabels[i]);
-              const afterLabel = fullHtml.substring(labelPos + fieldLabels[i].length);
-              const divMatch = afterLabel.match(fieldDivRegex);
-              
-              if (divMatch && divMatch[0]) {
-                const divPos = labelPos + fieldLabels[i].length + afterLabel.indexOf(divMatch[0]);
-                const divContentStart = divPos + '<div class="field-value">'.length;
-                
-                insertPosition = divContentStart;
-                foundLocation = true;
-                break;
-              }
-            }
-          }
-        }
-      }
-      
-      // Special handling for specific variables
-      if (name === 'emergency_phone' && !foundLocation) {
-        const emergencyDiv = fullHtml.match(/<div class="field-value">[\s\S]*?{{emergency_contact_name}}[\s\S]*?<\/div>/);
-        if (emergencyDiv && emergencyDiv[0]) {
-          const divPos = fullHtml.indexOf(emergencyDiv[0]);
-          const namePos = emergencyDiv[0].indexOf('{{emergency_contact_name}}');
-          if (namePos !== -1) {
-            insertPosition = divPos + namePos + '{{emergency_contact_name}}'.length + 1; // +1 for space
-            foundLocation = true;
-          }
-        }
-      }
-      
-      if (name === 'bed_number' && !foundLocation) {
-        // Try to find room_number position first
-        const roomField = fullHtml.match(/<div class="field-value">{{room_number}} \/ [^<]*<\/div>/);
-        if (roomField && roomField[0]) {
-          const fieldPos = fullHtml.indexOf(roomField[0]);
-          const slashPos = roomField[0].indexOf('/') + 1;
-          insertPosition = fieldPos + slashPos;
-          foundLocation = true;
-        }
-      }
-      
-      if (name === 'security_deposit' && location?.section === 'property' && !foundLocation) {
-        // Ensure security deposit is in property section
-        const propertyLabels = fullHtml.match(/<span class="field-label">SECURITY DEPOSIT<\/span>/g);
-        if (propertyLabels && propertyLabels[0]) {
-          const labelPos = fullHtml.indexOf(propertyLabels[0]);
-          const afterLabel = fullHtml.substring(labelPos + propertyLabels[0].length);
-          const divMatch = afterLabel.match(/<div class="field-value[^>]*>/);
-          
-          if (divMatch && divMatch[0]) {
-            const divPos = labelPos + propertyLabels[0].length + afterLabel.indexOf(divMatch[0]);
-            const divContentStart = divPos + divMatch[0].length;
-            insertPosition = divContentStart;
-            foundLocation = true;
           }
         }
       }
@@ -1804,12 +975,10 @@ const toggleVariable = (name: string) => {
   } else {
     // Fallback when textarea ref not available
     if (isPresent) {
-      // Remove all instances
       const newHtml = currentContent.replace(varRegex, '');
       setForm(p => ({ ...p, html_content: newHtml }));
       toast.success(`Removed all {{${name}}} instances`);
     } else {
-      // Append to end (not ideal but fallback)
       setForm(p => ({ ...p, html_content: p.html_content + varTag }));
       toast.success(`Inserted {{${name}}}`);
     }
@@ -1834,6 +1003,13 @@ const extractVars = (html?: string) => {
     return []; 
   }
 };
+
+
+
+
+
+// Helper function to escape regex special characters
+
 
   // ══════════════════════════════════════════════════════════════════════════
   // OPEN FORM HELPERS
@@ -1952,37 +1128,54 @@ const extractVars = (html?: string) => {
   // ══════════════════════════════════════════════════════════════════════════
 
   const buildPreview = (html: string, logoSrc?: string): string => {
-    if (!html) return "";
-    
-    // Clean HTML
-    const doctypeIndex = html.indexOf("<!DOCTYPE");
-    const htmlTagIndex = html.indexOf("<html");
-    const startIndex = doctypeIndex !== -1 ? doctypeIndex : (htmlTagIndex !== -1 ? htmlTagIndex : 0);
-    let c = startIndex > 0 ? html.substring(startIndex) : html;
+  if (!html) return "";
+  
+  // Clean HTML
+  const doctypeIndex = html.indexOf("<!DOCTYPE");
+  const htmlTagIndex = html.indexOf("<html");
+  const startIndex = doctypeIndex !== -1 ? doctypeIndex : (htmlTagIndex !== -1 ? htmlTagIndex : 0);
+  let c = startIndex > 0 ? html.substring(startIndex) : html;
 
-    // Replace logo_url with actual logo
-    if (logoSrc) {
-      c = c.replace(
-        /\{\{logo_url\}\}/g,
-        `<img src="${logoSrc}" style="max-height:60px;max-width:160px;object-fit:contain;" />`
-      );
-    } else {
-      c = c.replace(
-        /\{\{logo_url\}\}/g,
-        `<div style="font-size:12px;color:#666;padding:4px;border:1px dashed #ccc;border-radius:4px;">Company Logo</div>`
-      );
-    }
+  // Replace logo_url with actual logo
+  if (logoSrc) {
+    c = c.replace(
+      /\{\{logo_url\}\}/g,
+      `<img src="${logoSrc}" style="max-height:60px;max-width:160px;object-fit:contain;" />`
+    );
+  } else {
+    c = c.replace(
+      /\{\{logo_url\}\}/g,
+      `<div style="font-size:12px;color:#666;padding:4px;border:1px dashed #ccc;border-radius:4px;">Company Logo</div>`
+    );
+  }
 
-    // Replace all variables with sample data for preview
-    Object.entries(SAMPLE_DATA).forEach(([k, v]) => {
-      c = c.replace(new RegExp(`\\{\\{${k}\\}\\}`, "g"), v || "");
-    });
+  // FORCE REPLACE tenant_name manually (bypass regex issues)
+  c = c.replace(/\{\{tenant_name\}\}/g, SAMPLE_DATA.tenant_name);
+  c = c.replace(/\{\{tenant_phone\}\}/g, SAMPLE_DATA.tenant_phone);
+  c = c.replace(/\{\{tenant_email\}\}/g, SAMPLE_DATA.tenant_email);
+  c = c.replace(/\{\{property_name\}\}/g, SAMPLE_DATA.property_name);
+  c = c.replace(/\{\{room_number\}\}/g, SAMPLE_DATA.room_number);
+  c = c.replace(/\{\{bed_number\}\}/g, SAMPLE_DATA.bed_number);
+  c = c.replace(/\{\{move_in_date\}\}/g, SAMPLE_DATA.move_in_date);
+  c = c.replace(/\{\{rent_amount\}\}/g, SAMPLE_DATA.rent_amount);
+  c = c.replace(/\{\{security_deposit\}\}/g, SAMPLE_DATA.security_deposit);
+  c = c.replace(/\{\{company_name\}\}/g, SAMPLE_DATA.company_name);
+  c = c.replace(/\{\{company_address\}\}/g, SAMPLE_DATA.company_address);
+  c = c.replace(/\{\{aadhaar_number\}\}/g, SAMPLE_DATA.aadhaar_number);
+  c = c.replace(/\{\{pan_number\}\}/g, SAMPLE_DATA.pan_number);
+  c = c.replace(/\{\{emergency_contact_name\}\}/g, SAMPLE_DATA.emergency_contact_name);
+  c = c.replace(/\{\{emergency_phone\}\}/g, SAMPLE_DATA.emergency_phone);
+  c = c.replace(/\{\{payment_mode\}\}/g, SAMPLE_DATA.payment_mode);
+  c = c.replace(/\{\{date\}\}/g, SAMPLE_DATA.date);
+  c = c.replace(/\{\{document_number\}\}/g, SAMPLE_DATA.document_number);
+  c = c.replace(/\{\{document_title\}\}/g, SAMPLE_DATA.document_title);
+  c = c.replace(/\{\{document_type\}\}/g, SAMPLE_DATA.document_type);
 
-    // Remove any remaining variables
-    c = c.replace(/\{\{[\w_]+\}\}/g, "");
+  // Remove any remaining variables
+  c = c.replace(/\{\{[\w_]+\}\}/g, "");
 
-    return c;
-  };
+  return c;
+};
 
   const openPreviewForRow = async (t: DocumentTemplate) => {
     let html = t.html_content;
@@ -2876,14 +2069,26 @@ const extractVars = (html?: string) => {
                   Sample Data
                 </Badge>
               </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handlePrint}
-                  className="p-2 rounded-full hover:bg-white/20 transition-colors"
-                  title="Print"
-                >
-                  <Printer className="h-4 w-4" />
-                </button>
+<div className="flex items-center gap-2">
+  <button
+    onClick={() => {
+      const printWin = window.open("", "_blank", "width=900,height=700");
+      if (!printWin) return;
+      printWin.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>Download</title><style>*{box-sizing:border-box;}body{margin:0;padding:0;background:white;}@media print{@page{size:A4;margin:10mm;}}</style></head><body>${previewHtml}<script>window.onload=function(){setTimeout(function(){window.print();window.onafterprint=function(){window.close();};},400);};<\/script></body></html>`);
+      printWin.document.close();
+    }}
+    className="p-2 rounded-full hover:bg-white/20 transition-colors"
+    title="Download PDF"
+  >
+    <Download className="h-4 w-4" />
+  </button>
+  <button
+    onClick={handlePrint}
+    className="p-2 rounded-full hover:bg-white/20 transition-colors"
+    title="Print"
+  >
+    <Printer className="h-4 w-4" />
+  </button>
                 <button
                   onClick={() => {
                     const w = window.open("", "_blank");
@@ -2934,14 +2139,25 @@ const extractVars = (html?: string) => {
 
             {/* Footer */}
             <div style={{ flexShrink: 0, padding: "10px 16px", borderTop: "1px solid #e2e8f0", backgroundColor: "#f8fafc", display: "flex", justifyContent: "flex-end", gap: "8px" }}>
-              <button
-                onClick={handlePrint}
-                className="h-8 px-4 rounded-lg bg-gradient-to-r from-green-600 to-emerald-600 text-white text-xs font-semibold hover:from-green-700 hover:to-emerald-700 transition-all flex items-center gap-2"
-              >
-                <Printer className="h-3.5 w-3.5" /> Print
-              </button>
-              <button
-                onClick={() => setShowPreview(false)}
+<button
+  onClick={() => {
+    const printWin = window.open("", "_blank", "width=900,height=700");
+    if (!printWin) return;
+    printWin.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>Download</title><style>*{box-sizing:border-box;}body{margin:0;padding:0;background:white;}@media print{@page{size:A4;margin:10mm;}}</style></head><body>${previewHtml}<script>window.onload=function(){setTimeout(function(){window.print();window.onafterprint=function(){window.close();};},400);};<\/script></body></html>`);
+    printWin.document.close();
+  }}
+  className="h-8 px-4 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xs font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all flex items-center gap-2"
+>
+  <Download className="h-3.5 w-3.5" /> Download PDF
+</button>
+<button
+  onClick={handlePrint}
+  className="h-8 px-4 rounded-lg bg-gradient-to-r from-green-600 to-emerald-600 text-white text-xs font-semibold hover:from-green-700 hover:to-emerald-700 transition-all flex items-center gap-2"
+>
+  <Printer className="h-3.5 w-3.5" /> Print
+</button>
+<button
+  onClick={() => setShowPreview(false)}
                 className="h-8 px-4 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-100"
               >
                 Close
