@@ -63,12 +63,13 @@ import {
   Settings,
   MessageSquare,
   ClipboardList,
-  Receipt,
+  // Receipt,
   RotateCcw,
   Wrench,
   ChevronDown,
   ChevronUp,
   DownloadIcon,
+  ReceiptIndianRupee,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -104,6 +105,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { getSettings, type SettingsData } from "@/lib/settingsApi";
+import * as paymentApi from "@/lib/paymentRecordApi";
 
 export default function TenantDetailPage() {
   const params = useParams();
@@ -118,6 +122,9 @@ export default function TenantDetailPage() {
   const [loadingPayments, setLoadingPayments] = useState(false);
   const [expandedMonths, setExpandedMonths] = useState<string[]>([]);
   const [documentLoading, setDocumentLoading] = useState<string | null>(null);
+  // Add these with your other useState declarations
+const [receiptPreviewOpen, setReceiptPreviewOpen] = useState(false);
+const [selectedReceiptId, setSelectedReceiptId] = useState<number | null>(null);
 
   const tenantId = params.id as string;
 
@@ -201,6 +208,17 @@ export default function TenantDetailPage() {
         : [...prev, monthKey],
     );
   };
+
+  // Add these handler functions
+const handlePreviewReceipt = (receiptId: number) => {
+  setSelectedReceiptId(receiptId);
+  setReceiptPreviewOpen(true);
+};
+
+const handleDownloadReceipt = (receiptId: number) => {
+  // Use your existing download function
+  window.open(`/api/payments/receipts/${receiptId}/download`, '_blank');
+};
 
   if (loading) {
     return <TenantDetailLoading />;
@@ -388,11 +406,11 @@ export default function TenantDetailPage() {
                     </CardHeader>
                     <CardContent>
                       <div className="grid grid-cols-2 gap-6">
-                        <InfoItem label="Full Name" value={tenant.full_name} />
                         <InfoItem
                           label="Salutation"
                           value={tenant.salutation || "—"}
                         />
+                        <InfoItem label="Full Name" value={tenant.full_name} />
                         <InfoItem label="Gender" value={tenant.gender || "—"} />
                         <InfoItem
                           label="Date of Birth"
@@ -949,20 +967,16 @@ export default function TenantDetailPage() {
                                                     {payment.remark || "-"}
                                                   </TableCell>
                                                   <TableCell className="text-right">
-                                                    <Button
-                                                      variant="ghost"
-                                                      size="icon"
-                                                      className="h-7 w-7"
-                                                      onClick={() =>
-                                                        window.open(
-                                                          `/api/payments/receipts/${payment.id}/preview`,
-                                                          "_blank",
-                                                        )
-                                                      }
-                                                    >
-                                                      <Receipt className="h-4 w-4" />
-                                                    </Button>
-                                                  </TableCell>
+  <Button
+    variant="ghost"
+    size="icon"
+    className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+    onClick={() => handlePreviewReceipt(payment.id)}
+    title="View Receipt"
+  >
+    <ReceiptIndianRupee className="h-4 w-4" />
+  </Button>
+</TableCell>
                                                 </TableRow>
                                               ),
                                             )}
@@ -1062,21 +1076,18 @@ export default function TenantDetailPage() {
                                   </Badge>
                                 </TableCell>
                                 <TableCell className="text-right">
-                                  {payment.status === "approved" && (
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      onClick={() =>
-                                        window.open(
-                                          `/api/payments/receipts/${payment.id}/preview`,
-                                          "_blank",
-                                        )
-                                      }
-                                    >
-                                      <Receipt className="w-4 h-4" />
-                                    </Button>
-                                  )}
-                                </TableCell>
+  {payment.status === 'approved' && (
+    <Button
+      variant="ghost"
+      size="icon"
+      className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+      onClick={() => handlePreviewReceipt(payment.id)}
+      title="View Receipt"
+    >
+      <ReceiptIndianRupee className="h-4 w-4" />
+    </Button>
+  )}
+</TableCell>
                               </TableRow>
                             ))}
                           </TableBody>
@@ -1254,6 +1265,14 @@ export default function TenantDetailPage() {
           </Tabs>
         </Card>
       </div>
+
+      {/* Receipt Preview Dialog */}
+<ReceiptPreviewDialog
+  open={receiptPreviewOpen}
+  onOpenChange={setReceiptPreviewOpen}
+  receiptId={selectedReceiptId}
+  onDownload={handleDownloadReceipt}
+/>
     </div>
   );
 }
@@ -1386,6 +1405,239 @@ function DocumentCard({
   );
 }
 
+// Receipt Preview Dialog Component with Dynamic Logo
+const ReceiptPreviewDialog = ({ 
+  open, 
+  onOpenChange, 
+  receiptId,
+  onDownload 
+}: { 
+  open: boolean; 
+  onOpenChange: (open: boolean) => void; 
+  receiptId: number | null;
+  onDownload: (id: number) => void;
+}) => {
+  const [receipt, setReceipt] = useState<any>(null);
+  const [settings, setSettings] = useState<SettingsData>({});
+  const [loading, setLoading] = useState(false);
+
+  // Fetch settings when component mounts
+  useEffect(() => {
+    fetchSettings();
+  }, []);
+
+  const fetchSettings = async () => {
+    try {
+      const settingsData = await getSettings();
+      setSettings(settingsData);
+    } catch (error) {
+      console.error('Error fetching settings:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (open && receiptId) {
+      fetchReceiptDetails();
+    }
+  }, [open, receiptId]);
+
+  const fetchReceiptDetails = async () => {
+    if (!receiptId) return;
+    
+    setLoading(true);
+    try {
+      const response = await paymentApi.getReceiptById(receiptId);
+      if (response.success) {
+        setReceipt(response.data);
+      } else {
+        toast.error('Failed to load receipt');
+      }
+    } catch (error) {
+      console.error('Error loading receipt:', error);
+      toast.error('Failed to load receipt');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Get logo URL from settings
+  const logoUrl = settings['logo_header']?.value || '/default-logo.png';
+  
+  // Construct full URL if it's a relative path
+  const fullLogoUrl = logoUrl.startsWith('http') 
+    ? logoUrl 
+    : `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}${logoUrl}`;
+
+  // Get site name from settings
+  const siteName = settings['site_name']?.value || 'ROOMAC';
+  const siteTagline = settings['site_tagline']?.value || 'Premium Living Spaces';
+
+  const paymentDate = receipt?.payment_date 
+    ? new Date(receipt.payment_date).toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      }) 
+    : '';
+
+  const createdDate = receipt?.created_at
+    ? new Date(receipt.created_at).toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+    : '';
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <ReceiptIndianRupee className="h-5 w-5 text-blue-600" />
+            Payment Receipt
+          </DialogTitle>
+          <DialogDescription>
+            {receipt ? `Receipt #${receipt.id} - ${receipt.month} ${receipt.year}` : 'Loading...'}
+          </DialogDescription>
+        </DialogHeader>
+        
+        {loading ? (
+          <div className="flex justify-center items-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+          </div>
+        ) : receipt ? (
+          <div className="py-4">
+            {/* Receipt Content */}
+            <div className="bg-white rounded-lg border border-slate-200 p-6">
+              {/* Header with Logo */}
+              <div className="text-center border-b border-slate-200 pb-4 mb-4">
+                {logoUrl && (
+                  <div className="flex justify-center mb-2">
+                    <img 
+                      src={fullLogoUrl} 
+                      alt={siteName}
+                      className="h-16 w-auto object-contain"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                  </div>
+                )}
+                <h2 className="text-2xl font-bold text-slate-800">{siteName}</h2>
+                <p className="text-sm text-slate-500">{siteTagline}</p>
+                <p className="text-xs text-slate-400 mt-1">Payment Receipt</p>
+              </div>
+
+              {/* Receipt Details Grid */}
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                  <p className="text-xs text-slate-500">Receipt No.</p>
+                  <p className="text-sm font-medium">#{receipt.id}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500">Date</p>
+                  <p className="text-sm font-medium">{paymentDate}</p>
+                </div>
+              </div>
+
+              {/* Tenant Details */}
+              <div className="bg-slate-50 p-3 rounded-lg mb-4">
+                <p className="text-xs font-medium text-slate-700 mb-2">Tenant Details</p>
+                <p className="text-sm">{receipt.tenant_name}</p>
+                {receipt.tenant_phone && (
+                  <p className="text-xs text-slate-600">{receipt.tenant_phone}</p>
+                )}
+                {receipt.tenant_email && (
+                  <p className="text-xs text-slate-600">{receipt.tenant_email}</p>
+                )}
+              </div>
+
+              {/* Property Details */}
+              <div className="bg-slate-50 p-3 rounded-lg mb-4">
+                <p className="text-xs font-medium text-slate-700 mb-2">Property Details</p>
+                <p className="text-sm">{receipt.property_name || 'N/A'}</p>
+                <p className="text-xs text-slate-600">
+                  Room: {receipt.room_number || 'N/A'} 
+                  {receipt.bed_number && ` • Bed #${receipt.bed_number}`}
+                </p>
+              </div>
+
+              {/* Payment Details */}
+              <div className="bg-blue-50 p-4 rounded-lg mb-4">
+                <p className="text-xs font-medium text-blue-700 mb-3">Payment Details</p>
+                <div className="flex justify-between mb-2">
+                  <span className="text-sm text-blue-600">Amount Paid:</span>
+                  <span className="text-lg font-bold text-blue-700">
+                    ₹{receipt.amount?.toLocaleString() || '0'}
+                  </span>
+                </div>
+                <div className="flex justify-between mb-2">
+                  <span className="text-xs text-blue-600">Payment Mode:</span>
+                  <span className="text-sm font-medium capitalize">{receipt.payment_mode}</span>
+                </div>
+                {receipt.bank_name && (
+                  <div className="flex justify-between mb-2">
+                    <span className="text-xs text-blue-600">Bank:</span>
+                    <span className="text-sm">{receipt.bank_name}</span>
+                  </div>
+                )}
+                {receipt.transaction_id && (
+                  <div className="flex justify-between mb-2">
+                    <span className="text-xs text-blue-600">Transaction ID:</span>
+                    <span className="text-xs font-mono">{receipt.transaction_id}</span>
+                  </div>
+                )}
+                <div className="flex justify-between">
+                  <span className="text-xs text-blue-600">Period:</span>
+                  <span className="text-sm">{receipt.month} {receipt.year}</span>
+                </div>
+              </div>
+
+              {/* Remark if exists */}
+              {receipt.remark && (
+                <div className="bg-yellow-50 p-3 rounded-lg mb-4">
+                  <p className="text-xs font-medium text-yellow-700 mb-1">Remark:</p>
+                  <p className="text-sm text-yellow-800">{receipt.remark}</p>
+                </div>
+              )}
+
+              {/* Contact Information */}
+              <div className="text-center text-xs text-slate-400 mt-4 pt-4 border-t border-slate-200">
+                <p>{settings['contact_address']?.value || ''}</p>
+                <p className="mt-1">
+                  Tel: {settings['contact_phone']?.value || ''} | Email: {settings['contact_email']?.value || ''}
+                </p>
+                <p className="mt-1">This is a computer generated receipt. No signature required.</p>
+                <p className="mt-1">Generated on: {createdDate}</p>
+              </div>
+            </div>
+
+            {/* Download Button */}
+            <div className="flex justify-end mt-4 gap-2">
+              <Button variant="outline" onClick={() => onOpenChange(false)}>
+                Close
+              </Button>
+              <Button
+                onClick={() => onDownload(receipt.id)}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Download PDF
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="text-center py-8 text-gray-500">
+            No receipt data found
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+};
+
 function ActivityItem({ icon, title, description, timestamp }: any) {
   return (
     <div className="flex items-start gap-3 p-3 hover:bg-gray-50 rounded-lg transition-colors">
@@ -1440,3 +1692,5 @@ function calculateAge(dob: string): number {
   }
   return age;
 }
+
+

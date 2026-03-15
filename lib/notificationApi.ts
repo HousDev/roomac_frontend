@@ -218,3 +218,26 @@ export const createTestNotification = async () => {
     return { success: false, message: error.message };
   }
 };
+
+// lib/notificationApi.ts - Add this function if missing
+export async function createNotification(data: {
+  recipient_id: number;
+  recipient_type: 'admin' | 'tenant';
+  title: string;
+  message: string;
+  notification_type: string;
+  related_entity_type?: string;
+  related_entity_id?: number;
+  priority?: 'low' | 'medium' | 'high' | 'urgent';
+}): Promise<any> {
+  try {
+    const response = await apiFetch<any>('/api/notifications', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+    return response;
+  } catch (error) {
+    console.error('Error creating notification:', error);
+    throw error;
+  }
+}

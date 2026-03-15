@@ -26,7 +26,8 @@ import {
   type Enquiry,
   type CreateEnquiryPayload,
   type UpdateEnquiryPayload,
-  type Followup
+  type Followup,
+  bulkDeleteEnquiries
 } from "@/lib/enquiryApi";
 import { useRouter, useSearchParams } from "@/src/compat/next-navigation";
 import EnquiriesTable from "./EnquiriesTable";
@@ -73,6 +74,9 @@ export default function EnquiriesClientPage({
   const initialLoadDone = useRef(false);
   const [scheduleVisitEnquiry, setScheduleVisitEnquiry] = useState<Enquiry | null>(null);
   const [convertEnquiry, setConvertEnquiry] = useState<Enquiry | null>(null);
+  // Add these state variables
+const [selectedRows, setSelectedRows] = useState<string[]>([]);
+const [selectAll, setSelectAll] = useState(false);
 
   // Column search states
   const [columnFilters, setColumnFilters] = useState({
@@ -513,6 +517,57 @@ const handleConvertToTenant = (enquiry: Enquiry) => {
     });
   };
 
+  // Add these handler functions
+const handleSelectRow = (id: string) => {
+  setSelectedRows(prev => {
+    if (prev.includes(id)) {
+      return prev.filter(rowId => rowId !== id);
+    } else {
+      return [...prev, id];
+    }
+  });
+};
+
+const handleSelectAll = () => {
+  if (selectAll) {
+    setSelectedRows([]);
+    setSelectAll(false);
+  } else {
+    setSelectedRows(filteredEnquiries.map(e => e.id));
+    setSelectAll(true);
+  }
+};
+
+const handleBulkDelete = async () => {
+  if (selectedRows.length === 0) {
+    toast.error("Please select at least one enquiry to delete");
+    return;
+  }
+
+  const result = await MySwal.fire({
+    title: 'Delete Enquiries',
+    text: `Are you sure you want to delete ${selectedRows.length} selected enquiry(s)? This action cannot be undone.`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#d33',
+    cancelButtonColor: '#3085d6',
+    confirmButtonText: 'Yes, delete them!',
+    cancelButtonText: 'Cancel'
+  });
+
+  if (result.isConfirmed) {
+    try {
+      const response = await bulkDeleteEnquiries(selectedRows);
+      toast.success(response.message || `${selectedRows.length} enquiries deleted successfully`);
+      setSelectedRows([]);
+      setSelectAll(false);
+      await loadData(true);
+    } catch (error: any) {
+      toast.error(error.message || "Failed to delete enquiries");
+    }
+  }
+};
+
   // Check if any column filter is active
   const hasActiveColumnFilters = Object.values(columnFilters).some(value => value !== "");
 
@@ -552,6 +607,19 @@ const handleConvertToTenant = (enquiry: Enquiry) => {
                 </DialogContent>
               </Dialog>
 
+              {/* Bulk Delete Button */}
+{selectedRows.length > 0 && (
+  <Button
+    variant="destructive"
+    size="sm"
+    onClick={handleBulkDelete}
+    className="text-sm"
+  >
+    <Trash2 className="h-4 w-4 mr-2" />
+    Delete Selected ({selectedRows.length})
+  </Button>
+)}
+
               {/* Add Enquiry Button */}
               <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
                 <DialogTrigger asChild>
@@ -563,6 +631,7 @@ const handleConvertToTenant = (enquiry: Enquiry) => {
                     <span className="sm:hidden sm:py-2">Add</span>
                   </Button>
                 </DialogTrigger>
+                
                 <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-hidden p-0">
                   {/* Gradient Header */}
                   <div className="bg-gradient-to-r from-blue-700 to-blue-600 text-white px-4 py-3 md:px-6 md:py-4 flex items-center justify-between rounded-t-lg">
@@ -634,43 +703,54 @@ const handleConvertToTenant = (enquiry: Enquiry) => {
               <div className="min-w-[1200px] lg:min-w-full">
                 <Table>
                   <TableHeader className="bg-gray-50 sticky top-0 z-10">
-                    <TableRow>
-                      <TableHead className="py-1.5 sm:py-1 px-2 sm:px-4 text-xs sm:text-sm">Name</TableHead>
-                      <TableHead className="py-1.5 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm">Contact</TableHead>
-                      <TableHead className="py-1.5 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm">Property</TableHead>
-                      <TableHead className="py-1.5 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm">Move-in Date</TableHead>
-                      <TableHead className="py-1.5 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm">Status</TableHead>
-                      <TableHead className="py-1.5 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm">Created</TableHead>
-                      <TableHead className="py-1.5 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm text-right">Actions</TableHead>
-                    </TableRow>
+  <TableRow>
+    <TableHead className="py-1.5 sm:py-1 px-2 sm:px-4 w-10">
+      <input
+        type="checkbox"
+        checked={selectAll}
+        onChange={handleSelectAll}
+        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+      />
+    </TableHead>
+    <TableHead className="py-1.5 sm:py-1 px-2 sm:px-4 text-xs sm:text-sm">Name</TableHead>
+    <TableHead className="py-1.5 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm">Contact</TableHead>
+    <TableHead className="py-1.5 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm">Property</TableHead>
+    <TableHead className="py-1.5 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm">Move-in Date</TableHead>
+    <TableHead className="py-1.5 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm">Status</TableHead>
+    <TableHead className="py-1.5 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm">Created</TableHead>
+    <TableHead className="py-1.5 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm text-right">Actions</TableHead>
+  </TableRow>
 
-                    {/* Filter Row */}
-                    <TableRow className="bg-gray-50/50">
-                      {[
-                        { key: "name", placeholder: "Filter name..." },
-                        { key: "contact", placeholder: "Filter contact..." },
-                        { key: "property", placeholder: "Filter property..." },
-                        { key: "moveInDate", placeholder: "Filter date..." },
-                        { key: "status", placeholder: "Filter status..." },
-                        { key: "created", placeholder: "Filter created..." },
-                      ].map((field) => (
-                        <TableCell key={field.key} className="px-2 sm:px-4 py-1.5 sm:py-2">
-                          <Input
-                            placeholder={field.placeholder}
-                            value={columnFilters[field.key]}
-                            onChange={(e) =>
-                              setColumnFilters((prev) => ({
-                                ...prev,
-                                [field.key]: e.target.value,
-                              }))
-                            }
-                            className="h-7 sm:h-8 text-xs sm:text-sm"
-                          />
-                        </TableCell>
-                      ))}
-                      <TableCell className="px-2 sm:px-4 py-1.5 sm:py-2" />
-                    </TableRow>
-                  </TableHeader>
+  {/* Filter Row */}
+  <TableRow className="bg-gray-50/50">
+    <TableCell className="px-2 sm:px-4 py-1.5 sm:py-2">
+      {/* Empty cell for checkbox column */}
+    </TableCell>
+    {[
+      { key: "name", placeholder: "Filter name..." },
+      { key: "contact", placeholder: "Filter contact..." },
+      { key: "property", placeholder: "Filter property..." },
+      { key: "moveInDate", placeholder: "Filter date..." },
+      { key: "status", placeholder: "Filter status..." },
+      { key: "created", placeholder: "Filter created..." },
+    ].map((field) => (
+      <TableCell key={field.key} className="px-2 sm:px-4 py-1.5 sm:py-2">
+        <Input
+          placeholder={field.placeholder}
+          value={columnFilters[field.key]}
+          onChange={(e) =>
+            setColumnFilters((prev) => ({
+              ...prev,
+              [field.key]: e.target.value,
+            }))
+          }
+          className="h-7 sm:h-8 text-xs sm:text-sm"
+        />
+      </TableCell>
+    ))}
+    <TableCell className="px-2 sm:px-4 py-1.5 sm:py-2" />
+  </TableRow>
+</TableHeader>
 
                   <TableBody>
                     {filteredEnquiries.length === 0 ? (
@@ -681,145 +761,156 @@ const handleConvertToTenant = (enquiry: Enquiry) => {
                       </TableRow>
                     ) : (
                       filteredEnquiries.map((enquiry) => (
-                        <TableRow key={enquiry.id} className="hover:bg-gray-50">
-                          {/* Name */}
-                          <TableCell 
-                            className="px-2 sm:px-4 py-2 sm:py-3 font-medium text-xs sm:text-sm cursor-pointer hover:text-blue-600 hover:underline transition-colors"
-                            onClick={() => openViewDialog(enquiry)}
-                          >
-                            {enquiry.tenant_name}
-                          </TableCell>
-
-                          {/* Contact */}
-                          <TableCell className="px-2 sm:px-4 py-2 sm:py-3">
-                            <div className="flex flex-col gap-0.5 min-w-[120px]">
-                              <div className="flex items-center gap-1 text-xs sm:text-sm">
-                                <Phone className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-                                <span className="truncate">{enquiry.phone}</span>
-                              </div>
-                              {enquiry.email && (
-                                <div className="flex items-center gap-1 text-[10px] sm:text-sm text-gray-600">
-                                  <Mail className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-                                  <span className="truncate">{enquiry.email}</span>
-                                </div>
-                              )}
-                            </div>
-                          </TableCell>
-
-                          {/* Property */}
-                          <TableCell className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm max-w-[160px] sm:max-w-[200px]">
-                            <span className="line-clamp-2">
-                              {enquiry.property_full_name || enquiry.property_name || "-"}
-                            </span>
-                          </TableCell>
-
-                          {/* Move-in */}
-                          <TableCell className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm whitespace-nowrap">
-                            {formatDateForDisplay(enquiry.preferred_move_in_date)}
-                          </TableCell>
-
-                          {/* Status */}
-                          <TableCell className="px-2 sm:px-4 py-2 sm:py-3">
-                            {getStatusBadge(enquiry.status || "new")}
-                          </TableCell>
-
-                          {/* Created */}
-                          <TableCell className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm whitespace-nowrap">
-                            {formatDateForDisplay(enquiry.created_at || "")}
-                          </TableCell>
-
-                          {/* Actions */}
-                          <TableCell className="px-2 sm:px-4 py-2 sm:py-3">
-                            <div className="flex items-center justify-end gap-1 whitespace-nowrap">
-                              {/* Schedule Visit Button */}
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleScheduleVisit(enquiry);
-                                }}
-                                className="h-7 w-7 sm:h-8 sm:w-8 p-0 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
-                                title="Schedule Visit"
-                              >
-                                <Calendar className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                              </Button>
-
-                              {/* View Details Button */}
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => openViewDialog(enquiry)}
-                                className="h-7 w-7 sm:h-8 sm:w-8 p-0"
-                                title="View Details"
-                              >
-                                <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                              </Button>
-
-                              {/* Edit Button */}
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => handleOpenEditDialog(enquiry)}
-                                className="h-7 w-7 sm:h-8 sm:w-8 p-0"
-                                title="Edit Enquiry"
-                              >
-                                <Edit className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                              </Button>
-
-                              {/* Convert to Tenant Button (only if not converted) */}
-                              {enquiry.status !== 'converted' && (
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleConvertToTenant(enquiry);
-                                  }}
-                                  className="h-7 w-7 sm:h-8 sm:w-8 p-0 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
-                                  title="Convert to Tenant"
-                                >
-                                  <UserPlus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                                </Button>
-                              )}
-
-                              {/* Status Dropdown */}
-<Select
-  value={enquiry.status || "new"}
-  onValueChange={(value) => handleUpdateStatus(enquiry.id, value)}
->
-  <SelectTrigger className="h-7 sm:h-8 w-20 sm:w-24 text-[10px] sm:text-xs">
-    <SelectValue />
-  </SelectTrigger>
-  <SelectContent>
-    {["new", "contacted", "interested", "not_interested", "closed"].map((status) => (
-      <SelectItem key={status} value={status} className="text-[10px] sm:text-xs">
-        {status.replace("_", " ")}
-      </SelectItem>
-    ))}
-    {/* Show converted as a separate option with different styling */}
-    <SelectItem 
-      value="converted" 
-      className="text-[10px] sm:text-xs text-purple-600 font-medium border-t border-gray-200 mt-1 pt-1"
+  <TableRow key={enquiry.id} className="hover:bg-gray-50">
+    {/* Checkbox */}
+    <TableCell className="px-2 sm:px-4 py-2 sm:py-3">
+      <input
+        type="checkbox"
+        checked={selectedRows.includes(enquiry.id)}
+        onChange={() => handleSelectRow(enquiry.id)}
+        onClick={(e) => e.stopPropagation()}
+        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+      />
+    </TableCell>
+    
+    {/* Name */}
+    <TableCell 
+      className="px-2 sm:px-4 py-2 sm:py-3 font-medium text-xs sm:text-sm cursor-pointer hover:text-blue-600 hover:underline transition-colors"
+      onClick={() => openViewDialog(enquiry)}
     >
-      ⚡ Convert to Tenant
-    </SelectItem>
-  </SelectContent>
-</Select>
-                              {/* Delete Button */}
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleDeleteEnquiry(enquiry.id)}
-                                className="h-7 w-7 sm:h-8 sm:w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                title="Delete Enquiry"
-                              >
-                                <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))
+      {enquiry.tenant_name}
+    </TableCell>
+
+    {/* Contact */}
+    <TableCell className="px-2 sm:px-4 py-2 sm:py-3">
+      <div className="flex flex-col gap-0.5 min-w-[120px]">
+        <div className="flex items-center gap-1 text-xs sm:text-sm">
+          <Phone className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+          <span className="truncate">{enquiry.phone}</span>
+        </div>
+        {enquiry.email && (
+          <div className="flex items-center gap-1 text-[10px] sm:text-sm text-gray-600">
+            <Mail className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+            <span className="truncate">{enquiry.email}</span>
+          </div>
+        )}
+      </div>
+    </TableCell>
+
+    {/* Property */}
+    <TableCell className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm max-w-[160px] sm:max-w-[200px]">
+      <span className="line-clamp-2">
+        {enquiry.property_full_name || enquiry.property_name || "-"}
+      </span>
+    </TableCell>
+
+    {/* Move-in */}
+    <TableCell className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm whitespace-nowrap">
+      {formatDateForDisplay(enquiry.preferred_move_in_date)}
+    </TableCell>
+
+    {/* Status */}
+    <TableCell className="px-2 sm:px-4 py-2 sm:py-3">
+      {getStatusBadge(enquiry.status || "new")}
+    </TableCell>
+
+    {/* Created */}
+    <TableCell className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm whitespace-nowrap">
+      {formatDateForDisplay(enquiry.created_at || "")}
+    </TableCell>
+
+    {/* Actions */}
+    <TableCell className="px-2 sm:px-4 py-2 sm:py-3">
+      <div className="flex items-center justify-end gap-1 whitespace-nowrap">
+        {/* Schedule Visit Button */}
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={(e) => {
+            e.stopPropagation();
+            handleScheduleVisit(enquiry);
+          }}
+          className="h-7 w-7 sm:h-8 sm:w-8 p-0 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+          title="Schedule Visit"
+        >
+          <Calendar className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+        </Button>
+
+        {/* View Details Button */}
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => openViewDialog(enquiry)}
+          className="h-7 w-7 sm:h-8 sm:w-8 p-0"
+          title="View Details"
+        >
+          <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+        </Button>
+
+        {/* Edit Button */}
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => handleOpenEditDialog(enquiry)}
+          className="h-7 w-7 sm:h-8 sm:w-8 p-0"
+          title="Edit Enquiry"
+        >
+          <Edit className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+        </Button>
+
+        {/* Convert to Tenant Button (only if not converted) */}
+        {enquiry.status !== 'converted' && (
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleConvertToTenant(enquiry);
+            }}
+            className="h-7 w-7 sm:h-8 sm:w-8 p-0 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+            title="Convert to Tenant"
+          >
+            <UserPlus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+          </Button>
+        )}
+
+        {/* Status Dropdown */}
+        <Select
+          value={enquiry.status || "new"}
+          onValueChange={(value) => handleUpdateStatus(enquiry.id, value)}
+        >
+          <SelectTrigger className="h-7 sm:h-8 w-20 sm:w-24 text-[10px] sm:text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {["new", "contacted", "interested", "not_interested", "closed"].map((status) => (
+              <SelectItem key={status} value={status} className="text-[10px] sm:text-xs">
+                {status.replace("_", " ")}
+              </SelectItem>
+            ))}
+            <SelectItem 
+              value="converted" 
+              className="text-[10px] sm:text-xs text-purple-600 font-medium border-t border-gray-200 mt-1 pt-1"
+            >
+              ⚡ Convert to Tenant
+            </SelectItem>
+          </SelectContent>
+        </Select>
+
+        {/* Delete Button */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => handleDeleteEnquiry(enquiry.id)}
+          className="h-7 w-7 sm:h-8 sm:w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+          title="Delete Enquiry"
+        >
+          <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+        </Button>
+      </div>
+    </TableCell>
+  </TableRow>
+))
                     )}
                   </TableBody>
                 </Table>

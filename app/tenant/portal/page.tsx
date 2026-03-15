@@ -23,6 +23,11 @@ import {
   Wrench,
   RefreshCw,
   Move,
+  Bed,
+  IndianRupee,
+  X,
+  Plus,
+  Download,
 } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,7 +36,10 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -81,6 +89,8 @@ import roomacLogo from "@/app/src/assets/images/roomaclogo.webp";
 import { useAuth } from "@/context/authContext";
 import router from "@/src/compat/next-router";
 import { getProperty } from "@/lib/propertyApi";
+import * as paymentApi from '@/lib/paymentRecordApi';
+import * as notificationApi from '@/lib/notificationApi';
 
 interface DashboardStats {
   totalPaid: number;
@@ -135,6 +145,61 @@ const formatCurrency = (amount: number) =>
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(amount);
+
+
+  // ========== ADD THE PAYMENTITEM COMPONENT RIGHT HERE ==========
+// Update the payment item component with receipt download
+const PaymentItem = ({ payment }: { payment: any }) => (
+  <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 bg-slate-50 rounded-lg gap-2">
+    <div className="flex-1">
+      <p className="font-medium text-sm text-slate-900">
+        {payment.remark || payment.description || 'Rent Payment'}
+      </p>
+      <div className="flex flex-wrap items-center gap-2 mt-1">
+        <span className="text-xs text-slate-500">{formatDate(payment.payment_date)}</span>
+        <span className="text-xs text-slate-400">•</span>
+        <span className="text-xs text-slate-500 capitalize">{payment.payment_method || payment.payment_mode}</span>
+        {payment.month && payment.year && (
+          <>
+            <span className="text-xs text-slate-400">•</span>
+            <span className="text-xs text-slate-500">{payment.month} {payment.year}</span>
+          </>
+        )}
+        {payment.transaction_id && (
+          <>
+            <span className="text-xs text-slate-400">•</span>
+            <span className="text-xs font-mono text-slate-500">ID: {payment.transaction_id.substring(0, 8)}...</span>
+          </>
+        )}
+      </div>
+    </div>
+    <div className="flex items-center gap-3">
+      <p className="font-bold text-sm text-slate-900">{formatCurrency(payment.amount)}</p>
+      <div className="flex items-center gap-2">
+        <Badge variant="outline" className={`text-xs ${
+          payment.status === "approved" || payment.status === "completed" ? "bg-green-50 text-green-700 border-green-200" : 
+          payment.status === "pending" ? "bg-yellow-50 text-yellow-700 border-yellow-200" : 
+          "bg-red-50 text-red-700 border-red-200"
+        }`}>
+          {payment.status === "approved" ? "completed" : payment.status}
+        </Badge>
+        
+        {/* Show receipt download only for approved payments */}
+        {(payment.status === "approved" || payment.status === "completed") && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-full"
+            onClick={() => window.open(`/api/payments/receipts/${payment.id}/download`, '_blank')}
+            title="Download Receipt"
+          >
+            <Download className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
+    </div>
+  </div>
+);
 
 // ─── Mock data ────────────────────────────────────────────────────────────────
 
@@ -213,6 +278,11 @@ export default function TenantPortalPage() {
   const [showComplaintDialog, setShowComplaintDialog] = useState(false);
   const [showLeaveDialog, setShowLeaveDialog] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+const [paymentFormData, setPaymentFormData] = useState<any>(null);
+const [selectedPaymentMonth, setSelectedPaymentMonth] = useState('');
+const [loadingPaymentForm, setLoadingPaymentForm] = useState(false);
+const [tenantPayments, setTenantPayments] = useState<any[]>([]);
+const [securityDepositInfo, setSecurityDepositInfo] = useState<any>(null);
 
   // Stats
   const [stats, setStats] = useState<DashboardStats>({
@@ -240,8 +310,14 @@ export default function TenantPortalPage() {
     reason: "", contact_address: "", emergency_contact: "",
   });
   const [newPayment, setNewPayment] = useState({
-    amount: "", description: "", payment_method: "card",
-  });
+  payment_type: 'rent',
+  amount: '',
+  payment_mode: 'cash',
+  bank_name: '',
+  transaction_id: '',
+  payment_date: new Date().toISOString().split('T')[0],
+  remark: ''
+});
 
   // Loading timeout
   useEffect(() => {
@@ -300,6 +376,234 @@ export default function TenantPortalPage() {
       if (showLoading) setLoadingNotifications(false);
     }
   }, []);
+
+  // Add this effect
+// Update this effect
+useEffect(() => {
+  if (showPaymentDialog && tenant?.id) {
+    if (newPayment.payment_type === 'rent') {
+      fetchPaymentFormData();
+    } else if (newPayment.payment_type === 'security_deposit') {
+      fetchSecurityDepositInfo();
+    }
+  }
+}, [showPaymentDialog, tenant?.id, newPayment.payment_type]);
+
+// Fetch tenant's payment history
+const fetchTenantPayments = useCallback(async () => {
+  if (!tenant?.id) return;
+  
+  try {
+    const response = await paymentApi.getPaymentsByTenant(tenant.id);
+    if (response.success) {
+      setTenantPayments(response.data || []);
+    }
+  } catch (error) {
+    console.error('Error fetching tenant payments:', error);
+  }
+}, [tenant?.id]);
+
+
+// Add this function to fetch security deposit info
+const fetchSecurityDepositInfo = useCallback(async () => {
+  if (!tenant?.id) return;
+  
+  try {
+    const response = await paymentApi.getSecurityDepositInfo(tenant.id);
+    if (response.success) {
+      setSecurityDepositInfo(response.data);
+      // Auto-fill the amount with pending deposit amount
+      if (response.data && response.data.pending_amount > 0) {
+        setNewPayment(prev => ({
+          ...prev,
+          amount: response.data.pending_amount.toString()
+        }));
+        // toast.info(`Security deposit pending: ₹${response.data.pending_amount.toLocaleString()}`);
+      }
+    }
+  } catch (error) {
+    console.error('Error fetching security deposit info:', error);
+  }
+}, [tenant?.id]);
+
+const fetchPaymentFormData = useCallback(async () => {
+  if (!tenant?.id) return;
+  
+  setLoadingPaymentForm(true);
+  try {
+    const response = await paymentApi.getTenantPaymentFormData(tenant.id);
+    if (response.success) {
+      setPaymentFormData(response.data);
+      console.log('Payment form data loaded:', response.data);
+    }
+    
+    // Also fetch security deposit info
+    await fetchSecurityDepositInfo();
+  } catch (error) {
+    console.error('Error fetching payment form data:', error);
+  } finally {
+    setLoadingPaymentForm(false);
+  }
+}, [tenant?.id, fetchSecurityDepositInfo]);
+
+// Update handlePaymentTypeChange
+const handlePaymentTypeChange = async (type: string) => {
+  setNewPayment(prev => ({ ...prev, payment_type: type }));
+  setSelectedPaymentMonth(''); // Reset month selection
+  
+  if (type === 'rent') {
+    // Reset to rent view
+    setSecurityDepositInfo(null);
+    await fetchPaymentFormData();
+    // Clear amount if it was set from security deposit
+    setNewPayment(prev => ({ ...prev, amount: '' }));
+  } else if (type === 'security_deposit') {
+    // Clear payment form data when switching to security deposit
+    setPaymentFormData(null);
+    // Fetch security deposit info
+    await fetchSecurityDepositInfo();
+  }
+};
+
+// Update handleSubmitPayment with better error logging
+const handleSubmitPayment = useCallback(async () => {
+  if (!newPayment.amount) {
+    toast.error("Please enter an amount");
+    return;
+  }
+
+  try {
+    // Prepare payment data
+    const paymentData: any = {
+      tenant_id: tenant?.id,
+      booking_id: null,
+      payment_type: newPayment.payment_type,
+      amount: parseFloat(newPayment.amount),
+      payment_mode: newPayment.payment_mode,
+      bank_name: newPayment.bank_name || null,
+      transaction_id: newPayment.transaction_id || null,
+      payment_date: newPayment.payment_date,
+      remark: newPayment.remark || null,
+    };
+
+    // For rent payments, add month/year
+    if (newPayment.payment_type === 'rent') {
+      if (selectedPaymentMonth && selectedPaymentMonth !== 'current') {
+        const [year, month] = selectedPaymentMonth.split('-');
+        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+          'July', 'August', 'September', 'October', 'November', 'December'];
+        
+        paymentData.month = monthNames[parseInt(month) - 1];
+        paymentData.year = parseInt(year);
+        paymentData.remark = paymentData.remark || `Payment for ${paymentData.month} ${paymentData.year}`;
+      } else {
+        const currentDate = new Date();
+        paymentData.month = currentDate.toLocaleString('default', { month: 'long' });
+        paymentData.year = currentDate.getFullYear();
+      }
+    }
+
+    console.log('📤 Creating payment:', paymentData);
+    const response = await paymentApi.createPayment(paymentData);
+    console.log('📥 Payment response:', response);
+
+    if (response.success && response.data) {
+      // Create notification for admin
+try {
+  const paymentTypeDisplay = newPayment.payment_type === 'rent' ? 'Rent' : 'Security Deposit';
+  const monthDisplay = paymentData.month ? ` for ${paymentData.month} ${paymentData.year}` : '';
+  
+  console.log('📤 Creating notification with data:', {
+    recipient_id: 1,
+    recipient_type: 'admin',
+    title: '💰 New Payment Request',
+    message: `${tenant?.full_name} has initiated a ${paymentTypeDisplay} payment of ₹${parseFloat(newPayment.amount).toLocaleString()}${monthDisplay}. Payment mode: ${newPayment.payment_mode}.`,
+    notification_type: 'payment',
+    related_entity_type: 'payment',
+    related_entity_id: response.data.id,
+    priority: 'medium'
+  });
+
+  // Try both possible function names
+  let notifResponse;
+  
+  // If you're using namespace import
+  if (typeof notificationApi?.createNotification === 'function') {
+    // Instead of the complex if/else, just use:
+ notifResponse = await notificationApi.createNotification({
+  recipient_id: 1,
+  recipient_type: 'admin',
+  title: '💰 New Payment Request',
+  message: `${tenant?.full_name} has initiated a ${paymentTypeDisplay} payment of ₹${parseFloat(newPayment.amount).toLocaleString()}${monthDisplay}. Payment mode: ${newPayment.payment_mode}.`,
+  notification_type: 'payment',
+  related_entity_type: 'payment',
+  related_entity_id: response.data.id,
+  priority: 'medium'
+});
+  } 
+   else {
+    console.error('❌ createNotification function not found in imports');
+    // Fallback to direct fetch
+    const fallbackResponse = await fetch('http://localhost:3001/api/notifications', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        recipient_id: 1,
+        recipient_type: 'admin',
+        title: '💰 New Payment Request',
+        message: `${tenant?.full_name} has initiated a ${paymentTypeDisplay} payment of ₹${parseFloat(newPayment.amount).toLocaleString()}${monthDisplay}. Payment mode: ${newPayment.payment_mode}.`,
+        notification_type: 'payment',
+        related_entity_type: 'payment',
+        related_entity_id: response.data.id,
+        priority: 'medium'
+      })
+    });
+    
+    if (fallbackResponse.ok) {
+      notifResponse = await fallbackResponse.json();
+    }
+  }
+  
+  console.log('📥 Notification response:', notifResponse);
+  
+  if (notifResponse?.success) {
+    console.log('✅ Admin notification created successfully');
+  } else {
+    console.error('❌ Notification creation failed:', notifResponse);
+  }
+} catch (notifError) {
+  console.error('❌ Error creating admin notification:', notifError);
+}
+
+      setShowPaymentDialog(false);
+      
+      // Reset form
+      setNewPayment({
+        payment_type: 'rent',
+        amount: '',
+        payment_mode: 'cash',
+        bank_name: '',
+        transaction_id: '',
+        payment_date: new Date().toISOString().split('T')[0],
+        remark: ''
+      });
+      setSelectedPaymentMonth('');
+      setSecurityDepositInfo(null);
+      setPaymentFormData(null);
+      
+      // Refresh payment history
+      fetchTenantPayments();
+    } else {
+      toast.error(response.message || 'Failed to initiate payment');
+    }
+  } catch (error: any) {
+    console.error('❌ Payment error:', error);
+    toast.error(error.message || 'Failed to initiate payment');
+  }
+}, [tenant?.id, newPayment, selectedPaymentMonth, fetchTenantPayments]);
+
 
   // ─── Fetch property manager staff by matching property_manager_name or staff_id ──
 // ─── Fetch property manager staff by matching property_manager_name or staff_id ──
@@ -410,6 +714,10 @@ const fetchPropertyManagerStaff = useCallback(async (tenantData: TenantProfile) 
       if (profileRes.status === "fulfilled" && profileRes.value?.success) {
         const d = profileRes.value.data;
         setTenant(d);
+
+        // Fetch tenant payments after getting tenant data
+      await fetchTenantPayments();
+
         // ADD after line 354 (setTenant(d)):
 console.log('🔍 CONTRACT FIELDS FROM BACKEND:', {
   check_in_date: d.check_in_date,
@@ -518,7 +826,7 @@ console.log('🔍 CONTRACT FIELDS FROM BACKEND:', {
     } finally {
       setLoading(false);
     }
-  }, [navigate, fetchNotifications, fetchPropertyManagerStaff]);
+  }, [navigate, fetchNotifications, fetchPropertyManagerStaff, fetchTenantPayments]);
 
   useEffect(() => { fetchAllData(); }, [fetchAllData]);
 
@@ -608,24 +916,7 @@ console.log('🔍 CONTRACT FIELDS FROM BACKEND:', {
     }
   }, [leaveRequest, fetchAllData]);
 
-  const handleSubmitPayment = useCallback(() => {
-    if (!newPayment.amount || !newPayment.description) {
-      toast.error("Please fill in all required fields");
-      return;
-    }
-    toast.success("Payment initiated successfully");
-    setShowPaymentDialog(false);
-    const record: Payment = {
-      id: Date.now().toString(),
-      amount: parseFloat(newPayment.amount),
-      description: newPayment.description,
-      payment_date: new Date().toISOString(),
-      payment_method: newPayment.payment_method === "card" ? "Credit Card" : "UPI",
-      status: "pending",
-    };
-    setPayments(prev => [record, ...prev]);
-    setNewPayment({ amount: "", description: "", payment_method: "card" });
-  }, [newPayment]);
+
 
   const handleMarkAllRead = useCallback(async () => {
     try {
@@ -1059,109 +1350,97 @@ const getManagerRole = () => {
               </TabsTrigger>
             </TabsList>
 
-            {/* ── Dashboard Tab ─────────────────────────────────────── */}
-            <TabsContent value="dashboard" className="space-y-6 mt-4">
-              <Card className="border border-slate-200 shadow-sm">
-                <CardHeader className="pb-2 px-4 sm:px-6">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-sm sm:text-base font-semibold">Recent Payments</CardTitle>
-                    <Button variant="ghost" size="sm"
-                      className="text-[#0149ab] hover:bg-blue-50 text-xs sm:text-sm"
-                      onClick={() => handleTabChange("payments")}>
-                      View All <ChevronRight className="h-3 w-3 ml-1" />
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent className="px-4 sm:px-6">
-                  {payments.length > 0 ? (
-                    <div className="space-y-3">
-                      {payments.slice(0, 3).map((p) => (
-                        <div key={p.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-slate-50 rounded-lg gap-2">
-                          <div>
-                            <p className="font-medium text-sm text-slate-900">{p.description}</p>
-                            <p className="text-xs text-slate-500 mt-1">{formatDate(p.payment_date)} · {p.payment_method}</p>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <p className="font-bold text-sm text-slate-900">{formatCurrency(p.amount)}</p>
-                            <Badge variant="outline" className={`text-xs ${p.status === "completed" ? "bg-green-50 text-green-700 border-green-200" : "bg-yellow-50 text-yellow-700 border-yellow-200"}`}>
-                              {p.status}
-                            </Badge>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8">
-                      <CreditCard className="h-12 w-12 text-slate-300 mx-auto mb-3" />
-                      <p className="text-slate-500 text-sm">No payment history</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+           {/* ── Dashboard Tab ─────────────────────────────────────── */}
+<TabsContent value="dashboard" className="space-y-6 mt-4">
+  <Card className="border border-slate-200 shadow-sm">
+    <CardHeader className="pb-2 px-4 sm:px-6">
+      <div className="flex items-center justify-between">
+        <CardTitle className="text-sm sm:text-base font-semibold">Recent Payments</CardTitle>
+        <Button variant="ghost" size="sm"
+          className="text-[#0149ab] hover:bg-blue-50 text-xs sm:text-sm"
+          onClick={() => handleTabChange("payments")}>
+          View All <ChevronRight className="h-3 w-3 ml-1" />
+        </Button>
+      </div>
+    </CardHeader>
+    <CardContent className="px-4 sm:px-6">
+      {tenantPayments.length > 0 ? (
+        <div className="space-y-3">
+          {tenantPayments.slice(0, 3).map((p) => (
+            <PaymentItem key={p.id} payment={p} />
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-8">
+          <CreditCard className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+          <p className="text-slate-500 text-sm">No payment history</p>
+        </div>
+      )}
+    </CardContent>
+  </Card>
 
-              <Card className="border border-slate-200 shadow-sm">
-                <CardHeader className="pb-2 px-4 sm:px-6">
-                  <CardTitle className="text-sm sm:text-base font-semibold">Amenities History</CardTitle>
-                </CardHeader>
-                <CardContent className="px-4 sm:px-6">
-                  <div className="space-y-2 sm:space-y-3">
-                    {[
-                      { icon: Wifi, label: "WiFi - Last used: Today" },
-                      { icon: Coffee, label: "Laundry - Last used: 2 days ago" },
-                      { icon: Users, label: "Gym - Last used: 5 days ago" },
-                    ].map(({ icon: Icon, label }) => (
-                      <div key={label} className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
-                        <Icon className="h-4 w-4 sm:h-5 sm:w-5 text-[#0149ab]" />
-                        <span className="text-xs sm:text-sm font-medium">{label}</span>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
+  {/* Keep the Amenities History card as is */}
+  <Card className="border border-slate-200 shadow-sm">
+    <CardHeader className="pb-2 px-4 sm:px-6">
+      <CardTitle className="text-sm sm:text-base font-semibold">Amenities History</CardTitle>
+    </CardHeader>
+    <CardContent className="px-4 sm:px-6">
+      <div className="space-y-2 sm:space-y-3">
+        {[
+          { icon: Wifi, label: "WiFi - Last used: Today" },
+          { icon: Coffee, label: "Laundry - Last used: 2 days ago" },
+          { icon: Users, label: "Gym - Last used: 5 days ago" },
+        ].map(({ icon: Icon, label }) => (
+          <div key={label} className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
+            <Icon className="h-4 w-4 sm:h-5 sm:w-5 text-[#0149ab]" />
+            <span className="text-xs sm:text-sm font-medium">{label}</span>
+          </div>
+        ))}
+      </div>
+    </CardContent>
+  </Card>
+</TabsContent>
 
             {/* ── Payments Tab ──────────────────────────────────────── */}
-            <TabsContent value="payments" className="space-y-6 mt-4">
-              <Button className="w-full bg-[#0149ab] hover:bg-[#0149ab]/90 h-10 sm:h-12" onClick={() => setShowPaymentDialog(true)}>
-                <CreditCard className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
-                Make a Payment
-              </Button>
-              <Card className="border border-slate-200 shadow-sm">
-                <CardHeader className="px-4 sm:px-6">
-                  <CardTitle className="text-base sm:text-lg font-semibold">Payment History</CardTitle>
-                </CardHeader>
-                <CardContent className="px-4 sm:px-6">
-                  {payments.length > 0 ? (
-                    <div className="space-y-3 sm:space-y-4">
-                      {payments.map((p) => (
-                        <div key={p.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 bg-slate-50 rounded-lg gap-2">
-                          <div>
-                            <p className="font-medium text-sm text-slate-900">{p.description}</p>
-                            <div className="flex flex-wrap items-center gap-2 mt-1">
-                              <span className="text-xs text-slate-500">{formatDate(p.payment_date)}</span>
-                              <span className="text-xs text-slate-400">•</span>
-                              <span className="text-xs text-slate-500">{p.payment_method}</span>
-                              {p.due_date && (<><span className="text-xs text-slate-400">•</span><span className="text-xs text-slate-500">Due: {formatDate(p.due_date)}</span></>)}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <p className="font-bold text-sm text-slate-900">{formatCurrency(p.amount)}</p>
-                            <Badge variant="outline" className={`text-xs ${p.status === "completed" ? "bg-green-50 text-green-700 border-green-200" : p.status === "pending" ? "bg-yellow-50 text-yellow-700 border-yellow-200" : "bg-red-50 text-red-700 border-red-200"}`}>
-                              {p.status}
-                            </Badge>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8">
-                      <CreditCard className="h-12 w-12 text-slate-300 mx-auto mb-3" />
-                      <p className="text-slate-500 text-sm">No payment history</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
+<TabsContent value="payments" className="space-y-6 mt-4">
+  <Button 
+    className="w-full bg-[#0149ab] hover:bg-[#0149ab]/90 h-10 sm:h-12" 
+    onClick={() => {
+      fetchPaymentFormData();
+      setShowPaymentDialog(true);
+    }}
+  >
+    <CreditCard className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
+    Make a Payment
+  </Button>
+  
+  <Card className="border border-slate-200 shadow-sm">
+    <CardHeader className="px-4 sm:px-6">
+      <CardTitle className="text-base sm:text-lg font-semibold">Payment History</CardTitle>
+    </CardHeader>
+    <CardContent className="px-4 sm:px-6 md:max-h-[50vh] overflow-auto">
+      {loading ? (
+        <div className="flex justify-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#0149ab] border-t-transparent" />
+        </div>
+      ) : tenantPayments.length > 0 ? (
+        <div className="space-y-3 sm:space-y-4">
+          {tenantPayments.map((p) => (
+            <PaymentItem key={p.id} payment={p} />
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-8">
+          <CreditCard className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+          <p className="text-slate-500 text-sm">No payment history</p>
+          <p className="text-xs text-slate-400 mt-1">
+            Make your first payment using the button above
+          </p>
+        </div>
+      )}
+    </CardContent>
+  </Card>
+</TabsContent>
 
             {/* ── Notifications Tab ─────────────────────────────────── */}
             <TabsContent value="notifications" className="space-y-6 mt-4">
@@ -1600,91 +1879,403 @@ className={`p-2.5 sm:p-3 rounded-md border cursor-pointer transition-all hover:s
   </DialogContent>
 </Dialog>
 
-      {/* ── Payment Dialog ───────────────────────────────────────────────── */}
-     <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
-  <DialogContent className="sm:max-w-md w-[94%] p-0 overflow-hidden rounded-xl">
+{/* ── Payment Dialog for Tenant Portal ───────────────────────────────────────────────── */}
+<Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
+  <DialogContent className="max-w-4xl max-h-[600px] p-0 gap-0 overflow-auto">
 
     {/* Header */}
-    <div className="relative px-4 sm:px-6 py-3 sm:py-4 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]">
-      <DialogTitle className="text-white text-base sm:text-lg font-semibold">
-        Make a Payment
-      </DialogTitle>
-
-      {/* Close Icon */}
-      <button
-        onClick={() => setShowPaymentDialog(false)}
-        className="absolute right-3 top-3 text-white hover:opacity-80 text-lg"
-      >
-        ✕
-      </button>
+    <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 rounded-t-lg sticky top-0 z-20">
+      <div className="flex items-center justify-between">
+        <div>
+          <DialogTitle className="text-white text-lg font-semibold flex items-center gap-2">
+            <div className="p-1 bg-white/20 rounded-lg">
+              <Plus className="h-5 w-5" />
+            </div>
+            Make a Payment
+          </DialogTitle>
+          <DialogDescription className="text-blue-100 text-sm mt-1">
+            Record a new payment for your account
+          </DialogDescription>
+        </div>
+        <DialogClose asChild>
+          <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 h-8 w-8">
+            <X className="h-4 w-4" />
+          </Button>
+        </DialogClose>
+      </div>
     </div>
 
-    {/* Body */}
-    <div className="px-4 sm:px-6 py-4 sm:py-5 space-y-3 sm:space-y-4">
+    {/* Form Content */}
+    <div className="p-6">
+      {/* Tenant Information - Read Only (replaces tenant selector) */}
+      <div className="grid grid-cols-2 gap-4 mb-4">
+        <div className="space-y-1.5">
+          <Label className="text-xs font-medium text-slate-700">Tenant</Label>
+          <div className="h-10 px-3 py-2 bg-slate-50 border border-slate-200 rounded-md text-sm flex items-center">
+            <User className="h-3.5 w-3.5 text-slate-400 mr-2" />
+            <span>{tenant?.full_name || 'Loading...'}</span>
+          </div>
+        </div>
 
-      <div>
-        <Label className="text-[11px] sm:text-sm font-medium">
-          Amount (₹) *
-        </Label>
-        <Input
-          type="number"
-          value={newPayment.amount}
-          onChange={(e) =>
-            setNewPayment({ ...newPayment, amount: e.target.value })
-          }
-          placeholder="Enter amount"
-          className="mt-1 h-8 sm:h-10 text-xs sm:text-sm"
-        />
+        <div className="space-y-1.5">
+  <Label className="text-xs font-medium text-slate-700">Payment Type</Label>
+  <Select 
+    value={newPayment.payment_type || 'rent'} 
+    onValueChange={handlePaymentTypeChange}
+  >
+    <SelectTrigger className="h-10">
+      <SelectValue />
+    </SelectTrigger>
+    <SelectContent>
+      <SelectItem value="rent">Rent</SelectItem>
+      <SelectItem value="security_deposit">Security Deposit</SelectItem>
+      {/* <SelectItem value="maintenance">Maintenance</SelectItem>
+      <SelectItem value="electricity">Electricity</SelectItem> */}
+    </SelectContent>
+  </Select>
+</div>
       </div>
 
-      <div>
-        <Label className="text-[11px] sm:text-sm font-medium">
-          Description *
-        </Label>
-        <Input
-          value={newPayment.description}
-          onChange={(e) =>
-            setNewPayment({ ...newPayment, description: e.target.value })
-          }
-          placeholder="e.g., Monthly Rent - March 2026"
-          className="mt-1 h-8 sm:h-10 text-xs sm:text-sm"
-        />
-      </div>
+      {/* Bed Assignment Table - Shows current accommodation */}
+      {/* Bed Assignment Table - Shows current accommodation */}
+{tenant && (
+  <div className="bg-white rounded-lg border border-slate-200 mb-4 overflow-hidden">
+    <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
+      <h4 className="text-xs font-semibold text-slate-700 flex items-center gap-2">
+        <Bed className="h-3.5 w-3.5" />
+        Your Accommodation Details
+      </h4>
+    </div>
+    <div className="p-4">
+      <table className="w-full text-sm">
+        <thead className="bg-slate-50">
+          <tr>
+            <th className="text-left p-2 text-xs font-medium text-slate-600">Property</th>
+            <th className="text-left p-2 text-xs font-medium text-slate-600">Room</th>
+            <th className="text-left p-2 text-xs font-medium text-slate-600">Bed #</th>
+            <th className="text-left p-2 text-xs font-medium text-slate-600">Bed Type</th>
+            <th className="text-left p-2 text-xs font-medium text-slate-600">Monthly Rent</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr className="border-t border-slate-200">
+            <td className="p-2 text-sm">{tenant?.property_name || 'Roomac Heights'}</td>
+            <td className="p-2 text-sm">Room {tenant?.room_number || 'N/A'}</td>
+            <td className="p-2 text-sm font-medium">#{tenant?.bed_number || 'N/A'}</td>
+            <td className="p-2 text-sm capitalize">{tenant?.bed_type || 'Standard'}</td>
+            <td className="p-2 text-sm font-semibold text-green-600">
+              ₹{Number(tenant?.tenant_rent || tenant?.monthly_rent || stats.monthlyRent).toLocaleString()}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+)}
 
-      <div>
-        <Label className="text-[11px] sm:text-sm font-medium">
-          Payment Method
-        </Label>
-        <Select
-          value={newPayment.payment_method}
-          onValueChange={(v) =>
-            setNewPayment({ ...newPayment, payment_method: v })
-          }
-        >
-          <SelectTrigger className="mt-1 h-8 sm:h-10 text-xs sm:text-sm">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="card">Credit/Debit Card</SelectItem>
-            <SelectItem value="upi">UPI</SelectItem>
-            <SelectItem value="netbanking">Net Banking</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
 
-      <div className="p-2 sm:p-3 bg-blue-50 border border-blue-200 rounded-lg">
-        <p className="text-[10px] sm:text-xs text-blue-800">
-          <span className="font-medium">Note:</span> A late fee of ₹100 per day will be charged after the due date.
+      {/* Rent Summary Table - Shows payment history */}
+      {paymentFormData && paymentFormData.month_wise_history && paymentFormData.month_wise_history.length > 0 && (
+        <div className="bg-white rounded-lg border border-slate-200 mb-4 overflow-hidden">
+          <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
+            <h4 className="text-xs font-semibold text-slate-700 flex items-center gap-2">
+              <IndianRupee className="h-3.5 w-3.5" />
+              Your Payment History
+            </h4>
+          </div>
+          <div className="p-4 max-h-[200px] overflow-y-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 sticky top-0">
+                <tr>
+                  <th className="text-left p-2 text-xs font-medium text-slate-600">Month</th>
+                  <th className="text-right p-2 text-xs font-medium text-slate-600">Rent</th>
+                  <th className="text-right p-2 text-xs font-medium text-slate-600">Paid</th>
+                  <th className="text-right p-2 text-xs font-medium text-slate-600">Pending</th>
+                  <th className="text-center p-2 text-xs font-medium text-slate-600">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paymentFormData.month_wise_history.slice(-6).map((month: any, index: number) => (
+                  <tr key={index} className={`border-t border-slate-200 ${month.isCurrentMonth ? 'bg-blue-50' : ''}`}>
+                    <td className="p-2 text-sm">
+                      {month.month} {month.year}
+                      {month.isCurrentMonth && (
+                        <span className="ml-2 text-xs text-blue-600 font-medium">(Current)</span>
+                      )}
+                    </td>
+                    <td className="p-2 text-right">₹{month.rent?.toLocaleString() || '0'}</td>
+                    <td className="p-2 text-right text-green-600">₹{month.paid?.toLocaleString() || '0'}</td>
+                    <td className="p-2 text-right text-amber-600 font-medium">
+                      ₹{month.pending?.toLocaleString() || month.rent?.toLocaleString()}
+                    </td>
+                    <td className="p-2 text-center">
+                      <Badge className={
+                        month.status === 'paid' ? 'bg-green-100 text-green-800' :
+                        month.status === 'partial' ? 'bg-blue-100 text-blue-800' :
+                        month.status === 'overdue' ? 'bg-red-100 text-red-800' :
+                        'bg-slate-100 text-slate-800'
+                      }>
+                        {month.status || 'pending'}
+                      </Badge>
+                    </td>
+                  </tr>
+                ))}
+                {/* Total Row */}
+                <tr className="border-t-2 border-slate-300 bg-slate-50">
+                  <td className="p-2 text-sm font-bold" colSpan={2}>Total Outstanding</td>
+                  <td className="p-2 text-right font-bold text-green-600">
+                    ₹{paymentFormData.total_paid?.toLocaleString() || '0'}
+                  </td>
+                  <td className="p-2 text-right font-bold text-amber-600">
+                    ₹{paymentFormData.total_pending?.toLocaleString() || '0'}
+                  </td>
+                  <td className="p-2 text-center">
+                    <Badge className="bg-purple-100 text-purple-800">
+                      Due: ₹{paymentFormData.total_pending?.toLocaleString() || '0'}
+                    </Badge>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Security Deposit Info - Show when payment type is security_deposit */}
+{newPayment.payment_type === 'security_deposit' && securityDepositInfo && (
+  <div className="bg-white rounded-lg border border-slate-200 mb-4 overflow-hidden">
+    <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
+      <h4 className="text-xs font-semibold text-slate-700 flex items-center gap-2">
+        <IndianRupee className="h-3.5 w-3.5" />
+        Security Deposit Information
+      </h4>
+    </div>
+    <div className="p-4">
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <p className="text-xs text-slate-500">Property</p>
+          <p className="text-sm font-medium">{securityDepositInfo.property_name}</p>
+        </div>
+        <div>
+          <p className="text-xs text-slate-500">Total Security Deposit</p>
+          <p className="text-sm font-bold text-blue-600">₹{securityDepositInfo.security_deposit.toLocaleString()}</p>
+        </div>
+        <div>
+          <p className="text-xs text-slate-500">Already Paid</p>
+          <p className="text-sm font-medium text-green-600">₹{securityDepositInfo.paid_amount.toLocaleString()}</p>
+        </div>
+        <div>
+          <p className="text-xs text-slate-500">Pending Amount</p>
+          <p className="text-sm font-bold text-amber-600">₹{securityDepositInfo.pending_amount.toLocaleString()}</p>
+        </div>
+      </div>
+      
+      {/* Progress Bar */}
+      <div className="mt-3">
+        <div className="flex justify-between text-xs text-slate-500 mb-1">
+          <span>Payment Progress</span>
+          <span>{Math.round((securityDepositInfo.paid_amount / securityDepositInfo.security_deposit) * 100)}%</span>
+        </div>
+        <div className="w-full bg-slate-200 rounded-full h-2">
+          <div 
+            className="bg-blue-600 rounded-full h-2 transition-all duration-500"
+            style={{ width: `${(securityDepositInfo.paid_amount / securityDepositInfo.security_deposit) * 100}%` }}
+          />
+        </div>
+      </div>
+      
+      {securityDepositInfo.is_fully_paid && (
+        <div className="mt-3 p-2 bg-green-50 border border-green-200 rounded-lg">
+          <p className="text-xs text-green-700 text-center flex items-center justify-center gap-1">
+            <span>✅</span> Security deposit is fully paid!
+          </p>
+        </div>
+      )}
+      
+      {securityDepositInfo.last_payment_date && (
+        <p className="text-xs text-slate-400 mt-2">
+          Last payment: {new Date(securityDepositInfo.last_payment_date).toLocaleDateString('en-IN', {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric'
+          })}
         </p>
+      )}
+    </div>
+  </div>
+)}
+
+
+      {/* Payment Details Grid - EXACT same as admin */}
+      <div className="grid grid-cols-4 gap-3 mb-4">
+        {/* Amount Field */}
+        <div className="space-y-1.5">
+          <Label className="text-xs font-medium text-slate-700">Amount (₹) *</Label>
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">₹</span>
+            <Input
+              type="number"
+              placeholder="0.00"
+              value={newPayment.amount}
+              onChange={(e) => setNewPayment({ ...newPayment, amount: e.target.value })}
+              className="pl-8 h-10"
+            />
+          </div>
+        </div>
+
+        {/* Month Selection Field - Only show for rent */}
+{newPayment.payment_type === 'rent' && (
+  <div className="space-y-1.5">
+    <Label className="text-xs font-medium text-slate-700">Pay For Month</Label>
+    <Select 
+      value={selectedPaymentMonth} 
+      onValueChange={(value) => {
+        setSelectedPaymentMonth(value);
+        // Auto-fill amount with pending amount if month selected
+        if (value && value !== 'current' && paymentFormData?.unpaid_months) {
+          const selectedMonth = paymentFormData.unpaid_months.find((m: any) => m.month_key === value);
+          if (selectedMonth) {
+            setNewPayment(prev => ({
+              ...prev,
+              amount: selectedMonth.pending.toString()
+            }));
+            toast.success(`Amount set to ₹${selectedMonth.pending.toLocaleString()} for ${selectedMonth.month} ${selectedMonth.year}`);
+          }
+        } else if (value === 'current') {
+          // For current month, set to monthly rent amount
+          const monthlyRent = Number(tenant?.tenant_rent || tenant?.monthly_rent || stats.monthlyRent);
+          setNewPayment(prev => ({
+            ...prev,
+            amount: monthlyRent.toString()
+          }));
+        }
+      }}
+    >
+      <SelectTrigger className="h-10 bg-white border-slate-200">
+        <SelectValue placeholder="Select month..." />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="current">Current Month</SelectItem>
+        {paymentFormData?.unpaid_months?.map((month: any) => (
+          <SelectItem key={month.month_key} value={month.month_key}>
+            <div className="flex items-center justify-between w-full">
+              <span>{month.month} {month.year}</span>
+              <span className="ml-4 text-xs text-amber-600 font-medium">
+                ₹{month.pending.toLocaleString()}
+              </span>
+            </div>
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+    {paymentFormData?.unpaid_months?.length === 0 && (
+      <p className="text-xs text-green-600 mt-1">All months paid! 🎉</p>
+    )}
+  </div>
+)}
+
+        {/* Payment Mode Field */}
+        <div className="space-y-1.5">
+          <Label className="text-xs font-medium text-slate-700">Payment Mode *</Label>
+          <Select
+            value={newPayment.payment_mode || 'cash'}
+            onValueChange={(value) => setNewPayment({ ...newPayment, payment_mode: value, bank_name: '' })}
+          >
+            <SelectTrigger className="h-10">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="cash">💵 Cash</SelectItem>
+              <SelectItem value="online">🌐 Online</SelectItem>
+              <SelectItem value="bank_transfer">🏦 Bank Transfer</SelectItem>
+              <SelectItem value="cheque">📝 Cheque</SelectItem>
+              <SelectItem value="card">💳 Card</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Transaction Date Field */}
+        <div className="space-y-1.5">
+          <Label className="text-xs font-medium text-slate-700">Transaction Date</Label>
+          <Input
+            type="date"
+            value={newPayment.payment_date || new Date().toISOString().split('T')[0]}
+            onChange={(e) => setNewPayment({ ...newPayment, payment_date: e.target.value })}
+            className="h-10"
+          />
+        </div>
       </div>
 
-      <Button
-        onClick={handleSubmitPayment}
-        className="w-full bg-[#0149ab] hover:bg-[#0149ab]/90 h-9 sm:h-11 text-xs sm:text-sm"
-      >
-        Proceed to Payment
-      </Button>
+      {/* Conditional Fields Row - Bank details if needed */}
+      <div className="grid grid-cols-3 gap-3 mb-4">
+        {(newPayment.payment_mode === 'bank_transfer' || newPayment.payment_mode === 'online') && (
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium text-slate-700">Bank Name</Label>
+            <Input
+              placeholder="Enter bank name"
+              value={newPayment.bank_name || ''}
+              onChange={(e) => setNewPayment({ ...newPayment, bank_name: e.target.value })}
+              className="h-10"
+            />
+          </div>
+        )}
 
+        {(newPayment.payment_mode === 'online' || newPayment.payment_mode === 'bank_transfer' || newPayment.payment_mode === 'cheque') && (
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium text-slate-700">Transaction ID</Label>
+            <Input
+              placeholder="Optional"
+              value={newPayment.transaction_id || ''}
+              onChange={(e) => setNewPayment({ ...newPayment, transaction_id: e.target.value })}
+              className="h-10"
+            />
+          </div>
+        )}
+
+        {/* Remark Field */}
+        <div className="space-y-1.5">
+          <Label className="text-xs font-medium text-slate-700">Remark</Label>
+          <Input
+            placeholder="Add notes"
+            value={newPayment.remark || ''}
+            onChange={(e) => setNewPayment({ ...newPayment, remark: e.target.value })}
+            className="h-10"
+          />
+        </div>
+      </div>
+
+      {/* Footer */}
+      <DialogFooter className="px-6 py-4 bg-slate-50 border-t border-slate-200 rounded-b-lg sticky bottom-0 -mx-6 -mb-6">
+        <div className="flex justify-end gap-3 w-full">
+          <Button
+            variant="outline"
+            onClick={() => {
+              setShowPaymentDialog(false);
+              setNewPayment({
+                amount: '',
+                payment_type: 'rent',
+                payment_mode: 'cash',
+                bank_name: '',
+                transaction_id: '',
+                payment_date: new Date().toISOString().split('T')[0],
+                remark: ''
+              });
+              setSelectedPaymentMonth('');
+            }}
+            className="px-6"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSubmitPayment}
+            disabled={!newPayment.amount}
+            className="px-6 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Make Payment
+          </Button>
+        </div>
+      </DialogFooter>
     </div>
   </DialogContent>
 </Dialog>

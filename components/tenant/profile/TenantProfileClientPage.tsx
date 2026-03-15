@@ -1,4 +1,4 @@
-
+// components/tenant/profile/TenantProfileClientPage.tsx 
 "use client";
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { toast } from "sonner";
@@ -496,8 +496,8 @@ useEffect(() => {
 
             <TabsContent value="payments" className="mt-0">
               <PaymentsTab
-                profile={profile}
-                paymentSummary={paymentSummary}
+                tenantId={profile.id} 
+                // paymentSummary={paymentSummary}
                 isMobile={isMobile}
               />
             </TabsContent>
