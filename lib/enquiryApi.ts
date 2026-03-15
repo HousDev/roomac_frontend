@@ -242,18 +242,31 @@ export const getTodayVisits = async (): Promise<{ success: boolean; data: Visit[
 };
 
 
-// lib/enquiryApi.ts - Add this function
-
-// lib/enquiryApi.ts - Add this function
-
-// Convert enquiry to tenant
-export const convertEnquiryToTenant = async (enquiryId: string): Promise<{ success: boolean; message: string; tenant_id?: number }> => {
+export const convertEnquiryToTenant = async (
+  enquiryId: string, 
+  options?: { action?: 'create_new' | 'update_existing'; tenantId?: number }
+): Promise<{ 
+  success: boolean; 
+  message: string; 
+  tenant_id?: number;
+  requiresAction?: boolean;
+  existingTenants?: Array<{
+    id: number;
+    full_name: string;
+    email: string;
+    phone: string;
+    is_deleted: boolean;
+  }>;
+  enquiry?: any;
+}> => {
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+  
   const response = await fetch(`${apiUrl}/api/enquiries/${enquiryId}/convert-to-tenant`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
+    body: options ? JSON.stringify(options) : undefined,
     credentials: 'include',
   });
   
