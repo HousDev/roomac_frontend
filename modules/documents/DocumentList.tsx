@@ -1371,7 +1371,7 @@ import {
   listDocuments, getDocument, deleteDocument, updateDocumentStatus,
   bulkDeleteDocuments, generateShareLink,
   type Document as Doc, type DocumentStatus,
-} from "@/lib/documentListApi";
+} from "@/lib/documentlistApi";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
