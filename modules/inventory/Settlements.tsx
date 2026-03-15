@@ -7,6 +7,7 @@ import {
   Eye, Check, ChevronLeft, ChevronRight, Square, CheckSquare,
   Building, ShieldCheck, IndianRupee, Receipt, Banknote, AlertTriangle,
   CreditCard, User,
+  Edit,
 } from 'lucide-react';
 import { Button }   from "@/components/ui/button";
 import { Input }    from "@/components/ui/input";
@@ -404,7 +405,7 @@ const [handoverSearchTerm, setHandoverSearchTerm] = useState('');
                         </button>
                         <button onClick={() => openEdit(s)} title="Edit"
                           className="h-6 w-6 flex items-center justify-center rounded hover:bg-amber-100 text-gray-400 hover:text-amber-600 transition-colors">
-                          <CreditCard className="h-3.5 w-3.5"/>
+                          <Edit className="h-3.5 w-3.5"/>
                         </button>
                         <button onClick={() => handleDelete(s.id, s.tenant_name)} title="Delete"
                           className="h-6 w-6 flex items-center justify-center rounded hover:bg-red-100 text-gray-400 hover:text-red-600 transition-colors">
