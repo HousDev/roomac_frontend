@@ -332,3 +332,23 @@ export const updateVisitStatus = async (visitId: string, status: Visit['status']
   
   return response.json();
 };
+
+// Bulk delete enquiries
+export const bulkDeleteEnquiries = async (ids: string[]): Promise<{ success: boolean; message: string; affectedRows: number }> => {
+  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+  const response = await fetch(`${apiUrl}/api/enquiries/bulk-delete`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ ids }),
+    credentials: 'include',
+  });
+  
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Failed to delete enquiries');
+  }
+  
+  return response.json();
+};

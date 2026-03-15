@@ -1,3 +1,4 @@
+// app/tenant/profile/page.tsx
 import { Suspense, useEffect, useState } from 'react';
 import { Metadata } from 'next';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';

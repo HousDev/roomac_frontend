@@ -430,6 +430,21 @@ export type MonthRent = {
   }[];
 };
 
+export interface SecurityDepositInfo {
+  property_name: string;
+  security_deposit: number;
+  paid_amount: number;
+  pending_amount: number;
+  is_fully_paid: boolean;
+  last_payment_date: string | null;
+  payments: Array<{
+    id: number;
+    amount: number;
+    payment_date: string;
+    status: string;
+  }>;
+}
+
 export type TenantRentSummary = {
   tenant: {
     id: number;
@@ -859,4 +874,20 @@ export async function deletePayment(id: number): Promise<any> {
     console.error('Error deleting payment:', error);
     throw error;
   }
+}
+
+export async function getSecurityDepositInfo(tenantId: number): Promise<{ success: boolean; data: SecurityDepositInfo }> {
+  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+  const response = await fetch(`${apiUrl}/api/payments/tenant/${tenantId}/security-deposit`, {
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+  });
+  
+  if (!response.ok) {
+    throw new Error('Failed to fetch security deposit info');
+  }
+  
+  return response.json();
 }
