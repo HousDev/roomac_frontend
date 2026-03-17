@@ -83,6 +83,7 @@ import { TemplateManager } from "@/modules/documents/TemplateManager";
 import { DocumentCreate } from "@/modules/documents/DocumentCreate";
 import { DocumentList } from "@/modules/documents/DocumentList";
 import RequestsPage from "@/app/admin/requests/page";
+import NoticePeriodRequestsPage from "@/app/admin/notice-period-requests/page";
 
 
 function App() {
@@ -175,6 +176,7 @@ console.log(user)
             <Route path="vacate-requests" element={<AdminVacateRequestsPage />} />
             <Route path="change-bed-requests" element={<AdminChangeBedRequestsPage />} />
             <Route path="account-deletion-requests" element={<AdminAccountDeletionPage />} />
+            <Route path="notice-period-requests" element={<NoticePeriodRequestsPage />} />
           </Route>
 
         </Route>

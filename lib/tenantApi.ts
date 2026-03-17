@@ -35,6 +35,8 @@ export type Tenant = {
   id_proof_url?: string;
   address_proof_url?: string;
   photo_url?: string;
+    aadhar_number?: string; // NEW FIELD
+  pan_number?: string;   
   is_active?: boolean;
   portal_access_enabled?: boolean;
   // NEW FIELDS

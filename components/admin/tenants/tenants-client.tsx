@@ -1597,7 +1597,7 @@ const columns: Column<Tenant>[] = useMemo(() => [    {
           <img src={tenant.photo_url} alt="" className="w-7 h-7 rounded-full object-cover flex-shrink-0 ring-1 ring-gray-200" />
         ) : (
           <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center flex-shrink-0">
-            <span className="text-white font-semibold text-[10px]">
+            <span className="text-white font-semibold text-[10px] ">
               {tenant.full_name
                 ?.split(" ")
                 .map(n => n[0])
@@ -1609,9 +1609,9 @@ const columns: Column<Tenant>[] = useMemo(() => [    {
         )}
      </div>
      <div className="min-w-0">
-        <div className="font-medium text-xs text-gray-900 truncate leading-tight">
-          <span className="text-gray-500 mr-1">{tenant.salutation || ''}</span>
-          {tenant.full_name}
+        <div className="font-medium text-xs text-gray-900 truncate leading-tight ">
+          <span className="text-gray-500 mr-1">{(tenant.salutation || '').toUpperCase()}</span>
+          {(tenant.full_name || "").toUpperCase()}
         </div>
         <div className="text-[10px] text-gray-400 capitalize leading-tight">{tenant.gender?.toLowerCase() || 'N/A'}</div>
         <div className="text-[9px] text-blue-600 font-semibold">TID-{tenant.id}</div>

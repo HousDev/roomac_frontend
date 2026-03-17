@@ -51,7 +51,8 @@ import {
   getVacateReasonsFromMasters,
 } from "@/lib/tenantRequestsApi";
 
-import { getTenantToken } from "@/lib/tenantAuthApi";
+import { getTenantId, getTenantToken } from "@/lib/tenantAuthApi";
+import * as paymentApi from '@/lib/paymentRecordApi';
 
 // Main component - handles all authentication and data loading
 export default function TenantRequestsClient() {
@@ -106,6 +107,11 @@ const [visitTimes, setVisitTimes] = useState<any[]>([]);
   const [lockinInfo, setLockinInfo] = useState<any>(null);
   const [noticeInfo, setNoticeInfo] = useState<any>(null);
   const [secondaryReasonsInput, setSecondaryReasonsInput] = useState('');
+
+ // Add these with your other useState declarations
+const [paymentFormData, setPaymentFormData] = useState<any>(null);
+const [securityDepositInfo, setSecurityDepositInfo] = useState<any>(null);
+const [selectedReceiptMonth, setSelectedReceiptMonth] = useState('');
 
   // Cleanup on unmount
   useEffect(() => {
@@ -392,6 +398,43 @@ const requestCounts = useMemo(() => {
   return counts;
 }, [requests]);
 
+// Update fetchPaymentFormData function
+const fetchPaymentFormData = useCallback(async () => {
+  // Get tenant_id from somewhere - you have it in the URL or from auth
+  // Since you're using tenantAuth, you might need to get it from token
+  const token = getTenantToken();
+  const tenantId = getTenantId(); // Add this import from tenantAuthApi
+  
+  if (!tenantId) return;
+  
+  try {
+    const response = await paymentApi.getTenantPaymentFormData(parseInt(tenantId));
+    if (response.success) {
+      setPaymentFormData(response.data);
+    }
+  } catch (error) {
+    console.error('Error fetching payment form data:', error);
+  }
+}, []);
+
+// Update fetchSecurityDepositInfo function
+const fetchSecurityDepositInfo = useCallback(async () => {
+  const token = getTenantToken();
+  const tenantId = getTenantId();
+  
+  if (!tenantId) return;
+  
+  try {
+    const response = await paymentApi.getSecurityDepositInfo(parseInt(tenantId));
+    if (response.success) {
+      setSecurityDepositInfo(response.data);
+    }
+  } catch (error) {
+    console.error('Error fetching security deposit info:', error);
+  }
+}, []);
+
+
   // Event handlers
   const handleQuickRequest = useCallback((type: string) => {
     const typeTitles: Record<string, string> = {
@@ -420,8 +463,14 @@ const requestCounts = useMemo(() => {
       setSelectedBedNumber(null);
     }
 
+    if (type === 'receipt') {
+    // Fetch payment data for receipt
+    fetchPaymentFormData();
+    fetchSecurityDepositInfo();
+    setSelectedReceiptMonth('');
+  }
     setIsDialogOpen(true);
-  }, []);
+  }, [fetchPaymentFormData, fetchSecurityDepositInfo]);
 
   const handlePropertySelect = useCallback(async (propertyId: number) => {
     setSelectedPropertyId(propertyId);
@@ -681,6 +730,8 @@ const requestCounts = useMemo(() => {
         formData.leaveData!.total_days = totalDays;
       }
 
+
+
       if (formData.request_type === 'maintenance') {
         if (!formData.maintenanceData?.issue_category) {
           toast.error('Please select an issue category');
@@ -762,6 +813,27 @@ const requestCounts = useMemo(() => {
           keys_submitted: formData.leaveData.keys_submitted || false
         };
       }
+
+      if (formData.request_type === 'receipt') {
+  if (!formData.receiptData?.receipt_type) {
+    toast.error('Please select a receipt type');
+    return;
+  }
+  
+  if (formData.receiptData.receipt_type === 'rent' && !formData.receiptData.month_key) {
+    toast.error('Please select a month for the rent receipt');
+    return;
+  }
+  
+  requestData.receipt_data = {
+    receipt_type: formData.receiptData.receipt_type,
+    month: formData.receiptData.month,
+    year: formData.receiptData.year,
+    month_key: formData.receiptData.month_key,
+    amount: formData.receiptData.amount,
+    include_all_deposit: formData.receiptData.include_all_deposit || false
+  };
+}
 
       if (formData.request_type === 'maintenance' && formData.maintenanceData) {
         requestData.maintenance_data = {
@@ -938,6 +1010,10 @@ const requestCounts = useMemo(() => {
           setSelectedComplaintCategory(null);
           setComplaintReasons([]);
           setShowCustomReason(false);
+          // Reset receipt data
+    setPaymentFormData(null);
+    setSecurityDepositInfo(null);
+    setSelectedReceiptMonth('');
         }
       }}>
         <DialogContent className="max-w-3xl w-[98vw] p-0 max-h-[95vh] overflow-hidden rounded-2xl">
@@ -1426,7 +1502,124 @@ const requestCounts = useMemo(() => {
                 </div>
               )}
 
-              {/* Conditional rendering for Maintenance Request */}
+
+              {/* Conditional rendering for Receipt Request */}
+{/* Conditional rendering for Receipt Request */}
+{formData.request_type === 'receipt' && (
+  <div className="border-t border-gray-200 pt-3 space-y-3">
+    <h3 className="font-semibold text-base">Receipt Request Details</h3>
+    
+    {/* Receipt Type Selection */}
+    <div className="space-y-2">
+      <Label htmlFor="receipt_type" className="text-sm font-medium">Receipt Type *</Label>
+      <Select
+        value={formData.receiptData?.receipt_type || ''}
+        onValueChange={(value) => {
+          setFormData({
+            ...formData,
+            receiptData: {
+              ...(formData.receiptData || {}),
+              receipt_type: value
+            }
+          });
+          setSelectedReceiptMonth('');
+        }}
+      >
+        <SelectTrigger className="h-10">
+          <SelectValue placeholder="Select receipt type" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="rent">Rent Receipt</SelectItem>
+          <SelectItem value="security_deposit">Security Deposit Receipt</SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+
+    {/* Rent Receipt Fields */}
+    {formData.receiptData?.receipt_type === 'rent' && (
+      <>
+        <div className="space-y-2">
+          <Label htmlFor="month" className="text-sm font-medium">Select Month *</Label>
+          <Select 
+            value={selectedReceiptMonth} 
+            onValueChange={(value) => {
+              setSelectedReceiptMonth(value);
+              
+              if (value && paymentFormData?.unpaid_months) {
+                const selectedMonth = paymentFormData.unpaid_months.find((m: any) => m.month_key === value);
+                if (selectedMonth) {
+                  setFormData({
+                    ...formData,
+                    receiptData: {
+                      ...(formData.receiptData || {}),
+                      receipt_type: 'rent',
+                      month: selectedMonth.month,
+                      year: selectedMonth.year,
+                      month_key: selectedMonth.month_key,
+                      amount: selectedMonth.pending
+                    }
+                  });
+                }
+              }
+            }}
+          >
+            <SelectTrigger className="h-10">
+              <SelectValue placeholder="Select month..." />
+            </SelectTrigger>
+            <SelectContent>
+              {paymentFormData?.unpaid_months?.map((month: any) => (
+                <SelectItem key={month.month_key} value={month.month_key}>
+                  <div className="flex items-center justify-between w-full">
+                    <span>{month.month} {month.year}</span>
+                    <span className="ml-4 text-xs text-amber-600 font-medium">
+                      ₹{month.pending.toLocaleString()}
+                    </span>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {paymentFormData?.unpaid_months?.length === 0 && (
+            <p className="text-xs text-green-600 mt-1">All months paid! 🎉</p>
+          )}
+        </div>
+      </>
+    )}
+
+    {/* Security Deposit Receipt Fields */}
+    {formData.receiptData?.receipt_type === 'security_deposit' && (
+      <>
+        {securityDepositInfo ? (
+          <div className="space-y-3">
+            <div className="bg-purple-50 p-3 rounded-lg border border-purple-200">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p className="text-xs text-purple-600">Total Deposit</p>
+                  <p className="text-lg font-bold text-purple-700">
+                    ₹{securityDepositInfo.security_deposit.toLocaleString()}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-purple-600">Paid Amount</p>
+                  <p className="text-lg font-bold text-green-600">
+                    ₹{securityDepositInfo.paid_amount.toLocaleString()}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
+            <p className="text-sm text-yellow-700">
+              No security deposit information found.
+            </p>
+          </div>
+        )}
+      </>
+    )}
+  </div>
+)}
+
               {/* Conditional rendering for Maintenance Request - UPDATED with masters */}
 {formData.request_type === 'maintenance' && (
   <div className="space-y-4 p-4 border border-gray-200 rounded-lg">

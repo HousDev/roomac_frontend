@@ -29,6 +29,8 @@
 // }
 
 
+
+// components/tenant/tenant-requests/QuickRequestCards.tsx
 import { Card, CardContent } from '@/components/ui/card';
 import { QUICK_REQUESTS } from './requestConfig';
 
@@ -38,7 +40,7 @@ interface QuickRequestCardsProps {
 
 export function QuickRequestCards({ onQuickRequest }: QuickRequestCardsProps) {
   return (
-<div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-1.5 sm:gap-4 mb-3 sm:mb-8">      {QUICK_REQUESTS.map((item) => {
+<div className="grid grid-cols-5 md:grid-cols-4 lg:grid-cols-5 gap-1.5 sm:gap-4 mb-3 sm:mb-8">      {QUICK_REQUESTS.map((item) => {
         const Icon = item.icon;
         return (
           <Card
