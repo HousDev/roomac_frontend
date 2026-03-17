@@ -8,7 +8,8 @@ import {
   Move,
   Bed,
   Home,
-  Check
+  Check,
+  Receipt // Add Receipt icon
 } from 'lucide-react';
 import { 
   REQUEST_TYPE_ICONS, 
@@ -19,7 +20,7 @@ import { getDisplayStatus, getStatusConfig } from './requestStatusMapper';
 
 interface RequestCardProps {
   request: TenantRequest;
-  vacateReasons?: any[]; // Add this
+  vacateReasons?: any[];
 }
 
 export function RequestCard({ request }: RequestCardProps) {
@@ -32,7 +33,7 @@ export function RequestCard({ request }: RequestCardProps) {
 
   return (
     <Card key={request.id} className="overflow-hidden">
-     <CardContent className="p-2 md:p-2">
+      <CardContent className="p-2 md:p-2">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 md:gap-4">
           <div className="flex-1">
             <div className="flex flex-wrap items-center gap-1.5 md:gap-3 mb-1.5 md:mb-2">
@@ -52,8 +53,8 @@ export function RequestCard({ request }: RequestCardProps) {
               </div>
             </div>
             
-<p className="text-gray-600 text-xs md:text-sm mb-2 md:mb-4 line-clamp-2 md:line-clamp-none">{request.description}</p>            
-           <div className="flex flex-wrap items-center gap-2 md:gap-4 text-xs md:text-sm text-gray-500">
+            <p className="text-gray-600 text-xs md:text-sm mb-2 md:mb-4 line-clamp-2 md:line-clamp-none">{request.description}</p>            
+            <div className="flex flex-wrap items-center gap-2 md:gap-4 text-xs md:text-sm text-gray-500">
               <div className="flex items-center gap-1">
                 <Calendar className="h-3 w-3 md:h-4 md:w-4" />
                 <span>Created: {format(new Date(request.created_at), 'dd MMM yyyy')}</span>
@@ -86,6 +87,18 @@ export function RequestCard({ request }: RequestCardProps) {
                   )}
                 </div>
               )}
+
+              {request.request_type === 'receipt' && request.receipt_data && (
+                <div className="flex items-center gap-1">
+                  <Receipt className="h-4 w-4" />
+                  <span>Receipt Request</span>
+                  {request.receipt_data.receipt_type === 'rent' && request.receipt_data.month && (
+                    <span className="ml-2">
+                      ({request.receipt_data.month} {request.receipt_data.year})
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
             
             {/* Render specific details based on request type */}
@@ -109,12 +122,76 @@ function renderRequestDetails(request: TenantRequest) {
       return <MaintenanceRequestDetails request={request} />;
     case 'complaint':
       return <ComplaintRequestDetails request={request} />;
+    case 'receipt':
+      return <ReceiptRequestDetails request={request} />;
     default:
       return null;
   }
 }
 
-// In your VacateRequestDetails component
+// Add this new component for receipt details
+function ReceiptRequestDetails({ request }: { request: TenantRequest }) {
+  if (!request.receipt_data) return null;
+
+  return (
+    <div className="mt-2 md:mt-4 p-2 md:p-3 bg-blue-50 rounded-lg border border-blue-200">
+      <h4 className="font-medium text-xs md:text-sm mb-1.5 md:mb-2 text-blue-800">Receipt Details:</h4>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5 md:gap-3 text-xs md:text-sm">
+        <div>
+          <span className="font-medium text-blue-700">Receipt Type: </span>
+          <span className="capitalize">
+            {request.receipt_data.receipt_type === 'rent' ? 'Rent Receipt' : 'Security Deposit Receipt'}
+          </span>
+        </div>
+        
+        {request.receipt_data.receipt_type === 'rent' && (
+          <>
+            <div>
+              <span className="font-medium text-blue-700">Month: </span>
+              <span>{request.receipt_data.month} {request.receipt_data.year}</span>
+            </div>
+            {request.receipt_data.amount && (
+              <div>
+                <span className="font-medium text-blue-700">Amount: </span>
+                <span>₹{Number(request.receipt_data.amount).toLocaleString()}</span>
+              </div>
+            )}
+          </>
+        )}
+
+        {request.receipt_data.receipt_type === 'security_deposit' && (
+          <div className="col-span-2">
+            <p className="text-sm text-gray-600">Security deposit receipt requested</p>
+          </div>
+        )}
+
+        {request.receipt_data.status && (
+          <div>
+            <span className="font-medium text-blue-700">Receipt Status: </span>
+            <Badge variant="outline" className="ml-1 capitalize">
+              {request.receipt_data.status}
+            </Badge>
+          </div>
+        )}
+
+        {request.receipt_data.receipt_url && (
+          <div className="col-span-2 mt-2">
+            <a 
+              href={request.receipt_data.receipt_url} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:underline text-sm flex items-center gap-1"
+            >
+              <Receipt className="h-4 w-4" />
+              View Receipt
+            </a>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function VacateRequestDetails({ 
   request, 
 }: { 

@@ -1,15 +1,10 @@
-
-
-
-
 // components/admin/admin-header.tsx
 "use client";
 
-import { Bell, LogOut, User, Home, Settings, Menu, X, Check, AlertCircle, Wrench, Calendar, Move, MessageSquare, Loader2, RefreshCw, ExternalLink } from 'lucide-react';
+import { Bell, LogOut, User, Home, Settings, Menu, X, Check, AlertCircle, Wrench, Calendar, Move, MessageSquare, Loader2, RefreshCw, ExternalLink, FileText, Mail, UserCog, DoorOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from "@/context/authContext";
-
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   DropdownMenu,
@@ -31,6 +26,7 @@ import {
   markNotificationAsRead,
   markAllAdminNotificationsAsRead
 } from '@/lib/notificationApi';
+import { getAllRequestCounts, type RequestCounts } from '@/lib/adminRequestCountsApi';
 
 interface AdminHeaderProps {
   title: string;
@@ -50,16 +46,24 @@ export function AdminHeader({
   const router = useRouter();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [requestCounts, setRequestCounts] = useState<RequestCounts>({
+    complaints: 0,
+    maintenance: 0,
+    receipts: 0,
+    vacate: 0,
+    change: 0,
+    deletion: 0,
+    notice: 0,
+    total: 0
+  });
   const [adminEmail, setAdminEmail] = useState('admin@roomac.com');
   const [profileImage, setProfileImage] = useState('');
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [notificationCount] = useState(0); // Added missing variable
   const { logout , user } = useAuth();
-  
 
-  // Add custom CSS for pulsing border animation - CLIENT-SIDE ONLY
+  // Add custom CSS for pulsing border animation
   useEffect(() => {
     if (typeof document !== 'undefined') {
       const style = document.createElement('style');
@@ -74,20 +78,20 @@ export function AdminHeader({
       `;
       document.head.appendChild(style);
 
-      // Cleanup on unmount
       return () => {
         document.head.removeChild(style);
       };
     }
   }, []);
 
-  // Load all data - useCallback to memoize function
+  // Load all data
   const loadAllData = useCallback(async () => {
     try {
       setLoading(true);
       await Promise.all([
         loadNotifications(),
-        loadUnreadCount()
+        loadUnreadCount(),
+        loadRequestCounts()
       ]);
     } catch (error) {
       console.error('Failed to load data:', error);
@@ -99,11 +103,10 @@ export function AdminHeader({
   // Load notifications
   const loadNotifications = useCallback(async () => {
     try {
-      const data = await getAdminNotifications(10); // Get 10 latest
+      const data = await getAdminNotifications(10);
       setNotifications(data);
     } catch (err: any) {
       console.error('Error loading notifications:', err);
-      toast.error('Failed to load notifications');
     }
   }, []);
 
@@ -117,17 +120,24 @@ export function AdminHeader({
     }
   }, []);
 
+  // Load request counts
+  const loadRequestCounts = useCallback(async () => {
+    try {
+      const counts = await getAllRequestCounts();
+      setRequestCounts(counts);
+    } catch (err: any) {
+      console.error('Error loading request counts:', err);
+    }
+  }, []);
+
   // Initial load and setup interval
   useEffect(() => {
-    // Initial load
     loadAllData();
 
-    // Set up polling for new notifications every 30 seconds
     const interval = setInterval(() => {
       loadAllData();
-    }, 30000); // 30 seconds
+    }, 30000);
 
-    // Cleanup interval on unmount
     return () => clearInterval(interval);
   }, [loadAllData]);
 
@@ -153,13 +163,11 @@ export function AdminHeader({
       const success = await markNotificationAsRead(id);
 
       if (success) {
-        // Update local state immediately
         setNotifications(prev => prev.map(notif =>
           notif.id === id ? { ...notif, is_read: true } : notif
         ));
         setUnreadCount(prev => Math.max(0, prev - 1));
 
-        // Reload unread count to ensure sync
         setTimeout(() => loadUnreadCount(), 500);
       }
     } catch (err: any) {
@@ -176,7 +184,6 @@ export function AdminHeader({
       const success = await markAllAdminNotificationsAsRead();
 
       if (success) {
-        // Update all notifications to read
         setNotifications(prev => prev.map(notif => ({ ...notif, is_read: true })));
         setUnreadCount(0);
         toast.success('All notifications marked as read');
@@ -187,20 +194,17 @@ export function AdminHeader({
     }
   };
 
-  // Handle notification click - ALWAYS redirects to /admin/notifications
+  // Handle notification click
   const handleNotificationClick = (notification: Notification) => {
-    // Mark as read if unread
     if (!notification.is_read) {
       handleMarkAsRead(notification.id);
     }
     
-    // Always redirect to /admin/notifications page
-    // Pass the notification ID as query parameter so the notifications page can highlight it if needed
     router.push(`/admin/notifications?highlight=${notification.id}`);
     setDropdownOpen(false);
   };
 
-  // Get notification icon (kept for UI display purposes)
+  // Get notification icon
   const getNotificationIcon = (notification: Notification) => {
     const type = notification.notification_type || notification.request_type;
 
@@ -264,20 +268,19 @@ export function AdminHeader({
     logout();
   };
 
-
   // Get admin initials
   const getInitials = () => {
-  const name = localStorage.getItem('auth_role') === "admin"
-    ? adminEmail.split('@')[0]
-    : user?.name || "";
+    const name = localStorage.getItem('auth_role') === "admin"
+      ? adminEmail.split('@')[0]
+      : user?.name || "";
 
-  return name
-    .split(" ")
-    .map(word => word[0])
-    .join("")
-    .substring(0, 2)
-    .toUpperCase();
-};
+    return name
+      .split(" ")
+      .map(word => word[0])
+      .join("")
+      .substring(0, 2)
+      .toUpperCase();
+  };
 
   // Load profile from localStorage
   useEffect(() => {
@@ -289,7 +292,9 @@ export function AdminHeader({
     }
   }, []);
 
-  
+  // Get total pending requests count
+  const totalPendingRequests = requestCounts.total;
+
   return (
     <header className={`
       bg-white border-b border-slate-200
@@ -302,7 +307,7 @@ export function AdminHeader({
         <div className="flex items-center justify-between w-full">
           {/* Left Side - Title Section */}
           <div className="flex items-center gap-3 md:gap-4 flex-1 min-w-0">
-            {/* Mobile Menu Toggle Button - Always show title next to it */}
+            {/* Mobile Menu Toggle Button */}
             {onSidebarToggle && (
               <div className="flex items-center gap-3 flex-shrink-0">
                 <Button
@@ -314,7 +319,7 @@ export function AdminHeader({
                   <Menu className="h-5 w-5" />
                 </Button>
 
-                {/* Show title on mobile ALWAYS */}
+                {/* Mobile Title */}
                 <div className="lg:hidden">
                   <h1 className="text-lg font-bold text-slate-900">
                     {title.length > 15 ? title.substring(0, 12) + '...' : title}
@@ -323,7 +328,7 @@ export function AdminHeader({
               </div>
             )}
 
-            {/* Desktop Title Section - Show full title on desktop */}
+            {/* Desktop Title */}
             <div className="hidden lg:block flex-1 min-w-0">
               <h1 className="text-2xl font-bold text-slate-900 truncate">
                 {title}
@@ -335,7 +340,7 @@ export function AdminHeader({
               )}
             </div>
 
-            {/* Mobile Subtitle - Show on mobile when sidebar is closed */}
+            {/* Mobile Subtitle */}
             <div className="lg:hidden ml-12">
               <h1 className="text-md font-bold text-slate-900">{title}</h1>
               {subtitle && (
@@ -346,7 +351,33 @@ export function AdminHeader({
 
           {/* Right Side - Action Buttons */}
           <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
-            {/* Visit Website Button - Desktop */}
+            {/* Pending Requests Badge
+            {totalPendingRequests > 0 && (
+              <Link href="/admin/requests">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="hidden md:flex items-center gap-2 px-3 py-2 bg-amber-50 border-amber-200 hover:bg-amber-100"
+                >
+                  <Bell className="h-4 w-4 text-amber-600" />
+                  <span className="text-amber-700 font-medium">{totalPendingRequests} Pending</span>
+                </Button>
+              </Link>
+            )} */}
+
+            {/* Mobile Pending Icon */}
+            {totalPendingRequests > 0 && (
+              <Link href="/admin/requests" className="md:hidden relative">
+                <Button variant="ghost" size="icon" className="h-9 w-9 bg-amber-50">
+                  <Bell className="h-5 w-5 text-amber-600" />
+                </Button>
+                <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs bg-amber-600 text-white">
+                  {totalPendingRequests > 9 ? '9+' : totalPendingRequests}
+                </Badge>
+              </Link>
+            )}
+
+            {/* Visit Website Button */}
             <Link href="/" target="_blank">
               <Button
                 variant="outline"
@@ -360,12 +391,8 @@ export function AdminHeader({
             </Link>
 
             {/* Mobile Visit Website Icon */}
-            <Link href="/" target="_blank">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="md:hidden h-9 w-9"
-              >
+            <Link href="/" target="_blank" className="md:hidden">
+              <Button variant="ghost" size="icon" className="h-9 w-9">
                 <Home className="h-5 w-5" />
               </Button>
             </Link>
@@ -376,8 +403,8 @@ export function AdminHeader({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="relative h-9 w-9 hover:bg-slate-100"
-                  onClick={() => !dropdownOpen && loadAllData()} // Refresh when opening
+                  className="relative h-9 w-9 hover:bg-slate-400"
+                  onClick={() => !dropdownOpen && loadAllData()}
                 >
                   <Bell className="h-5 w-5" />
                   {unreadCount > 0 && (
@@ -432,25 +459,15 @@ export function AdminHeader({
                   <div className="p-8 text-center">
                     <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-3" />
                     <p className="text-sm text-slate-500">Loading notifications...</p>
-                    <p className="text-xs text-slate-400 mt-1">Auto-refreshes every 30 seconds</p>
                   </div>
                 ) : notifications.length === 0 ? (
                   <div className="p-6 text-center">
                     <Bell className="h-12 w-12 text-slate-300 mx-auto mb-3" />
                     <p className="text-sm text-slate-500 font-medium">No notifications yet</p>
                     <p className="text-xs text-slate-400 mt-1">You're all caught up!</p>
-                    <div className="mt-4 space-y-2 text-xs text-slate-500">
-                      <p>Notifications will appear when:</p>
-                      <ul className="list-disc list-inside space-y-1">
-                        <li>Tenants submit requests</li>
-                        <li>New payments are made</li>
-                        <li>Maintenance requests are created</li>
-                      </ul>
-                    </div>
                   </div>
                 ) : (
                   <>
-                    {/* Notifications List */}
                     <div className="p-2 space-y-2 max-h-[60vh] overflow-y-auto">
                       {notifications.map((notification) => {
                         return (
@@ -463,17 +480,13 @@ export function AdminHeader({
                             onClick={() => handleNotificationClick(notification)}
                           >
                             <div className="flex items-start justify-between gap-2">
-                              {/* Left: Icon and Content */}
                               <div className="flex items-start gap-3 flex-1 min-w-0">
-                                {/* Icon */}
                                 <div className={`p-2 rounded-full flex-shrink-0 ${notification.is_read ? 'bg-slate-100' : 'bg-blue-100'
                                   }`}>
                                   {getNotificationIcon(notification)}
                                 </div>
 
-                                {/* Content */}
                                 <div className="flex-1 min-w-0">
-                                  {/* Header */}
                                   <div className="flex items-center gap-2 mb-1">
                                     <p className="text-sm font-medium truncate">
                                       {notification.title}
@@ -486,12 +499,10 @@ export function AdminHeader({
                                     </Badge>
                                   </div>
 
-                                  {/* Message */}
                                   <p className="text-sm text-slate-600 mb-2 line-clamp-2">
                                     {notification.message}
                                   </p>
 
-                                  {/* Metadata */}
                                   <div className="space-y-1">
                                     {notification.tenant_name && (
                                       <p className="text-xs text-slate-500">
@@ -511,7 +522,6 @@ export function AdminHeader({
                                       </p>
                                     )}
 
-                                    {/* Time */}
                                     <p className="text-xs text-slate-400 mt-2 flex items-center gap-1">
                                       <span>{formatTimeAgo(notification.created_at)}</span>
                                       {!notification.is_read && (
@@ -522,7 +532,6 @@ export function AdminHeader({
                                 </div>
                               </div>
 
-                              {/* Right: Actions */}
                               <div className="flex flex-col items-end gap-1 flex-shrink-0">
                                 {!notification.is_read && (
                                   <Button
@@ -541,7 +550,6 @@ export function AdminHeader({
                       })}
                     </div>
 
-                    {/* View All Link - Also redirects to /admin/notifications */}
                     <div className="p-2 border-t border-slate-200 bg-slate-50">
                       <Link href="/admin/notifications">
                         <Button
@@ -603,7 +611,6 @@ export function AdminHeader({
                   <LogOut className="mr-2 h-4 w-4" />
                   Logout
                 </DropdownMenuItem>
-
               </DropdownMenuContent>
             </DropdownMenu>
           </div>

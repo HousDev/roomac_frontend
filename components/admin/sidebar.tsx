@@ -1,3 +1,4 @@
+// components/admin/sidebar.tsx
 "use client";
 
 import Link from 'next/link';
@@ -18,13 +19,16 @@ import {
   Package,
   Users as VisitorsIcon,
   FilePlus,
-  Files
+  Files,
+  ReceiptIndianRupee,
+  Clock
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { getSettings, SettingsData } from '@/lib/settingsApi';
 import React from 'react';
-import { Label } from 'recharts';
+import { getAllRequestCounts, type RequestCounts } from '@/lib/adminRequestCountsApi';
 
 interface AdminSidebarProps {
   sidebarOpen: boolean;
@@ -38,8 +42,8 @@ const inventoryItems = [
   { href: '/admin/inventory/purchase', label: 'Material Purchase', icon: CreditCard },
   { href: '/admin/inventory/handover', label: 'Tenant Handover', icon: Users },
   { href: '/admin/inventory/inspection', label: 'Move-Out Inspection', icon: FileText },
-  { href: '/admin/inventory/settlements', label: 'Settlements', icon: Receipt },
-  { href: '/admin/inventory/penalty-rules', label: 'Penalty Rules', icon: Receipt },
+  { href: '/admin/inventory/settlements', label: 'Settlements', icon: ReceiptIndianRupee },
+  { href: '/admin/inventory/penalty-rules', label: 'Penalty Rules', icon: ReceiptIndianRupee },
 ];
 
 const visitorItems = [
@@ -137,6 +141,7 @@ function CollapsedSidebarItem({
   sidebarOpen,
   setSidebarOpen,
   handleIconClick,
+  badge,
   isRequestItem = false,
   onClick
 }: {
@@ -145,6 +150,7 @@ function CollapsedSidebarItem({
   sidebarOpen: boolean;
   setSidebarOpen?: (open: boolean) => void;
   handleIconClick: (e: React.MouseEvent, href: string) => void;
+  badge?: number;
   isRequestItem?: boolean;
   onClick?: () => void;
 }) {
@@ -241,6 +247,7 @@ function CollapsedSidebarItem({
         <div className="absolute left-full top-1/2 -translate-y-1/2 ml-3 z-50 pointer-events-none">
           <div className="bg-[#0A1F5C] border border-[#F5C000]/30 text-white text-xs px-3 py-2 rounded-md whitespace-nowrap">
             {item.label}
+            {badge && badge > 0 && ` (${badge})`}
             <div className="absolute right-full top-1/2 -translate-y-1/2 border-8 border-transparent border-r-[#0A1F5C]"></div>
           </div>
         </div>
@@ -258,6 +265,16 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
   const [visitorsOpen, setVisitorsOpen] = useState(false);
   const [documentsOpen, setDocumentsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [requestCounts, setRequestCounts] = useState<RequestCounts>({
+    complaints: 0,
+    maintenance: 0,
+    receipts: 0,
+    vacate: 0,
+    change: 0,
+    deletion: 0,
+    notice: 0,
+    total: 0
+  });
 
   const [settings, setSettings] = useState<SettingsData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -279,6 +296,30 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
     };
 
     fetchSettings();
+  }, []);
+
+  // Fetch request counts
+  useEffect(() => {
+    let cleanup: (() => void) | undefined;
+    
+    const fetchCounts = async () => {
+      try {
+        const counts = await getAllRequestCounts();
+        setRequestCounts(counts);
+      } catch (error) {
+        console.error('Failed to fetch request counts:', error);
+      }
+    };
+    
+    fetchCounts();
+    
+    // Set up polling
+    const interval = setInterval(fetchCounts, 30000);
+    
+    return () => {
+      clearInterval(interval);
+      if (cleanup) cleanup();
+    };
   }, []);
 
   // Add this function to close all submenus
@@ -333,13 +374,14 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
   useEffect(() => {
     if (!pathname) return;
 
-    const isRequestPage = pathname.includes('/admin/complaints') ||
+    const isRequestPage = pathname.includes('/admin/requests') ||
+      pathname.includes('/admin/complaints') ||
       pathname.includes('/admin/maintenance') ||
       pathname.includes('/admin/receipts') ||
-      pathname.includes('/admin/leave-requests') ||
       pathname.includes('/admin/vacate-requests') ||
       pathname.includes('/admin/change-bed-requests') ||
-      pathname.includes('/admin/account-deletion-requests');
+      pathname.includes('/admin/account-deletion-requests') ||
+      pathname.includes('/admin/notice-period-requests');
     if (isRequestPage) {
       setRequestsOpen(true);
     }
@@ -381,12 +423,12 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
     { href: '/admin/rooms', label: 'Rooms', icon: DoorOpen },
     { href: '/admin/tenants', label: 'Tenants', icon: Users },
     { href: '/admin/payments', label: 'Payments', icon: CreditCard },
-    { href: '/admin/expenses', label: 'Expenses', icon: Receipt },
+    { href: '/admin/expenses', label: 'Expenses', icon: ReceiptIndianRupee },
     { href: '/admin/reports', label: 'Reports', icon: BarChart3 },
     { href: '/admin/document-center', label: 'Documents', icon: FileText },
     { href: '/admin/enquiries', label: 'Enquiries', icon: Mail },
     { href: '/admin/notifications', label: 'Notifications', icon: Bell },
-    { href: '/admin/requests' , label:'Requests', icon:Bell},
+    { href: '/admin/requests', label: 'Requests', icon: Clock },
     { href: '/admin/staff', label: 'Staffs', icon: UserCog },
     { href: '/admin/offers', label: 'Offers', icon: Tag },
     { href: '/admin/add-ons', label: 'Add-ons', icon: PlusCircle },
@@ -397,22 +439,13 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
     { href: '/admin/profile', label: 'Profile', icon: UserCircle },
   ];
 
-  // const requestItems = [
-  //   { href: '/admin/complaints', label: 'Complaints', icon: AlertCircle },
-  //   { href: '/admin/maintenance', label: 'Maintenance', icon: Wrench },
-  //   { href: '/admin/receipts', label: 'Receipts', icon: FileText },
-  //   { href: '/admin/leave-requests', label: 'Leave Requests', icon: Calendar },
-  //   { href: '/admin/vacate-requests', label: 'Vacate Requests', icon: AlertCircle },
-  //   { href: '/admin/change-bed-requests', label: 'Change Bed Requests', icon: Users },
-  //   { href: '/admin/account-deletion-requests', label: 'Account Deletion', icon: UserCircle },
-  // ];
-
   const settingsItems = [
     { href: '/admin/settings', label: 'General Settings', icon: Sliders },
     { href: '/admin/settings/integration', label: 'Integration', icon: Link2 },
   ];
 
   const isActive = (href: string) => pathname === href;
+  const isRequestActive = pathname.includes('/admin/requests');
 
   const handleLogout = () => {
     logout();
@@ -456,7 +489,6 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
   // Filter all menu items based on search query
   const allSearchableItems = [
     ...mainMenuItems,
-    // ...requestItems,
     ...settingsItems,
     ...inventoryItems,
     ...visitorItems,
@@ -490,16 +522,12 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
   const renderMenuItem = (item: any, index: number) => {
     const Icon = item.icon;
     const active = isActive(item.href);
-    // const isRequestActive = requestItems.some(req => isActive(req.href));
-    const isSettingsActive = settingsItems.some(setting => isActive(setting.href));
-    const isInventoryActive = inventoryItems.some(inv => isActive(inv.href));
-    const isVisitorsActive = visitorItems.some(vis => isActive(vis.href));
-    const isDocumentsActive = documentItems.some(doc => isActive(doc.href));
     const isDocumentsItem = index === 7; // Document Center
     const isNotificationsItem = index === 9; // Notifications
-    const isInventoryItem = index === 13; // Inventory
-    const isVisitorsItem = index === 14; // Visitors
-    const isSettingsItem = index === 16; // Settings
+    const isRequestsItem = index === 10; // Requests
+    const isInventoryItem = index === 14; // Inventory
+    const isVisitorsItem = index === 15; // Visitors
+    const isSettingsItem = index === 17; // Settings
 
     if (!sidebarOpen) {
       if (isDocumentsItem) {
@@ -507,7 +535,7 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
           <li key="documents-collapsed" className="flex justify-center">
             <CollapsedSidebarItem
               item={{ href: '#', label: 'Documents', icon: FileText }}
-              active={isDocumentsActive}
+              active={documentsOpen}
               sidebarOpen={sidebarOpen}
               setSidebarOpen={setSidebarOpen}
               handleIconClick={handleIconClick}
@@ -522,31 +550,30 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
 
       if (isNotificationsItem) {
         return (
-          <React.Fragment key={item.href}>
-            <li className="flex justify-center">
-              <CollapsedSidebarItem
-                item={item}
-                active={active}
-                sidebarOpen={sidebarOpen}
-                setSidebarOpen={setSidebarOpen}
-                handleIconClick={handleIconClick}
-              />
-            </li>
-            <li key="requests-collapsed" className="flex justify-center">
-              <CollapsedSidebarItem
-                item={{ href: '#', label: 'Requests', icon: AlertCircle }}
-                active={isRequestActive}
-                sidebarOpen={sidebarOpen}
-                setSidebarOpen={setSidebarOpen}
-                handleIconClick={handleIconClick}
-                isRequestItem={true}
-                onClick={() => {
-                  if (setSidebarOpen) setSidebarOpen(true);
-                  setRequestsOpen(!requestsOpen);
-                }}
-              />
-            </li>
-          </React.Fragment>
+          <li key={item.href} className="flex justify-center">
+            <CollapsedSidebarItem
+              item={item}
+              active={active}
+              sidebarOpen={sidebarOpen}
+              setSidebarOpen={setSidebarOpen}
+              handleIconClick={handleIconClick}
+            />
+          </li>
+        );
+      }
+
+      if (isRequestsItem) {
+        return (
+          <li key="requests-collapsed" className="flex justify-center">
+            <CollapsedSidebarItem
+              item={{ href: '/admin/requests', label: 'Requests', icon: Clock }}
+              active={isRequestActive}
+              sidebarOpen={sidebarOpen}
+              setSidebarOpen={setSidebarOpen}
+              handleIconClick={handleIconClick}
+              badge={requestCounts.total}
+            />
+          </li>
         );
       }
 
@@ -555,7 +582,7 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
           <li key="inventory-collapsed" className="flex justify-center">
             <CollapsedSidebarItem
               item={{ href: '#', label: 'Inventory', icon: Package }}
-              active={isInventoryActive}
+              active={inventoryOpen}
               sidebarOpen={sidebarOpen}
               setSidebarOpen={setSidebarOpen}
               handleIconClick={handleIconClick}
@@ -573,7 +600,7 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
           <li key="visitors-collapsed" className="flex justify-center">
             <CollapsedSidebarItem
               item={{ href: '#', label: 'Visitors', icon: VisitorsIcon }}
-              active={isVisitorsActive}
+              active={visitorsOpen}
               sidebarOpen={sidebarOpen}
               setSidebarOpen={setSidebarOpen}
               handleIconClick={handleIconClick}
@@ -591,7 +618,7 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
           <li key="settings-collapsed" className="flex justify-center">
             <CollapsedSidebarItem
               item={{ href: '#', label: 'Settings', icon: Settings }}
-              active={isSettingsActive}
+              active={settingsOpen}
               sidebarOpen={sidebarOpen}
               setSidebarOpen={setSidebarOpen}
               handleIconClick={handleIconClick}
@@ -625,18 +652,18 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
             onClick={() => setDocumentsOpen(!documentsOpen)}
             className={`
               relative group flex items-center justify-between w-full px-2.5 py-2 rounded-xl transition-all duration-200
-              ${isDocumentsActive
+              ${documentsOpen
                 ? 'bg-[#F5C000]/15 text-[#F5C000]'
                 : 'text-blue-100 hover:bg-white/10 hover:text-white'
               }
             `}
           >
-            {isDocumentsActive && (
+            {documentsOpen && (
               <span className="absolute left-0 top-2 bottom-2 w-0.5 rounded-full bg-[#F5C000]" />
             )}
             <div className="flex items-center gap-2.5">
               <div className={`h-8 w-8 rounded-xl flex items-center justify-center transition-all flex-shrink-0
-                ${isDocumentsActive ? 'bg-[#F5C000]/20 text-[#F5C000]' : 'bg-white/10 text-blue-200 group-hover:bg-white/15 group-hover:text-white'}`}>
+                ${documentsOpen ? 'bg-[#F5C000]/20 text-[#F5C000]' : 'bg-white/10 text-blue-200 group-hover:bg-white/15 group-hover:text-white'}`}>
                 <Icon className="h-4 w-4" />
               </div>
               <span className="font-normal tracking-wide whitespace-nowrap text-xs">{item.label}</span>
@@ -669,11 +696,12 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
 
     if (isNotificationsItem) {
       return (
-        <li key="notifications-requests-group">
+        <li key={item.href}>
           <Link
             href={item.href}
+            onClick={() => closeAllSubmenus()}
             className={`
-              relative group flex items-center gap-2.5 px-2.5 py-2 rounded-xl transition-all duration-200
+              relative group flex items-center justify-between w-full px-2.5 py-2 rounded-xl transition-all duration-200
               ${active
                 ? 'bg-[#F5C000]/15 text-[#F5C000]'
                 : 'text-blue-100 hover:bg-white/10 hover:text-white'
@@ -681,17 +709,54 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
             `}
           >
             {active && (
-              <span className="absolute left-0 top-2 bottom-2 w-1 rounded-full bg-[#F5C000]" />
+              <span className="absolute left-0 top-2 bottom-2 w-0.5 rounded-full bg-[#F5C000]" />
             )}
-            <div className={`h-8 w-8 rounded-xl flex items-center justify-center transition-all flex-shrink-0
-              ${active ? 'bg-[#F5C000]/20 text-[#F5C000]' : 'bg-white/10 text-blue-200 group-hover:bg-white/15 group-hover:text-white'}`}>
-              <Icon className="h-4 w-4" />
+            <div className="flex items-center gap-2.5">
+              <div className={`h-8 w-8 rounded-xl flex items-center justify-center transition-all flex-shrink-0
+                ${active ? 'bg-[#F5C000]/20 text-[#F5C000]' : 'bg-white/10 text-blue-200 group-hover:bg-white/15 group-hover:text-white'}`}>
+                <Icon className="h-4 w-4" />
+              </div>
+              <span className="font-normal tracking-wide whitespace-nowrap overflow-hidden text-ellipsis text-xs">
+                {item.label}
+              </span>
             </div>
-            <span className="font-normal tracking-wide whitespace-nowrap overflow-hidden text-ellipsis text-xs">
-              {item.label}
-            </span>
           </Link>
+        </li>
+      );
+    }
 
+    if (isRequestsItem) {
+      return (
+        <li key={item.href}>
+          <Link
+            href={item.href}
+            onClick={() => closeAllSubmenus()}
+            className={`
+              relative group flex items-center justify-between w-full px-2.5 py-2 rounded-xl transition-all duration-200
+              ${active
+                ? 'bg-[#F5C000]/15 text-[#F5C000]'
+                : 'text-blue-100 hover:bg-white/10 hover:text-white'
+              }
+            `}
+          >
+            {active && (
+              <span className="absolute left-0 top-2 bottom-2 w-0.5 rounded-full bg-[#F5C000]" />
+            )}
+            <div className="flex items-center gap-2.5">
+              <div className={`h-8 w-8 rounded-xl flex items-center justify-center transition-all flex-shrink-0
+                ${active ? 'bg-[#F5C000]/20 text-[#F5C000]' : 'bg-white/10 text-blue-200 group-hover:bg-white/15 group-hover:text-white'}`}>
+                <Icon className="h-4 w-4" />
+              </div>
+              <span className="font-normal tracking-wide whitespace-nowrap overflow-hidden text-ellipsis text-xs">
+                {item.label}
+              </span>
+            </div>
+            {requestCounts.total > 0 && (
+              <Badge className="bg-amber-500 text-white text-[10px] px-1.5 py-0.5 min-w-[20px] h-5 flex items-center justify-center ml-2">
+                {requestCounts.total > 99 ? '99+' : requestCounts.total}
+              </Badge>
+            )}
+          </Link>
         </li>
       );
     }
@@ -703,18 +768,18 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
             onClick={() => setInventoryOpen(!inventoryOpen)}
             className={`
               relative group flex items-center justify-between w-full px-2.5 py-2 rounded-xl transition-all duration-200
-              ${isInventoryActive
+              ${inventoryOpen
                 ? 'bg-[#F5C000]/15 text-[#F5C000]'
                 : 'text-blue-100 hover:bg-white/10 hover:text-white'
               }
             `}
           >
-            {isInventoryActive && (
+            {inventoryOpen && (
               <span className="absolute left-0 top-2 bottom-2 w-0.5 rounded-full bg-[#F5C000]" />
             )}
             <div className="flex items-center gap-2.5">
               <div className={`h-8 w-8 rounded-xl flex items-center justify-center transition-all flex-shrink-0
-                ${isInventoryActive ? 'bg-[#F5C000]/20 text-[#F5C000]' : 'bg-white/10 text-blue-200 group-hover:bg-white/15 group-hover:text-white'}`}>
+                ${inventoryOpen ? 'bg-[#F5C000]/20 text-[#F5C000]' : 'bg-white/10 text-blue-200 group-hover:bg-white/15 group-hover:text-white'}`}>
                 <Icon className="h-4 w-4" />
               </div>
               <span className="font-normal tracking-wide whitespace-nowrap text-xs">{item.label}</span>
@@ -752,18 +817,18 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
             onClick={() => setVisitorsOpen(!visitorsOpen)}
             className={`
               relative group flex items-center justify-between w-full px-2.5 py-2 rounded-xl transition-all duration-200
-              ${isVisitorsActive
+              ${visitorsOpen
                 ? 'bg-[#F5C000]/15 text-[#F5C000]'
                 : 'text-blue-100 hover:bg-white/10 hover:text-white'
               }
             `}
           >
-            {isVisitorsActive && (
+            {visitorsOpen && (
               <span className="absolute left-0 top-2 bottom-2 w-0.5 rounded-full bg-[#F5C000]" />
             )}
             <div className="flex items-center gap-2.5">
               <div className={`h-8 w-8 rounded-xl flex items-center justify-center transition-all flex-shrink-0
-                ${isVisitorsActive ? 'bg-[#F5C000]/20 text-[#F5C000]' : 'bg-white/10 text-blue-200 group-hover:bg-white/15 group-hover:text-white'}`}>
+                ${visitorsOpen ? 'bg-[#F5C000]/20 text-[#F5C000]' : 'bg-white/10 text-blue-200 group-hover:bg-white/15 group-hover:text-white'}`}>
                 <Icon className="h-4 w-4" />
               </div>
               <span className="font-normal tracking-wide whitespace-nowrap text-xs">{item.label}</span>
@@ -801,18 +866,18 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
             onClick={() => setSettingsOpen(!settingsOpen)}
             className={`
               relative group flex items-center justify-between w-full px-2.5 py-2 rounded-xl transition-all duration-200
-              ${isSettingsActive
+              ${settingsOpen
                 ? 'bg-[#F5C000]/15 text-[#F5C000]'
                 : 'text-blue-100 hover:bg-white/10 hover:text-white'
               }
             `}
           >
-            {isSettingsActive && (
+            {settingsOpen && (
               <span className="absolute left-0 top-2 bottom-2 w-0.5 rounded-full bg-[#F5C000]" />
             )}
             <div className="flex items-center gap-2.5">
               <div className={`h-8 w-8 rounded-xl flex items-center justify-center transition-all flex-shrink-0
-                ${isSettingsActive ? 'bg-[#F5C000]/20 text-[#F5C000]' : 'bg-white/10 text-blue-200 group-hover:bg-white/15 group-hover:text-white'}`}>
+                ${settingsOpen ? 'bg-[#F5C000]/20 text-[#F5C000]' : 'bg-white/10 text-blue-200 group-hover:bg-white/15 group-hover:text-white'}`}>
                 <Icon className="h-4 w-4" />
               </div>
               <span className="font-normal tracking-wide whitespace-nowrap text-xs">{item.label}</span>
@@ -850,7 +915,7 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
           href={item.href}
           onClick={() => closeAllSubmenus()}
           className={`
-            relative group flex items-center gap-2.5 px-2.5 py-2 rounded-xl transition-all duration-200
+            relative group flex items-center justify-between w-full px-2.5 py-2 rounded-xl transition-all duration-200
             ${active
               ? 'bg-[#F5C000]/15 text-[#F5C000]'
               : 'text-blue-100 hover:bg-white/10 hover:text-white'
@@ -858,15 +923,17 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
           `}
         >
           {active && (
-            <span className="absolute left-0 top-2 bottom-2 w-1 rounded-full bg-[#F5C000]" />
+            <span className="absolute left-0 top-2 bottom-2 w-0.5 rounded-full bg-[#F5C000]" />
           )}
-          <div className={`h-8 w-8 rounded-xl flex items-center justify-center transition-all flex-shrink-0
-            ${active ? 'bg-[#F5C000]/20 text-[#F5C000]' : 'bg-white/10 text-blue-200 group-hover:bg-white/15 group-hover:text-white'}`}>
-            <Icon className="h-4 w-4" />
+          <div className="flex items-center gap-2.5">
+            <div className={`h-8 w-8 rounded-xl flex items-center justify-center transition-all flex-shrink-0
+              ${active ? 'bg-[#F5C000]/20 text-[#F5C000]' : 'bg-white/10 text-blue-200 group-hover:bg-white/15 group-hover:text-white'}`}>
+              <Icon className="h-4 w-4" />
+            </div>
+            <span className="font-normal tracking-wide whitespace-nowrap overflow-hidden text-ellipsis text-xs">
+              {item.label}
+            </span>
           </div>
-          <span className="font-normal tracking-wide whitespace-nowrap overflow-hidden text-ellipsis text-xs">
-            {item.label}
-          </span>
         </Link>
       </li>
     );

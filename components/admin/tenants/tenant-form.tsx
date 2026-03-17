@@ -92,6 +92,8 @@ export function TenantForm({ tenant, onSuccess, onCancel }: TenantFormProps) {
   const [passwordStrength,      setPasswordStrength]      = useState(0);
   const [existingPassword,      setExistingPassword]      = useState("••••••••");
   const [showExistingPassword,  setShowExistingPassword]  = useState(false);
+  const [aadharNumber, setAadharNumber] = useState(tenant?.aadhar_number || "");
+const [panNumber, setPanNumber] = useState(tenant?.pan_number || "");
 
   const [formData, setFormData] = useState<any>({
     salutation: tenant?.salutation || "",
@@ -149,6 +151,10 @@ export function TenantForm({ tenant, onSuccess, onCancel }: TenantFormProps) {
       loadExistingDocuments();
       if (tenant.additional_documents) setAdditionalDocuments(tenant.additional_documents);
       setCreateCredentials(tenant?.has_credentials || false);
+
+      // Set Aadhar and PAN numbers from tenant data
+    if (tenant.aadhar_number) setAadharNumber(tenant.aadhar_number);
+    if (tenant.pan_number) setPanNumber(tenant.pan_number);
     }
   }, [tenant]);
   useEffect(() => { if (formData.gender && formData.preferred_property_id) loadAvailableRooms(); }, [formData.gender, formData.preferred_property_id]);
@@ -336,6 +342,8 @@ const handleSubmit = async (e: React.FormEvent) => {
     if (idProofFile) formDataToSend.append('id_proof_url', idProofFile);
     if (addressProofFile) formDataToSend.append('address_proof_url', addressProofFile);
     if (photoFile) formDataToSend.append('photo_url', photoFile);
+    if (aadharNumber) formDataToSend.append('aadhar_number', aadharNumber);
+if (panNumber) formDataToSend.append('pan_number', panNumber);
 
     // Append additional files
     additionalFiles.forEach((file) => {
@@ -864,77 +872,113 @@ const handleSubmit = async (e: React.FormEvent) => {
           </TabsContent>
 
           {/* ────────────────────────────────────────────────────────────────
-              DOCUMENTS
-          ──────────────────────────────────────────────────────────────── */}
-          <TabsContent value="documents" className="mt-0 data-[state=inactive]:hidden">
-            <div className="p-4 space-y-3">
-              <SH icon={<Upload className="h-3 w-3"/>} title="Upload Documents" color="text-amber-600"/>
+    DOCUMENTS
+──────────────────────────────────────────────────────────────── */}
+<TabsContent value="documents" className="mt-0 data-[state=inactive]:hidden">
+  <div className="p-4 space-y-3">
+    <SH icon={<Upload className="h-3 w-3"/>} title="Upload Documents" color="text-amber-600"/>
 
-              <div className="flex items-start gap-2 p-2 bg-blue-50 border border-blue-100 rounded-lg">
-                <AlertCircle className="h-3.5 w-3.5 text-blue-400 flex-shrink-0 mt-0.5"/>
-                <p className="text-[10px] text-blue-600">Max 10MB per file · PDF, JPG, PNG, WebP, BMP</p>
-              </div>
+    <div className="flex items-start gap-2 p-2 bg-blue-50 border border-blue-100 rounded-lg">
+      <AlertCircle className="h-3.5 w-3.5 text-blue-400 flex-shrink-0 mt-0.5"/>
+      <p className="text-[10px] text-blue-600">Max 10MB per file · PDF, JPG, PNG, WebP, BMP</p>
+    </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <FileUploadField label="ID Proof" file={idProofFile} setFile={setIdProofFile} existingUrl={existingFiles.id_proof_url} fieldName="id_proof_url" description="Aadhar, Passport, PAN, DL" onRemoveExisting={()=>setExistingFiles(p=>({...p,id_proof_url:""}))}/>
-                <FileUploadField label="Address Proof" file={addressProofFile} setFile={setAddressProofFile} existingUrl={existingFiles.address_proof_url} fieldName="address_proof_url" description="Utility Bill, Bank Statement" onRemoveExisting={()=>setExistingFiles(p=>({...p,address_proof_url:""}))}/>
-                <FileUploadField label="Photograph" file={photoFile} setFile={setPhotoFile} existingUrl={existingFiles.photo_url} fieldName="photo_url" accept=".jpg,.jpeg,.png,.webp,.bmp" description="Passport-size photo" onRemoveExisting={()=>setExistingFiles(p=>({...p,photo_url:""}))}/>
-              </div>
+    {/* Document Upload Fields */}
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <FileUploadField label="ID Proof" file={idProofFile} setFile={setIdProofFile} existingUrl={existingFiles.id_proof_url} fieldName="id_proof_url" description="Aadhar, Passport, PAN, DL" onRemoveExisting={()=>setExistingFiles(p=>({...p,id_proof_url:""}))}/>
+      <FileUploadField label="Address Proof" file={addressProofFile} setFile={setAddressProofFile} existingUrl={existingFiles.address_proof_url} fieldName="address_proof_url" description="Utility Bill, Bank Statement" onRemoveExisting={()=>setExistingFiles(p=>({...p,address_proof_url:""}))}/>
+      <FileUploadField label="Photograph" file={photoFile} setFile={setPhotoFile} existingUrl={existingFiles.photo_url} fieldName="photo_url" accept=".jpg,.jpeg,.png,.webp,.bmp" description="Passport-size photo" onRemoveExisting={()=>setExistingFiles(p=>({...p,photo_url:""}))}/>
+    </div>
 
-              <Separator/>
+    {/* NEW: Aadhar Card Number and PAN Card Number Fields */}
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
+      <div>
+        <label className={L}>
+          <span className="flex items-center gap-1">
+            <FileText className="h-3 w-3"/> Aadhar Card Number
+          </span>
+        </label>
+        <Input 
+          value={aadharNumber} 
+          onChange={e => setAadharNumber(e.target.value)} 
+          placeholder="XXXX XXXX XXXX" 
+          className={F}
+          maxLength={14}
+        />
+        <p className="text-[10px] text-gray-400 mt-0.5">12-digit Aadhar number (optional)</p>
+      </div>
+      
+      <div>
+        <label className={L}>
+          <span className="flex items-center gap-1">
+            <FileText className="h-3 w-3"/> PAN Card Number
+          </span>
+        </label>
+        <Input 
+          value={panNumber} 
+          onChange={e => setPanNumber(e.target.value.toUpperCase())} 
+          placeholder="ABCDE1234F" 
+          className={`${F} uppercase`}
+          maxLength={10}
+        />
+        <p className="text-[10px] text-gray-400 mt-0.5">10-digit PAN number (optional)</p>
+      </div>
+    </div>
 
-              {/* Additional documents */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <p className="text-[11px] font-semibold text-gray-600">Additional Documents (Optional)</p>
-                  <Button type="button" variant="outline" size="sm" className="h-7 text-[10px] px-2"
-                    onClick={()=>{
-                      const inp=document.createElement("input");
-                      inp.type="file"; inp.accept=".pdf,.jpg,.jpeg,.png,.webp,.bmp,.doc,.docx"; inp.multiple=true;
-                      inp.onchange=(e:any)=>{
-                        const files=Array.from(e.target.files) as File[];
-                        if(files.length+additionalFiles.length>5){toast.error("Maximum 5 additional documents");return;}
-                        setAdditionalFiles(p=>[...p,...files]);
-                      };
-                      inp.click();
-                    }}>
-                    <Upload className="h-3 w-3 mr-1"/> Add Files
-                  </Button>
+    <Separator/>
+
+    {/* Additional documents (existing) */}
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <p className="text-[11px] font-semibold text-gray-600">Additional Documents (Optional)</p>
+        <Button type="button" variant="outline" size="sm" className="h-7 text-[10px] px-2"
+          onClick={()=>{
+            const inp=document.createElement("input");
+            inp.type="file"; inp.accept=".pdf,.jpg,.jpeg,.png,.webp,.bmp,.doc,.docx"; inp.multiple=true;
+            inp.onchange=(e:any)=>{
+              const files=Array.from(e.target.files) as File[];
+              if(files.length+additionalFiles.length>5){toast.error("Maximum 5 additional documents");return;}
+              setAdditionalFiles(p=>[...p,...files]);
+            };
+            inp.click();
+          }}>
+          <Upload className="h-3 w-3 mr-1"/> Add Files
+        </Button>
+      </div>
+
+      {additionalDocuments.length>0&&(
+        <div className="space-y-1">
+          <p className="text-[10px] font-medium text-gray-400">Existing:</p>
+          {additionalDocuments.map((doc,i)=>(
+            <div key={i} className="flex items-center justify-between p-1.5 border rounded-lg bg-gray-50">
+              <div className="flex items-center gap-2"><FileText className="h-3 w-3 text-gray-400"/>
+                <div><p className="text-[10px] font-medium text-gray-700">{doc.filename}</p>
+                  <a href={doc.url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-blue-500 hover:underline">View</a>
                 </div>
-
-                {additionalDocuments.length>0&&(
-                  <div className="space-y-1">
-                    <p className="text-[10px] font-medium text-gray-400">Existing:</p>
-                    {additionalDocuments.map((doc,i)=>(
-                      <div key={i} className="flex items-center justify-between p-1.5 border rounded-lg bg-gray-50">
-                        <div className="flex items-center gap-2"><FileText className="h-3 w-3 text-gray-400"/>
-                          <div><p className="text-[10px] font-medium text-gray-700">{doc.filename}</p>
-                            <a href={doc.url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-blue-500 hover:underline">View</a>
-                          </div>
-                        </div>
-                        <button type="button" className="text-red-400 hover:text-red-600" onClick={()=>{setAdditionalDocuments(p=>p.filter((_,j)=>j!==i));toast.info("Removed on save");}}><X className="h-3 w-3"/></button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {additionalFiles.length>0&&(
-                  <div className="space-y-1">
-                    <p className="text-[10px] font-medium text-gray-400">New to upload:</p>
-                    {additionalFiles.map((file,i)=>(
-                      <div key={i} className="flex items-center justify-between p-1.5 border rounded-lg bg-blue-50">
-                        <div className="flex items-center gap-2"><FileText className="h-3 w-3 text-blue-400"/>
-                          <div><p className="text-[10px] font-medium text-blue-700">{file.name}</p><p className="text-[10px] text-blue-400">{(file.size/1024/1024).toFixed(2)} MB</p></div>
-                        </div>
-                        <button type="button" className="text-red-400 hover:text-red-600" onClick={()=>setAdditionalFiles(p=>p.filter((_,j)=>j!==i))}><X className="h-3 w-3"/></button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <p className="text-[10px] text-gray-400">Company ID, college ID, reference letters, etc. Max 5 files.</p>
               </div>
+              <button type="button" className="text-red-400 hover:text-red-600" onClick={()=>{setAdditionalDocuments(p=>p.filter((_,j)=>j!==i));toast.info("Removed on save");}}><X className="h-3 w-3"/></button>
             </div>
-          </TabsContent>
+          ))}
+        </div>
+      )}
+
+      {additionalFiles.length>0&&(
+        <div className="space-y-1">
+          <p className="text-[10px] font-medium text-gray-400">New to upload:</p>
+          {additionalFiles.map((file,i)=>(
+            <div key={i} className="flex items-center justify-between p-1.5 border rounded-lg bg-blue-50">
+              <div className="flex items-center gap-2"><FileText className="h-3 w-3 text-blue-400"/>
+                <div><p className="text-[10px] font-medium text-blue-700">{file.name}</p><p className="text-[10px] text-blue-400">{(file.size/1024/1024).toFixed(2)} MB</p></div>
+              </div>
+              <button type="button" className="text-red-400 hover:text-red-600" onClick={()=>setAdditionalFiles(p=>p.filter((_,j)=>j!==i))}><X className="h-3 w-3"/></button>
+            </div>
+          ))}
+        </div>
+      )}
+      <p className="text-[10px] text-gray-400">Company ID, college ID, reference letters, etc. Max 5 files.</p>
+    </div>
+  </div>
+</TabsContent>
 
           {/* ────────────────────────────────────────────────────────────────
               CREDENTIALS
