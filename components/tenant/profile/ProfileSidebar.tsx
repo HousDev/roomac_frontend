@@ -88,7 +88,7 @@ export default function ProfileSidebar({
         <div className="flex items-center gap-3 text-sm">
           <Calendar className="h-4 w-4 text-gray-400 flex-shrink-0" />
           <span className="text-gray-600">
-            Joined {profile.created_at ? format(parseISO(profile.created_at), "dd MMM yyyy") : "N/A"}
+            Joined - {format(parseISO(profile.check_in_date), "dd MMM yyyy")}
           </span>
         </div>
         {profile.date_of_birth && (

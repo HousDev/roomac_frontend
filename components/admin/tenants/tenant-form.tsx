@@ -686,17 +686,21 @@ const handleSubmit = async (e: React.FormEvent) => {
                   </div>
 
                   <div>
-                    <label className={L}>Check-in Date</label>
-                    <div className="relative">
-                      <Calendar className="absolute left-2.5 top-2 h-3.5 w-3.5 text-gray-300"/>
-                      <Input type="date" value={formData.check_in_date}
-                        onChange={e=>{
-                          handleInputChange("check_in_date",e.target.value);
-                        }}
-                        className={`pl-8 ${F}`}/>
-                    </div>
-                    {formData.check_in_date&&<p className="text-[10px] text-gray-400 mt-0.5">Tenant move-in date</p>}
-                  </div>
+  <label className={L}>Check-in Date</label>
+  <div className="relative">
+    <Calendar className="absolute left-2.5 top-2 h-3.5 w-3.5 text-gray-300"/>
+    <Input 
+      type="date" 
+      value={formData.check_in_date}
+      max={new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split('T')[0]} // Last day of current month
+      onChange={e=>{
+        handleInputChange("check_in_date",e.target.value);
+      }}
+      className={`pl-8 ${F}`}
+    />
+  </div>
+  {formData.check_in_date && <p className="text-[10px] text-gray-400 mt-0.5">Tenant move-in date</p>}
+</div>
                 </div>
               </div>
             </div>

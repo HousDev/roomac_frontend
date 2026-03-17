@@ -92,21 +92,14 @@ export default function PersonalInfoTab({
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-1">Gender</p>
-                {editing ? (
-                  <Select value={formData.gender} onValueChange={v => onFieldChange('gender', v)} disabled={loading}>
-                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select" /></SelectTrigger>
-                    <SelectContent>{GENDER_OPTIONS.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}</SelectContent>
-                  </Select>
-                ) : (
+                { (
                   <p className="text-xs font-medium text-slate-800">{profile.gender || '—'}</p>
                 )}
                 {errors.gender && <p className="text-[10px] text-red-500 mt-0.5">{errors.gender}</p>}
               </div>
               <div>
                 <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-1">Date of Birth</p>
-                {editing ? (
-                  <Input type="date" value={formData.date_of_birth} onChange={e => onFieldChange('date_of_birth', e.target.value)} disabled={loading} className={`h-8 text-xs ${errors.date_of_birth ? 'border-red-500' : ''}`} />
-                ) : (
+                {(
                   <p className="text-xs font-medium text-slate-800">
                     {profile.date_of_birth ? format(parseISO(profile.date_of_birth), 'dd MMM yyyy') : '—'}
                     {age && <span className="text-slate-400 ml-1">({age}y)</span>}
@@ -230,28 +223,6 @@ export default function PersonalInfoTab({
           </div>
         </div>
 
-        {/* Preferences */}
-        <div className="border border-slate-200 rounded-lg bg-white overflow-hidden">
-          <div className="px-3 py-2 border-b border-slate-100 flex items-center gap-2">
-            <Building className="h-3.5 w-3.5 text-slate-400" />
-            <span className="text-xs font-semibold text-slate-600">Accommodation Preferences</span>
-          </div>
-          <div className="p-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">Sharing Type</p>
-                <p className="text-xs font-medium text-slate-800 capitalize">{profile.preferred_sharing || '—'}</p>
-                <p className="text-[9px] text-slate-400">Cannot be changed</p>
-              </div>
-              <div>
-                <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">Room Type</p>
-                <p className="text-xs font-medium text-slate-800">{profile.preferred_room_type || '—'}</p>
-                <p className="text-[9px] text-slate-400">Cannot be changed</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
       </div>
     );
   }
@@ -277,27 +248,14 @@ export default function PersonalInfoTab({
           {/* Editable fields */}
           <div className={`flex justify-between py-2.5 border-b border-slate-100 ${editing ? 'items-start' : 'items-center'}`}>
             <span className="text-sm text-slate-500">Gender</span>
-            {editing ? (
-              <div className="w-48">
-                <Select value={formData.gender} onValueChange={v => onFieldChange('gender', v)} disabled={loading}>
-                  <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Select gender" /></SelectTrigger>
-                  <SelectContent>{GENDER_OPTIONS.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}</SelectContent>
-                </Select>
-                {errors.gender && <p className="text-xs text-red-500 mt-1">{errors.gender}</p>}
-              </div>
-            ) : (
+            { (
               <span className="text-sm font-medium text-slate-900">{profile.gender || '—'}</span>
             )}
           </div>
 
           <div className={`flex justify-between py-2.5 ${editing ? 'items-start' : 'items-center'}`}>
             <span className="text-sm text-slate-500">Date of Birth</span>
-            {editing ? (
-              <div className="w-48">
-                <Input type="date" value={formData.date_of_birth} onChange={e => onFieldChange('date_of_birth', e.target.value)} disabled={loading} className={`h-9 text-sm ${errors.date_of_birth ? 'border-red-500' : ''}`} />
-                {errors.date_of_birth && <p className="text-xs text-red-500 mt-1">{errors.date_of_birth}</p>}
-              </div>
-            ) : (
+            { (
               <span className="text-sm font-medium text-slate-900">
                 {profile.date_of_birth ? format(parseISO(profile.date_of_birth), 'dd MMM yyyy') : '—'}
                 {age && <span className="text-slate-400 ml-1.5 text-xs">({age} years)</span>}
@@ -429,20 +387,6 @@ export default function PersonalInfoTab({
               )}
             </div>
           ))}
-        </CardContent>
-      </Card>
-
-      {/* Preferences */}
-      <Card className="border border-slate-200 shadow-sm">
-        <CardHeader className="pb-2 px-5">
-          <CardTitle className="text-sm font-semibold flex items-center gap-2">
-            <Building className="h-4 w-4 text-slate-400" />
-            Accommodation Preferences
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="px-5">
-          <InfoRow label="Sharing Type" value={profile.preferred_sharing || '—'} />
-          <InfoRow label="Room Type" value={profile.preferred_room_type || '—'} last />
         </CardContent>
       </Card>
 

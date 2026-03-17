@@ -11,11 +11,12 @@ interface SettingsTabsProps {
 }
 
 export default function SettingsTabs({ children }: SettingsTabsProps) {
-  const [generalContent, deletionContent, actionsContent, securityContent, notificationsContent] = children;
+  const [generalContent, deletionContent,securityContent, actionsContent] = children;
+  console.log("sda",securityContent)
 
   return (
     <Tabs defaultValue="general" className="space-y-6">
-      <TabsList className="grid w-full grid-cols-3">
+      <TabsList className="grid w-full grid-cols-2">
         <TabsTrigger value="general">
           <IconSettings className="mr-2 h-4 w-4" />
           General
@@ -24,10 +25,10 @@ export default function SettingsTabs({ children }: SettingsTabsProps) {
           <IconShield className="mr-2 h-4 w-4" />
           Security
         </TabsTrigger>
-        <TabsTrigger value="notifications">
+        {/* <TabsTrigger value="notifications">
           <IconBell className="mr-2 h-4 w-4" />
           Notifications
-        </TabsTrigger>
+        </TabsTrigger> */}
       </TabsList>
 
       <TabsContent value="general" className="space-y-6">
@@ -40,9 +41,9 @@ export default function SettingsTabs({ children }: SettingsTabsProps) {
         {securityContent}
       </TabsContent>
 
-      <TabsContent value="notifications" className="space-y-6">
+      {/* <TabsContent value="notifications" className="space-y-6">
         {notificationsContent}
-      </TabsContent>
+      </TabsContent> */}
     </Tabs>
   );
 }

@@ -1,5 +1,3 @@
-
-
 // components/tenant/profile/AccommodationTab.tsx
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -7,16 +5,24 @@ import { Label } from '@/components/ui/label';
 import {
   Building, Home, Bed, Users, Briefcase,
   BadgeIndianRupee, User, Phone, MapPin, Calendar,
-  Mail, CheckCircle, XCircle
+  Mail, CheckCircle, XCircle, Loader2
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { TenantProfile } from '@/lib/tenantDetailsApi';
 import { type StaffMember } from '@/lib/staffApi';
+import { consumeMasters } from '@/lib/masterApi';
+import { useEffect, useState } from 'react';
 
 interface AccommodationTabProps {
   profile: TenantProfile;
   isMobile?: boolean;
   propertyManagerStaff?: StaffMember | null;
+}
+
+interface MasterValue {
+  id: number;
+  name: string;
+  isactive: number;
 }
 
 // Helper function to format sharing type
@@ -33,15 +39,61 @@ const formatSharingType = (type?: string): string => {
   return type.charAt(0).toUpperCase() + type.slice(1);
 };
 
+// Helper function to map state ID to state name
+const getStateName = (stateId: string | null | undefined, commonMasters: Record<string, MasterValue[]>): string => {
+  if (!stateId) return 'N/A';
+  
+  const states = commonMasters["States"] || [];
+  const state = states.find(s => String(s.id) === String(stateId));
+  return state ? state.name : String(stateId);
+};
+
 export default function AccommodationTab({
   profile,
   isMobile = false,
   propertyManagerStaff = null,
 }: AccommodationTabProps) {
+  // Masters data state
+  const [commonMasters, setCommonMasters] = useState<Record<string, MasterValue[]>>({});
+  const [commonMastersLoaded, setCommonMastersLoaded] = useState(false);
+  const [loadingMasters, setLoadingMasters] = useState(false);
 
   const hasAccommodation = profile.room_id !== null && profile.room_id !== undefined;
   const hasProperty = profile.property_id !== null && profile.property_id !== undefined;
   const isActive = profile.is_active === 1 || profile.is_active === true || profile.is_active === '1';
+
+  // Fetch common masters on component mount
+  useEffect(() => {
+    const fetchCommonMasters = async () => {
+      setLoadingMasters(true);
+      try {
+        const res = await consumeMasters({ tab: "Common" });
+        if (res?.success && res.data) {
+          const grouped: Record<string, MasterValue[]> = {};
+          res.data.forEach((item: any) => {
+            const type = item.type_name;
+            if (!grouped[type]) {
+              grouped[type] = [];
+            }
+            grouped[type].push({
+              id: item.value_id,
+              name: item.value_name,
+              isactive: 1,
+            });
+          });
+          console.log("Common Masters loaded in AccommodationTab:", grouped);
+          setCommonMasters(grouped);
+          setCommonMastersLoaded(true);
+        }
+      } catch (error) {
+        console.error("Failed to fetch common masters:", error);
+      } finally {
+        setLoadingMasters(false);
+      }
+    };
+    
+    fetchCommonMasters();
+  }, []);
 
   const formatDate = (dateString?: string | null) => {
     if (!dateString) return 'N/A';
@@ -100,25 +152,27 @@ export default function AccommodationTab({
     }
     return profile.property_manager_name || profile.manager_name || '—';
   };
-const getManagerRole = () => {
-  // First priority: role_name from staff data (this comes from masters)
-  if (propertyManagerStaff?.role_name) {
-    return propertyManagerStaff.role_name;
-  }
+
+  const getManagerRole = () => {
+    // First priority: role_name from staff data (this comes from masters)
+    if (propertyManagerStaff?.role_name) {
+      return propertyManagerStaff.role_name;
+    }
+    
+    // Second priority: role field from staff data
+    if (propertyManagerStaff?.role) {
+      return propertyManagerStaff.role;
+    }
+    
+    // Third priority: if staff has staff_role_id but no role_name
+    if (propertyManagerStaff?.staff_role_id) {
+      return `Role ID: ${propertyManagerStaff.staff_role_id}`;
+    }
+    
+    // Default fallback
+    return 'Property Manager';
+  };
   
-  // Second priority: role field from staff data
-  if (propertyManagerStaff?.role) {
-    return propertyManagerStaff.role;
-  }
-  
-  // Third priority: if staff has staff_role_id but no role_name
-  if (propertyManagerStaff?.staff_role_id) {
-    return `Role ID: ${propertyManagerStaff.staff_role_id}`;
-  }
-  
-  // Default fallback
-  return 'Property Manager';
-};
   const getManagerPhone = () =>
     propertyManagerStaff?.phone || profile.property_manager_phone || profile.manager_phone || '—';
   const getManagerEmail = () =>
@@ -126,6 +180,15 @@ const getManagerRole = () => {
   const getManagerPhoto = () => propertyManagerStaff?.photo_url || null;
 
   const hasManager = !!(profile.property_manager_name || profile.manager_name || propertyManagerStaff);
+
+  // Get state name from masters
+  const getPropertyState = () => {
+    if (!profile.property_state) return 'N/A';
+    if (commonMastersLoaded) {
+      return getStateName(profile.property_state, commonMasters);
+    }
+    return profile.property_state; // Return ID while loading
+  };
 
   // Debug log
   console.log("🏠 AccommodationTab - Profile data:", {
@@ -135,8 +198,10 @@ const getManagerRole = () => {
     final_rent: rentAmount,
     bed_type: profile.bed_type,
     is_couple: profile.is_couple,
-    sharing_type: profile.sharing_type, // This should now show
-    preferred_sharing: profile.preferred_sharing
+    sharing_type: profile.sharing_type,
+    preferred_sharing: profile.preferred_sharing,
+    property_state: profile.property_state,
+    mapped_state: getPropertyState()
   });
 
   // ── No accommodation ───────────────────────────────────────────────────────
@@ -170,6 +235,16 @@ const getManagerRole = () => {
           )}
         </CardContent>
       </Card>
+    );
+  }
+
+  // ── Loading state while masters are loading ──
+  if (loadingMasters && !commonMastersLoaded) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+        <span className="ml-2 text-sm text-gray-500">Loading location details...</span>
+      </div>
     );
   }
 
@@ -230,15 +305,6 @@ const getManagerRole = () => {
           )}
         </div>
 
-        {/* Couple Badge */}
-        {/* {profile.is_couple && (
-          <div className="flex justify-end px-1">
-            <Badge className="bg-pink-100 text-pink-700 border-pink-200">
-              👫 Couple Booking
-            </Badge>
-          </div>
-        )} */}
-
         {/* Property Manager — salutation from staff API */}
         {hasManager && (
           <div className="border border-slate-200 rounded-lg p-3 bg-white">
@@ -272,7 +338,7 @@ const getManagerRole = () => {
           </div>
         )}
 
-        {/* Location */}
+        {/* Location - FIXED: Now showing state name instead of ID */}
         {profile.property_address && (
           <div className="border border-slate-200 rounded-lg p-3 bg-white">
             <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-1.5">Location</p>
@@ -282,7 +348,10 @@ const getManagerRole = () => {
                 <p className="text-xs text-slate-700">{profile.property_address}</p>
                 {(profile.property_city || profile.property_state) && (
                   <p className="text-[10px] text-slate-400 mt-0.5">
-                    {[profile.property_city, profile.property_state].filter(Boolean).join(', ')}
+                    {[
+                      profile.property_city, 
+                      getPropertyState() // This now returns the state name instead of ID
+                    ].filter(Boolean).join(', ')}
                   </p>
                 )}
               </div>
@@ -387,23 +456,6 @@ const getManagerRole = () => {
               <p className="text-lg font-semibold">{getSharingType()}</p>
             </div>
           </div>
-
-          {/* Couple Badge
-          {profile.is_couple && (
-            <div className="mt-3 flex">
-              <Badge className="bg-pink-100 text-pink-700 border-pink-200">
-                👫 Couple Booking
-              </Badge>
-            </div>
-          )} */}
-
-          {profile.bed_assigned_at && (
-            <div className="mt-4 pt-4 border-t">
-              <p className="text-sm text-gray-500">
-                Bed assigned on: {formatDate(profile.bed_assigned_at)}
-              </p>
-            </div>
-          )}
         </CardContent>
       </Card>
 
@@ -449,7 +501,7 @@ const getManagerRole = () => {
         </Card>
       )}
 
-      {/* Property Address */}
+      {/* Property Address - FIXED: Now showing state name instead of ID */}
       {profile.property_address && (
         <Card className="mt-4">
           <CardHeader>
@@ -462,8 +514,11 @@ const getManagerRole = () => {
                 <div>
                   <p className="text-base">{profile.property_address}</p>
                   {(profile.property_city || profile.property_state) && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      {[profile.property_city, profile.property_state].filter(Boolean).join(', ')}
+                    <p className="text-md text-black mt-1">
+                      {[
+                        profile.property_city, 
+                        getPropertyState() // This now returns the state name instead of ID
+                      ].filter(Boolean).join(', ')}
                     </p>
                   )}
                 </div>

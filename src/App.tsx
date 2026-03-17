@@ -82,6 +82,7 @@ import { DocumentCenter } from "@/modules/documents/DocumentCenter";
 import { TemplateManager } from "@/modules/documents/TemplateManager";
 import { DocumentCreate } from "@/modules/documents/DocumentCreate";
 import { DocumentList } from "@/modules/documents/DocumentList";
+import RequestsPage from "@/app/admin/requests/page";
 
 
 function App() {
@@ -166,6 +167,7 @@ console.log(user)
             <Route path="settings/integration" element={<AdminIntegrationSettingsPage />} />  
 
             <Route path="profile" element={<AdminProfilePage />} />
+            <Route path="requests" element={<RequestsPage />} />
             <Route path="complaints" element={<AdminComplaintsPage />} />
             <Route path="maintenance" element={<AdminMaintenancePage />} />
             <Route path="receipts" element={<AdminReceiptsPage />} />
