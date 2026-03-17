@@ -1,192 +1,14 @@
-// import { useState, useEffect } from 'react';
-// import { FileText, Plus, LayoutGrid as Layout, FolderOpen, Share2, BarChart3, Clock } from 'lucide-react';
-// // import { supabase } from '../../lib/supabase';
-
-// interface DashboardStats {
-//   totalTemplates: number;
-//   totalDocuments: number;
-//   pendingVerification: number;
-//   completedDocuments: number;
-//   recentActivity: number;
-// }
-
-// export function DocumentCenter() {
-//   const [stats, setStats] = useState<DashboardStats>({
-//     totalTemplates: 0,
-//     totalDocuments: 0,
-//     pendingVerification: 0,
-//     completedDocuments: 0,
-//     recentActivity: 0
-//   });
-//   const [loading, setLoading] = useState(true);
-//   const [activeView, setActiveView] = useState<'dashboard' | 'templates' | 'documents'>('dashboard');
-
-//   useEffect(() => {
-//     fetchStats();
-//   }, []);
-
-//   const fetchStats = async () => {
-//     try {
-//       const [templatesRes, documentsRes] = await Promise.all([
-//         supabase.from('document_templates').select('id', { count: 'exact' }).eq('is_active', true),
-//         supabase.from('documents').select('id, status, created_at', { count: 'exact' })
-//       ]);
-
-//       const documents = documentsRes.data || [];
-//       const sevenDaysAgo = new Date();
-//       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
-//       setStats({
-//         totalTemplates: templatesRes.count || 0,
-//         totalDocuments: documentsRes.count || 0,
-//         pendingVerification: documents.filter(d => d.status === 'Shared' || d.status === 'Viewed').length,
-//         completedDocuments: documents.filter(d => d.status === 'Completed' || d.status === 'Verified').length,
-//         recentActivity: documents.filter(d => new Date(d.created_at) > sevenDaysAgo).length
-//       });
-//     } catch (error) {
-//       console.error('Error fetching stats:', error);
-//     } finally {
-//       setLoading(false);
-//     }
-//   };
-
-//   const StatCard = ({ icon: Icon, label, value, color }: any) => (
-//     <div className="bg-white rounded-xl p-6 shadow-lg border-2 border-gray-200 hover:shadow-xl transition-shadow">
-//       <div className="flex items-center gap-4">
-//         <div className={`w-14 h-14 rounded-xl flex items-center justify-center ${color}`}>
-//           <Icon className="w-7 h-7 text-white" />
-//         </div>
-//         <div>
-//           <p className="text-gray-600 text-sm font-semibold">{label}</p>
-//           <p className="text-3xl font-black text-gray-900 mt-1">{loading ? '...' : value}</p>
-//         </div>
-//       </div>
-//     </div>
-//   );
-
-//   const QuickActionCard = ({ icon: Icon, title, description, onClick, gradient }: any) => (
-//     <button
-//       onClick={onClick}
-//       className={`w-full bg-gradient-to-r ${gradient} text-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-all hover:scale-105 text-left`}
-//     >
-//       <div className="flex items-start gap-4">
-//         <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
-//           <Icon className="w-6 h-6" />
-//         </div>
-//         <div>
-//           <h3 className="text-xl font-black mb-1">{title}</h3>
-//           <p className="text-sm text-white/90">{description}</p>
-//         </div>
-//       </div>
-//     </button>
-//   );
-
-//   return (
-//     <div className="flex flex-col h-full">
-      
-
-//       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-//         <StatCard
-//           icon={Layout}
-//           label="Active Templates"
-//           value={stats.totalTemplates}
-//           color="bg-gradient-to-r from-blue-600 to-cyan-600"
-//         />
-//         <StatCard
-//           icon={FileText}
-//           label="Total Documents"
-//           value={stats.totalDocuments}
-//           color="bg-gradient-to-r from-purple-600 to-pink-600"
-//         />
-//         <StatCard
-//           icon={Clock}
-//           label="Pending Verification"
-//           value={stats.pendingVerification}
-//           color="bg-gradient-to-r from-orange-500 to-red-500"
-//         />
-//         <StatCard
-//           icon={BarChart3}
-//           label="Completed"
-//           value={stats.completedDocuments}
-//           color="bg-gradient-to-r from-green-600 to-emerald-600"
-//         />
-//         <StatCard
-//           icon={Share2}
-//           label="Recent Activity (7d)"
-//           value={stats.recentActivity}
-//           color="bg-gradient-to-r from-indigo-600 to-blue-600"
-//         />
-//       </div>
-
-//       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-//         <QuickActionCard
-//           icon={Layout}
-//           title="Manage Templates"
-//           description="Create, edit, and organize document templates"
-//           onClick={() => setActiveView('templates')}
-//           gradient="from-blue-600 to-cyan-600"
-//         />
-//         <QuickActionCard
-//           icon={Plus}
-//           title="Create Document"
-//           description="Generate new documents from templates"
-//           onClick={() => setActiveView('documents')}
-//           gradient="from-purple-600 to-pink-600"
-//         />
-//         <QuickActionCard
-//           icon={FolderOpen}
-//           title="View Documents"
-//           description="Browse and manage all documents"
-//           onClick={() => setActiveView('documents')}
-//           gradient="from-green-600 to-emerald-600"
-//         />
-//       </div>
-
-//       <div className="bg-white rounded-2xl p-6 shadow-lg border-2 border-gray-200">
-//         <h2 className="text-xl font-black text-gray-900 mb-4">Available Document Types</h2>
-//         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-//           {[
-//             'Occupancy / Leave & License Agreement',
-//             'Tenant KYC Form',
-//             'Tenant ID Proof Verification',
-//             'Police Tenant Verification Form',
-//             'Security Deposit Receipt',
-//             'House Rules Acceptance Form',
-//             'Move-In Inspection Form',
-//             'Move-Out Inspection Form',
-//             'Room / Property Inventory List',
-//             'Tenant Undertaking / Declaration',
-//             'Emergency Contact Details Form',
-//             'Key / Access Card Handover Form',
-//             'Visitor Policy Declaration',
-//             'Rent Payment Terms & Policy',
-//             'Roommate Replacement Form',
-//             'Shared Occupancy Agreement',
-//             'Couple Occupancy Declaration'
-//           ].map((docType, idx) => (
-//             <div
-//               key={idx}
-//               className="flex items-center gap-3 p-4 bg-gradient-to-r from-gray-50 to-blue-50 rounded-lg border border-gray-200 hover:border-blue-400 transition-colors"
-//             >
-//               <FileText className="w-5 h-5 text-blue-600" />
-//               <span className="text-sm font-bold text-gray-700">{docType}</span>
-//             </div>
-//           ))}
-//         </div>
-//       </div>
-//     </div>
-//   );
-// }
-
-
 import { useState, useEffect } from 'react';
 import { 
   FileText, Plus, LayoutGrid as Layout, FolderOpen, 
-  Share2, BarChart3, Clock, CheckCircle 
+  Share2, Clock, CheckCircle, TrendingUp, Package,
+  IndianRupee, AlertCircle, Shield
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { listDocuments } from '../../lib/documentApi';
 import { listTemplates, DocumentTemplate } from '../../lib/documentTemplateApi';
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 
 interface DashboardStats {
   totalTemplates: number;
@@ -195,6 +17,43 @@ interface DashboardStats {
   completedDocuments: number;
   recentActivity: number;
 }
+
+// Stat Card - exactly like MaterialPurchase but with DocumentCenter colors
+const StatCard = ({ title, value, icon: Icon, color, bg }: any) => (
+  <Card className={`${bg} border-0 shadow-sm hover:shadow-md transition-shadow`}>
+    <CardContent className="p-2 sm:p-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-[10px] sm:text-xs text-slate-600 font-medium">{title}</p>
+          <p className="text-sm sm:text-base font-bold text-slate-800 mt-0.5">
+            {value}
+          </p>
+        </div>
+        <div className={`p-1.5 rounded-lg ${color}`}>
+          <Icon className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
+        </div>
+      </div>
+    </CardContent>
+  </Card>
+);
+
+// Quick Action Card - minimal like MaterialPurchase
+const QuickActionCard = ({ icon: Icon, title, description, onClick, gradient }: any) => (
+  <button
+    onClick={onClick}
+    className={`w-full bg-gradient-to-r ${gradient} rounded-lg p-4 hover:shadow-md transition-all hover:scale-[1.02] text-left`}
+  >
+    <div className="flex items-start gap-3">
+      <div className={`p-2 rounded-lg bg-white/20`}>
+        <Icon className="h-4 w-4 text-white" />
+      </div>
+      <div>
+        <h3 className="text-sm font-semibold text-white mb-0.5">{title}</h3>
+        <p className="text-xs text-white/80 line-clamp-1">{description}</p>
+      </div>
+    </div>
+  </button>
+);
 
 export function DocumentCenter() {
   const navigate = useNavigate();
@@ -215,10 +74,7 @@ export function DocumentCenter() {
 
   const fetchStats = async () => {
     try {
-      // Fetch templates count
       const templatesRes = await listTemplates({ is_active: 'true' });
-      
-      // Fetch documents
       const documentsRes = await listDocuments({ pageSize: 1000 });
 
       const documents = documentsRes.data || [];
@@ -254,181 +110,156 @@ export function DocumentCenter() {
     }
   };
 
-  // Navigation handlers
-  const handleManageTemplates = () => {
-    navigate('/admin/document-center/templates');
+  const handleManageTemplates = () => navigate('/admin/document-center/templates');
+  const handleCreateDocument = () => navigate('/admin/document-center/create');
+  const handleViewDocuments = () => navigate('/admin/document-center/all');
+  
+  const handleTemplateClick = (templateId?: string, templateName?: string) => {
+    if (templateId) {
+      navigate(`/admin/document-center/create?templateId=${templateId}`);
+    } else {
+      navigate('/admin/document-center/create');
+    }
   };
 
-  const handleCreateDocument = () => {
-    navigate('/admin/document-center/create');
-  };
-
-  const handleViewDocuments = () => {
-    navigate('/admin/document-center/all');
-  };
-
-  const StatCard = ({ icon: Icon, label, value, color }: any) => (
-    <div className="bg-white rounded-xl p-4 sm:p-5 shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300">
-      <div className="flex items-center gap-3 sm:gap-4">
-        <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-xl flex items-center justify-center bg-gradient-to-r ${color} shadow-md shrink-0`}>
-          <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-gray-500 text-xs sm:text-sm font-semibold truncate">{label}</p>
-          <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 mt-0.5">
-            {loading ? (
-              <span className="inline-block w-12 h-6 sm:h-8 bg-gray-200 animate-pulse rounded"></span>
-            ) : (
-              value.toLocaleString()
-            )}
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-
-  const QuickActionCard = ({ icon: Icon, title, description, onClick, gradient }: any) => (
-    <button
-      onClick={onClick}
-      className={`w-full bg-gradient-to-r ${gradient} text-white rounded-xl p-4 sm:p-5 shadow-lg hover:shadow-xl transition-all hover:scale-105 text-left`}
-    >
-      <div className="flex items-start gap-3 sm:gap-4">
-        <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white/20 rounded-lg flex items-center justify-center shrink-0">
-          <Icon className="w-5 h-5 sm:w-6 sm:h-6" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <h3 className="text-base sm:text-lg lg:text-xl font-bold mb-0.5 sm:mb-1 truncate">{title}</h3>
-          <p className="text-xs sm:text-sm text-white/90 line-clamp-2">{description}</p>
-        </div>
-      </div>
-    </button>
-  );
-
-  // Get template names, limit to 17 items (like your original list)
   const templateNames = templates
-    .map(t => t.name)
-    .filter(name => name) // Remove any empty names
-    .slice(0, 17); // Limit to 17 items to match original layout
+    .map(t => ({ id: t.id, name: t.name }))
+    .filter(t => t.name)
+    .slice(0, 17);
 
-  // If we have fewer than 17 templates, add some default ones
-  const displayNames = templateNames.length > 0 
-    ? templateNames 
-    : [
-        'Occupancy / Leave & License Agreement',
-        'Tenant KYC Form',
-        'Tenant ID Proof Verification',
-        'Police Tenant Verification Form',
-        'Security Deposit Receipt',
-        'House Rules Acceptance Form',
-        'Move-In Inspection Form',
-        'Move-Out Inspection Form',
-        'Room / Property Inventory List',
-        'Tenant Undertaking / Declaration',
-        'Emergency Contact Details Form',
-        'Key / Access Card Handover Form',
-        'Visitor Policy Declaration',
-        'Rent Payment Terms & Policy',
-        'Roommate Replacement Form',
-        'Shared Occupancy Agreement',
-        'Couple Occupancy Declaration'
-      ];
+  const defaultTemplates = [
+    { id: null, name: 'Occupancy / Leave & License Agreement' },
+    { id: null, name: 'Tenant KYC Form' },
+    { id: null, name: 'Tenant ID Proof Verification' },
+    { id: null, name: 'Police Tenant Verification Form' },
+    { id: null, name: 'Security Deposit Receipt' },
+    { id: null, name: 'House Rules Acceptance Form' },
+    { id: null, name: 'Move-In Inspection Form' },
+    { id: null, name: 'Move-Out Inspection Form' },
+    { id: null, name: 'Room / Property Inventory List' },
+    { id: null, name: 'Tenant Undertaking / Declaration' },
+    { id: null, name: 'Emergency Contact Details Form' },
+    { id: null, name: 'Key / Access Card Handover Form' },
+    { id: null, name: 'Visitor Policy Declaration' },
+    { id: null, name: 'Rent Payment Terms & Policy' },
+    { id: null, name: 'Roommate Replacement Form' },
+    { id: null, name: 'Shared Occupancy Agreement' },
+    { id: null, name: 'Couple Occupancy Declaration' }
+  ];
+
+  const displayTemplates = templateNames.length > 0 ? templateNames : defaultTemplates;
 
   return (
-    <div className="flex flex-col min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50/30 p-3 sm:p-4 lg:p-6">
-      {/* Header */}
-      
+    <div className="bg-gray-50 min-h-screen p-0 sm:p-0 lg:p-0">
+     
 
-      {/* Stats Grid */}
+      {/* Stats Grid - exactly like MaterialPurchase */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 sm:gap-3 lg:gap-4 mb-4 sm:mb-5 lg:mb-6">
         <StatCard
-          icon={Layout}
-          label="Templates"
+          title="Templates"
           value={stats.totalTemplates}
-          color="from-blue-600 to-cyan-600"
+          icon={Layout}
+          color="bg-blue-600"
+          bg="bg-gradient-to-br from-blue-50 to-blue-100"
         />
         <StatCard
-          icon={FileText}
-          label="Documents"
+          title="Documents"
           value={stats.totalDocuments}
-          color="from-purple-600 to-pink-600"
+          icon={FileText}
+          color="bg-purple-600"
+          bg="bg-gradient-to-br from-purple-50 to-purple-100"
         />
         <StatCard
-          icon={Clock}
-          label="Pending"
+          title="Pending"
           value={stats.pendingVerification}
-          color="from-orange-500 to-red-500"
+          icon={Clock}
+          color="bg-orange-600"
+          bg="bg-gradient-to-br from-orange-50 to-orange-100"
         />
         <StatCard
-          icon={CheckCircle}
-          label="Completed"
+          title="Completed"
           value={stats.completedDocuments}
-          color="from-green-600 to-emerald-600"
+          icon={CheckCircle}
+          color="bg-green-600"
+          bg="bg-gradient-to-br from-green-50 to-green-100"
         />
         <StatCard
-          icon={Share2}
-          label="Recent (7d)"
+          title="Recent (7d)"
           value={stats.recentActivity}
-          color="from-indigo-600 to-blue-600"
+          icon={TrendingUp}
+          color="bg-indigo-600"
+          bg="bg-gradient-to-br from-indigo-50 to-indigo-100"
         />
       </div>
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-5 mb-4 sm:mb-5 lg:mb-6">
+      {/* Quick Actions - minimal */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-6 sm:mb-8">
         <QuickActionCard
           icon={Layout}
           title="Manage Templates"
-          description="Create, edit, and organize document templates"
+          description="Create and edit document templates"
           onClick={handleManageTemplates}
-          gradient="from-blue-600 to-cyan-600"
+          gradient="from-blue-600 to-blue-700"
         />
         <QuickActionCard
           icon={Plus}
           title="Create Document"
-          description="Generate new documents from templates"
+          description="Generate new documents"
           onClick={handleCreateDocument}
-          gradient="from-purple-600 to-pink-600"
+          gradient="from-purple-600 to-purple-700"
         />
         <QuickActionCard
           icon={FolderOpen}
           title="View Documents"
-          description="Browse and manage all documents"
+          description="Browse all documents"
           onClick={handleViewDocuments}
-          gradient="from-green-600 to-emerald-600"
+          gradient="from-green-600 to-green-800"
         />
       </div>
 
-      {/* Available Document Types - Now showing actual template names from API */}
-      <div className="bg-white rounded-xl sm:rounded-2xl p-4 sm:p-5 lg:p-6 shadow-lg border-2 border-gray-200">
-        <div className="flex items-center justify-between mb-3 sm:mb-4">
-          <h2 className="text-base sm:text-lg lg:text-xl font-bold text-gray-900">
-            Available Document Types
-          </h2>
-          <span className="text-xs sm:text-sm text-gray-500">
-            {templateNames.length} templates
-          </span>
+      {/* Document Types Section - compact like MaterialPurchase */}
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between px-3 sm:px-4 py-2 border-b bg-gray-50">
+          <div className="flex items-center gap-2">
+            <FileText className="h-4 w-4 text-blue-600" />
+            <h2 className="text-xs sm:text-sm font-semibold text-gray-700">
+              Available Document Types
+            </h2>
+          </div>
+          <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+            {displayTemplates.length} templates
+          </Badge>
         </div>
-        
-        {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
-            {[1, 2, 3, 4, 5, 6].map(i => (
-              <div key={i} className="h-12 bg-gray-100 animate-pulse rounded-lg"></div>
-            ))}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
-            {displayNames.map((docType, idx) => (
-              <div
-                key={idx}
-                className="flex items-center gap-2 sm:gap-3 p-3 sm:p-4 bg-gradient-to-r from-gray-50 to-blue-50 rounded-lg border border-gray-200 hover:border-blue-400 transition-colors cursor-default"
-              >
-                <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 shrink-0" />
-                <span className="text-xs sm:text-sm font-medium text-gray-700 line-clamp-2">
-                  {docType}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
+
+        <div className="p-2 sm:p-3">
+          {loading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+              {[1, 2, 3, 4].map(i => (
+                <div key={i} className="h-9 bg-gray-100 animate-pulse rounded" />
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+              {displayTemplates.map((template, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => handleTemplateClick(template.id, template.name)}
+                  className="flex items-center gap-2 p-2 bg-gray-50 rounded border border-gray-100 hover:border-blue-300 hover:bg-blue-50/50 transition-all text-left w-full group"
+                >
+                  <FileText className="h-3.5 w-3.5 text-blue-600 shrink-0" />
+                  <span className="text-xs text-gray-700 group-hover:text-gray-900 flex-1 line-clamp-1">
+                    {template.name}
+                  </span>
+                  <Plus className="h-3 w-3 text-gray-400 group-hover:text-blue-600 shrink-0" />
+                </button>
+              ))}
+            </div>
+          )}
+          
+          <p className="text-[10px] text-gray-400 mt-2 text-center">
+            Click template to create document
+          </p>
+        </div>
       </div>
     </div>
   );

@@ -59,6 +59,8 @@ import TenantPortalPage from "../app/tenant/portal/page";
 import TenantProfilePage from "../app/tenant/profile/page";
 import TenantDocumentsPage from "../app/tenant/documents/page";
 import TenantMyDocumentsPage from "../app/tenant/my-documents/page";
+import TenantPaymentsPage from "../app/tenant/payments/page";      // ← ADD THIS
+import TenantNotificationsPage from "../app/tenant/notifications/page";  // ← ADD THIS
 import TenantRequestsPage from "../app/tenant/requests/page";
 import TenantSettingsPage from "../app/tenant/settings/page";
 import SupportPage from "../app/tenant/support/page";
@@ -196,6 +198,8 @@ console.log(user)
     <Route path="requests" element={<TenantRequestsPage />} />
     <Route path="settings" element={<TenantSettingsPage />} />
     <Route path="support" element={<SupportPage />} />
+    <Route path="payments" element={<TenantPaymentsPage />} />
+    <Route path="notifications" element={<TenantNotificationsPage />} />
   </Route>
 </Route>
 

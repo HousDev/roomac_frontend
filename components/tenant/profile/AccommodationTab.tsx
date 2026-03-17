@@ -1,3 +1,5 @@
+
+
 // components/tenant/profile/AccommodationTab.tsx
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -5,7 +7,8 @@ import { Label } from '@/components/ui/label';
 import {
   Building, Home, Bed, Users, Briefcase,
   BadgeIndianRupee, User, Phone, MapPin, Calendar,
-  Mail, CheckCircle, XCircle, Loader2
+  Mail, CheckCircle, XCircle, Loader2, Award,
+  ChevronRight, Key, DoorOpen, CalendarDays, MapPinned
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { TenantProfile } from '@/lib/tenantDetailsApi';
@@ -46,6 +49,69 @@ const getStateName = (stateId: string | null | undefined, commonMasters: Record<
   const states = commonMasters["States"] || [];
   const state = states.find(s => String(s.id) === String(stateId));
   return state ? state.name : String(stateId);
+};
+
+// Info Card Component for consistent styling
+const InfoCard = ({ icon: Icon, label, value, subvalue, color = "blue" }: { 
+  icon: any; 
+  label: string; 
+  value: string | number;
+  subvalue?: string;
+  color?: "blue" | "gold" | "green" | "rose" | "emerald";
+}) => {
+  const getColorClasses = () => {
+    switch(color) {
+      case 'blue': return 'bg-[#e6f0ff] text-[#004aad]';
+      case 'gold': return 'bg-[#fff9e6] text-[#ffc107]';
+      case 'green': return 'bg-green-50 text-green-600';
+      case 'rose': return 'bg-rose-50 text-rose-600';
+      case 'emerald': return 'bg-emerald-50 text-emerald-600';
+      default: return 'bg-[#e6f0ff] text-[#004aad]';
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 p-4 hover:shadow-md transition-shadow duration-200">
+      <div className="flex items-start gap-3">
+        <div className={`p-2.5 rounded-xl ${getColorClasses()}`}>
+          <Icon className="h-4 w-4" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1">{label}</p>
+          <p className="text-base font-bold text-slate-800 truncate">{value}</p>
+          {subvalue && <p className="text-xs text-slate-500 mt-1">{subvalue}</p>}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Stat Card for numbers
+const StatCard = ({ icon: Icon, label, value, color = "blue" }: {
+  icon: any;
+  label: string;
+  value: string | number;
+  color?: "blue" | "gold";
+}) => {
+  const getColorClasses = () => {
+    switch(color) {
+      case 'blue': return 'text-[#004aad] bg-[#e6f0ff]';
+      case 'gold': return 'text-[#ffc107] bg-[#fff9e6]';
+      default: return 'text-[#004aad] bg-[#e6f0ff]';
+    }
+  };
+
+  return (
+    <div className="bg-gradient-to-br from-slate-50 to-white rounded-xl border border-slate-200 p-4">
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">{label}</p>
+        <div className={`p-1.5 rounded-lg ${getColorClasses()}`}>
+          <Icon className="h-3.5 w-3.5" />
+        </div>
+      </div>
+      <p className="text-2xl font-bold text-slate-800">{value}</p>
+    </div>
+  );
 };
 
 export default function AccommodationTab({
@@ -145,13 +211,19 @@ export default function AccommodationTab({
   };
 
   // ── Same helpers as page.tsx ───────────────────────────────────────────────
-  const getManagerDisplayName = () => {
-    if (propertyManagerStaff) {
-      const sal = propertyManagerStaff.salutation ? `${propertyManagerStaff.salutation} ` : '';
-      return `${sal}${propertyManagerStaff.name}`;
+ const getManagerDisplayName = () => {
+  if (propertyManagerStaff) {
+    // Capitalize first letter of salutation if it exists
+    let salutation = propertyManagerStaff.salutation || '';
+    if (salutation) {
+      // Capitalize first letter, make rest lowercase
+      salutation = salutation.charAt(0).toUpperCase() + salutation.slice(1).toLowerCase();
+      salutation = `${salutation} `;
     }
-    return profile.property_manager_name || profile.manager_name || '—';
-  };
+    return `${salutation}${propertyManagerStaff.name}`;
+  }
+  return profile.property_manager_name || profile.manager_name || '—';
+};
 
   const getManagerRole = () => {
     // First priority: role_name from staff data (this comes from masters)
@@ -207,29 +279,34 @@ export default function AccommodationTab({
   // ── No accommodation ───────────────────────────────────────────────────────
   if (!hasAccommodation) {
     return (
-      <Card>
-        <CardContent className={`text-center ${isMobile ? 'py-8' : 'py-12'}`}>
+      <Card className="border-none shadow-lg bg-gradient-to-br from-slate-50 to-white overflow-hidden">
+        <div className="absolute right-0 top-0 w-64 h-64 bg-[#004aad]/5 rounded-full -mr-20 -mt-20"></div>
+        <CardContent className={`text-center relative z-10 ${isMobile ? 'py-8' : 'py-12'}`}>
           <div className="flex justify-center mb-4">
-            <div className="p-3 bg-slate-100 rounded-full">
-              <Home className={`${isMobile ? 'h-8 w-8' : 'h-12 w-12'} text-slate-400`} />
+            <div className="p-4 bg-gradient-to-br from-[#004aad] to-[#002a7a] rounded-2xl shadow-lg">
+              <Home className={`${isMobile ? 'h-8 w-8' : 'h-12 w-12'} text-white`} />
             </div>
           </div>
-          <h3 className={`${isMobile ? 'text-base' : 'text-lg'} font-semibold mb-2`}>
+          <h3 className={`${isMobile ? 'text-base' : 'text-lg'} font-bold text-slate-800 mb-2`}>
             No Room Assignment Yet
           </h3>
-          <p className="text-gray-500 mb-6 max-w-md mx-auto text-sm">
+          <p className="text-slate-500 mb-6 max-w-md mx-auto text-sm">
             Your accommodation is being processed. Once assigned, your room and bed details will appear here.
           </p>
           {hasProperty && (
-            <div className="border border-slate-200 rounded-lg p-4 max-w-md mx-auto text-left">
-              <p className="text-xs text-slate-400 mb-1">Registered at</p>
-              <p className="text-sm font-medium text-slate-800">
+            <div className="border border-slate-200 rounded-xl p-4 max-w-md mx-auto text-left bg-white shadow-sm">
+              <div className="flex items-center gap-2 mb-2">
+                <Building className="h-4 w-4 text-[#004aad]" />
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">Registered at</p>
+              </div>
+              <p className="text-sm font-bold text-slate-800 mb-1">
                 {profile.property_name || `Property #${profile.property_id}`}
               </p>
               {getManagerPhone() !== '—' && (
-                <p className="text-xs text-slate-500 mt-1.5">
-                  Manager: {getManagerDisplayName()} · {getManagerPhone()}
-                </p>
+                <div className="flex items-center gap-2 text-xs text-slate-500 mt-2">
+                  <User className="h-3 w-3 text-[#ffc107]" />
+                  <span>{getManagerDisplayName()} · {getManagerPhone()}</span>
+                </div>
               )}
             </div>
           )}
@@ -241,119 +318,183 @@ export default function AccommodationTab({
   // ── Loading state while masters are loading ──
   if (loadingMasters && !commonMastersLoaded) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-        <span className="ml-2 text-sm text-gray-500">Loading location details...</span>
+      <div className="flex flex-col items-center justify-center py-16">
+        <div className="p-4 bg-[#e6f0ff] rounded-2xl mb-4">
+          <Loader2 className="h-8 w-8 animate-spin text-[#004aad]" />
+        </div>
+        <span className="text-sm font-medium text-slate-600">Loading location details...</span>
       </div>
     );
   }
 
-  // ── MOBILE VIEW ────────────────────────────────────────────────────────────
+  // ── MOBILE VIEW - Enhanced with logo colors ───────────────────────────────
   if (isMobile) {
     return (
-      <div className="space-y-3">
-        {/* Property */}
-        <div className="border border-slate-200 rounded-lg p-3 bg-white">
-          <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-1.5">Property</p>
-          <div className="flex items-start gap-2">
-            <Building className="h-3.5 w-3.5 text-slate-400 mt-0.5 shrink-0" />
-            <div>
-              <p className="text-sm font-semibold text-slate-800">
-                {profile.property_name || `Property #${profile.property_id}`}
-              </p>
+      <div className="space-y-3 pb-4">
+        
+        {/* Status Badge */}
+        <div className="flex items-center justify-between px-1">
+          <div className="flex items-center gap-2">
+            <div className={`p-1.5 rounded-lg ${isActive ? 'bg-green-50' : 'bg-red-50'}`}>
+              {isActive ? (
+                <CheckCircle className="h-4 w-4 text-green-600" />
+              ) : (
+                <XCircle className="h-4 w-4 text-red-600" />
+              )}
+            </div>
+            <span className={`text-xs font-medium ${isActive ? 'text-green-600' : 'text-red-600'}`}>
+              {isActive ? 'Active Account' : 'Inactive Account'}
+            </span>
+          </div>
+          {profile.check_in_date && (
+            <Badge className="bg-[#e6f0ff] text-[#004aad] border-none text-[10px] px-2 py-0.5">
+              <Calendar className="h-3 w-3 inline mr-1" />
+              Check-in: {formatDate(profile.check_in_date)}
+            </Badge>
+          )}
+        </div>
+
+        {/* Property Header Card */}
+        <div className="bg-gradient-to-r from-[#004aad] to-[#002a7a] rounded-xl p-4 shadow-lg">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-[#ffc107] rounded-xl">
+              <Building className="h-5 w-5 text-[#004aad]" />
+            </div>
+            <div className="flex-1">
+              <p className="text-[10px] font-medium text-white/70 uppercase tracking-wider">Property</p>
+              <p className="text-base font-bold text-white">{profile.property_name || `Property #${profile.property_id}`}</p>
               {profile.property_address && (
-                <p className="text-[10px] text-slate-400 mt-0.5 line-clamp-1">{profile.property_address}</p>
+                <p className="text-xs text-white/80 mt-0.5 line-clamp-1">{profile.property_address}</p>
               )}
             </div>
           </div>
         </div>
 
-        {/* Room / Bed / Type / Rent — 2×2 grid */}
+        {/* Room Details Grid - 2 columns */}
         <div className="grid grid-cols-2 gap-2">
-          <div className="border border-slate-200 rounded-lg p-3 bg-white">
-            <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-1">Room</p>
+          <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-sm">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="p-1.5 bg-[#e6f0ff] rounded-lg">
+                <DoorOpen className="h-3.5 w-3.5 text-[#004aad]" />
+              </div>
+              <span className="text-[10px] font-medium text-slate-400 uppercase">Room</span>
+            </div>
             <p className="text-xl font-bold text-slate-800">{profile.room_number || `#${profile.room_id}`}</p>
-            {profile.floor && <p className="text-[10px] text-slate-400">Floor {profile.floor}</p>}
+            {profile.floor && <p className="text-[10px] text-slate-400 mt-0.5">Floor {profile.floor}</p>}
           </div>
-          <div className="border border-slate-200 rounded-lg p-3 bg-white">
-            <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-1">Bed</p>
+          
+          <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-sm">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="p-1.5 bg-[#fff9e6] rounded-lg">
+                <Bed className="h-3.5 w-3.5 text-[#ffc107]" />
+              </div>
+              <span className="text-[10px] font-medium text-slate-400 uppercase">Bed</span>
+            </div>
             <p className="text-xl font-bold text-slate-800">{getBedDisplay()}</p>
           </div>
-          <div className="border border-slate-200 rounded-lg p-3 bg-white">
-            <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-1">Room Type</p>
-            <p className="text-sm font-medium text-slate-700">{profile.room_type || 'Standard'}</p>
+        </div>
+
+        {/* Additional Info Grid */}
+        <div className="grid grid-cols-2 gap-2">
+          <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-sm">
+            <p className="text-[9px] font-medium text-slate-400 uppercase tracking-wider mb-1">Room Type</p>
+            <p className="text-sm font-bold text-slate-800">{profile.room_type || 'Standard'}</p>
           </div>
-          <div className="border border-slate-200 rounded-lg p-3 bg-white">
-            <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-1">Rent / Month</p>
-            <p className="text-sm font-semibold text-slate-800">
+          
+          <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-sm">
+            <p className="text-[9px] font-medium text-slate-400 uppercase tracking-wider mb-1">Monthly Rent</p>
+            <p className="text-sm font-bold text-[#004aad]">
               ₹{rentAmount ? rentAmount.toLocaleString('en-IN') : 'N/A'}
             </p>
           </div>
         </div>
 
-        {/* Sharing Type - FIXED: Now using sharing_type from rooms table */}
-        <div className="flex items-center justify-between px-1">
-          <div className="flex items-center gap-2">
-            <Users className="h-3.5 w-3.5 text-slate-400" />
-            <span className="text-xs text-slate-500">Sharing:</span>
-            <Badge variant="outline" className="text-[10px] px-2 py-0">
+        {/* Sharing Type with Badge */}
+        <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Users className="h-4 w-4 text-[#004aad]" />
+              <span className="text-xs font-medium text-slate-600">Sharing Type</span>
+            </div>
+            <Badge className="bg-[#e6f0ff] text-[#004aad] border-none text-xs px-3 py-1">
               {getSharingType()}
             </Badge>
           </div>
           {profile.bed_assigned_at && (
-            <span className="text-[10px] text-slate-400">Since {formatDate(profile.bed_assigned_at)}</span>
+            <div className="flex items-center gap-1 mt-2 text-[10px] text-slate-400">
+              <CalendarDays className="h-3 w-3" />
+              <span>Since {formatDate(profile.bed_assigned_at)}</span>
+            </div>
           )}
         </div>
 
-        {/* Property Manager — salutation from staff API */}
+        {/* Property Manager */}
         {hasManager && (
-          <div className="border border-slate-200 rounded-lg p-3 bg-white">
-            <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-2">Property Manager</p>
-            <div className="flex items-center gap-2 mb-2">
-              <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center shrink-0 overflow-hidden">
-                {getManagerPhoto()
-                  ? <img src={getManagerPhoto()!} alt="" className="h-8 w-8 rounded-full object-cover" />
-                  : <User className="h-4 w-4 text-slate-400" />
-                }
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-slate-800">{getManagerDisplayName()}</p>
-                <p className="text-[10px] text-slate-400">{getManagerRole()}</p>
+          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+            <div className="px-4 py-3 bg-gradient-to-r from-rose-50 to-pink-50 border-b border-rose-100">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-rose-500 rounded-lg">
+                  <User className="h-3.5 w-3.5 text-white" />
+                </div>
+                <span className="text-xs font-bold text-rose-600 uppercase tracking-wider">Property Manager</span>
               </div>
             </div>
-            <div className="space-y-1.5">
-              {getManagerPhone() !== '—' && (
-                <div className="flex items-center gap-2">
-                  <Phone className="h-3 w-3 text-slate-400" />
-                  <span className="text-xs text-slate-600">{getManagerPhone()}</span>
+            <div className="p-4">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-rose-100 to-pink-100 flex items-center justify-center overflow-hidden border-2 border-rose-200">
+                  {getManagerPhoto()
+                    ? <img src={getManagerPhoto()!} alt="" className="h-10 w-10 rounded-full object-cover" />
+                    : <User className="h-5 w-5 text-rose-500" />
+                  }
                 </div>
-              )}
-              {getManagerEmail() !== '—' && (
-                <div className="flex items-center gap-2">
-                  <Mail className="h-3 w-3 text-slate-400" />
-                  <span className="text-xs text-slate-600 truncate">{getManagerEmail()}</span>
+                <div>
+                  <p className="text-sm font-bold text-slate-800">{getManagerDisplayName()}</p>
+                  <p className="text-[10px] text-rose-500 font-medium">{getManagerRole()}</p>
                 </div>
-              )}
+              </div>
+              <div className="space-y-2">
+                {getManagerPhone() !== '—' && (
+                  <div className="flex items-center gap-2 text-xs">
+                    <Phone className="h-3.5 w-3.5 text-slate-400" />
+                    <span className="text-slate-600">{getManagerPhone()}</span>
+                  </div>
+                )}
+                {getManagerEmail() !== '—' && (
+                  <div className="flex items-center gap-2 text-xs">
+                    <Mail className="h-3.5 w-3.5 text-slate-400" />
+                    <span className="text-slate-600 truncate">{getManagerEmail()}</span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
 
-        {/* Location - FIXED: Now showing state name instead of ID */}
+        {/* Location */}
         {profile.property_address && (
-          <div className="border border-slate-200 rounded-lg p-3 bg-white">
-            <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-1.5">Location</p>
-            <div className="flex items-start gap-2">
-              <MapPin className="h-3.5 w-3.5 text-slate-400 mt-0.5 shrink-0" />
-              <div>
-                <p className="text-xs text-slate-700">{profile.property_address}</p>
-                {(profile.property_city || profile.property_state) && (
-                  <p className="text-[10px] text-slate-400 mt-0.5">
-                    {[
-                      profile.property_city, 
-                      getPropertyState() // This now returns the state name instead of ID
-                    ].filter(Boolean).join(', ')}
-                  </p>
-                )}
+          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+            <div className="px-4 py-3 bg-gradient-to-r from-emerald-50 to-green-50 border-b border-emerald-100">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-emerald-500 rounded-lg">
+                  <MapPinned className="h-3.5 w-3.5 text-white" />
+                </div>
+                <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider">Location</span>
+              </div>
+            </div>
+            <div className="p-4">
+              <div className="flex items-start gap-2">
+                <MapPin className="h-4 w-4 text-emerald-500 mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-sm text-slate-700">{profile.property_address}</p>
+                  {(profile.property_city || profile.property_state) && (
+                    <p className="text-xs font-medium text-[#004aad] mt-1.5">
+                      {[
+                        profile.property_city, 
+                        getPropertyState()
+                      ].filter(Boolean).join(', ')}
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -362,22 +503,35 @@ export default function AccommodationTab({
     );
   }
 
-  // ── DESKTOP VIEW ───────────────────────────────────────────────────────────
+  // ── DESKTOP VIEW - Enhanced with logo colors ───────────────────────────────
   return (
-    <>
+    <div className="space-y-5 pb-6">
+      
+      {/* Header */}
+     
+
       {/* Status Card */}
-      <Card className="mb-4 border-l-4 border-l-green-500">
-        <CardContent className="py-3 px-4">
+      <Card className="border-none shadow-sm bg-gradient-to-r from-slate-50 to-white overflow-hidden">
+        <CardContent className="p-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              {isActive ? (
-                <><CheckCircle className="h-5 w-5 text-green-500" /><span className="font-medium text-green-700">Active Account</span></>
-              ) : (
-                <><XCircle className="h-5 w-5 text-red-500" /><span className="font-medium text-red-700">Inactive Account</span></>
-              )}
+            <div className="flex items-center gap-3">
+              <div className={`p-2 rounded-xl ${isActive ? 'bg-green-50' : 'bg-red-50'}`}>
+                {isActive ? (
+                  <CheckCircle className="h-5 w-5 text-green-600" />
+                ) : (
+                  <XCircle className="h-5 w-5 text-red-600" />
+                )}
+              </div>
+              <div>
+                <p className={`text-sm font-semibold ${isActive ? 'text-green-600' : 'text-red-600'}`}>
+                  {isActive ? 'Active Account' : 'Inactive Account'}
+                </p>
+                <p className="text-xs text-slate-400 mt-0.5">Your account status</p>
+              </div>
             </div>
             {profile.check_in_date && (
-              <Badge variant="outline" className="bg-blue-50">
+              <Badge className="bg-[#e6f0ff] text-[#004aad] border-none text-sm px-3 py-1.5">
+                <Calendar className="h-4 w-4 mr-1.5" />
                 Check-in: {formatDate(profile.check_in_date)}
               </Badge>
             )}
@@ -385,141 +539,146 @@ export default function AccommodationTab({
         </CardContent>
       </Card>
 
+      {/* Main Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard 
+          icon={Building} 
+          label="Property" 
+          value={profile.property_name || `Property #${profile.property_id}`}
+          color="blue"
+        />
+        <StatCard 
+          icon={DoorOpen} 
+          label="Room" 
+          value={profile.room_number || `#${profile.room_id}`}
+          color="gold"
+        />
+        <StatCard 
+          icon={Bed} 
+          label="Bed" 
+          value={getBedDisplay()}
+          color="blue"
+        />
+        <StatCard 
+          icon={BadgeIndianRupee} 
+          label="Monthly Rent" 
+          value={`₹${rentAmount ? rentAmount.toLocaleString('en-IN') : 'N/A'}`}
+          color="gold"
+        />
+      </div>
+
       {/* Main Accommodation Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Current Accommodation</CardTitle>
-          <CardDescription>Your assigned room and bed details</CardDescription>
+      <Card className="border border-slate-200 shadow-sm overflow-hidden">
+        <CardHeader className="pb-3 px-6 pt-5 bg-gradient-to-r from-[#e6f0ff] to-[#f0f5ff] border-b border-[#004aad]/20">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 bg-[#004aad] rounded-lg">
+              <Home className="h-4 w-4 text-white" />
+            </div>
+            <div>
+              <CardTitle className="text-sm font-semibold text-slate-800">Room Details</CardTitle>
+              <CardDescription className="text-xs">Your assigned accommodation information</CardDescription>
+            </div>
+          </div>
         </CardHeader>
-        <CardContent>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 text-gray-500">
-                <Building className="h-4 w-4" />
-                <Label>Property</Label>
-              </div>
-              <p className="text-lg font-semibold">
-                {profile.property_name || `Property #${profile.property_id}`}
-              </p>
-              {profile.property_address && (
-                <p className="text-xs text-gray-500 mt-1">{profile.property_address}</p>
-              )}
-              {profile.property_city && (
-                <p className="text-xs text-gray-400 mt-1">{profile.property_city}</p>
-              )}
-            </div>
+        <CardContent className="p-6">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
+            <InfoCard 
+              icon={Building}
+              label="Property Name"
+              value={profile.property_name || `Property #${profile.property_id}`}
+              subvalue={profile.property_address}
+              color="blue"
+            />
 
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 text-gray-500">
-                <Home className="h-4 w-4" />
-                <Label>Room Number</Label>
-              </div>
-              <p className="text-lg font-semibold">
-                {profile.room_number || `Room #${profile.room_id}`}
-              </p>
-              {profile.floor && (
-                <p className="text-xs text-gray-500 mt-1">Floor: {profile.floor}</p>
-              )}
-            </div>
+            <InfoCard 
+              icon={DoorOpen}
+              label="Room Number"
+              value={profile.room_number || `#${profile.room_id}`}
+              subvalue={profile.floor ? `Floor ${profile.floor}` : undefined}
+              color="gold"
+            />
 
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 text-gray-500">
-                <Bed className="h-4 w-4" />
-                <Label>Bed</Label>
-              </div>
-              <p className="text-lg font-semibold">{getBedDisplay()}</p>
-            </div>
+            <InfoCard 
+              icon={Bed}
+              label="Bed Details"
+              value={getBedDisplay()}
+              color="blue"
+            />
 
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 text-gray-500">
-                <Briefcase className="h-4 w-4" />
-                <Label>Room Type</Label>
-              </div>
-              <p className="text-lg font-semibold">{profile.room_type || 'Standard'}</p>
-            </div>
+            <InfoCard 
+              icon={Briefcase}
+              label="Room Type"
+              value={profile.room_type || 'Standard'}
+              color="gold"
+            />
 
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 text-gray-500">
-                <BadgeIndianRupee className="h-4 w-4" />
-                <Label>Monthly Rent</Label>
-              </div>
-              <p className="text-lg font-semibold text-green-600">
-                ₹ {rentAmount ? rentAmount.toLocaleString('en-IN') : 'N/A'}
-              </p>
-            </div>
+            <InfoCard 
+              icon={BadgeIndianRupee}
+              label="Monthly Rent"
+              value={`₹${rentAmount ? rentAmount.toLocaleString('en-IN') : 'N/A'}`}
+              color="blue"
+            />
 
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 text-gray-500">
-                <Users className="h-4 w-4" />
-                <Label>Sharing</Label>
-              </div>
-              <p className="text-lg font-semibold">{getSharingType()}</p>
-            </div>
+            <InfoCard 
+              icon={Users}
+              label="Sharing Type"
+              value={getSharingType()}
+              subvalue={profile.bed_assigned_at ? `Since ${formatDate(profile.bed_assigned_at)}` : undefined}
+              color="gold"
+            />
           </div>
         </CardContent>
       </Card>
 
       {/* Property Manager */}
       {hasManager && (
-        <Card className="mt-4">
-          <CardHeader>
-            <CardTitle>Property Management</CardTitle>
-            <CardDescription>Contact information for property management</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2 text-gray-500">
-                  <User className="h-4 w-4" />
-                  <Label>Manager Name</Label>
-                </div>
-                <p className="text-lg font-semibold">{getManagerDisplayName()}</p>
-                <p className="text-xs text-gray-400">{getManagerRole()}</p>
+        <Card className="border border-slate-200 shadow-sm overflow-hidden">
+          <CardHeader className="pb-3 px-6 pt-5 bg-gradient-to-r from-rose-50 to-pink-50 border-b border-rose-200">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 bg-rose-500 rounded-lg">
+                <User className="h-4 w-4 text-white" />
               </div>
-
-              {getManagerPhone() !== '—' && (
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2 text-gray-500">
-                    <Phone className="h-4 w-4" />
-                    <Label>Manager Phone</Label>
-                  </div>
-                  <p className="text-lg font-semibold">{getManagerPhone()}</p>
-                </div>
-              )}
-
-              {getManagerEmail() !== '—' && (
-                <div className="space-y-1 md:col-span-2">
-                  <div className="flex items-center gap-2 text-gray-500">
-                    <Mail className="h-4 w-4" />
-                    <Label>Manager Email</Label>
-                  </div>
-                  <p className="text-base">{getManagerEmail()}</p>
-                </div>
-              )}
+              <div>
+                <CardTitle className="text-sm font-semibold text-slate-800">Property Management</CardTitle>
+                <CardDescription className="text-xs">Contact information for property management</CardDescription>
+              </div>
             </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Property Address - FIXED: Now showing state name instead of ID */}
-      {profile.property_address && (
-        <Card className="mt-4">
-          <CardHeader>
-            <CardTitle>Property Location</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <div className="flex items-start gap-3">
-                <MapPin className="h-5 w-5 text-gray-400 mt-0.5 flex-shrink-0" />
-                <div>
-                  <p className="text-base">{profile.property_address}</p>
-                  {(profile.property_city || profile.property_state) && (
-                    <p className="text-md text-black mt-1">
-                      {[
-                        profile.property_city, 
-                        getPropertyState() // This now returns the state name instead of ID
-                      ].filter(Boolean).join(', ')}
-                    </p>
+          <CardContent className="p-6">
+            <div className="flex items-start gap-6">
+              <div className="h-16 w-16 rounded-full bg-gradient-to-br from-rose-100 to-pink-100 flex items-center justify-center overflow-hidden border-2 border-rose-200">
+                {getManagerPhoto()
+                  ? <img src={getManagerPhoto()!} alt="" className="h-16 w-16 rounded-full object-cover" />
+                  : <User className="h-8 w-8 text-rose-500" />
+                }
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-bold text-slate-800">{getManagerDisplayName()}</h3>
+                <p className="text-sm text-rose-500 font-medium mt-0.5">{getManagerRole()}</p>
+                
+                <div className="grid md:grid-cols-2 gap-4 mt-4">
+                  {getManagerPhone() !== '—' && (
+                    <div className="flex items-center gap-3 text-sm">
+                      <div className="p-1.5 bg-rose-50 rounded-lg">
+                        <Phone className="h-4 w-4 text-rose-500" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-400">Phone</p>
+                        <p className="font-medium text-slate-700">{getManagerPhone()}</p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {getManagerEmail() !== '—' && (
+                    <div className="flex items-center gap-3 text-sm">
+                      <div className="p-1.5 bg-rose-50 rounded-lg">
+                        <Mail className="h-4 w-4 text-rose-500" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-400">Email</p>
+                        <p className="font-medium text-slate-700 truncate">{getManagerEmail()}</p>
+                      </div>
+                    </div>
                   )}
                 </div>
               </div>
@@ -527,6 +686,45 @@ export default function AccommodationTab({
           </CardContent>
         </Card>
       )}
-    </>
+
+      {/* Property Location */}
+      {profile.property_address && (
+        <Card className="border border-slate-200 shadow-sm overflow-hidden">
+          <CardHeader className="pb-3 px-6 pt-5 bg-gradient-to-r from-emerald-50 to-green-50 border-b border-emerald-200">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 bg-emerald-500 rounded-lg">
+                <MapPinned className="h-4 w-4 text-white" />
+              </div>
+              <div>
+                <CardTitle className="text-sm font-semibold text-slate-800">Property Location</CardTitle>
+                <CardDescription className="text-xs">Full address details</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="p-6">
+            <div className="flex items-start gap-4">
+              <div className="p-2 bg-emerald-50 rounded-lg">
+                <MapPin className="h-5 w-5 text-emerald-500" />
+              </div>
+              <div>
+                <p className="text-base text-slate-700">{profile.property_address}</p>
+                {(profile.property_city || profile.property_state) && (
+                  <div className="flex items-center gap-2 mt-2">
+                    <Badge className="bg-[#e6f0ff] text-[#004aad] border-none text-xs px-3 py-1">
+                      {profile.property_city}
+                    </Badge>
+                    {profile.property_state && (
+                      <Badge className="bg-[#fff9e6] text-[#ffc107] border-none text-xs px-3 py-1">
+                        {getPropertyState()}
+                      </Badge>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
   );
 }

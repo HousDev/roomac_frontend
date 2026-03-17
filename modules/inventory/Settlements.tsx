@@ -286,7 +286,7 @@ const [handoverSearchTerm, setHandoverSearchTerm] = useState('');
         </div>
 
         <div className="px-0 sm:px-0 pb-3 mt-2 grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-          <StatCard title="Total"             value={stats.total}             icon={Receipt}       color="bg-blue-600"    bg="bg-gradient-to-br from-blue-50 to-blue-100"/>
+          <StatCard title="Total"             value={stats.total}             icon={IndianRupee}       color="bg-blue-600"    bg="bg-gradient-to-br from-blue-50 to-blue-100"/>
           <StatCard title="Pending"           value={stats.pending}           icon={AlertTriangle} color="bg-amber-600"   bg="bg-gradient-to-br from-amber-50 to-amber-100"/>
           <StatCard title="Paid / Completed"  value={stats.paid}              icon={ShieldCheck}   color="bg-emerald-600" bg="bg-gradient-to-br from-emerald-50 to-emerald-100"/>
           <StatCard title="Total Refunds"     value={money(stats.totalRefund)} icon={Banknote}     color="bg-indigo-600"  bg="bg-gradient-to-br from-indigo-50 to-indigo-100"/>
@@ -656,72 +656,76 @@ const [handoverSearchTerm, setHandoverSearchTerm] = useState('');
       </Dialog>
 
       {/* VIEW DIALOG */}
-      {viewItem && (
-        <Dialog open={!!viewItem} onOpenChange={v => { if (!v) setViewItem(null); }}>
-          <DialogContent className="max-w-md w-[95vw] max-h-[90vh] overflow-hidden p-0">
-            <div className="bg-gradient-to-r from-blue-700 to-blue-600 text-white px-4 py-3 flex items-center justify-between rounded-t-lg">
-              <div>
-                <h2 className="text-base font-semibold">Settlement Details</h2>
-                <p className="text-xs text-blue-100">{viewItem.tenant_name} — {viewItem.property_name}</p>
-              </div>
-              <DialogClose asChild>
-                <button className="p-1.5 rounded-full hover:bg-white/20"><X className="h-4 w-4"/></button>
-              </DialogClose>
+     {/* VIEW DIALOG */}
+{viewItem && (
+  <Dialog open={!!viewItem} onOpenChange={v => { if (!v) setViewItem(null); }}>
+    <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-hidden p-0">
+      <div className="bg-gradient-to-r from-blue-700 to-blue-600 text-white px-4 py-3 flex items-center justify-between rounded-t-lg">
+        <div>
+          <h2 className="text-base font-semibold">Settlement Details</h2>
+          <p className="text-xs text-blue-100">{viewItem.tenant_name} — {viewItem.property_name}</p>
+        </div>
+        <DialogClose asChild>
+          <button className="p-1.5 rounded-full hover:bg-white/20"><X className="h-4 w-4"/></button>
+        </DialogClose>
+      </div>
+      <div className="p-4 overflow-y-auto max-h-[75vh] space-y-3">
+        {/* 3x3 Grid - 3 columns with 3 rows */}
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            ['Tenant', viewItem.tenant_name],
+            ['Phone', viewItem.tenant_phone],
+            ['Property', viewItem.property_name],
+            ['Room', `${viewItem.room_number}${viewItem.bed_number ? '/'+viewItem.bed_number : ''}`],
+            ['Date', fmt(viewItem.settlement_date)],
+            ['Method', viewItem.payment_method],
+            ['Ref / UTR', viewItem.payment_reference || '—'],
+            ['Status', viewItem.status],
+          ].map(([label, value]) => (
+            <div key={label} className="bg-gray-50 rounded-lg p-2.5">
+              <p className="text-[10px] text-gray-500">{label}</p>
+              <p className="text-[11px] font-semibold text-gray-800 mt-0.5 truncate">{value}</p>
             </div>
-            <div className="p-4 overflow-y-auto max-h-[75vh] space-y-3">
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  ['Tenant',    viewItem.tenant_name],
-                  ['Phone',     viewItem.tenant_phone],
-                  ['Property',  viewItem.property_name],
-                  ['Room',      `${viewItem.room_number}${viewItem.bed_number ? '/'+viewItem.bed_number : ''}`],
-                  ['Date',      fmt(viewItem.settlement_date)],
-                  ['Method',    viewItem.payment_method],
-                  ['Ref / UTR', viewItem.payment_reference || '—'],
-                  ['Status',    viewItem.status],
-                ].map(([label, value]) => (
-                  <div key={label} className="bg-gray-50 rounded-lg p-2.5">
-                    <p className="text-[10px] text-gray-500">{label}</p>
-                    <p className="text-[11px] font-semibold text-gray-800 mt-0.5">{value}</p>
-                  </div>
-                ))}
-              </div>
+          ))}
+        </div>
 
-              <div className="border rounded-lg overflow-hidden">
-                <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-3 py-2">
-                  <p className="text-[11px] font-bold text-white">Financial Breakdown</p>
-                </div>
-                <div className="divide-y divide-gray-100">
-                  {[
-                    ['Security Deposit', money(viewItem.security_deposit), 'text-gray-800'],
-                    ['Penalties',        `– ${money(viewItem.penalties)}`, 'text-red-600'],
-                    ['Penalty Discount', `+ ${money(viewItem.penalty_discount)}`, 'text-emerald-600'],
-                    ['Outstanding Rent', `– ${money(viewItem.outstanding_rent)}`, 'text-orange-600'],
-                    ['Other Deductions', `– ${money(viewItem.other_deductions)}`, 'text-orange-600'],
-                    ['Total Deductions', money(viewItem.total_deductions), 'text-orange-700 font-bold'],
-                  ].map(([label, value, color]) => (
-                    <div key={label} className="flex justify-between px-3 py-2">
-                      <span className="text-[11px] text-gray-600">{label}</span>
-                      <span className={`text-[11px] font-semibold ${color}`}>{value}</span>
-                    </div>
-                  ))}
-                  <div className="flex justify-between px-3 py-2.5 bg-emerald-50">
-                    <span className="text-[12px] font-bold text-emerald-800">Refund Amount</span>
-                    <span className="text-base font-black text-emerald-700">{money(viewItem.refund_amount)}</span>
-                  </div>
-                </div>
+        {/* Financial Breakdown - Takes full width */}
+        <div className="border rounded-lg overflow-hidden">
+          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-3 py-2">
+            <p className="text-[11px] font-bold text-white">Financial Breakdown</p>
+          </div>
+          <div className="divide-y divide-gray-100">
+            {[
+              ['Security Deposit', money(viewItem.security_deposit), 'text-gray-800'],
+              ['Penalties', `– ${money(viewItem.penalties)}`, 'text-red-600'],
+              ['Penalty Discount', `+ ${money(viewItem.penalty_discount)}`, 'text-emerald-600'],
+              ['Outstanding Rent', `– ${money(viewItem.outstanding_rent)}`, 'text-orange-600'],
+              ['Other Deductions', `– ${money(viewItem.other_deductions)}`, 'text-orange-600'],
+              ['Total Deductions', money(viewItem.total_deductions), 'text-orange-700 font-bold'],
+            ].map(([label, value, color]) => (
+              <div key={label} className="flex justify-between px-3 py-2">
+                <span className="text-[11px] text-gray-600">{label}</span>
+                <span className={`text-[11px] font-semibold ${color}`}>{value}</span>
               </div>
-
-              {viewItem.notes && (
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-                  <p className="text-[10px] font-bold text-amber-800 mb-1">Notes</p>
-                  <p className="text-[11px] text-amber-700">{viewItem.notes}</p>
-                </div>
-              )}
+            ))}
+            <div className="flex justify-between px-3 py-2.5 bg-emerald-50">
+              <span className="text-[12px] font-bold text-emerald-800">Refund Amount</span>
+              <span className="text-base font-black text-emerald-700">{money(viewItem.refund_amount)}</span>
             </div>
-          </DialogContent>
-        </Dialog>
-      )}
+          </div>
+        </div>
+
+        {/* Notes Section */}
+        {viewItem.notes && (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+            <p className="text-[10px] font-bold text-amber-800 mb-1">Notes</p>
+            <p className="text-[11px] text-amber-700">{viewItem.notes}</p>
+          </div>
+        )}
+      </div>
+    </DialogContent>
+  </Dialog>
+)}
     </div>
   );
 }

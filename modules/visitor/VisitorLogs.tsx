@@ -347,10 +347,43 @@ const handleUnblock = async (log: VisitorLog) => {
     showCancelButton: true,
     confirmButtonText: 'Unblock',
     cancelButtonText: 'Cancel',
+    width: '420px',
+
     confirmButtonColor: '#16a34a',
     cancelButtonColor: '#6b7280',
-    width: '420px',
-    customClass: { popup: 'rounded-xl shadow-2xl' },
+
+    buttonsStyling: true,
+
+    customClass: {
+      popup: 'rounded-xl shadow-2xl',
+    },
+
+    didOpen: () => {
+      const confirmBtn = document.querySelector('.swal2-confirm') as HTMLElement;
+      const cancelBtn = document.querySelector('.swal2-cancel') as HTMLElement;
+
+      if (confirmBtn) {
+        confirmBtn.style.background = '#16a34a';
+        confirmBtn.style.color = '#fff';
+        confirmBtn.style.padding = '8px 18px';
+        confirmBtn.style.borderRadius = '6px';
+        confirmBtn.style.fontWeight = '600';
+        confirmBtn.style.display = 'inline-block';
+        confirmBtn.style.filter = 'none';
+        confirmBtn.onmouseover = () => (confirmBtn.style.filter = 'none');
+      }
+
+      if (cancelBtn) {
+        cancelBtn.style.background = '#6b7280';
+        cancelBtn.style.color = '#fff';
+        cancelBtn.style.padding = '8px 18px';
+        cancelBtn.style.borderRadius = '6px';
+        cancelBtn.style.marginRight = '8px';
+        cancelBtn.style.display = 'inline-block';
+        cancelBtn.style.filter = 'none';
+        cancelBtn.onmouseover = () => (cancelBtn.style.filter = 'none');
+      }
+    }
   });
 
   if (!result.isConfirmed) return;
@@ -822,108 +855,109 @@ const handleUnblock = async (log: VisitorLog) => {
 </Dialog>
 
       {/* ══ VIEW DETAIL MODAL ══════════════════════════════════════════════ */}
-      {viewItem && (
-        <Dialog open={!!viewItem} onOpenChange={v => { if (!v) setViewItem(null); }}>
-          <DialogContent className="max-w-lg w-[95vw] max-h-[90vh] overflow-hidden p-0">
-            <div className="bg-gradient-to-r from-blue-700 to-cyan-600 text-white px-4 py-3 flex items-center justify-between rounded-t-lg">
-              <div>
-                <h2 className="text-base font-semibold">Visitor Details</h2>
-                <p className="text-xs text-blue-100">{viewItem.visitor_name} — {viewItem.property_name}</p>
-              </div>
-              <DialogClose asChild>
-                <button className="p-1.5 rounded-full hover:bg-white/20 transition"><X className="h-4 w-4" /></button>
-              </DialogClose>
+     {viewItem && (
+  <Dialog open={!!viewItem} onOpenChange={v => { if (!v) setViewItem(null); }}>
+    {/* Width badhayi - max-w-4xl (896px) ya max-w-5xl (1024px) */}
+    <DialogContent className="max-w-5xl w-[95vw] max-h-[90vh] overflow-hidden p-0">
+      <div className="bg-gradient-to-r from-blue-700 to-cyan-600 text-white px-4 py-3 flex items-center justify-between rounded-t-lg">
+        <div>
+          <h2 className="text-base font-semibold">Visitor Details</h2>
+          <p className="text-xs text-blue-100">{viewItem.visitor_name} — {viewItem.property_name}</p>
+        </div>
+        <DialogClose asChild>
+          <button className="p-1.5 rounded-full hover:bg-white/20 transition"><X className="h-4 w-4" /></button>
+        </DialogClose>
+      </div>
+
+      <div className="p-4 overflow-y-auto max-h-[75vh] space-y-3">
+        {/* Status badge */}
+        <div className="flex items-center justify-between">
+          <Badge className={`text-[10px] px-2 py-1 font-bold ${statusColor(viewItem.status)}`}>
+            {statusLabel(viewItem.status)}
+          </Badge>
+          {viewItem.qr_code && (
+            <span className="text-[10px] text-blue-600 font-mono bg-blue-50 px-2 py-1 rounded">
+              {viewItem.qr_code}
+            </span>
+          )}
+        </div>
+
+        {/* 4x4 Grid - 4 columns on all screens */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+          {[
+            ['Visitor Name', viewItem.visitor_name],
+            ['Visitor Phone', viewItem.visitor_phone],
+            ['Tenant', viewItem.tenant_name],
+            ['Tenant Phone', viewItem.tenant_phone || '—'],
+            ['Property', viewItem.property_name],
+            ['Room', viewItem.room_number],
+            ['Purpose', viewItem.purpose],
+            ['ID Type', viewItem.id_proof_type],
+            ['ID Number', viewItem.id_proof_number],
+            ['Vehicle', viewItem.vehicle_number || '—'],
+            ['Guard', viewItem.security_guard_name],
+            ['Approval', viewItem.approval_status],
+            ['Entry Time', fmt(viewItem.entry_time)],
+            ['Exit Time', viewItem.exit_time ? fmt(viewItem.exit_time) : '—'],
+            ['Expected Exit', viewItem.tentative_exit_time ? fmt(viewItem.tentative_exit_time) : '—'],
+            viewItem.checked_out_by ? ['Checked Out By', viewItem.checked_out_by] : ['Checked Out By', '—'],
+          ].filter(Boolean).map(([label, value]) => (
+            <div key={label as string} className="bg-gray-50 rounded-lg p-2.5">
+              <p className="text-[10px] text-gray-500 font-medium">{label}</p>
+              <p className="text-[11px] font-semibold text-gray-800 mt-0.5 break-words">{value as string}</p>
             </div>
+          ))}
+        </div>
 
-            <div className="p-4 overflow-y-auto max-h-[75vh] space-y-3">
-              {/* Status badge */}
-              <div className="flex items-center justify-between">
-                <Badge className={`text-[10px] px-2 py-1 font-bold ${statusColor(viewItem.status)}`}>
-                  {statusLabel(viewItem.status)}
-                </Badge>
-                {viewItem.qr_code && (
-                  <span className="text-[10px] text-blue-600 font-mono bg-blue-50 px-2 py-1 rounded">
-                    {viewItem.qr_code}
-                  </span>
-                )}
-              </div>
+        {/* Notes */}
+        {viewItem.notes && (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+            <p className="text-[10px] font-bold text-amber-800 mb-1">Notes</p>
+            <p className="text-[11px] text-amber-700">{viewItem.notes}</p>
+          </div>
+        )}
 
-              {/* Detail grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {[
-                  ['Visitor Name',  viewItem.visitor_name],
-                  ['Visitor Phone', viewItem.visitor_phone],
-                  ['Tenant',        viewItem.tenant_name],
-                  ['Tenant Phone',  viewItem.tenant_phone  || '—'],
-                  ['Property',      viewItem.property_name],
-                  ['Room',          viewItem.room_number],
-                  ['Purpose',       viewItem.purpose],
-                  ['ID Type',       viewItem.id_proof_type],
-                  ['ID Number',     viewItem.id_proof_number],
-                  ['Vehicle',       viewItem.vehicle_number || '—'],
-                  ['Guard',         viewItem.security_guard_name],
-                  ['Approval',      viewItem.approval_status],
-                  ['Entry Time',    fmt(viewItem.entry_time)],
-                  ['Exit Time',     viewItem.exit_time ? fmt(viewItem.exit_time) : '—'],
-                  ['Expected Exit', viewItem.tentative_exit_time ? fmt(viewItem.tentative_exit_time) : '—'],
-                  viewItem.checked_out_by ? ['Checked Out By', viewItem.checked_out_by] : null,
-                ].filter(Boolean).map(([label, value]) => (
-                  <div key={label as string} className="bg-gray-50 rounded-lg p-2.5">
-                    <p className="text-[10px] text-gray-500 font-medium">{label}</p>
-                    <p className="text-[11px] font-semibold text-gray-800 mt-0.5 break-words">{value as string}</p>
-                  </div>
-                ))}
-              </div>
+        {/* Action buttons */}
+        <div className="flex gap-2 pt-1 flex-wrap">
+          {(viewItem.status === 'checked_in' || viewItem.status === 'overstayed') && !viewItem.is_blocked && (
+            <Button onClick={() => { handleCheckOut(viewItem.id); setViewItem(null); }}
+              className="flex-1 h-8 text-[11px] bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white gap-1.5">
+              <LogOut className="h-3.5 w-3.5" /> Check Out Now
+            </Button>
+          )}
 
-              {/* Notes */}
-              {viewItem.notes && (
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-                  <p className="text-[10px] font-bold text-amber-800 mb-1">Notes</p>
-                  <p className="text-[11px] text-amber-700">{viewItem.notes}</p>
-                </div>
+          {viewItem.is_blocked === 1 ? (
+            <Button
+              onClick={() => { handleUnblock(viewItem); setViewItem(null); }}
+              className="flex-1 h-8 text-[11px] bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white gap-1.5"
+            >
+              <ShieldCheck className="h-3.5 w-3.5" /> Unblock Visitor
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              onClick={() => { handleBlock(viewItem); setViewItem(null); }}
+              className="h-8 text-[11px] border-red-200 text-red-600 hover:bg-red-50 gap-1.5"
+            >
+              <Ban className="h-3.5 w-3.5" /> Block
+            </Button>
+          )}
+
+          {/* Blocked reason shown in modal */}
+          {viewItem.is_blocked === 1 && viewItem.block_reason && (
+            <div className="w-full bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+              <p className="text-[9px] font-bold text-red-700">Block Reason</p>
+              <p className="text-[10px] text-red-600">{viewItem.block_reason}</p>
+              {viewItem.blocked_by && (
+                <p className="text-[9px] text-red-400 mt-0.5">By: {viewItem.blocked_by}</p>
               )}
-
-              {/* Action buttons */}
-             <div className="flex gap-2 pt-1 flex-wrap">
-  {(viewItem.status === 'checked_in' || viewItem.status === 'overstayed') && !viewItem.is_blocked && (
-    <Button onClick={() => { handleCheckOut(viewItem.id); setViewItem(null); }}
-      className="flex-1 h-8 text-[11px] bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white gap-1.5">
-      <LogOut className="h-3.5 w-3.5" /> Check Out Now
-    </Button>
-  )}
-
-  {viewItem.is_blocked === 1 ? (
-    <Button
-      onClick={() => { handleUnblock(viewItem); setViewItem(null); }}
-      className="flex-1 h-8 text-[11px] bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white gap-1.5"
-    >
-      <ShieldCheck className="h-3.5 w-3.5" /> Unblock Visitor
-    </Button>
-  ) : (
-    <Button
-      variant="outline"
-      onClick={() => { handleBlock(viewItem); setViewItem(null); }}
-      className="h-8 text-[11px] border-red-200 text-red-600 hover:bg-red-50 gap-1.5"
-    >
-      <Ban className="h-3.5 w-3.5" /> Block
-    </Button>
-  )}
-
-  {/* Blocked reason shown in modal */}
-  {viewItem.is_blocked === 1 && viewItem.block_reason && (
-    <div className="w-full bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-      <p className="text-[9px] font-bold text-red-700">Block Reason</p>
-      <p className="text-[10px] text-red-600">{viewItem.block_reason}</p>
-      {viewItem.blocked_by && (
-        <p className="text-[9px] text-red-400 mt-0.5">By: {viewItem.blocked_by}</p>
-      )}
-    </div>
-  )}
-</div>
             </div>
-          </DialogContent>
-        </Dialog>
-      )}
+          )}
+        </div>
+      </div>
+    </DialogContent>
+  </Dialog>
+)}
     </div>
   );
 }

@@ -91,6 +91,8 @@ import router from "@/src/compat/next-router";
 import { getProperty } from "@/lib/propertyApi";
 import * as paymentApi from '@/lib/paymentRecordApi';
 import * as notificationApi from '@/lib/notificationApi';
+import { getTenantUnseenCount, markNoticePeriodAsSeen } from "@/lib/noticePeriodApi";
+
 
 interface DashboardStats {
   totalPaid: number;
@@ -253,10 +255,12 @@ export default function TenantPortalPage() {
   }, [location.hash]);
 
   // Tab change hone par URL hash update karo
-  const handleTabChange = (tab: string) => {
-    setActiveTab(tab);
-    navigate(`/tenant/portal#${tab}`, { replace: true });
-  };
+  // Tab change hone par URL hash update karo - PORTAL KE ANDAR HI RAHE
+const handleTabChange = (tab: string) => {
+  setActiveTab(tab);
+  // Sirf hash change karo, page navigate mat karo
+  navigate(`/tenant/portal#${tab}`, { replace: true });
+};
 
   // Data state
   const [loading, setLoading] = useState(true);
@@ -1105,23 +1109,7 @@ const getManagerRole = () => {
 
   return (
     <div className="p-2 sm:p-2">
-      {/* Welcome Banner */}
-      <div className="mb-3 bg-white border border-slate-200 rounded-lg p-3 text-slate-900 shadow-sm">
-        <h1 className="text-lg sm:text-xl font-semibold text-slate-900">
-          Welcome back,{" "}
-          <span className="text-[#0149ab]">
-            {tenant?.salutation
-              ? `${tenant.salutation} ${tenant?.full_name?.split(" ")[0]}`
-              : tenant?.full_name?.split(" ")[0] || "Tenant"}!👋
-          </span>
-        </h1>
-        <p className="text-slate-500 text-xs flex items-center gap-1.5 mt-0.5">
-          <Building className="h-3 w-3 shrink-0 text-slate-400" />
-          <span className="truncate">
-            {tenant?.property_name || "Roomac Heights"} · Room {tenant?.room_number || "204"} · Bed {tenant?.bed_number || "1"}
-          </span>
-        </p>
-      </div>
+   
 
       {/* ── Stats Cards ── */}
       {/* MOBILE: very compact. DESKTOP (lg+): unchanged */}
@@ -1232,14 +1220,17 @@ const getManagerRole = () => {
               </div>
             </div>
             <div className="mt-1.5 lg:mt-3">
-              <Button
-                size="sm"
-                className="w-full bg-emerald-600 hover:bg-emerald-700 h-6 lg:h-7 text-[10px] lg:text-xs"
-                onClick={() => { handleTabChange("payments"); setShowPaymentDialog(true); }}
-              >
-                <CreditCard className="h-2.5 w-2.5 lg:h-3 lg:w-3 mr-1" />
-                Pay Now
-              </Button>
+             <Button
+  size="sm"
+  className="w-full bg-emerald-600 hover:bg-emerald-700 h-6 lg:h-7 text-[10px] lg:text-xs"
+  onClick={() => { 
+    handleTabChange("payments");  // ← YEH PORTAL KE ANDAR TAB CHANGE KAREGA
+    setShowPaymentDialog(true); 
+  }}
+>
+  <CreditCard className="h-2.5 w-2.5 lg:h-3 lg:w-3 mr-1" />
+  Pay Now
+</Button>
             </div>
           </CardContent>
         </Card>
@@ -1278,7 +1269,7 @@ const getManagerRole = () => {
       </div>
 
       {/* Action Buttons - compact on mobile */}
-      <div className="grid grid-cols-4 gap-1.5 sm:gap-3 mb-4 lg:mb-6">
+      <div className="grid grid-cols-3 gap-1.5 sm:gap-3 mb-4 lg:mb-5">
         <Button
           variant="outline"
           className="h-auto py-1.5 lg:py-2 px-1 flex flex-col items-center justify-center gap-0.5 bg-white hover:bg-blue-50 border border-slate-200 text-slate-700 hover:text-[#0149ab] shadow-sm rounded-lg"
@@ -1289,7 +1280,7 @@ const getManagerRole = () => {
           <span className="text-[8px] lg:text-[10px] text-slate-400 text-center leading-tight hidden lg:block">Report any issues</span>
         </Button>
 
-        <Button
+        {/* <Button
           variant="outline"
           className="h-auto py-1.5 lg:py-2 px-1 flex flex-col items-center justify-center gap-0.5 bg-white hover:bg-blue-50 border border-slate-200 text-slate-700 hover:text-[#0149ab] shadow-sm rounded-lg"
           onClick={() => setShowLeaveDialog(true)}
@@ -1297,7 +1288,7 @@ const getManagerRole = () => {
           <Calendar className="h-3.5 w-3.5 sm:h-4 sm:w-4 lg:h-5 lg:w-5 text-green-500" />
           <span className="text-[9px] sm:text-[10px] lg:text-xs font-medium text-center leading-tight">Request Leave</span>
           <span className="text-[8px] lg:text-[10px] text-slate-400 text-center leading-tight hidden lg:block">Vacation or early leave</span>
-        </Button>
+        </Button> */}
 
         <Button
           variant="outline"

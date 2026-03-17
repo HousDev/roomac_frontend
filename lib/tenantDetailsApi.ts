@@ -126,15 +126,14 @@ export const tenantDetailsApi = {
       throw error;
     }
   },
-
-  async getDocuments() {
-    try {
-      return await tenantRequest(`${API_BASE_PATH}/documents`);
-    } catch (error) {
-      console.error('Error fetching documents:', error);
-      throw error;
-    }
-  },
+async getDocuments() {
+  try {
+    return await tenantRequest(`${API_BASE_PATH}/additional-documents`); // ✅ match the route
+  } catch (error) {
+    console.error('Error fetching documents:', error);
+    throw error;
+  }
+},
 
   async testConnection() {
     try {
