@@ -303,6 +303,7 @@ const DEFAULT_HTML = `<!DOCTYPE html>
       background: #fed7aa;
       color: #92400e;
     }
+      
     
     @media print {
       body {
@@ -615,7 +616,8 @@ export function TemplateManager() {
   const [historyTpl, setHistoryTpl] = useState<DocumentTemplate | null>(null);
   const [previewHtml, setPreviewHtml] = useState("");
   const [saving, setSaving] = useState(false);
-
+// Add this with your other useState declarations
+const [showVariables, setShowVariables] = useState(false);
   // ── Sidebar / selection ────────────────────────────────────────────────────
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string | number>>(new Set());
@@ -1594,22 +1596,26 @@ const extractVars = (html?: string) => {
                           day: "2-digit", month: "short", year: "numeric",
                         })}
                       </TableCell>
-                      <TableCell className="py-2 px-3">
-                        <div className="flex justify-end gap-0.5">
-                          {[
-                            { icon: <Eye className="h-3 w-3" />,     fn: () => openPreviewForRow(t),                            cls: "hover:bg-blue-50 hover:text-blue-600",     title: "Preview" },
-                            { icon: <Pencil className="h-3 w-3" />,  fn: () => openEdit(t),                                     cls: "hover:bg-green-50 hover:text-green-600",   title: "Edit" },
-                            { icon: <Copy className="h-3 w-3" />,    fn: () => openDuplicate(t),                                cls: "hover:bg-purple-50 hover:text-purple-600", title: "Duplicate" },
-                            { icon: <History className="h-3 w-3" />, fn: () => { setHistoryTpl(t); setShowHistory(true); },     cls: "hover:bg-orange-50 hover:text-orange-600", title: "History" },
-                            { icon: <Trash2 className="h-3 w-3" />,  fn: () => handleDelete(t.id, t.name),                     cls: "hover:bg-red-50 hover:text-red-600",       title: "Delete" },
-                          ].map((btn, i) => (
-                            <button key={i} onClick={btn.fn} title={btn.title}
-                              className={`p-1.5 rounded-md text-gray-400 transition-colors ${btn.cls}`}>
-                              {btn.icon}
-                            </button>
-                          ))}
-                        </div>
-                      </TableCell>
+                     <TableCell className="py-2 px-3">
+  <div className="flex justify-end gap-0.5">
+    {[
+      { icon: <Eye className="h-3 w-3" />,     fn: () => openPreviewForRow(t),                        cls: "text-blue-500 hover:bg-blue-50",     title: "Preview" },
+      { icon: <Pencil className="h-3 w-3" />,  fn: () => openEdit(t),                                 cls: "text-green-500 hover:bg-green-50",   title: "Edit" },
+      { icon: <Copy className="h-3 w-3" />,    fn: () => openDuplicate(t),                            cls: "text-purple-500 hover:bg-purple-50", title: "Duplicate" },
+      { icon: <History className="h-3 w-3" />, fn: () => { setHistoryTpl(t); setShowHistory(true); }, cls: "text-orange-500 hover:bg-orange-50", title: "History" },
+      { icon: <Trash2 className="h-3 w-3" />,  fn: () => handleDelete(t.id, t.name),                  cls: "text-red-500 hover:bg-red-50",       title: "Delete" },
+    ].map((btn, i) => (
+      <button
+        key={i}
+        onClick={btn.fn}
+        title={btn.title}
+        className={`p-1.5 rounded-md transition-colors ${btn.cls}`}
+      >
+        {btn.icon}
+      </button>
+    ))}
+  </div>
+</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -1712,337 +1718,450 @@ const extractVars = (html?: string) => {
 
       {/* ══ CREATE / EDIT MODAL ═════════════════════════════════════════════ */}
       {showForm && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
-          onMouseDown={e => { if (e.target === e.currentTarget) setShowForm(false); }}
+  <div
+    className="fixed inset-0 z-50 flex items-center justify-center p-4"
+    style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
+    onMouseDown={e => { if (e.target === e.currentTarget) setShowForm(false); }}
+  >
+    <div
+      style={{
+        width: "min(1200px, 95vw)",
+        height: "min(90vh, 850px)",
+        display: "flex",
+        flexDirection: "column",
+        backgroundColor: "#fff",
+        borderRadius: "16px",
+        overflow: "hidden",
+        boxShadow: "0 25px 50px -12px rgba(0,0,0,0.4)",
+      }}
+    >
+
+      {/* Header */}
+      <div className="bg-gradient-to-r from-blue-700 to-indigo-600 text-white px-5 py-4 flex items-center justify-between flex-shrink-0">
+        <div>
+          <h2 className="text-base font-semibold flex items-center gap-2">
+            {editingTpl ? (
+              <>
+                <Pencil className="h-4 w-4" />
+                Edit Template: {editingTpl.name}
+              </>
+            ) : (
+              <>
+                <Plus className="h-4 w-4" />
+                Create New Template
+              </>
+            )}
+          </h2>
+          <p className="text-xs text-blue-100 mt-1">
+            {editingTpl 
+              ? `Current version: v${editingTpl.version} → New version: v${editingTpl.version + 1}`
+              : "Design your professional A4 document template"
+            }
+          </p>
+        </div>
+        <button onClick={() => setShowForm(false)} className="p-1.5 rounded-full hover:bg-white/20 transition-colors">
+          <X className="h-5 w-5" />
+        </button>
+      </div>
+
+      {/* Body: Split Layout */}
+      <div 
+        style={{ display: "flex", flex: 1, minHeight: 0, overflow: "hidden" }} 
+        className="flex-col md:flex-row"
+      >
+
+        {/* LEFT: Main Form */}
+        <div 
+          style={{ flex: 1, minWidth: 0, overflowY: "auto", padding: "20px" }} 
+          className="space-y-5"
         >
-          <div
-            style={{
-              width: "min(1200px, 95vw)",
-              height: "min(90vh, 850px)",
-              display: "flex",
-              flexDirection: "column",
-              backgroundColor: "#fff",
-              borderRadius: "16px",
-              overflow: "hidden",
-              boxShadow: "0 25px 50px -12px rgba(0,0,0,0.4)",
-            }}
-          >
-
-            {/* Header */}
-            <div className="bg-gradient-to-r from-blue-700 to-indigo-600 text-white px-5 py-4 flex items-center justify-between flex-shrink-0">
+          {/* Template Info */}
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-xl border border-blue-100">
+            <SH icon={<FileText className="h-3 w-3" />} title="Template Information" color="text-blue-700" />
+            <div className="grid grid-cols-2 gap-3">
               <div>
-                <h2 className="text-base font-semibold flex items-center gap-2">
-                  {editingTpl ? (
-                    <>
-                      <Pencil className="h-4 w-4" />
-                      Edit Template: {editingTpl.name}
-                    </>
-                  ) : (
-                    <>
-                      <Plus className="h-4 w-4" />
-                      Create New Template
-                    </>
-                  )}
-                </h2>
-                <p className="text-xs text-blue-100 mt-1">
-                  {editingTpl 
-                    ? `Current version: v${editingTpl.version} → New version: v${editingTpl.version + 1}`
-                    : "Design your professional A4 document template"
-                  }
-                </p>
+                <label className={L}>
+                  <span className="text-red-400">*</span> Template Name
+                </label>
+                <Input 
+                  ref={nameInputRef}
+                  className={F} 
+                  placeholder="e.g., Rental Agreement"
+                  value={form.name}
+                  onChange={e => setForm(p => ({ ...p, name: e.target.value }))} 
+                />
               </div>
-              <button onClick={() => setShowForm(false)} className="p-1.5 rounded-full hover:bg-white/20 transition-colors">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            {/* Body: Split Layout */}
-            <div style={{ display: "flex", flex: 1, minHeight: 0, overflow: "hidden" }}>
-
-              {/* LEFT: Main Form */}
-              <div style={{ flex: 1, minWidth: 0, overflowY: "auto", padding: "20px" }} className="space-y-5">
-
-                {/* Template Info */}
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-xl border border-blue-100">
-                  <SH icon={<FileText className="h-3 w-3" />} title="Template Information" color="text-blue-700" />
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className={L}>
-                        <span className="text-red-400">*</span> Template Name
-                      </label>
-                      <Input 
-                        ref={nameInputRef}
-                        className={F} 
-                        placeholder="e.g., Rental Agreement"
-                        value={form.name}
-                        onChange={e => setForm(p => ({ ...p, name: e.target.value }))} 
-                      />
-                    </div>
-                    <div>
-                      <label className={L}>Category</label>
-                      <Select 
-                        value={form.category} 
-                        onValueChange={v => setForm(p => ({ ...p, category: v }))}
-                      >
-                        <SelectTrigger className={F}><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {CATEGORIES.map(c => (
-                            <SelectItem key={c} value={c} className={SI}>{c}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="col-span-2">
-                      <label className={L}>Description</label>
-                      <Input 
-                        className={F} 
-                        placeholder="Brief description of this template"
-                        value={form.description}
-                        onChange={e => setForm(p => ({ ...p, description: e.target.value }))} 
-                      />
-                    </div>
-                    {editingTpl && (
-                      <div className="col-span-2">
-                        <label className={L}>
-                          Change Notes
-                          <span className="text-gray-400 font-normal ml-2">(optional)</span>
-                        </label>
-                        <Input 
-                          className={F} 
-                          placeholder="What changed in this version?"
-                          value={changeNotes}
-                          onChange={e => setChangeNotes(e.target.value)} 
-                        />
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Logo Upload */}
-                <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-4 rounded-xl border border-purple-100">
-                  <SH icon={<ImageIcon className="h-3 w-3" />} title="Company Logo" color="text-purple-700" />
-                  <div className="flex items-center gap-4">
-                    <div className="relative">
-                      {logoPreview ? (
-                        <>
-                          <img
-                            src={logoPreview}
-                            alt="Logo Preview"
-                            className="h-16 w-24 object-contain border-2 border-purple-200 rounded-lg bg-white p-1 shadow-sm"
-                          />
-                          <button
-                            onClick={removeLogo}
-                            className="absolute -top-2 -right-2 h-5 w-5 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 shadow-md"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        </>
-                      ) : (
-                        <div className="h-16 w-24 border-2 border-dashed border-purple-200 rounded-lg flex items-center justify-center bg-purple-50/50">
-                          <ImageIcon className="h-6 w-6 text-purple-300" />
-                        </div>
-                      )}
-                    </div>
-                    <div>
-                      <label className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-white border border-purple-200 text-xs font-medium text-purple-600 hover:bg-purple-50 cursor-pointer shadow-sm">
-                        <Upload className="h-3.5 w-3.5" />
-                        Upload Logo
-                        <input
-                          ref={logoInputRef}
-                          type="file"
-                          accept="image/*"
-                          onChange={onLogoChange}
-                          className="hidden"
-                        />
-                      </label>
-                      <p className="text-[10px] text-gray-400 mt-1">PNG, JPG, SVG up to 2 MB</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* HTML Editor */}
-                <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-4 rounded-xl border border-green-100">
-                  <div className="flex items-center justify-between mb-2">
-                    <SH icon={<Code className="h-3 w-3" />} title="HTML Content (A4 Size)" color="text-green-700" />
-                    <Badge className="bg-green-100 text-green-700 border-green-200 text-[10px] px-2 py-0.5">
-                      {extractVars(form.html_content).length} variables
-                    </Badge>
-                  </div>
-                  <textarea
-                    ref={htmlEditorRef}
-                    name="html_content"
-                    value={form.html_content}
-                    onChange={e => setForm(p => ({ ...p, html_content: e.target.value }))}
-                    className="w-full px-3 py-2 border border-green-200 rounded-lg focus:border-green-400 focus:ring-1 focus:ring-green-200 bg-white font-mono text-[11px] resize-none transition-all"
-                    rows={12}
-                    placeholder="Enter HTML with {{variables}}... Click variables from right panel to insert them"
+              <div>
+                <label className={L}>Category</label>
+                <Select 
+                  value={form.category} 
+                  onValueChange={v => setForm(p => ({ ...p, category: v }))}
+                >
+                  <SelectTrigger className={F}><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {CATEGORIES.map(c => (
+                      <SelectItem key={c} value={c} className={SI}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="col-span-2">
+                <label className={L}>Description</label>
+                <Input 
+                  className={F} 
+                  placeholder="Brief description of this template"
+                  value={form.description}
+                  onChange={e => setForm(p => ({ ...p, description: e.target.value }))} 
+                />
+              </div>
+              {editingTpl && (
+                <div className="col-span-2">
+                  <label className={L}>
+                    Change Notes
+                    <span className="text-gray-400 font-normal ml-2">(optional)</span>
+                  </label>
+                  <Input 
+                    className={F} 
+                    placeholder="What changed in this version?"
+                    value={changeNotes}
+                    onChange={e => setChangeNotes(e.target.value)} 
                   />
                 </div>
+              )}
+            </div>
+          </div>
 
-                {/* Detected Variables */}
-                <div className="bg-gradient-to-r from-amber-50 to-orange-50 p-4 rounded-xl border border-amber-100">
-                  <div className="flex items-center justify-between mb-2">
-                    <SH icon={<Tag className="h-3 w-3" />} title="Variables in Template" color="text-amber-700" />
-                    <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-semibold">
-                      {extractVars(form.html_content).length} found
-                    </span>
+          {/* Logo Upload */}
+          <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-4 rounded-xl border border-purple-100">
+            <SH icon={<ImageIcon className="h-3 w-3" />} title="Company Logo" color="text-purple-700" />
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                {logoPreview ? (
+                  <>
+                    <img
+                      src={logoPreview}
+                      alt="Logo Preview"
+                      className="h-16 w-24 object-contain border-2 border-purple-200 rounded-lg bg-white p-1 shadow-sm"
+                    />
+                    <button
+                      onClick={removeLogo}
+                      className="absolute -top-2 -right-2 h-5 w-5 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 shadow-md"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </>
+                ) : (
+                  <div className="h-16 w-24 border-2 border-dashed border-purple-200 rounded-lg flex items-center justify-center bg-purple-50/50">
+                    <ImageIcon className="h-6 w-6 text-purple-300" />
                   </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {extractVars(form.html_content).map(v => {
-                      const cv = COMMON_VARS.find(c => c.name === v);
-                      return (
-                        <span
-                          key={v}
-                          title={cv ? `${cv.label} → ${cv.example}` : v}
-                          className="px-2 py-1 bg-amber-100 text-amber-700 rounded text-[10px] font-mono font-semibold border border-amber-200"
-                        >
-                          {v}
+                )}
+              </div>
+              <div>
+                <label className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-white border border-purple-200 text-xs font-medium text-purple-600 hover:bg-purple-50 cursor-pointer shadow-sm">
+                  <Upload className="h-3.5 w-3.5" />
+                  Upload Logo
+                  <input
+                    ref={logoInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={onLogoChange}
+                    className="hidden"
+                  />
+                </label>
+                <p className="text-[10px] text-gray-400 mt-1">PNG, JPG, SVG up to 2 MB</p>
+              </div>
+            </div>
+          </div>
+
+          {/* HTML Editor */}
+          <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-4 rounded-xl border border-green-100">
+            <div className="flex items-center justify-between mb-2">
+              <SH icon={<Code className="h-3 w-3" />} title="HTML Content (A4 Size)" color="text-green-700" />
+              <Badge className="bg-green-100 text-green-700 border-green-200 text-[10px] px-2 py-0.5">
+                {extractVars(form.html_content).length} variables
+              </Badge>
+            </div>
+            <textarea
+              ref={htmlEditorRef}
+              name="html_content"
+              value={form.html_content}
+              onChange={e => setForm(p => ({ ...p, html_content: e.target.value }))}
+              className="w-full px-3 py-2 border border-green-200 rounded-lg focus:border-green-400 focus:ring-1 focus:ring-green-200 bg-white font-mono text-[11px] resize-none transition-all"
+              rows={12}
+              placeholder="Enter HTML with {{variables}}... Click variables from right panel to insert them"
+            />
+          </div>
+
+          {/* Detected Variables */}
+          <div className="bg-gradient-to-r from-amber-50 to-orange-50 p-4 rounded-xl border border-amber-100">
+            <div className="flex items-center justify-between mb-2">
+              <SH icon={<Tag className="h-3 w-3" />} title="Variables in Template" color="text-amber-700" />
+              <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-semibold">
+                {extractVars(form.html_content).length} found
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {extractVars(form.html_content).map(v => {
+                const cv = COMMON_VARS.find(c => c.name === v);
+                return (
+                  <span
+                    key={v}
+                    title={cv ? `${cv.label} → ${cv.example}` : v}
+                    className="px-2 py-1 bg-amber-100 text-amber-700 rounded text-[10px] font-mono font-semibold border border-amber-200"
+                  >
+                    {v}
+                  </span>
+                );
+              })}
+              {extractVars(form.html_content).length === 0 && (
+                <p className="text-xs text-amber-600">
+                  No variables yet. Click variables from right panel to insert them.
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* DESKTOP PANEL - Only visible on desktop */}
+        <div 
+          className="hidden md:flex flex-col w-[260px] min-w-[260px] flex-shrink-0 border-l border-[#e9e6ff]"
+          style={{ 
+            background: "linear-gradient(180deg,#f8f7ff 0%,#f3f0ff 100%)",
+          }}
+        >
+          {/* Panel Header */}
+          <div style={{ padding: "12px 12px 10px", borderBottom: "1px solid #e9e6ff", background: "#fff", flexShrink: 0 }}>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="p-1 bg-indigo-600 rounded-md">
+                <Sparkles size={14} className="text-white" />
+              </div>
+              <span className="text-xs font-bold text-gray-700">Available Variables</span>
+              <span className="ml-auto text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">
+                {filteredVars.length}
+              </span>
+            </div>
+            
+            {/* Search */}
+            <div className="relative mb-2">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400" />
+              <input
+                placeholder="Search variables..."
+                className="w-full h-7 pl-7 pr-3 bg-white border border-indigo-200 rounded-md text-[10px] focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200 outline-none"
+                value={varSearch}
+                onChange={e => setVarSearch(e.target.value)}
+              />
+            </div>
+
+            {/* Category Filter */}
+            <div className="flex gap-1 overflow-x-auto pb-1">
+              {VARIABLE_CATEGORIES.map(cat => (
+                <button
+                  key={cat}
+                  onClick={() => setVarCategory(cat)}
+                  className={`px-2 py-0.5 rounded-full text-[9px] font-medium whitespace-nowrap transition-all ${
+                    varCategory === cat
+                      ? "bg-indigo-600 text-white"
+                      : "bg-white text-gray-600 border border-indigo-200 hover:bg-indigo-50"
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Variables List */}
+          <div style={{ flex: 1, overflowY: "auto", padding: "8px" }}>
+            {Object.entries(groupedVars).map(([category, vars]) => (
+              <VariableCategory key={category} title={category}>
+                {vars.map(v => {
+                  const isUsed = extractVars(form.html_content).includes(v.name);
+                  return (
+                    <button
+                      key={v.name}
+                      onClick={() => toggleVariable(v.name)}
+                      className={`w-full text-left p-2 rounded-lg mb-1 transition-all group
+                        ${isUsed
+                          ? "bg-gradient-to-r from-green-100 to-emerald-100 border border-green-300 shadow-sm"
+                          : "bg-white hover:bg-indigo-50 border border-transparent hover:border-indigo-200"
+                        }`}
+                    >
+                      <div className="flex items-center justify-between mb-0.5">
+                        <span className="text-[10px] font-semibold text-gray-700">
+                          {v.label}
                         </span>
-                      );
-                    })}
-                    {extractVars(form.html_content).length === 0 && (
-                      <p className="text-xs text-amber-600">
-                        No variables yet. Click variables from right panel to insert them.
-                      </p>
-                    )}
-                  </div>
-                </div>
+                        {isUsed && (
+                          <Check size={10} className="text-green-600" />
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <code className="text-[8px] bg-indigo-600 text-white px-1.5 py-0.5 rounded">
+                          {'{{'}{v.name}{'}}'}
+                        </code>
+                        <span className="text-[8px] text-gray-400">
+                          {v.example}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </VariableCategory>
+            ))}
+          </div>
+
+          {/* Footer Hint */}
+          <div className="p-2 border-t border-indigo-100 bg-white/50 text-center">
+            <p className="text-[8px] text-gray-500">
+              Click variable to add/remove from template
+            </p>
+          </div>
+        </div>
+
+        {/* MOBILE PANEL - Only visible on mobile */}
+        <div className="md:hidden w-full border-t border-indigo-100">
+          {/* Mobile Toggle Header */}
+          <div 
+            className="flex items-center justify-between p-3 bg-indigo-50 cursor-pointer"
+            onClick={() => setShowVariables(!showVariables)}
+          >
+            <div className="flex items-center gap-2">
+              <Sparkles size={16} className="text-indigo-600" />
+              <span className="text-xs font-semibold text-indigo-700">Available Variables</span>
+              <span className="text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">
+                {filteredVars.length}
+              </span>
+            </div>
+            <ChevronDown 
+              size={16} 
+              className={`text-indigo-600 transition-transform ${showVariables ? 'rotate-180' : ''}`} 
+            />
+          </div>
+
+          {/* Mobile Variables Content - collapsible */}
+          {showVariables && (
+            <div className="max-h-[300px] overflow-y-auto p-3 bg-gradient-to-b from-[#f8f7ff] to-[#f3f0ff]">
+              {/* Search */}
+              <div className="relative mb-3 sticky top-0 bg-white p-2 z-10 rounded-md shadow-sm">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+                <input
+                  placeholder="Search variables..."
+                  className="w-full h-9 pl-8 pr-3 bg-white border border-indigo-200 rounded-md text-xs focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200 outline-none"
+                  value={varSearch}
+                  onChange={e => setVarSearch(e.target.value)}
+                />
               </div>
 
-              {/* RIGHT: Variables Panel */}
-              <div style={{ width: "260px", minWidth: "260px", flexShrink: 0, display: "flex", flexDirection: "column", background: "linear-gradient(180deg,#f8f7ff 0%,#f3f0ff 100%)", borderLeft: "1px solid #e9e6ff" }}>
+              {/* Category Filter - horizontal scroll */}
+              <div className="flex gap-1.5 overflow-x-auto pb-3 mb-2">
+                {VARIABLE_CATEGORIES.map(cat => (
+                  <button
+                    key={cat}
+                    onClick={() => setVarCategory(cat)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all flex-shrink-0 ${
+                      varCategory === cat
+                        ? "bg-indigo-600 text-white"
+                        : "bg-white text-gray-600 border border-indigo-200 hover:bg-indigo-50"
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
 
-                {/* Panel Header */}
-                <div style={{ padding: "12px 12px 10px", borderBottom: "1px solid #e9e6ff", background: "#fff", flexShrink: 0 }}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="p-1 bg-indigo-600 rounded-md">
-                      <Sparkles size={14} className="text-white" />
+              {/* Variables List */}
+              <div className="space-y-4">
+                {Object.entries(groupedVars).map(([category, vars]) => (
+                  <div key={category}>
+                    <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-1">
+                      {category}
                     </div>
-                    <span className="text-xs font-bold text-gray-700">Available Variables</span>
-                    <span className="ml-auto text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">
-                      {filteredVars.length}
-                    </span>
-                  </div>
-                  
-                  {/* Search */}
-                  <div className="relative mb-2">
-                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400" />
-                    <input
-                      placeholder="Search variables..."
-                      className="w-full h-7 pl-7 pr-3 bg-white border border-indigo-200 rounded-md text-[10px] focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200 outline-none"
-                      value={varSearch}
-                      onChange={e => setVarSearch(e.target.value)}
-                    />
-                  </div>
-
-                  {/* Category Filter */}
-                  <div className="flex gap-1 overflow-x-auto pb-1">
-                    {VARIABLE_CATEGORIES.map(cat => (
-                      <button
-                        key={cat}
-                        onClick={() => setVarCategory(cat)}
-                        className={`px-2 py-0.5 rounded-full text-[9px] font-medium whitespace-nowrap transition-all ${
-                          varCategory === cat
-                            ? "bg-indigo-600 text-white"
-                            : "bg-white text-gray-600 border border-indigo-200 hover:bg-indigo-50"
-                        }`}
-                      >
-                        {cat}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Variables List - Single click to toggle */}
-                <div style={{ flex: 1, overflowY: "auto", padding: "8px" }}>
-                  {Object.entries(groupedVars).map(([category, vars]) => (
-                    <VariableCategory key={category} title={category}>
+                    <div className="grid grid-cols-1 gap-1.5">
                       {vars.map(v => {
                         const isUsed = extractVars(form.html_content).includes(v.name);
                         return (
                           <button
                             key={v.name}
                             onClick={() => toggleVariable(v.name)}
-                            className={`w-full text-left p-2 rounded-lg mb-1 transition-all group
+                            className={`text-left p-3 rounded-lg transition-all
                               ${isUsed
                                 ? "bg-gradient-to-r from-green-100 to-emerald-100 border border-green-300 shadow-sm"
-                                : "bg-white hover:bg-indigo-50 border border-transparent hover:border-indigo-200"
+                                : "bg-white hover:bg-indigo-50 border border-gray-200"
                               }`}
                           >
-                            <div className="flex items-center justify-between mb-0.5">
-                              <span className="text-[10px] font-semibold text-gray-700">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-sm font-semibold text-gray-700">
                                 {v.label}
                               </span>
                               {isUsed && (
-                                <Check size={10} className="text-green-600" />
+                                <Check size={14} className="text-green-600" />
                               )}
                             </div>
-                            <div className="flex items-center gap-1">
-                              <code className="text-[8px] bg-indigo-600 text-white px-1.5 py-0.5 rounded">
+                            <div className="flex items-center gap-2">
+                              <code className="text-[10px] bg-indigo-600 text-white px-2 py-1 rounded">
                                 {'{{'}{v.name}{'}}'}
                               </code>
-                              <span className="text-[8px] text-gray-400">
+                              <span className="text-[10px] text-gray-500">
                                 {v.example}
                               </span>
                             </div>
                           </button>
                         );
                       })}
-                    </VariableCategory>
-                  ))}
-                </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
 
-                {/* Footer Hint */}
-                <div className="p-2 border-t border-indigo-100 bg-white/50 text-center">
-                  <p className="text-[8px] text-gray-500">
-                    Click variable to add/remove from template
-                  </p>
-                </div>
+              {/* Mobile Footer Hint */}
+              <div className="mt-4 p-2 bg-indigo-50 rounded-md text-center">
+                <p className="text-[10px] text-indigo-600">
+                  Tap variable to add/remove from template
+                </p>
               </div>
             </div>
-
-            {/* Footer */}
-            <div className="border-t px-5 py-3 bg-gray-50 flex items-center justify-between">
-              <div className="text-[10px] text-gray-500">
-                {editingTpl && (
-                  <span className="font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded-md">
-                    Version {editingTpl.version} → {editingTpl.version + 1}
-                  </span>
-                )}
-                <span className="ml-2 text-[9px] text-gray-400">A4 Size Ready</span>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setShowForm(false)}
-                  className="h-8 px-4 rounded-lg border border-gray-200 text-[11px] font-medium text-gray-600 hover:bg-gray-100 transition-all"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => openPreview(editingTpl, form.html_content)}
-                  className="h-8 px-3 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 text-white text-[11px] font-semibold flex items-center gap-1.5"
-                >
-                  <Eye className="h-3.5 w-3.5" /> Preview
-                </button>
-                <button
-                  onClick={handleSave}
-                  disabled={saving}
-                  className="h-8 px-4 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[11px] font-semibold flex items-center gap-1.5 disabled:opacity-50"
-                >
-                  {saving ? (
-                    <><Loader2 className="h-3 w-3 animate-spin" /> Saving…</>
-                  ) : (
-                    <><Save className="h-3.5 w-3.5" />{editingTpl ? "Update" : "Create"}</>
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
+          )}
         </div>
-      )}
+      </div>
 
+      {/* Footer */}
+      <div className="border-t px-5 py-3 bg-gray-50 flex items-center justify-between">
+        <div className="text-[10px] text-gray-500">
+          {editingTpl && (
+            <span className="font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded-md">
+              Version {editingTpl.version} → {editingTpl.version + 1}
+            </span>
+          )}
+          <span className="ml-2 text-[9px] text-gray-400">A4 Size Ready</span>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowForm(false)}
+            className="h-8 px-4 rounded-lg border border-gray-200 text-[11px] font-medium text-gray-600 hover:bg-gray-100 transition-all"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => openPreview(editingTpl, form.html_content)}
+            className="h-8 px-3 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 text-white text-[11px] font-semibold flex items-center gap-1.5"
+          >
+            <Eye className="h-3.5 w-3.5" /> Preview
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="h-8 px-4 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[11px] font-semibold flex items-center gap-1.5 disabled:opacity-50"
+          >
+            {saving ? (
+              <><Loader2 className="h-3 w-3 animate-spin" /> Saving…</>
+            ) : (
+              <><Save className="h-3.5 w-3.5" />{editingTpl ? "Update" : "Create"}</>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
       {/* ══ PREVIEW MODAL with Print Option ═══════════════════════════════ */}
       {showPreview && (
         <div

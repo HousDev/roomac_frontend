@@ -37,6 +37,10 @@ export interface CreateDocumentPayload {
 export interface DocumentFilters {
   search?: string; status?: string; priority?: string;
   tenant_id?: number|string; from_date?: string; to_date?: string;
+  // ── NEW: property + floor filters ──────────────────────────────────────────
+  property_name?: string; floor?: number|string;
+  // ── NEW: hide_expired — when "true" excludes docs where expiry_date < today ─
+  hide_expired?: "true"|"false";
   page?: number; pageSize?: number;
 }
 
@@ -69,3 +73,8 @@ export const updateDocumentStatus = (id: number|string, status: DocumentStatus, 
   req<ApiResult<Document>>(`${BASE}/${id}/status`, { method:"PATCH", body:JSON.stringify({ status, ...extra }) });
 export const deleteDocument       = (id: number|string)      => req(`${BASE}/${id}`, { method:"DELETE" });
 export const bulkDeleteDocuments  = (ids: Array<number|string>) => req(`${BASE}/bulk-delete`, { method:"POST", body:JSON.stringify({ ids }) });
+
+// ── NEW: fetch tenants who have NOT yet got a doc with a given template_id ───
+// Returns tenant IDs that already have a document for this template
+export const getTenantsWithDocumentForTemplate = (templateId: number|string) =>
+  req<ApiResult<Array<{ tenant_id: number }>>>(`${BASE}/tenants-with-template/${templateId}`);
