@@ -1128,23 +1128,12 @@ const NAV_ITEMS = [
     path: "/tenant/documents",
   },
   {
-    id: "my-documents",
-    label: "My Documents",
-    icon: FolderOpen,
-    path: "/tenant/my-documents",
-  },
-  {
     id: "request",
     label: "Request",
     icon: HelpCircle,
     path: "/tenant/requests",
   },
-  {
-    id: "notifications",
-    label: "Notifications",
-    icon: Bell,
-    path: "/tenant/portal/#notifications",
-  },
+  
   { id: "profile", label: "Profile", icon: User, path: "/tenant/profile" },
   {
     id: "settings",
@@ -1153,11 +1142,18 @@ const NAV_ITEMS = [
     path: "/tenant/settings",
   },
   {
+    id: "notifications",
+    label: "Notifications",
+    icon: Bell,
+    path: "/tenant/portal/#notifications",
+  },
+  {
     id: "support",
     label: "Support",
     icon: MessageSquare,
     path: "/tenant/support",
   },
+  
 ];
 
 // ─── Helper: determine if tenant is truly active ──────────────────────────────

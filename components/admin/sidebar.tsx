@@ -24,6 +24,7 @@ import { Button } from '@/components/ui/button';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { getSettings, SettingsData } from '@/lib/settingsApi';
 import React from 'react';
+import { Label } from 'recharts';
 
 interface AdminSidebarProps {
   sidebarOpen: boolean;
@@ -385,6 +386,7 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
     { href: '/admin/document-center', label: 'Documents', icon: FileText },
     { href: '/admin/enquiries', label: 'Enquiries', icon: Mail },
     { href: '/admin/notifications', label: 'Notifications', icon: Bell },
+    { href: '/admin/requests' , label:'Requests', icon:Bell},
     { href: '/admin/staff', label: 'Staffs', icon: UserCog },
     { href: '/admin/offers', label: 'Offers', icon: Tag },
     { href: '/admin/add-ons', label: 'Add-ons', icon: PlusCircle },
@@ -395,15 +397,15 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
     { href: '/admin/profile', label: 'Profile', icon: UserCircle },
   ];
 
-  const requestItems = [
-    { href: '/admin/complaints', label: 'Complaints', icon: AlertCircle },
-    { href: '/admin/maintenance', label: 'Maintenance', icon: Wrench },
-    { href: '/admin/receipts', label: 'Receipts', icon: FileText },
-    { href: '/admin/leave-requests', label: 'Leave Requests', icon: Calendar },
-    { href: '/admin/vacate-requests', label: 'Vacate Requests', icon: AlertCircle },
-    { href: '/admin/change-bed-requests', label: 'Change Bed Requests', icon: Users },
-    { href: '/admin/account-deletion-requests', label: 'Account Deletion', icon: UserCircle },
-  ];
+  // const requestItems = [
+  //   { href: '/admin/complaints', label: 'Complaints', icon: AlertCircle },
+  //   { href: '/admin/maintenance', label: 'Maintenance', icon: Wrench },
+  //   { href: '/admin/receipts', label: 'Receipts', icon: FileText },
+  //   { href: '/admin/leave-requests', label: 'Leave Requests', icon: Calendar },
+  //   { href: '/admin/vacate-requests', label: 'Vacate Requests', icon: AlertCircle },
+  //   { href: '/admin/change-bed-requests', label: 'Change Bed Requests', icon: Users },
+  //   { href: '/admin/account-deletion-requests', label: 'Account Deletion', icon: UserCircle },
+  // ];
 
   const settingsItems = [
     { href: '/admin/settings', label: 'General Settings', icon: Sliders },
@@ -454,7 +456,7 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
   // Filter all menu items based on search query
   const allSearchableItems = [
     ...mainMenuItems,
-    ...requestItems,
+    // ...requestItems,
     ...settingsItems,
     ...inventoryItems,
     ...visitorItems,
@@ -488,7 +490,7 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
   const renderMenuItem = (item: any, index: number) => {
     const Icon = item.icon;
     const active = isActive(item.href);
-    const isRequestActive = requestItems.some(req => isActive(req.href));
+    // const isRequestActive = requestItems.some(req => isActive(req.href));
     const isSettingsActive = settingsItems.some(setting => isActive(setting.href));
     const isInventoryActive = inventoryItems.some(inv => isActive(inv.href));
     const isVisitorsActive = visitorItems.some(vis => isActive(vis.href));
@@ -690,50 +692,6 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
             </span>
           </Link>
 
-          <div className="mt-0.5">
-            <button
-              onClick={() => setRequestsOpen(!requestsOpen)}
-              className={`
-                relative group flex items-center justify-between w-full px-2.5 py-2 rounded-xl transition-all duration-200
-                ${isRequestActive
-                  ? 'bg-[#F5C000]/15 text-[#F5C000]'
-                  : 'text-blue-100 hover:bg-white/10 hover:text-white'
-                }
-              `}
-            >
-              {isRequestActive && (
-                <span className="absolute left-0 top-2 bottom-2 w-0.5 rounded-full bg-[#F5C000]" />
-              )}
-              <div className="flex items-center gap-2.5">
-                <div className={`h-8 w-8 rounded-xl flex items-center justify-center transition-all flex-shrink-0
-                  ${isRequestActive ? 'bg-[#F5C000]/20 text-[#F5C000]' : 'bg-white/10 text-blue-200 group-hover:bg-white/15 group-hover:text-white'}`}>
-                  <AlertCircle className="h-4 w-4" />
-                </div>
-                <span className="font-normal tracking-wide whitespace-nowrap text-xs">Requests</span>
-              </div>
-              {requestsOpen ? (
-                <ChevronDown className="h-3.5 w-3.5 flex-shrink-0 text-blue-300" />
-              ) : (
-                <ChevronRight className="h-3.5 w-3.5 flex-shrink-0 text-blue-300" />
-              )}
-            </button>
-
-            {requestsOpen && (
-              <ul className="space-y-0.5 mt-0.5 ml-2">
-                {requestItems.map((reqItem) => {
-                  const reqActive = isActive(reqItem.href);
-                  return (
-                    <SubmenuItemWithTooltip
-                      key={reqItem.href}
-                      reqItem={reqItem}
-                      reqActive={reqActive}
-                      sidebarOpen={sidebarOpen}
-                    />
-                  );
-                })}
-              </ul>
-            )}
-          </div>
         </li>
       );
     }
