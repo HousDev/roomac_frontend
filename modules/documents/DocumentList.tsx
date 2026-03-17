@@ -1,11 +1,4 @@
-// DocumentList.tsx
-// Changes from previous version:
-// 1. Timeline redesigned to match Image 2: horizontal pill steps with icons + connecting lines
-//    each step shows icon + label, active = blue filled, done = green check, pending = grey outline
-// 2. Status DB fix: status values mapped to VARCHAR-safe strings (handled in updateDocumentStatus calls)
-// 3. Share popup: matches Image 1 exactly (already correct, kept as-is)
-// 4. Form / layout kept compact
-// 5. Fully responsive
+
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import {
@@ -16,7 +9,12 @@ import {
   Copy, Link, PenLine, PauseCircle, XCircle,
   Smartphone, Globe, Plus, Check,
   QrCode, ArrowRight, Send, ChevronDown,
-  User, Clock, ShieldCheck, Pen,
+  User, Clock, ShieldCheck, Pen, Edit,
+  Palette, Layout, Type, Image as ImageIcon,
+  Save, AlertTriangle, Hash, Calendar,
+  Home, Users, CreditCard, FileSignature,
+  MailCheck, PhoneCall, QrCode as QrCodeIcon,
+  Sparkles, Rocket, Zap, BellRing,
 } from "lucide-react";
 import { Button }   from "@/components/ui/button";
 import { Input }    from "@/components/ui/input";
@@ -36,21 +34,81 @@ import {
 } from "@/lib/documentlistApi";
 
 // ── Timeline step definitions ─────────────────────────────────────────────────
-// These match Image 2: Created → Shared → On Hold → OTP Verified → E-Sign Pending → Completed
-// Plus a separate "Cancelled" bubble on the right
 const MAIN_STEPS: Array<{
   key: string;
   label: string;
   short: string;
   Icon: React.FC<any>;
+  headerColor: string;
+  headerGradient: string;
+  accentColor: string;
 }> = [
-  { key: "Created",        label: "Created",       short: "Created",  Icon: FileText     },
-  { key: "Shared",         label: "Shared",        short: "Shared",   Icon: Share2       },
-  { key: "On Hold",        label: "On Hold",        short: "On Hold",  Icon: PauseCircle  },
-  { key: "OTP Verified",   label: "OTP Verified",  short: "OTP",      Icon: ShieldCheck  },
-  { key: "E-Sign Pending", label: "E-Sign Pending",short: "E-Sign",   Icon: Pen          },
-  { key: "Completed",      label: "Completed",     short: "Done",     Icon: CheckCircle  },
+  { 
+    key: "Created",        
+    label: "Created",       
+    short: "Created",  
+    Icon: FileText,
+    headerColor: "from-blue-600 to-blue-700",
+    headerGradient: "bg-gradient-to-r from-blue-600 to-blue-700",
+    accentColor: "blue"
+  },
+  { 
+    key: "Shared",         
+    label: "Shared",        
+    short: "Shared",   
+    Icon: Share2,
+    headerColor: "from-green-600 to-green-700",
+    headerGradient: "bg-gradient-to-r from-green-600 to-green-700",
+    accentColor: "green"
+  },
+  { 
+    key: "On Hold",        
+    label: "On Hold",        
+    short: "On Hold",  
+    Icon: PauseCircle,
+    headerColor: "from-orange-500 to-orange-600",
+    headerGradient: "bg-gradient-to-r from-orange-500 to-orange-600",
+    accentColor: "orange"
+  },
+  { 
+    key: "OTP Verified",   
+    label: "OTP Verified",  
+    short: "OTP",      
+    Icon: ShieldCheck,
+    headerColor: "from-purple-600 to-purple-700",
+    headerGradient: "bg-gradient-to-r from-purple-600 to-purple-700",
+    accentColor: "purple"
+  },
+  { 
+    key: "E-Sign Pending", 
+    label: "E-Sign Pending",
+    short: "E-Sign",   
+    Icon: Pen,
+    headerColor: "from-indigo-600 to-indigo-700",
+    headerGradient: "bg-gradient-to-r from-indigo-600 to-indigo-700",
+    accentColor: "indigo"
+  },
+  { 
+    key: "Completed",      
+    label: "Completed",     
+    short: "Done",     
+    Icon: CheckCircle,
+    headerColor: "from-emerald-600 to-emerald-700",
+    headerGradient: "bg-gradient-to-r from-emerald-600 to-emerald-700",
+    accentColor: "emerald"
+  },
 ];
+
+// Cancelled step definition
+const CANCELLED_STEP = {
+  key: "Cancelled",
+  label: "Cancelled",
+  short: "Cancel",
+  Icon: XCircle,
+  headerColor: "from-red-600 to-red-700",
+  headerGradient: "bg-gradient-to-r from-red-600 to-red-700",
+  accentColor: "red"
+};
 
 // Popup action per step
 const STEP_POPUP: Record<string, string> = {
@@ -109,20 +167,1318 @@ const priorityColor = (p: string) => {
 };
 
 const StatCard = ({ title, value, icon: Icon, color, bg }: any) => (
-  <Card className={`${bg} border-0 shadow-sm`}>
+  <Card className={`${bg} border-0 shadow-sm hover:shadow-md transition-shadow`}>
     <CardContent className="p-2 sm:p-3">
       <div className="flex items-center justify-between">
         <div>
           <p className="text-[10px] sm:text-xs text-slate-600 font-medium">{title}</p>
           <p className="text-sm sm:text-base font-bold text-slate-800">{value}</p>
         </div>
-        <div className={`p-1.5 rounded-lg ${color}`}>
+        <div className={`p-1.5 rounded-lg ${color} shadow-lg`}>
           <Icon className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
         </div>
       </div>
     </CardContent>
   </Card>
 );
+
+// ════════════════════════════════════════════════════════════════════════════
+// Template Edit Popup (for editing document template)
+// ════════════════════════════════════════════════════════════════════════════
+function TemplateEditPopup({ doc, onClose, onDone }: { doc: Doc; onClose: () => void; onDone: () => void }) {
+  const [templateName, setTemplateName] = useState(doc.document_name || "");
+  const [templateContent, setTemplateContent] = useState(doc.html_content || "");
+  const [templateStyle, setTemplateStyle] = useState("modern");
+  const [fontFamily, setFontFamily] = useState("inter");
+  const [primaryColor, setPrimaryColor] = useState("#3b82f6");
+  const [showPreview, setShowPreview] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState<"edit" | "preview">("edit");
+
+  const templateStyles = [
+    { id: "modern", name: "Modern", icon: Sparkles, color: "blue" },
+    { id: "classic", name: "Classic", icon: FileText, color: "gray" },
+    { id: "minimal", name: "Minimal", icon: Layout, color: "slate" },
+    { id: "professional", name: "Professional", icon: Shield, color: "indigo" },
+  ];
+
+  const fonts = [
+    { id: "inter", name: "Inter", class: "font-sans" },
+    { id: "roboto", name: "Roboto", class: "font-sans" },
+    { id: "poppins", name: "Poppins", class: "font-sans" },
+    { id: "playfair", name: "Playfair", class: "font-serif" },
+  ];
+
+  const handleSave = async () => {
+    if (!templateName.trim()) {
+      toast.error("Please enter template name");
+      return;
+    }
+    setSaving(true);
+    try {
+      // Here you would call your API to update the document template
+      // For now, we'll simulate an API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Update the document with new template content
+      // await updateDocumentTemplate(doc.id, {
+      //   document_name: templateName,
+      //   html_content: templateContent,
+      // });
+      
+      toast.success("Template updated successfully!");
+      onDone();
+    } catch (e: any) {
+      toast.error(e.message || "Failed to update template");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const insertPlaceholder = (placeholder: string) => {
+    setTemplateContent(prev => prev + ' ' + placeholder);
+  };
+
+  const getHeaderGradient = () => {
+    return "from-purple-600 to-purple-700";
+  };
+
+  return (
+    <div 
+      className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-2 sm:p-4 backdrop-blur-md animate-in fade-in duration-300"
+      onClick={e => e.target === e.currentTarget && onClose()}
+    >
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col animate-in slide-in-from-bottom-5 duration-300">
+        
+        {/* Header with gradient */}
+        <div className={`bg-gradient-to-r ${getHeaderGradient()} px-4 sm:px-5 py-3 sm:py-4 rounded-t-2xl flex items-center justify-between flex-shrink-0`}>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center shadow-lg">
+              <Edit className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
+            </div>
+            <div>
+              <h2 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
+                Edit Document Template
+                <Badge className="bg-white/30 text-white border-0 text-[8px] sm:text-[10px] px-1.5 py-0.5">
+                  {doc.document_number}
+                </Badge>
+              </h2>
+              <p className="text-[10px] sm:text-xs text-white/80 flex items-center gap-1">
+                <FileText className="h-3 w-3" />
+                Customize document appearance and content
+              </p>
+            </div>
+          </div>
+          <button 
+            onClick={onClose} 
+            className="p-1.5 sm:p-2 rounded-xl hover:bg-white/20 text-white transition-all hover:scale-110"
+          >
+            <X className="h-4 w-4 sm:h-5 sm:w-5" />
+          </button>
+        </div>
+
+        {/* Document Info Bar */}
+        <div className="bg-gray-50 px-4 sm:px-5 py-2 border-b flex flex-wrap gap-3 sm:gap-4 text-[10px] sm:text-xs">
+          <div className="flex items-center gap-1">
+            <User className="h-3 w-3 text-gray-400" />
+            <span className="text-gray-600">Tenant:</span>
+            <span className="font-semibold text-gray-800">{doc.tenant_name}</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <Phone className="h-3 w-3 text-gray-400" />
+            <span className="text-gray-600">Phone:</span>
+            <span className="font-semibold text-gray-800">{doc.tenant_phone}</span>
+          </div>
+          {doc.property_name && (
+            <div className="flex items-center gap-1">
+              <Home className="h-3 w-3 text-gray-400" />
+              <span className="text-gray-600">Property:</span>
+              <span className="font-semibold text-gray-800">{doc.property_name}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Tab Navigation */}
+        <div className="flex border-b px-4 sm:px-5 pt-2 gap-2">
+          <button
+            onClick={() => setActiveTab("edit")}
+            className={`px-3 py-1.5 text-[10px] sm:text-xs font-medium rounded-t-lg transition-colors ${
+              activeTab === "edit" 
+                ? "bg-purple-100 text-purple-700 border-b-2 border-purple-600" 
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            <Edit className="h-3 w-3 inline mr-1" /> Edit
+          </button>
+          <button
+            onClick={() => setActiveTab("preview")}
+            className={`px-3 py-1.5 text-[10px] sm:text-xs font-medium rounded-t-lg transition-colors ${
+              activeTab === "preview" 
+                ? "bg-purple-100 text-purple-700 border-b-2 border-purple-600" 
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            <Eye className="h-3 w-3 inline mr-1" /> Preview
+          </button>
+        </div>
+
+        {/* Main Content */}
+        <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 sm:space-y-5">
+          
+          {activeTab === "edit" ? (
+            <>
+              {/* Template Info */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[11px] sm:text-xs font-semibold text-gray-600 flex items-center gap-1">
+                    <Hash className="h-3 w-3" /> Template Name
+                  </label>
+                  <Input
+                    value={templateName}
+                    onChange={(e) => setTemplateName(e.target.value)}
+                    placeholder="Enter template name"
+                    className="h-8 sm:h-9 text-[11px] sm:text-sm border-gray-200 focus:border-purple-400 focus:ring-1 focus:ring-purple-100"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[11px] sm:text-xs font-semibold text-gray-600 flex items-center gap-1">
+                    <Palette className="h-3 w-3" /> Template Style
+                  </label>
+                  <div className="flex gap-1.5">
+                    {templateStyles.map(style => (
+                      <button
+                        key={style.id}
+                        onClick={() => setTemplateStyle(style.id)}
+                        className={`flex-1 h-8 sm:h-9 rounded-lg text-[10px] sm:text-xs font-medium flex items-center justify-center gap-1 transition-all
+                          ${templateStyle === style.id 
+                            ? `bg-${style.color}-100 text-${style.color}-700 border-2 border-${style.color}-300` 
+                            : 'bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100'}`}
+                      >
+                        <style.icon className="h-3 w-3" />
+                        {style.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Font & Color */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[11px] sm:text-xs font-semibold text-gray-600 flex items-center gap-1">
+                    <Type className="h-3 w-3" /> Font Family
+                  </label>
+                  <select
+                    value={fontFamily}
+                    onChange={(e) => setFontFamily(e.target.value)}
+                    className="w-full h-8 sm:h-9 text-[11px] sm:text-sm border border-gray-200 rounded-lg px-2 focus:border-purple-400 focus:ring-1 focus:ring-purple-100"
+                  >
+                    {fonts.map(font => (
+                      <option key={font.id} value={font.id}>{font.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[11px] sm:text-xs font-semibold text-gray-600 flex items-center gap-1">
+                    <Palette className="h-3 w-3" /> Primary Color
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={primaryColor}
+                      onChange={(e) => setPrimaryColor(e.target.value)}
+                      className="h-8 w-8 sm:h-9 sm:w-9 rounded-lg border border-gray-200 cursor-pointer"
+                    />
+                    <Input
+                      value={primaryColor}
+                      onChange={(e) => setPrimaryColor(e.target.value)}
+                      className="h-8 sm:h-9 text-[11px] sm:text-sm flex-1"
+                      placeholder="#3b82f6"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Content Editor */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] sm:text-xs font-semibold text-gray-600 flex items-center gap-1">
+                  <FileText className="h-3 w-3" /> HTML Content
+                </label>
+                <textarea
+                  value={templateContent}
+                  onChange={(e) => setTemplateContent(e.target.value)}
+                  rows={10}
+                  className="w-full text-[11px] sm:text-sm p-3 border border-gray-200 rounded-lg font-mono bg-gray-50 focus:bg-white focus:border-purple-400 focus:ring-1 focus:ring-purple-100 transition-all"
+                  placeholder="Enter HTML content here..."
+                />
+              </div>
+
+              {/* Placeholders */}
+              <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl p-3 sm:p-4 border border-purple-100">
+                <p className="text-[10px] sm:text-xs font-semibold text-purple-700 mb-2 flex items-center gap-1">
+                  <Zap className="h-3 w-3" /> Available Placeholders
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {[
+                    '{tenant_name}', '{tenant_phone}', '{tenant_email}',
+                    '{property_name}', '{room_number}', '{rent_amount}',
+                    '{document_number}', '{created_date}'
+                  ].map(placeholder => (
+                    <button
+                      key={placeholder}
+                      onClick={() => insertPlaceholder(placeholder)}
+                      className="text-[8px] sm:text-[10px] bg-white px-2 py-1 rounded border border-purple-200 text-purple-600 hover:bg-purple-100 transition-colors font-mono"
+                    >
+                      {placeholder}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
+          ) : (
+            /* Preview Tab */
+            <div className="border border-gray-200 rounded-lg p-4 bg-white min-h-[400px] overflow-auto">
+              <div 
+                className="prose prose-sm max-w-none"
+                style={{ 
+                  fontFamily: fonts.find(f => f.id === fontFamily)?.class,
+                  color: primaryColor,
+                }}
+                dangerouslySetInnerHTML={{ 
+                  __html: templateContent || '<p class="text-gray-400 text-center py-10">No content to preview</p>' 
+                }} 
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex-shrink-0 border-t px-4 sm:px-5 py-3 sm:py-4 bg-gray-50 rounded-b-2xl flex items-center justify-between gap-3">
+          <p className="text-[9px] sm:text-xs text-gray-400 flex items-center gap-1">
+            <Sparkles className="h-3 w-3" />
+            Changes will be saved to this document
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={onClose}
+              className="h-8 sm:h-9 px-3 sm:px-4 rounded-xl border border-gray-200 text-[10px] sm:text-xs font-medium text-gray-600 hover:bg-gray-100 transition-all"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="h-8 sm:h-9 px-4 sm:px-5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-[10px] sm:text-xs font-semibold flex items-center gap-1.5 disabled:opacity-60 shadow-lg hover:shadow-xl transition-all"
+            >
+              {saving ? (
+                <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
+              ) : (
+                <Save className="h-3 w-3 sm:h-4 sm:w-4" />
+              )}
+              Save Changes
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// POPUP: Share — Enhanced modern version
+// ════════════════════════════════════════════════════════════════════════════
+function SharePopup({ doc, onClose, onDone }: { doc: Doc; onClose: () => void; onDone: () => void }) {
+  const [channels, setChannels] = useState<Set<string>>(new Set());
+  const [recipients, setRecipients] = useState([
+    { name: doc.tenant_name || "Tenant", contact: doc.tenant_phone || "", type: "Tenant" },
+  ]);
+  const [customName, setCustomName] = useState("");
+  const [customContact, setCustomContact] = useState("");
+  const [customType, setCustomType] = useState("Phone");
+  const [message, setMessage] = useState(
+    `Dear ${doc.tenant_name || "Tenant"},\n\nPlease find attached the ${doc.document_name} for your review.\n\nDocument: ${doc.document_name}\nDocument ID: ${doc.id}\nDate: ${fmt(doc.created_at)}\n\nProperty: ${doc.property_name || "N/A"} — Room ${doc.room_number || "N/A"}`
+  );
+  const [sharing, setSharing] = useState(false);
+
+  const toggleChannel = (c: string) =>
+    setChannels(p => { const n = new Set(p); n.has(c) ? n.delete(c) : n.add(c); return n; });
+
+  const addRecipient = () => {
+    if (!customName.trim() || !customContact.trim()) return;
+    setRecipients(p => [...p, { name: customName.trim(), contact: customContact.trim(), type: customType }]);
+    setCustomName(""); setCustomContact("");
+  };
+
+  const handleShare = async () => {
+    if (!channels.size) { toast.error("Select at least one channel"); return; }
+    setSharing(true);
+    try {
+      if (channels.has("whatsapp")) {
+        const phone = (doc.tenant_phone || "").replace(/\D/g, "");
+        if (phone) {
+          const msg = encodeURIComponent(`📄 *${doc.document_name}*\n*Doc:* ${doc.document_number}\n*Tenant:* ${doc.tenant_name}\n*Property:* ${doc.property_name || "N/A"}\n*Room:* ${doc.room_number || "N/A"}\n*Status:* ${doc.status}`);
+          window.open(`https://wa.me/${phone}?text=${msg}`, "_blank");
+        }
+      }
+      if (channels.has("email") && doc.tenant_email) {
+        window.open(`mailto:${doc.tenant_email}?subject=${encodeURIComponent(`Document: ${doc.document_name}`)}&body=${encodeURIComponent(message)}`, "_blank");
+      }
+      if (channels.has("sms")) {
+        const phone = (doc.tenant_phone || "").replace(/\D/g, "");
+        if (phone) window.open(`sms:${phone}?body=${encodeURIComponent(message)}`, "_blank");
+      }
+      if (channels.has("public")) {
+        await navigator.clipboard.writeText(`${window.location.origin}/document/view/${doc.share_token || doc.id}`).catch(() => {});
+        toast.success("Public link copied!");
+      }
+      await updateDocumentStatus(doc.id, "Shared" as DocumentStatus);
+      toast.success("Shared! Status → Shared");
+      onDone();
+    } catch (e: any) { toast.error(e.message || "Failed"); }
+    finally { setSharing(false); }
+  };
+
+  const CHANNELS = [
+    { id:"whatsapp", label:"WhatsApp",   desc:"Rich formatting",    Icon: MessageCircle, color:"green", gradient:"from-green-500 to-green-600" },
+    { id:"email",    label:"Email",       desc:"With attachment",    Icon: Mail,          color:"blue", gradient:"from-blue-500 to-blue-600" },
+    { id:"sms",      label:"SMS",         desc:"Document link",      Icon: Smartphone,    color:"purple", gradient:"from-purple-500 to-purple-600" },
+    { id:"public",   label:"Public Link", desc:"Shareable link",     Icon: Globe,         color:"orange", gradient:"from-orange-500 to-orange-600" },
+  ];
+
+  const getHeaderGradient = () => {
+    return "from-green-600 to-green-700";
+  };
+
+  return (
+    <div 
+      className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-2 sm:p-4 backdrop-blur-md animate-in fade-in duration-300"
+      onClick={e => e.target === e.currentTarget && onClose()}
+    >
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col animate-in slide-in-from-bottom-5 duration-300">
+
+        {/* Header with gradient */}
+        <div className={`bg-gradient-to-r ${getHeaderGradient()} px-4 sm:px-5 py-3 sm:py-4 rounded-t-2xl flex items-center justify-between flex-shrink-0`}>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center shadow-lg">
+              <Share2 className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
+            </div>
+            <div>
+              <h2 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
+                Share Document
+                <Badge className="bg-white/30 text-white border-0 text-[8px] sm:text-[10px] px-1.5 py-0.5">
+                  {doc.document_number}
+                </Badge>
+              </h2>
+              <p className="text-[10px] sm:text-xs text-white/80 flex items-center gap-1">
+                <FileText className="h-3 w-3" />
+                {doc.document_name}
+              </p>
+            </div>
+          </div>
+          <button 
+            onClick={onClose} 
+            className="p-1.5 sm:p-2 rounded-xl hover:bg-white/20 text-white transition-all hover:scale-110"
+          >
+            <X className="h-4 w-4 sm:h-5 sm:w-5" />
+          </button>
+        </div>
+
+        {/* Scrollable body */}
+        <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 sm:space-y-5">
+
+          {/* Doc summary card */}
+          <div className="bg-gradient-to-r from-gray-50 to-gray-100/50 rounded-xl p-3 sm:p-4 border border-gray-200">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4">
+              <div>
+                <p className="text-[9px] sm:text-[10px] text-gray-400 font-medium">Document ID</p>
+                <p className="text-[11px] sm:text-xs font-bold text-gray-800 font-mono">{doc.id}</p>
+              </div>
+              <div>
+                <p className="text-[9px] sm:text-[10px] text-gray-400 font-medium">Template</p>
+                <p className="text-[11px] sm:text-xs font-semibold text-gray-800 truncate">{doc.document_name}</p>
+              </div>
+              <div>
+                <p className="text-[9px] sm:text-[10px] text-gray-400 font-medium">Tenant</p>
+                <p className="text-[11px] sm:text-xs font-semibold text-gray-800">{doc.tenant_name}</p>
+              </div>
+              <div>
+                <p className="text-[9px] sm:text-[10px] text-gray-400 font-medium">Property</p>
+                <p className="text-[11px] sm:text-xs font-semibold text-gray-800">{doc.property_name || "N/A"}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Channels grid */}
+          <div>
+            <p className="text-[10px] sm:text-xs font-bold text-gray-600 mb-2 sm:mb-3 flex items-center gap-1">
+              <Rocket className="h-3 w-3" /> Select Sharing Channels
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+              {CHANNELS.map(c => (
+                <button
+                  key={c.id}
+                  onClick={() => toggleChannel(c.id)}
+                  className={`relative group flex flex-col items-center p-2 sm:p-3 rounded-xl border-2 transition-all duration-300
+                    ${channels.has(c.id) 
+                      ? `border-${c.color}-500 bg-${c.color}-50 shadow-lg scale-105` 
+                      : 'border-gray-200 hover:border-gray-300 bg-white hover:shadow-md'}`}
+                >
+                  <div className={`h-8 w-8 sm:h-10 sm:w-10 rounded-lg flex items-center justify-center mb-1.5 transition-all
+                    ${channels.has(c.id) 
+                      ? `bg-gradient-to-r ${c.gradient} text-white shadow-lg` 
+                      : `bg-${c.color}-50 text-${c.color}-600 group-hover:scale-110`}`}>
+                    <c.Icon className="h-4 w-4 sm:h-5 sm:w-5" />
+                  </div>
+                  <span className="text-[10px] sm:text-xs font-semibold text-gray-800">{c.label}</span>
+                  <span className="text-[7px] sm:text-[9px] text-gray-400">{c.desc}</span>
+                  {channels.has(c.id) && (
+                    <div className="absolute -top-1 -right-1 h-4 w-4 sm:h-5 sm:w-5 rounded-full bg-green-500 text-white flex items-center justify-center shadow-lg animate-in zoom-in">
+                      <Check className="h-2 w-2 sm:h-3 sm:w-3" />
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Recipients */}
+          <div>
+            <p className="text-[10px] sm:text-xs font-bold text-gray-600 mb-2 flex items-center gap-1">
+              <Users className="h-3 w-3" /> Recipients
+            </p>
+            
+            {/* Add recipient */}
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-3">
+              <div className="relative flex-shrink-0">
+                <select className="h-7 sm:h-8 pl-2 pr-6 sm:pl-2.5 sm:pr-7 text-[9px] sm:text-[10px] border border-gray-200 rounded-lg bg-white appearance-none font-medium">
+                  <option>Both</option>
+                </select>
+                <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 h-2.5 w-2.5 text-gray-400 pointer-events-none" />
+              </div>
+              <Input
+                value={customName}
+                onChange={e => setCustomName(e.target.value)}
+                placeholder="Name"
+                className="h-7 sm:h-8 text-[9px] sm:text-[10px] w-20 sm:w-24 flex-shrink-0"
+              />
+              <Input
+                value={customContact}
+                onChange={e => setCustomContact(e.target.value)}
+                placeholder="Phone/Email"
+                className="h-7 sm:h-8 text-[9px] sm:text-[10px] w-24 sm:w-32 flex-shrink-0"
+              />
+              <div className="relative flex-shrink-0">
+                <select 
+                  value={customType} 
+                  onChange={e => setCustomType(e.target.value)}
+                  className="h-7 sm:h-8 pl-2 pr-6 sm:pl-2.5 sm:pr-7 text-[9px] sm:text-[10px] border border-gray-200 rounded-lg bg-white appearance-none"
+                >
+                  <option>Phone</option>
+                  <option>Email</option>
+                </select>
+                <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 h-2.5 w-2.5 text-gray-400 pointer-events-none" />
+              </div>
+              <button
+                onClick={addRecipient}
+                className="h-7 sm:h-8 w-7 sm:w-8 rounded-lg bg-gradient-to-r from-green-600 to-green-700 text-white flex items-center justify-center hover:scale-105 transition-all shadow-md hover:shadow-lg"
+              >
+                <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
+              </button>
+            </div>
+
+            {/* Recipients list */}
+            <div className="space-y-1.5 sm:space-y-2">
+              {recipients.map((r, i) => (
+                <div key={i} className="flex items-center gap-2 p-2 sm:p-2.5 bg-gradient-to-r from-gray-50 to-white rounded-xl border border-gray-100 hover:border-gray-200 transition-all group">
+                  <div className="h-6 w-6 sm:h-7 sm:w-7 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center flex-shrink-0 shadow-md">
+                    <User className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] sm:text-xs font-semibold text-gray-800 truncate">{r.name}</p>
+                    <p className="text-[8px] sm:text-[10px] text-gray-500">{r.contact}</p>
+                  </div>
+                  <Badge className="bg-blue-100 text-blue-700 border-0 text-[8px] sm:text-[10px] px-1.5 py-0.5 font-semibold">
+                    {r.type}
+                  </Badge>
+                  <button
+                    onClick={() => setRecipients(p => p.filter((_, j) => j !== i))}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-300 hover:text-red-500"
+                  >
+                    <X className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Message */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[10px] sm:text-xs font-bold text-gray-600 flex items-center gap-1">
+                <Mail className="h-3 w-3" /> Tenant Message
+              </p>
+              <div className="flex gap-1">
+                <button
+                  onClick={() => setMessage(`Dear ${doc.tenant_name},\n\nPlease find attached the ${doc.document_name} for your review.\n\nDocument ID: ${doc.id}\nDate: ${fmt(doc.created_at)}\n\nProperty: ${doc.property_name || "N/A"}\nRoom: ${doc.room_number || "N/A"}`)}
+                  className="h-6 px-2 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 text-white text-[8px] sm:text-[9px] font-semibold hover:scale-105 transition-all shadow-sm"
+                >
+                  Default
+                </button>
+                <button
+                  onClick={() => navigator.clipboard.writeText(message)}
+                  className="h-6 px-2 rounded-lg border border-gray-200 text-[8px] sm:text-[9px] font-medium text-gray-600 flex items-center gap-0.5 hover:bg-gray-50"
+                >
+                  <Copy className="h-2.5 w-2.5" /> Copy
+                </button>
+              </div>
+            </div>
+            <textarea
+              rows={3}
+              value={message}
+              onChange={e => setMessage(e.target.value)}
+              className="w-full text-[9px] sm:text-[11px] p-2.5 sm:p-3 border border-gray-200 rounded-xl resize-none bg-gray-50 focus:bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 transition-all leading-relaxed"
+            />
+          </div>
+
+          {/* Quick Actions */}
+          <div>
+            <p className="text-[10px] sm:text-xs font-bold text-gray-600 mb-2 flex items-center gap-1">
+              <Zap className="h-3 w-3" /> Quick Actions
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={async () => {
+                  await navigator.clipboard.writeText(`${window.location.origin}/document/view/${doc.share_token || doc.id}`);
+                  toast.success("Link copied!");
+                }}
+                className="flex items-center gap-1.5 sm:gap-2 px-3 py-2 rounded-xl border border-gray-200 hover:border-green-300 hover:bg-green-50 transition-all group"
+              >
+                <Link className="h-3 w-3 sm:h-4 sm:w-4 text-green-600 group-hover:scale-110 transition-transform" />
+                <span className="text-[9px] sm:text-[11px] font-semibold text-gray-700">Copy Link</span>
+              </button>
+              <button
+                onClick={() => toast.info("QR generation coming soon")}
+                className="flex items-center gap-1.5 sm:gap-2 px-3 py-2 rounded-xl border border-gray-200 hover:border-orange-300 hover:bg-orange-50 transition-all group"
+              >
+                <QrCodeIcon className="h-3 w-3 sm:h-4 sm:w-4 text-orange-600 group-hover:scale-110 transition-transform" />
+                <span className="text-[9px] sm:text-[11px] font-semibold text-gray-700">Generate QR</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex-shrink-0 border-t px-4 sm:px-5 py-3 sm:py-4 bg-gray-50 rounded-b-2xl flex items-center justify-between gap-3">
+          <p className="text-[9px] sm:text-xs text-gray-400">
+            {channels.size} channel(s) · {recipients.length} recipient(s)
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={onClose}
+              className="h-8 sm:h-9 px-3 sm:px-4 rounded-xl border border-gray-200 text-[10px] sm:text-xs font-medium text-gray-600 hover:bg-gray-100 transition-all"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleShare}
+              disabled={sharing}
+              className="h-8 sm:h-9 px-4 sm:px-5 rounded-xl bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white text-[10px] sm:text-xs font-semibold flex items-center gap-1.5 disabled:opacity-60 shadow-lg hover:shadow-xl transition-all"
+            >
+              {sharing ? (
+                <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
+              ) : (
+                <Send className="h-3 w-3 sm:h-4 sm:w-4" />
+              )}
+              Share Now
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// POPUP: Change Status (On Hold / Completed / Cancelled) - Enhanced modern version
+// ════════════════════════════════════════════════════════════════════════════
+function ChangeStatusPopup({
+  doc, targetStatus, onClose, onDone,
+}: { doc: Doc; targetStatus: string; onClose: () => void; onDone: () => void }) {
+  const [reason, setReason] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [notifyTenant, setNotifyTenant] = useState(true);
+
+  const meta: Record<string, { 
+    Icon: any; 
+    gradient: string; 
+    bg: string; 
+    desc: string;
+    iconBg: string;
+    alertTitle: string;
+  }> = {
+    "On Hold":   { 
+      Icon: PauseCircle,  
+      gradient: "from-orange-500 to-orange-600",
+      bg: "bg-orange-50",
+      desc: "Document processing paused",
+      iconBg: "bg-orange-100",
+      alertTitle: "Hold Document"
+    },
+    "Completed": { 
+      Icon: CheckCircle,  
+      gradient: "from-emerald-600 to-emerald-700",
+      bg: "bg-emerald-50",
+      desc: "All processes finished",
+      iconBg: "bg-emerald-100",
+      alertTitle: "Complete Document"
+    },
+    "Cancelled": { 
+      Icon: XCircle,      
+      gradient: "from-red-600 to-red-700",
+      bg: "bg-red-50",
+      desc: "Document cancelled",
+      iconBg: "bg-red-100",
+      alertTitle: "Cancel Document"
+    },
+  };
+  
+  const m = meta[targetStatus] || meta["On Hold"];
+
+  const handleSubmit = async () => {
+    if (!reason.trim()) { 
+      toast.error("Please provide a reason"); 
+      return; 
+    }
+    setSaving(true);
+    try {
+      await updateDocumentStatus(doc.id, targetStatus as DocumentStatus);
+      if (notifyTenant) {
+        toast.success(`Tenant notified about ${targetStatus} status`);
+      }
+      toast.success(`Status → ${targetStatus}`);
+      onDone();
+    } catch (e: any) { 
+      toast.error(e.message); 
+    } finally { 
+      setSaving(false); 
+    }
+  };
+
+  const getHeaderGradient = () => {
+    return m.gradient;
+  };
+
+  return (
+    <div 
+      className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-2 sm:p-4 backdrop-blur-md animate-in fade-in duration-300"
+      onClick={e => e.target === e.currentTarget && onClose()}
+    >
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md animate-in slide-in-from-bottom-5 duration-300">
+        
+        {/* Header with gradient */}
+        <div className={`bg-gradient-to-r ${getHeaderGradient()} px-4 sm:px-5 py-3 sm:py-4 rounded-t-2xl flex items-center justify-between`}>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center shadow-lg">
+              <m.Icon className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
+            </div>
+            <div>
+              <h2 className="text-sm sm:text-base font-bold text-white">{m.alertTitle}</h2>
+              <p className="text-[10px] sm:text-xs text-white/80">{doc.document_number}</p>
+            </div>
+          </div>
+          <button 
+            onClick={onClose} 
+            className="p-1.5 sm:p-2 rounded-xl hover:bg-white/20 text-white transition-all hover:scale-110"
+          >
+            <X className="h-4 w-4 sm:h-5 sm:w-5" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="p-4 sm:p-5 space-y-4 sm:space-y-5">
+          
+          {/* Status Preview */}
+          <div className={`${m.bg} rounded-xl p-3 sm:p-4 border border-${targetStatus === "On Hold" ? "orange" : targetStatus === "Completed" ? "emerald" : "red"}-200`}>
+            <div className="flex items-center gap-3">
+              <div className={`h-10 w-10 sm:h-12 sm:w-12 rounded-xl ${m.iconBg} flex items-center justify-center flex-shrink-0`}>
+                <m.Icon className={`h-5 w-5 sm:h-6 sm:w-6 text-${targetStatus === "On Hold" ? "orange" : targetStatus === "Completed" ? "emerald" : "red"}-600`} />
+              </div>
+              <div>
+                <p className="text-xs sm:text-sm font-bold text-gray-900">{targetStatus}</p>
+                <p className="text-[10px] sm:text-xs text-gray-600">{m.desc}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Reason */}
+          <div className="space-y-1.5">
+            <label className="text-[10px] sm:text-xs font-semibold text-gray-600 flex items-center gap-1">
+              <AlertTriangle className="h-3 w-3" /> Reason for Change <span className="text-red-400">*</span>
+            </label>
+            <textarea
+              rows={3}
+              value={reason}
+              onChange={e => setReason(e.target.value)}
+              placeholder="Please provide a reason for changing the status..."
+              className="w-full text-[10px] sm:text-xs p-2.5 sm:p-3 border border-gray-200 rounded-xl resize-none bg-gray-50 focus:bg-white focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition-all"
+            />
+          </div>
+
+          {/* Notify Tenant */}
+          <label className="flex items-center gap-2 p-2 sm:p-3 bg-gray-50 rounded-xl cursor-pointer hover:bg-gray-100 transition-colors">
+            <input
+              type="checkbox"
+              checked={notifyTenant}
+              onChange={(e) => setNotifyTenant(e.target.checked)}
+              className="h-3 w-3 sm:h-4 sm:w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <div>
+              <p className="text-[10px] sm:text-xs font-medium text-gray-700">Notify tenant about this change</p>
+              <p className="text-[8px] sm:text-[10px] text-gray-400">Send SMS/Email notification</p>
+            </div>
+          </label>
+
+          {/* Document Info */}
+          <div className="bg-gradient-to-r from-gray-50 to-gray-100/50 rounded-xl p-2.5 sm:p-3 border border-gray-200">
+            <p className="text-[9px] sm:text-[10px] text-gray-400 mb-1">Document Details</p>
+            <div className="flex justify-between text-[10px] sm:text-xs">
+              <span className="font-semibold text-gray-700">Tenant:</span>
+              <span className="text-gray-600">{doc.tenant_name}</span>
+            </div>
+            <div className="flex justify-between text-[10px] sm:text-xs mt-1">
+              <span className="font-semibold text-gray-700">Property:</span>
+              <span className="text-gray-600">{doc.property_name || "N/A"}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex justify-end gap-2 px-4 sm:px-5 pb-4 sm:pb-5">
+          <button
+            onClick={onClose}
+            className="h-8 sm:h-9 px-3 sm:px-4 rounded-xl border border-gray-200 text-[10px] sm:text-xs font-medium text-gray-600 hover:bg-gray-100 transition-all"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={saving}
+            className={`h-8 sm:h-9 px-4 sm:px-5 rounded-xl bg-gradient-to-r ${m.gradient} hover:opacity-90 text-white text-[10px] sm:text-xs font-semibold flex items-center gap-1.5 disabled:opacity-60 shadow-lg hover:shadow-xl transition-all`}
+          >
+            {saving ? (
+              <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
+            ) : (
+              <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4" />
+            )}
+            Update Status
+          </button>
+        </div>
+
+        {/* Step Trail */}
+        <div className="border-t px-4 sm:px-5 py-2.5 sm:py-3 flex items-center gap-1 overflow-x-auto rounded-b-2xl bg-gray-50">
+          {[...MAIN_STEPS.map(s => s.key), "Cancelled"].map((s, i, arr) => (
+            <div key={s} className="flex items-center gap-1 flex-shrink-0">
+              <span className={`text-[8px] sm:text-[9px] font-semibold px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full whitespace-nowrap
+                ${s === targetStatus 
+                  ? (s === "Cancelled" 
+                    ? "bg-gradient-to-r from-red-600 to-red-700 text-white shadow-sm" 
+                    : `bg-gradient-to-r ${meta[s]?.gradient || "from-blue-600 to-blue-700"} text-white shadow-sm`)
+                  : "bg-gray-200 text-gray-600"}`}>
+                {s}
+              </span>
+              {i < arr.length - 1 && <ArrowRight className="h-2 w-2 sm:h-2.5 sm:w-2.5 text-gray-300" />}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// POPUP: OTP Verify - Enhanced modern version
+// ════════════════════════════════════════════════════════════════════════════
+function OTPVerifyPopup({ doc, onClose, onDone }: { doc: Doc; onClose: () => void; onDone: () => void }) {
+  const [otp, setOtp] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [verified, setVerified] = useState(false);
+  const [otpInput, setOtpInput] = useState(["", "", "", "", "", ""]);
+  const [via, setVia] = useState<"sms" | "email">("sms");
+  const [notes, setNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [resendTimer, setResendTimer] = useState(0);
+
+  const sendOtp = () => {
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    setOtp(code);
+    setOtpSent(true);
+    setResendTimer(30);
+    toast.success(`OTP sent via ${via}: ${code}`);
+    
+    // Start timer
+    const timer = setInterval(() => {
+      setResendTimer(prev => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  const verifyOtp = () => {
+    const enteredOtp = otpInput.join("");
+    if (enteredOtp === otp) { 
+      setVerified(true); 
+      toast.success("OTP verified successfully!");
+    } else {
+      toast.error("Invalid OTP");
+    }
+  };
+
+  const handleOtpChange = (index: number, value: string) => {
+    if (value.length > 1) return;
+    const newOtp = [...otpInput];
+    newOtp[index] = value;
+    setOtpInput(newOtp);
+    
+    // Auto-focus next input
+    if (value && index < 5) {
+      const nextInput = document.getElementById(`otp-${index + 1}`);
+      nextInput?.focus();
+    }
+  };
+
+  const handleContinue = async () => {
+    setSaving(true);
+    try {
+      await updateDocumentStatus(doc.id, "OTP Verified" as DocumentStatus);
+      toast.success("OTP Verified — status updated");
+      onDone();
+    } catch (e: any) { 
+      toast.error(e.message); 
+    } finally { 
+      setSaving(false); 
+    }
+  };
+
+  const getHeaderGradient = () => {
+    return "from-purple-600 to-purple-700";
+  };
+
+  return (
+    <div 
+      className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-2 sm:p-4 backdrop-blur-md animate-in fade-in duration-300"
+      onClick={e => e.target === e.currentTarget && onClose()}
+    >
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg animate-in slide-in-from-bottom-5 duration-300">
+        
+        {/* Header with gradient */}
+        <div className={`bg-gradient-to-r ${getHeaderGradient()} px-4 sm:px-5 py-3 sm:py-4 rounded-t-2xl flex items-center justify-between`}>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center shadow-lg">
+              <ShieldCheck className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
+            </div>
+            <div>
+              <h2 className="text-sm sm:text-base font-bold text-white">Verify Parties</h2>
+              <p className="text-[10px] sm:text-xs text-white/80">{doc.document_number}</p>
+            </div>
+          </div>
+          <button 
+            onClick={onClose} 
+            className="p-1.5 sm:p-2 rounded-xl hover:bg-white/20 text-white transition-all hover:scale-110"
+          >
+            <X className="h-4 w-4 sm:h-5 sm:w-5" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="p-4 sm:p-5 space-y-4 sm:space-y-5">
+          
+          {/* Tenant Details */}
+          <div className={`border-2 rounded-xl p-3 sm:p-4 transition-all ${verified ? "border-purple-300 bg-purple-50/30" : "border-gray-200"}`}>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-[11px] sm:text-xs font-bold text-gray-800 flex items-center gap-1">
+                <User className="h-3 w-3" /> Tenant Details
+              </p>
+              {verified && (
+                <Badge className="bg-gradient-to-r from-green-500 to-green-600 text-white border-0 text-[9px] sm:text-[10px] px-2 py-0.5">
+                  <CheckCircle className="h-2.5 w-2.5 mr-1" /> Verified
+                </Badge>
+              )}
+            </div>
+            
+            <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-3">
+              <div className="space-y-0.5">
+                <p className="text-[8px] sm:text-[9px] text-gray-400">Name</p>
+                <p className="text-[10px] sm:text-xs font-semibold text-gray-800 bg-gray-50 p-1.5 sm:p-2 rounded-lg">{doc.tenant_name}</p>
+              </div>
+              <div className="space-y-0.5">
+                <p className="text-[8px] sm:text-[9px] text-gray-400">Phone</p>
+                <p className="text-[10px] sm:text-xs font-semibold text-gray-800 bg-gray-50 p-1.5 sm:p-2 rounded-lg">{doc.tenant_phone}</p>
+              </div>
+              {doc.tenant_email && (
+                <div className="col-span-2 space-y-0.5">
+                  <p className="text-[8px] sm:text-[9px] text-gray-400">Email</p>
+                  <p className="text-[10px] sm:text-xs font-semibold text-gray-800 bg-gray-50 p-1.5 sm:p-2 rounded-lg">{doc.tenant_email}</p>
+                </div>
+              )}
+            </div>
+
+            {/* OTP Section */}
+            {!verified && (
+              <>
+                <div className="flex items-center gap-3 mb-3">
+                  <span className="text-[9px] sm:text-[10px] text-gray-600 font-medium">Send via:</span>
+                  <div className="flex gap-2">
+                    {(["sms", "email"] as const).map(v => (
+                      <label key={v} className="flex items-center gap-1 cursor-pointer">
+                        <input
+                          type="radio"
+                          checked={via === v}
+                          onChange={() => setVia(v)}
+                          className="h-3 w-3 text-purple-600"
+                        />
+                        <span className="text-[9px] sm:text-[10px] font-medium uppercase">{v}</span>
+                      </label>
+                    ))}
+                  </div>
+                  <button
+                    onClick={sendOtp}
+                    disabled={resendTimer > 0}
+                    className="ml-auto h-7 sm:h-8 px-2.5 sm:px-3 rounded-lg bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white text-[9px] sm:text-[10px] font-semibold disabled:opacity-50 transition-all shadow-sm hover:shadow"
+                  >
+                    {resendTimer > 0 ? `Resend in ${resendTimer}s` : 'Send OTP'}
+                  </button>
+                </div>
+
+                {otpSent && (
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-[9px] sm:text-[10px] text-gray-600 mb-2">Enter OTP</p>
+                      <div className="flex gap-1 sm:gap-2 justify-center">
+                        {otpInput.map((digit, index) => (
+                          <input
+                            key={index}
+                            id={`otp-${index}`}
+                            type="text"
+                            maxLength={1}
+                            value={digit}
+                            onChange={(e) => handleOtpChange(index, e.target.value)}
+                            className="w-8 h-8 sm:w-10 sm:h-10 text-center text-sm sm:text-base font-bold border-2 border-gray-200 rounded-lg focus:border-purple-400 focus:ring-1 focus:ring-purple-100 outline-none"
+                          />
+                        ))}
+                      </div>
+                    </div>
+                    <button
+                      onClick={verifyOtp}
+                      className="w-full h-8 sm:h-9 rounded-lg bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white text-[10px] sm:text-xs font-semibold flex items-center justify-center gap-1.5 transition-all shadow-sm hover:shadow"
+                    >
+                      <CheckCircle className="h-3 w-3" />
+                      Verify OTP
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+
+            {verified && (
+              <div className="flex items-center gap-2 text-green-600 text-[11px] sm:text-xs font-semibold mt-2 p-2 bg-green-50 rounded-lg">
+                <CheckCircle className="h-4 w-4" />
+                OTP verified successfully!
+              </div>
+            )}
+          </div>
+
+          {/* Additional Notes */}
+          <div>
+            <label className="text-[10px] sm:text-xs font-semibold text-gray-600 block mb-1.5 flex items-center gap-1">
+              <Pen className="h-3 w-3" /> Additional Notes (Optional)
+            </label>
+            <textarea
+              rows={2}
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              placeholder="Add any notes about the verification process..."
+              className="w-full text-[10px] sm:text-xs p-2.5 sm:p-3 border border-gray-200 rounded-xl resize-none bg-gray-50 focus:bg-white focus:border-purple-400 focus:ring-1 focus:ring-purple-100 transition-all"
+            />
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex justify-end gap-2 px-4 sm:px-5 pb-4 sm:pb-5">
+          <button
+            onClick={onClose}
+            className="h-8 sm:h-9 px-3 sm:px-4 rounded-xl border border-gray-200 text-[10px] sm:text-xs font-medium text-gray-600 hover:bg-gray-100 transition-all"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleContinue}
+            disabled={saving || !verified}
+            className="h-8 sm:h-9 px-4 sm:px-5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-[10px] sm:text-xs font-semibold flex items-center gap-1.5 disabled:opacity-60 shadow-lg hover:shadow-xl transition-all"
+          >
+            {saving ? (
+              <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
+            ) : (
+              <ArrowRight className="h-3 w-3 sm:h-4 sm:w-4" />
+            )}
+            Continue
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// POPUP: E-Sign - Enhanced modern version
+// ════════════════════════════════════════════════════════════════════════════
+function ESignPopup({ doc, onClose, onDone }: { doc: Doc; onClose: () => void; onDone: () => void }) {
+  const [saving, setSaving] = useState(false);
+  const [signers, setSigners] = useState([
+    { 
+      id: 1, 
+      name: doc.tenant_name, 
+      email: doc.tenant_email, 
+      phone: doc.tenant_phone,
+      type: "Tenant",
+      status: "pending"
+    }
+  ]);
+  const [signatureBoxes, setSignatureBoxes] = useState<Array<{signerId: number, page: number, x: number, y: number}>>([]);
+
+  const addSigner = () => {
+    setSigners(prev => [...prev, {
+      id: Date.now(),
+      name: "",
+      email: "",
+      phone: "",
+      type: "Co-Signer",
+      status: "pending"
+    }]);
+  };
+
+  const removeSigner = (id: number) => {
+    setSigners(prev => prev.filter(s => s.id !== id));
+  };
+
+  const handleSubmit = async () => {
+    setSaving(true);
+    try {
+      await updateDocumentStatus(doc.id, "E-Sign Pending" as DocumentStatus);
+      toast.success("Submitted for E-Sign");
+      onDone();
+    } catch (e: any) { 
+      toast.error(e.message); 
+    } finally { 
+      setSaving(false); 
+    }
+  };
+
+  const getHeaderGradient = () => {
+    return "from-indigo-600 to-indigo-700";
+  };
+
+  return (
+    <div 
+      className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-2 backdrop-blur-md animate-in fade-in duration-300"
+      onClick={e => e.target === e.currentTarget && onClose()}
+    >
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col animate-in slide-in-from-bottom-5 duration-300">
+        
+        {/* Header with gradient */}
+        <div className={`bg-gradient-to-r ${getHeaderGradient()} px-4 sm:px-5 py-3 sm:py-4 rounded-t-2xl flex items-center justify-between flex-shrink-0`}>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center shadow-lg">
+              <FileSignature className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
+            </div>
+            <div>
+              <h2 className="text-sm sm:text-base font-bold text-white">E-Sign (Aadhaar)</h2>
+              <p className="text-[10px] sm:text-xs text-white/80">{doc.document_number} · {doc.document_name}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <button className="h-7 sm:h-8 px-2.5 sm:px-3 rounded-lg bg-white/20 hover:bg-white/30 text-white text-[9px] sm:text-[10px] font-medium flex items-center gap-1 transition-all">
+              <Download className="h-3 w-3" />
+              <span className="hidden sm:inline">Upload PDF</span>
+            </button>
+            <button 
+              onClick={onClose} 
+              className="p-1.5 sm:p-2 rounded-xl hover:bg-white/20 text-white transition-all hover:scale-110"
+            >
+              <X className="h-4 w-4 sm:h-5 sm:w-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Main Content */}
+        <div className="flex flex-1 overflow-hidden min-h-0">
+          
+          {/* Signers Panel */}
+          <div className="w-44 sm:w-56 border-r bg-gray-50 overflow-y-auto flex-shrink-0 p-3 sm:p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-[9px] sm:text-[10px] font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1">
+                <Users className="h-3 w-3" /> Signers
+              </p>
+              <button
+                onClick={addSigner}
+                className="h-5 sm:h-6 px-1.5 sm:px-2 rounded-lg bg-gradient-to-r from-indigo-600 to-indigo-700 text-white text-[8px] sm:text-[9px] font-semibold flex items-center gap-0.5 hover:scale-105 transition-all"
+              >
+                <Plus className="h-2.5 w-2.5" /> Add
+              </button>
+            </div>
+
+            {signers.map((signer, idx) => (
+              <div key={signer.id} className="bg-white rounded-xl border border-gray-200 p-2 sm:p-3 space-y-2 shadow-sm hover:shadow transition-all">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1">
+                    <div className={`h-2 w-2 rounded-full ${idx === 0 ? 'bg-indigo-500' : 'bg-purple-500'}`} />
+                    <p className="text-[10px] sm:text-xs font-bold text-gray-700">{signer.type}</p>
+                  </div>
+                  {signer.status === 'pending' && (
+                    <Badge className="bg-yellow-100 text-yellow-700 border-0 text-[8px] px-1 py-0">Pending</Badge>
+                  )}
+                </div>
+                
+                {idx === 0 ? (
+                  <>
+                    <Input 
+                      value={signer.name} 
+                      readOnly 
+                      className="h-6 sm:h-7 text-[9px] sm:text-[10px] bg-gray-50 px-2" 
+                      placeholder="Name"
+                    />
+                    <Input 
+                      value={signer.phone} 
+                      readOnly 
+                      className="h-6 sm:h-7 text-[9px] sm:text-[10px] bg-gray-50 px-2" 
+                      placeholder="Phone"
+                    />
+                    <Input 
+                      value={signer.email || ''} 
+                      placeholder="Email" 
+                      className="h-6 sm:h-7 text-[9px] sm:text-[10px] px-2" 
+                    />
+                  </>
+                ) : (
+                  <>
+                    <Input 
+                      placeholder="Full Name" 
+                      className="h-6 sm:h-7 text-[9px] sm:text-[10px] px-2" 
+                    />
+                    <Input 
+                      placeholder="Phone Number" 
+                      className="h-6 sm:h-7 text-[9px] sm:text-[10px] px-2" 
+                    />
+                    <Input 
+                      placeholder="Email Address" 
+                      className="h-6 sm:h-7 text-[9px] sm:text-[10px] px-2" 
+                    />
+                  </>
+                )}
+
+                <div className="flex gap-1 pt-1">
+                  <button className="flex-1 h-6 sm:h-7 rounded-lg bg-gradient-to-r from-indigo-600 to-indigo-700 text-white text-[8px] sm:text-[9px] font-semibold hover:scale-105 transition-all">
+                    + Add Box
+                  </button>
+                  <button className="flex-1 h-6 sm:h-7 rounded-lg border border-gray-200 text-[8px] sm:text-[9px] text-gray-600 hover:bg-gray-50">
+                    Mark
+                  </button>
+                </div>
+
+                {idx > 0 && (
+                  <button
+                    onClick={() => removeSigner(signer.id)}
+                    className="w-full text-[8px] sm:text-[9px] text-red-400 hover:text-red-600 font-medium pt-1"
+                  >
+                    Remove Signer
+                  </button>
+                )}
+              </div>
+            ))}
+
+            <div className="bg-indigo-50 rounded-lg p-2 border border-indigo-100">
+              <p className="text-[8px] sm:text-[9px] text-indigo-700 font-medium">Signature Boxes: {signatureBoxes.length}</p>
+              <p className="text-[7px] sm:text-[8px] text-indigo-500">Click 'Add Box' to place signature field</p>
+            </div>
+          </div>
+
+          {/* Document Preview */}
+          <div className="flex-1 bg-slate-100 overflow-auto flex items-start justify-center p-3 sm:p-4">
+            <div className="bg-white rounded-xl shadow-lg w-full max-w-[210mm] min-h-64 relative">
+              {doc.html_content ? (
+                <>
+                  <div 
+                    className="p-4 text-[11px] sm:text-xs"
+                    dangerouslySetInnerHTML={{ __html: doc.html_content }} 
+                  />
+                  
+                  {/* Signature Box Placeholders */}
+                  {signatureBoxes.map((box, idx) => (
+                    <div
+                      key={idx}
+                      className="absolute border-2 border-indigo-400 bg-indigo-50/50 rounded-lg flex items-center justify-center cursor-move group hover:bg-indigo-100/50 transition-all"
+                      style={{
+                        left: box.x,
+                        top: box.y,
+                        width: '120px',
+                        height: '40px',
+                      }}
+                    >
+                      <FileSignature className="h-4 w-4 text-indigo-600 opacity-50 group-hover:opacity-100" />
+                      <span className="text-[8px] text-indigo-600 ml-1">Signature</span>
+                    </div>
+                  ))}
+                </>
+              ) : (
+                <div className="flex items-center justify-center h-64 text-gray-400 flex-col gap-3">
+                  <div className="h-16 w-16 rounded-full bg-gray-100 flex items-center justify-center">
+                    <FileText className="h-8 w-8 text-gray-300" />
+                  </div>
+                  <p className="text-sm font-medium text-gray-500">No document content</p>
+                  <p className="text-[10px] text-gray-400">Upload a PDF to add signature fields</p>
+                  <button className="mt-2 h-8 px-4 rounded-lg bg-gradient-to-r from-indigo-600 to-indigo-700 text-white text-xs font-semibold">
+                    Upload PDF
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex-shrink-0 border-t px-4 sm:px-5 py-3 sm:py-4 bg-gray-50 rounded-b-2xl flex items-center justify-between">
+          <p className="text-[9px] sm:text-xs text-gray-500 flex items-center gap-1">
+            <FileSignature className="h-3 w-3" />
+            {signers.length} Signer(s) · {signatureBoxes.length} Box(es)
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={onClose}
+              className="h-8 sm:h-9 px-3 sm:px-4 rounded-xl border border-gray-200 text-[10px] sm:text-xs font-medium text-gray-600 hover:bg-gray-100 transition-all"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={saving}
+              className="h-8 sm:h-9 px-4 sm:px-5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-[10px] sm:text-xs font-semibold flex items-center gap-1.5 disabled:opacity-60 shadow-lg hover:shadow-xl transition-all"
+            >
+              {saving ? (
+                <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
+              ) : (
+                <Rocket className="h-3 w-3 sm:h-4 sm:w-4" />
+              )}
+              Submit to Digio
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ════════════════════════════════════════════════════════════════════════════
 // TIMELINE — Image 2 style: pill steps with icon + label, connected by line
@@ -152,8 +1508,8 @@ function TimelineSteps({
         circleCls    += size + " ";
 
         if (state === "done")   circleCls += "border-green-500 bg-green-500 text-white";
-        else if (state === "active") circleCls += "border-blue-600 bg-blue-600 text-white ring-2 ring-blue-200 shadow-sm";
-        else if (isNext)        circleCls += "border-blue-400 border-dashed bg-white text-blue-500 cursor-pointer hover:bg-blue-50 hover:scale-110 hover:shadow";
+        else if (state === "active") circleCls += `border-${step.accentColor}-600 bg-${step.accentColor}-600 text-white ring-2 ring-${step.accentColor}-200 shadow-sm`;
+        else if (isNext)        circleCls += `border-${step.accentColor}-400 border-dashed bg-white text-${step.accentColor}-500 cursor-pointer hover:bg-${step.accentColor}-50 hover:scale-110 hover:shadow`;
         else                    circleCls += "border-gray-200 bg-gray-100 text-gray-400";
 
         const iconSz = compact ? "h-2.5 w-2.5" : "h-3 w-3";
@@ -161,8 +1517,8 @@ function TimelineSteps({
         // Label below (only on non-compact)
         const labelCls = compact ? "hidden" : `text-[8px] leading-tight mt-0.5 font-medium truncate max-w-[40px] sm:max-w-[52px] text-center ${
           state === "done" ? "text-green-600" :
-          state === "active" ? "text-blue-700 font-bold" :
-          isNext ? "text-blue-500" : "text-gray-400"
+          state === "active" ? `text-${step.accentColor}-700 font-bold` :
+          isNext ? `text-${step.accentColor}-500` : "text-gray-400"
         }`;
 
         // Connecting line
@@ -230,528 +1586,6 @@ function TimelineSteps({
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// POPUP: Share — COMPACT version
-// - 3-column channel grid (not 2×2)
-// - Reduced paddings, smaller text, tighter rows
-// - max-h reduced so it fits mobile without scrolling past footer
-// - max-w wider (2xl → 2xl on sm, full on mobile)
-// ════════════════════════════════════════════════════════════════════════════
-function SharePopup({ doc, onClose, onDone }: { doc: Doc; onClose: () => void; onDone: () => void }) {
-  const [channels,      setChannels]      = useState<Set<string>>(new Set());
-  const [recipients,    setRecipients]    = useState([
-    { name: doc.tenant_name || "Tenant", contact: doc.tenant_phone || "", type: "Tenant" },
-  ]);
-  const [customName,    setCustomName]    = useState("");
-  const [customContact, setCustomContact] = useState("");
-  const [customType,    setCustomType]    = useState("Phone");
-  const [message, setMessage] = useState(
-    `Dear ${doc.tenant_name || "Tenant"},\n\nPlease find attached the ${doc.document_name} for your review.\n\nDocument: ${doc.document_name}\nDocument ID: ${doc.id}\nDate: ${fmt(doc.created_at)}\n\nProperty: ${doc.property_name || "N/A"} — Room ${doc.room_number || "N/A"}`
-  );
-  const [sharing, setSharing] = useState(false);
-
-  const toggleChannel = (c: string) =>
-    setChannels(p => { const n = new Set(p); n.has(c) ? n.delete(c) : n.add(c); return n; });
-
-  const addRecipient = () => {
-    if (!customName.trim() || !customContact.trim()) return;
-    setRecipients(p => [...p, { name: customName.trim(), contact: customContact.trim(), type: customType }]);
-    setCustomName(""); setCustomContact("");
-  };
-
-  const handleShare = async () => {
-    if (!channels.size) { toast.error("Select at least one channel"); return; }
-    setSharing(true);
-    try {
-      if (channels.has("whatsapp")) {
-        const phone = (doc.tenant_phone || "").replace(/\D/g, "");
-        if (phone) {
-          const msg = encodeURIComponent(`📄 *${doc.document_name}*\n*Doc:* ${doc.document_number}\n*Tenant:* ${doc.tenant_name}\n*Property:* ${doc.property_name || "N/A"}\n*Room:* ${doc.room_number || "N/A"}\n*Status:* ${doc.status}`);
-          window.open(`https://wa.me/${phone}?text=${msg}`, "_blank");
-        }
-      }
-      if (channels.has("email") && doc.tenant_email) {
-        window.open(`mailto:${doc.tenant_email}?subject=${encodeURIComponent(`Document: ${doc.document_name}`)}&body=${encodeURIComponent(message)}`, "_blank");
-      }
-      if (channels.has("sms")) {
-        const phone = (doc.tenant_phone || "").replace(/\D/g, "");
-        if (phone) window.open(`sms:${phone}?body=${encodeURIComponent(message)}`, "_blank");
-      }
-      if (channels.has("public")) {
-        await navigator.clipboard.writeText(`${window.location.origin}/document/view/${doc.share_token || doc.id}`).catch(() => {});
-        toast.success("Public link copied!");
-      }
-      await updateDocumentStatus(doc.id, "Shared" as DocumentStatus);
-      toast.success("Shared! Status → Shared");
-      onDone();
-    } catch (e: any) { toast.error(e.message || "Failed"); }
-    finally { setSharing(false); }
-  };
-
-  const CHANNELS = [
-    { id:"whatsapp", label:"WhatsApp",   desc:"Rich formatting",    Icon: MessageCircle, clr:"text-green-600 bg-green-50 border-green-200"   },
-    { id:"email",    label:"Email",       desc:"With attachment",    Icon: Mail,          clr:"text-blue-600 bg-blue-50 border-blue-200"      },
-    { id:"sms",      label:"SMS",         desc:"Document link",      Icon: Smartphone,    clr:"text-purple-600 bg-purple-50 border-purple-200"},
-    { id:"public",   label:"Public Link", desc:"Shareable link",     Icon: Globe,         clr:"text-orange-600 bg-orange-50 border-orange-200"},
-  ];
-
-  return (
-    <div
-      className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-2 backdrop-blur-sm"
-      onClick={e => e.target === e.currentTarget && onClose()}
-    >
-      {/* Modal — max-w-2xl gives more width, max-h tight */}
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[88vh] flex flex-col">
-
-        {/* ── Header (compact) ── */}
-        <div className="flex items-center justify-between px-3 py-2 border-b flex-shrink-0">
-          <div className="flex items-center gap-2">
-            <div className="h-7 w-7 rounded-lg bg-green-100 flex items-center justify-center flex-shrink-0">
-              <Share2 className="h-3.5 w-3.5 text-green-600" />
-            </div>
-            <div>
-              <h2 className="text-[13px] font-bold text-gray-900 leading-tight">Share Document</h2>
-              <p className="text-[10px] text-gray-400 truncate max-w-[260px]">{doc.document_name}</p>
-            </div>
-          </div>
-          <button onClick={onClose} className="p-1 rounded-full hover:bg-gray-100 text-gray-400"><X className="h-4 w-4" /></button>
-        </div>
-
-        {/* ── Scrollable body ── */}
-        <div className="flex-1 overflow-y-auto px-3 py-2 space-y-2.5">
-
-          {/* Doc summary — compact 2+2 inline grid */}
-          <div className="bg-gray-50 rounded-lg px-3 py-2 grid grid-cols-2 gap-x-6 gap-y-0.5 text-[10px]">
-            <div><span className="text-gray-400">Document: </span><span className="font-semibold text-gray-700">{doc.id}</span></div>
-            <div><span className="text-gray-400">Template: </span><span className="font-semibold text-gray-700 truncate">{doc.document_name}</span></div>
-            <div><span className="text-gray-400">Tenant: </span><span className="font-semibold text-gray-700">{doc.tenant_name}</span></div>
-            <div><span className="text-gray-400">Property: </span><span className="font-semibold text-gray-700">{doc.property_name || "N/A"}</span></div>
-          </div>
-
-          {/* ── Channels — 3-column on sm+, 2-col on xs ── */}
-          <div>
-            <p className="text-[10px] font-bold text-gray-600 uppercase tracking-wide mb-1.5">Select Sharing Channels</p>
-            {/* grid-cols-2 on mobile, grid-cols-3 on sm (puts first 3 in a row, last alone) */}
-            {/* We use grid-cols-2 sm:grid-cols-4 so all 4 fit one row on sm+ */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-              {CHANNELS.map(c => (
-                <button
-                  key={c.id}
-                  onClick={() => toggleChannel(c.id)}
-                  className={`flex items-center gap-1.5 px-2 py-2 rounded-xl border-2 text-left transition-all
-                    ${channels.has(c.id) ? "border-blue-500 bg-blue-50" : "border-gray-200 hover:border-gray-300 bg-white"}`}
-                >
-                  <div className={`p-1 rounded-lg border flex-shrink-0
-                    ${channels.has(c.id) ? "bg-blue-100 text-blue-600 border-blue-200" : c.clr}`}>
-                    <c.Icon className="h-3 w-3" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[10px] font-semibold text-gray-800 leading-tight">{c.label}</p>
-                    <p className="text-[8px] text-gray-400 leading-tight truncate">{c.desc}</p>
-                  </div>
-                  {channels.has(c.id) && <Check className="h-3 w-3 text-blue-600 flex-shrink-0" />}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* ── Recipients ── */}
-          <div>
-            <p className="text-[10px] font-bold text-gray-600 uppercase tracking-wide mb-1.5">Recipients</p>
-            {/* Add row */}
-            <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
-              <div className="relative flex-shrink-0">
-                <select className="h-6 pl-1.5 pr-5 text-[10px] border border-gray-200 rounded-md bg-white appearance-none font-medium">
-                  <option>Both</option>
-                </select>
-                <ChevronDown className="absolute right-1 top-1/2 -translate-y-1/2 h-2.5 w-2.5 text-gray-400 pointer-events-none" />
-              </div>
-              <span className="text-[9px] text-gray-400 hidden sm:inline">Add Custom</span>
-              <Input
-                value={customName} onChange={e => setCustomName(e.target.value)}
-                placeholder="Name" className="h-6 text-[10px] w-16 sm:w-20 flex-shrink-0"
-              />
-              <Input
-                value={customContact} onChange={e => setCustomContact(e.target.value)}
-                placeholder="Phone/Email" className="h-6 text-[10px] w-24 sm:w-28 flex-shrink-0"
-              />
-              <div className="relative flex-shrink-0">
-                <select value={customType} onChange={e => setCustomType(e.target.value)}
-                  className="h-6 pl-1.5 pr-5 text-[10px] border border-gray-200 rounded-md bg-white appearance-none">
-                  <option>Phone</option><option>Email</option>
-                </select>
-                <ChevronDown className="absolute right-1 top-1/2 -translate-y-1/2 h-2.5 w-2.5 text-gray-400 pointer-events-none" />
-              </div>
-              <button onClick={addRecipient}
-                className="h-6 w-6 rounded-md bg-blue-600 text-white flex items-center justify-center hover:bg-blue-700 flex-shrink-0">
-                <Plus className="h-3 w-3" />
-              </button>
-            </div>
-            {/* List */}
-            <div className="space-y-1">
-              {recipients.map((r, i) => (
-                <div key={i} className="flex items-center gap-1.5 px-2 py-1.5 bg-gray-50 rounded-lg border border-gray-100">
-                  <div className="h-5 w-5 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                    <User className="h-2.5 w-2.5 text-blue-600" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[10px] font-semibold text-gray-800 truncate">{r.name}</p>
-                    <p className="text-[9px] text-gray-500">{r.contact}</p>
-                  </div>
-                  <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 font-semibold flex-shrink-0">{r.type}</span>
-                  <button onClick={() => setRecipients(p => p.filter((_, j) => j !== i))}
-                    className="text-gray-300 hover:text-red-400 flex-shrink-0 ml-0.5"><X className="h-3 w-3" /></button>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* ── Message ── */}
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <p className="text-[10px] font-bold text-gray-600 uppercase tracking-wide">Tenant Message</p>
-              <div className="flex gap-1">
-                <button
-                  onClick={() => setMessage(`Dear ${doc.tenant_name},\n\nPlease find attached the ${doc.document_name} for your review.\n\nDocument ID: ${doc.id}\nDate: ${fmt(doc.created_at)}\n\nProperty: ${doc.property_name || "N/A"}\nRoom: ${doc.room_number || "N/A"}`)}
-                  className="h-5 px-2 rounded bg-blue-600 text-white text-[9px] font-semibold">Use Default</button>
-                <button
-                  onClick={() => navigator.clipboard.writeText(message).catch(() => {})}
-                  className="h-5 px-1.5 rounded border border-gray-200 text-[9px] font-medium text-gray-600 flex items-center gap-0.5">
-                  <Copy className="h-2 w-2" />Copy
-                </button>
-              </div>
-            </div>
-            <textarea
-              rows={3}
-              value={message}
-              onChange={e => setMessage(e.target.value)}
-              className="w-full text-[10px] p-2 border border-gray-200 rounded-lg resize-none bg-gray-50 focus:bg-white focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition-all leading-relaxed"
-            />
-          </div>
-
-          {/* ── Quick Actions ── */}
-          <div>
-            <p className="text-[10px] font-bold text-gray-600 uppercase tracking-wide mb-1.5">Quick Actions</p>
-            <div className="grid grid-cols-2 gap-1.5">
-              <button
-                onClick={async () => {
-                  await navigator.clipboard.writeText(`${window.location.origin}/document/view/${doc.share_token || doc.id}`).catch(() => {});
-                  toast.success("Link copied!");
-                }}
-                className="flex items-center gap-1.5 px-2.5 py-2 rounded-xl border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-all"
-              >
-                <Link className="h-3 w-3 text-blue-600 flex-shrink-0" />
-                <span className="text-[10px] font-semibold text-gray-700">Copy Public Link</span>
-              </button>
-              <button
-                onClick={() => toast.info("QR generation coming soon")}
-                className="flex items-center gap-1.5 px-2.5 py-2 rounded-xl border border-gray-200 hover:border-orange-300 hover:bg-orange-50 transition-all"
-              >
-                <QrCode className="h-3 w-3 text-orange-600 flex-shrink-0" />
-                <span className="text-[10px] font-semibold text-gray-700">Generate QR Code</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* ── Footer ── */}
-        <div className="flex-shrink-0 border-t px-3 py-2 flex items-center justify-between bg-white rounded-b-2xl">
-          <p className="text-[9px] text-gray-400">{channels.size} channel(s) · {recipients.length} recipient(s)</p>
-          <div className="flex gap-1.5">
-            <button onClick={onClose}
-              className="h-7 px-3 rounded-lg border border-gray-200 text-[10px] font-medium text-gray-600 hover:bg-gray-50">
-              Cancel
-            </button>
-            <button onClick={handleShare} disabled={sharing}
-              className="h-7 px-3 rounded-lg bg-green-600 hover:bg-green-700 text-white text-[10px] font-semibold flex items-center gap-1 disabled:opacity-60">
-              {sharing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
-              Share Now
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ════════════════════════════════════════════════════════════════════════════
-// POPUP: Change Status (On Hold / Completed / Cancelled)
-// ════════════════════════════════════════════════════════════════════════════
-function ChangeStatusPopup({
-  doc, targetStatus, onClose, onDone,
-}: { doc: Doc; targetStatus: string; onClose: () => void; onDone: () => void }) {
-  const [reason, setReason] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  const meta: Record<string, { Icon: any; color: string; border: string; desc: string }> = {
-    "On Hold":   { Icon: PauseCircle,  color: "text-orange-500", border: "border-orange-200 bg-orange-50", desc: "Document processing paused" },
-    "Completed": { Icon: CheckCircle,  color: "text-emerald-600", border: "border-emerald-200 bg-emerald-50", desc: "All processes finished" },
-    "Cancelled": { Icon: XCircle,      color: "text-red-500",     border: "border-red-200 bg-red-50",       desc: "Document cancelled" },
-  };
-  const m = meta[targetStatus] || meta["On Hold"];
-
-  const handleSubmit = async () => {
-    if (!reason.trim()) { toast.error("Please provide a reason"); return; }
-    setSaving(true);
-    try {
-      await updateDocumentStatus(doc.id, targetStatus as DocumentStatus);
-      toast.success(`Status → ${targetStatus}`);
-      onDone();
-    } catch (e: any) { toast.error(e.message); }
-    finally { setSaving(false); }
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
-      onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-        <div className="flex items-center justify-between px-4 py-3 border-b">
-          <div>
-            <h2 className="text-sm font-bold text-gray-900">Change Document Status</h2>
-            <p className="text-[10px] text-gray-500">Update status for 1 selected document</p>
-          </div>
-          <button onClick={onClose} className="p-1.5 rounded-full hover:bg-gray-100 text-gray-400"><X className="h-4 w-4" /></button>
-        </div>
-        <div className="p-4 space-y-4">
-          <div>
-            <p className="text-[11px] font-bold text-gray-700 mb-2">New Status <span className="text-red-400">*</span></p>
-            <div className={`flex items-center gap-3 p-3.5 rounded-xl border-2 ${m.border}`}>
-              <div className="h-4 w-4 rounded-full border-2 border-blue-600 bg-blue-600 flex items-center justify-center flex-shrink-0">
-                <div className="h-1.5 w-1.5 rounded-full bg-white" />
-              </div>
-              <div className="flex-1">
-                <p className="text-[13px] font-bold text-gray-900">{targetStatus}</p>
-                <p className="text-[11px] text-gray-500">{m.desc}</p>
-              </div>
-              <m.Icon className={`h-5 w-5 flex-shrink-0 ${m.color}`} />
-            </div>
-          </div>
-          <div>
-            <label className="text-[11px] font-bold text-gray-700 block mb-1.5">
-              Reason for Change <span className="text-red-400">*</span>
-            </label>
-            <textarea rows={3} value={reason} onChange={e => setReason(e.target.value)}
-              placeholder="Please provide a reason for changing the status…"
-              className="w-full text-[11px] p-2.5 border border-gray-200 rounded-lg resize-none bg-gray-50 focus:bg-white focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition-all" />
-          </div>
-          <p className="text-[10px] text-gray-400">This will update 1 document</p>
-        </div>
-        <div className="flex justify-end gap-2 px-4 pb-3">
-          <button onClick={onClose} className="h-9 px-4 rounded-xl border border-gray-200 text-[11px] font-medium text-gray-600 hover:bg-gray-50">Cancel</button>
-          <button onClick={handleSubmit} disabled={saving}
-            className="h-9 px-5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-semibold flex items-center gap-1.5 disabled:opacity-60">
-            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}Update Status
-          </button>
-        </div>
-        {/* Step trail */}
-        <div className="border-t px-4 py-2.5 flex items-center gap-1 overflow-x-auto rounded-b-2xl bg-gray-50">
-          {[...MAIN_STEPS.map(s => s.key), "Cancelled"].map((s, i, arr) => (
-            <div key={s} className="flex items-center gap-1 flex-shrink-0">
-              <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full whitespace-nowrap
-                ${s === targetStatus ? (s === "Cancelled" ? "bg-red-600 text-white" : "bg-blue-600 text-white") : "bg-gray-100 text-gray-500"}`}>
-                {s}
-              </span>
-              {i < arr.length - 1 && <ArrowRight className="h-2.5 w-2.5 text-gray-300" />}
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ════════════════════════════════════════════════════════════════════════════
-// POPUP: OTP Verify
-// ════════════════════════════════════════════════════════════════════════════
-function OTPVerifyPopup({ doc, onClose, onDone }: { doc: Doc; onClose: () => void; onDone: () => void }) {
-  const [otp,      setOtp]      = useState("");
-  const [otpSent,  setOtpSent]  = useState(false);
-  const [verified, setVerified] = useState(false);
-  const [otpInput, setOtpInput] = useState("");
-  const [via,      setVia]      = useState<"sms"|"email">("sms");
-  const [notes,    setNotes]    = useState("");
-  const [saving,   setSaving]   = useState(false);
-
-  const sendOtp = () => {
-    const code = String(Math.floor(100000 + Math.random() * 900000));
-    setOtp(code); setOtpSent(true);
-    toast.success(`OTP sent (demo): ${code}`);
-  };
-
-  const verifyOtp = () => {
-    if (otpInput === otp) { setVerified(true); toast.success("OTP verified!"); }
-    else toast.error("Invalid OTP");
-  };
-
-  const handleContinue = async () => {
-    setSaving(true);
-    try {
-      await updateDocumentStatus(doc.id, "OTP Verified" as DocumentStatus);
-      toast.success("OTP Verified — status updated");
-      onDone();
-    } catch (e: any) { toast.error(e.message); }
-    finally { setSaving(false); }
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
-      onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
-        <div className="flex items-center justify-between px-4 py-3 border-b">
-          <div>
-            <h2 className="text-sm font-bold text-gray-900">Verify Parties</h2>
-            <p className="text-[10px] text-gray-500">Verify tenant to continue</p>
-          </div>
-          <button onClick={onClose} className="p-1.5 rounded-full hover:bg-gray-100 text-gray-400"><X className="h-4 w-4" /></button>
-        </div>
-        <div className="p-4 space-y-4">
-          <div className={`border-2 rounded-xl p-3.5 transition-colors ${verified ? "border-green-300 bg-green-50/30" : "border-gray-200"}`}>
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-[12px] font-bold text-gray-800">Tenant Details <span className="text-[10px] font-normal text-gray-400">(Optional)</span></p>
-              <span className={`text-[9px] px-2 py-0.5 rounded-full font-semibold ${verified ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
-                {verified ? "✓ Verified" : "Not verified"}
-              </span>
-            </div>
-            <div className="grid grid-cols-3 gap-2 mb-3">
-              <Input defaultValue={doc.tenant_name} readOnly className="h-8 text-[11px] bg-gray-50" placeholder="Name" />
-              <Input defaultValue={doc.tenant_email || ""} className="h-8 text-[11px]" placeholder="Email" />
-              <Input defaultValue={doc.tenant_phone} readOnly className="h-8 text-[11px] bg-gray-50" />
-            </div>
-            <div className="flex items-center gap-3 mb-2">
-              <span className="text-[11px] text-gray-600 font-medium">Send via:</span>
-              {(["sms","email"] as const).map(v => (
-                <label key={v} className="flex items-center gap-1.5 cursor-pointer">
-                  <input type="radio" checked={via===v} onChange={() => setVia(v)} className="accent-blue-600" />
-                  <span className="text-[11px] font-medium uppercase">{v}</span>
-                </label>
-              ))}
-              <button onClick={sendOtp} disabled={verified}
-                className="ml-auto h-7 px-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-semibold disabled:opacity-40">
-                Send OTP
-              </button>
-            </div>
-            {otpSent && !verified && (
-              <div className="flex gap-2">
-                <Input value={otpInput} onChange={e => setOtpInput(e.target.value)}
-                  placeholder="Enter OTP received" className="h-8 text-[11px] flex-1" />
-                <button onClick={verifyOtp} className="h-8 px-3 rounded-lg bg-green-600 hover:bg-green-700 text-white text-[10px] font-semibold">Verify</button>
-              </div>
-            )}
-            {verified && (
-              <div className="flex items-center gap-2 text-green-600 text-[11px] font-semibold mt-1">
-                <CheckCircle className="h-4 w-4" />OTP verified successfully!
-              </div>
-            )}
-          </div>
-          <div>
-            <label className="text-[11px] font-semibold text-gray-600 block mb-1">Additional Notes (Optional)</label>
-            <textarea rows={2} value={notes} onChange={e => setNotes(e.target.value)}
-              placeholder="Add any notes about the verification process…"
-              className="w-full text-[11px] p-2.5 border border-gray-200 rounded-lg resize-none bg-gray-50 focus:bg-white focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition-all" />
-          </div>
-        </div>
-        <div className="flex justify-end gap-2 px-4 pb-4">
-          <button onClick={onClose} className="h-9 px-4 rounded-xl border border-gray-200 text-[11px] font-medium text-gray-600 hover:bg-gray-50">Cancel</button>
-          <button onClick={handleContinue} disabled={saving}
-            className={`h-9 px-5 rounded-xl text-white text-[11px] font-semibold flex items-center gap-1.5 transition-colors disabled:opacity-60
-              ${verified ? "bg-blue-600 hover:bg-blue-700" : "bg-gray-500 hover:bg-gray-600"}`}>
-            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-            Continue ({verified ? "Verified" : "Not Verified"})
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ════════════════════════════════════════════════════════════════════════════
-// POPUP: E-Sign
-// ════════════════════════════════════════════════════════════════════════════
-function ESignPopup({ doc, onClose, onDone }: { doc: Doc; onClose: () => void; onDone: () => void }) {
-  const [saving, setSaving] = useState(false);
-
-  const handleSubmit = async () => {
-    setSaving(true);
-    try {
-      await updateDocumentStatus(doc.id, "E-Sign Pending" as DocumentStatus);
-      toast.success("Submitted for E-Sign");
-      onDone();
-    } catch (e: any) { toast.error(e.message); }
-    finally { setSaving(false); }
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-2 backdrop-blur-sm"
-      onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[82vh] flex flex-col">
-        {/* Header compact */}
-        <div className="flex items-center justify-between px-3 py-2 border-b flex-shrink-0">
-          <div>
-            <h2 className="text-[13px] font-bold text-gray-900 leading-tight">E-sign (Aadhaar)</h2>
-            <p className="text-[9px] text-gray-400">Doc id: {doc.id} · Click 'Add Box' or 'Mark' — coordinates auto-generated</p>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <button className="h-6 px-2 rounded-lg border border-gray-200 text-[9px] font-medium text-gray-600 flex items-center gap-1 hover:bg-gray-50">
-              <Download className="h-2.5 w-2.5" />Upload PDF
-            </button>
-            <button className="h-6 px-2 rounded-lg border border-gray-200 text-[9px] font-medium text-gray-600 hover:bg-gray-50">View Coordinates</button>
-            <button onClick={onClose} className="p-1 rounded-full hover:bg-gray-100 text-gray-400"><X className="h-3.5 w-3.5" /></button>
-          </div>
-        </div>
-        <div className="flex flex-1 overflow-hidden min-h-0">
-          {/* Signers panel compact */}
-          <div className="w-36 sm:w-44 border-r bg-gray-50 overflow-y-auto flex-shrink-0 p-2 space-y-2">
-            <div className="flex items-center justify-between">
-              <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Signers</p>
-              <button className="h-4 px-1.5 rounded bg-blue-600 text-white text-[8px] font-semibold">+ Add</button>
-            </div>
-            <div className="bg-white rounded-xl border border-gray-200 p-1.5 space-y-1">
-              <div className="flex items-center gap-1">
-                <div className="h-2 w-2 rounded-sm bg-blue-500" />
-                <p className="text-[10px] font-bold text-gray-700">Tenant</p>
-                <Check className="h-2.5 w-2.5 text-green-500 ml-auto" />
-              </div>
-              <Input defaultValue={doc.tenant_name} readOnly className="h-5 text-[9px] bg-gray-50 px-1.5" />
-              <Input defaultValue={doc.tenant_email || ""} placeholder="Email" className="h-5 text-[9px] px-1.5" />
-              <Input defaultValue={doc.tenant_phone} readOnly className="h-5 text-[9px] bg-gray-50 px-1.5" />
-              <div className="flex gap-1 pt-0.5">
-                <button className="flex-1 h-5 rounded-md bg-blue-600 text-white text-[8px] font-semibold">+ Add Box</button>
-                <button className="flex-1 h-5 rounded-md border border-gray-200 text-[8px] text-gray-600">✋ Mark</button>
-              </div>
-              <button className="w-full text-[8px] text-red-400 hover:text-red-600 font-medium pt-0.5">Remove Signer</button>
-            </div>
-          </div>
-          {/* Document preview */}
-          <div className="flex-1 bg-slate-100 overflow-auto flex items-start justify-center p-2">
-            <div className="bg-white rounded-lg shadow-md w-full max-w-[210mm] min-h-48">
-              {doc.html_content
-                ? <div className="p-3 text-[10px]" dangerouslySetInnerHTML={{ __html: doc.html_content }} />
-                : <div className="flex items-center justify-center h-48 text-gray-400 flex-col gap-2">
-                    <FileText className="h-10 w-10 text-gray-300" />
-                    <p className="text-xs font-medium text-gray-500">Upload PDF to view</p>
-                    <p className="text-[9px] text-gray-400">API must return PDF/base64</p>
-                  </div>
-              }
-            </div>
-          </div>
-        </div>
-        {/* Footer compact */}
-        <div className="flex-shrink-0 border-t px-3 py-2 flex items-center justify-between bg-white rounded-b-2xl">
-          <p className="text-[10px] text-gray-500">1 Signer (0 boxes)</p>
-          <div className="flex gap-1.5">
-            <button onClick={onClose} className="h-7 px-3 rounded-xl border border-gray-200 text-[10px] font-medium text-gray-600 hover:bg-gray-50">Stop Marking</button>
-            <button onClick={handleSubmit} disabled={saving}
-              className="h-7 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-semibold flex items-center gap-1 disabled:opacity-60">
-              {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : null}Submit to Digio
-            </button>
-            <button onClick={onClose} className="h-7 px-3 rounded-xl border border-gray-200 text-[10px] font-medium text-gray-600 hover:bg-gray-50">Close</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ════════════════════════════════════════════════════════════════════════════
 // MAIN COMPONENT
 // ════════════════════════════════════════════════════════════════════════════
 export function DocumentList() {
@@ -762,7 +1596,7 @@ export function DocumentList() {
   const [loadingView, setLoadingView] = useState<number|string|null>(null);
 
   const [popup, setPopup] = useState<{
-    type: "share"|"hold"|"otp"|"esign"|"complete"|"cancel" | null;
+    type: "share"|"hold"|"otp"|"esign"|"complete"|"cancel"|"edit" | null;
     doc: Doc | null;
   }>({ type: null, doc: null });
 
@@ -812,20 +1646,114 @@ export function DocumentList() {
   const selectedItems = filteredRows.filter(d => selectedIds.has(d.id));
 
   const handleDelete = async (id: number, name: string) => {
-    const r = await Swal.fire({ title:"Delete Document?", text:`"${name}" will be permanently removed.`, icon:"warning", showCancelButton:true, confirmButtonColor:"#d33", confirmButtonText:"Yes, delete", customClass:{popup:"rounded-xl text-sm"} });
-    if (!r.isConfirmed) return;
-    try { await deleteDocument(id); toast.success("Deleted"); setSelectedIds(p=>{const n=new Set(p);n.delete(id);return n;}); await loadDocs(); }
-    catch (e: any) { toast.error(e.message); }
-  };
+  const r = await Swal.fire({
+    title: "Delete Document?",
+    text: `"${name}" will be permanently removed.`,
+    icon: "warning",
+    showCancelButton: true,
+    confirmButtonText: "Yes, delete",
+    cancelButtonText: "Cancel",
+    confirmButtonColor: "#d33",
+    cancelButtonColor: "#6b7280",
+    customClass: { popup: "rounded-xl text-sm" },
+
+    didOpen: () => {
+      const confirmBtn = document.querySelector('.swal2-confirm') as HTMLElement;
+      const cancelBtn = document.querySelector('.swal2-cancel') as HTMLElement;
+
+      if (confirmBtn) {
+        confirmBtn.style.background = '#dc2626';
+        confirmBtn.style.color = '#fff';
+        confirmBtn.style.padding = '8px 18px';
+        confirmBtn.style.borderRadius = '6px';
+        confirmBtn.style.fontWeight = '600';
+        confirmBtn.style.display = 'inline-block';
+        confirmBtn.style.filter = 'none';
+        confirmBtn.onmouseover = () => (confirmBtn.style.filter = 'none');
+      }
+
+      if (cancelBtn) {
+        cancelBtn.style.background = '#6b7280';
+        cancelBtn.style.color = '#fff';
+        cancelBtn.style.padding = '8px 18px';
+        cancelBtn.style.borderRadius = '6px';
+        cancelBtn.style.marginRight = '8px';
+        cancelBtn.style.display = 'inline-block';
+        cancelBtn.style.filter = 'none';
+        cancelBtn.onmouseover = () => (cancelBtn.style.filter = 'none');
+      }
+    }
+  });
+
+  if (!r.isConfirmed) return;
+
+  try {
+    await deleteDocument(id);
+    toast.success("Deleted");
+    setSelectedIds(p => {
+      const n = new Set(p);
+      n.delete(id);
+      return n;
+    });
+    await loadDocs();
+  } catch (e: any) {
+    toast.error(e.message);
+  }
+};
 
   const handleBulkDelete = async () => {
-    if (!selectedItems.length) return;
-    const r = await Swal.fire({ title:`Delete ${selectedItems.length} document(s)?`, icon:"warning", showCancelButton:true, confirmButtonColor:"#d33", confirmButtonText:"Delete all", customClass:{popup:"rounded-xl text-sm"} });
-    if (!r.isConfirmed) return;
-    try { await bulkDeleteDocuments(selectedItems.map(d=>d.id)); toast.success(`Deleted ${selectedItems.length}`); setSelectedIds(new Set()); setSelectAll(false); await loadDocs(); }
-    catch (e: any) { toast.error(e.message); }
-  };
+  if (!selectedItems.length) return;
 
+  const r = await Swal.fire({
+    title: `Delete ${selectedItems.length} document(s)?`,
+    icon: "warning",
+    showCancelButton: true,
+    confirmButtonText: "Delete all",
+    cancelButtonText: "Cancel",
+    confirmButtonColor: "#d33",
+    cancelButtonColor: "#6b7280",
+    customClass: { popup: "rounded-xl text-sm" },
+
+    didOpen: () => {
+      const confirmBtn = document.querySelector('.swal2-confirm') as HTMLElement;
+      const cancelBtn = document.querySelector('.swal2-cancel') as HTMLElement;
+
+      if (confirmBtn) {
+        confirmBtn.style.background = '#dc2626';
+        confirmBtn.style.color = '#fff';
+        confirmBtn.style.padding = '8px 18px';
+        confirmBtn.style.borderRadius = '6px';
+        confirmBtn.style.fontWeight = '600';
+        confirmBtn.style.display = 'inline-block';
+        confirmBtn.style.filter = 'none';
+        confirmBtn.onmouseover = () => (confirmBtn.style.filter = 'none');
+      }
+
+      if (cancelBtn) {
+        cancelBtn.style.background = '#6b7280';
+        cancelBtn.style.color = '#fff';
+        cancelBtn.style.padding = '8px 18px';
+        cancelBtn.style.borderRadius = '6px';
+        cancelBtn.style.marginRight = '8px';
+        cancelBtn.style.display = 'inline-block';
+        cancelBtn.style.filter = 'none';
+        cancelBtn.onmouseover = () => (cancelBtn.style.filter = 'none');
+      }
+    }
+  });
+
+  if (!r.isConfirmed) return;
+
+  try {
+    await bulkDeleteDocuments(selectedItems.map(d => d.id));
+    toast.success(`Deleted ${selectedItems.length}`);
+    setSelectedIds(new Set());
+    setSelectAll(false);
+    await loadDocs();
+  } catch (e: any) {
+    toast.error(e.message);
+  }
+};
   const handlePrint = (doc: Doc) => {
     const w = window.open("","_blank");
     if (w) { w.document.write(`<html><head><title>${doc.document_name}</title></head><body>${doc.html_content}</body></html>`); w.document.close(); w.focus(); w.print(); }
@@ -938,6 +1866,14 @@ export function DocumentList() {
                   <button onClick={() => setPopup({type:"share",doc:d})} className="p-1.5 rounded-md text-gray-400 hover:bg-green-50 hover:text-green-600"><Share2 className="h-3.5 w-3.5" /></button>
                   <button onClick={() => handlePrint(d)} className="p-1.5 rounded-md text-gray-400 hover:bg-gray-100"><Printer className="h-3.5 w-3.5" /></button>
                   <button onClick={() => handleDownload(d)} className="p-1.5 rounded-md text-gray-400 hover:bg-indigo-50 hover:text-indigo-600"><Download className="h-3.5 w-3.5" /></button>
+                  {/* Edit button in actions column */}
+                  <button 
+                    onClick={() => setPopup({type:"edit",doc:d})} 
+                    className="p-1.5 rounded-md text-gray-400 hover:bg-purple-50 hover:text-purple-600"
+                    title="Edit Template"
+                  >
+                    <Edit className="h-3.5 w-3.5" />
+                  </button>
                   <button onClick={() => handleDelete(d.id, d.document_name)} className="p-1.5 rounded-md text-gray-400 hover:bg-red-50 hover:text-red-600 ml-auto"><Trash2 className="h-3.5 w-3.5" /></button>
                 </div>
               </div>
@@ -1055,6 +1991,14 @@ export function DocumentList() {
                             className="p-1.5 rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors"><Printer className="h-3.5 w-3.5" /></button>
                           <button onClick={() => handleDownload(d)} title="Download"
                             className="p-1.5 rounded-md text-gray-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"><Download className="h-3.5 w-3.5" /></button>
+                          {/* Edit button in actions column */}
+                          <button 
+                            onClick={() => setPopup({type:"edit",doc:d})} 
+                            title="Edit Template"
+                            className="p-1.5 rounded-md text-gray-400 hover:bg-purple-50 hover:text-purple-600 transition-colors"
+                          >
+                            <Edit className="h-3.5 w-3.5" />
+                          </button>
                           <button onClick={() => handleDelete(d.id, d.document_name)} title="Delete"
                             className="p-1.5 rounded-md text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors"><Trash2 className="h-3.5 w-3.5" /></button>
                         </div>
@@ -1164,6 +2108,7 @@ export function DocumentList() {
       {popup.type === "cancel"   && popup.doc && <ChangeStatusPopup doc={popup.doc} targetStatus="Cancelled"       onClose={closePopup} onDone={popupDone} />}
       {popup.type === "otp"      && popup.doc && <OTPVerifyPopup    doc={popup.doc} onClose={closePopup} onDone={popupDone} />}
       {popup.type === "esign"    && popup.doc && <ESignPopup        doc={popup.doc} onClose={closePopup} onDone={popupDone} />}
+      {popup.type === "edit"     && popup.doc && <TemplateEditPopup doc={popup.doc} onClose={closePopup} onDone={popupDone} />}
     </div>
   );
 }

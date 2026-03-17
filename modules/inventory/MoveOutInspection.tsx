@@ -9,7 +9,9 @@ import {
   ShieldCheck, Eye, MessageCircle, FileDown, Printer, Check,
   ChevronRight, ChevronLeft, Boxes, Square, CheckSquare,
   AlertCircle,
-  Edit
+  Edit,
+  Smartphone,
+  Mail
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1729,50 +1731,80 @@ const handlePrint = () => {
     </button>
 
     {/* Share Popup */}
-    {showSharePopup && (
-      <div className="absolute top-full right-0 mt-1.5 z-50 bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden w-48">
-        <div className="px-3 py-2 bg-gray-50 border-b border-gray-100">
-          <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Share via</p>
-        </div>
-        {/* WhatsApp */}
-        <button
-          onClick={() => { handleShareWhatsApp(); setShowSharePopup(false); }}
-          className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-green-50 transition-colors text-left"
-        >
-          <div className="h-7 w-7 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
-            <MessageCircle className="h-3.5 w-3.5 text-white" />
-          </div>
-          <div>
-            <p className="text-[11px] font-semibold text-gray-800">WhatsApp</p>
-            <p className="text-[9px] text-gray-400">Send to tenant</p>
-          </div>
-        </button>
-        {/* Email */}
-        <button
-          onClick={() => {
-            if (viewItem?.tenant_email) {
-              const subject = encodeURIComponent(`Move-Out Inspection Report — ${viewItem.property_name}`);
-              const body = encodeURIComponent(
-                `Dear ${viewItem.tenant_name},\n\nPlease find your move-out inspection details:\n\nProperty: ${viewItem.property_name}\nRoom: ${viewItem.room_number}\nInspection Date: ${fmt(viewItem.inspection_date)}\nTotal Penalty: ${money(viewItem.total_penalty)}\nStatus: ${viewItem.status}\n\nRegards`
-              );
-              window.open(`mailto:${viewItem.tenant_email}?subject=${subject}&body=${body}`, '_blank');
-            } else {
-              toast.error('No email address found for this tenant');
-            }
-            setShowSharePopup(false);
-          }}
-          className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-blue-50 transition-colors text-left border-t border-gray-100"
-        >
-          <div className="h-7 w-7 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0">
-            <MessageCircle className="h-3.5 w-3.5 text-white" />
-          </div>
-          <div>
-            <p className="text-[11px] font-semibold text-gray-800">Email</p>
-            <p className="text-[9px] text-gray-400">{viewItem?.tenant_email || 'No email'}</p>
-          </div>
-        </button>
+   {showSharePopup && (
+  <div className="absolute top-full right-0 mt-1.5 z-50 bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden w-48">
+    
+    <div className="px-3 py-2 bg-gray-50 border-b border-gray-100">
+      <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+        Share via
+      </p>
+    </div>
+
+    {/* WhatsApp */}
+    <button
+      onClick={() => { handleShareWhatsApp(); setShowSharePopup(false); }}
+      className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-green-50 transition-colors text-left"
+    >
+      <div className="h-7 w-7 rounded-full bg-green-500 flex items-center justify-center">
+        <MessageCircle className="h-3.5 w-3.5 text-white" />
       </div>
-    )}
+      <div>
+        <p className="text-[11px] font-semibold text-gray-800">WhatsApp</p>
+        <p className="text-[9px] text-gray-400">Send to tenant</p>
+      </div>
+    </button>
+
+    {/* SMS */}
+    <button
+      onClick={() => {
+        if (viewItem?.tenant_phone) {
+          const body = encodeURIComponent(
+            `Inspection Report:\nProperty: ${viewItem.property_name}\nPenalty: ${money(viewItem.total_penalty)}`
+          );
+          window.open(`sms:${viewItem.tenant_phone}?body=${body}`);
+        } else {
+          toast.error('No phone number found');
+        }
+        setShowSharePopup(false);
+      }}
+      className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-yellow-50 transition-colors text-left border-t border-gray-100"
+    >
+      <div className="h-7 w-7 rounded-full bg-yellow-500 flex items-center justify-center">
+        <Smartphone className="h-3.5 w-3.5 text-white" />
+      </div>
+      <div>
+        <p className="text-[11px] font-semibold text-gray-800">SMS</p>
+        <p className="text-[9px] text-gray-400">{viewItem?.tenant_phone || 'No phone'}</p>
+      </div>
+    </button>
+
+    {/* Email */}
+    <button
+      onClick={() => {
+        if (viewItem?.tenant_email) {
+          const subject = encodeURIComponent(`Move-Out Inspection Report — ${viewItem.property_name}`);
+          const body = encodeURIComponent(
+            `Dear ${viewItem.tenant_name},\n\nPlease find your move-out inspection details:\n\nProperty: ${viewItem.property_name}\nRoom: ${viewItem.room_number}\nInspection Date: ${fmt(viewItem.inspection_date)}\nTotal Penalty: ${money(viewItem.total_penalty)}\nStatus: ${viewItem.status}\n\nRegards`
+          );
+          window.open(`mailto:${viewItem.tenant_email}?subject=${subject}&body=${body}`, '_blank');
+        } else {
+          toast.error('No email address found for this tenant');
+        }
+        setShowSharePopup(false);
+      }}
+      className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-blue-50 transition-colors text-left border-t border-gray-100"
+    >
+      <div className="h-7 w-7 rounded-full bg-blue-500 flex items-center justify-center">
+        <Mail className="h-3.5 w-3.5 text-white" />
+      </div>
+      <div>
+        <p className="text-[11px] font-semibold text-gray-800">Email</p>
+        <p className="text-[9px] text-gray-400">{viewItem?.tenant_email || 'No email'}</p>
+      </div>
+    </button>
+
+  </div>
+)}
   </div>
 
   {/* Print — Blue */}

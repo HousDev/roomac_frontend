@@ -12,6 +12,7 @@ import {
   ChevronRight, ChevronLeft, Boxes, Share2, CreditCard, Square, CheckSquare,
   Edit2,
   Edit,
+  Mail,
 } from 'lucide-react';
 import { Button }   from "@/components/ui/button";
 import { Input }    from "@/components/ui/input";
@@ -1721,7 +1722,7 @@ const handlePrint = () => {
       {/* ══ VIEW DIALOG ══════════════════════════════════════════════════════ */}
       {viewItem && (
         <Dialog open={!!viewItem} onOpenChange={v => { if (!v) setViewItem(null); }}>
-          <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-hidden p-0">
+    <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] overflow-hidden p-0">
             <div className="bg-gradient-to-r from-blue-700 to-blue-600 text-white px-4 py-3 flex items-center justify-between rounded-t-lg">
               <div>
                 <h2 className="text-base font-semibold">Handover Document</h2>
@@ -1782,7 +1783,7 @@ const handlePrint = () => {
           className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-blue-50 transition-colors text-left border-t border-gray-100"
         >
           <div className="h-7 w-7 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0">
-            <MessageCircle className="h-3.5 w-3.5 text-white" />
+            <Mail className="h-3.5 w-3.5 text-white" />
           </div>
           <div>
             <p className="text-[11px] font-semibold text-gray-800">Email</p>

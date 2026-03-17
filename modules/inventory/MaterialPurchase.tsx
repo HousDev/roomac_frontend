@@ -1777,105 +1777,112 @@ const handleDownloadPDF = (purchase: MaterialPurchaseType) => {
 </Dialog>
 
       {/* Payment Dialog */}
-      <Dialog open={showPaymentModal} onOpenChange={v => { if (!v) setShowPaymentModal(false); }}>
-        <DialogContent className="max-w-md w-[95vw] p-0">
-          <div className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-4 py-3 flex items-center justify-between rounded-t-lg">
-            <div>
-              <h2 className="text-base font-semibold">Add Payment</h2>
-              <p className="text-xs text-green-100">Record payment for purchase</p>
-            </div>
-            <DialogClose asChild>
-              <button className="p-1.5 rounded-full hover:bg-white/20 transition">
-                <X className="h-4 w-4" />
-              </button>
-            </DialogClose>
+     {/* Payment Dialog */}
+<Dialog open={showPaymentModal} onOpenChange={v => { if (!v) setShowPaymentModal(false); }}>
+  <DialogContent className="max-w-3xl w-[98vw] lg:w-[95vw] max-h-[90vh] overflow-hidden p-0">
+    <div className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-4 py-3 flex items-center justify-between rounded-t-lg sticky top-0 z-10">
+      <div>
+        <h2 className="text-base font-semibold">Add Payment</h2>
+        <p className="text-xs text-green-100">Record payment for purchase</p>
+      </div>
+      <DialogClose asChild>
+        <button className="p-1.5 rounded-full hover:bg-white/20 transition">
+          <X className="h-4 w-4" />
+        </button>
+      </DialogClose>
+    </div>
+
+    <div className="p-4 overflow-y-auto max-h-[75vh]">
+      {selectedPurchase && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+          <div className="p-3 bg-gray-50 rounded-lg">
+            <p className="text-[9px] text-gray-500 uppercase tracking-wider">Invoice Number</p>
+            <p className="text-xs font-semibold text-gray-800 mt-1">{selectedPurchase.invoice_number}</p>
           </div>
-
-          <div className="p-4 space-y-4">
-            {selectedPurchase && (
-              <div className="p-3 bg-gray-50 rounded-lg space-y-1">
-                <div className="text-xs flex justify-between">
-                  <span className="text-gray-600">Invoice:</span>
-                  <span className="font-semibold">{selectedPurchase.invoice_number}</span>
-                </div>
-                <div className="text-xs flex justify-between">
-                  <span className="text-gray-600">Vendor:</span>
-                  <span className="font-semibold">{selectedPurchase.vendor_name}</span>
-                </div>
-                <div className="text-xs flex justify-between">
-                  <span className="text-gray-600">Balance Due:</span>
-                  <span className="font-semibold text-red-600">
-                    ₹{(selectedPurchase.balance_amount || selectedPurchase.total_amount).toLocaleString('en-IN')}
-                  </span>
-                </div>
-              </div>
-            )}
-
-            <div>
-              <label className={L}>Payment Date *</label>
-              <Input type="date" className={F}
-                value={paymentData.payment_date}
-                onChange={e => setPaymentData({ ...paymentData, payment_date: e.target.value })} />
-            </div>
-
-            <div>
-              <label className={L}>Amount (₹) *</label>
-              <Input type="number" min="0" step="0.01" className={F}
-                value={paymentData.amount}
-                onChange={e => setPaymentData({ ...paymentData, amount: parseFloat(e.target.value) || 0 })} />
-            </div>
-
-            <div>
-              <label className={L}>Payment Method *</label>
-              <Select value={paymentData.payment_method}
-                onValueChange={v => setPaymentData({ ...paymentData, payment_method: v })}>
-                <SelectTrigger className={F}>
-                  <SelectValue placeholder="Select method" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Cash" className={SI}>Cash</SelectItem>
-                  <SelectItem value="UPI" className={SI}>UPI</SelectItem>
-                  <SelectItem value="Bank Transfer" className={SI}>Bank Transfer</SelectItem>
-                  <SelectItem value="Cheque" className={SI}>Cheque</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <label className={L}>Paid By *</label>
-              <Input className={F} placeholder="Person name"
-                value={paymentData.paid_by}
-                onChange={e => setPaymentData({ ...paymentData, paid_by: e.target.value })} />
-            </div>
-
-            <div>
-              <label className={L}>Reference (optional)</label>
-              <Input className={F} placeholder="Transaction ID / Cheque no."
-                value={paymentData.payment_reference}
-                onChange={e => setPaymentData({ ...paymentData, payment_reference: e.target.value })} />
-            </div>
-
-            <div>
-              <label className={L}>Notes</label>
-              <Textarea className="text-[11px] min-h-[56px]"
-                placeholder="Payment notes..."
-                rows={2}
-                value={paymentData.payment_notes}
-                onChange={e => setPaymentData({ ...paymentData, payment_notes: e.target.value })} />
-            </div>
-
-            <Button
-              disabled={submitting}
-              onClick={handleSubmitPayment}
-              className="w-full h-8 text-[11px] font-semibold bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white"
-            >
-              {submitting ? (
-                <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />Adding Payment…</>
-              ) : 'Add Payment'}
-            </Button>
+          <div className="p-3 bg-gray-50 rounded-lg">
+            <p className="text-[9px] text-gray-500 uppercase tracking-wider">Vendor</p>
+            <p className="text-xs font-semibold text-gray-800 mt-1">{selectedPurchase.vendor_name}</p>
           </div>
-        </DialogContent>
-      </Dialog>
+          <div className="p-3 bg-red-50 rounded-lg">
+            <p className="text-[9px] text-red-500 uppercase tracking-wider">Balance Due</p>
+            <p className="text-xs font-bold text-red-600 mt-1">
+              ₹{(selectedPurchase.balance_amount || selectedPurchase.total_amount).toLocaleString('en-IN')}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* 3x3 Grid for Form Fields */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div>
+          <label className="text-[10px] font-medium text-gray-500 uppercase tracking-wider block mb-1">Payment Date *</label>
+          <Input type="date" className="h-8 text-xs w-full"
+            value={paymentData.payment_date}
+            onChange={e => setPaymentData({ ...paymentData, payment_date: e.target.value })} />
+        </div>
+
+        <div>
+          <label className="text-[10px] font-medium text-gray-500 uppercase tracking-wider block mb-1">Amount (₹) *</label>
+          <Input type="number" min="0" step="0.01" className="h-8 text-xs w-full"
+            value={paymentData.amount}
+            onChange={e => setPaymentData({ ...paymentData, amount: parseFloat(e.target.value) || 0 })} />
+        </div>
+
+        <div>
+          <label className="text-[10px] font-medium text-gray-500 uppercase tracking-wider block mb-1">Payment Method *</label>
+          <Select value={paymentData.payment_method}
+            onValueChange={v => setPaymentData({ ...paymentData, payment_method: v })}>
+            <SelectTrigger className="h-8 text-xs w-full">
+              <SelectValue placeholder="Select" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Cash">Cash</SelectItem>
+              <SelectItem value="UPI">UPI</SelectItem>
+              <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
+              <SelectItem value="Cheque">Cheque</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <label className="text-[10px] font-medium text-gray-500 uppercase tracking-wider block mb-1">Paid By *</label>
+          <Input className="h-8 text-xs w-full" placeholder="Person name"
+            value={paymentData.paid_by}
+            onChange={e => setPaymentData({ ...paymentData, paid_by: e.target.value })} />
+        </div>
+
+        <div>
+          <label className="text-[10px] font-medium text-gray-500 uppercase tracking-wider block mb-1">Reference (optional)</label>
+          <Input className="h-8 text-xs w-full" placeholder="Transaction ID / Cheque no."
+            value={paymentData.payment_reference}
+            onChange={e => setPaymentData({ ...paymentData, payment_reference: e.target.value })} />
+        </div>
+
+        <div className="sm:col-span-2 lg:col-span-1">
+          <label className="text-[10px] font-medium text-gray-500 uppercase tracking-wider block mb-1">Notes</label>
+          <Textarea className="text-xs min-h-[60px] w-full"
+            placeholder="Payment notes..."
+            rows={2}
+            value={paymentData.payment_notes}
+            onChange={e => setPaymentData({ ...paymentData, payment_notes: e.target.value })} />
+        </div>
+      </div>
+
+      {/* Submit Button - Full width at bottom */}
+      <div className="mt-4 sticky bottom-0 bg-white pt-2">
+        <Button
+          disabled={submitting}
+          onClick={handleSubmitPayment}
+          className="w-full h-9 text-xs font-semibold bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white"
+        >
+          {submitting ? (
+            <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />Adding Payment…</>
+          ) : 'Add Payment'}
+        </Button>
+      </div>
+    </div>
+  </DialogContent>
+</Dialog>
 
       {/* Details Dialog */}
       <Dialog open={showDetailsModal} onOpenChange={v => { if (!v) setShowDetailsModal(false); }}>

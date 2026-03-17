@@ -1294,49 +1294,109 @@ const extractVars = (html?: string) => {
   // ══════════════════════════════════════════════════════════════════════════
 
   const handleDelete = async (id: string | number, name: string) => {
-    const r = await Swal.fire({
-      title: "Delete Template?",
-      text: `"${name}" will be permanently removed.`,
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonColor: "#d33",
-      confirmButtonText: "Yes, delete",
-      customClass: { popup: "rounded-xl shadow-2xl text-sm" },
-    });
-    if (!r.isConfirmed) return;
-    
-    try {
-      await deleteTemplate(id);
-      toast.success("Template deleted successfully");
-      setSelectedIds(prev => { const n = new Set(prev); n.delete(id); return n; });
-      await loadTemplates();
-    } catch (err: any) {
-      toast.error(err.message);
-    }
-  };
+  const r = await Swal.fire({
+    title: "Delete Template?",
+    text: `"${name}" will be permanently removed.`,
+    icon: "warning",
+    showCancelButton: true,
+    confirmButtonColor: "#d33",
+    cancelButtonColor: "#6b7280",
+    confirmButtonText: "Yes, delete",
+    cancelButtonText: "Cancel",
+    customClass: { popup: "rounded-xl shadow-2xl text-sm" },
 
-  const handleBulkDelete = async () => {
-    if (!selectedItems.length) return;
-    
-    const r = await Swal.fire({
-      title: `Delete ${selectedItems.length} template(s)?`,
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonColor: "#d33",
-      confirmButtonText: "Delete all",
-      customClass: { popup: "rounded-xl text-sm" },
-    });
-    if (!r.isConfirmed) return;
-    
-    try {
-      await bulkDeleteTemplates(selectedItems.map(t => t.id));
-      toast.success(`Deleted ${selectedItems.length} template(s)`);
-      setSelectedIds(new Set());
-      await loadTemplates();
-    } catch (err: any) {
-      toast.error(err.message);
+    didOpen: () => {
+      const confirmBtn = document.querySelector('.swal2-confirm') as HTMLElement;
+      const cancelBtn = document.querySelector('.swal2-cancel') as HTMLElement;
+
+      if (confirmBtn) {
+        confirmBtn.style.background = '#dc2626';
+        confirmBtn.style.color = '#fff';
+        confirmBtn.style.padding = '8px 18px';
+        confirmBtn.style.borderRadius = '6px';
+        confirmBtn.style.fontWeight = '600';
+        confirmBtn.style.display = 'inline-block';
+        confirmBtn.style.filter = 'none';
+        confirmBtn.onmouseover = () => (confirmBtn.style.filter = 'none');
+      }
+
+      if (cancelBtn) {
+        cancelBtn.style.background = '#6b7280';
+        cancelBtn.style.color = '#fff';
+        cancelBtn.style.padding = '8px 18px';
+        cancelBtn.style.borderRadius = '6px';
+        cancelBtn.style.marginRight = '8px';
+        cancelBtn.style.display = 'inline-block';
+        cancelBtn.style.filter = 'none';
+        cancelBtn.onmouseover = () => (cancelBtn.style.filter = 'none');
+      }
     }
-  };
+  });
+
+  if (!r.isConfirmed) return;
+
+  try {
+    await deleteTemplate(id);
+    toast.success("Template deleted successfully");
+    setSelectedIds(prev => { const n = new Set(prev); n.delete(id); return n; });
+    await loadTemplates();
+  } catch (err: any) {
+    toast.error(err.message);
+  }
+};
+
+ const handleBulkDelete = async () => {
+  if (!selectedItems.length) return;
+
+  const r = await Swal.fire({
+    title: `Delete ${selectedItems.length} template(s)?`,
+    icon: "warning",
+    showCancelButton: true,
+    confirmButtonColor: "#d33",
+    cancelButtonColor: "#6b7280",
+    confirmButtonText: "Delete all",
+    cancelButtonText: "Cancel",
+    customClass: { popup: "rounded-xl text-sm" },
+
+    didOpen: () => {
+      const confirmBtn = document.querySelector('.swal2-confirm') as HTMLElement;
+      const cancelBtn = document.querySelector('.swal2-cancel') as HTMLElement;
+
+      if (confirmBtn) {
+        confirmBtn.style.background = '#dc2626';
+        confirmBtn.style.color = '#fff';
+        confirmBtn.style.padding = '8px 18px';
+        confirmBtn.style.borderRadius = '6px';
+        confirmBtn.style.fontWeight = '600';
+        confirmBtn.style.display = 'inline-block';
+        confirmBtn.style.filter = 'none';
+        confirmBtn.onmouseover = () => (confirmBtn.style.filter = 'none');
+      }
+
+      if (cancelBtn) {
+        cancelBtn.style.background = '#6b7280';
+        cancelBtn.style.color = '#fff';
+        cancelBtn.style.padding = '8px 18px';
+        cancelBtn.style.borderRadius = '6px';
+        cancelBtn.style.marginRight = '8px';
+        cancelBtn.style.display = 'inline-block';
+        cancelBtn.style.filter = 'none';
+        cancelBtn.onmouseover = () => (cancelBtn.style.filter = 'none');
+      }
+    }
+  });
+
+  if (!r.isConfirmed) return;
+
+  try {
+    await bulkDeleteTemplates(selectedItems.map(t => t.id));
+    toast.success(`Deleted ${selectedItems.length} template(s)`);
+    setSelectedIds(new Set());
+    await loadTemplates();
+  } catch (err: any) {
+    toast.error(err.message);
+  }
+};
 
   const handleBulkStatus = async (active: boolean) => {
     if (!selectedItems.length) return;
