@@ -109,7 +109,6 @@ export async function listProperties(opts: ListOptions = {}) {
     `/api/properties${params.toString() ? `?${params.toString()}` : ""}`,
     { method: "GET" }
   );
-  console.log("proprtiessssssssssss",res)
 
   return res;
 }

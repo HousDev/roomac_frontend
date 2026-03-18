@@ -147,7 +147,6 @@ export default function AccommodationTab({
               isactive: 1,
             });
           });
-          console.log("Common Masters loaded in AccommodationTab:", grouped);
           setCommonMasters(grouped);
           setCommonMastersLoaded(true);
         }

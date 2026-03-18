@@ -39,7 +39,6 @@ export default function AboutClient({ data }: AboutClientProps) {
   }, []);
 
   const handleValueHover = useCallback((index: number) => {
-    console.log(`Value ${index} hovered`);
   }, []);
 
   const handleTimelineScroll = useCallback(() => {

@@ -232,9 +232,7 @@ async function enhancedFetch<T>(
       credentials: 'include',
     });
     
-    if (process.env.NODE_ENV === 'development') {
-      console.log('🔍 [enhancedFetch] Response status:', response.status, response.statusText);
-    }
+    
     
     // Check if response is HTML (404/error page)
     const contentType = response.headers.get('content-type');

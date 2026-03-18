@@ -775,10 +775,8 @@ export async function getDemands(filters?: any): Promise<any> {
     const queryString = params.toString();
     const url = `/api/payments/demands${queryString ? `?${queryString}` : ''}`;
     
-    console.log('Fetching demands from:', url);
     const response = await request(url);
     
-    console.log('Demands API response:', response);
     
     // Check if response exists and has data
     if (response && response.success) {

@@ -97,7 +97,6 @@ const [filters, setFiltersState] = useState<TenantFilters>({
     setLoading(true);
     try {
       const useFilters = customFilters || filtersRef.current;
-      console.log('Loading tenants with filters:', useFilters);
       const res = await listTenants(useFilters);
       if (res?.success && Array.isArray(res.data)) {
         setTenants(res.data);

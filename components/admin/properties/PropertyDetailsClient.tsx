@@ -338,7 +338,6 @@ const PropertyDetailsClient = ({ initialProperty }: PropertyDetailsClientProps) 
                         isactive: 1,
                     });
                 });
-                console.log("Properties Masters loaded:", grouped);
                 setPropertiesMasters(grouped);
                 setMastersLoaded(true);
             }
@@ -367,7 +366,6 @@ const PropertyDetailsClient = ({ initialProperty }: PropertyDetailsClientProps) 
                         isactive: 1,
                     });
                 });
-                console.log("Common Masters loaded:", grouped);
                 setCommonMasters(grouped);
                 setCommonMastersLoaded(true);
             }
@@ -413,7 +411,6 @@ const PropertyDetailsClient = ({ initialProperty }: PropertyDetailsClientProps) 
     // Parse and map JSON fields when property or masters change
     useEffect(() => {
         if (property) {
-            console.log("Parsing property data:", property);
             
             // Parse raw fields
             const rawRules = parseJsonField(property.property_rules);
@@ -426,7 +423,6 @@ const PropertyDetailsClient = ({ initialProperty }: PropertyDetailsClientProps) 
                 setAdditionalTerms(mapIdsToNames(rawAdditionalTerms, propertiesMasters, "Additional Terms"));
                 
                 const mappedTagNames = mapIdsToNames(rawTags, propertiesMasters, "Tags");
-                console.log("Mapped tag names:", mappedTagNames);
                 setMappedTags(mappedTagNames);
             } else {
                 // If masters not loaded yet, show IDs
@@ -444,10 +440,8 @@ const PropertyDetailsClient = ({ initialProperty }: PropertyDetailsClientProps) 
         setLoadingStaff(true);
         try {
             const staffList = await getAllStaff();
-            console.log("Staff list loaded:", staffList);
             const staff = staffList.find(s => String(s.id) === String(staffId));
             if (staff) {
-                console.log("Found staff:", staff);
                 setStaffData(staff);
             }
         } catch (error) {

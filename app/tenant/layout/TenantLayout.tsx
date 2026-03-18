@@ -100,7 +100,6 @@ function NotificationPopup({
   }, [onClose]);
 
   const getIcon = (type: string) => {
-    console.log("🎨 Getting icon for type: ", type);
     switch (type) {
       case "payment":
         return <CreditCard className="h-4 w-4 text-blue-600" />;
@@ -288,19 +287,7 @@ function SidebarAccommodationCard({
   );
 
   // Debug log to see what's coming from backend
-  console.log("🏠 Sidebar tenant data:", {
-    property_name: tenant?.property_name,
-    property_address: tenant?.property_address,
-    property_city: tenant?.property_city,
-    room_number: tenant?.room_number,
-    bed_number: tenant?.bed_number,
-    bed_type: tenant?.bed_type,           // This should now show
-    tenant_rent: tenant?.tenant_rent,      // This should now show the correct rent
-    is_couple: tenant?.is_couple,
-    floor: tenant?.floor,
-    rent_per_bed: tenant?.rent_per_bed,    // This is the room's default rent
-  });
-
+ 
   // Check if tenant has accommodation
   const hasAccommodation = tenant?.room_number && tenant?.bed_number;
 
@@ -311,11 +298,9 @@ function SidebarAccommodationCard({
   if (tenant?.tenant_rent) {
     // This is the actual rent from bed_assignments table
     rentAmount = Number(tenant.tenant_rent);
-    console.log('✅ Using tenant_rent from bed_assignments:', rentAmount);
   } else if (tenant?.rent_per_bed) {
     // Fallback to room's default rent_per_bed
     rentAmount = Number(tenant.rent_per_bed);
-    console.log('⚠️ Using room rent_per_bed as fallback:', rentAmount);
   }
 
   // Get bed type display
@@ -993,12 +978,10 @@ export default function TenantLayout() {
     try {
       if (showLoading) setLoadingNotifications(true);
 
-      console.log("🔍 ===== FETCHING NOTIFICATIONS =====");
-      console.log("👤 Current tenant ID from getTenantId():", getTenantId());
+
 
       // Also check localStorage directly
       const localTenantId = localStorage.getItem("tenant_id");
-      console.log("👤 Tenant ID from localStorage:", localTenantId);
 
       const [notifs, count] = await Promise.all([
         getTenantNotifications(20),
@@ -1012,13 +995,8 @@ export default function TenantLayout() {
       const changeBedNotifs = notifs.filter(
         (n) => n.notification_type === "change_bed",
       );
-      console.log("🛏️ Change bed notifications found:", changeBedNotifs.length);
 
-      if (changeBedNotifs.length > 0) {
-        console.log("📋 First change bed notification:", changeBedNotifs[0]);
-      } else {
-        console.log("❌ No change bed notifications found!");
-      }
+     
 
       // Transform API notifications to match component format
       const formattedNotifs = notifs.map((n) => {
@@ -1031,11 +1009,7 @@ export default function TenantLayout() {
       setNotifications(formattedNotifs);
       setNotificationCount(count);
 
-      console.log(
-        "✅ Notifications state updated, total:",
-        formattedNotifs.length,
-      );
-      console.log("🔚 ===== FETCH NOTIFICATIONS COMPLETE =====");
+      
     } catch (error) {
       console.error("❌ Error loading notifications:", error);
     } finally {

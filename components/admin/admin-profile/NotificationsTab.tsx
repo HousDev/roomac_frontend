@@ -251,7 +251,6 @@ export default function NotificationsTab({
         <div className="nt-banner">
           <div className="nt-banner-in">
             <div className="nt-banner-title">
-              <Bell size={18} style={{ color: 'rgba(255,255,255,.9)' }} />
               Notification Preferences
             </div>
             <p className="nt-banner-sub">Choose how you want to receive notifications</p>
@@ -266,14 +265,12 @@ export default function NotificationsTab({
               {activeCount} of {Object.keys(notificationSettings).length} enabled
             </div>
           </div>
-          <div className="nt-banner-badge">
-            <Bell size={30} color="rgba(255,255,255,.85)" />
-          </div>
+          
         </div>
 
         {/* Body */}
         <div className="nt-body">
-          <div className="nt-sec-lbl" style={{ marginTop: 20 }}>Notification Channels</div>
+          <div className="nt-sec-lbl" style={{ marginTop: -20 }}>Notification Channels</div>
 
           <ChannelRow
             icon={<Mail size={17} />}

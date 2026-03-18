@@ -117,7 +117,6 @@ export function TagsBulkModal({
         },
       });
       
-      console.log("📥 API Response status:", response.status);
       
       if (response.ok) {
         const data = await response.json();
