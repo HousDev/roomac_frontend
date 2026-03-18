@@ -1,635 +1,659 @@
+// app/tenant/documents/page.tsx
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "@/src/compat/next-navigation";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
+import { useEffect, useState, useCallback, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+// Change this line (around line 106):
 import {
-  FileText, Download, Printer, Share2, Eye, Plus,
-  Receipt, ClipboardList, LogOut, Trash2, Calendar, Search as SearchIcon, Filter as FilterIcon
+  FileText,
+  Eye,
+  Download,
+  Printer,
+  Calendar,
+  Building,
+  User,
+  Phone,
+  Search,
+  Filter,
+  Clock,
+  CheckCircle,
+  XCircle,
+  ArrowLeft,
+  Loader2,
+  Home,
+  Hash,
+  IndianRupee,
+  BadgeCheck,
+  X,
+  Sparkles,
+  Shield,
+  PenLine,
+  File,
+  FileImage,
+  FileSpreadsheet,
+  FileText as FileTextIcon,
 } from "lucide-react";
-import { format } from "date-fns";
-import { DocumentData, downloadPDF, printPDF, sharePDF } from "@/lib/pdf-generator";
+
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogClose,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
-// import TenantHeader from "@/components/layout/tenantHeader";
+import { format } from "date-fns";
 
-interface SavedDocument {
-  id: string;
-  type: string;
-  title: string;
-  created_at: string;
-  data: DocumentData;
-}
+import {
+  getTenantDocuments,
+  getTenantDocument,
+  viewTenantDocument,
+  type Document,
+  type DocumentStatus,
+} from "@/lib/documentlistApi";
 
-export default function TenantDocumentsPage() {
-  const router = useRouter();
-
-  const [documentType, setDocumentType] = useState<DocumentData["type"]>("receipt");
-  const [savedDocuments, setSavedDocuments] = useState<SavedDocument[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [tenantData, setTenantData] = useState<any>(null);
-  const [propertyData, setPropertyData] = useState<any>(null);
-
-  const [formData, setFormData] = useState({
-    receiptNumber: `REC-${Date.now()}`,
-    amount: "",
-    paymentDate: format(new Date(), "yyyy-MM-dd"),
-    paymentMethod: "cash",
-    paymentType: "rent",
-    month: format(new Date(), "MMMM yyyy"),
-    roomCondition: "Good",
-    inventoryItems: "",
-    securityDeposit: "",
-    advanceRent: "",
-    agreementDuration: "12 months",
-    exitDate: format(new Date(), "yyyy-MM-dd"),
-    damagesFound: "None",
-    depositRefund: "",
-    duesCleared: "yes",
-    clearanceNotes: "All dues cleared. Tenant vacated the premises in good condition.",
-    termsStandard: "",
-    termsLiability: "",
-    termsDeposit: "",
-  });
-
-  // helper to get auth headers
-const getAuthHeaders = (): HeadersInit => {
-  const token = localStorage.getItem("tenant_token");
-
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
+// ── Status Badge Component ─────────────────────────────────────────────────
+const StatusBadge = ({ status }: { status: DocumentStatus }) => {
+  const statusConfig: Record<DocumentStatus, { color: string; icon: any; label: string }> = {
+    'Created': { color: 'bg-slate-100 text-slate-700', icon: FileText, label: 'Created' },
+    'Sent': { color: 'bg-blue-100 text-blue-700', icon: FileText, label: 'Sent' },
+    'Viewed': { color: 'bg-purple-100 text-purple-700', icon: Eye, label: 'Viewed' },
+    'Signed': { color: 'bg-green-100 text-green-700', icon: CheckCircle, label: 'Signed' },
+    'Completed': { color: 'bg-emerald-100 text-emerald-700', icon: BadgeCheck, label: 'Completed' },
+    'Expired': { color: 'bg-red-100 text-red-700', icon: XCircle, label: 'Expired' },
+    'Cancelled': { color: 'bg-gray-100 text-gray-700', icon: XCircle, label: 'Cancelled' },
   };
 
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
+  const config = statusConfig[status] || statusConfig.Created;
+  const Icon = config.icon;
 
-  return headers;
+  return (
+    <Badge className={`${config.color} border-none flex items-center gap-1 px-2 py-1`}>
+      <Icon className="h-3 w-3" />
+      {config.label}
+    </Badge>
+  );
 };
 
-
-  useEffect(() => {
-    loadTenantData();
-    loadSavedDocuments();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // --- data loaders using REST API (change endpoints as needed) ---
-  const loadTenantData = async () => {
-    try {
-      const tenantId = typeof window !== "undefined" ? localStorage.getItem("tenant_id") : null;
-      if (!tenantId) {
-        router.push("/login");
-        return;
-      }
-
-      const res = await fetch(`/api/tenants/${encodeURIComponent(tenantId)}`, {
-        headers: getAuthHeaders(),
-      });
-
-      if (!res.ok) {
-        console.warn("Failed to load tenant data", await res.text());
-        return;
-      }
-
-      const t = await res.json();
-      setTenantData(t);
-      setPropertyData(t.properties || null);
-    } catch (err) {
-      console.error("Error loading tenant data:", err);
+// ── Priority Badge ─────────────────────────────────────────────────────────
+const PriorityBadge = ({ priority }: { priority: string }) => {
+  const priorityColor = (p: string) => {
+    switch (p) {
+      case "urgent": return "bg-red-100 text-red-700 border-red-200";
+      case "high":   return "bg-orange-100 text-orange-700 border-orange-200";
+      case "normal": return "bg-blue-100 text-blue-700 border-blue-200";
+      case "low":    return "bg-gray-100 text-gray-500 border-gray-200";
+      default:       return "bg-gray-100 text-gray-600 border-gray-200";
     }
   };
 
-  const loadSavedDocuments = async () => {
+  return (
+    <Badge className={`text-[9px] px-1.5 py-0 border ${priorityColor(priority)}`}>
+      {priority}
+    </Badge>
+  );
+};
+
+// ── Stat Card Component ────────────────────────────────────────────────────
+const StatCard = ({ title, value, icon: Icon, color, bg }: any) => (
+  <Card className={`${bg} border-0 shadow-sm hover:shadow-md transition-shadow`}>
+    <CardContent className="p-2 sm:p-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-[10px] sm:text-xs text-slate-600 font-medium">{title}</p>
+          <p className="text-sm sm:text-base font-bold text-slate-800">{value}</p>
+        </div>
+        <div className={`p-1.5 rounded-lg ${color} shadow-lg`}>
+          <Icon className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
+        </div>
+      </div>
+    </CardContent>
+  </Card>
+);
+
+// ── Document Type Icon ─────────────────────────────────────────────────────
+const DocumentTypeIcon = ({ document }: { document: Document }) => {
+  // Determine document type from title, name, or data_json
+  const title = (document.document_title || document.document_name || '').toLowerCase();
+  const type = document.document_type?.toLowerCase() || '';
+  
+  if (title.includes('aadhaar') || title.includes('aadhar') || type.includes('aadhaar')) {
+    return (
+      <div className="w-full h-24 bg-gradient-to-br from-orange-100 to-orange-200 rounded-t-lg flex items-center justify-center">
+        <div className="text-center">
+          <FileImage className="h-8 w-8 text-orange-600 mx-auto mb-1" />
+          <p className="text-[8px] font-medium text-orange-700">AADHAAR CARD</p>
+          <p className="text-[6px] text-orange-600">Preview</p>
+        </div>
+      </div>
+    );
+  }
+  
+  if (title.includes('pan') || type.includes('pan')) {
+    return (
+      <div className="w-full h-24 bg-gradient-to-br from-yellow-100 to-yellow-200 rounded-t-lg flex items-center justify-center">
+        <div className="text-center">
+          <FileImage className="h-8 w-8 text-yellow-600 mx-auto mb-1" />
+          <p className="text-[8px] font-medium text-yellow-700">PAN CARD</p>
+          <p className="text-[6px] text-yellow-600">Preview</p>
+        </div>
+      </div>
+    );
+  }
+  
+  if (title.includes('rent') || title.includes('receipt') || type.includes('receipt')) {
+    return (
+      <div className="w-full h-24 bg-gradient-to-br from-green-100 to-green-200 rounded-t-lg flex items-center justify-center">
+        <div className="text-center">
+          <FileTextIcon className="h-8 w-8 text-green-600 mx-auto mb-1" />
+          <p className="text-[8px] font-medium text-green-700">RENT RECEIPT</p>
+          <p className="text-[6px] text-green-600">Preview</p>
+        </div>
+      </div>
+    );
+  }
+  
+  if (title.includes('agreement') || title.includes('contract') || type.includes('agreement')) {
+    return (
+      <div className="w-full h-24 bg-gradient-to-br from-blue-100 to-blue-200 rounded-t-lg flex items-center justify-center">
+        <div className="text-center">
+          <FileText className="h-8 w-8 text-blue-600 mx-auto mb-1" />
+          <p className="text-[8px] font-medium text-blue-700">AGREEMENT</p>
+          <p className="text-[6px] text-blue-600">Preview</p>
+        </div>
+      </div>
+    );
+  }
+  
+if (title.includes('pdf') || document.html_content?.includes('pdf')) {
+  return (
+    <div className="w-full h-24 bg-gradient-to-br from-red-100 to-red-200 rounded-t-lg flex items-center justify-center">
+      <div className="text-center">
+        <FileText className="h-8 w-8 text-red-600 mx-auto mb-1" />  {/* ← Use FileText instead */}
+        <p className="text-[8px] font-medium text-red-700">PDF DOCUMENT</p>
+        <p className="text-[6px] text-red-600">Preview</p>
+      </div>
+    </div>
+  );
+}
+  
+  // Default thumbnail
+  return (
+    <div className="w-full h-24 bg-gradient-to-br from-gray-100 to-gray-200 rounded-t-lg flex items-center justify-center">
+      <div className="text-center">
+        <File className="h-8 w-8 text-gray-600 mx-auto mb-1" />
+        <p className="text-[8px] font-medium text-gray-700">DOCUMENT</p>
+        <p className="text-[6px] text-gray-600">Preview</p>
+      </div>
+    </div>
+  );
+};
+
+// ── Document Card Component with thumbnail ─────────────────────────────────
+const DocumentCard = ({ 
+  document, 
+  onClick,
+}: { 
+  document: Document; 
+  onClick: (doc: Document) => void;
+}) => {
+  const fmt = (d?: string | null) => {
+    if (!d) return "N/A";
     try {
-      setLoading(true);
-      const tenantId = typeof window !== "undefined" ? localStorage.getItem("tenant_id") : null;
-      if (!tenantId) {
-        setSavedDocuments([]);
-        setLoading(false);
-        return;
+      const dt = new Date(d);
+      if (isNaN(dt.getTime())) return "N/A";
+      return dt.toLocaleDateString("en-IN", { day:"2-digit", month:"short", year:"numeric" });
+    } catch { return "N/A"; }
+  };
+
+  // Get a short description from data_json or create one
+  const getDescription = () => {
+    if (document.document_type) {
+      return `${document.document_type} document`;
+    }
+    if (document.data_json && Object.keys(document.data_json).length > 0) {
+      const keys = Object.keys(document.data_json);
+      return `Includes ${keys.slice(0, 2).join(', ')}${keys.length > 2 ? '...' : ''}`;
+    }
+    return "Document details available";
+  };
+
+  return (
+    <div 
+      className="rounded-lg border border-gray-200 bg-white hover:shadow-md transition-all cursor-pointer overflow-hidden"
+      onClick={() => onClick(document)}
+    >
+      {/* Thumbnail Preview */}
+      <DocumentTypeIcon document={document} />
+      
+      {/* Content */}
+      <div className="p-3">
+        <div className="flex items-start justify-between mb-2">
+          <h3 className="font-semibold text-sm text-slate-800 line-clamp-1">
+            {document.document_title || document.document_name}
+          </h3>
+        </div>
+
+        <p className="text-xs text-slate-600 mb-2 line-clamp-2">
+          {document.notes || getDescription()}
+        </p>
+
+        <div className="flex items-center justify-between text-xs">
+          <div className="flex items-center gap-1 text-slate-400">
+            <Calendar className="h-3 w-3" />
+            {fmt(document.created_at)}
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+};
+
+// ── Preview Dialog Component ───────────────────────────────────────────────
+function PreviewDialog({ 
+  document, 
+  open, 
+  onOpenChange,
+}: { 
+  document: Document | null; 
+  open: boolean; 
+  onOpenChange: (open: boolean) => void;
+}) {
+  const [fullDocument, setFullDocument] = useState<Document | null>(document);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (open && document?.id) {
+      fetchFullDocument(document.id);
+    }
+  }, [open, document?.id]);
+
+  const fetchFullDocument = async (id: number) => {
+    setLoading(true);
+    try {
+      const result = await getTenantDocument(id);
+      if (result.success && result.data) {
+        setFullDocument(result.data);
+        
+        // Mark as viewed if status is Sent
+        if (result.data.status === 'Sent') {
+          await viewTenantDocument(id);
+          // Refresh after marking as viewed
+          const refreshed = await getTenantDocument(id);
+          if (refreshed.success && refreshed.data) {
+            setFullDocument(refreshed.data);
+          }
+        }
+      } else {
+        toast.error(result.message || 'Failed to load document');
       }
-
-      const res = await fetch(`/api/documents?tenant_id=${encodeURIComponent(tenantId)}&order=created_at.desc`, {
-        headers: getAuthHeaders(),
-      });
-
-      if (!res.ok) {
-        console.error("Failed to load documents", await res.text());
-        setSavedDocuments([]);
-        setLoading(false);
-        return;
-      }
-
-      const data = await res.json();
-      setSavedDocuments(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error("Error loading documents:", err);
+    } catch (error) {
+      console.error('Error fetching document:', error);
+      toast.error('Failed to load document details');
     } finally {
       setLoading(false);
     }
   };
 
-  // --- build document payload used by pdf-generator ---
-  const getDocumentData = (): DocumentData => {
-    const baseData = {
-      property: {
-        name: propertyData?.name || "Property Name",
-        address: propertyData?.address || "Property Address",
-        phone: propertyData?.manager_phone || "+91 9876543210",
-        email: propertyData?.manager_email || "info@property.com",
-      },
-      tenant: {
-        name: tenantData?.name || "Tenant Name",
-        email: tenantData?.email || "tenant@example.com",
-        phone: tenantData?.phone || "+91 0000000000",
-        roomNumber: tenantData?.rooms?.room_number || "N/A",
-        checkInDate: tenantData?.check_in_date ? format(new Date(tenantData.check_in_date), "dd/MM/yyyy") : format(new Date(), "dd/MM/yyyy"),
-      },
-    };
-
-    switch (documentType) {
-      case "receipt":
-        return {
-          ...baseData,
-          type: "receipt",
-          payment: {
-            receiptNumber: formData.receiptNumber,
-            amount: parseFloat(formData.amount) || 0,
-            paymentDate: format(new Date(formData.paymentDate), "dd/MM/yyyy"),
-            paymentMethod: formData.paymentMethod,
-            paymentType: formData.paymentType,
-            month: formData.month,
-          },
-        };
-
-      case "checkin":
-        return {
-          ...baseData,
-          type: "checkin",
-          checkin: {
-            roomCondition: formData.roomCondition,
-            inventoryList: formData.inventoryItems.split("\n").filter((i) => i.trim()),
-            securityDeposit: parseFloat(formData.securityDeposit) || 0,
-            advanceRent: parseFloat(formData.advanceRent) || 0,
-            agreementDuration: formData.agreementDuration,
-          },
-        };
-
-      case "checkout":
-        return {
-          ...baseData,
-          type: "checkout",
-          checkout: {
-            exitDate: format(new Date(formData.exitDate), "dd/MM/yyyy"),
-            roomCondition: formData.roomCondition,
-            damagesFound: formData.damagesFound,
-            depositRefund: parseFloat(formData.depositRefund) || 0,
-            duesCleared: formData.duesCleared === "yes",
-            clearanceNotes: formData.clearanceNotes,
-          },
-        };
-
-      case "terms":
-        return {
-          ...baseData,
-          type: "terms",
-          terms: {
-            sections: [
-              {
-                title: "Standard Terms",
-                content:
-                  formData.termsStandard.split("\n").filter((i) => i.trim()).length > 0
-                    ? formData.termsStandard.split("\n").filter((i) => i.trim())
-                    : [
-                      "The tenant agrees to pay rent on or before the due date every month.",
-                      "The security deposit will be refunded after deducting any damages or dues.",
-                      "The tenant must maintain the property in good condition.",
-                      "No illegal activities are allowed on the premises.",
-                    ],
-              },
-              {
-                title: "Liability & Responsibilities",
-                content:
-                  formData.termsLiability.split("\n").filter((i) => i.trim()).length > 0
-                    ? formData.termsLiability.split("\n").filter((i) => i.trim())
-                    : [
-                      "The tenant is responsible for any damage caused to the property during their stay.",
-                      "The property owner is not liable for any theft or loss of tenant belongings.",
-                      "The tenant must ensure proper use of electrical and water facilities.",
-                    ],
-              },
-              {
-                title: "Deposit Rules",
-                content:
-                  formData.termsDeposit.split("\n").filter((i) => i.trim()).length > 0
-                    ? formData.termsDeposit.split("\n").filter((i) => i.trim())
-                    : [
-                      "Security deposit is refundable and will be returned within 30 days of checkout.",
-                      "Deductions will be made for any damages, unpaid dues, or cleaning charges.",
-                      "Interest will not be paid on the security deposit amount.",
-                    ],
-              },
-            ],
-          },
-        };
-
-      default:
-        return baseData as DocumentData;
+  const handleDownload = () => {
+    if (!fullDocument?.html_content) {
+      toast.error("No content to download");
+      return;
     }
-  };
-
-  // --- actions: generate / print / share / save / delete using REST ---
-  const handleGenerateDocument = async () => {
-    try {
-      const data = getDocumentData();
-      const filename = `${documentType}_${format(new Date(), "yyyy-MM-dd_HHmm")}.pdf`;
-      downloadPDF(data, filename);
-      toast.success("Document generated successfully!");
-      await saveDocument(data, filename);
-    } catch (err) {
-      console.error("Error generating document:", err);
-      toast.error("Failed to generate document");
+    
+    const pw = window.open("", "_blank", "width=900,height=700");
+    if (!pw) {
+      toast.error("Popup blocked");
+      return;
     }
+    
+    pw.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="UTF-8"/>
+          <title>${fullDocument.document_number}</title>
+          <style>
+            body { margin: 0; padding: 20px; font-family: Arial, sans-serif; }
+            @media print {
+              @page { size: A4; margin: 10mm; }
+            }
+          </style>
+        </head>
+        <body>
+          ${fullDocument.html_content}
+          <script>
+            window.onload = function() {
+              setTimeout(function() {
+                window.print();
+                window.onafterprint = function() { window.close(); };
+              }, 400);
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    pw.document.close();
   };
 
   const handlePrint = () => {
-    try {
-      const data = getDocumentData();
-      printPDF(data);
-      toast.success("Opening print dialog...");
-    } catch (err) {
-      console.error("Error printing:", err);
-      toast.error("Failed to print document");
+    if (!fullDocument?.html_content) {
+      toast.error("No content to print");
+      return;
+    }
+    
+    const w = window.open("", "_blank");
+    if (w) {
+      w.document.write(`
+        <html>
+          <head>
+            <title>${fullDocument.document_name}</title>
+            <style>
+              body { font-family: Arial, sans-serif; padding: 20px; }
+              @media print { @page { size: A4; margin: 10mm; } }
+            </style>
+          </head>
+          <body>${fullDocument.html_content}</body>
+        </html>
+      `);
+      w.document.close();
+      w.focus();
+      w.print();
     }
   };
 
-  const handleShare = async () => {
-    try {
-      const data = getDocumentData();
-      const filename = `${documentType}_${format(new Date(), "yyyy-MM-dd")}.pdf`;
-      const shared = await sharePDF(data, filename);
-      if (shared) toast.success("Document shared successfully!");
-    } catch (err) {
-      console.error("Error sharing:", err);
-      toast.error("Failed to share document");
-    }
-  };
+  if (!fullDocument) return null;
 
-  const saveDocument = async (data: DocumentData, title: string) => {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-3xl w-[95vw] max-h-[90vh] overflow-hidden p-0">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-3 flex items-center justify-between rounded-t-lg">
+          <div className="flex items-center gap-2">
+            <FileText className="h-5 w-5" />
+            <div>
+              <h2 className="text-sm font-semibold">{fullDocument.document_title || fullDocument.document_name}</h2>
+              <p className="text-xs text-blue-100">{fullDocument.document_number}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={handleDownload}
+              className="p-1.5 rounded-lg hover:bg-white/20 transition-colors"
+              title="Download"
+            >
+              <Download className="h-4 w-4" />
+            </button>
+            <button
+              onClick={handlePrint}
+              className="p-1.5 rounded-lg hover:bg-white/20 transition-colors"
+              title="Print"
+            >
+              <Printer className="h-4 w-4" />
+            </button>
+            <DialogClose asChild>
+              <button className="p-1.5 rounded-full hover:bg-white/20">
+                <X className="h-4 w-4" />
+              </button>
+            </DialogClose>
+          </div>
+        </div>
+
+        {/* Document Info */}
+        <div className="px-4 py-3 bg-gray-50 border-b">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+            <div>
+              <p className="text-gray-400">Tenant</p>
+              <p className="font-medium text-gray-800">{fullDocument.tenant_name}</p>
+            </div>
+            <div>
+              <p className="text-gray-400">Phone</p>
+              <p className="font-medium text-gray-800">{fullDocument.tenant_phone}</p>
+            </div>
+            {fullDocument.property_name && (
+              <div>
+                <p className="text-gray-400">Property</p>
+                <p className="font-medium text-gray-800">{fullDocument.property_name}</p>
+              </div>
+            )}
+            {fullDocument.room_number && (
+              <div>
+                <p className="text-gray-400">Room</p>
+                <p className="font-medium text-gray-800">
+                  {fullDocument.room_number}
+                  {fullDocument.bed_number && ` • Bed ${fullDocument.bed_number}`}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Document Content */}
+        <div className="overflow-y-auto p-4 bg-slate-50" style={{ maxHeight: "calc(90vh - 160px)" }}>
+          {loading ? (
+            <div className="flex justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+            </div>
+          ) : fullDocument.html_content ? (
+            <div 
+              className="bg-white rounded-lg shadow p-6 prose max-w-none"
+              dangerouslySetInnerHTML={{ __html: fullDocument.html_content }} 
+            />
+          ) : (
+            <div className="text-center py-12 bg-white rounded-lg">
+              <FileText className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-sm font-medium text-gray-500">No document content available</p>
+              <p className="text-xs text-gray-400 mt-1">The document content is empty or not generated yet</p>
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ── Main Component ─────────────────────────────────────────────────────────
+export default function TenantDocumentsPage() {
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+
+  const fetchDocuments = useCallback(async () => {
+    setLoading(true);
     try {
-      const tenantId = typeof window !== "undefined" ? localStorage.getItem("tenant_id") : null;
-      if (!tenantId) {
-        toast.error("Tenant not authenticated.");
-        return;
+      const filters: any = {
+        page: 1,
+        pageSize: 100,
+      };
+      
+      if (statusFilter !== 'all') filters.status = statusFilter;
+      if (search) filters.search = search;
+
+      const response = await getTenantDocuments(filters);
+      
+      if (response.success && response.data) {
+        setDocuments(response.data);
+      } else {
+        toast.error(response.message || 'Failed to fetch documents');
       }
-
-      const res = await fetch("/api/documents", {
-        method: "POST",
-        headers: getAuthHeaders(),
-        body: JSON.stringify({
-          tenant_id: tenantId,
-          type: documentType,
-          title,
-          data,
-        }),
-      });
-
-      if (!res.ok) {
-        console.error("Failed to save document", await res.text());
-        toast.error("Failed to save document");
-        return;
-      }
-
-      toast.success("Document saved to history");
-      await loadSavedDocuments();
-    } catch (err) {
-      console.error("Error saving document:", err);
+    } catch (error) {
+      console.error('Error fetching documents:', error);
+      toast.error('Failed to load documents');
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [statusFilter, search]);
 
-  const handleDeleteDocument = async (id: string) => {
-    try {
-      const ok = confirm("Are you sure you want to delete this document?");
-      if (!ok) return;
+  useEffect(() => {
+    fetchDocuments();
+  }, [fetchDocuments]);
 
-      const res = await fetch(`/api/documents/${encodeURIComponent(id)}`, {
-        method: "DELETE",
-        headers: getAuthHeaders(),
-      });
+  // Filter documents based on search
+  const filteredDocs = useMemo(() => {
+    return documents.filter(d => {
+      if (!search) return true;
+      const searchLower = search.toLowerCase();
+      return (
+        d.document_number?.toLowerCase().includes(searchLower) ||
+        d.document_name?.toLowerCase().includes(searchLower) ||
+        d.document_title?.toLowerCase().includes(searchLower) ||
+        d.tenant_name?.toLowerCase().includes(searchLower) ||
+        d.property_name?.toLowerCase().includes(searchLower)
+      );
+    });
+  }, [documents, search]);
 
-      if (!res.ok) {
-        console.error("Failed to delete document", await res.text());
-        toast.error("Failed to delete document");
-        return;
-      }
+  // Stats
+  const stats = useMemo(() => ({
+    total: documents.length,
+    signed: documents.filter(d => d.status === 'Signed' || d.status === 'Completed').length,
+    pending: documents.filter(d => d.status === 'Sent' || d.status === 'Viewed').length,
+  }), [documents]);
 
-      toast.success("Document deleted");
-      await loadSavedDocuments();
-    } catch (err) {
-      console.error("Error deleting document:", err);
-      toast.error("Failed to delete document");
-    }
-  };
-
-  const getDocumentIcon = (type: string) => {
-    switch (type) {
-      case "receipt":
-        return <Receipt className="h-5 w-5" />;
-      case "checkin":
-        return <ClipboardList className="h-5 w-5" />;
-      case "checkout":
-        return <LogOut className="h-5 w-5" />;
-      case "terms":
-        return <FileText className="h-5 w-5" />;
-      default:
-        return <FileText className="h-5 w-5" />;
-    }
+  // Handle card click
+  const handleCardClick = (doc: Document) => {
+    setSelectedDocument(doc);
+    setShowPreview(true);
   };
 
   return (
-    <div>
-      {/* <TenantHeader /> */}
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">Document Management</h1>
-          <p className="text-gray-600">Create, manage, and download your documents</p>
+    <div className="min-h-screen bg-slate-50">
+      <div className="max-w-7xl mx-auto p-4 space-y-4">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate('/tenant/portal#dashboard')}
+              className="h-8 w-8 text-slate-600"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <div>
+              <h1 className="text-xl font-bold text-slate-800">My Documents</h1>
+              <p className="text-xs text-slate-500">View and download your documents</p>
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={fetchDocuments}
+            className="h-8 text-xs"
+          >
+            <Loader2 className={`h-3 w-3 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
         </div>
 
-        <Tabs defaultValue="create" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2">
-            {/* <TabsTrigger value="create">Create New Document</TabsTrigger> */}
-            <TabsTrigger value="history">Document History</TabsTrigger>
-          </TabsList>
+        {/* Stats Cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <StatCard 
+            title="Total Documents"  
+            value={stats.total}     
+            icon={FileText}    
+            color="bg-blue-600"    
+            bg="bg-gradient-to-br from-blue-50 to-blue-100" 
+          />
+          <StatCard 
+            title="Signed"          
+            value={stats.signed}   
+            icon={CheckCircle} 
+            color="bg-green-600"   
+            bg="bg-gradient-to-br from-green-50 to-green-100" 
+          />
+          <StatCard 
+            title="Pending"         
+            value={stats.pending}  
+            icon={Clock}       
+            color="bg-yellow-600"  
+            bg="bg-gradient-to-br from-yellow-50 to-yellow-100" 
+          />
+        </div>
 
-          {/* <TabsContent value="create" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Create New Document</CardTitle>
-                <CardDescription>Choose a document type and fill in the details</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <Button
-                    variant={documentType === "receipt" ? "default" : "outline"}
-                    className="h-24 flex flex-col items-center justify-center gap-2"
-                    onClick={() => setDocumentType("receipt")}
-                  >
-                    <Receipt className="h-8 w-8" />
-                    <span>Receipt</span>
-                  </Button>
-                  <Button
-                    variant={documentType === "checkin" ? "default" : "outline"}
-                    className="h-24 flex flex-col items-center justify-center gap-2"
-                    onClick={() => setDocumentType("checkin")}
-                  >
-                    <ClipboardList className="h-8 w-8" />
-                    <span>Check-In</span>
-                  </Button>
-                  <Button
-                    variant={documentType === "checkout" ? "default" : "outline"}
-                    className="h-24 flex flex-col items-center justify-center gap-2"
-                    onClick={() => setDocumentType("checkout")}
-                  >
-                    <LogOut className="h-8 w-8" />
-                    <span>Check-Out</span>
-                  </Button>
-                  <Button
-                    variant={documentType === "terms" ? "default" : "outline"}
-                    className="h-24 flex flex-col items-center justify-center gap-2"
-                    onClick={() => setDocumentType("terms")}
-                  >
-                    <FileText className="h-8 w-8" />
-                    <span>Terms & Conditions</span>
-                  </Button>
-                </div>
+        {/* Search and Filter */}
+        <Card className="border-slate-200">
+          <CardContent className="p-3">
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Input
+                  placeholder="Search documents..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-9 h-9 text-sm"
+                />
+              </div>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[130px] h-9 text-sm">
+                  <Filter className="h-3 w-3 mr-2" />
+                  <SelectValue placeholder="Filter" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="Created">Created</SelectItem>
+                  <SelectItem value="Sent">Sent</SelectItem>
+                  <SelectItem value="Viewed">Viewed</SelectItem>
+                  <SelectItem value="Signed">Signed</SelectItem>
+                  <SelectItem value="Completed">Completed</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
 
-                {documentType === "receipt" && (
-                  <div className="space-y-4">
-                    <div className="grid md:grid-cols-2 gap-4">
-                      <div>
-                        <Label>Receipt Number</Label>
-                        <Input value={formData.receiptNumber} onChange={(e) => setFormData({ ...formData, receiptNumber: e.target.value })} />
-                      </div>
-                      <div>
-                        <Label>Amount (₹)</Label>
-                        <Input type="number" value={formData.amount} onChange={(e) => setFormData({ ...formData, amount: e.target.value })} placeholder="Enter amount" />
-                      </div>
-                      <div>
-                        <Label>Payment Date</Label>
-                        <Input type="date" value={formData.paymentDate} onChange={(e) => setFormData({ ...formData, paymentDate: e.target.value })} />
-                      </div>
-                      <div>
-                        <Label>Payment Method</Label>
-                        <Select value={formData.paymentMethod} onValueChange={(value) => setFormData({ ...formData, paymentMethod: value })}>
-                          <SelectTrigger><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="cash">Cash</SelectItem>
-                            <SelectItem value="card">Card</SelectItem>
-                            <SelectItem value="upi">UPI</SelectItem>
-                            <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label>Payment Type</Label>
-                        <Select value={formData.paymentType} onValueChange={(value) => setFormData({ ...formData, paymentType: value })}>
-                          <SelectTrigger><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="rent">Rent</SelectItem>
-                            <SelectItem value="deposit">Security Deposit</SelectItem>
-                            <SelectItem value="maintenance">Maintenance</SelectItem>
-                            <SelectItem value="other">Other</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label>Payment Month</Label>
-                        <Input value={formData.month} onChange={(e) => setFormData({ ...formData, month: e.target.value })} placeholder="e.g., December 2025" />
-                      </div>
-                    </div>
-                  </div>
-                )}
+        {/* Documents Grid */}
+        {loading ? (
+          <div className="flex justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+          </div>
+        ) : filteredDocs.length === 0 ? (
+          <Card className="border-slate-200">
+            <CardContent className="py-12 text-center">
+              <FileText className="h-12 w-12 text-slate-300 mx-auto mb-4" />
+              <h3 className="text-sm font-semibold text-slate-800 mb-1">No documents found</h3>
+              <p className="text-xs text-slate-500">
+                {search || statusFilter !== 'all' 
+                  ? 'No documents match your filters' 
+                  : "You don't have any documents yet"}
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredDocs.map((doc) => (
+              <DocumentCard
+                key={doc.id}
+                document={doc}
+                onClick={handleCardClick}
+              />
+            ))}
+          </div>
+        )}
 
-                {documentType === "checkin" && (
-                  <div className="space-y-4">
-                    <div className="grid md:grid-cols-2 gap-4">
-                      <div>
-                        <Label>Room Condition</Label>
-                        <Select value={formData.roomCondition} onValueChange={(value) => setFormData({ ...formData, roomCondition: value })}>
-                          <SelectTrigger><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Excellent">Excellent</SelectItem>
-                            <SelectItem value="Good">Good</SelectItem>
-                            <SelectItem value="Fair">Fair</SelectItem>
-                            <SelectItem value="Needs Repair">Needs Repair</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label>Agreement Duration</Label>
-                        <Input value={formData.agreementDuration} onChange={(e) => setFormData({ ...formData, agreementDuration: e.target.value })} />
-                      </div>
-                      <div>
-                        <Label>Security Deposit (₹)</Label>
-                        <Input type="number" value={formData.securityDeposit} onChange={(e) => setFormData({ ...formData, securityDeposit: e.target.value })} />
-                      </div>
-                      <div>
-                        <Label>Advance Rent (₹)</Label>
-                        <Input type="number" value={formData.advanceRent} onChange={(e) => setFormData({ ...formData, advanceRent: e.target.value })} />
-                      </div>
-                    </div>
-                    <div>
-                      <Label>Inventory Items (one per line)</Label>
-                      <Textarea rows={6} value={formData.inventoryItems} onChange={(e) => setFormData({ ...formData, inventoryItems: e.target.value })} placeholder={"Bed\nMattress\nStudy Table\nChair\nWardrobe"} />
-                    </div>
-                  </div>
-                )}
-
-                {documentType === "checkout" && (
-                  <div className="space-y-4">
-                    <div className="grid md:grid-cols-2 gap-4">
-                      <div>
-                        <Label>Exit Date</Label>
-                        <Input type="date" value={formData.exitDate} onChange={(e) => setFormData({ ...formData, exitDate: e.target.value })} />
-                      </div>
-                      <div>
-                        <Label>Room Condition</Label>
-                        <Select value={formData.roomCondition} onValueChange={(value) => setFormData({ ...formData, roomCondition: value })}>
-                          <SelectTrigger><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Excellent">Excellent</SelectItem>
-                            <SelectItem value="Good">Good</SelectItem>
-                            <SelectItem value="Fair">Fair</SelectItem>
-                            <SelectItem value="Damaged">Damaged</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label>Damages Found</Label>
-                        <Input value={formData.damagesFound} onChange={(e) => setFormData({ ...formData, damagesFound: e.target.value })} placeholder="None or describe damages" />
-                      </div>
-                      <div>
-                        <Label>Deposit Refund (₹)</Label>
-                        <Input type="number" value={formData.depositRefund} onChange={(e) => setFormData({ ...formData, depositRefund: e.target.value })} />
-                      </div>
-                      <div>
-                        <Label>Dues Cleared?</Label>
-                        <Select value={formData.duesCleared} onValueChange={(value) => setFormData({ ...formData, duesCleared: value })}>
-                          <SelectTrigger><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="yes">Yes</SelectItem>
-                            <SelectItem value="no">No</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                    <div>
-                      <Label>Clearance Notes</Label>
-                      <Textarea rows={4} value={formData.clearanceNotes} onChange={(e) => setFormData({ ...formData, clearanceNotes: e.target.value })} />
-                    </div>
-                  </div>
-                )}
-
-                {documentType === "terms" && (
-                  <div className="space-y-4">
-                    <div>
-                      <Label>Standard Terms (one per line)</Label>
-                      <Textarea rows={5} value={formData.termsStandard} onChange={(e) => setFormData({ ...formData, termsStandard: e.target.value })} placeholder="Enter standard terms and conditions..." />
-                    </div>
-                    <div>
-                      <Label>Liability & Responsibilities (one per line)</Label>
-                      <Textarea rows={5} value={formData.termsLiability} onChange={(e) => setFormData({ ...formData, termsLiability: e.target.value })} placeholder="Enter liability terms..." />
-                    </div>
-                    <div>
-                      <Label>Deposit Rules (one per line)</Label>
-                      <Textarea rows={5} value={formData.termsDeposit} onChange={(e) => setFormData({ ...formData, termsDeposit: e.target.value })} placeholder="Enter deposit rules..." />
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex flex-wrap gap-4">
-                  <Button onClick={handleGenerateDocument} size="lg">
-                    <Download className="mr-2 h-5 w-5" />
-                    Generate & Download
-                  </Button>
-                  <Button onClick={handlePrint} variant="outline" size="lg">
-                    <Printer className="mr-2 h-5 w-5" />
-                    Print
-                  </Button>
-                  <Button onClick={handleShare} variant="outline" size="lg">
-                    <Share2 className="mr-2 h-5 w-5" />
-                    Share
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent> */}
-
-          <TabsContent value="history" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Document History</CardTitle>
-                <CardDescription>View and manage your previously generated documents</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {savedDocuments.length === 0 ? (
-                  <div className="text-center py-12">
-                    <FileText className="h-16 w-16 mx-auto text-gray-400 mb-4" />
-                    <p className="text-gray-500">No documents found</p>
-                    <p className="text-sm text-gray-400 mt-2">Generate your first document to see it here</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {savedDocuments.map((doc) => (
-                      <Card key={doc.id}>
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                              <div className="p-3 bg-blue-100 rounded-lg">{getDocumentIcon(doc.type)}</div>
-                              <div>
-                                <h4 className="font-semibold">{doc.title}</h4>
-                                <div className="flex items-center gap-2 text-sm text-gray-500">
-                                  <Calendar className="h-4 w-4" />
-                                  {format(new Date(doc.created_at), "dd MMM yyyy, hh:mm a")}
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="flex items-center gap-2">
-                              <Button variant="outline" size="sm" onClick={() => downloadPDF(doc.data, doc.title)}>
-                                <Download className="h-4 w-4" />
-                              </Button>
-                              <Button variant="outline" size="sm" onClick={() => printPDF(doc.data)}>
-                                <Printer className="h-4 w-4" />
-                              </Button>
-                              <Button variant="outline" size="sm" onClick={() => sharePDF(doc.data, doc.title)}>
-                                <Share2 className="h-4 w-4" />
-                              </Button>
-                              <Button variant="destructive" size="sm" onClick={() => handleDeleteDocument(doc.id)}>
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+        {/* Preview Dialog */}
+        <PreviewDialog
+          document={selectedDocument}
+          open={showPreview}
+          onOpenChange={setShowPreview}
+        />
       </div>
-    </div>
     </div>
   );
 }

@@ -18,6 +18,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import Swal from "sweetalert2";
+import * as XLSX from 'xlsx';
 
 // ── API lib ─────────────────────────────────────────────────────────────────
 import {
@@ -1436,20 +1437,88 @@ const extractVars = (html?: string) => {
   };
 
   // ── Export ─────────────────────────────────────────────────────────────────
-  const handleExport = () => {
-    const rows = filteredRows.map(t => [
-      t.name, t.category, t.description || "", t.version,
-      t.is_active ? "Active" : "Inactive",
-      (t.variables || []).join(";"),
-    ]);
-    const csv = [["Name", "Category", "Description", "Version", "Status", "Variables"], ...rows]
-      .map(r => r.join(",")).join("\n");
+const handleExport = () => {
+  try {
+    // Prepare data for export
+    const exportData = filteredRows.map(t => ({
+      'Template Name': t.name,
+      'Category': t.category,
+      'Description': t.description || '',
+      'Version': t.version,
+      'Status': t.is_active ? 'Active' : 'Inactive',
+      'Variables Count': t.variables?.length || 0,
+      'Variables List': (t.variables || []).join('; '),
+      'Last Updated': new Date(t.updated_at).toLocaleDateString('en-IN', {
+        day: '2-digit', month: 'short', year: 'numeric'
+      }),
+      'Change Notes': t.change_notes || '',
+      'Created By': t.created_by || '',
+      'Last Modified By': t.last_modified_by || '',
+      'ID': t.id
+    }));
+
+    // Create worksheet
+    const ws = XLSX.utils.json_to_sheet(exportData);
     
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-    a.download = `templates_${new Date().toISOString().split("T")[0]}.csv`;
-    a.click();
-  };
+    // Auto-size columns
+    const colWidths = [];
+    const headers = Object.keys(exportData[0] || {});
+    headers.forEach(header => {
+      const maxLength = Math.max(
+        header.length,
+        ...exportData.map(row => String(row[header] || '').length)
+      );
+      colWidths.push({ wch: Math.min(maxLength + 2, 50) });
+    });
+    ws['!cols'] = colWidths;
+
+    // Create workbook
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Templates");
+
+    // Add summary sheet
+    const summaryData = [{
+      'Metric': 'Total Templates',
+      'Value': filteredRows.length
+    }, {
+      'Metric': 'Active Templates',
+      'Value': filteredRows.filter(t => t.is_active).length
+    }, {
+      'Metric': 'Inactive Templates',
+      'Value': filteredRows.filter(t => !t.is_active).length
+    }, {
+      'Metric': 'Categories',
+      'Value': new Set(filteredRows.map(t => t.category)).size
+    }, {
+      'Metric': 'Export Date',
+      'Value': new Date().toLocaleString('en-IN')
+    }];
+
+    // Add category breakdown
+    const categoryCounts = filteredRows.reduce((acc, t) => {
+      acc[t.category] = (acc[t.category] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    Object.entries(categoryCounts).forEach(([category, count]) => {
+      summaryData.push({ 'Metric': `${category} Templates`, 'Value': count });
+    });
+
+    const summaryWs = XLSX.utils.json_to_sheet(summaryData);
+    XLSX.utils.book_append_sheet(wb, summaryWs, "Summary");
+
+    // Generate filename
+    const filename = `templates_export_${new Date().toISOString().split('T')[0]}.xlsx`;
+
+    // Save file
+    XLSX.writeFile(wb, filename);
+    
+    toast.success(`Exported ${filteredRows.length} templates successfully`);
+  } catch (error) {
+    console.error('Export error:', error);
+    toast.error('Failed to export templates');
+  }
+};
 
   // ── Filter helpers ─────────────────────────────────────────────────────────
   const hasFilters = catFilter !== "all" || statusFilter !== "all";

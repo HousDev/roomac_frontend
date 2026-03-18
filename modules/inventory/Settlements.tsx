@@ -27,6 +27,8 @@ import {
   createSettlement, updateSettlement, deleteSettlement,
   type Settlement, type SettlementPayload,
 } from "@/lib/settlementApi";
+import * as XLSX from 'xlsx';
+
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 const safeNum = (v: any) => { const n = parseFloat(String(v)); return isNaN(n) ? 0 : n; };
@@ -241,19 +243,286 @@ const [handoverSearchTerm, setHandoverSearchTerm] = useState('');
     } catch (err: any) { Swal.fire('Error', err.message, 'error'); }
   };
 
-  const handleExport = () => {
-    const h = ['Tenant','Phone','Property','Room','Date','Deposit','Penalties','Deductions','Refund','Method','Status'];
-    const rows = filteredItems.map(s => [
-      s.tenant_name, s.tenant_phone, s.property_name, s.room_number,
-      fmt(s.settlement_date), s.security_deposit, s.penalties,
-      s.total_deductions, s.refund_amount, s.payment_method, s.status,
-    ]);
-    const csv = [h, ...rows].map(r => r.join(',')).join('\n');
-    const a   = document.createElement('a');
-    a.href    = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
-    a.download= `settlements_${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-  };
+const handleExport = () => {
+  try {
+    // Create workbook
+    const wb = XLSX.utils.book_new();
+
+    // 1. Main settlements sheet
+    const settlementsData = filteredItems.map(s => ({
+      'Tenant Name': s.tenant_name,
+      'Phone': s.tenant_phone,
+      'Email': s.tenant_email || '',
+      'Property': s.property_name,
+      'Room Number': s.room_number,
+      'Bed Number': s.bed_number || '',
+      'Settlement Date': fmt(s.settlement_date),
+      'Move-out Date': fmt(s.move_out_date),
+      'Security Deposit (₹)': safeNum(s.security_deposit),
+      'Penalties (₹)': safeNum(s.penalties),
+      'Penalty Discount (₹)': safeNum(s.penalty_discount),
+      'Net Penalties (₹)': Math.max(0, safeNum(s.penalties) - safeNum(s.penalty_discount)),
+      'Outstanding Rent (₹)': safeNum(s.outstanding_rent),
+      'Other Deductions (₹)': safeNum(s.other_deductions),
+      'Total Deductions (₹)': safeNum(s.total_deductions),
+      'Refund Amount (₹)': safeNum(s.refund_amount),
+      'Payment Method': s.payment_method || '',
+      'Payment Reference': s.payment_reference || '',
+      'Status': s.status,
+      'Notes': s.notes || '',
+      'Created Date': s.created_at ? fmt(s.created_at) : '',
+      'Settlement ID': s.id,
+      'Handover ID': s.handover_id || ''
+    }));
+
+    const settlementsWs = XLSX.utils.json_to_sheet(settlementsData);
+    
+    // Auto-size columns
+    const settlementsColWidths = [];
+    const settlementsHeaders = Object.keys(settlementsData[0] || {});
+    settlementsHeaders.forEach(header => {
+      const maxLength = Math.max(
+        header.length,
+        ...settlementsData.map(row => String(row[header] || '').length)
+      );
+      settlementsColWidths.push({ wch: Math.min(maxLength + 2, 50) });
+    });
+    settlementsWs['!cols'] = settlementsColWidths;
+    
+    XLSX.utils.book_append_sheet(wb, settlementsWs, "Settlements");
+
+    // 2. Summary sheet
+    const totalSettlements = filteredItems.length;
+    const totalDeposits = filteredItems.reduce((sum, s) => sum + safeNum(s.security_deposit), 0);
+    const totalPenalties = filteredItems.reduce((sum, s) => sum + safeNum(s.penalties), 0);
+    const totalPenaltyDiscounts = filteredItems.reduce((sum, s) => sum + safeNum(s.penalty_discount), 0);
+    const totalOutstandingRent = filteredItems.reduce((sum, s) => sum + safeNum(s.outstanding_rent), 0);
+    const totalOtherDeductions = filteredItems.reduce((sum, s) => sum + safeNum(s.other_deductions), 0);
+    const totalDeductions = filteredItems.reduce((sum, s) => sum + safeNum(s.total_deductions), 0);
+    const totalRefunds = filteredItems.reduce((sum, s) => sum + safeNum(s.refund_amount), 0);
+    
+    const pendingCount = filteredItems.filter(s => s.status === 'Pending').length;
+    const processingCount = filteredItems.filter(s => s.status === 'Processing').length;
+    const paidCount = filteredItems.filter(s => s.status === 'Paid').length;
+    const completedCount = filteredItems.filter(s => s.status === 'Completed').length;
+    const cancelledCount = filteredItems.filter(s => s.status === 'Cancelled').length;
+
+    const summaryData = [
+      ['Metric', 'Value'],
+      ['Total Settlements', totalSettlements],
+      ['Total Security Deposits (₹)', totalDeposits.toLocaleString('en-IN')],
+      ['Total Penalties (₹)', totalPenalties.toLocaleString('en-IN')],
+      ['Total Penalty Discounts (₹)', totalPenaltyDiscounts.toLocaleString('en-IN')],
+      ['Net Penalties (₹)', (totalPenalties - totalPenaltyDiscounts).toLocaleString('en-IN')],
+      ['Total Outstanding Rent (₹)', totalOutstandingRent.toLocaleString('en-IN')],
+      ['Total Other Deductions (₹)', totalOtherDeductions.toLocaleString('en-IN')],
+      ['Total Deductions (₹)', totalDeductions.toLocaleString('en-IN')],
+      ['Total Refunds (₹)', totalRefunds.toLocaleString('en-IN')],
+      ['Average Refund (₹)', totalSettlements > 0 ? (totalRefunds / totalSettlements).toLocaleString('en-IN') : '0'],
+      ['Pending Settlements', pendingCount],
+      ['Processing Settlements', processingCount],
+      ['Paid Settlements', paidCount],
+      ['Completed Settlements', completedCount],
+      ['Cancelled Settlements', cancelledCount],
+      ['Unique Properties', new Set(filteredItems.map(s => s.property_name)).size],
+      ['Export Date', new Date().toLocaleString('en-IN')]
+    ];
+
+    const summaryWs = XLSX.utils.aoa_to_sheet(summaryData);
+    XLSX.utils.book_append_sheet(wb, summaryWs, "Summary");
+
+    // 3. Status breakdown sheet
+    const statusData = [
+      ['Status', 'Count', 'Total Deposit (₹)', 'Total Penalties (₹)', 'Total Deductions (₹)', 'Total Refunds (₹)'],
+      ['Pending', 
+        pendingCount,
+        filteredItems.filter(s => s.status === 'Pending').reduce((sum, s) => sum + safeNum(s.security_deposit), 0),
+        filteredItems.filter(s => s.status === 'Pending').reduce((sum, s) => sum + safeNum(s.penalties), 0),
+        filteredItems.filter(s => s.status === 'Pending').reduce((sum, s) => sum + safeNum(s.total_deductions), 0),
+        filteredItems.filter(s => s.status === 'Pending').reduce((sum, s) => sum + safeNum(s.refund_amount), 0)
+      ],
+      ['Processing',
+        processingCount,
+        filteredItems.filter(s => s.status === 'Processing').reduce((sum, s) => sum + safeNum(s.security_deposit), 0),
+        filteredItems.filter(s => s.status === 'Processing').reduce((sum, s) => sum + safeNum(s.penalties), 0),
+        filteredItems.filter(s => s.status === 'Processing').reduce((sum, s) => sum + safeNum(s.total_deductions), 0),
+        filteredItems.filter(s => s.status === 'Processing').reduce((sum, s) => sum + safeNum(s.refund_amount), 0)
+      ],
+      ['Paid',
+        paidCount,
+        filteredItems.filter(s => s.status === 'Paid').reduce((sum, s) => sum + safeNum(s.security_deposit), 0),
+        filteredItems.filter(s => s.status === 'Paid').reduce((sum, s) => sum + safeNum(s.penalties), 0),
+        filteredItems.filter(s => s.status === 'Paid').reduce((sum, s) => sum + safeNum(s.total_deductions), 0),
+        filteredItems.filter(s => s.status === 'Paid').reduce((sum, s) => sum + safeNum(s.refund_amount), 0)
+      ],
+      ['Completed',
+        completedCount,
+        filteredItems.filter(s => s.status === 'Completed').reduce((sum, s) => sum + safeNum(s.security_deposit), 0),
+        filteredItems.filter(s => s.status === 'Completed').reduce((sum, s) => sum + safeNum(s.penalties), 0),
+        filteredItems.filter(s => s.status === 'Completed').reduce((sum, s) => sum + safeNum(s.total_deductions), 0),
+        filteredItems.filter(s => s.status === 'Completed').reduce((sum, s) => sum + safeNum(s.refund_amount), 0)
+      ],
+      ['Cancelled',
+        cancelledCount,
+        filteredItems.filter(s => s.status === 'Cancelled').reduce((sum, s) => sum + safeNum(s.security_deposit), 0),
+        filteredItems.filter(s => s.status === 'Cancelled').reduce((sum, s) => sum + safeNum(s.penalties), 0),
+        filteredItems.filter(s => s.status === 'Cancelled').reduce((sum, s) => sum + safeNum(s.total_deductions), 0),
+        filteredItems.filter(s => s.status === 'Cancelled').reduce((sum, s) => sum + safeNum(s.refund_amount), 0)
+      ]
+    ];
+
+    const statusWs = XLSX.utils.aoa_to_sheet(statusData);
+    XLSX.utils.book_append_sheet(wb, statusWs, "Status Breakdown");
+
+    // 4. Property summary sheet
+    const propertyMap = new Map();
+    filteredItems.forEach(s => {
+      if (!propertyMap.has(s.property_name)) {
+        propertyMap.set(s.property_name, {
+          property: s.property_name,
+          settlements: 0,
+          deposits: 0,
+          penalties: 0,
+          discounts: 0,
+          deductions: 0,
+          refunds: 0
+        });
+      }
+      const prop = propertyMap.get(s.property_name);
+      prop.settlements++;
+      prop.deposits += safeNum(s.security_deposit);
+      prop.penalties += safeNum(s.penalties);
+      prop.discounts += safeNum(s.penalty_discount);
+      prop.deductions += safeNum(s.total_deductions);
+      prop.refunds += safeNum(s.refund_amount);
+    });
+
+    const propertyData = Array.from(propertyMap.values()).map(p => ({
+      'Property': p.property,
+      'Settlements': p.settlements,
+      'Total Deposits (₹)': p.deposits,
+      'Total Penalties (₹)': p.penalties,
+      'Total Discounts (₹)': p.discounts,
+      'Net Penalties (₹)': p.penalties - p.discounts,
+      'Total Deductions (₹)': p.deductions,
+      'Total Refunds (₹)': p.refunds,
+      'Avg Refund (₹)': p.settlements > 0 ? p.refunds / p.settlements : 0
+    }));
+
+    if (propertyData.length > 0) {
+      const propertyWs = XLSX.utils.json_to_sheet(propertyData);
+      XLSX.utils.book_append_sheet(wb, propertyWs, "By Property");
+    }
+
+    // 5. Payment method summary sheet
+    const paymentMap = new Map();
+    filteredItems.forEach(s => {
+      const method = s.payment_method || 'Not Specified';
+      if (!paymentMap.has(method)) {
+        paymentMap.set(method, {
+          method,
+          count: 0,
+          refunds: 0,
+          deposits: 0
+        });
+      }
+      const pm = paymentMap.get(method);
+      pm.count++;
+      pm.refunds += safeNum(s.refund_amount);
+      pm.deposits += safeNum(s.security_deposit);
+    });
+
+    const paymentData = Array.from(paymentMap.values()).map(p => ({
+      'Payment Method': p.method,
+      'Transactions': p.count,
+      'Total Refunds (₹)': p.refunds,
+      'Total Deposits (₹)': p.deposits,
+      'Avg Refund (₹)': p.count > 0 ? p.refunds / p.count : 0,
+      'Percentage of Total': totalRefunds > 0 ? `${((p.refunds / totalRefunds) * 100).toFixed(1)}%` : '0%'
+    }));
+
+    if (paymentData.length > 0) {
+      const paymentWs = XLSX.utils.json_to_sheet(paymentData);
+      XLSX.utils.book_append_sheet(wb, paymentWs, "By Payment Method");
+    }
+
+    // 6. Monthly trend sheet
+    const monthlyMap = new Map();
+    filteredItems.forEach(s => {
+      const month = s.settlement_date ? new Date(s.settlement_date).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }) : 'Unknown';
+      if (!monthlyMap.has(month)) {
+        monthlyMap.set(month, {
+          month,
+          settlements: 0,
+          deposits: 0,
+          penalties: 0,
+          deductions: 0,
+          refunds: 0
+        });
+      }
+      const m = monthlyMap.get(month);
+      m.settlements++;
+      m.deposits += safeNum(s.security_deposit);
+      m.penalties += safeNum(s.penalties);
+      m.deductions += safeNum(s.total_deductions);
+      m.refunds += safeNum(s.refund_amount);
+    });
+
+    const monthlyData = Array.from(monthlyMap.values()).map(m => ({
+      'Month': m.month,
+      'Settlements': m.settlements,
+      'Total Deposits (₹)': m.deposits,
+      'Total Penalties (₹)': m.penalties,
+      'Total Deductions (₹)': m.deductions,
+      'Total Refunds (₹)': m.refunds,
+      'Avg Refund (₹)': m.settlements > 0 ? m.refunds / m.settlements : 0
+    }));
+
+    if (monthlyData.length > 0) {
+      const monthlyWs = XLSX.utils.json_to_sheet(monthlyData);
+      XLSX.utils.book_append_sheet(wb, monthlyWs, "Monthly Trend");
+    }
+
+    // 7. Detailed financial analysis sheet
+    const financialData = filteredItems.map(s => {
+      const netPenalties = Math.max(0, safeNum(s.penalties) - safeNum(s.penalty_discount));
+      const depositAfterDeductions = safeNum(s.security_deposit) - safeNum(s.total_deductions);
+      const refundPercentage = safeNum(s.security_deposit) > 0 
+        ? ((safeNum(s.refund_amount) / safeNum(s.security_deposit)) * 100).toFixed(1) + '%' 
+        : '0%';
+      
+      return {
+        'Tenant': s.tenant_name,
+        'Property': s.property_name,
+        'Deposit': safeNum(s.security_deposit),
+        'Gross Penalties': safeNum(s.penalties),
+        'Penalty Discount': safeNum(s.penalty_discount),
+        'Net Penalties': netPenalties,
+        'Outstanding Rent': safeNum(s.outstanding_rent),
+        'Other Deductions': safeNum(s.other_deductions),
+        'Total Deductions': safeNum(s.total_deductions),
+        'Deposit after Deductions': depositAfterDeductions,
+        'Refund Amount': safeNum(s.refund_amount),
+        'Refund % of Deposit': refundPercentage,
+        'Status': s.status
+      };
+    });
+
+    const financialWs = XLSX.utils.json_to_sheet(financialData);
+    XLSX.utils.book_append_sheet(wb, financialWs, "Financial Analysis");
+
+    // Generate filename
+    const filename = `settlements_export_${new Date().toISOString().split('T')[0]}.xlsx`;
+
+    // Save file
+    XLSX.writeFile(wb, filename);
+    
+    toast.success(`Exported ${filteredItems.length} settlements successfully`);
+  } catch (error) {
+    console.error('Export error:', error);
+    toast.error('Failed to export settlements');
+  }
+};
 
   const hasFilters   = statusFilter !== 'all';
   const hasColSearch = Object.values(colSearch).some(v => v);

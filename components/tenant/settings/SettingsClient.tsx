@@ -68,21 +68,18 @@ export default function SettingsClient({
         // Check if we have token in localStorage
         const token = localStorage.getItem("tenant_token");
         if (!token) {
-          console.log("No token found in localStorage");
           // Don't redirect immediately, maybe user is not logged in
           return;
         }
 
         // If initialTenant is null, try to load from API
         if (!tenant) {
-          console.log("Loading tenant data on client side...");
           setLoading(true);
           
           try {
             const result = await tenantDetailsApi.loadProfile();
             
             if (result && result.success && result.data) {
-              console.log("Tenant data loaded successfully on client");
               setTenant(result.data);
             } else {
               console.error("Failed to load tenant data:", result?.message || "Unknown error");
@@ -112,7 +109,6 @@ export default function SettingsClient({
       const hasBasicInfo = initialTenant.full_name && initialTenant.email;
       
       if (!hasBasicInfo) {
-        console.log("Initial tenant data incomplete, refreshing...");
         loadTenantData();
       }
     }
@@ -122,11 +118,9 @@ export default function SettingsClient({
   const loadTenantData = useCallback(async () => {
     try {
       setLoading(true);
-      console.log("Manually loading tenant data...");
       const result = await tenantDetailsApi.loadProfile();
       
       if (result && result.success && result.data) {
-        console.log("Tenant data refreshed successfully");
         setTenant(result.data);
         toast.success("Profile data refreshed");
       } else {
@@ -155,7 +149,6 @@ export default function SettingsClient({
         if (res.status === 404) {
           return;
         }
-        console.warn('Failed to load notification prefs:', res.status);
         return;
       }
       

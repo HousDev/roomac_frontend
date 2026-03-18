@@ -27,6 +27,8 @@ import { Dialog, DialogContent, DialogClose } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import Swal from "sweetalert2";
 
+import * as XLSX from 'xlsx';
+
 import {
   listDocuments, getDocument, deleteDocument, updateDocumentStatus,
   bulkDeleteDocuments,
@@ -539,7 +541,7 @@ function SharePopup({ doc, onClose, onDone }: { doc: Doc; onClose: () => void; o
   };
 
   const CHANNELS = [
-    { id:"whatsapp", label:"WhatsApp",   desc:"Rich formatting",    Icon: MessageCircle, color:"green", gradient:"from-green-500 to-green-600" },
+    { id:"whatsapp", label:"WhatsApp",   desc:"Rich formatting",    Icon: MessageCircle, color:"green", gradient:"from-green-500 to-green-800" },
     { id:"email",    label:"Email",       desc:"With attachment",    Icon: Mail,          color:"blue", gradient:"from-blue-500 to-blue-600" },
     { id:"sms",      label:"SMS",         desc:"Document link",      Icon: Smartphone,    color:"purple", gradient:"from-purple-500 to-purple-600" },
     { id:"public",   label:"Public Link", desc:"Shareable link",     Icon: Globe,         color:"orange", gradient:"from-orange-500 to-orange-600" },
@@ -1775,11 +1777,92 @@ export function DocumentList() {
   const closePopup = () => setPopup({ type: null, doc: null });
   const popupDone  = () => { closePopup(); loadDocs(); };
 
-  const handleExport = () => {
-    const rows = filteredRows.map(d => [d.document_number,d.document_name,d.tenant_name,d.tenant_phone,d.property_name||"",d.room_number||"",d.status,d.priority,fmt(d.created_at)]);
-    const csv = [["Doc#","Name","Tenant","Phone","Property","Room","Status","Priority","Date"],...rows].map(r=>r.join(",")).join("\n");
-    const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv],{type:"text/csv"})); a.download=`documents_${new Date().toISOString().split("T")[0]}.csv`; a.click();
-  };
+
+// Replace the handleExport function with:
+
+const handleExport = () => {
+  try {
+    // Prepare data for export
+    const exportData = filteredRows.map(d => ({
+      'Document #': d.document_number,
+      'Document Name': d.document_name,
+      'Tenant Name': d.tenant_name,
+      'Tenant Phone': d.tenant_phone,
+      'Tenant Email': d.tenant_email || '',
+      'Property': d.property_name || '',
+      'Room Number': d.room_number || '',
+      'Rent Amount': d.rent_amount ? `₹${Number(d.rent_amount).toLocaleString('en-IN')}` : '',
+      'Status': d.status,
+      'Priority': d.priority,
+      'Signature Required': d.signature_required ? 'Yes' : 'No',
+      'Created By': d.created_by || '',
+      'Created Date': fmt(d.created_at),
+      'Last Updated': fmt(d.updated_at),
+      'Document ID': d.id
+    }));
+
+    // Create worksheet
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    
+    // Auto-size columns
+    const colWidths = [];
+    const headers = Object.keys(exportData[0] || {});
+    headers.forEach(header => {
+      const maxLength = Math.max(
+        header.length,
+        ...exportData.map(row => String(row[header] || '').length)
+      );
+      colWidths.push({ wch: Math.min(maxLength + 2, 50) });
+    });
+    ws['!cols'] = colWidths;
+
+    // Create workbook
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Documents");
+
+    // Add summary sheet
+    const summaryData = [{
+      'Metric': 'Total Documents',
+      'Value': filteredRows.length
+    }, {
+      'Metric': 'By Status',
+      'Value': Object.entries(
+        filteredRows.reduce((acc, d) => {
+          acc[d.status] = (acc[d.status] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>)
+      ).map(([k, v]) => `${k}: ${v}`).join(', ')
+    }, {
+      'Metric': 'By Priority',
+      'Value': Object.entries(
+        filteredRows.reduce((acc, d) => {
+          acc[d.priority] = (acc[d.priority] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>)
+      ).map(([k, v]) => `${k}: ${v}`).join(', ')
+    }, {
+      'Metric': 'Export Date',
+      'Value': new Date().toLocaleString('en-IN')
+    }, {
+      'Metric': 'Filters Applied',
+      'Value': `Status: ${statusFilter}, Priority: ${priorityFilter}`
+    }];
+
+    const summaryWs = XLSX.utils.json_to_sheet(summaryData);
+    XLSX.utils.book_append_sheet(wb, summaryWs, "Summary");
+
+    // Generate filename
+    const filename = `documents_export_${new Date().toISOString().split('T')[0]}.xlsx`;
+
+    // Save file
+    XLSX.writeFile(wb, filename);
+    
+    toast.success(`Exported ${filteredRows.length} documents successfully`);
+  } catch (error) {
+    console.error('Export error:', error);
+    toast.error('Failed to export documents');
+  }
+};
 
   const hasFilters   = statusFilter !== "all" || priorityFilter !== "all";
   const filterCount  = [statusFilter!=="all",priorityFilter!=="all"].filter(Boolean).length;

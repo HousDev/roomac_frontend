@@ -262,19 +262,6 @@ export default function AccommodationTab({
     return profile.property_state; // Return ID while loading
   };
 
-  // Debug log
-  console.log("🏠 AccommodationTab - Profile data:", {
-    tenant_rent: profile.tenant_rent,
-    rent_per_bed: profile.rent_per_bed,
-    monthly_rent: profile.monthly_rent,
-    final_rent: rentAmount,
-    bed_type: profile.bed_type,
-    is_couple: profile.is_couple,
-    sharing_type: profile.sharing_type,
-    preferred_sharing: profile.preferred_sharing,
-    property_state: profile.property_state,
-    mapped_state: getPropertyState()
-  });
 
   // ── No accommodation ───────────────────────────────────────────────────────
   if (!hasAccommodation) {

@@ -31,6 +31,7 @@ import SideFilter from './side-filter';
 import BulkActions from './bulk-actions'; // Keep this import
 import RoomImportModal from './room-import-modal';
 import Swal from 'sweetalert2';
+import * as XLSX from 'xlsx';
 
 // Types
 interface RoomsClientProps {
@@ -365,50 +366,62 @@ const handleImportFile = async (file: File) => {
     }
   }, []);
 
-  // Export handler
-  const handleExport = useCallback(() => {
-    try {
-      const exportData = rooms.map(room => ({
-        'Room Number': room.room_number,
-        'Property': room.property_name,
-        'Sharing Type': room.sharing_type,
-        'Total Beds': room.total_bed,
-        'Occupied Beds': room.occupied_beds,
-        'Available Beds': (room.total_bed || 0) - (room.occupied_beds || 0),
-        'Rent per Bed': room.rent_per_bed,
-        'Floor': room.floor,
-        'Gender Preference': Array.isArray(room.room_gender_preference) 
-          ? room.room_gender_preference.join(', ') 
-          : room.room_gender_preference || 'Any',
-        'Allow Couples': room.allow_couples ? 'Yes' : 'No',
-        'Attached Bathroom': room.has_attached_bathroom ? 'Yes' : 'No',
-        'Balcony': room.has_balcony ? 'Yes' : 'No',
-        'AC': room.has_ac ? 'Yes' : 'No',
-        'Amenities': Array.isArray(room.amenities) ? room.amenities.join(', ') : '',
-        'Status': room.is_active ? 'Active' : 'Inactive'
-      }));
 
-      const headers = Object.keys(exportData[0] || {}).join(',');
-      const csvRows = exportData.map(row => Object.values(row).map(value => 
-        typeof value === 'string' && value.includes(',') ? `"${value}"` : value
-      ).join(','));
-      
-      const csv = [headers, ...csvRows].join('\n');
-      
-      const blob = new Blob([csv], { type: 'text/csv' });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `rooms-export-${new Date().toISOString().split('T')[0]}.csv`;
-      a.click();
-      window.URL.revokeObjectURL(url);
-      
-      toast.success(`Exported ${exportData.length} rooms successfully!`);
-    } catch (error) {
-      console.error('Error exporting rooms:', error);
-      toast.error("Failed to export rooms");
-    }
-  }, [rooms]);
+
+// Inside your RoomsClient component, replace the handleExport function:
+
+const handleExport = useCallback(() => {
+  try {
+    // Prepare data for Excel
+    const exportData = rooms.map(room => ({
+      'Room Number': room.room_number,
+      'Property': room.property_name,
+      'Sharing Type': room.sharing_type,
+      'Total Beds': room.total_bed,
+      'Occupied Beds': room.occupied_beds,
+      'Available Beds': (room.total_bed || 0) - (room.occupied_beds || 0),
+      'Total Rent': room.rent_per_bed,
+      'Floor': room.floor,
+      'Gender Preference': Array.isArray(room.room_gender_preference) 
+        ? room.room_gender_preference.join(', ') 
+        : room.room_gender_preference || 'Any',
+      'Allow Couples': room.allow_couples ? 'Yes' : 'No',
+      'Attached Bathroom': room.has_attached_bathroom ? 'Yes' : 'No',
+      'Balcony': room.has_balcony ? 'Yes' : 'No',
+      'AC': room.has_ac ? 'Yes' : 'No',
+      'Amenities': Array.isArray(room.amenities) ? room.amenities.join(', ') : '',
+      'Status': room.is_active ? 'Active' : 'Inactive'
+    }));
+
+    // Create worksheet
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    
+    // Auto-size columns (optional but recommended)
+    const colWidths = [];
+    const headers = Object.keys(exportData[0] || {});
+    headers.forEach(header => {
+      const maxLength = Math.max(
+        header.length,
+        ...exportData.map(row => String(row[header] || '').length)
+      );
+      colWidths.push({ wch: Math.min(maxLength + 2, 50) }); // Cap at 50 chars
+    });
+    ws['!cols'] = colWidths;
+
+    // Create workbook
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Rooms");
+    
+    // Generate Excel file
+    const fileName = `rooms-export-${new Date().toISOString().split('T')[0]}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+    
+    toast.success(`Exported ${exportData.length} rooms successfully!`);
+  } catch (error) {
+    console.error('Error exporting rooms:', error);
+    toast.error("Failed to export rooms");
+  }
+}, [rooms]);
 
   // Import handler
   const handleImport = useCallback(() => {
@@ -438,7 +451,6 @@ const handleImportFile = async (file: File) => {
     
     const roomToEdit = rooms.find(r => r.id === room.id);
     if (!roomToEdit) {
-      console.error("Room not found in state!");
       toast.error("Room data not found. Please refresh the page.");
       return;
     }

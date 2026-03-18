@@ -906,10 +906,9 @@ export default function ReceiptsPage() {
               </div>
 
               {/* Admin Actions */}
-              <div className="border rounded-md p-3">
+              {/* <div className="border rounded-md p-3">
                 <h4 className="text-xs font-semibold mb-2 text-blue-600">Admin Actions</h4>
                 <div className="space-y-3">
-                  {/* Status Update Buttons */}
                   {selectedRequest.status === 'pending' && (
                     <div className="flex gap-2">
                       <Button 
@@ -935,8 +934,6 @@ export default function ReceiptsPage() {
                       </Button>
                     </div>
                   )}
-
-                  {/* Admin Notes */}
                   {selectedRequest.admin_notes && (
                     <div className="pt-2 border-t">
                       <Label className="text-xs text-gray-500">Admin Notes</Label>
@@ -945,8 +942,6 @@ export default function ReceiptsPage() {
                       </div>
                     </div>
                   )}
-
-                  {/* Resolved At */}
                   {selectedRequest.resolved_at && (
                     <div className="pt-2 border-t">
                       <Label className="text-xs text-gray-500">Completed At</Label>
@@ -956,7 +951,7 @@ export default function ReceiptsPage() {
                     </div>
                   )}
                 </div>
-              </div>
+              </div> */}
             </div>
           )}
         </DialogContent>

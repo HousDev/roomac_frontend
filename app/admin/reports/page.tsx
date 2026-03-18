@@ -38,6 +38,10 @@ import {
 import { format, startOfMonth, endOfMonth, startOfYear, endOfYear, subDays } from 'date-fns';
 import { toast } from 'sonner';
 import * as reportApi from '@/lib/reportApi';
+import * as XLSX from 'xlsx';
+// Add this import at the top
+import { useRef } from 'react';
+
 
 export default function ReportsPage() {
   const [loading, setLoading] = useState(false);
@@ -67,6 +71,8 @@ export default function ReportsPage() {
     endDate: format(endOfMonth(new Date()), 'yyyy-MM-dd'),
     propertyId: 'all'
   });
+
+  const reportSectionRef = useRef<HTMLDivElement>(null);
 
   const [dateRange, setDateRange] = useState<'today' | 'week' | 'month' | 'year' | 'custom'>('month');
   const [reportData, setReportData] = useState<reportApi.ReportData | null>(null);
@@ -158,94 +164,273 @@ export default function ReportsPage() {
     setSelectedProperty(selected || null);
   };
 
-  const generateReport = async () => {
-    setLoading(true);
-    setReportData(null);
+// Update the generateReport function to scroll after data loads:
+const generateReport = async () => {
+  setLoading(true);
+  setReportData(null);
+  
+  try {
+    let response;
+    switch (filters.reportType) {
+      case 'revenue':
+        response = await reportApi.generateRevenueReport(filters);
+        setSummaryStats({
+          totalRevenue: response.summary.totalRevenue,
+          totalPayments: response.summary.paymentCount,
+          totalTenants: new Set(response.payments?.map((p: any) => p.tenant_id)).size,
+          occupancyRate: 0,
+          collectionRate: 100
+        });
+        break;
+        
+      case 'payments':
+        response = await reportApi.generatePaymentsReport(filters);
+        const completed = (response.summary as reportApi.PaymentSummary).completedPayments;
+        const total = response.payments?.length || 1;
+        setSummaryStats({
+          totalRevenue: response.summary.totalAmount,
+          totalPayments: response.payments?.length || 0,
+          totalTenants: 0,
+          occupancyRate: 0,
+          collectionRate: (completed / total) * 100
+        });
+        break;
+        
+      case 'tenants':
+        response = await reportApi.generateTenantsReport(filters);
+        const summary = response.summary as reportApi.TenantSummary;
+        setSummaryStats({
+          totalRevenue: 0,
+          totalPayments: 0,
+          totalTenants: summary.totalTenants,
+          occupancyRate: summary.totalTenants ? (summary.withActiveBookings / summary.totalTenants) * 100 : 0,
+          collectionRate: 0
+        });
+        break;
+        
+      case 'occupancy':
+        response = await reportApi.generateOccupancyReport(filters);
+        setSummaryStats({
+          totalRevenue: 0,
+          totalPayments: 0,
+          totalTenants: 0,
+          occupancyRate: parseFloat((response.summary as reportApi.OccupancySummary).occupancyRate),
+          collectionRate: 0
+        });
+        break;
+    }
     
-    try {
-      let response;
-      switch (filters.reportType) {
-        case 'revenue':
-          response = await reportApi.generateRevenueReport(filters);
-          setSummaryStats({
-            totalRevenue: response.summary.totalRevenue,
-            totalPayments: response.summary.paymentCount,
-            totalTenants: new Set(response.payments?.map((p: any) => p.tenant_id)).size,
-            occupancyRate: 0,
-            collectionRate: 100
-          });
-          break;
-          
-        case 'payments':
-          response = await reportApi.generatePaymentsReport(filters);
-          const completed = (response.summary as reportApi.PaymentSummary).completedPayments;
-          const total = response.payments?.length || 1;
-          setSummaryStats({
-            totalRevenue: response.summary.totalAmount,
-            totalPayments: response.payments?.length || 0,
-            totalTenants: 0,
-            occupancyRate: 0,
-            collectionRate: (completed / total) * 100
-          });
-          break;
-          
-        case 'tenants':
-          response = await reportApi.generateTenantsReport(filters);
-          const summary = response.summary as reportApi.TenantSummary;
-          setSummaryStats({
-            totalRevenue: 0,
-            totalPayments: 0,
-            totalTenants: summary.totalTenants,
-            occupancyRate: summary.totalTenants ? (summary.withActiveBookings / summary.totalTenants) * 100 : 0,
-            collectionRate: 0
-          });
-          break;
-          
-        case 'occupancy':
-          response = await reportApi.generateOccupancyReport(filters);
-          setSummaryStats({
-            totalRevenue: 0,
-            totalPayments: 0,
-            totalTenants: 0,
-            occupancyRate: parseFloat((response.summary as reportApi.OccupancySummary).occupancyRate),
-            collectionRate: 0
-          });
-          break;
-      }
+    setReportData(response);
+    setActiveTab('report');
+    toast.success(`${filters.reportType} report generated successfully`);
+    
+    // Scroll to report section after data loads
+    setTimeout(() => {
+      reportSectionRef.current?.scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'start' 
+      });
+    }, 100); // Small delay to ensure content is rendered
+    
+  } catch (error) {
+    console.error('Error generating report:', error);
+    toast.error('Failed to generate report');
+  } finally {
+    setLoading(false);
+  }
+};
+
+// Replace the exportToCSV function with:
+
+const exportToExcel = async () => {
+  if (!reportData) {
+    toast.error('No data to export');
+    return;
+  }
+
+  try {
+    // Prepare data based on report type
+    let exportData: any[] = [];
+    let worksheetName = '';
+    let summaryData: any[] = [];
+
+    switch (filters.reportType) {
+      case 'revenue':
+      case 'payments':
+        worksheetName = 'Payments';
+        exportData = reportData.payments?.map((payment: any) => ({
+          'Payment #': payment.payment_number || payment.id,
+          'Date': payment.payment_date ? new Date(payment.payment_date).toLocaleDateString('en-IN') : '-',
+          'Tenant Name': payment.tenant_name || 'N/A',
+          'Property': payment.property_name || 'N/A',
+          'Payment Type': payment.payment_type || '-',
+          'Amount (₹)': payment.amount || 0,
+          'Payment Method': payment.payment_method || '-',
+          'Status': payment.status || 'unknown',
+          'Transaction ID': payment.transaction_id || '-'
+        })) || [];
+        
+        // Summary data
+        summaryData = [{
+          'Metric': 'Total Revenue',
+          'Value': `₹${(reportData.summary as any).totalRevenue?.toLocaleString('en-IN') || 0}`
+        }, {
+          'Metric': 'Rent Revenue',
+          'Value': `₹${(reportData.summary as any).rentRevenue?.toLocaleString('en-IN') || 0}`
+        }, {
+          'Metric': 'Deposit Revenue',
+          'Value': `₹${(reportData.summary as any).depositRevenue?.toLocaleString('en-IN') || 0}`
+        }, {
+          'Metric': 'Addon Revenue',
+          'Value': `₹${(reportData.summary as any).addonRevenue?.toLocaleString('en-IN') || 0}`
+        }, {
+          'Metric': 'Total Payments',
+          'Value': (reportData.summary as any).paymentCount || 0
+        }];
+        break;
+
+      case 'tenants':
+        worksheetName = 'Tenants';
+        exportData = reportData.tenants?.map((tenant: any) => ({
+          'Name': tenant.full_name || '-',
+          'Email': tenant.email || '-',
+          'Phone': tenant.phone || '-',
+          'Gender': tenant.gender || 'N/A',
+          'Occupation': tenant.occupation || 'N/A',
+          'City': tenant.city || 'N/A',
+          'Status': tenant.is_active ? 'Active' : 'Inactive',
+          'Property': tenant.property_name || 'N/A',
+          'Created Date': tenant.created_at ? new Date(tenant.created_at).toLocaleDateString('en-IN') : '-'
+        })) || [];
+        
+        const tenantSummary = reportData.summary as any;
+        summaryData = [{
+          'Metric': 'Total Tenants',
+          'Value': tenantSummary.totalTenants || 0
+        }, {
+          'Metric': 'Active Tenants',
+          'Value': tenantSummary.activeTenants || 0
+        }, {
+          'Metric': 'Inactive Tenants',
+          'Value': tenantSummary.inactiveTenants || 0
+        }, {
+          'Metric': 'With Active Bookings',
+          'Value': tenantSummary.withActiveBookings || 0
+        }, {
+          'Metric': 'Male',
+          'Value': tenantSummary.maleCount || 0
+        }, {
+          'Metric': 'Female',
+          'Value': tenantSummary.femaleCount || 0
+        }, {
+          'Metric': 'Other',
+          'Value': tenantSummary.otherCount || 0
+        }, {
+          'Metric': 'New This Month',
+          'Value': tenantSummary.newTenantsThisMonth || 0
+        }];
+        break;
+
+      case 'occupancy':
+        worksheetName = 'Rooms';
+        exportData = reportData.rooms?.map((room: any) => ({
+          'Property': room.property_name || 'N/A',
+          'Room Number': room.room_number || '-',
+          'Room Type': room.room_type || '-',
+          'Floor': room.floor || 'N/A',
+          'Rent (₹)': room.rent_amount || 0,
+          'Status': room.status || 'unknown',
+          'Occupied Beds': room.occupied_beds || 0,
+          'Total Beds': room.total_bed || 0,
+          'Available Beds': (room.total_bed || 0) - (room.occupied_beds || 0)
+        })) || [];
+        
+        const occupancySummary = reportData.summary as any;
+        summaryData = [{
+          'Metric': 'Total Rooms',
+          'Value': occupancySummary.totalRooms || 0
+        }, {
+          'Metric': 'Occupied Rooms',
+          'Value': occupancySummary.occupiedRooms || 0
+        }, {
+          'Metric': 'Vacant Rooms',
+          'Value': occupancySummary.vacantRooms || 0
+        }, {
+          'Metric': 'Maintenance Rooms',
+          'Value': occupancySummary.maintenanceRooms || 0
+        }, {
+          'Metric': 'Occupancy Rate',
+          'Value': `${occupancySummary.occupancyRate || 0}%`
+        }, {
+          'Metric': 'Potential Revenue',
+          'Value': `₹${(occupancySummary.potentialRevenue || 0).toLocaleString('en-IN')}`
+        }, {
+          'Metric': 'Actual Revenue',
+          'Value': `₹${(occupancySummary.actualRevenue || 0).toLocaleString('en-IN')}`
+        }];
+        break;
+    }
+
+    // Create workbook
+    const wb = XLSX.utils.book_new();
+
+    // Add summary sheet
+    if (summaryData.length > 0) {
+      const summaryWs = XLSX.utils.json_to_sheet(summaryData);
       
-      setReportData(response);
-      setActiveTab('report');
-      toast.success(`${filters.reportType} report generated successfully`);
-    } catch (error) {
-      console.error('Error generating report:', error);
-      toast.error('Failed to generate report');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const exportToCSV = async () => {
-    if (!reportData) {
-      toast.error('No data to export');
-      return;
+      // Style summary sheet
+      const summaryColWidths = [
+        { wch: 25 }, // Metric column
+        { wch: 20 }  // Value column
+      ];
+      summaryWs['!cols'] = summaryColWidths;
+      
+      XLSX.utils.book_append_sheet(wb, summaryWs, 'Summary');
     }
 
-    try {
-      const blob = await reportApi.exportReportToCSV(filters.reportType, reportData);
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${filters.reportType}_report_${format(new Date(), 'yyyy-MM-dd')}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-      toast.success('Report exported successfully');
-    } catch (error) {
-      console.error('Error exporting report:', error);
-      toast.error('Failed to export report');
+    // Add data sheet
+    if (exportData.length > 0) {
+      const dataWs = XLSX.utils.json_to_sheet(exportData);
+      
+      // Auto-size columns
+      const colWidths = [];
+      const headers = Object.keys(exportData[0] || {});
+      headers.forEach(header => {
+        const maxLength = Math.max(
+          header.length,
+          ...exportData.map(row => String(row[header] || '').length)
+        );
+        colWidths.push({ wch: Math.min(maxLength + 2, 50) });
+      });
+      dataWs['!cols'] = colWidths;
+      
+      XLSX.utils.book_append_sheet(wb, dataWs, worksheetName);
     }
-  };
+
+    // Add metadata sheet
+    const metadataData = [{
+      'Report Type': filters.reportType.charAt(0).toUpperCase() + filters.reportType.slice(1),
+      'Date Range': `${filters.startDate} to ${filters.endDate}`,
+      'Property': getPropertyDisplay(),
+      'Generated On': new Date().toLocaleString('en-IN'),
+      'Total Records': exportData.length
+    }];
+    
+    const metadataWs = XLSX.utils.json_to_sheet(metadataData);
+    XLSX.utils.book_append_sheet(wb, metadataWs, 'Metadata');
+
+    // Generate filename
+    const filename = `${filters.reportType}_report_${format(new Date(), 'yyyy-MM-dd_HH-mm')}.xlsx`;
+
+    // Save file
+    XLSX.writeFile(wb, filename);
+    
+    toast.success('Report exported successfully as Excel');
+  } catch (error) {
+    console.error('Error exporting report:', error);
+    toast.error('Failed to export report');
+  }
+};
 
   const handlePrint = () => {
     if (!reportData) {
@@ -545,15 +730,15 @@ export default function ReportsPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="report" className="mt-3 sm:mt-4">
+        <TabsContent value="report" className="mt-3 sm:mt-4"  ref={reportSectionRef}>
           {reportData && (
             <>
               {/* Report Actions */}
               <div className="flex justify-end gap-1.5 sm:gap-2 mb-3 sm:mb-4">
-                <Button variant="outline" size="sm" onClick={exportToCSV} className="h-7 sm:h-8 text-xs">
-                  <Download className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                  Export
-                </Button>
+                <Button variant="outline" size="sm" onClick={exportToExcel} className="h-7 sm:h-8 text-xs">
+  <Download className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+  Export Excel
+</Button>
                 <Button variant="outline" size="sm" onClick={handlePrint} className="h-7 sm:h-8 text-xs">
                   <Printer className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
                   Print

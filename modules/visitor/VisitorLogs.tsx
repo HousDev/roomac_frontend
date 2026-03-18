@@ -17,7 +17,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 import Swal from 'sweetalert2';
-
+import * as XLSX from 'xlsx';
 import {
   getVisitors, deleteVisitor, blockVisitor, unblockVisitor,
   checkOutVisitor, bulkCheckOut, getVisitorStats,
@@ -398,21 +398,272 @@ const handleUnblock = async (log: VisitorLog) => {
 };
 
   // ── Export CSV ─────────────────────────────────────────────────────────
-  const handleExport = () => {
-    const headers = ['Visitor','Phone','Tenant','Property','Room','Entry','Exit','Status','QR','Purpose','ID Proof','Vehicle','Guard'];
-    const rows = filteredItems.map(l => [
-      l.visitor_name, l.visitor_phone, l.tenant_name, l.property_name, l.room_number,
-      fmt(l.entry_time), l.exit_time ? fmt(l.exit_time) : 'N/A',
-      l.status, l.qr_code || '', l.purpose,
-      `${l.id_proof_type}: ${l.id_proof_number}`,
-      l.vehicle_number || '', l.security_guard_name,
-    ]);
-    const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
-    a.download = `visitor_logs_${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-  };
+const handleExport = () => {
+  try {
+    // Create workbook
+    const wb = XLSX.utils.book_new();
+
+    // 1. Main visitors sheet
+    const visitorsData = filteredItems.map(log => ({
+      'Visitor Name': log.visitor_name,
+      'Phone Number': log.visitor_phone,
+      'Tenant Name': log.tenant_name,
+      'Tenant Phone': log.tenant_phone || '',
+      'Property': log.property_name,
+      'Room Number': log.room_number,
+      'Purpose': log.purpose,
+      'Entry Time': fmt(log.entry_time),
+      'Exit Time': log.exit_time ? fmt(log.exit_time) : '',
+      'Expected Exit': log.tentative_exit_time ? fmt(log.tentative_exit_time) : '',
+      'Status': statusLabel(log.status),
+      'QR Code': log.qr_code || '',
+      'ID Proof Type': log.id_proof_type,
+      'ID Proof Number': log.id_proof_number,
+      'Vehicle Number': log.vehicle_number || '',
+      'Security Guard': log.security_guard_name,
+      'Checked Out By': log.checked_out_by || '',
+      'Approval Status': log.approval_status,
+      'Is Blocked': log.is_blocked === 1 ? 'Yes' : 'No',
+      'Block Reason': log.block_reason || '',
+      'Blocked By': log.blocked_by || '',
+      'Notes': log.notes || '',
+      'Created At': log.created_at ? fmt(log.created_at) : '',
+      'Visitor ID': log.id
+    }));
+
+    const visitorsWs = XLSX.utils.json_to_sheet(visitorsData);
+    
+    // Auto-size columns
+    const visitorsColWidths = [];
+    const visitorsHeaders = Object.keys(visitorsData[0] || {});
+    visitorsHeaders.forEach(header => {
+      const maxLength = Math.max(
+        header.length,
+        ...visitorsData.map(row => String(row[header] || '').length)
+      );
+      visitorsColWidths.push({ wch: Math.min(maxLength + 2, 50) });
+    });
+    visitorsWs['!cols'] = visitorsColWidths;
+    
+    XLSX.utils.book_append_sheet(wb, visitorsWs, "Visitor Logs");
+
+    // 2. Summary sheet
+    const checkedIn = filteredItems.filter(l => l.status === 'checked_in').length;
+    const checkedOut = filteredItems.filter(l => l.status === 'checked_out').length;
+    const overstayed = filteredItems.filter(l => l.status === 'overstayed').length;
+    const blocked = filteredItems.filter(l => l.is_blocked === 1).length;
+
+    const summaryData = [
+      ['Metric', 'Value'],
+      ['Total Visitor Records', filteredItems.length],
+      ['Currently Checked In', checkedIn],
+      ['Checked Out', checkedOut],
+      ['Overstayed', overstayed],
+      ['Blocked Visitors', blocked],
+      ['Checked Out Today', stats.checked_out_today],
+      ['Unique Visitors', new Set(filteredItems.map(l => l.visitor_name)).size],
+      ['Unique Properties', new Set(filteredItems.map(l => l.property_name)).size],
+      ['Export Date', new Date().toLocaleString('en-IN')]
+    ];
+
+    const summaryWs = XLSX.utils.aoa_to_sheet(summaryData);
+    XLSX.utils.book_append_sheet(wb, summaryWs, "Summary");
+
+    // 3. Status breakdown sheet
+    const statusData = [
+      ['Status', 'Count', 'Percentage', 'Unique Visitors'],
+      ['Checked In', 
+        checkedIn,
+        filteredItems.length > 0 ? `${((checkedIn / filteredItems.length) * 100).toFixed(1)}%` : '0%',
+        new Set(filteredItems.filter(l => l.status === 'checked_in').map(l => l.visitor_name)).size
+      ],
+      ['Checked Out',
+        checkedOut,
+        filteredItems.length > 0 ? `${((checkedOut / filteredItems.length) * 100).toFixed(1)}%` : '0%',
+        new Set(filteredItems.filter(l => l.status === 'checked_out').map(l => l.visitor_name)).size
+      ],
+      ['Overstayed',
+        overstayed,
+        filteredItems.length > 0 ? `${((overstayed / filteredItems.length) * 100).toFixed(1)}%` : '0%',
+        new Set(filteredItems.filter(l => l.status === 'overstayed').map(l => l.visitor_name)).size
+      ]
+    ];
+
+    const statusWs = XLSX.utils.aoa_to_sheet(statusData);
+    XLSX.utils.book_append_sheet(wb, statusWs, "Status Breakdown");
+
+    // 4. Property-wise analysis sheet
+    const propertyMap = new Map();
+    filteredItems.forEach(log => {
+      if (!propertyMap.has(log.property_name)) {
+        propertyMap.set(log.property_name, {
+          property: log.property_name,
+          visits: 0,
+          checkedIn: 0,
+          checkedOut: 0,
+          overstayed: 0,
+          blocked: 0,
+          uniqueVisitors: new Set()
+        });
+      }
+      const prop = propertyMap.get(log.property_name);
+      prop.visits++;
+      prop.uniqueVisitors.add(log.visitor_name);
+      if (log.status === 'checked_in') prop.checkedIn++;
+      else if (log.status === 'checked_out') prop.checkedOut++;
+      else if (log.status === 'overstayed') prop.overstayed++;
+      if (log.is_blocked === 1) prop.blocked++;
+    });
+
+    const propertyData = Array.from(propertyMap.values()).map(p => ({
+      'Property': p.property,
+      'Total Visits': p.visits,
+      'Currently Checked In': p.checkedIn,
+      'Checked Out': p.checkedOut,
+      'Overstayed': p.overstayed,
+      'Blocked Visitors': p.blocked,
+      'Unique Visitors': p.uniqueVisitors.size,
+      'Occupancy Rate': p.visits > 0 ? `${((p.checkedIn / p.visits) * 100).toFixed(1)}%` : '0%'
+    }));
+
+    if (propertyData.length > 0) {
+      const propertyWs = XLSX.utils.json_to_sheet(propertyData);
+      XLSX.utils.book_append_sheet(wb, propertyWs, "By Property");
+    }
+
+    // 5. Purpose analysis sheet
+    const purposeMap = new Map();
+    filteredItems.forEach(log => {
+      if (!purposeMap.has(log.purpose)) {
+        purposeMap.set(log.purpose, {
+          purpose: log.purpose,
+          count: 0,
+          checkedIn: 0,
+          checkedOut: 0,
+          avgDuration: 0,
+          durations: []
+        });
+      }
+      const purp = purposeMap.get(log.purpose);
+      purp.count++;
+      if (log.status === 'checked_in') purp.checkedIn++;
+      else if (log.status === 'checked_out') purp.checkedOut++;
+      
+      // Calculate duration if both entry and exit times exist
+      if (log.entry_time && log.exit_time) {
+        const duration = (new Date(log.exit_time).getTime() - new Date(log.entry_time).getTime()) / (1000 * 60 * 60); // hours
+        purp.durations.push(duration);
+      }
+    });
+
+    const purposeData = Array.from(purposeMap.values()).map(p => {
+      const avgDuration = p.durations.length > 0 
+        ? (p.durations.reduce((a, b) => a + b, 0) / p.durations.length).toFixed(1)
+        : 'N/A';
+      
+      return {
+        'Purpose': p.purpose,
+        'Total Visits': p.count,
+        'Currently Checked In': p.checkedIn,
+        'Checked Out': p.checkedOut,
+        'Completion Rate': p.count > 0 ? `${((p.checkedOut / p.count) * 100).toFixed(1)}%` : '0%',
+        'Avg Stay Duration (hrs)': avgDuration,
+        'Percentage of Total': filteredItems.length > 0 ? `${((p.count / filteredItems.length) * 100).toFixed(1)}%` : '0%'
+      };
+    });
+
+    if (purposeData.length > 0) {
+      const purposeWs = XLSX.utils.json_to_sheet(purposeData);
+      XLSX.utils.book_append_sheet(wb, purposeWs, "By Purpose");
+    }
+
+    // 6. Visitor frequency analysis
+    const visitorFrequency = new Map();
+    filteredItems.forEach(log => {
+      const key = `${log.visitor_name}|${log.visitor_phone}`;
+      if (!visitorFrequency.has(key)) {
+        visitorFrequency.set(key, {
+          name: log.visitor_name,
+          phone: log.visitor_phone,
+          visits: 0,
+          properties: new Set(),
+          lastVisit: null,
+          isBlocked: log.is_blocked === 1
+        });
+      }
+      const v = visitorFrequency.get(key);
+      v.visits++;
+      v.properties.add(log.property_name);
+      if (log.entry_time && (!v.lastVisit || new Date(log.entry_time) > new Date(v.lastVisit))) {
+        v.lastVisit = log.entry_time;
+      }
+    });
+
+    const frequencyData = Array.from(visitorFrequency.values()).map(v => ({
+      'Visitor Name': v.name,
+      'Phone': v.phone,
+      'Total Visits': v.visits,
+      'Unique Properties': v.properties.size,
+      'Properties Visited': Array.from(v.properties).join(', '),
+      'Last Visit': v.lastVisit ? fmt(v.lastVisit) : 'N/A',
+      'Currently Blocked': v.isBlocked ? 'Yes' : 'No'
+    }));
+
+    if (frequencyData.length > 0) {
+      const frequencyWs = XLSX.utils.json_to_sheet(frequencyData);
+      XLSX.utils.book_append_sheet(wb, frequencyWs, "Visitor Frequency");
+    }
+
+    // 7. Blocked visitors analysis
+    const blockedVisitors = filteredItems.filter(l => l.is_blocked === 1);
+    if (blockedVisitors.length > 0) {
+      const blockedData = blockedVisitors.map(log => ({
+        'Visitor Name': log.visitor_name,
+        'Phone': log.visitor_phone,
+        'Block Reason': log.block_reason || '',
+        'Blocked By': log.blocked_by || '',
+        'Property': log.property_name,
+        'Last Visit': log.entry_time ? fmt(log.entry_time) : 'N/A',
+        'Block Date': log.updated_at ? fmt(log.updated_at) : 'N/A'
+      }));
+
+      const blockedWs = XLSX.utils.json_to_sheet(blockedData);
+      XLSX.utils.book_append_sheet(wb, blockedWs, "Blocked Visitors");
+    }
+
+    // 8. Hourly distribution (if entry_time exists)
+    const hourlyData: Record<string, number> = {};
+    filteredItems.forEach(log => {
+      if (log.entry_time) {
+        const hour = new Date(log.entry_time).getHours();
+        const hourStr = `${hour}:00 - ${hour + 1}:00`;
+        hourlyData[hourStr] = (hourlyData[hourStr] || 0) + 1;
+      }
+    });
+
+    const hourlyDistribution = Object.entries(hourlyData).map(([hour, count]) => ({
+      'Time Slot': hour,
+      'Visitor Count': count,
+      'Percentage': filteredItems.length > 0 ? `${((count / filteredItems.length) * 100).toFixed(1)}%` : '0%'
+    }));
+
+    if (hourlyDistribution.length > 0) {
+      const hourlyWs = XLSX.utils.json_to_sheet(hourlyDistribution);
+      XLSX.utils.book_append_sheet(wb, hourlyWs, "Hourly Distribution");
+    }
+
+    // Generate filename
+    const filename = `visitor_logs_export_${new Date().toISOString().split('T')[0]}.xlsx`;
+
+    // Save file
+    XLSX.writeFile(wb, filename);
+    
+    toast.success(`Exported ${filteredItems.length} visitor records successfully`);
+  } catch (error) {
+    console.error('Export error:', error);
+    toast.error('Failed to export visitor logs');
+  }
+};
 
   const hasFilters   = statusFilter !== 'all' || propertyFilter !== 'all';
   const hasColSearch = Object.values(colSearch).some(v => v !== '');

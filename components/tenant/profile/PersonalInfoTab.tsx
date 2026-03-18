@@ -432,7 +432,6 @@ export default function PersonalInfoTab({
 
       {/* Profile Header Card - Blue and gold theme */}
       <Card className="border-none shadow-lg bg-gradient-to-r from-[#004aad] to-[#002a7a] overflow-hidden">
-        <div className="absolute right-0 top-0 w-64 h-64 bg-[#ffc107]/10 rounded-full -mr-20 -mt-20"></div>
         <div className="absolute left-0 bottom-0 w-32 h-32 bg-black/20 rounded-full -ml-10 -mb-10"></div>
         <CardContent className="p-6 relative z-10">
           <div className="flex items-center gap-5">

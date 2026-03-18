@@ -520,39 +520,30 @@ export default function DocumentsTab({
     setError(null);
 
     try {
-      console.log('📄 Fetching tenant documents from API...');
       const response = await tenantDetailsApi.getDocuments();
-      console.log('📄 Full API Response:', response);
-      
       // Handle the response based on your API structure
       if (response?.success === true) {
         // Case 1: { success: true, data: [...] }
         if (Array.isArray(response.data)) {
-          console.log('📁 Found documents array in response.data:', response.data);
           setAdditionalDocs(response.data);
         } 
         // Case 2: { success: true, data: { additional_documents: [...] } }
         else if (response.data?.additional_documents && Array.isArray(response.data.additional_documents)) {
-          console.log('📁 Found additional_documents in response.data:', response.data.additional_documents);
           setAdditionalDocs(response.data.additional_documents);
         }
         else {
-          console.log('⚠️ No documents array found in response');
           setAdditionalDocs([]);
         }
       } 
       // Case 3: Response is directly an array
       else if (Array.isArray(response)) {
-        console.log('📁 Response is an array:', response);
         setAdditionalDocs(response);
       }
       // Case 4: Response has data property that's an array
       else if (response?.data && Array.isArray(response.data)) {
-        console.log('📁 Response.data is an array:', response.data);
         setAdditionalDocs(response.data);
       }
       else {
-        console.log('⚠️ Unexpected response format, using profile data as fallback');
         // Fallback to profile data
         if (profile.additional_documents && Array.isArray(profile.additional_documents)) {
           setAdditionalDocs(profile.additional_documents);
@@ -566,7 +557,6 @@ export default function DocumentsTab({
       
       // Fallback to profile data on error
       if (profile.additional_documents && Array.isArray(profile.additional_documents)) {
-        console.log('📁 Using profile data as fallback:', profile.additional_documents);
         setAdditionalDocs(profile.additional_documents);
       } else {
         setAdditionalDocs([]);
@@ -585,7 +575,6 @@ export default function DocumentsTab({
   // Also update when profile changes
   useEffect(() => {
     if (profile?.additional_documents && Array.isArray(profile.additional_documents)) {
-      console.log('📁 Profile additional_documents updated:', profile.additional_documents);
       setAdditionalDocs(profile.additional_documents);
     }
   }, [profile]);
@@ -612,8 +601,6 @@ export default function DocumentsTab({
     link.click();
   };
 
-  // Debug info - remove in production
-  console.log('📊 Current additionalDocs state:', additionalDocs);
 
   // Loading state
   if (loading) {

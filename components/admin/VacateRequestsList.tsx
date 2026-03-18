@@ -815,52 +815,8 @@ const handleBulkDelete = async () => {
 
       {/* Main Table Card */}
       <Card className="shadow-lg border-0  sticky top-60 z-10 ">
-        <CardHeader className="pb-2">
-<Tabs
-  defaultValue="all"
-  value={activeTab}
-  onValueChange={setActiveTab}
-  className="w-full overflow-hidden"
->
-  <div className="w-full overflow-x-auto md:overflow-visible">
-    <TabsList
-      className="
-        flex md:grid
-        md:grid-cols-6
-        gap-1
-        w-max md:w-full
-        sticky top-72 z-10
-      "
-    >
-      <TabsTrigger value="all" className="text-xs sm:text-sm px-3 py-1.5 whitespace-nowrap">
-        All ({requests.length})
-      </TabsTrigger>
-
-      <TabsTrigger value="pending" className="text-xs sm:text-sm px-3 py-1.5 whitespace-nowrap">
-        Pending ({requests.filter(r => r.vacate_status === 'pending').length})
-      </TabsTrigger>
-
-      <TabsTrigger value="under_review" className="text-xs sm:text-sm px-3 py-1.5 whitespace-nowrap">
-        Review ({requests.filter(r => r.vacate_status === 'under_review').length})
-      </TabsTrigger>
-
-      <TabsTrigger value="approved" className="text-xs sm:text-sm px-3 py-1.5 whitespace-nowrap">
-        Approved ({requests.filter(r => r.vacate_status === 'approved').length})
-      </TabsTrigger>
-
-      <TabsTrigger value="rejected" className="text-xs sm:text-sm px-3 py-1.5 whitespace-nowrap">
-        Rejected ({requests.filter(r => r.vacate_status === 'rejected').length})
-      </TabsTrigger>
-
-      <TabsTrigger value="completed" className="text-xs sm:text-sm px-3 py-1.5 whitespace-nowrap">
-        Completed ({requests.filter(r => r.vacate_status === 'completed').length})
-      </TabsTrigger>
-    </TabsList>
-  </div>
-</Tabs>
-        </CardHeader>
         
-        <CardContent className="p-0">
+        <CardContent className="p-1">
           {filteredRequests.length === 0 ? (
             <div className="text-center py-12 bg-gray-50 m-4 rounded-lg">
               <FileText className="h-12 w-12 mx-auto text-gray-400 mb-4" />
@@ -1552,11 +1508,11 @@ const handleBulkDelete = async () => {
                   <SelectValue placeholder="Select status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="under_review">Under Review</SelectItem>
+                  <SelectItem value="under_review">Pending</SelectItem>
                   <SelectItem value="approved">Approve</SelectItem>
                   <SelectItem value="rejected">Reject</SelectItem>
                   {/* <SelectItem value="cancelled">Cancel</SelectItem> */}
-                  <SelectItem value="completed">Mark as Completed</SelectItem>
+                  {/* <SelectItem value="completed">Mark as Completed</SelectItem> */}
                 </SelectContent>
               </Select>
             </div>

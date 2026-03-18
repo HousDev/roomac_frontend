@@ -141,7 +141,6 @@ const [propertyManagerStaff, setPropertyManagerStaff] = useState<StaffMember | n
 const fetchPropertyManagerStaff = useCallback(async (tenantData: TenantProfile) => {
   try {
     const allStaff = await getAllStaff();
-    console.log('📋 All staff fetched:', allStaff);
     
     if (!allStaff || allStaff.length === 0) {
       console.log('No staff found');
@@ -161,7 +160,6 @@ const fetchPropertyManagerStaff = useCallback(async (tenantData: TenantProfile) 
       });
       
       if (matched) {
-        console.log('✅ Matched staff by name:', matched);
         setPropertyManagerStaff(matched);
         return;
       }
@@ -178,13 +176,10 @@ const fetchPropertyManagerStaff = useCallback(async (tenantData: TenantProfile) 
       });
       
       if (matched) {
-        console.log('✅ Matched staff by phone:', matched);
         setPropertyManagerStaff(matched);
         return;
       }
     }
-
-    console.log('❌ No matching staff found');
     setPropertyManagerStaff(null);
   } catch (err) {
     console.error('Error fetching staff:', err);
@@ -199,24 +194,13 @@ const fetchPropertyManagerStaff = useCallback(async (tenantData: TenantProfile) 
 const loadTenantProfile = useCallback(async () => {
   try {
     setLoading(true);
-    console.log('📞 Calling tenantDetailsApi.loadProfile()...');
     
     const res = await tenantDetailsApi.loadProfile();
-    console.log('📥 Raw API Response in component:', res);
     
     if (!res.success || !res.data) {
-      console.error('❌ Profile load failed:', res);
       toast.error("Failed to load profile");
       return;
     }
-
-    console.log('✅ Profile data received in component:', {
-      room_id: res.data.room_id,
-      room_number: res.data.room_number,
-      bed_number: res.data.bed_number,
-      property_name: res.data.property_name,
-      property_manager_name: res.data.property_manager_name,
-    });
 
     setProfile(res.data);
     setFormData({
@@ -262,7 +246,6 @@ useEffect(() => {
 useEffect(() => {
   const testAPI = async () => {
     try {
-      console.log('🧪 Testing API directly...');
       const response = await fetch('http://localhost:3001/api/tenant-details/profile', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('tenant_token')}`

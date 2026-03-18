@@ -138,8 +138,6 @@ const [bulkActionLoading, setBulkActionLoading] = useState(false);
     try {
       setLoading(true);
       const response = await getAdminChangeBedRequests(filters);
-      console.log('📊 API Response:', response);
-    console.log('📊 First request data:', response.data[0]);
       setRequests(response.data);
       setFilteredRequests(response.data);
       setPagination(response.pagination);
@@ -1263,12 +1261,12 @@ const handleBulkDelete = async () => {
                 <span className="text-xs">Rejected</span>
               </div>
             </SelectItem>
-            <SelectItem value="processed">
+            {/* <SelectItem value="processed">
               <div className="flex items-center gap-2">
                 <Check className="h-3.5 w-3.5" />
                 <span className="text-xs">Processed</span>
               </div>
-            </SelectItem>
+            </SelectItem> */}
           </SelectContent>
         </Select>
       </div>
