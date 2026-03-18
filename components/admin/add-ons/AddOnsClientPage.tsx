@@ -253,6 +253,7 @@ import AddOnsFiltersSidebar from './AddOnsFiltersSidebar';
 import AddOnsGrid from './AddOnsGrid';
 import { AddOnForm } from '@/components/admin/AddOnForm';
 import { CATEGORY_LABELS } from './table-config';
+import { Badge } from 'lucide-react';
 
 interface AddOnsClientPageProps {
   initialAddOns: AddOn[];
@@ -420,7 +421,7 @@ export default function AddOnsClientPage({
         />
       )}
 
-      <div className="p-3 sm:p-4 md:p-6">
+      <div className="p-1 sm:p-0 md:p-0">
         {/* Stats */}
         <AddOnsStats stats={statsData} formatCurrency={formatCurrency} />
         
@@ -436,12 +437,7 @@ export default function AddOnsClientPage({
                     activeFilter={activeFilter}
                     onFilterChange={handleFilterChange}
                   />
-                  <div>
-                    <h1 className="text-base sm:text-lg font-semibold">Add-ons Management</h1>
-                    <p className="text-xs sm:text-sm text-gray-600 mt-0.5">
-                      Showing {filteredAddOns.length} of {addOns.length} add-ons
-                    </p>
-                  </div>
+                  
                 </div>
                 <div className="flex items-center gap-2">
                   <Button 

@@ -366,7 +366,7 @@ export function AdminHeader({
             )} */}
 
             {/* Mobile Pending Icon */}
-            {totalPendingRequests > 0 && (
+            {/* {totalPendingRequests > 0 && (
               <Link href="/admin/requests" className="md:hidden relative">
                 <Button variant="ghost" size="icon" className="h-9 w-9 bg-amber-50">
                   <Bell className="h-5 w-5 text-amber-600" />
@@ -375,7 +375,7 @@ export function AdminHeader({
                   {totalPendingRequests > 9 ? '9+' : totalPendingRequests}
                 </Badge>
               </Link>
-            )}
+            )} */}
 
             {/* Visit Website Button */}
             <Link href="/" target="_blank">

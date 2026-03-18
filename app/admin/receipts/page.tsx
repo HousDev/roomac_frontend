@@ -402,8 +402,8 @@ export default function ReceiptsPage() {
               {/* Scrollable Table */}
               <div className={`overflow-auto rounded-b-lg transition-all duration-300 ${
                 selectedRequests.size > 0 
-                  ? 'max-h-[440px] md:max-h-[460px]'
-                  : 'max-h-[510px] md:max-h-[530px]'
+                  ? 'max-h-[260px] md:max-h-[400px]'
+                  : 'max-h-[330px] md:max-h-[480px]'
               }`}>
                 <Table className="min-w-[1200px] md:min-w-full table-fixed">
                   <TableHeader className="sticky top-0 z-20 bg-gradient-to-r from-gray-50 to-white shadow-sm">

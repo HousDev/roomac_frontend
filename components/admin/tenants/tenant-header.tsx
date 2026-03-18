@@ -61,7 +61,7 @@ export function TenantHeader({
     searchQuery.trim() !== "" || activeFiltersCount > 0;
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-3 mt-12">
 
       {/* ================= TOP BAR ================= */}
 

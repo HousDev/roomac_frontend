@@ -24,7 +24,9 @@ import {
   Filter,
   Pencil,
   ReceiptIndianRupee,
-  ReceiptIndianRupeeIcon
+  ReceiptIndianRupeeIcon,
+  ArrowUpDown,
+  MoreVertical
 } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from "sonner";
@@ -36,6 +38,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { listTenants, type Tenant } from '@/lib/tenantApi';
 import * as paymentApi from '@/lib/paymentRecordApi';
 import { getSettings, type SettingsData } from "@/lib/settingsApi";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem } from '@radix-ui/react-dropdown-menu';
 
 // Types
 interface PaymentFormData {
@@ -122,7 +125,22 @@ const [expandedRows, setExpandedRows] = useState<number[]>([]);
 // Add these state variables with your other useState declarations
 const [settings, setSettings] = useState<SettingsData>({});
 const [loadingSettings, setLoadingSettings] = useState(false);
-
+// ===== ADD THIS AFTER YOUR EXISTING useState DECLARATIONS (around line 100-120) =====
+const [sortField, setSortField] = useState<keyof any>('payment_date');
+const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+const [columnFilters, setColumnFilters] = useState({
+  payment_date: '',
+  tenant_name: '',
+  amount: '',
+  min_amount: '',
+  max_amount: '',
+  payment_mode: 'all',
+  transaction_id: '',
+  month: '',
+  status: 'all',
+  remark: ''
+});
+// ===== END OF ADDITION =====
 
   // Filters
   const [filters, setFilters] = useState({
@@ -133,6 +151,8 @@ const [loadingSettings, setLoadingSettings] = useState(false);
     method: '',
     transactionId: '',
   });
+
+ 
 
   const [demandFilters, setDemandFilters] = useState({
     status: '',
@@ -793,6 +813,64 @@ const contactEmail = settings['contact_email']?.value || '';
     const tenant = tenants.find(t => t.id === tenantId);
     return tenant?.phone || '';
   };
+  
+
+  // ===== ADD THIS AFTER YOUR EXISTING FUNCTIONS (around line 200) =====
+const handleSort = (field: keyof any) => {
+  if (sortField === field) {
+    setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+  } else {
+    setSortField(field);
+    setSortDirection('desc');
+  }
+};
+
+// Filter payments based on column filters
+const columnFilteredPayments = payments.filter(payment => {
+  const matchesDate = !columnFilters.payment_date || 
+    new Date(payment.payment_date).toISOString().split('T')[0] === columnFilters.payment_date;
+  
+  const matchesTenant = !columnFilters.tenant_name || 
+    getTenantName(payment.tenant_id).toLowerCase().includes(columnFilters.tenant_name.toLowerCase());
+  
+  const matchesMinAmount = !columnFilters.min_amount || 
+    payment.amount >= parseFloat(columnFilters.min_amount);
+  
+  const matchesMaxAmount = !columnFilters.max_amount || 
+    payment.amount <= parseFloat(columnFilters.max_amount);
+  
+  const matchesMode = columnFilters.payment_mode === 'all' || 
+    payment.payment_mode === columnFilters.payment_mode;
+  
+  const matchesTransactionId = !columnFilters.transaction_id || 
+    (payment.transaction_id && payment.transaction_id.toLowerCase().includes(columnFilters.transaction_id.toLowerCase()));
+  
+  const matchesMonth = !columnFilters.month || 
+    `${payment.month} ${payment.year}`.toLowerCase().includes(columnFilters.month.toLowerCase());
+  
+  const matchesStatus = columnFilters.status === 'all' || 
+    (payment.status || 'pending') === columnFilters.status;
+  
+  const matchesRemark = !columnFilters.remark || 
+    (payment.remark && payment.remark.toLowerCase().includes(columnFilters.remark.toLowerCase()));
+  
+  return matchesDate && matchesTenant && matchesMinAmount && matchesMaxAmount && 
+         matchesMode && matchesTransactionId && matchesMonth && matchesStatus && matchesRemark;
+});
+
+// Sort payments
+const sortedPayments = [...columnFilteredPayments].sort((a, b) => {
+  const aValue = a[sortField];
+  const bValue = b[sortField];
+  
+  if (aValue === null || aValue === undefined) return 1;
+  if (bValue === null || bValue === undefined) return -1;
+  
+  if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+  if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+  return 0;
+});
+// ===== END OF ADDITION =====
 
   const getDemandStatusBadge = (status: string) => {
     const variants: Record<string, { className: string, icon: any }> = {
@@ -1110,11 +1188,17 @@ const handleUpdateDemandStatus = async (demandId: number, newStatus: string) => 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           {/* Tabs Header Row */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2 sticky top-28 z-10 bg-slate-50 py-2">
-            <TabsList className="h-8 w-full sm:w-auto grid grid-cols-3 sm:inline-flex">
-              <TabsTrigger value="payments" className="text-xs px-3 py-1">Payments Management</TabsTrigger>
-              <TabsTrigger value="receipts" className="text-xs px-3 py-1">Payment Receipts</TabsTrigger>
-              <TabsTrigger value="demands" className="text-xs px-3 py-1">Demands Payment</TabsTrigger>
-            </TabsList>
+           <TabsList className="h-8 w-full sm:w-auto inline-flex sm:grid sm:grid-cols-3 overflow-x-auto hide-scrollbar">
+  <TabsTrigger value="payments" className="text-[9px] sm:text-xs px-1.5 sm:px-3 py-1 whitespace-nowrap">
+    Payments Management
+  </TabsTrigger>
+  <TabsTrigger value="receipts" className="text-[9px] sm:text-xs px-1.5 sm:px-3 py-1 whitespace-nowrap">
+    Payment Receipts
+  </TabsTrigger>
+  <TabsTrigger value="demands" className="text-[9px] sm:text-xs px-1.5 sm:px-3 py-1 whitespace-nowrap">
+    Demands Payment
+  </TabsTrigger>
+</TabsList>
 
             <div className="flex justify-end gap-2">
               <Button
@@ -1140,193 +1224,235 @@ const handleUpdateDemandStatus = async (demandId: number, newStatus: string) => 
             </div>
           </div>
 
-          {/* Payments Tab Content */}
-          <TabsContent value="payments" className="space-y-2 mt-0">
-            <PaymentsTable
-              payments={filteredPayments}
-              loading={loading}
-              filters={filters}
-              setFilters={setFilters}
-              getTenantName={getTenantName}
-              getTenantPhone={getTenantPhone}
-              // Add these props
-   onApprove={handleApproveClick} 
-  onReject={(payment) => {
-    setSelectedPayment(payment);
-    setIsRejectDialogOpen(true);
-  }}
-  onEdit={(payment) => {
-    setSelectedPayment(payment);
-    setNewPayment({
-      tenant_id: payment.tenant_id.toString(),
-      booking_id: payment.booking_id,
-      payment_type: payment.payment_type,
-      amount: payment.amount.toString(),
-      payment_mode: payment.payment_mode,
-      bank_name: payment.bank_name || '',
-      transaction_id: payment.transaction_id || '',
-      payment_date: payment.payment_date.split('T')[0],
-      remark: payment.remark || ''
-    });
-    setIsEditDialogOpen(true);
-  }}
-  onDelete={(payment) => {
-    setSelectedPayment(payment);
-    setIsDeleteDialogOpen(true);
-  }}
-  actionLoading={actionLoading}
-    onApproveClick={handleApproveClick}
-  setActiveTab={setActiveTab}
-  expandedRows={expandedRows}
-  onToggleExpand={toggleRowExpansion}
-  onViewReceipt={(receiptId) => {
-    // Open receipt preview
-    handlePreviewReceipt(receiptId);
-  }}
-groupPaymentsByTenant={groupPaymentsByTenant} // Add this line
-    setIsAddPaymentOpen={setIsAddPaymentOpen} // Add this for the Add Payment button
-            />
-          </TabsContent>
+        {/* Payments Tab Content */}
+{/* Payments Tab Content */}
+<TabsContent value="payments" className="space-y-2 mt-0">
+  <PaymentsTable
+    payments={payments}
+    loading={loading}
+    filters={filters}
+    setFilters={setFilters}
+    getTenantName={getTenantName}
+    getTenantPhone={getTenantPhone}
+    onApprove={handleApproveClick}
+    onReject={(payment) => {
+      setSelectedPayment(payment);
+      setIsRejectDialogOpen(true);
+    }}
+    onEdit={(payment) => {
+      setSelectedPayment(payment);
+      setNewPayment({
+        tenant_id: payment.tenant_id.toString(),
+        booking_id: payment.booking_id,
+        payment_type: payment.payment_type,
+        amount: payment.amount.toString(),
+        payment_mode: payment.payment_mode,
+        bank_name: payment.bank_name || '',
+        transaction_id: payment.transaction_id || '',
+        payment_date: payment.payment_date.split('T')[0],
+        remark: payment.remark || ''
+      });
+      setIsEditDialogOpen(true);
+    }}
+    onDelete={(payment) => {
+      setSelectedPayment(payment);
+      setIsDeleteDialogOpen(true);
+    }}
+    actionLoading={actionLoading}
+    onViewReceipt={handlePreviewReceipt}
+    setActiveTab={setActiveTab}
+    expandedRows={expandedRows}
+    onToggleExpand={toggleRowExpansion}
+    groupPaymentsByTenant={groupPaymentsByTenant}
+    setIsAddPaymentOpen={setIsAddPaymentOpen}
+    // New props for column filters
+    columnFilters={columnFilters}
+    setColumnFilters={setColumnFilters}
+    handleSort={handleSort}
+    sortField={sortField}
+    sortDirection={sortDirection}
+  />
+</TabsContent>
 
           {/* Demands Tab Content */}
-          <TabsContent value="demands" className="mt-0">
-            <Card className="border-0 shadow-sm">
-              <CardHeader className="p-3 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-t-lg sticky top-0 z-10">
-                <CardTitle className="flex items-center gap-2 text-sm">
-                  <Bell className="h-4 w-4" />
-                  Payment Demands
-                </CardTitle>
-                <CardDescription className="text-orange-100 text-xs">
-                  View and manage payment requests sent to tenants
-                </CardDescription>
-              </CardHeader>
+          {/* Demands Tab Content */}
+<TabsContent value="demands" className="mt-0">
+  <Card className="border-0 shadow-xl overflow-hidden">
+    
 
-              <CardContent className="p-2">
-                {/* Demand Filters */}
-                <div className="grid grid-cols-4 gap-2 mb-3 p-2 bg-slate-50 rounded-lg">
-                  <Input
-                    placeholder="Filter by tenant"
-                    value={demandFilters.tenant}
-                    onChange={(e) => setDemandFilters({ ...demandFilters, tenant: e.target.value })}
-                    className="h-8 text-xs"
-                  />
-                  <Select value={demandFilters.status} onValueChange={(value) => setDemandFilters({ ...demandFilters, status: value })}>
-                    <SelectTrigger className="h-8 text-xs">
-                      <SelectValue placeholder="All Status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Status</SelectItem>
-                      <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="paid">Paid</SelectItem>
-                      <SelectItem value="partial">Partial</SelectItem>
-                      <SelectItem value="overdue">Overdue</SelectItem>
-                      <SelectItem value="cancelled">Cancelled</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Input
-                    type="date"
-                    placeholder="From"
-                    value={demandFilters.from_date}
-                    onChange={(e) => setDemandFilters({ ...demandFilters, from_date: e.target.value })}
-                    className="h-8 text-xs"
-                  />
-                  <Input
-                    type="date"
-                    placeholder="To"
-                    value={demandFilters.to_date}
-                    onChange={(e) => setDemandFilters({ ...demandFilters, to_date: e.target.value })}
-                    className="h-8 text-xs"
-                  />
-                </div>
+    <CardContent className="p-0">
+      {/* Demand Filters - Moved inside table header */}
+      <div className="relative">
+        <div className="overflow-auto max-h-[calc(100vh-420px)]">
+          <Table>
+            {/* COMPACT HEADER WITH SEARCH BARS - LIKE PAYMENTS TABLE */}
+            <TableHeader className="sticky top-0 z-20 bg-gray-200 border-b border-gray-300">
+              <TableRow className="hover:bg-transparent">
+                {/* Date Column */}
+                <TableHead className="w-[100px] py-2 px-2 bg-gray-200">
+                  <div className="flex flex-col gap-1">
+                    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Date</span>
+                    <Input
+                      placeholder="dd/mm/yy"
+                      className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
+                      value={demandFilters.date || ''}
+                      onChange={(e) => setDemandFilters({ ...demandFilters, date: e.target.value })}
+                    />
+                  </div>
+                </TableHead>
 
-                <div className="overflow-auto max-h-[calc(100vh-420px)]">
-                  <Table>
-                    <TableHeader className="sticky top-0 z-10 bg-white">
-                      <TableRow className="bg-slate-100">
-                        <TableHead className="text-xs py-2">Date</TableHead>
-                        <TableHead className="text-xs py-2">Tenant</TableHead>
-                        <TableHead className="text-xs py-2">Amount</TableHead>
-                        {/* <TableHead className="text-xs py-2">Late Fee</TableHead>
-                        <TableHead className="text-xs py-2">Total</TableHead> */}
-                        <TableHead className="text-xs py-2">Due Date</TableHead>
-                        <TableHead className="text-xs py-2">Status</TableHead>
-                        <TableHead className="text-xs py-2">Room/Bed</TableHead>
-                        <TableHead className="text-xs py-2">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-<TableBody>
-  {loading ? (
-    <TableRow>
-      <TableCell colSpan={8} className="text-center py-8 text-xs text-slate-500">
-        <div className="flex justify-center items-center">
-          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-orange-600 mr-2" />
-          Loading demands...
+                {/* Tenant Column */}
+                <TableHead className="w-[160px] py-2 px-2 bg-gray-200">
+                  <div className="flex flex-col gap-1">
+                    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Tenant</span>
+                    <Input
+                      placeholder="Search tenant..."
+                      className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
+                      value={demandFilters.tenant || ''}
+                      onChange={(e) => setDemandFilters({ ...demandFilters, tenant: e.target.value })}
+                    />
+                  </div>
+                </TableHead>
+
+                {/* Amount Column */}
+                <TableHead className="w-[100px] py-2 px-2 bg-gray-200 text-right">
+                  <div className="flex flex-col gap-1">
+                    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Amount</span>
+                    <Input
+                      placeholder="Search..."
+                      type="number"
+                      className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 text-right font-normal w-full"
+                      value={demandFilters.amount || ''}
+                      onChange={(e) => setDemandFilters({ ...demandFilters, amount: e.target.value })}
+                    />
+                  </div>
+                </TableHead>
+
+                {/* Due Date Column */}
+                <TableHead className="w-[100px] py-2 px-2 bg-gray-200">
+                  <div className="flex flex-col gap-1">
+                    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Due Date</span>
+                    <Input
+                      type="date"
+                      className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
+                      value={demandFilters.from_date || ''}
+                      onChange={(e) => setDemandFilters({ ...demandFilters, from_date: e.target.value })}
+                    />
+                  </div>
+                </TableHead>
+
+                {/* Status Column */}
+                <TableHead className="w-[100px] py-2 px-2 bg-gray-200">
+                  <div className="flex flex-col gap-1">
+                    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Status</span>
+                    <Select 
+                      value={demandFilters.status || 'all'} 
+                      onValueChange={(value) => setDemandFilters({ ...demandFilters, status: value })}
+                    >
+                      <SelectTrigger className="h-6 text-[10px] bg-white border-gray-300 px-2 font-normal w-full">
+                        <SelectValue placeholder="All" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all" className="text-xs">All</SelectItem>
+                        <SelectItem value="pending" className="text-xs">Pending</SelectItem>
+                        <SelectItem value="paid" className="text-xs">Paid</SelectItem>
+                        <SelectItem value="partial" className="text-xs">Partial</SelectItem>
+                        <SelectItem value="overdue" className="text-xs">Overdue</SelectItem>
+                        <SelectItem value="cancelled" className="text-xs">Cancelled</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </TableHead>
+
+                {/* Room/Bed Column */}
+                <TableHead className="w-[100px] py-2 px-2 bg-gray-200">
+                  <div className="flex flex-col gap-1">
+                    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Room/Bed</span>
+                    <Input
+                      placeholder="Search..."
+                      className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
+                      value={demandFilters.room || ''}
+                      onChange={(e) => setDemandFilters({ ...demandFilters, room: e.target.value })}
+                    />
+                  </div>
+                </TableHead>
+
+                {/* Actions Column */}
+                <TableHead className="w-[80px] py-2 px-2 bg-gray-200 text-center">
+                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Actions</span>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+
+            {/* EXISTING TABLE BODY - UNCHANGED */}
+            <TableBody>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center py-8 text-xs text-slate-500">
+                    <div className="flex justify-center items-center">
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-orange-600 mr-2" />
+                      Loading demands...
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : filteredDemands.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center py-8 text-xs text-slate-500">
+                    <Bell className="h-8 w-8 mx-auto mb-2 text-slate-300" />
+                    No demands found
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredDemands.map((demand) => (
+                  <TableRow key={demand.id} className="hover:bg-slate-50">
+                    <TableCell className="py-2 text-xs whitespace-nowrap">
+                      {format(new Date(demand.created_at), 'dd/MM/yy')}
+                    </TableCell>
+                    <TableCell className="py-2">
+                      <p className="text-xs font-medium">{getTenantName(demand.tenant_id)}</p>
+                      <p className="text-[10px] text-slate-500">{getTenantPhone(demand.tenant_id)}</p>
+                    </TableCell>
+                    <TableCell className="py-2 text-xs font-medium">
+                      ₹{Number(demand.amount).toLocaleString('en-IN')}
+                    </TableCell>
+                    <TableCell className="py-2 text-xs whitespace-nowrap">
+                      <span className={new Date(demand.due_date) < new Date() && demand.status === 'pending' ? 'text-red-600 font-medium' : ''}>
+                        {format(new Date(demand.due_date), 'dd/MM/yy')}
+                      </span>
+                    </TableCell>
+                    <TableCell className="py-2">
+                      {getDemandStatusBadge(demand.status)}
+                    </TableCell>
+                    <TableCell className="py-2 text-xs">
+                      {demand.room_number || 'N/A'} {demand.bed_number ? `(B-${demand.bed_number})` : ''}
+                    </TableCell>
+                    <TableCell className="py-2">
+                      <Select
+                        value={demand.status}
+                        onValueChange={(newStatus) => handleUpdateDemandStatus(demand.id, newStatus)}
+                      >
+                        <SelectTrigger className="h-7 w-24 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pending">Pending</SelectItem>
+                          <SelectItem value="paid">Paid</SelectItem>
+                          <SelectItem value="partial">Partial</SelectItem>
+                          <SelectItem value="overdue">Overdue</SelectItem>
+                          <SelectItem value="cancelled">Cancelled</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
         </div>
-      </TableCell>
-    </TableRow>
-  ) : filteredDemands.length === 0 ? (
-    <TableRow>
-      <TableCell colSpan={8} className="text-center py-8 text-xs text-slate-500">
-        <Bell className="h-8 w-8 mx-auto mb-2 text-slate-300" />
-        No demands found
-      </TableCell>
-    </TableRow>
-  ) : (
-    filteredDemands.map((demand) => (
-      <TableRow key={demand.id} className="hover:bg-slate-50">
-        <TableCell className="py-2 text-xs whitespace-nowrap">
-          {format(new Date(demand.created_at), 'dd/MM/yy')}
-        </TableCell>
-        <TableCell className="py-2">
-          <p className="text-xs font-medium">{getTenantName(demand.tenant_id)}</p>
-          <p className="text-[10px] text-slate-500">{getTenantPhone(demand.tenant_id)}</p>
-        </TableCell>
-        <TableCell className="py-2 text-xs font-medium">
-          ₹{Number(demand.amount).toLocaleString('en-IN')}
-        </TableCell>
-        {/* <TableCell className="py-2 text-xs text-amber-600">
-          {demand.late_fee > 0 ? `+₹${Number(demand.late_fee).toLocaleString('en-IN')}` : '-'}
-        </TableCell> */}
-        {/* <TableCell className="py-2 text-xs font-bold text-purple-600">
-          ₹{(Number(demand.amount) + Number(demand.late_fee || 0)).toLocaleString('en-IN')}
-        </TableCell> */}
-        <TableCell className="py-2 text-xs whitespace-nowrap">
-          <span className={new Date(demand.due_date) < new Date() && demand.status === 'pending' ? 'text-red-600 font-medium' : ''}>
-            {format(new Date(demand.due_date), 'dd/MM/yy')}
-          </span>
-        </TableCell>
-        <TableCell className="py-2">
-          {getDemandStatusBadge(demand.status)}
-        </TableCell>
-        <TableCell className="py-2 text-xs">
-          {demand.room_number || 'N/A'} {demand.bed_number ? `(B-${demand.bed_number})` : ''}
-        </TableCell>
-<TableCell className="py-2">
-  <Select
-    value={demand.status}
-    onValueChange={(newStatus) => handleUpdateDemandStatus(demand.id, newStatus)}
-  >
-    <SelectTrigger className="h-7 w-24 text-xs">
-      <SelectValue />
-    </SelectTrigger>
-    <SelectContent>
-      <SelectItem value="pending">Pending</SelectItem>
-      <SelectItem value="paid">Paid</SelectItem>
-      <SelectItem value="partial">Partial</SelectItem>
-      <SelectItem value="overdue">Overdue</SelectItem>
-      <SelectItem value="cancelled">Cancelled</SelectItem>
-    </SelectContent>
-  </Select>
-</TableCell>
-      </TableRow>
-    ))
-  )}
-</TableBody>
-                  </Table>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
+      </div>
+    </CardContent>
+  </Card>
+</TabsContent>
 
           {/* Receipts Tab Content */}
           <TabsContent value="receipts" className="mt-0">
@@ -1343,393 +1469,353 @@ groupPaymentsByTenant={groupPaymentsByTenant} // Add this line
       </div>
 
       {/* Add Payment Dialog - Your existing code with horizontal layout */}
-      <Dialog open={isAddPaymentOpen} onOpenChange={setIsAddPaymentOpen}>
-        <DialogContent className="max-w-4xl max-h-[600px] p-0 gap-0 overflow-auto">
-          {/* Header */}
-          <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 rounded-t-lg sticky top-0 z-20">
-            <div className="flex items-center justify-between">
-              <div>
-                <DialogTitle className="text-white text-lg font-semibold flex items-center gap-2">
-                  <div className="p-1 bg-white/20 rounded-lg">
-                    <Plus className="h-5 w-5" />
-                  </div>
-                  Record New Payment
-                </DialogTitle>
-                <DialogDescription className="text-blue-100 text-sm mt-1">
-                  Add a new payment record for a tenant
-                </DialogDescription>
-              </div>
-              <DialogClose asChild>
-                <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 h-8 w-8">
-                  <X className="h-4 w-4" />
-                </Button>
-              </DialogClose>
-            </div>
-          </div>
-
-          {/* Form Content */}
-<div className="p-6">
-  {/* Tenant Selection Row */}
-  <div className="grid grid-cols-2 gap-4 mb-4">
-    <div className="space-y-1.5">
-      <Label className="text-xs font-medium text-slate-700">Tenant *</Label>
-      <Select value={newPayment.tenant_id} onValueChange={handleTenantSelect}>
-        <SelectTrigger className="h-10 bg-white border-slate-200">
-          <SelectValue placeholder="Choose a tenant..." />
-        </SelectTrigger>
-        <SelectContent>
-          {tenants.map(tenant => (
-            <SelectItem key={tenant.id} value={tenant.id.toString()}>
-              <div className="flex items-center gap-2">
-                <User className="h-3.5 w-3.5 text-slate-400" />
-                <span>{tenant.full_name}</span>
-                <span className="text-xs text-slate-400">({tenant.phone})</span>
-              </div>
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      {bookingLoading && (
-        <div className="flex items-center gap-2 mt-1 text-blue-600">
-          <Loader2 className="h-3 w-3 animate-spin" />
-          <span className="text-xs">Loading tenant details...</span>
-        </div>
-      )}
-    </div>
-
-    <div className="space-y-1.5">
-      <Label className="text-xs font-medium text-slate-700">Payment Type</Label>
-      <Select value={newPayment.payment_type} onValueChange={handlePaymentTypeChange}>
-        <SelectTrigger className="h-10">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="rent">Rent</SelectItem>
-          <SelectItem value="security_deposit">Security Deposit</SelectItem>
-          <SelectItem value="maintenance">Maintenance</SelectItem>
-          {/* <SelectItem value="electricity">Electricity</SelectItem> */}
-        </SelectContent>
-      </Select>
-    </div>
-  </div>
-
-  {/* Conditional Sections based on Payment Type - REMOVED the duplicate Bed Assignment Table */}
-  {newPayment.payment_type === 'rent' ? (
-    /* Rent Section - Show rent history */
-    <>
-      {/* Bed Assignment Table */}
-      {paymentFormData && <BedAssignmentTable formData={paymentFormData} />}
-      
-      {/* Rent Summary Table */}
-      {paymentFormData && <RentSummaryTable formData={paymentFormData} />}
-      
-      {/* Month Selection Field - Only show for rent */}
-<div className="space-y-1.5 mb-4">
-  <Label className="text-xs font-medium text-slate-700">Pay For Month</Label>
-  <Select 
-    value={selectedPaymentMonth} 
-    onValueChange={(value) => {
-      setSelectedPaymentMonth(value);
-      // NO AUTO-FILL - only sets the month value for remark
-    }}
-  >
-    <SelectTrigger className="h-10 bg-white border-slate-200">
-      <SelectValue placeholder="Select month..." />
-    </SelectTrigger>
-    <SelectContent>
-      {paymentFormData?.unpaid_months?.map((month: any) => (
-        <SelectItem key={month.month_key} value={month.month_key}>
-          <div className="flex items-center justify-between w-full">
-            <span>{month.month} {month.year}</span>
-            <span className="ml-4 text-xs text-amber-600 font-medium">
-              ₹{month.pending.toLocaleString()}
-            </span>
-          </div>
-        </SelectItem>
-      ))}
-    </SelectContent>
-  </Select>
-  {paymentFormData?.unpaid_months?.length === 0 && (
-    <p className="text-xs text-green-600 mt-1">All months paid! 🎉</p>
-  )}
-</div>
-    </>
-  ) : newPayment.payment_type === 'security_deposit' ? (
-    /* Security Deposit Section */
-    <>
-      {/* Bed Assignment Table */}
-      {paymentFormData && <BedAssignmentTable formData={paymentFormData} />}
-      
-      {/* Security Deposit Info - Only for security deposit */}
-      {securityDepositInfo && (
-        <div className="bg-white rounded-lg border border-slate-200 mb-4 overflow-hidden">
-          <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
-            <h4 className="text-xs font-semibold text-slate-700 flex items-center gap-2">
-              <IndianRupee className="h-3.5 w-3.5" />
-              Security Deposit Information
-            </h4>
-          </div>
-          <div className="p-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-xs text-slate-500">Property</p>
-                <p className="text-sm font-medium">{securityDepositInfo.property_name}</p>
-              </div>
-              <div>
-                <p className="text-xs text-slate-500">Total Security Deposit</p>
-                <p className="text-sm font-bold text-blue-600">₹{securityDepositInfo.security_deposit.toLocaleString()}</p>
-              </div>
-              <div>
-                <p className="text-xs text-slate-500">Already Paid</p>
-                <p className="text-sm font-medium text-green-600">₹{securityDepositInfo.paid_amount.toLocaleString()}</p>
-              </div>
-              <div>
-                <p className="text-xs text-slate-500">Pending Amount</p>
-                <p className="text-sm font-bold text-amber-600">₹{securityDepositInfo.pending_amount.toLocaleString()}</p>
-              </div>
-            </div>
-            
-            {/* Progress Bar */}
-            <div className="mt-3">
-              <div className="flex justify-between text-xs text-slate-500 mb-1">
-                <span>Payment Progress</span>
-                <span>{Math.round((securityDepositInfo.paid_amount / securityDepositInfo.security_deposit) * 100)}%</span>
-              </div>
-              <div className="w-full bg-slate-200 rounded-full h-2">
-                <div 
-                  className="bg-blue-600 rounded-full h-2 transition-all duration-500"
-                  style={{ width: `${(securityDepositInfo.paid_amount / securityDepositInfo.security_deposit) * 100}%` }}
-                />
-              </div>
-            </div>
-            
-            {securityDepositInfo.is_fully_paid && (
-              <div className="mt-3 p-2 bg-green-50 border border-green-200 rounded-lg">
-                <p className="text-xs text-green-700 text-center flex items-center justify-center gap-1">
-                  <span>✅</span> Security deposit is fully paid!
-                </p>
-              </div>
-            )}
-            
-            {securityDepositInfo.last_payment_date && (
-              <p className="text-xs text-slate-400 mt-2">
-                Last payment: {new Date(securityDepositInfo.last_payment_date).toLocaleDateString('en-IN', {
-                  day: 'numeric',
-                  month: 'short',
-                  year: 'numeric'
-                })}
-              </p>
-            )}
-          </div>
-        </div>
-      )}
-    </>
-  ) : (
-    /* Other payment types - Just show bed assignment */
-    <>
-      {paymentFormData && <BedAssignmentTable formData={paymentFormData} />}
-    </>
-  )}
-
-  {/* Payment Details Grid */}
-  <div className="grid grid-cols-4 gap-3 mb-4">
-    {/* Amount Field */}
-<div className="space-y-1.5">
-  <Label className="text-xs font-medium text-slate-700">Amount (₹) *</Label>
-  <div className="relative">
-    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">₹</span>
-    <Input
-      type="number"
-      placeholder="0.00"
-      value={newPayment.amount}
-      onChange={(e) => setNewPayment({ ...newPayment, amount: e.target.value })}
-      className="pl-8 h-10"
-    />
-  </div>
-  {/* Show total pending amount for reference */}
-  {newPayment.payment_type === 'rent' && paymentFormData?.total_pending > 0 && (
-    <p className="text-xs text-blue-600 mt-1">
-      Total pending amount: ₹{paymentFormData.total_pending.toLocaleString()}
-    </p>
-  )}
-</div>
-
-    <div className="space-y-1.5">
-      <Label className="text-xs font-medium text-slate-700">Payment Mode *</Label>
-      <Select
-        value={newPayment.payment_mode}
-        onValueChange={(value) => setNewPayment({ ...newPayment, payment_mode: value, bank_name: '' })}
-      >
-        <SelectTrigger className="h-10">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="cash">💵 Cash</SelectItem>
-          <SelectItem value="online">🌐 Online</SelectItem>
-          <SelectItem value="bank_transfer">🏦 Bank Transfer</SelectItem>
-          <SelectItem value="cheque">📝 Cheque</SelectItem>
-          <SelectItem value="card">💳 Card</SelectItem>
-        </SelectContent>
-      </Select>
-    </div>
-
-    <div className="space-y-1.5">
-      <Label className="text-xs font-medium text-slate-700">Transaction Date</Label>
-      <Input
-        type="date"
-        value={newPayment.payment_date}
-        onChange={(e) => setNewPayment({ ...newPayment, payment_date: e.target.value })}
-        className="h-10"
-      />
-    </div>
-
-    {/* Empty div for grid alignment */}
-    <div></div>
-  </div>
-
-  {/* Conditional Fields Row */}
-  <div className="grid grid-cols-3 gap-3 mb-4">
-    {(newPayment.payment_mode === 'bank_transfer' || newPayment.payment_mode === 'online') && (
-      <div className="space-y-1.5">
-        <Label className="text-xs font-medium text-slate-700">Bank Name</Label>
-        <Input
-          placeholder="Enter bank name"
-          value={newPayment.bank_name}
-          onChange={(e) => setNewPayment({ ...newPayment, bank_name: e.target.value })}
-          className="h-10"
-        />
-      </div>
-    )}
-
-    {(newPayment.payment_mode === 'online' || newPayment.payment_mode === 'bank_transfer' || newPayment.payment_mode === 'cheque') && (
-      <div className="space-y-1.5">
-        <Label className="text-xs font-medium text-slate-700">Transaction ID</Label>
-        <Input
-          placeholder="Optional"
-          value={newPayment.transaction_id}
-          onChange={(e) => setNewPayment({ ...newPayment, transaction_id: e.target.value })}
-          className="h-10"
-        />
-      </div>
-    )}
-
-    {(newPayment.payment_mode === 'online' || newPayment.payment_mode === 'bank_transfer') && (
-      <div className="space-y-1.5">
-        <Label className="text-xs font-medium text-slate-700">Proof</Label>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="h-10 w-full justify-start"
-          onClick={() => document.getElementById('proof-upload')?.click()}
-        >
-          <Upload className="h-4 w-4 mr-2" />
-          {proofFile ? proofFile.name : 'Upload proof'}
-        </Button>
-        <input
-          type="file"
-          id="proof-upload"
-          accept="image/*,.pdf"
-          className="hidden"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) {
-              setProofFile(file);
-              if (file.type.startsWith('image/')) {
-                const reader = new FileReader();
-                reader.onloadend = () => {
-                  setProofPreview(reader.result as string);
-                };
-                reader.readAsDataURL(file);
-              }
-            }
-          }}
-        />
-      </div>
-    )}
-  </div>
-
-  {/* Proof Preview */}
-  {proofPreview && (
-    <div className="mb-4">
-      <img src={proofPreview} alt="Preview" className="h-20 rounded border" />
-    </div>
-  )}
-
-  <div className="space-y-1.5">
-    <Label className="text-xs font-medium text-slate-700">Remark</Label>
-    <Input
-      placeholder="Add notes"
-      value={newPayment.remark}
-      onChange={(e) => setNewPayment({ ...newPayment, remark: e.target.value })}
-      className="h-10"
-    />
-  </div>
-</div>
-
-          {/* Footer */}
-          <DialogFooter className="px-6 py-4 bg-slate-50 border-t border-slate-200 rounded-b-lg sticky bottom-0">
-            <div className="flex justify-end gap-3 w-full">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setIsAddPaymentOpen(false);
-                  resetPaymentForm();
-                }}
-                className="px-6"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleAddPayment}
-                className="px-6 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Add Payment
-              </Button>
-            </div>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-{/* Demand Payment Dialog */}
-<Dialog open={isDemandPaymentOpen} onOpenChange={setIsDemandPaymentOpen}>
-  <DialogContent className="max-w-4xl max-h-[600px] p-0 gap-0 overflow-auto">
-    {/* Header */}
-    <div className="bg-gradient-to-r from-orange-500 to-red-500 px-6 py-4 rounded-t-lg sticky top-0 z-50">
+     <Dialog open={isAddPaymentOpen} onOpenChange={setIsAddPaymentOpen}>
+<DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] sm:max-h-[85vh] p-0 gap-0 flex flex-col overflow-hidden">    
+    {/* Header - Fixed */}
+    <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-3 rounded-t-lg flex-shrink-0">
       <div className="flex items-center justify-between">
         <div>
-          <DialogTitle className="text-white text-lg font-semibold flex items-center gap-2">
-            <div className="p-1 bg-white/20 rounded-lg">
-              <Bell className="h-5 w-5" />
+          <DialogTitle className="text-white text-sm font-semibold flex items-center gap-2">
+            <div className="p-1 bg-white/20 rounded-md">
+              <Plus className="h-3.5 w-3.5" />
             </div>
-            Demand Payment
+            Record New Payment
           </DialogTitle>
-          <DialogDescription className="text-orange-100 text-sm mt-1">
-            Create a payment request and notify the tenant
+          <DialogDescription className="text-blue-100 text-xs mt-0.5">
+            Add a new payment record for a tenant
           </DialogDescription>
         </div>
         <DialogClose asChild>
-          <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 h-8 w-8">
-            <X className="h-4 w-4" />
+          <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 h-7 w-7">
+            <X className="h-3.5 w-3.5" />
           </Button>
         </DialogClose>
       </div>
     </div>
 
-    {/* Form Content */}
-    <div className="p-6">
-      {/* Top Row - Tenant and Payment Type */}
-      <div className="grid grid-cols-2 gap-4 mb-4">
-        <div className="space-y-1.5">
-          <Label className="text-xs font-medium text-slate-700">Tenant *</Label>
-          <Select value={demandPayment.tenant_id} onValueChange={handleDemandTenantSelect}>
-            <SelectTrigger className="h-10">
-              <SelectValue placeholder="Select tenant" />
+    {/* Scrollable Body */}
+    <div className="flex-1 overflow-y-auto p-4 space-y-3">
+
+      {/* Row 1: Tenant + Payment Type */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="space-y-1">
+          <Label className="text-[11px] font-medium text-slate-600">Tenant *</Label>
+          <Select value={newPayment.tenant_id} onValueChange={handleTenantSelect}>
+            <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
+              <SelectValue placeholder="Choose a tenant..." />
             </SelectTrigger>
             <SelectContent>
               {tenants.map(tenant => (
                 <SelectItem key={tenant.id} value={tenant.id.toString()}>
+                  <div className="flex items-center gap-2">
+                    <User className="h-3 w-3 text-slate-400" />
+                    <span className="text-xs">{tenant.full_name}</span>
+                    <span className="text-[10px] text-slate-400">({tenant.phone})</span>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {bookingLoading && (
+            <div className="flex items-center gap-1 text-blue-600">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              <span className="text-[10px]">Loading...</span>
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-1">
+          <Label className="text-[11px] font-medium text-slate-600">Payment Type</Label>
+          <Select value={newPayment.payment_type} onValueChange={handlePaymentTypeChange}>
+            <SelectTrigger className="h-8 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="rent" className="text-xs">Rent</SelectItem>
+              <SelectItem value="security_deposit" className="text-xs">Security Deposit</SelectItem>
+              <SelectItem value="maintenance" className="text-xs">Maintenance</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* Conditional Sections */}
+      {newPayment.payment_type === 'rent' ? (
+        <div className="space-y-2">
+          {paymentFormData && <BedAssignmentTable formData={paymentFormData} />}
+          {paymentFormData && <RentSummaryTable formData={paymentFormData} />}
+          <div className="space-y-1">
+            <Label className="text-[11px] font-medium text-slate-600">Pay For Month</Label>
+            <Select
+              value={selectedPaymentMonth}
+              onValueChange={(value) => setSelectedPaymentMonth(value)}
+            >
+              <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
+                <SelectValue placeholder="Select month..." />
+              </SelectTrigger>
+              <SelectContent>
+                {paymentFormData?.unpaid_months?.map((month: any) => (
+                  <SelectItem key={month.month_key} value={month.month_key} className="text-xs">
+                    <div className="flex items-center justify-between w-full gap-4">
+                      <span>{month.month} {month.year}</span>
+                      <span className="text-amber-600 font-medium">₹{month.pending.toLocaleString()}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {paymentFormData?.unpaid_months?.length === 0 && (
+              <p className="text-[10px] text-green-600">All months paid! 🎉</p>
+            )}
+          </div>
+        </div>
+      ) : newPayment.payment_type === 'security_deposit' ? (
+        <div className="space-y-2">
+          {paymentFormData && <BedAssignmentTable formData={paymentFormData} />}
+          {securityDepositInfo && (
+            <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+              <div className="bg-slate-50 px-3 py-1.5 border-b border-slate-200">
+                <h4 className="text-[11px] font-semibold text-slate-700 flex items-center gap-1.5">
+                  <IndianRupee className="h-3 w-3" />
+                  Security Deposit Info
+                </h4>
+              </div>
+              <div className="p-3 grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div>
+                  <p className="text-[10px] text-slate-500">Property</p>
+                  <p className="text-xs font-medium">{securityDepositInfo.property_name}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-slate-500">Total</p>
+                  <p className="text-xs font-bold text-blue-600">₹{securityDepositInfo.security_deposit.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-slate-500">Paid</p>
+                  <p className="text-xs font-medium text-green-600">₹{securityDepositInfo.paid_amount.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-slate-500">Pending</p>
+                  <p className="text-xs font-bold text-amber-600">₹{securityDepositInfo.pending_amount.toLocaleString()}</p>
+                </div>
+              </div>
+              <div className="px-3 pb-3">
+                <div className="flex justify-between text-[10px] text-slate-500 mb-1">
+                  <span>Progress</span>
+                  <span>{Math.round((securityDepositInfo.paid_amount / securityDepositInfo.security_deposit) * 100)}%</span>
+                </div>
+                <div className="w-full bg-slate-200 rounded-full h-1.5">
+                  <div
+                    className="bg-blue-600 rounded-full h-1.5 transition-all duration-500"
+                    style={{ width: `${(securityDepositInfo.paid_amount / securityDepositInfo.security_deposit) * 100}%` }}
+                  />
+                </div>
+                {securityDepositInfo.is_fully_paid && (
+                  <p className="text-[10px] text-green-600 mt-1.5 text-center">✅ Fully paid!</p>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div>{paymentFormData && <BedAssignmentTable formData={paymentFormData} />}</div>
+      )}
+
+      {/* Payment Details - 3x3 Grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        {/* Amount */}
+        <div className="space-y-1">
+          <Label className="text-[11px] font-medium text-slate-600">Amount (₹) *</Label>
+          <div className="relative">
+            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs">₹</span>
+            <Input
+              type="number"
+              placeholder="0.00"
+              value={newPayment.amount}
+              onChange={(e) => setNewPayment({ ...newPayment, amount: e.target.value })}
+              className="pl-7 h-8 text-xs"
+            />
+          </div>
+          {newPayment.payment_type === 'rent' && paymentFormData?.total_pending > 0 && (
+            <p className="text-[10px] text-blue-600">Pending: ₹{paymentFormData.total_pending.toLocaleString()}</p>
+          )}
+        </div>
+
+        {/* Payment Mode */}
+        <div className="space-y-1">
+          <Label className="text-[11px] font-medium text-slate-600">Payment Mode *</Label>
+          <Select
+            value={newPayment.payment_mode}
+            onValueChange={(value) => setNewPayment({ ...newPayment, payment_mode: value, bank_name: '' })}
+          >
+            <SelectTrigger className="h-8 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="cash" className="text-xs">💵 Cash</SelectItem>
+              <SelectItem value="online" className="text-xs">🌐 Online</SelectItem>
+              <SelectItem value="bank_transfer" className="text-xs">🏦 Bank Transfer</SelectItem>
+              <SelectItem value="cheque" className="text-xs">📝 Cheque</SelectItem>
+              <SelectItem value="card" className="text-xs">💳 Card</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Date */}
+        <div className="space-y-1">
+          <Label className="text-[11px] font-medium text-slate-600">Transaction Date</Label>
+          <Input
+            type="date"
+            value={newPayment.payment_date}
+            onChange={(e) => setNewPayment({ ...newPayment, payment_date: e.target.value })}
+            className="h-8 text-xs"
+          />
+        </div>
+
+        {/* Bank Name - conditional */}
+        {(newPayment.payment_mode === 'bank_transfer' || newPayment.payment_mode === 'online') && (
+          <div className="space-y-1">
+            <Label className="text-[11px] font-medium text-slate-600">Bank Name</Label>
+            <Input
+              placeholder="Enter bank name"
+              value={newPayment.bank_name}
+              onChange={(e) => setNewPayment({ ...newPayment, bank_name: e.target.value })}
+              className="h-8 text-xs"
+            />
+          </div>
+        )}
+
+        {/* Transaction ID - conditional */}
+        {(newPayment.payment_mode === 'online' || newPayment.payment_mode === 'bank_transfer' || newPayment.payment_mode === 'cheque') && (
+          <div className="space-y-1">
+            <Label className="text-[11px] font-medium text-slate-600">Transaction ID</Label>
+            <Input
+              placeholder="Optional"
+              value={newPayment.transaction_id}
+              onChange={(e) => setNewPayment({ ...newPayment, transaction_id: e.target.value })}
+              className="h-8 text-xs"
+            />
+          </div>
+        )}
+
+        {/* Proof Upload - conditional */}
+        {(newPayment.payment_mode === 'online' || newPayment.payment_mode === 'bank_transfer') && (
+          <div className="space-y-1">
+            <Label className="text-[11px] font-medium text-slate-600">Proof</Label>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 w-full justify-start text-xs"
+              onClick={() => document.getElementById('proof-upload')?.click()}
+            >
+              <Upload className="h-3 w-3 mr-1.5" />
+              {proofFile ? proofFile.name.substring(0, 12) + '...' : 'Upload proof'}
+            </Button>
+            <input
+              type="file"
+              id="proof-upload"
+              accept="image/*,.pdf"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  setProofFile(file);
+                  if (file.type.startsWith('image/')) {
+                    const reader = new FileReader();
+                    reader.onloadend = () => setProofPreview(reader.result as string);
+                    reader.readAsDataURL(file);
+                  }
+                }
+              }}
+            />
+          </div>
+        )}
+
+        {/* Remark - full width */}
+        <div className="space-y-1 col-span-2 sm:col-span-3">
+          <Label className="text-[11px] font-medium text-slate-600">Remark</Label>
+          <Input
+            placeholder="Add notes"
+            value={newPayment.remark}
+            onChange={(e) => setNewPayment({ ...newPayment, remark: e.target.value })}
+            className="h-8 text-xs"
+          />
+        </div>
+      </div>
+
+      {/* Proof Preview */}
+      {proofPreview && (
+        <div>
+          <img src={proofPreview} alt="Preview" className="h-16 rounded border" />
+        </div>
+      )}
+    </div>
+
+    {/* Footer - Fixed */}
+    <div className="px-4 py-3 bg-slate-50 border-t border-slate-200 rounded-b-lg flex-shrink-0">
+      <div className="flex justify-end gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => { setIsAddPaymentOpen(false); resetPaymentForm(); }}
+          className="text-xs h-8 px-4"
+        >
+          Cancel
+        </Button>
+        <Button
+          size="sm"
+          onClick={handleAddPayment}
+          className="text-xs h-8 px-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white"
+        >
+          <Plus className="h-3 w-3 mr-1.5" />
+          Add Payment
+        </Button>
+      </div>
+    </div>
+
+  </DialogContent>
+</Dialog>
+
+{/* Demand Payment Dialog */}
+<Dialog open={isDemandPaymentOpen} onOpenChange={setIsDemandPaymentOpen}>
+  <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] sm:max-h-[85vh] p-0 gap-0 flex flex-col overflow-hidden">
+    
+    {/* Header - Fixed */}
+    <div className="bg-gradient-to-r from-orange-500 to-red-500 px-4 py-3 rounded-t-lg flex-shrink-0">
+      <div className="flex items-center justify-between">
+        <div>
+          <DialogTitle className="text-white text-sm font-semibold flex items-center gap-2">
+            <div className="p-1 bg-white/20 rounded-md">
+              <Bell className="h-3.5 w-3.5" />
+            </div>
+            Demand Payment
+          </DialogTitle>
+          <DialogDescription className="text-orange-100 text-xs mt-0.5">
+            Create a payment request and notify the tenant
+          </DialogDescription>
+        </div>
+        <DialogClose asChild>
+          <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 h-7 w-7">
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        </DialogClose>
+      </div>
+    </div>
+
+    {/* Scrollable Body */}
+    <div className="flex-1 overflow-y-auto p-4 space-y-3">
+
+      {/* Row 1: Tenant + Payment Type */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="space-y-1">
+          <Label className="text-[11px] font-medium text-slate-600">Tenant *</Label>
+          <Select value={demandPayment.tenant_id} onValueChange={handleDemandTenantSelect}>
+            <SelectTrigger className="h-8 text-xs">
+              <SelectValue placeholder="Select tenant" />
+            </SelectTrigger>
+            <SelectContent>
+              {tenants.map(tenant => (
+                <SelectItem key={tenant.id} value={tenant.id.toString()} className="text-xs">
                   {tenant.full_name} - {tenant.phone}
                 </SelectItem>
               ))}
@@ -1737,212 +1823,173 @@ groupPaymentsByTenant={groupPaymentsByTenant} // Add this line
           </Select>
         </div>
 
-        <div className="space-y-1.5">
-          <Label className="text-xs font-medium text-slate-700">Payment Type</Label>
-          <Select 
-            value={demandPayment.payment_type} 
-            onValueChange={handleDemandPaymentTypeChange}
-          >
-            <SelectTrigger className="h-10">
+        <div className="space-y-1">
+          <Label className="text-[11px] font-medium text-slate-600">Payment Type</Label>
+          <Select value={demandPayment.payment_type} onValueChange={handleDemandPaymentTypeChange}>
+            <SelectTrigger className="h-8 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="rent">Rent</SelectItem>
-              <SelectItem value="security_deposit">Security Deposit</SelectItem>
-              <SelectItem value="maintenance">Maintenance</SelectItem>
+              <SelectItem value="rent" className="text-xs">Rent</SelectItem>
+              <SelectItem value="security_deposit" className="text-xs">Security Deposit</SelectItem>
+              <SelectItem value="maintenance" className="text-xs">Maintenance</SelectItem>
             </SelectContent>
           </Select>
         </div>
       </div>
 
-      {/* Bed Assignment Table */}
+      {/* Bed Assignment */}
       {paymentFormData && <BedAssignmentTable formData={paymentFormData} />}
 
-      {/* Conditional Sections based on Payment Type */}
+      {/* Conditional Sections */}
       {demandPayment.payment_type === 'rent' ? (
-        /* Rent Section - Show rent summary */
-        <>
+        <div className="space-y-2">
           {paymentFormData && <RentSummaryTable formData={paymentFormData} />}
-          
-          {/* Suggested Amount Info */}
           {paymentFormData?.suggested_amount > 0 && (
-            <div className="bg-blue-50 p-3 rounded-lg mb-4 border border-blue-200">
-              <p className="text-xs text-blue-700">
-                <span className="font-medium">Suggested amount:</span> ₹{paymentFormData.suggested_amount.toLocaleString()}
+            <div className="bg-blue-50 px-3 py-2 rounded-lg border border-blue-200">
+              <p className="text-[11px] text-blue-700">
+                <span className="font-medium">Suggested:</span> ₹{paymentFormData.suggested_amount.toLocaleString()}
               </p>
             </div>
           )}
-        </>
-      ) : demandPayment.payment_type === 'security_deposit' ? (
-        /* Security Deposit Section - Using existing securityDepositInfo state */
-        <>
-          {securityDepositInfo && (
-            <div className="bg-white rounded-lg border border-slate-200 mb-4 overflow-hidden">
-              <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
-                <h4 className="text-xs font-semibold text-slate-700 flex items-center gap-2">
-                  <IndianRupee className="h-3.5 w-3.5" />
-                  Security Deposit Information
-                </h4>
-              </div>
-              <div className="p-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-xs text-slate-500">Property</p>
-                    <p className="text-sm font-medium">{securityDepositInfo.property_name}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-500">Total Security Deposit</p>
-                    <p className="text-sm font-bold text-blue-600">₹{securityDepositInfo.security_deposit.toLocaleString()}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-500">Already Paid</p>
-                    <p className="text-sm font-medium text-green-600">₹{securityDepositInfo.paid_amount.toLocaleString()}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-500">Pending Amount</p>
-                    <p className="text-sm font-bold text-amber-600">₹{securityDepositInfo.pending_amount.toLocaleString()}</p>
-                  </div>
-                </div>
-                
-                {/* Progress Bar */}
-                <div className="mt-3">
-                  <div className="flex justify-between text-xs text-slate-500 mb-1">
-                    <span>Payment Progress</span>
-                    <span>{Math.round((securityDepositInfo.paid_amount / securityDepositInfo.security_deposit) * 100)}%</span>
-                  </div>
-                  <div className="w-full bg-slate-200 rounded-full h-2">
-                    <div 
-                      className="bg-blue-600 rounded-full h-2 transition-all duration-500"
-                      style={{ width: `${(securityDepositInfo.paid_amount / securityDepositInfo.security_deposit) * 100}%` }}
-                    />
-                  </div>
-                </div>
-                
-                {securityDepositInfo.is_fully_paid && (
-                  <div className="mt-3 p-2 bg-green-50 border border-green-200 rounded-lg">
-                    <p className="text-xs text-green-700 text-center flex items-center justify-center gap-1">
-                      <span>✅</span> Security deposit is fully paid!
-                    </p>
-                  </div>
-                )}
-                
-                {securityDepositInfo.last_payment_date && (
-                  <p className="text-xs text-slate-400 mt-2">
-                    Last payment: {new Date(securityDepositInfo.last_payment_date).toLocaleDateString('en-IN', {
-                      day: 'numeric',
-                      month: 'short',
-                      year: 'numeric'
-                    })}
-                  </p>
-                )}
-              </div>
+        </div>
+      ) : demandPayment.payment_type === 'security_deposit' && securityDepositInfo ? (
+        <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+          <div className="bg-slate-50 px-3 py-1.5 border-b border-slate-200">
+            <h4 className="text-[11px] font-semibold text-slate-700 flex items-center gap-1.5">
+              <IndianRupee className="h-3 w-3" />
+              Security Deposit Info
+            </h4>
+          </div>
+          <div className="p-3 grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div>
+              <p className="text-[10px] text-slate-500">Property</p>
+              <p className="text-xs font-medium">{securityDepositInfo.property_name}</p>
             </div>
-          )}
-        </>
+            <div>
+              <p className="text-[10px] text-slate-500">Total</p>
+              <p className="text-xs font-bold text-blue-600">₹{securityDepositInfo.security_deposit.toLocaleString()}</p>
+            </div>
+            <div>
+              <p className="text-[10px] text-slate-500">Paid</p>
+              <p className="text-xs font-medium text-green-600">₹{securityDepositInfo.paid_amount.toLocaleString()}</p>
+            </div>
+            <div>
+              <p className="text-[10px] text-slate-500">Pending</p>
+              <p className="text-xs font-bold text-amber-600">₹{securityDepositInfo.pending_amount.toLocaleString()}</p>
+            </div>
+          </div>
+          <div className="px-3 pb-3">
+            <div className="flex justify-between text-[10px] text-slate-500 mb-1">
+              <span>Progress</span>
+              <span>{Math.round((securityDepositInfo.paid_amount / securityDepositInfo.security_deposit) * 100)}%</span>
+            </div>
+            <div className="w-full bg-slate-200 rounded-full h-1.5">
+              <div
+                className="bg-blue-600 rounded-full h-1.5 transition-all duration-500"
+                style={{ width: `${(securityDepositInfo.paid_amount / securityDepositInfo.security_deposit) * 100}%` }}
+              />
+            </div>
+            {securityDepositInfo.is_fully_paid && (
+              <p className="text-[10px] text-green-600 mt-1.5 text-center">✅ Fully paid!</p>
+            )}
+          </div>
+        </div>
       ) : null}
 
-      {/* Amount and Due Date Row */}
-      <div className="grid grid-cols-2 gap-4 mb-4">
-        <div className="space-y-1.5">
-          <Label className="text-xs font-medium text-slate-700">Amount (₹) *</Label>
+      {/* 3-col grid: Amount + Due Date + Description */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="space-y-1">
+          <Label className="text-[11px] font-medium text-slate-600">Amount (₹) *</Label>
           <Input
             type="number"
             placeholder="Enter amount"
             value={demandPayment.amount || ''}
             onChange={(e) => setDemandPayment({ ...demandPayment, amount: parseFloat(e.target.value) || 0 })}
-            className="h-10"
+            className="h-8 text-xs"
           />
-          {/* Show suggested amount hint */}
           {demandPayment.payment_type === 'rent' && paymentFormData?.suggested_amount > 0 && (
-            <p className="text-xs text-blue-600 mt-1">
-              Suggested: ₹{paymentFormData.suggested_amount.toLocaleString()}
-            </p>
+            <p className="text-[10px] text-blue-600">Suggested: ₹{paymentFormData.suggested_amount.toLocaleString()}</p>
           )}
           {demandPayment.payment_type === 'security_deposit' && securityDepositInfo?.pending_amount > 0 && (
-            <p className="text-xs text-blue-600 mt-1">
-              Pending: ₹{securityDepositInfo.pending_amount.toLocaleString()}
-            </p>
+            <p className="text-[10px] text-blue-600">Pending: ₹{securityDepositInfo.pending_amount.toLocaleString()}</p>
           )}
         </div>
 
-        <div className="space-y-1.5">
-          <Label className="text-xs font-medium text-slate-700">Due Date *</Label>
+        <div className="space-y-1">
+          <Label className="text-[11px] font-medium text-slate-600">Due Date *</Label>
           <Input
             type="date"
             value={demandPayment.due_date}
             onChange={(e) => setDemandPayment({ ...demandPayment, due_date: e.target.value })}
-            className="h-10"
+            className="h-8 text-xs"
+          />
+        </div>
+
+        <div className="space-y-1">
+          <Label className="text-[11px] font-medium text-slate-600">Description</Label>
+          <Input
+            placeholder="Payment description"
+            value={demandPayment.description}
+            onChange={(e) => setDemandPayment({ ...demandPayment, description: e.target.value })}
+            className="h-8 text-xs"
           />
         </div>
       </div>
 
-      {/* Description */}
-      <div className="mb-4">
-        <Label className="text-xs font-medium text-slate-700">Description</Label>
-        <Textarea
-          placeholder="Enter payment description"
-          value={demandPayment.description}
-          onChange={(e) => setDemandPayment({ ...demandPayment, description: e.target.value })}
-          rows={2}
-          className="mt-1"
-        />
-      </div>
-
-      {/* Notifications Option */}
-      <div className="bg-slate-50 p-3 rounded-lg mb-4">
-        <Label className="text-xs font-medium block mb-2">Send Notifications</Label>
-        <div className="flex gap-4">
-          <label className="flex items-center gap-2">
-            <input 
-              type="checkbox" 
-              checked={demandPayment.send_email} 
-              onChange={(e) => setDemandPayment({ ...demandPayment, send_email: e.target.checked })} 
+      {/* Notifications */}
+      <div className="bg-slate-50 px-3 py-2.5 rounded-lg border border-slate-200">
+        <Label className="text-[11px] font-medium text-slate-600 block mb-2">Send Notifications</Label>
+        <div className="flex gap-5">
+          <label className="flex items-center gap-1.5 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={demandPayment.send_email}
+              onChange={(e) => setDemandPayment({ ...demandPayment, send_email: e.target.checked })}
+              className="w-3.5 h-3.5 accent-orange-500"
             />
-            <span className="text-sm">Email</span>
+            <span className="text-xs text-slate-600">Email</span>
           </label>
-          <label className="flex items-center gap-2">
-            <input 
-              type="checkbox" 
-              checked={demandPayment.send_sms} 
-              onChange={(e) => setDemandPayment({ ...demandPayment, send_sms: e.target.checked })} 
+          <label className="flex items-center gap-1.5 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={demandPayment.send_sms}
+              onChange={(e) => setDemandPayment({ ...demandPayment, send_sms: e.target.checked })}
+              className="w-3.5 h-3.5 accent-orange-500"
             />
-            <span className="text-sm">SMS</span>
+            <span className="text-xs text-slate-600">SMS</span>
           </label>
         </div>
       </div>
+
     </div>
 
-    {/* Footer */}
-    <DialogFooter className="px-6 py-4 bg-slate-50 border-t border-slate-200 rounded-b-lg sticky bottom-0">
-      <div className="flex justify-end gap-3 w-full">
+    {/* Footer - Fixed */}
+    <div className="px-4 py-3 bg-slate-50 border-t border-slate-200 rounded-b-lg flex-shrink-0">
+      <div className="flex justify-end gap-2">
         <Button
           variant="outline"
-          onClick={() => {
-            setIsDemandPaymentOpen(false);
-            resetDemandPaymentForm();
-          }}
+          size="sm"
+          onClick={() => { setIsDemandPaymentOpen(false); resetDemandPaymentForm(); }}
+          className="text-xs h-8 px-4"
         >
           Cancel
         </Button>
         <Button
+          size="sm"
           onClick={handleDemandPayment}
           disabled={bookingLoading || !demandPayment.amount || !demandPayment.due_date}
-          className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white"
+          className="text-xs h-8 px-4 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white"
         >
           {bookingLoading ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Sending...
-            </>
+            <><Loader2 className="h-3 w-3 mr-1.5 animate-spin" />Sending...</>
           ) : (
-            <>
-              <Send className="h-4 w-4 mr-2" />
-              Send Demand
-            </>
+            <><Send className="h-3 w-3 mr-1.5" />Send Demand</>
           )}
         </Button>
       </div>
-    </DialogFooter>
+    </div>
+
   </DialogContent>
 </Dialog>
 
@@ -2293,15 +2340,27 @@ groupPaymentsByTenant={groupPaymentsByTenant} // Add this line
 {/* Receipt Preview Dialog */}
 <Dialog open={isReceiptPreviewOpen} onOpenChange={setIsReceiptPreviewOpen}>
   <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-    <DialogHeader>
-      <DialogTitle className="flex items-center gap-2">
-        <Receipt className="h-5 w-5 text-blue-600" />
-        Payment Receipt
-      </DialogTitle>
-      <DialogDescription>
-        Receipt #{selectedReceipt?.id} - {selectedReceipt?.month} {selectedReceipt?.year}
-      </DialogDescription>
+  <DialogHeader className="flex flex-row items-center justify-between">
+      {/* Left side */}
+      <div>
+        <DialogTitle className="flex items-center gap-2">
+          <FileText className="h-5 w-5 text-blue-600" />
+          Payment Receipt
+        </DialogTitle>
+        <DialogDescription>
+          Receipt #{selectedReceipt?.id} - {selectedReceipt?.month} {selectedReceipt?.year}
+        </DialogDescription>
+      </div>
+
+      {/* Right side close icon - FIXED */}
+      <button
+        onClick={() => setIsReceiptPreviewOpen(false)} // ✅ FIXED: Use setIsReceiptPreviewOpen
+        className="p-1 rounded-md hover:bg-gray-100 transition"
+      >
+        <X className="h-4 w-4 text-gray-500" />
+      </button>
     </DialogHeader>
+
     
     {selectedReceipt && (
       <div className="py-4">
@@ -2479,6 +2538,9 @@ const PaymentStatusBadge = ({ status }: { status: string }) => {
 
 
 // Payments Table Component
+// ===== REPLACE THE ENTIRE PaymentsTable COMPONENT WITH THIS (around line 1400-1800) =====
+// Payments Table Component - Compact like maintenance
+// Payments Table Component - Maintenance style header with search bars
 const PaymentsTable = ({ 
   payments, 
   loading, 
@@ -2495,69 +2557,178 @@ const PaymentsTable = ({
   setActiveTab,
   expandedRows,
   onToggleExpand,
-  groupPaymentsByTenant, // Add this prop
-  setIsAddPaymentOpen // Add this prop
+  groupPaymentsByTenant,
+  setIsAddPaymentOpen,
+  // New props for column filters
+  columnFilters,
+  setColumnFilters,
+  handleSort,
+  sortField,
+  sortDirection
 }: any) => {
   
   // Group payments by tenant using the passed function
   const tenantGroups = groupPaymentsByTenant ? groupPaymentsByTenant(payments) : [];
 
-  // Filter groups based on search
-  const filteredGroups = tenantGroups.filter((group: any) => {
-    if (!filters.tenant) return true;
-    return group.tenant_name.toLowerCase().includes(filters.tenant.toLowerCase());
-  });
+  // Filter groups based on column filters
+ // Filter groups based on column filters
+// Filter groups based on column filters
+const filteredGroups = tenantGroups.filter((group: any) => {
+  // Filter by tenant name
+  if (columnFilters?.tenant_name && !group.tenant_name.toLowerCase().includes(columnFilters.tenant_name.toLowerCase())) {
+    return false;
+  }
+  
+  // Filter by payment count
+  if (columnFilters?.payment_count) {
+    const count = parseInt(columnFilters.payment_count);
+    if (!isNaN(count) && group.payment_count !== count) {
+      return false;
+    }
+  }
+  
+  // ===== REPLACE THIS AMOUNT FILTER SECTION =====
+  // Filter by total amount - CONTAINS search (if type "7", show 7000, 750, etc.)
+  if (columnFilters?.amount) {
+    const searchAmount = columnFilters.amount.trim();
+    if (searchAmount) {
+      // Convert group total to string and check if it includes the search string
+      const amountString = group.total_amount.toString();
+      if (!amountString.includes(searchAmount)) {
+        return false;
+      }
+    }
+  }
+  // ===== END OF REPLACEMENT =====
+  
+  // Filter by status
+  if (columnFilters?.status && columnFilters.status !== 'all') {
+    if (columnFilters.status === 'approved' && group.approved_count === 0) return false;
+    if (columnFilters.status === 'pending' && group.pending_count === 0) return false;
+    if (columnFilters.status === 'rejected' && group.rejected_count === 0) return false;
+  }
+  
+  // Filter by last payment date - CONTAINS search
+  if (columnFilters?.payment_date && group.last_payment_date) {
+    const searchDate = columnFilters.payment_date;
+    const groupDate = format(new Date(group.last_payment_date), 'dd/MM/yy');
+    
+    // Check if the search string appears in the formatted date
+    if (!groupDate.includes(searchDate)) {
+      return false;
+    }
+  }
+  
+  return true;
+});
 
   return (
     <Card className="border-0 shadow-xl overflow-hidden">
-      <div className="bg-gradient-to-r from-blue-800 to-blue-700 px-4 py-3">
-        <h3 className="text-white font-semibold flex items-center gap-2">
-          <CreditCard className="h-5 w-5" />
-          Payment Management
-        </h3>
-        <p className="text-blue-100 text-xs mt-1">
-          View and manage all tenant payments
-        </p>
-      </div>
-
-      {/* Filter Section */}
-      <div className="bg-white p-2 border-b border-slate-200">
-        <div className="flex gap-3">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-            <Input
-              placeholder="Search tenant..."
-              value={filters.tenant || ''}
-              onChange={(e) => setFilters({ ...filters, tenant: e.target.value })}
-              className="pl-9 h-9 text-sm"
-            />
-          </div>
-          <Button 
-            variant="outline" 
-            className="h-9 gap-2"
-            onClick={() => setFilters({ tenant: '', method: '', status: '', month: '' })}
-          >
-            <X className="h-4 w-4" />
-            Clear
-          </Button>
-        </div>
-      </div>
+     
 
       <div className="relative">
-        <div className="overflow-auto max-h-[calc(100vh-380px)]">
+        <div className="overflow-auto max-h-[calc(100vh-250px)] md:max-h-[calc(100vh-380px)]">
           <Table>
-            <TableHeader className="sticky top-0 z-20 bg-slate-50">
-              <TableRow className="border-b-2 border-slate-200">
-                <TableHead className="text-xs font-semibold text-slate-600 py-3 w-8"></TableHead>
-                <TableHead className="text-xs font-semibold text-slate-600 py-3">Tenant</TableHead>
-                <TableHead className="text-xs font-semibold text-slate-600 py-3 text-center">Payments</TableHead>
-                <TableHead className="text-xs font-semibold text-slate-600 py-3 text-right">Total Amount</TableHead>
-                <TableHead className="text-xs font-semibold text-slate-600 py-3 text-center">Status</TableHead>
-                <TableHead className="text-xs font-semibold text-slate-600 py-3 text-center">Last Payment</TableHead>
-                <TableHead className="text-xs font-semibold text-slate-600 py-3 text-center">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
+            {/* MAINTENANCE-STYLE HEADER WITH SEARCH BARS */}
+          {/* MAINTENANCE-STYLE HEADER WITH SEARCH BARS IN EVERY COLUMN */}
+<TableHeader className="sticky top-0 z-20 bg-gray-200 border-b border-gray-300">
+  <TableRow className="hover:bg-transparent">
+    {/* Expand */}
+    <TableHead className="w-6 py-2 px-1 bg-gray-200">
+    </TableHead>
 
+    {/* Tenant */}
+    <TableHead className="w-[160px] py-2 px-2 bg-gray-200">
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort?.('tenant_name')}>
+          <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Tenant</span>
+          <ArrowUpDown className="h-2.5 w-2.5 text-gray-500" />
+        </div>
+        <Input
+          placeholder="Search tenant..."
+          className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
+          value={columnFilters?.tenant_name || ''}
+          onChange={(e) => setColumnFilters?.({ ...columnFilters, tenant_name: e.target.value })}
+        />
+      </div>
+    </TableHead>
+
+    {/* CNT */}
+    <TableHead className="w-[55px] py-2 px-2 bg-gray-200 text-center">
+      <div className="flex flex-col gap-1 items-center">
+        <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">CNT</span>
+        <Input
+          placeholder="#"
+          type="number"
+          className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1 text-center font-normal w-full"
+          value={columnFilters?.payment_count || ''}
+          onChange={(e) => setColumnFilters?.({ ...columnFilters, payment_count: e.target.value })}
+        />
+      </div>
+    </TableHead>
+
+    {/* Amount */}
+    <TableHead className="w-[110px] py-2 px-2 bg-gray-200 text-right">
+      <div className="flex flex-col gap-1 items-end">
+        <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort?.('total_amount')}>
+          <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Amount</span>
+          <ArrowUpDown className="h-2.5 w-2.5 text-gray-500" />
+        </div>
+        <Input
+          placeholder="Search amount..."
+          type="number"
+          className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 text-left font-normal w-full"
+          value={columnFilters?.amount || ''}
+          onChange={(e) => setColumnFilters?.({ ...columnFilters, amount: e.target.value })}
+        />
+      </div>
+    </TableHead>
+
+    {/* Status */}
+    <TableHead className="w-[100px] py-2 px-2 bg-gray-200">
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort?.('status')}>
+          <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Status</span>
+          <ArrowUpDown className="h-2.5 w-2.5 text-gray-500" />
+        </div>
+        <Select
+          value={columnFilters?.status || 'all'}
+          onValueChange={(value) => setColumnFilters?.({ ...columnFilters, status: value })}
+        >
+          <SelectTrigger className="h-6 text-[10px] bg-white border-gray-300 px-2 font-normal w-full">
+            <SelectValue placeholder="All" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all" className="text-xs">All</SelectItem>
+            <SelectItem value="approved" className="text-xs">Approved</SelectItem>
+            <SelectItem value="pending" className="text-xs">Pending</SelectItem>
+            <SelectItem value="rejected" className="text-xs">Rejected</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+    </TableHead>
+
+    {/* Last Pay */}
+    <TableHead className="w-[100px] py-2 px-2 bg-gray-200">
+      <div className="flex flex-col gap-1">
+        <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Last Pay</span>
+        <Input
+          placeholder="dd/mm/yy"
+          type="text"
+          className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
+          value={columnFilters?.payment_date || ''}
+          onChange={(e) => setColumnFilters?.({ ...columnFilters, payment_date: e.target.value })}
+        />
+      </div>
+    </TableHead>
+
+    {/* Actions */}
+    <TableHead className="w-[50px] py-2 px-2 bg-gray-200 text-center">
+      <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Actions</span>
+    </TableHead>
+  </TableRow>
+</TableHeader>
+            {/* EXISTING TABLE BODY - UNCHANGED */}
             <TableBody>
               {loading ? (
                 <TableRow>
@@ -2734,10 +2905,10 @@ const PaymentsTable = ({
                                             {payment.month} {payment.year}
                                           </TableCell>
                                           <TableCell className="py-2 text-xs max-w-[120px] truncate group relative">
-  <span className="cursor-help" title={payment.remark || '-'}>
-    {payment.remark || '-'}
-  </span>
-</TableCell>
+                                            <span className="cursor-help" title={payment.remark || '-'}>
+                                              {payment.remark || '-'}
+                                            </span>
+                                          </TableCell>
                                           <TableCell className="py-2">
                                             <PaymentStatusBadge status={payment.status || 'pending'} />
                                           </TableCell>
@@ -2822,121 +2993,213 @@ const PaymentsTable = ({
     </Card>
   );
 };
+// ===== END OF REPLACEMENT =====
 
 // Receipts Table Component
+// Receipts Table Component - Compact like payments table with search bars
 const ReceiptsTable = ({ 
   receipts, 
   loading, 
   getTenantName,
-  highlightedReceipt, // Add this prop
+  highlightedReceipt,
   onPreviewReceipt,
   onDownloadReceipt
-}: any) => (
-  <Card className="border-0 shadow-sm">
-    <CardHeader className="p-3 bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-t-lg sticky top-0 z-10">
-      <CardTitle className="flex items-center gap-2 text-sm">
-        <Receipt className="h-4 w-4" />
-        Payment Receipts
-      </CardTitle>
-      <CardDescription className="text-blue-50 text-xs">
-        View and download payment receipts
-      </CardDescription>
-    </CardHeader>
+}: any) => {
+  // Add state for receipts column filters
+  const [receiptFilters, setReceiptFilters] = useState({
+    date: '',
+    tenant: '',
+    amount: '',
+    method: '',
+    room: ''
+  });
 
-    <CardContent className="p-2">
-      <div className="overflow-auto max-h-[calc(100vh-380px)]">
-        <Table>
-          <TableHeader className="sticky top-0 z-10 bg-white">
-            <TableRow className="bg-slate-100">
-              <TableHead className="text-xs py-2">Date</TableHead>
-              <TableHead className="text-xs py-2">Tenant</TableHead>
-              <TableHead className="text-xs py-2">Amount</TableHead>
-              <TableHead className="text-xs py-2">Method/Bank</TableHead>
-              <TableHead className="text-xs py-2">Room/Bed</TableHead>
-              <TableHead className="text-xs py-2 text-center">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                {/* Changed colSpan from 9 to 6 to match number of columns */}
-                <TableCell colSpan={6} className="text-center py-8 text-xs text-slate-500">
-                  <div className="flex justify-center items-center">
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mr-2" />
-                    Loading receipts...
-                  </div>
-                </TableCell>
-              </TableRow>
-            ) : receipts.length === 0 ? (
-              <TableRow>
-                {/* Changed colSpan from 9 to 6 */}
-                <TableCell colSpan={6} className="text-center py-8 text-xs text-slate-500">
-                  <Receipt className="h-8 w-8 mx-auto mb-2 text-slate-300" />
-                  No receipts found
-                </TableCell>
-              </TableRow>
-            ) : (
-              receipts.map((receipt: any) => (
-                <TableRow 
-                  key={receipt.id}  
-                  className={`hover:bg-slate-50 ${
-                    receipt.id === highlightedReceipt ? 'bg-green-50 animate-pulse' : ''
-                  }`}
-                >
-                  <TableCell className="py-2 text-xs whitespace-nowrap">
-                    {format(new Date(receipt.payment_date), 'dd/MM/yy')}
-                  </TableCell>
-                  <TableCell className="py-2">
-                    <p className="text-xs whitespace-nowrap">{receipt.tenant_name}</p>
-                    {receipt.tenant_phone && (
-                      <p className="text-[10px] text-slate-500">{receipt.tenant_phone}</p>
-                    )}
-                  </TableCell>
-                  <TableCell className="py-2 text-xs font-medium whitespace-nowrap">
-                    ₹{receipt.amount.toLocaleString()}
-                  </TableCell>
-                  <TableCell className="py-2">
-                    <p className="text-xs capitalize whitespace-nowrap">{receipt.payment_mode}</p>
-                    {receipt.bank_name && (
-                      <p className="text-[10px] text-slate-500">{receipt.bank_name}</p>
-                    )}
-                  </TableCell>
-                  <TableCell className="py-2">
-                    <p className="text-xs whitespace-nowrap">{receipt.room_number || 'N/A'}</p>
-                    {receipt.bed_number && (
-                      <p className="text-[10px] text-slate-500">Bed #{receipt.bed_number}</p>
-                    )}
-                  </TableCell>
-                  <TableCell className="py-2">
-                    <div className="flex items-center gap-1 justify-center">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-7 w-7 p-0"
-                        onClick={() => onPreviewReceipt(receipt.id)}
-                        title="Preview Receipt"
-                      >
-                        <Eye className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-7 w-7 p-0"
-                        onClick={() => onDownloadReceipt(receipt.id)}
-                        title="Download Receipt"
-                      >
-                        <Download className="h-3.5 w-3.5" />
-                      </Button>
+  // Filter receipts based on column filters
+  // Filter receipts based on column filters
+const filteredReceipts = receipts.filter((receipt: any) => {
+  const matchesDate = !receiptFilters.date || 
+    format(new Date(receipt.payment_date), 'dd/MM/yy').includes(receiptFilters.date);
+  
+  const matchesTenant = !receiptFilters.tenant || 
+    (receipt.tenant_name && receipt.tenant_name.toLowerCase().includes(receiptFilters.tenant.toLowerCase()));
+  
+  const matchesAmount = !receiptFilters.amount || 
+    (receipt.amount && receipt.amount.toString().includes(receiptFilters.amount));
+  
+  const matchesMethod = !receiptFilters.method || 
+    (receipt.payment_mode && receipt.payment_mode.toLowerCase().includes(receiptFilters.method.toLowerCase())) ||
+    (receipt.bank_name && receipt.bank_name.toLowerCase().includes(receiptFilters.method.toLowerCase()));
+  
+  const matchesRoom = !receiptFilters.room || 
+    (receipt.room_number && receipt.room_number.toString().toLowerCase().includes(receiptFilters.room.toLowerCase())) ||
+    (receipt.bed_number && receipt.bed_number.toString().includes(receiptFilters.room));
+  
+  return matchesDate && matchesTenant && matchesAmount && matchesMethod && matchesRoom;
+});
+
+  return (
+    <Card className="border-0 shadow-xl overflow-hidden">
+  
+
+      <div className="relative">
+        <div className="overflow-auto max-h-[calc(100vh-380px)]">
+          <Table>
+            {/* COMPACT HEADER WITH SEARCH BARS - LIKE PAYMENTS TABLE */}
+         <TableHeader className="sticky top-0 z-20 bg-gray-200 border-b border-gray-300">
+  <TableRow className="hover:bg-transparent">
+    {/* Date Column */}
+    <TableHead className="w-[90px] py-2 px-2 bg-gray-200">
+      <div className="flex flex-col gap-1">
+        <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Date</span>
+        <Input
+          placeholder="dd/mm/yy"
+          className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
+          value={receiptFilters.date}
+          onChange={(e) => setReceiptFilters({ ...receiptFilters, date: e.target.value })}
+        />
+      </div>
+    </TableHead>
+
+    {/* Tenant Column */}
+    <TableHead className="w-[160px] py-2 px-2 bg-gray-200">
+      <div className="flex flex-col gap-1">
+        <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Tenant</span>
+        <Input
+          placeholder="Search tenant..."
+          className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
+          value={receiptFilters.tenant}
+          onChange={(e) => setReceiptFilters({ ...receiptFilters, tenant: e.target.value })}
+        />
+      </div>
+    </TableHead>
+
+    {/* Amount Column */}
+    <TableHead className="w-[90px] py-2 px-2 bg-gray-200 text-right">
+      <div className="flex flex-col gap-1">
+        <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Amount</span>
+        <Input
+          placeholder="Search..."
+          type="number"
+          className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 text-right font-normal w-full"
+          value={receiptFilters.amount}
+          onChange={(e) => setReceiptFilters({ ...receiptFilters, amount: e.target.value })}
+        />
+      </div>
+    </TableHead>
+
+    {/* Method/Bank Column */}
+    <TableHead className="w-[120px] py-2 px-2 bg-gray-200">
+      <div className="flex flex-col gap-1">
+        <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Method/Bank</span>
+        <Input
+          placeholder="Search..."
+          className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
+          value={receiptFilters.method}
+          onChange={(e) => setReceiptFilters({ ...receiptFilters, method: e.target.value })}
+        />
+      </div>
+    </TableHead>
+
+    {/* Room/Bed Column */}
+    <TableHead className="w-[100px] py-2 px-2 bg-gray-200">
+      <div className="flex flex-col gap-1">
+        <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Room/Bed</span>
+        <Input
+          placeholder="Search..."
+          className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
+          value={receiptFilters.room}
+          onChange={(e) => setReceiptFilters({ ...receiptFilters, room: e.target.value })}
+        />
+      </div>
+    </TableHead>
+
+    {/* Actions Column */}
+    <TableHead className="w-[60px] py-2 px-2 bg-gray-200 text-center">
+      <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Actions</span>
+    </TableHead>
+  </TableRow>
+</TableHeader>
+
+            {/* EXISTING TABLE BODY - UNCHANGED */}
+            <TableBody>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8 text-xs text-slate-500">
+                    <div className="flex justify-center items-center">
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mr-2" />
+                      Loading receipts...
                     </div>
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              ) : filteredReceipts.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8 text-xs text-slate-500">
+                    <Receipt className="h-8 w-8 mx-auto mb-2 text-slate-300" />
+                    No receipts found
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredReceipts.map((receipt: any) => (
+                  <TableRow 
+                    key={receipt.id}  
+                    className={`hover:bg-slate-50 ${
+                      receipt.id === highlightedReceipt ? 'bg-green-50 animate-pulse' : ''
+                    }`}
+                  >
+                    <TableCell className="py-2 text-xs whitespace-nowrap">
+                      {format(new Date(receipt.payment_date), 'dd/MM/yy')}
+                    </TableCell>
+                    <TableCell className="py-2">
+                      <p className="text-xs whitespace-nowrap">{receipt.tenant_name}</p>
+                      {receipt.tenant_phone && (
+                        <p className="text-[10px] text-slate-500">{receipt.tenant_phone}</p>
+                      )}
+                    </TableCell>
+                    <TableCell className="py-2 text-xs font-medium whitespace-nowrap">
+                      ₹{receipt.amount.toLocaleString()}
+                    </TableCell>
+                    <TableCell className="py-2">
+                      <p className="text-xs capitalize whitespace-nowrap">{receipt.payment_mode}</p>
+                      {receipt.bank_name && (
+                        <p className="text-[10px] text-slate-500">{receipt.bank_name}</p>
+                      )}
+                    </TableCell>
+                    <TableCell className="py-2">
+                      <p className="text-xs whitespace-nowrap">{receipt.room_number || 'N/A'}</p>
+                      {receipt.bed_number && (
+                        <p className="text-[10px] text-slate-500">Bed #{receipt.bed_number}</p>
+                      )}
+                    </TableCell>
+                    <TableCell className="py-2">
+                      <div className="flex items-center gap-1 justify-center">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 w-7 p-0"
+                          onClick={() => onPreviewReceipt(receipt.id)}
+                          title="Preview Receipt"
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 w-7 p-0"
+                          onClick={() => onDownloadReceipt(receipt.id)}
+                          title="Download Receipt"
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
-    </CardContent>
-  </Card>
-);
-
+    </Card>
+  );
+};
 

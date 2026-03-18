@@ -363,7 +363,7 @@ const handleUpdateStatus = async (id: number, status: string) => {
     <div className="p-0 bg-gradient-to-br from-blue-50/50 to-cyan-50/50 ">
      
 
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 mb-4 -mt-5 md:-mt-2 sticky top-20 z-10">
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 mb-4 -mt-5 md:-mt-2 sticky top-24 z-10">
 
   {/* Total Complaints */}
   <Card className="bg-gradient-to-br from-slate-50 to-slate-100 border-0 shadow-sm">
@@ -489,8 +489,8 @@ const handleUpdateStatus = async (id: number, status: string) => {
         {/* Sticky Header Table */}
 <div className={`overflow-y-auto rounded-b-lg transition-all duration-300 ${
   selectedComplaints.size > 0 
-    ? 'max-h-[440px] md:max-h-[450px]'  // smaller when bulk bar is visible
-    : 'max-h-[480px] md:max-h-[550px]'  // normal height
+    ? 'max-h-[440px] md:max-h-[390px]'  // smaller when bulk bar is visible
+    : 'max-h-[390px] md:max-h-[480px]'  // normal height
 }`}>          <Table className="relative">
             <TableHeader className="sticky top-0 z-10 bg-gradient-to-r from-gray-50 to-white shadow-sm">
               <TableRow className="hover:bg-transparent">
