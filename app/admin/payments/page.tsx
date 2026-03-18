@@ -267,7 +267,7 @@ const toggleRowExpansion = (paymentId: number) => {
 
 const loadDemands = async () => {
   try {
-    // console.log('Fetching demands...');
+    // console.log(' demands...');
     const response = await paymentApi.getDemands();
     // console.log('Demands response:', response);
 

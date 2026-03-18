@@ -252,7 +252,6 @@ useEffect(() => {
         }
       });
       const data = await response.json();
-      console.log('🧪 Direct API response:', data);
     } catch (error) {
       console.error('🧪 Direct API error:', error);
     }

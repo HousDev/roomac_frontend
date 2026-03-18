@@ -48,7 +48,6 @@ export type ProfileResponse = {
 export async function getProfile(): Promise<ProfileResponse> {
   try {
     const result = await request<ProfileResponse>('/api/profile');
-    console.log('✅ getProfile API response:', result);
     return result;
   } catch (error) {
     console.error('❌ getProfile API error:', error);
@@ -64,7 +63,6 @@ export async function updateProfile(data: ProfileUpdateData): Promise<ProfileRes
       method: 'PUT',
       body: JSON.stringify(data),
     });
-    console.log('✅ updateProfile API response:', result);
     return result;
   } catch (error) {
     console.error('❌ updateProfile API error:', error);
@@ -80,7 +78,6 @@ export async function changePassword(data: PasswordChangeData): Promise<ApiResul
       method: 'PUT',
       body: JSON.stringify(data),
     });
-    console.log('✅ changePassword API response:', result);
     return result;
   } catch (error) {
     console.error('❌ changePassword API error:', error);
@@ -96,7 +93,6 @@ export async function updateNotificationSettings(data: NotificationSettings): Pr
       method: 'PUT',
       body: JSON.stringify(data),
     });
-    console.log('✅ updateNotificationSettings API response:', result);
     return result;
   } catch (error) {
     console.error('❌ updateNotificationSettings API error:', error);
@@ -115,7 +111,6 @@ export async function uploadAvatar(file: File): Promise<ApiResult<{ avatar_url: 
       method: 'POST',
       body: formData,
     });
-    console.log('✅ uploadAvatar API response:', result);
     return result;
   } catch (error) {
     console.error('❌ uploadAvatar API error:', error);

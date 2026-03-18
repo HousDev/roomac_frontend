@@ -230,14 +230,12 @@ export default function SecurityTab({
             </div>
             <p className="st-banner-sub">Manage your password and security preferences</p>
           </div>
-          <div className="st-banner-badge">
-            <Lock size={30} color="rgba(255,255,255,.85)" />
-          </div>
+          
         </div>
 
         {/* Form */}
         <div className="st-form">
-          <div className="st-sec-lbl" style={{ marginTop: 20 }}>Change Password</div>
+          <div className="st-sec-lbl" style={{ marginTop: -20 }}>Change Password</div>
 
           {/* Current Password */}
           <div className="st-field">

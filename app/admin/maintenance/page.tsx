@@ -78,7 +78,6 @@ const [bulkActionLoading, setBulkActionLoading] = useState(false);
   useEffect(() => {
     const token = localStorage.getItem("auth_token") || localStorage.getItem("token");
     if (!token) {
-      console.log("Token not ready yet");
       return;
     }
     loadRequests();
@@ -89,7 +88,6 @@ const [bulkActionLoading, setBulkActionLoading] = useState(false);
       setLoading(true);
       const data = await getAdminMaintenanceRequests();
       setRequests(data);
-      console.log('Loaded maintenance requests:', data.length);
       
       // Load staff
       await loadStaff();
@@ -106,7 +104,6 @@ const [bulkActionLoading, setBulkActionLoading] = useState(false);
     try {
       const staffData = await getActiveStaff();
       setStaff(staffData);
-      console.log('Loaded staff:', staffData);
     } catch (error) {
       console.error('Error loading staff:', error);
       setStaff([]);

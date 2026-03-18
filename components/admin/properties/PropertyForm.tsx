@@ -363,10 +363,7 @@ export default function PropertyForm({
 
   const tabs = ["basic", "amenities", "terms", "photos"];
 
-  useEffect(() => {
-    console.log("from useeffect", selectedProperty);
-    console.log("from useeffect", formData);
-  }, [formData]);
+  
 
   const goToNextTab = () => {
     const currentIndex = tabs.indexOf(activeTab);
@@ -522,8 +519,7 @@ export default function PropertyForm({
         staffList.find((s) => String(s.id) === String(selectedProperty.staff_id)) ||
         staffList.find((s) => s.name === selectedProperty.property_manager_name);
 
-      console.log("Select property from property form ", matchingStaff);
-      console.log("Select property from property form sjfahksdjhfsjdfhkj ", selectedProperty);
+      
       if (matchingStaff) {
         setSelectedStaff(matchingStaff);
         setSelectedStaffId(String(matchingStaff.id));
@@ -570,7 +566,6 @@ export default function PropertyForm({
         }
 
         if (Object.keys(updates).length > 0) {
-          console.log("Updating form with mapped values:", updates);
           return { ...prev, ...updates };
         }
         return prev;
@@ -605,9 +600,7 @@ export default function PropertyForm({
       const loadData = async () => {
         setLoadingMasters(true);
         try {
-          console.log("Loading masters...");
           await Promise.all([fetchPropertiesMasters(), fetchCommonMasters(), loadStaffList()]);
-          console.log("Masters loaded:", { commonMasters, propertiesMasters });
           if (editMode && selectedProperty) initializeFormWithMasters();
         } catch (error) {
           console.error("Failed to load masters:", error);
@@ -624,21 +617,19 @@ export default function PropertyForm({
   const initializeFormWithMasters = () => {
     if (!selectedProperty) return;
 
-    console.log("Initializing form with property:", selectedProperty);
-    console.log("Masters data:", { commonMasters, propertiesMasters });
 
     const photoUrls = Array.isArray(selectedProperty.photo_urls) ? selectedProperty.photo_urls : [];
     const uniquePhotoUrls = [...new Set(photoUrls)];
 
     let parsedPropertyRules = [];
     if (selectedProperty.property_rules) {
-      try { parsedPropertyRules = JSON.parse(selectedProperty.property_rules); console.log("Parsed property rules:", parsedPropertyRules); }
+      try { parsedPropertyRules = JSON.parse(selectedProperty.property_rules);  }
       catch { parsedPropertyRules = Array.isArray(selectedProperty.property_rules) ? selectedProperty.property_rules : selectedProperty.property_rules ? [selectedProperty.property_rules] : []; }
     }
 
     let parsedAdditionalTerms = [];
     if (selectedProperty.additional_terms) {
-      try { parsedAdditionalTerms = JSON.parse(selectedProperty.additional_terms); console.log("Parsed additional terms:", parsedAdditionalTerms); }
+      try { parsedAdditionalTerms = JSON.parse(selectedProperty.additional_terms); }
       catch { parsedAdditionalTerms = Array.isArray(selectedProperty.additional_terms) ? selectedProperty.additional_terms : selectedProperty.additional_terms ? [selectedProperty.additional_terms] : []; }
     }
 
@@ -652,10 +643,10 @@ export default function PropertyForm({
     if (selectedProperty.state && commonMasters["States"]?.length > 0) {
       const stateId = String(selectedProperty.state);
       const matchingState = commonMasters["States"].find(state => String(state.id) === stateId);
-      if (matchingState) { stateValue = String(matchingState.id); console.log("Mapped state to ID:", stateValue); }
+      if (matchingState) { stateValue = String(matchingState.id);  }
       else {
         const stateByName = commonMasters["States"].find(state => state.name.toLowerCase() === stateId.toLowerCase());
-        if (stateByName) { stateValue = String(stateByName.id); console.log("Mapped state name to ID:", stateValue); }
+        if (stateByName) { stateValue = String(stateByName.id);  }
         else stateValue = stateId;
       }
     } else stateValue = selectedProperty.state || "";
@@ -664,10 +655,10 @@ export default function PropertyForm({
     if (selectedProperty.floor && propertiesMasters["Floors"]?.length > 0) {
       const floorStr = String(selectedProperty.floor);
       const matchingFloor = propertiesMasters["Floors"].find(floor => String(floor.id) === floorStr);
-      if (matchingFloor) { floorValue = matchingFloor.name; console.log("Mapped floor ID to name:", floorValue); }
+      if (matchingFloor) { floorValue = matchingFloor.name;  }
       else {
         const floorByName = propertiesMasters["Floors"].find(floor => floor.name === floorStr);
-        if (floorByName) { floorValue = floorByName.name; console.log("Floor name matched:", floorValue); }
+        if (floorByName) { floorValue = floorByName.name;  }
         else floorValue = floorStr;
       }
     } else floorValue = selectedProperty.floor || "";
@@ -676,7 +667,7 @@ export default function PropertyForm({
     if (selectedProperty.lockin_period_months && propertiesMasters["Lock-in Period"]?.length > 0) {
       const lockinNum = Number(selectedProperty.lockin_period_months);
       const matchingOption = propertiesMasters["Lock-in Period"].find(option => parseInt(option.name) === lockinNum);
-      if (matchingOption) { lockinValue = matchingOption.name; console.log("Mapped lock-in period to:", lockinValue); }
+      if (matchingOption) { lockinValue = matchingOption.name;  }
       else lockinValue = String(selectedProperty.lockin_period_months);
     } else lockinValue = selectedProperty.lockin_period_months || "";
 
@@ -684,7 +675,7 @@ export default function PropertyForm({
     if (selectedProperty.notice_period_days && propertiesMasters["Notice Period"]?.length > 0) {
       const noticeNum = Number(selectedProperty.notice_period_days);
       const matchingOption = propertiesMasters["Notice Period"].find(option => parseInt(option.name) === noticeNum);
-      if (matchingOption) { noticeValue = matchingOption.name; console.log("Mapped notice period to:", noticeValue); }
+      if (matchingOption) { noticeValue = matchingOption.name;  }
       else noticeValue = String(selectedProperty.notice_period_days);
     } else noticeValue = selectedProperty.notice_period_days || "";
 
@@ -694,7 +685,6 @@ export default function PropertyForm({
         const matchingRule = propertiesMasters["Property Rules"].find(rule => rule.id === Number(id) || rule.name === String(id));
         return matchingRule ? matchingRule.name : String(id);
       }).filter(Boolean);
-      console.log("Mapped property rules to names:", ruleNames);
     }
 
     let termNames = parsedAdditionalTerms;
@@ -703,7 +693,6 @@ export default function PropertyForm({
         const matchingTerm = propertiesMasters["Additional Terms"].find(term => term.id === Number(id) || term.name === String(id));
         return matchingTerm ? matchingTerm.name : String(id);
       }).filter(Boolean);
-      console.log("Mapped additional terms to names:", termNames);
     }
 
     let tagNames = parsedTags;
@@ -750,7 +739,6 @@ export default function PropertyForm({
       
     };
 
-    console.log("Setting form data:", initialFormData);
     setFormData(initialFormData);
     setSelectedRules(ruleNames);
     setSelectedAdditionalTerms(termNames);
@@ -808,7 +796,6 @@ export default function PropertyForm({
     setLoadingStaff(true);
     try {
       const staff = await getAllStaff();
-      console.log("from staff : ", staff);
       setStaffList(staff);
     } catch (err) {
       console.error("Failed to load staff list:", err);
@@ -820,7 +807,6 @@ export default function PropertyForm({
   const handleStaffSelect = (staffId: string) => {
     setSelectedStaffId(staffId);
     const staff = staffList.find((s) => String(s.id) === staffId);
-    console.log("Stafffffffffff", staff);
     if (staff) {
       setSelectedStaff(staff);
       const fullName = staff.name || "";

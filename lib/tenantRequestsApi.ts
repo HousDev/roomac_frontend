@@ -786,7 +786,6 @@ export const getTenantContractDetails = async (): Promise<{
       method: "GET",
     });
 
-    console.log('📊 Contract details API response:', res);
 
     if (!res.success) {
       throw new Error(res.message || "Failed to get contract details");
@@ -923,7 +922,6 @@ export const getAvailableBedsForRoom = async (roomId: number): Promise<number[]>
         
         if (response.ok) {
             const result = await response.json();
-            console.log('Available beds API response:', result); // Add logging
             
             if (result.success && Array.isArray(result.data)) {
                 // Extract bed numbers from the objects
@@ -1268,7 +1266,6 @@ export const getVisitTimesFromMasters = async (): Promise<any[]> => {
       return visitTimes;
     }
     
-    console.log('⚠️ No visit times found in Requests tab. Available types:', Object.keys(masters));
     
     // Fallback visit times
     return [

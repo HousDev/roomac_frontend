@@ -144,7 +144,6 @@ const [propertySearchTerm, setPropertySearchTerm] = useState('');
       a.findIndex(t => t.value === v.value) === i
     );
     
-    console.log('Loaded purchased items:', unique); // ← Check console
     setPurchasedItems(unique);
   } catch (err) {
     console.error('Could not load purchased items:', err);

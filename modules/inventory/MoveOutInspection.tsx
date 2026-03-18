@@ -242,7 +242,6 @@ const [propertyFilterSearchTerm, setPropertyFilterSearchTerm] = useState('');
       if (propertyFilter !== 'all') filters.property_id = propertyFilter;
 
       const res = await getInspections(filters);
-      console.log('Inspections loaded:', res);
       
       // Ensure data is properly formatted
       const data: MoveOutInspection[] = (res.data || []).map(i => {
@@ -284,7 +283,6 @@ const [propertyFilterSearchTerm, setPropertyFilterSearchTerm] = useState('');
     try {
       setLoadingHandovers(true);
       const res = await getHandovers({ status: 'Active' });
-      console.log('Handovers loaded:', res);
       
       const data = (res.data || []).map(h => ({
         id: String(h.id),
@@ -360,7 +358,6 @@ const [propertyFilterSearchTerm, setPropertyFilterSearchTerm] = useState('');
           notes: ''
         }));
         setInspectionItems(items);
-        console.log('Loaded inspection items:', items);
       } else {
         // Create sample items for demo if none exist
         const sampleItems: InspectionItem[] = [
@@ -504,14 +501,12 @@ const [propertyFilterSearchTerm, setPropertyFilterSearchTerm] = useState('');
   const openEdit = async (inspection: MoveOutInspection) => {
     try {
       setLoading(true);
-      console.log('Opening edit for inspection:', inspection);
       
       let fullData = inspection;
       if (inspection.id) {
         try {
           const fullInspection = await getInspectionById(inspection.id);
           fullData = fullInspection.data;
-          console.log('Full inspection data:', fullData);
         } catch (err) {
           console.warn('Could not fetch full details, using provided data');
         }
@@ -555,7 +550,6 @@ const items = (Array.isArray(rawItems) ? rawItems : []).map(item => ({
 }));
       
       setInspectionItems(items);
-      console.log('Set inspection items for edit:', items);
       
       setCurrentStep(2);
       setShowForm(true);
@@ -616,7 +610,6 @@ const items = (Array.isArray(rawItems) ? rawItems : []).map(item => ({
         }))
       };
 
-      console.log('Submitting payload:', payload);
 
       if (editingItem) {
         await updateInspection(editingItem.id, payload);

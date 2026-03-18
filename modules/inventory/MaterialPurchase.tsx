@@ -192,7 +192,6 @@ const [editSubmitting, setEditSubmitting] = useState(false);
         getPurchaseStats()
       ]);
 
-      console.log('API Response:', purchasesRes);
 
       // Ensure items are properly parsed
       const purchasesData = purchasesRes.data || [];
@@ -247,7 +246,6 @@ const [editSubmitting, setEditSubmitting] = useState(false);
   }, [purchases, colSearch]);
 
   const handleEdit = (purchase: MaterialPurchaseType) => {
-  console.log('Editing purchase:', purchase);
   
   // Ensure purchase_items is properly set
   if (!purchase.purchase_items && purchase.items) {
@@ -348,7 +346,6 @@ const [editSubmitting, setEditSubmitting] = useState(false);
   };
 
   const handleViewDetails = (purchase: MaterialPurchaseType) => {
-    console.log('Viewing purchase:', purchase);
     
     // 🔥 Ensure purchase_items is properly set
     if (!purchase.purchase_items && purchase.items) {
@@ -369,7 +366,6 @@ const [editSubmitting, setEditSubmitting] = useState(false);
       purchase.purchase_items = purchase.items as any;
     }
     
-    console.log('Purchase items after parsing:', purchase.purchase_items);
     
     setSelectedPurchase(purchase);
     setShowDetailsModal(true);
@@ -422,7 +418,6 @@ const [editSubmitting, setEditSubmitting] = useState(false);
       };
 
       const response = await createPurchase(payload);
-      console.log('Create response:', response);
       
       setShowForm(false);
       await loadAll();

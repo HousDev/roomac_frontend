@@ -61,7 +61,6 @@ export async function getAdminReceiptRequests(): Promise<ReceiptRequest[]> {
       }
     );
     
-    console.log('✅ Receipt API response:', response);
     
     if (response.success && Array.isArray(response.data)) {
       return response.data;
