@@ -441,7 +441,7 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
 
   const settingsItems = [
     { href: '/admin/settings', label: 'General Settings', icon: Sliders },
-    { href: '/admin/settings/integration', label: 'Integration', icon: Link2 },
+    { href: '/admin/settings/integration', label: 'Integrations', icon: Link2 },
   ];
 
   const isActive = (href: string) => pathname === href;

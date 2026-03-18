@@ -1,4 +1,3 @@
-
 // modules/visitor/VisitorDashboard.tsx
 import { useEffect, useState, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -74,12 +73,9 @@ const AnimatedCounter = ({ value, duration = 2000 }: { value: number; duration?:
     const animate = (timestamp: number) => {
       if (!startTime) startTime = timestamp;
       const progress = Math.min((timestamp - startTime) / duration, 1);
-      
       const easeOutQuart = 1 - Math.pow(1 - progress, 3);
       const currentValue = startValue + (value - startValue) * easeOutQuart;
-      
       setCount(Math.floor(currentValue));
-
       if (progress < 1) {
         animationFrame = requestAnimationFrame(animate);
       }
@@ -92,29 +88,13 @@ const AnimatedCounter = ({ value, duration = 2000 }: { value: number; duration?:
   return <span>{count.toLocaleString()}</span>;
 };
 
-// ============== Metric Card with Fixed Height ==============
-const MetricCard = ({ 
-  title, 
-  value, 
-  icon: Icon, 
-  trend, 
-  color,
-  delay = 0,
-  onClick
-}: any) => {
+// ============== Metric Card ==============
+const MetricCard = ({ title, value, icon: Icon, trend, color, delay = 0, onClick }: any) => {
   const colors: any = {
-    blue: {
-      gradient: 'from-blue-500 to-blue-600',
-    },
-    green: {
-      gradient: 'from-green-500 to-emerald-600',
-    },
-    purple: {
-      gradient: 'from-purple-500 to-purple-600',
-    },
-    orange: {
-      gradient: 'from-orange-500 to-orange-600',
-    }
+    blue:   { gradient: 'from-blue-500 to-blue-600' },
+    green:  { gradient: 'from-green-500 to-emerald-600' },
+    purple: { gradient: 'from-purple-500 to-purple-600' },
+    orange: { gradient: 'from-orange-500 to-orange-600' },
   };
 
   return (
@@ -133,28 +113,22 @@ const MetricCard = ({
               <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
             {trend !== undefined && (
-              <Badge 
-                variant="outline" 
-                className={`${
-                  trend > 0 ? 'text-green-600 bg-green-50' : 'text-red-600 bg-red-50'
-                } border-0 text-xs font-medium`}
+              <Badge
+                variant="outline"
+                className={`${trend > 0 ? 'text-green-600 bg-green-50' : 'text-red-600 bg-red-50'} border-0 text-xs font-medium`}
               >
                 {trend > 0 ? <ArrowUpRight className="w-3 h-3 mr-1" /> : <ArrowDownRight className="w-3 h-3 mr-1" />}
                 {Math.abs(trend)}%
               </Badge>
             )}
           </div>
-          
           <div className="flex-1">
             <p className="text-xs sm:text-sm text-gray-500 mb-1">{title}</p>
             <p className="text-xl sm:text-2xl font-bold text-gray-900">
               <AnimatedCounter value={value} />
             </p>
           </div>
-          
-          {trend && (
-            <p className="text-xs text-gray-400 mt-2">vs last month</p>
-          )}
+          {trend && <p className="text-xs text-gray-400 mt-2">vs last month</p>}
         </CardContent>
       </Card>
     </motion.div>
@@ -163,10 +137,7 @@ const MetricCard = ({
 
 // ============== Purpose List ==============
 const PurposeList = ({ data }: { data: { [key: string]: number } }) => {
-  const purposes = Object.entries(data)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 5);
-
+  const purposes = Object.entries(data).sort(([, a], [, b]) => b - a).slice(0, 5);
   const maxValue = Math.max(...Object.values(data), 1);
 
   if (purposes.length === 0) {
@@ -189,9 +160,7 @@ const PurposeList = ({ data }: { data: { [key: string]: number } }) => {
           className="space-y-1"
         >
           <div className="flex justify-between items-center text-xs sm:text-sm">
-            <span className="font-medium text-gray-700 truncate max-w-[120px] sm:max-w-none">
-              {purpose}
-            </span>
+            <span className="font-medium text-gray-700 truncate max-w-[120px] sm:max-w-none">{purpose}</span>
             <span className="text-gray-900 font-semibold ml-2">{count}</span>
           </div>
           <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
@@ -211,7 +180,7 @@ const PurposeList = ({ data }: { data: { [key: string]: number } }) => {
 // ============== Visitor Card ==============
 const VisitorCard = ({ visitor, compact = false, onClick }: { visitor: VisitorLog; compact?: boolean; onClick?: () => void }) => {
   const isInside = !visitor.exit_time;
-  
+
   if (compact) {
     return (
       <motion.div
@@ -253,31 +222,24 @@ const VisitorCard = ({ visitor, compact = false, onClick }: { visitor: VisitorLo
         </div>
         <p className="text-xs text-gray-500 whitespace-nowrap">{visitor.purpose}</p>
       </div>
-      
+
       <div className="grid grid-cols-2 gap-2 text-xs border-t pt-3 mt-2">
         <div className="flex items-center gap-1">
           <LogIn className="w-3 h-3 text-gray-400" />
           <span className="text-gray-600">
-            {new Date(visitor.entry_time).toLocaleTimeString([], { 
-              hour: '2-digit', 
-              minute: '2-digit' 
-            })}
+            {new Date(visitor.entry_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </span>
         </div>
         <div className="flex items-center gap-1">
           <LogOut className="w-3 h-3 text-gray-400" />
           <span className="text-gray-600">
-            {visitor.exit_time 
-              ? new Date(visitor.exit_time).toLocaleTimeString([], { 
-                  hour: '2-digit', 
-                  minute: '2-digit' 
-                })
-              : '—'
-            }
+            {visitor.exit_time
+              ? new Date(visitor.exit_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+              : '—'}
           </span>
         </div>
       </div>
-      
+
       {visitor.vehicle_number && (
         <div className="mt-2 text-xs text-gray-500 flex items-center gap-1 bg-gray-50 p-1.5 rounded">
           <Car className="w-3 h-3" /> {visitor.vehicle_number}
@@ -287,7 +249,7 @@ const VisitorCard = ({ visitor, compact = false, onClick }: { visitor: VisitorLo
   );
 };
 
-// ============== Quick Action with Redirect ==============
+// ============== Quick Action ==============
 const QuickAction = ({ to, icon: Icon, title, description, color }: any) => (
   <Link to={to} className="block h-full">
     <motion.div
@@ -310,18 +272,11 @@ const QuickAction = ({ to, icon: Icon, title, description, color }: any) => (
 );
 
 // ============== Mobile Header ==============
-const MobileHeader = ({ 
-  showStats, 
-  setShowStats, 
-  lastUpdated,
-  onRefresh,
-  isRefreshing,
-  navigate
-}: any) => {
+const MobileHeader = ({ showStats, setShowStats, lastUpdated, onRefresh, isRefreshing, navigate }: any) => {
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <div className="lg:hidden mb-4">
+    <div className="lg:hidden mb-4 -mt-8">
       <div className="flex items-center justify-between">
         <div>
           <div className="flex items-center gap-2 mb-1">
@@ -329,26 +284,12 @@ const MobileHeader = ({
               <Zap className="w-3 h-3 mr-1" /> LIVE
             </Badge>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">Visitor Dashboard</h1>
         </div>
-        
         <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onRefresh}
-            disabled={isRefreshing}
-            className="h-9 w-9"
-          >
+          <Button variant="ghost" size="icon" onClick={onRefresh} disabled={isRefreshing} className="h-9 w-9">
             <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
           </Button>
-          
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setMenuOpen(!menuOpen)}
-            className="h-9 w-9"
-          >
+          <Button variant="ghost" size="icon" onClick={() => setMenuOpen(!menuOpen)} className="h-9 w-9">
             {menuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
           </Button>
         </div>
@@ -362,53 +303,20 @@ const MobileHeader = ({
             exit={{ opacity: 0, height: 0 }}
             className="mt-4 space-y-2 overflow-hidden"
           >
-            <Button
-              variant="outline"
-              onClick={() => setShowStats(!showStats)}
-              className="w-full justify-start gap-2"
-            >
+            <Button variant="outline" onClick={() => setShowStats(!showStats)} className="w-full justify-start gap-2">
               {showStats ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               {showStats ? 'Hide Stats' : 'Show Stats'}
             </Button>
-            
-            <Button
-              onClick={() => {
-                setMenuOpen(false);
-                navigate('/admin/visitors/new-entry');
-              }}
-              className="w-full bg-blue-600 hover:bg-blue-700 gap-2"
-            >
-              <UserPlus className="w-4 h-4" />
-              New Entry
+            <Button onClick={() => { setMenuOpen(false); navigate('/admin/visitors/new-entry'); }} className="w-full bg-blue-600 hover:bg-blue-700 gap-2">
+              <UserPlus className="w-4 h-4" /> New Entry
             </Button>
-
-            <Button
-              onClick={() => {
-                setMenuOpen(false);
-                navigate('/admin/visitors/logs');
-              }}
-              variant="outline"
-              className="w-full justify-start gap-2"
-            >
-              <FileText className="w-4 h-4" />
-              View Logs
+            <Button onClick={() => { setMenuOpen(false); navigate('/admin/visitors/logs'); }} variant="outline" className="w-full justify-start gap-2">
+              <FileText className="w-4 h-4" /> View Logs
             </Button>
-
-            <Button
-              onClick={() => {
-                setMenuOpen(false);
-                navigate('/admin/visitors/restrictions');
-              }}
-              variant="outline"
-              className="w-full justify-start gap-2"
-            >
-              <Shield className="w-4 h-4" />
-              Restrictions
+            <Button onClick={() => { setMenuOpen(false); navigate('/admin/visitors/restrictions'); }} variant="outline" className="w-full justify-start gap-2">
+              <Shield className="w-4 h-4" /> Restrictions
             </Button>
-
-            <p className="text-xs text-gray-400 text-center pt-2">
-              Last updated: {lastUpdated.toLocaleTimeString()}
-            </p>
+            <p className="text-xs text-gray-400 text-center pt-2">Last updated: {lastUpdated.toLocaleTimeString()}</p>
           </motion.div>
         )}
       </AnimatePresence>
@@ -417,47 +325,22 @@ const MobileHeader = ({
 };
 
 // ============== Desktop Header ==============
-const DesktopHeader = ({ showStats, setShowStats, lastUpdated, onRefresh, isRefreshing, navigate }: any) => (
-  <div className="hidden lg:flex items-center justify-between mb-3 -mt-20 ">
+const DesktopHeader = ({ showStats, setShowStats, lastUpdated, onRefresh, isRefreshing }: any) => (
+  <div className="hidden lg:flex items-center justify-between mb-4 -mt-8">
     <div>
-      <div className="flex items-center gap-2 mb-1">
-        {/* <Badge className="bg-blue-600 text-white">
-          <Zap className="w-3 h-3 mr-1" /> LIVE DASHBOARD
-        </Badge> */}
-        <Badge variant="outline">
-          Updated {lastUpdated.toLocaleTimeString()}
-        </Badge>
-      </div>
-      {/* <h1 className="text-3xl font-bold text-gray-900">Visitor Dashboard</h1>
-      <p className="text-gray-500 flex items-center gap-1 mt-1">
-        <Activity className="w-4 h-4" />
-        Real-time visitor analytics and management
-      </p> */}
+      <Badge variant="outline" className="mb-1">
+        Updated {lastUpdated.toLocaleTimeString()}
+      </Badge>
     </div>
-
-    <div className="flex items-center gap-3 -mt-20">
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={onRefresh}
-        disabled={isRefreshing}
-        className="gap-2"
-      >
+    <div className="flex items-center gap-3">
+      <Button variant="outline" size="sm" onClick={onRefresh} disabled={isRefreshing} className="gap-2">
         <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
         Refresh
       </Button>
-      
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => setShowStats(!showStats)}
-        className="gap-2"
-      >
+      <Button variant="outline" size="sm" onClick={() => setShowStats(!showStats)} className="gap-2">
         {showStats ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
         {showStats ? 'Hide Stats' : 'Show Stats'}
       </Button>
-      
-      
     </div>
   </div>
 );
@@ -466,8 +349,7 @@ const DesktopHeader = ({ showStats, setShowStats, lastUpdated, onRefresh, isRefr
 export function VisitorDashboard() {
   const navigate = useNavigate();
   const isMobile = useMediaQuery('(max-width: 640px)');
-  const isTablet = useMediaQuery('(min-width: 641px) and (max-width: 1024px)');
-  
+
   const [stats, setStats] = useState<DashboardStats>({
     totalVisitors: 0,
     currentlyInside: 0,
@@ -478,9 +360,9 @@ export function VisitorDashboard() {
     overdueVisitors: 0,
     byPurpose: {},
     peakHour: '10:00 AM',
-    avgStay: 0
+    avgStay: 0,
   });
-  
+
   const [recentVisitors, setRecentVisitors] = useState<VisitorLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -488,38 +370,26 @@ export function VisitorDashboard() {
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
 
   const loadData = useCallback(async (showLoading = true) => {
-    if (showLoading) {
-      setLoading(true);
-    } else {
-      setIsRefreshing(true);
-    }
-    
+    if (showLoading) setLoading(true);
+    else setIsRefreshing(true);
+
     try {
       const [statsRes, visitorsRes] = await Promise.all([
         getVisitorStats(),
-        getVisitors({ limit: 10 })
+        getVisitors({ limit: 10 }),
       ]);
 
       const visitors = visitorsRes?.data || [];
-      
-      // Calculate stats
+
       const purposeCounts: { [key: string]: number } = {};
       visitors.forEach((v: VisitorLog) => {
-        if (v.purpose) {
-          purposeCounts[v.purpose] = (purposeCounts[v.purpose] || 0) + 1;
-        }
+        if (v.purpose) purposeCounts[v.purpose] = (purposeCounts[v.purpose] || 0) + 1;
       });
 
       const today = new Date().toDateString();
-      const checkedOutToday = visitors.filter(v => 
-        v.exit_time && new Date(v.exit_time).toDateString() === today
-      ).length;
+      const checkedOutToday = visitors.filter(v => v.exit_time && new Date(v.exit_time).toDateString() === today).length;
+      const totalToday = visitors.filter(v => new Date(v.entry_time).toDateString() === today).length;
 
-      const totalToday = visitors.filter(v => 
-        new Date(v.entry_time).toDateString() === today
-      ).length;
-
-      // Calculate average stay
       const checkedOut = visitors.filter(v => v.exit_time);
       const avgStay = checkedOut.length > 0
         ? checkedOut.reduce((acc, v) => {
@@ -539,16 +409,12 @@ export function VisitorDashboard() {
         overdueVisitors: statsRes?.data?.overstayed || 0,
         byPurpose: purposeCounts,
         peakHour: '10:00 AM',
-        avgStay: Math.round(avgStay)
+        avgStay: Math.round(avgStay),
       });
 
-      // Sort by entry time (most recent first)
-      const sorted = [...visitors].sort((a, b) => 
-        new Date(b.entry_time).getTime() - new Date(a.entry_time).getTime()
-      );
+      const sorted = [...visitors].sort((a, b) => new Date(b.entry_time).getTime() - new Date(a.entry_time).getTime());
       setRecentVisitors(sorted.slice(0, isMobile ? 3 : 5));
       setLastUpdated(new Date());
-
     } catch (error: any) {
       toast.error('Failed to load dashboard data');
       console.error(error);
@@ -560,7 +426,7 @@ export function VisitorDashboard() {
 
   useEffect(() => {
     loadData();
-    const interval = setInterval(() => loadData(false), 30000); // Refresh every 30 seconds
+    const interval = setInterval(() => loadData(false), 30000);
     return () => clearInterval(interval);
   }, [loadData]);
 
@@ -573,18 +439,10 @@ export function VisitorDashboard() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-          >
+          <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }}>
             <Loader2 className="w-8 h-8 text-blue-600 mx-auto mb-4" />
           </motion.div>
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.5 }}
-            className="text-gray-500"
-          >
+          <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }} className="text-gray-500">
             Loading dashboard...
           </motion.p>
         </div>
@@ -595,11 +453,11 @@ export function VisitorDashboard() {
   const activeCount = stats.currentlyInside;
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-6 -mt-5">
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-2 py-4 sm:py-6">
-        
+    <div className="min-h-screen bg-gray-50 pb-6">
+      <div className="max-w-7xl mx-auto px-0 sm:px-0 lg:px-3 py-4 sm:py-6">
+
         {/* Mobile Header */}
-        <MobileHeader 
+        <MobileHeader
           showStats={showStats}
           setShowStats={setShowStats}
           lastUpdated={lastUpdated}
@@ -609,7 +467,7 @@ export function VisitorDashboard() {
         />
 
         {/* Desktop Header */}
-        <DesktopHeader 
+        <DesktopHeader
           showStats={showStats}
           setShowStats={setShowStats}
           lastUpdated={lastUpdated}
@@ -632,10 +490,7 @@ export function VisitorDashboard() {
                   <span className="text-xs sm:text-sm font-medium">Live Activity</span>
                 </div>
                 <div className="flex flex-wrap gap-3 sm:gap-6">
-                  <div 
-                    className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
-                    onClick={() => navigate('/admin/visitors/logs')}
-                  >
+                  <div className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity" onClick={() => navigate('/admin/visitors/logs')}>
                     <Users className="w-4 h-4 opacity-80" />
                     <span className="text-sm sm:text-base font-semibold">{activeCount} Active</span>
                   </div>
@@ -653,7 +508,7 @@ export function VisitorDashboard() {
           </Card>
         </motion.div>
 
-        {/* Stats Grid - All cards have same height */}
+        {/* Stats Grid */}
         <AnimatePresence>
           {showStats && (
             <motion.div
@@ -665,46 +520,16 @@ export function VisitorDashboard() {
             >
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 auto-rows-fr">
                 <div className="h-full">
-                  <MetricCard
-                    title="Total Visitors"
-                    value={stats.totalVisitors}
-                    icon={Users}
-                    trend={12}
-                    color="blue"
-                    delay={0.1}
-                    onClick={() => navigate('/admin/visitors/logs')}
-                  />
+                  <MetricCard title="Total Visitors" value={stats.totalVisitors} icon={Users} trend={12} color="blue" delay={0.1} onClick={() => navigate('/admin/visitors/logs')} />
                 </div>
                 <div className="h-full">
-                  <MetricCard
-                    title="Currently Inside"
-                    value={stats.currentlyInside}
-                    icon={LogIn}
-                    trend={5}
-                    color="green"
-                    delay={0.2}
-                  />
+                  <MetricCard title="Currently Inside" value={stats.currentlyInside} icon={LogIn} trend={5} color="green" delay={0.2} />
                 </div>
                 <div className="h-full">
-                  <MetricCard
-                    title="Checked Out Today"
-                    value={stats.checkedOutToday}
-                    icon={LogOut}
-                    trend={8}
-                    color="purple"
-                    delay={0.3}
-                    onClick={() => navigate('/admin/visitors/logs')}
-                  />
+                  <MetricCard title="Checked Out Today" value={stats.checkedOutToday} icon={LogOut} trend={8} color="purple" delay={0.3} onClick={() => navigate('/admin/visitors/logs')} />
                 </div>
                 <div className="h-full">
-                  <MetricCard
-                    title="Today's Total"
-                    value={stats.totalToday}
-                    icon={Calendar}
-                    color="orange"
-                    delay={0.4}
-                    onClick={() => navigate('/admin/visitors/logs')}
-                  />
+                  <MetricCard title="Today's Total" value={stats.totalToday} icon={Calendar} color="orange" delay={0.4} onClick={() => navigate('/admin/visitors/logs')} />
                 </div>
               </div>
             </motion.div>
@@ -713,10 +538,10 @@ export function VisitorDashboard() {
 
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-          
-          {/* Left Column - Purposes & Quick Stats */}
+
+          {/* Left Column */}
           <div className="space-y-4 sm:space-y-6">
-            {/* Purposes Card */}
+            {/* Purposes */}
             <Card className="border-0 shadow-sm hover:shadow-md transition-shadow">
               <CardContent className="p-4 sm:p-6">
                 <h2 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 flex items-center gap-2">
@@ -727,127 +552,69 @@ export function VisitorDashboard() {
               </CardContent>
             </Card>
 
-            {/* Quick Stats Card - Mobile Grid */}
+            {/* Quick Stats - Mobile */}
             <div className="grid grid-cols-2 gap-2 sm:hidden">
-              <Card 
-                className="border-0 shadow-sm cursor-pointer hover:shadow-md transition-shadow"
-                onClick={() => navigate('/admin/visitors/logs')}
-              >
+              <Card className="border-0 shadow-sm cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate('/admin/visitors/logs')}>
                 <CardContent className="p-3">
                   <div className="flex items-center gap-2">
-                    <div className="p-1.5 bg-blue-100 rounded-lg">
-                      <Car className="w-3 h-3 text-blue-600" />
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500">Vehicles</p>
-                      <p className="text-sm font-bold">{stats.withVehicles}</p>
-                    </div>
+                    <div className="p-1.5 bg-blue-100 rounded-lg"><Car className="w-3 h-3 text-blue-600" /></div>
+                    <div><p className="text-xs text-gray-500">Vehicles</p><p className="text-sm font-bold">{stats.withVehicles}</p></div>
                   </div>
                 </CardContent>
               </Card>
-              <Card 
-                className="border-0 shadow-sm cursor-pointer hover:shadow-md transition-shadow"
-                onClick={() => navigate('/admin/visitors/logs')}
-              >
+              <Card className="border-0 shadow-sm cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate('/admin/visitors/logs')}>
                 <CardContent className="p-3">
                   <div className="flex items-center gap-2">
-                    <div className="p-1.5 bg-green-100 rounded-lg">
-                      <FileText className="w-3 h-3 text-green-600" />
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500">Documents</p>
-                      <p className="text-sm font-bold">{stats.withDocuments}</p>
-                    </div>
+                    <div className="p-1.5 bg-green-100 rounded-lg"><FileText className="w-3 h-3 text-green-600" /></div>
+                    <div><p className="text-xs text-gray-500">Documents</p><p className="text-sm font-bold">{stats.withDocuments}</p></div>
                   </div>
                 </CardContent>
               </Card>
-              <Card 
-                className="border-0 shadow-sm cursor-pointer hover:shadow-md transition-shadow"
-                onClick={() => navigate('/admin/visitors/restrictions')}
-              >
+              <Card className="border-0 shadow-sm cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate('/admin/visitors/restrictions')}>
                 <CardContent className="p-3">
                   <div className="flex items-center gap-2">
-                    <div className="p-1.5 bg-red-100 rounded-lg">
-                      <AlertCircle className="w-3 h-3 text-red-600" />
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500">Overdue</p>
-                      <p className="text-sm font-bold">{stats.overdueVisitors}</p>
-                    </div>
+                    <div className="p-1.5 bg-red-100 rounded-lg"><AlertCircle className="w-3 h-3 text-red-600" /></div>
+                    <div><p className="text-xs text-gray-500">Overdue</p><p className="text-sm font-bold">{stats.overdueVisitors}</p></div>
                   </div>
                 </CardContent>
               </Card>
               <Card className="border-0 shadow-sm">
                 <CardContent className="p-3">
                   <div className="flex items-center gap-2">
-                    <div className="p-1.5 bg-purple-100 rounded-lg">
-                      <Clock className="w-3 h-3 text-purple-600" />
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500">Avg Stay</p>
-                      <p className="text-sm font-bold">{stats.avgStay}m</p>
-                    </div>
+                    <div className="p-1.5 bg-purple-100 rounded-lg"><Clock className="w-3 h-3 text-purple-600" /></div>
+                    <div><p className="text-xs text-gray-500">Avg Stay</p><p className="text-sm font-bold">{stats.avgStay}m</p></div>
                   </div>
                 </CardContent>
               </Card>
             </div>
 
-            {/* Quick Stats Card - Desktop */}
+            {/* Quick Stats - Desktop */}
             <Card className="hidden sm:block border-0 shadow-sm hover:shadow-md transition-shadow">
               <CardContent className="p-6">
                 <h2 className="text-lg font-semibold mb-4">Quick Stats</h2>
                 <div className="space-y-4">
-                  <div 
-                    className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors"
-                    onClick={() => navigate('/admin/visitors/logs')}
-                  >
-                    <div className="p-2 bg-blue-100 rounded-lg">
-                      <Car className="w-4 h-4 text-blue-600" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm text-gray-500">Visitors with Vehicles</p>
-                      <p className="text-xl font-bold">{stats.withVehicles}</p>
-                    </div>
+                  <div className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors" onClick={() => navigate('/admin/visitors/logs')}>
+                    <div className="p-2 bg-blue-100 rounded-lg"><Car className="w-4 h-4 text-blue-600" /></div>
+                    <div className="flex-1"><p className="text-sm text-gray-500">Visitors with Vehicles</p><p className="text-xl font-bold">{stats.withVehicles}</p></div>
                   </div>
-                  <div 
-                    className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors"
-                    onClick={() => navigate('/admin/visitors/logs')}
-                  >
-                    <div className="p-2 bg-green-100 rounded-lg">
-                      <FileText className="w-4 h-4 text-green-600" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm text-gray-500">Document Verification</p>
-                      <p className="text-xl font-bold">{stats.withDocuments}</p>
-                    </div>
+                  <div className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors" onClick={() => navigate('/admin/visitors/logs')}>
+                    <div className="p-2 bg-green-100 rounded-lg"><FileText className="w-4 h-4 text-green-600" /></div>
+                    <div className="flex-1"><p className="text-sm text-gray-500">Document Verification</p><p className="text-xl font-bold">{stats.withDocuments}</p></div>
                   </div>
-                  <div 
-                    className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors"
-                    onClick={() => navigate('/admin/visitors/restrictions')}
-                  >
-                    <div className="p-2 bg-red-100 rounded-lg">
-                      <AlertCircle className="w-4 h-4 text-red-600" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm text-gray-500">Overdue Visitors</p>
-                      <p className="text-xl font-bold text-red-600">{stats.overdueVisitors}</p>
-                    </div>
+                  <div className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors" onClick={() => navigate('/admin/visitors/restrictions')}>
+                    <div className="p-2 bg-red-100 rounded-lg"><AlertCircle className="w-4 h-4 text-red-600" /></div>
+                    <div className="flex-1"><p className="text-sm text-gray-500">Overdue Visitors</p><p className="text-xl font-bold text-red-600">{stats.overdueVisitors}</p></div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <div className="p-2 bg-purple-100 rounded-lg">
-                      <Clock className="w-4 h-4 text-purple-600" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm text-gray-500">Average Stay</p>
-                      <p className="text-xl font-bold">{stats.avgStay} mins</p>
-                    </div>
+                    <div className="p-2 bg-purple-100 rounded-lg"><Clock className="w-4 h-4 text-purple-600" /></div>
+                    <div className="flex-1"><p className="text-sm text-gray-500">Average Stay</p><p className="text-xl font-bold">{stats.avgStay} mins</p></div>
                   </div>
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Middle & Right Column - Recent Visitors (spans 2 columns on desktop) */}
+          {/* Right - Recent Visitors (spans 2 cols) */}
           <div className="lg:col-span-2">
             <Card className="border-0 shadow-sm hover:shadow-md transition-shadow h-full">
               <CardContent className="p-4 sm:p-6 flex flex-col h-full">
@@ -856,25 +623,15 @@ export function VisitorDashboard() {
                     <Users2 className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
                     Recent Visitors
                   </h2>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="gap-1 text-xs sm:text-sm"
-                    onClick={() => navigate('/admin/visitors/logs')}
-                  >
+                  <Button variant="ghost" size="sm" className="gap-1 text-xs sm:text-sm" onClick={() => navigate('/admin/visitors/logs')}>
                     View All <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4" />
                   </Button>
                 </div>
-                
+
                 <div className="space-y-3 flex-1 overflow-y-auto pr-1 custom-scrollbar" style={{ maxHeight: '520px' }}>
                   {recentVisitors.length > 0 ? (
                     recentVisitors.map(visitor => (
-                      <VisitorCard 
-                        key={visitor.id} 
-                        visitor={visitor} 
-                        compact={isMobile}
-                        onClick={() => navigate('/admin/visitors/logs')}
-                      />
+                      <VisitorCard key={visitor.id} visitor={visitor} compact={isMobile} onClick={() => navigate('/admin/visitors/logs')} />
                     ))
                   ) : (
                     <div className="flex flex-col items-center justify-center py-8 text-gray-400">
@@ -884,24 +641,13 @@ export function VisitorDashboard() {
                   )}
                 </div>
 
-                {/* Quick Actions for Mobile */}
                 {isMobile && (
                   <div className="mt-4 space-y-2">
-                    <Button 
-                      variant="outline" 
-                      className="w-full justify-start gap-2"
-                      onClick={() => navigate('/admin/visitors/logs')}
-                    >
-                      <FileText className="w-4 h-4" />
-                      View All Logs
+                    <Button variant="outline" className="w-full justify-start gap-2" onClick={() => navigate('/admin/visitors/logs')}>
+                      <FileText className="w-4 h-4" /> View All Logs
                     </Button>
-                    <Button 
-                      variant="outline" 
-                      className="w-full justify-start gap-2"
-                      onClick={() => navigate('/admin/visitors/restrictions')}
-                    >
-                      <Shield className="w-4 h-4" />
-                      Manage Restrictions
+                    <Button variant="outline" className="w-full justify-start gap-2" onClick={() => navigate('/admin/visitors/restrictions')}>
+                      <Shield className="w-4 h-4" /> Manage Restrictions
                     </Button>
                   </div>
                 )}
@@ -910,55 +656,26 @@ export function VisitorDashboard() {
           </div>
         </div>
 
-        {/* Quick Actions - Desktop - All with proper redirects */}
+        {/* Quick Actions - Desktop */}
         {!isMobile && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-            <QuickAction
-              to="/admin/visitors/logs"
-              icon={FileText}
-              title="View All Logs"
-              description="Complete visitor history and records"
-              color="from-blue-600 to-blue-700"
-            />
-            <QuickAction
-              to="/admin/visitors/restrictions"
-              icon={Shield}
-              title="Restrictions"
-              description="Manage blocked visitors and rules"
-              color="from-purple-600 to-purple-700"
-            />
-            <QuickAction
-              to="/admin/visitors/logs"
-              icon={UserPlus}
-              title="Quick Entry"
-              description="Register new visitor instantly"
-              color="from-green-600 to-green-800"
-            />
+            <QuickAction to="/admin/visitors/logs" icon={FileText} title="View All Logs" description="Complete visitor history and records" color="from-blue-600 to-blue-700" />
+            <QuickAction to="/admin/visitors/restrictions" icon={Shield} title="Restrictions" description="Manage blocked visitors and rules" color="from-purple-600 to-purple-700" />
+            <QuickAction to="/admin/visitors/logs" icon={UserPlus} title="Quick Entry" description="Register new visitor instantly" color="from-green-600 to-green-800" />
           </div>
         )}
 
-        {/* Footer Stats */}
+        {/* Footer */}
         <div className="mt-6 text-center text-xs text-gray-400">
           <p>Data refreshes automatically every 30 seconds • Last updated: {lastUpdated.toLocaleString()}</p>
         </div>
       </div>
 
-      {/* Custom Scrollbar Styles */}
       <style>{`
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: #f1f1f1;
-          border-radius: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: #888;
-          border-radius: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: #555;
-        }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #888; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #555; }
       `}</style>
     </div>
   );

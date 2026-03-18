@@ -20,6 +20,8 @@ import { TenantForm } from "@/components/admin/tenants/tenant-form";
 import TenantImportModal from "./tenant-import-modal";
 import Swal from "sweetalert2";
 import Link from 'next/link';
+import * as XLSX from 'xlsx';
+
 
 interface TenantsClientProps {
   initialData: Tenant[];
@@ -44,6 +46,7 @@ const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
   const [credentialPassword, setCredentialPassword] = useState("");
   const [credentialLoading, setCredentialLoading] = useState(false);
 const [selectedTenantIds, setSelectedTenantIds] = useState<string[]>([]);  const [isFilterSidebarOpen, setIsFilterSidebarOpen] = useState(false);
+const [activeTab, setActiveTab] = useState<'all' | 'vacated'>('all');
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -427,20 +430,91 @@ const handleBulkDelete = useCallback(async (selectedIds: string[]) => {
 
   // Export to Excel
   const handleExportToExcel = useCallback(async () => {
-    try {
-      const exportFilters = Object.fromEntries(
-        Object.entries(filtersRef.current).filter(([_, v]) => v !== "")
+  try {
+    // Prepare data for export
+    const exportData = tenants.map(tenant => ({
+      'ID': tenant.id,
+      'Salutation': tenant.salutation || '',
+      'Full Name': tenant.full_name,
+      'Email': tenant.email,
+      'Phone': `${tenant.country_code || ''} ${tenant.phone || ''}`.trim(),
+      'Gender': tenant.gender || '',
+      'Date of Birth': tenant.date_of_birth || '',
+      'Occupation Category': tenant.occupation_category || '',
+      'Exact Occupation': tenant.exact_occupation || '',
+      'Organization': tenant.organization || '',
+      'Address': tenant.address || '',
+      'City': tenant.city || '',
+      'State': tenant.state || '',
+      'Pincode': tenant.pincode || '',
+      'Emergency Contact': tenant.emergency_contact_name || '',
+      'Emergency Phone': tenant.emergency_contact_phone || '',
+      'Check-in Date': tenant.check_in_date || '',
+      'Lock-in Period (months)': tenant.lockin_period_months || 0,
+      'Lock-in Penalty': tenant.lockin_penalty_amount || 0,
+      'Lock-in Penalty Type': tenant.lockin_penalty_type || '',
+      'Notice Period (days)': tenant.notice_period_days || 0,
+      'Notice Penalty': tenant.notice_penalty_amount || 0,
+      'Notice Penalty Type': tenant.notice_penalty_type || '',
+      'Portal Access': tenant.portal_access_enabled ? 'Yes' : 'No',
+      'Status': tenant.is_active ? 'Active' : 'Inactive',
+      'Has Login': tenant.has_credentials ? 'Yes' : 'No',
+      'Property': tenant.property_name || '',
+      'Room Assignment': tenant.current_assignment ? 
+        `Room ${tenant.current_assignment.room_number}, Bed ${tenant.current_assignment.bed_number}` : 'Not assigned'
+    }));
+
+    // Create worksheet
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    
+    // Auto-size columns
+    const colWidths = [];
+    const headers = Object.keys(exportData[0] || {});
+    headers.forEach(header => {
+      const maxLength = Math.max(
+        header.length,
+        ...exportData.map(row => String(row[header] || '').length)
       );
-      const res = await exportTenantsToExcel(exportFilters);
-      if (res.success) {
-        toast.success("Exported successfully");
-      } else {
-        toast.error("Export failed");
-      }
-    } catch {
-      toast.error("Export failed");
-    }
-  }, []);
+      colWidths.push({ wch: Math.min(maxLength + 2, 50) });
+    });
+    ws['!cols'] = colWidths;
+
+    // Create workbook
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Tenants");
+    
+    // Add summary sheet (optional)
+    const summaryData = [{
+      'Metric': 'Total Tenants',
+      'Value': tenants.length
+    }, {
+      'Metric': 'Active Tenants',
+      'Value': tenants.filter(t => t.is_active).length
+    }, {
+      'Metric': 'Inactive Tenants',
+      'Value': tenants.filter(t => !t.is_active).length
+    }, {
+      'Metric': 'Portal Access Enabled',
+      'Value': tenants.filter(t => t.portal_access_enabled).length
+    }, {
+      'Metric': 'Export Date',
+      'Value': new Date().toLocaleString()
+    }];
+    
+    const summaryWs = XLSX.utils.json_to_sheet(summaryData);
+    XLSX.utils.book_append_sheet(wb, summaryWs, "Summary");
+    
+    // Generate Excel file
+    const fileName = `tenants_export_${new Date().toISOString().split('T')[0]}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+    
+    toast.success(`Exported ${exportData.length} tenants successfully!`);
+    
+  } catch (error: any) {
+    console.error('Export error:', error);
+    toast.error(error.message || "Failed to export tenants");
+  }
+}, [tenants]);
 
   // Handle credential creation/reset
   const handleCredentialSubmit = useCallback(async () => {
@@ -968,8 +1042,34 @@ const columns: Column<Tenant>[] = useMemo(() => [    {
   );
 
   return (
-<Card className="flex flex-col  max-h-[570px] md:max-h-[620px] overflow-y-auto rounded-xl shadow-sm border-gray-200">      {/* ── STICKY HEADER (CardHeader) ── */}
-      <CardHeader className="sticky top-0 z-20 p-0 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] shadow-md">
+<div className="space-y-0 flex flex-col ">  {/* Tabs */}
+<div className="flex overflow-hidden border border-gray-200 bg-white rounded-xl mb-3 shadow-sm sticky top-20 z-10">
+  <button
+    onClick={() => { setActiveTab('all'); handleFilterChange({ ...filters, vacate_status: undefined }); }}
+    className={`flex-1 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold border-b-2 transition-all text-center flex items-center justify-center gap-1.5 sm:gap-2
+      ${activeTab === 'all'
+        ? 'border-blue-600 text-blue-700 bg-white'
+        : 'border-transparent text-gray-500 bg-gray-50 hover:text-gray-700 hover:bg-gray-100'}`}
+  >
+    <Users2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+    <span className="hidden xs:inline sm:inline">All Tenants</span>
+    <span className="xs:hidden sm:hidden inline">All</span>
+  </button>
+  <div className="w-px bg-gray-200 my-2" />
+  <button
+    onClick={() => { setActiveTab('vacated'); handleFilterChange({ ...filters, vacate_status: 'vacated' }); }}
+    className={`flex-1 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold border-b-2 transition-all text-center flex items-center justify-center gap-1.5 sm:gap-2
+      ${activeTab === 'vacated'
+        ? 'border-purple-600 text-purple-700 bg-white'
+        : 'border-transparent text-gray-500 bg-gray-50 hover:text-gray-700 hover:bg-gray-100'}`}
+  >
+    <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+    <span className="hidden xs:inline sm:inline">Vacated Tenants</span>
+    <span className="xs:hidden sm:hidden inline">Vacated</span>
+  </button>
+</div>
+
+<Card className="flex flex-col max-h-[520px] md:max-h-[560px] overflow-y-auto rounded-xl shadow-sm border-gray-200 mt-8">      <CardHeader className="sticky top-0 z-20 p-0 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] shadow-md">
 
         {/* Desktop View (lg and above) */}
         <div className="hidden lg:flex items-center gap-2 px-4 py-2.5">
@@ -2367,5 +2467,6 @@ const columns: Column<Tenant>[] = useMemo(() => [    {
       importing={importing}
     />
     </Card>
+    </div> 
   );
 }

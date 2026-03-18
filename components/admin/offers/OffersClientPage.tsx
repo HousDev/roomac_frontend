@@ -779,77 +779,74 @@ export default function OffersClientPage({
       </div>
 
       {/* Create Offer Button */}
-      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogTrigger asChild>
-        <Button
-  size="sm"
-  className="bg-white text-blue-600 hover:bg-blue-50 hover:text-blue-700 border-0 font-semibold h-8 sm:h-9 text-xs sm:text-sm whitespace-nowrap"
->
-  <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-  
-  {/* Mobile */}
-  <span className="md:hidden">Create</span>
-  
-  {/* Desktop */}
-  <span className="hidden md:inline">Create New Offer</span>
-</Button>
-        </DialogTrigger>
+  <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+  <DialogTrigger asChild>
+    <Button
+      size="sm"
+      className="bg-white text-blue-600 hover:bg-blue-50 hover:text-blue-700 border-0 font-semibold h-8 sm:h-9 text-xs sm:text-sm whitespace-nowrap"
+    >
+      <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+      <span className="md:hidden">Create</span>
+      <span className="hidden md:inline">Create New Offer</span>
+    </Button>
+  </DialogTrigger>
 
-        <DialogContent className="w-[95vw] sm:max-w-2xl md:max-w-3xl max-h-[95vh] sm:max-h-[96vh] overflow-hidden p-0 rounded-lg sm:rounded-xl">
-          {/* Dialog content remains the same */}
-          <div className="bg-gradient-to-r from-blue-700 to-blue-600 text-white px-3 sm:px-4 py-2 sm:py-2.5 flex items-center justify-between rounded-t-lg">
-            <div>
-              <h2 className="text-sm sm:text-base font-semibold flex items-center gap-1 sm:gap-1.5">
-                <Megaphone className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                Create New Offer
-              </h2>
-              <p className="text-[9px] sm:text-[10px] text-blue-100">
-                Fill in the details below to create an attractive promotional offer
-              </p>
-            </div>
-            <DialogClose asChild>
-              <button className="p-1 rounded-full hover:bg-white/20 transition">
-                <X className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-              </button>
-            </DialogClose>
-          </div>
+  <DialogContent className="w-[95vw] sm:max-w-xl max-h-[90vh] overflow-hidden p-0 rounded-xl flex flex-col">
 
-          <div className="p-3 sm:p-4 overflow-y-auto max-h-[calc(90vh-100px)]">
-            <OfferForm
-              formData={formData}
-              setFormData={setFormData}
-              existingCodes={existingOfferCodes}
-              properties={properties}
-              rooms={rooms}
-              loadingRooms={loadingRooms}
-              onPropertyChange={handlePropertyChange}
-              onGenerateCode={handleGenerateCode}
-              isGeneratingCode={isGeneratingCode}
-            />
-          </div>
+    {/* Header */}
+    <div className="bg-gradient-to-r from-blue-700 to-blue-600 text-white px-4 py-3 flex items-center justify-between rounded-t-xl flex-shrink-0">
+      <div>
+        <h2 className="text-sm font-semibold flex items-center gap-1.5">
+          <Megaphone className="h-3.5 w-3.5" />
+          Create New Offer
+        </h2>
+        <p className="text-[10px] text-blue-100 mt-0.5">
+          Fill in the details to create a promotional offer
+        </p>
+      </div>
+      <DialogClose asChild>
+        <button className="p-1 rounded-full hover:bg-white/20 transition">
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </DialogClose>
+    </div>
 
-          <div className="flex justify-end gap-2 p-3 sm:p-4 pt-2 sm:pt-3 border-t bg-gray-50">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setIsAddDialogOpen(false);
-                resetForm();
-              }}
-              className="h-7 sm:h-8 text-[10px] sm:text-xs px-3 sm:px-4"
-            >
-              Cancel
-            </Button>
-            <Button 
-              size="sm"
-              onClick={handleAdd}
-              className="h-7 sm:h-8 text-[10px] sm:text-xs px-3 sm:px-4 bg-gradient-to-r from-blue-600 to-cyan-600"
-            >
-              Create Offer
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+    {/* Scrollable Body */}
+    <div className="flex-1 overflow-y-auto p-3 sm:p-4">
+      <OfferForm
+        formData={formData}
+        setFormData={setFormData}
+        existingCodes={existingOfferCodes}
+        properties={properties}
+        rooms={rooms}
+        loadingRooms={loadingRooms}
+        onPropertyChange={handlePropertyChange}
+        onGenerateCode={handleGenerateCode}
+        isGeneratingCode={isGeneratingCode}
+      />
+    </div>
+
+    {/* Footer */}
+    <div className="flex justify-end gap-2 px-3 sm:px-4 py-2.5 border-t bg-gray-50 flex-shrink-0 rounded-b-xl">
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => { setIsAddDialogOpen(false); resetForm(); }}
+        className="h-7 text-xs px-3"
+      >
+        Cancel
+      </Button>
+      <Button
+        size="sm"
+        onClick={handleAdd}
+        className="h-7 text-xs px-3 bg-gradient-to-r from-blue-600 to-cyan-600 text-white"
+      >
+        Create Offer
+      </Button>
+    </div>
+
+  </DialogContent>
+</Dialog>
     </div>
 
     {/* Mobile: Filters Row (visible below md) */}

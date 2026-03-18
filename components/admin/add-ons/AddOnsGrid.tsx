@@ -28,110 +28,122 @@ export default function AddOnsGrid({
 }: AddOnsGridProps) {
   if (loading && addOns.length === 0) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-        <span className="ml-3">Loading add-ons...</span>
+      <div className="flex justify-center items-center h-40">
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600" />
+        <span className="ml-2 text-sm text-gray-500">Loading add-ons...</span>
       </div>
     );
   }
 
   if (addOns.length === 0) {
     return (
-      <div className="text-center py-12">
-        <div className="text-gray-400 mb-4">
+      <div className="text-center py-10">
+        <p className="text-sm text-gray-400 mb-3">
           {activeFilter === 'all'
             ? 'No add-ons found. Create your first add-on!'
-            : `No add-ons match the "${activeFilter}" filter`
-          }
-        </div>
-        <Button 
-          className="bg-blue-600 hover:bg-blue-700"
-          onClick={onAddNew}
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Create New Add-on
-        </Button>
-        {activeFilter !== 'all' && (
-          <Button 
-            variant="outline" 
-            className="ml-2"
-            onClick={() => window.location.href = '/admin/add-ons'}
-          >
-            Show All
+            : `No add-ons match the "${activeFilter}" filter`}
+        </p>
+        <div className="flex items-center justify-center gap-2 flex-wrap">
+          <Button size="sm" className="bg-blue-600 hover:bg-blue-700 h-8 text-xs" onClick={onAddNew}>
+            <Plus className="h-3.5 w-3.5 mr-1" /> Create New Add-on
           </Button>
-        )}
+          {activeFilter !== 'all' && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 text-xs"
+              onClick={() => window.location.href = '/admin/add-ons'}
+            >
+              Show All
+            </Button>
+          )}
+        </div>
       </div>
     );
   }
 
   return (
     <>
-      <div className="mb-4 text-sm text-gray-600">
-        Showing {addOns.length} add-ons
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <p className="mb-3 text-xs text-gray-500">Showing {addOns.length} add-ons</p>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
         {addOns.map((addOn) => (
           <Card key={addOn.id} className="border hover:shadow-md transition-shadow">
-            <CardContent className="p-4">
-              <div className="flex justify-between items-start mb-3">
-                <div className="flex flex-wrap gap-2">
-                  <Badge className={CATEGORY_COLORS[addOn.category] || 'bg-gray-100 text-gray-800'}>
-                    {CATEGORY_LABELS[addOn.category] || addOn.category}
+            <CardContent className="p-3">
+
+              {/* Top row: badges + toggle */}
+              <div className="flex items-start justify-between gap-2 mb-2">
+                <div className="flex flex-wrap gap-1">
+                  <Badge
+                    className={`text-[10px] px-1.5 py-0 h-4 ${CATEGORY_COLORS[addOn.category] ?? 'bg-gray-100 text-gray-800'}`}
+                  >
+                    {CATEGORY_LABELS[addOn.category] ?? addOn.category}
                   </Badge>
-                  {addOn.is_popular && (
-                    <Badge className="bg-orange-100 text-orange-800">Popular</Badge>
+                  {!!addOn.is_popular && (
+                    <Badge className="text-[10px] px-1.5 py-0 h-4 bg-orange-100 text-orange-700">
+                      Popular
+                    </Badge>
                   )}
-                  {addOn.is_featured && (
-                    <Badge className="bg-purple-100 text-purple-800">Featured</Badge>
+                  {!!addOn.is_featured && (
+                    <Badge className="text-[10px] px-1.5 py-0 h-4 bg-purple-100 text-purple-700">
+                      Featured
+                    </Badge>
                   )}
                   {!addOn.is_active && (
-                    <Badge className="bg-gray-100 text-gray-800">Inactive</Badge>
+                    <Badge className="text-[10px] px-1.5 py-0 h-4 bg-gray-100 text-gray-600">
+                      Inactive
+                    </Badge>
                   )}
                 </div>
-                
-                <Button
-                  variant="ghost"
-                  size="sm"
+
+                {/* Toggle — bigger icon */}
+                <button
                   onClick={() => onToggleStatus(addOn.id)}
-                  className="h-6 w-6 p-0"
                   title={addOn.is_active ? 'Deactivate' : 'Activate'}
+                  className="flex-shrink-0 hover:opacity-80 transition-opacity"
                 >
                   {addOn.is_active ? (
-                    <ToggleRight className="h-4 w-4 text-green-600" />
+                    <ToggleRight className="h-6 w-6 text-green-500" />
                   ) : (
-                    <ToggleLeft className="h-4 w-4 text-gray-400" />
+                    <ToggleLeft className="h-6 w-6 text-gray-300" />
                   )}
-                </Button>
+                </button>
               </div>
-              
-              <h3 className="font-semibold text-lg mb-2">{addOn.name}</h3>
-              <p className="text-sm text-gray-600 mb-3 line-clamp-2">
+
+              {/* Name */}
+              <h3 className="font-semibold text-sm text-gray-900 leading-tight mb-1 truncate">
+                {addOn.name}
+              </h3>
+
+              {/* Description */}
+              <p className="text-[11px] text-gray-500 line-clamp-2 mb-2 leading-relaxed">
                 {addOn.description || 'No description provided'}
               </p>
-              
-              <div className="flex items-center justify-between mb-3">
-                <div className="text-lg font-bold text-gray-900">
-                  {formatCurrency(addOn.price || 0)}
-                  <span className="text-sm font-normal text-gray-600 ml-1">
+
+              {/* Price */}
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <span className="text-sm font-bold text-gray-900">
+                    {formatCurrency(addOn.price || 0)}
+                  </span>
+                  <span className="text-[10px] text-gray-400 ml-1">
                     /{addOn.billing_type === 'one_time' ? 'once' : addOn.billing_type || 'monthly'}
                   </span>
                 </div>
-                <div className="text-xs text-gray-500">
-                  ID: {addOn.id}
-                </div>
+                <span className="text-[10px] text-gray-400">#{addOn.id}</span>
               </div>
-              
-              <div className="flex items-center justify-between pt-3 border-t">
-                <div className="text-xs text-gray-500">
-                  Order: {addOn.sort_order || 0} • Max: {addOn.max_per_tenant || 1}
-                </div>
-                
+
+              {/* Footer */}
+              <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                <span className="text-[10px] text-gray-400">
+                  Order: {addOn.sort_order || 0} · Max: {addOn.max_per_tenant || 1}
+                </span>
                 <div className="flex gap-1">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => onEdit(addOn)}
-                    className="h-7 px-2"
+                    className="h-6 w-6 p-0"
                     title="Edit"
                   >
                     <Edit className="h-3 w-3" />
@@ -140,13 +152,14 @@ export default function AddOnsGrid({
                     variant="outline"
                     size="sm"
                     onClick={() => onDelete(addOn.id)}
-                    className="h-7 px-2 text-red-600 hover:text-red-700"
+                    className="h-6 w-6 p-0 text-red-500 hover:text-red-600"
                     title="Delete"
                   >
                     <Trash2 className="h-3 w-3" />
                   </Button>
                 </div>
               </div>
+
             </CardContent>
           </Card>
         ))}

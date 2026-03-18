@@ -314,14 +314,13 @@ export default function NoticePeriodRequestsPage() {
     <div className="p-0 bg-gradient-to-br from-blue-50/50 to-cyan-50/50">
 
       {/* Header with Title and Create Button */}
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold text-gray-800">Notice Period Requests</h1>
+      <div className="flex justify-end items-end mb-4">
         <Button 
           onClick={() => setShowCreateDialog(true)}
           className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
         >
           <Plus className="h-4 w-4 mr-2" />
-          New Notice Period
+          Notice Period
         </Button>
       </div>
 

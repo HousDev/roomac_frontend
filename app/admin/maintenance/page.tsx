@@ -491,8 +491,8 @@ const handleBulkDelete = async () => {
               {/* Scrollable Table - No horizontal scroll */}
 <div className={`overflow-y-auto rounded-b-lg transition-all duration-300 ${
   selectedRequests.size > 0 
-    ? 'max-h-[440px] md:max-h-[460px]'
-    : 'max-h-[500px] md:max-h-[510px]'
+    ? 'max-h-[320px] md:max-h-[400px]'
+    : 'max-h-[390px] md:max-h-[480px]'
 }`}>                <Table className="w-full ">
                   <TableHeader className=" bg-gradient-to-r from-gray-50 to-white shadow-sm">
                     <TableRow className="hover:bg-transparent">
