@@ -109,14 +109,37 @@ export const getTenantUnseenCount = async (): Promise<number> => {
   }
 };
 
+// lib/noticePeriodApi.ts
 export const markNoticePeriodAsSeen = async (
   id: number
 ): Promise<{ success: boolean; message: string }> => {
+  console.log('📤 Calling markNoticePeriodAsSeen API for ID:', id);
+  console.log('📤 Tenant token:', localStorage.getItem('tenant_token') ? 'Present' : 'Missing');
+  
   try {
-    const res = await request<any>(`/api/notice-period-requests/tenant/${id}/seen`, {
-      method: "PATCH",
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+    const token = localStorage.getItem('tenant_token');
+    
+    const response = await fetch(`${apiUrl}/api/notice-period-requests/tenant/${id}/seen`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      credentials: 'include',
     });
-    return res;
+
+    const data = await response.json();
+    console.log('📥 markNoticePeriodAsSeen response:', data);
+    
+    if (!response.ok) {
+      return { 
+        success: false, 
+        message: data.message || `HTTP ${response.status}` 
+      };
+    }
+    
+    return data;
   } catch (error) {
     console.error("Failed to mark request as seen:", error);
     return { success: false, message: "Failed to mark as seen" };

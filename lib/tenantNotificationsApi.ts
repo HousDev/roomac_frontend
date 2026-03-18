@@ -14,6 +14,7 @@ export type Notification = {
   created_at: string;
 };
 
+
 // Get tenant notifications
 export const getTenantNotifications = async (limit: number = 20): Promise<Notification[]> => {
   try {

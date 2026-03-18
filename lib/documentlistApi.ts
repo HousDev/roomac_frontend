@@ -1,12 +1,15 @@
-// lib/documentApi.ts — frontend API lib
+// lib/documentlistApi.ts — frontend API lib
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3001";
-const BASE     = "/api/documents";
+const BASE     = "/api/documents-list";
 
 export type DocumentStatus = "Created"|"Sent"|"Viewed"|"Signed"|"Completed"|"Expired"|"Cancelled";
 export type Priority       = "low"|"normal"|"high"|"urgent";
 
 export interface Document {
+  preview_url: any;
+  file_url: any;
+  createElement(arg0: string): unknown;
   id:                 number;
   document_number:    string;
   template_id:        number | string;
@@ -83,7 +86,21 @@ async function req<T = any>(path: string, options: RequestInit = {}): Promise<T>
   return data as T;
 }
 
-// ─── API functions ────────────────────────────────────────────────────────────
+
+
+async function tenantRequest<T = any>(path: string, options: RequestInit = {}): Promise<T> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("tenant_token") : null;
+  const headers: Record<string, string> = { ...(options.headers as Record<string, string>) };
+  if (!(options.body instanceof FormData)) headers["Content-Type"] = "application/json";
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const res  = await fetch(`${API_BASE}${path}`, { ...options, headers, credentials: "include" });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.message || `HTTP ${res.status}`);
+  return data as T;
+}
+
+
+// ─── Admin API functions ────────────────────────────────────────────────────────────
 
 export const listDocuments = (f: DocumentFilters = {}): Promise<ApiResult<Document[]>> => {
   const p = new URLSearchParams();
@@ -120,3 +137,44 @@ export const deleteDocument = (id: number | string): Promise<ApiResult> =>
 
 export const bulkDeleteDocuments = (ids: Array<number | string>): Promise<ApiResult> =>
   req(`${BASE}/bulk-delete`, { method: "POST", body: JSON.stringify({ ids }) });
+
+
+
+// ─── Tenant API functions ────────────────────────────────────────────────────
+
+// Get documents for the logged-in tenant
+export const getTenantDocuments = (f: DocumentFilters = {}): Promise<ApiResult<Document[]>> => {
+  const p = new URLSearchParams();
+  Object.entries(f).forEach(([k, v]) => {
+    if (v !== undefined && v !== null && v !== "") p.set(k, String(v));
+  });
+  const qs = p.toString();
+  return tenantRequest<ApiResult<Document[]>>(`${BASE}/tenant${qs ? `?${qs}` : ""}`);
+};
+
+// Get a single document by ID (tenant version)
+export const getTenantDocument = (id: number | string): Promise<ApiResult<Document>> =>
+  tenantRequest<ApiResult<Document>>(`${BASE}/${id}`);
+
+// Update document status (tenant version)
+export const updateTenantDocumentStatus = (
+  id: number | string,
+  status: DocumentStatus,
+  extra?: { signed_by?: string; signature_data?: string }
+): Promise<ApiResult<Document>> =>
+  tenantRequest<ApiResult<Document>>(`${BASE}/${id}/status`, {
+    method: "PATCH",
+    body:   JSON.stringify({ status, ...extra }),
+  });
+
+// Mark document as viewed (tenant helper)
+export const viewTenantDocument = (id: number | string): Promise<ApiResult<Document>> =>
+  updateTenantDocumentStatus(id, "Viewed");
+
+// Sign document (tenant helper)
+export const signTenantDocument = (
+  id: number | string,
+  signedBy: string,
+  signatureData: string
+): Promise<ApiResult<Document>> =>
+  updateTenantDocumentStatus(id, "Signed", { signed_by: signedBy, signature_data: signatureData });

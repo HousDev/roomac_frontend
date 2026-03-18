@@ -22,7 +22,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-
+import * as XLSX from 'xlsx';
 import {
   getPurchases,
   createPurchase,
@@ -696,29 +696,251 @@ const [editSubmitting, setEditSubmitting] = useState(false);
     }
     setSelectedItems(newSelected);
   };
+  
+const handleExport = () => {
+  try {
+    // Create workbook
+    const wb = XLSX.utils.book_new();
 
-  // Export CSV
-  const handleExport = () => {
-    const headers = ['Date', 'Invoice #', 'Vendor', 'Property', 'Total Amount', 'Paid', 'Balance', 'Status'];
-    const rows = filteredPurchases.map(p => [
-      new Date(p.purchase_date).toLocaleDateString('en-IN'),
-      p.invoice_number,
-      p.vendor_name,
-      p.property_name,
-      p.total_amount,
-      p.paid_amount || 0,
-      p.balance_amount || p.total_amount,
-      p.payment_status
-    ]);
+    // 1. Main purchases sheet
+    const purchasesData = filteredPurchases.map(p => ({
+      'Date': new Date(p.purchase_date).toLocaleDateString('en-IN'),
+      'Invoice #': p.invoice_number,
+      'Vendor Name': p.vendor_name,
+      'Vendor Phone': p.vendor_phone || '',
+      'Property': p.property_name,
+      'Total Amount (₹)': p.total_amount,
+      'Paid Amount (₹)': p.paid_amount || 0,
+      'Balance (₹)': p.balance_amount || p.total_amount,
+      'Payment Status': p.payment_status,
+      'Payment Method': p.payment_method || '',
+      'Paid By': p.paid_by || '',
+      'Payment Reference': p.payment_reference || '',
+      'Notes': p.notes || '',
+      'Purchase ID': p.id
+    }));
 
-    const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `purchases_${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-  };
+    const purchasesWs = XLSX.utils.json_to_sheet(purchasesData);
+    
+    // Auto-size columns
+    const purchasesColWidths = [];
+    const purchasesHeaders = Object.keys(purchasesData[0] || {});
+    purchasesHeaders.forEach(header => {
+      const maxLength = Math.max(
+        header.length,
+        ...purchasesData.map(row => String(row[header] || '').length)
+      );
+      purchasesColWidths.push({ wch: Math.min(maxLength + 2, 50) });
+    });
+    purchasesWs['!cols'] = purchasesColWidths;
+    
+    XLSX.utils.book_append_sheet(wb, purchasesWs, "Purchases");
+
+    // 2. Items sheet - all items from all purchases
+    const allItems: any[] = [];
+    filteredPurchases.forEach(purchase => {
+      // Parse items properly
+      let itemsToShow = purchase.purchase_items;
+      if ((!itemsToShow || itemsToShow.length === 0) && purchase.items) {
+        if (typeof purchase.items === 'string') {
+          try {
+            itemsToShow = JSON.parse(purchase.items);
+          } catch (e) {
+            itemsToShow = [];
+          }
+        } else if (Array.isArray(purchase.items)) {
+          itemsToShow = purchase.items;
+        }
+      }
+      
+      itemsToShow?.forEach((item: any) => {
+        allItems.push({
+          'Invoice #': purchase.invoice_number,
+          'Purchase Date': new Date(purchase.purchase_date).toLocaleDateString('en-IN'),
+          'Vendor': purchase.vendor_name,
+          'Property': purchase.property_name,
+          'Item Name': item.item_name || '',
+          'Category': item.category || '',
+          'Quantity': item.quantity || 0,
+          'Unit Price (₹)': item.unit_price || 0,
+          'Total Price (₹)': item.total_price || 0,
+          'Item Notes': item.notes || ''
+        });
+      });
+    });
+
+    if (allItems.length > 0) {
+      const itemsWs = XLSX.utils.json_to_sheet(allItems);
+      XLSX.utils.book_append_sheet(wb, itemsWs, "Items");
+    }
+
+    // 3. Summary sheet
+    const totalPurchases = filteredPurchases.length;
+    const totalAmount = filteredPurchases.reduce((sum, p) => sum + p.total_amount, 0);
+    const totalPaid = filteredPurchases.reduce((sum, p) => sum + (p.paid_amount || 0), 0);
+    const totalBalance = filteredPurchases.reduce((sum, p) => sum + (p.balance_amount || p.total_amount), 0);
+    
+    const pendingCount = filteredPurchases.filter(p => p.payment_status === 'Pending').length;
+    const partialCount = filteredPurchases.filter(p => p.payment_status === 'Partial').length;
+    const paidCount = filteredPurchases.filter(p => p.payment_status === 'Paid').length;
+
+    const summaryData = [
+      ['Metric', 'Value'],
+      ['Total Purchases', totalPurchases],
+      ['Total Amount (₹)', totalAmount.toLocaleString('en-IN')],
+      ['Total Paid (₹)', totalPaid.toLocaleString('en-IN')],
+      ['Total Balance (₹)', totalBalance.toLocaleString('en-IN')],
+      ['Collection Rate', totalAmount > 0 ? `${((totalPaid / totalAmount) * 100).toFixed(1)}%` : '0%'],
+      ['Pending Purchases', pendingCount],
+      ['Partial Purchases', partialCount],
+      ['Paid Purchases', paidCount],
+      ['Unique Vendors', new Set(filteredPurchases.map(p => p.vendor_name)).size],
+      ['Unique Properties', new Set(filteredPurchases.map(p => p.property_name)).size],
+      ['Export Date', new Date().toLocaleString('en-IN')]
+    ];
+
+    const summaryWs = XLSX.utils.aoa_to_sheet(summaryData);
+    XLSX.utils.book_append_sheet(wb, summaryWs, "Summary");
+
+    // 4. Vendor summary sheet
+    const vendorMap = new Map();
+    filteredPurchases.forEach(p => {
+      if (!vendorMap.has(p.vendor_name)) {
+        vendorMap.set(p.vendor_name, {
+          vendor: p.vendor_name,
+          phone: p.vendor_phone || '',
+          purchases: 0,
+          total: 0,
+          paid: 0,
+          balance: 0
+        });
+      }
+      const vendor = vendorMap.get(p.vendor_name);
+      vendor.purchases++;
+      vendor.total += p.total_amount;
+      vendor.paid += p.paid_amount || 0;
+      vendor.balance += p.balance_amount || p.total_amount;
+    });
+
+    const vendorData = Array.from(vendorMap.values()).map(v => ({
+      'Vendor': v.vendor,
+      'Phone': v.phone,
+      'No. of Purchases': v.purchases,
+      'Total Amount (₹)': v.total,
+      'Paid Amount (₹)': v.paid,
+      'Balance (₹)': v.balance,
+      'Payment Rate': v.total > 0 ? `${((v.paid / v.total) * 100).toFixed(1)}%` : '0%'
+    }));
+
+    if (vendorData.length > 0) {
+      const vendorWs = XLSX.utils.json_to_sheet(vendorData);
+      XLSX.utils.book_append_sheet(wb, vendorWs, "Vendor Summary");
+    }
+
+    // 5. Property summary sheet
+    const propertyMap = new Map();
+    filteredPurchases.forEach(p => {
+      if (!propertyMap.has(p.property_name)) {
+        propertyMap.set(p.property_name, {
+          property: p.property_name,
+          purchases: 0,
+          total: 0,
+          paid: 0,
+          balance: 0
+        });
+      }
+      const prop = propertyMap.get(p.property_name);
+      prop.purchases++;
+      prop.total += p.total_amount;
+      prop.paid += p.paid_amount || 0;
+      prop.balance += p.balance_amount || p.total_amount;
+    });
+
+    const propertyData = Array.from(propertyMap.values()).map(p => ({
+      'Property': p.property,
+      'No. of Purchases': p.purchases,
+      'Total Amount (₹)': p.total,
+      'Paid Amount (₹)': p.paid,
+      'Balance (₹)': p.balance,
+      'Payment Rate': p.total > 0 ? `${((p.paid / p.total) * 100).toFixed(1)}%` : '0%'
+    }));
+
+    if (propertyData.length > 0) {
+      const propertyWs = XLSX.utils.json_to_sheet(propertyData);
+      XLSX.utils.book_append_sheet(wb, propertyWs, "Property Summary");
+    }
+
+    // 6. Payment status sheet
+    const statusData = [
+      ['Payment Status', 'Count', 'Total Amount (₹)', 'Paid Amount (₹)', 'Balance (₹)'],
+      ['Pending', 
+        pendingCount, 
+        filteredPurchases.filter(p => p.payment_status === 'Pending').reduce((sum, p) => sum + p.total_amount, 0),
+        filteredPurchases.filter(p => p.payment_status === 'Pending').reduce((sum, p) => sum + (p.paid_amount || 0), 0),
+        filteredPurchases.filter(p => p.payment_status === 'Pending').reduce((sum, p) => sum + (p.balance_amount || p.total_amount), 0)
+      ],
+      ['Partial',
+        partialCount,
+        filteredPurchases.filter(p => p.payment_status === 'Partial').reduce((sum, p) => sum + p.total_amount, 0),
+        filteredPurchases.filter(p => p.payment_status === 'Partial').reduce((sum, p) => sum + (p.paid_amount || 0), 0),
+        filteredPurchases.filter(p => p.payment_status === 'Partial').reduce((sum, p) => sum + (p.balance_amount || p.total_amount), 0)
+      ],
+      ['Paid',
+        paidCount,
+        filteredPurchases.filter(p => p.payment_status === 'Paid').reduce((sum, p) => sum + p.total_amount, 0),
+        filteredPurchases.filter(p => p.payment_status === 'Paid').reduce((sum, p) => sum + (p.paid_amount || 0), 0),
+        filteredPurchases.filter(p => p.payment_status === 'Paid').reduce((sum, p) => sum + (p.balance_amount || p.total_amount), 0)
+      ]
+    ];
+
+    const statusWs = XLSX.utils.aoa_to_sheet(statusData);
+    XLSX.utils.book_append_sheet(wb, statusWs, "Payment Status");
+
+    // 7. Monthly summary sheet
+    const monthlyMap = new Map();
+    filteredPurchases.forEach(p => {
+      const month = new Date(p.purchase_date).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+      if (!monthlyMap.has(month)) {
+        monthlyMap.set(month, {
+          month,
+          purchases: 0,
+          total: 0,
+          paid: 0,
+          balance: 0
+        });
+      }
+      const m = monthlyMap.get(month);
+      m.purchases++;
+      m.total += p.total_amount;
+      m.paid += p.paid_amount || 0;
+      m.balance += p.balance_amount || p.total_amount;
+    });
+
+    const monthlyData = Array.from(monthlyMap.values()).map(m => ({
+      'Month': m.month,
+      'No. of Purchases': m.purchases,
+      'Total Amount (₹)': m.total,
+      'Paid Amount (₹)': m.paid,
+      'Balance (₹)': m.balance
+    }));
+
+    if (monthlyData.length > 0) {
+      const monthlyWs = XLSX.utils.json_to_sheet(monthlyData);
+      XLSX.utils.book_append_sheet(wb, monthlyWs, "Monthly Summary");
+    }
+
+    // Generate filename
+    const filename = `purchases_export_${new Date().toISOString().split('T')[0]}.xlsx`;
+
+    // Save file
+    XLSX.writeFile(wb, filename);
+    
+    toast.success(`Exported ${filteredPurchases.length} purchases successfully`);
+  } catch (error) {
+    console.error('Export error:', error);
+    toast.error('Failed to export purchases');
+  }
+};
 
   // PDF Download - FIXED FORMATTING
  // PDF Download - FIXED FORMATTING

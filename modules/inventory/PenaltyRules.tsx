@@ -38,6 +38,7 @@ import { toast } from "sonner";
 import { penaltyRulesApi } from "@/lib/penaltyRulesApi";
 import { getMasterItemsByTab, getMasterValues } from "@/lib/masterApi";
 import Swal from 'sweetalert2';
+import * as XLSX from 'xlsx';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface PenaltyRule {
@@ -368,24 +369,194 @@ export function PenaltyRules() {
     }
   };
 
-  const handleExport = () => {
-    const headers = ['Category', 'From Condition', 'To Condition', 'Penalty Amount', 'Description'];
-    const rows = filteredRules.map(r => [
-      r.item_category,
-      r.from_condition,
-      r.to_condition,
-      r.penalty_amount,
-      r.description || '',
-    ]);
+const handleExport = () => {
+  try {
+    // Create workbook
+    const wb = XLSX.utils.book_new();
+
+    // 1. Main rules sheet
+    const rulesData = filteredRules.map(r => ({
+      'Item Category': r.item_category,
+      'From Condition': r.from_condition,
+      'To Condition': r.to_condition,
+      'Penalty Amount (₹)': safeNum(r.penalty_amount),
+      'Description': r.description || '',
+      'Created Date': r.created_at ? new Date(r.created_at).toLocaleDateString('en-IN') : '',
+      'Last Updated': r.updated_at ? new Date(r.updated_at).toLocaleDateString('en-IN') : '',
+      'Rule ID': r.id
+    }));
+
+    const rulesWs = XLSX.utils.json_to_sheet(rulesData);
     
-    const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `penalty_rules_${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-  };
+    // Auto-size columns
+    const rulesColWidths = [];
+    const rulesHeaders = Object.keys(rulesData[0] || {});
+    rulesHeaders.forEach(header => {
+      const maxLength = Math.max(
+        header.length,
+        ...rulesData.map(row => String(row[header] || '').length)
+      );
+      rulesColWidths.push({ wch: Math.min(maxLength + 2, 50) });
+    });
+    rulesWs['!cols'] = rulesColWidths;
+    
+    XLSX.utils.book_append_sheet(wb, rulesWs, "Penalty Rules");
+
+    // 2. Summary sheet
+    const totalRules = filteredRules.length;
+    const totalCategories = new Set(filteredRules.map(r => r.item_category)).size;
+    
+    // Calculate statistics
+    const amounts = filteredRules.map(r => r.penalty_amount);
+    const maxPenalty = amounts.length > 0 ? Math.max(...amounts) : 0;
+    const minPenalty = amounts.length > 0 ? Math.min(...amounts) : 0;
+    const avgPenalty = amounts.length > 0 ? Math.round(amounts.reduce((a, b) => a + b, 0) / amounts.length) : 0;
+    
+    // Condition transition counts
+    const transitions: Record<string, number> = {};
+    filteredRules.forEach(r => {
+      const key = `${r.from_condition}→${r.to_condition}`;
+      transitions[key] = (transitions[key] || 0) + 1;
+    });
+
+    const summaryData = [
+      ['Metric', 'Value'],
+      ['Total Rules', totalRules],
+      ['Total Categories', totalCategories],
+      ['Maximum Penalty (₹)', maxPenalty.toLocaleString('en-IN')],
+      ['Minimum Penalty (₹)', minPenalty.toLocaleString('en-IN')],
+      ['Average Penalty (₹)', avgPenalty.toLocaleString('en-IN')],
+      ['Median Penalty (₹)', amounts.length > 0 ? [...amounts].sort((a, b) => a - b)[Math.floor(amounts.length / 2)].toLocaleString('en-IN') : '0'],
+      ['Unique From Conditions', new Set(filteredRules.map(r => r.from_condition)).size],
+      ['Unique To Conditions', new Set(filteredRules.map(r => r.to_condition)).size],
+      ['Export Date', new Date().toLocaleString('en-IN')]
+    ];
+
+    const summaryWs = XLSX.utils.aoa_to_sheet(summaryData);
+    XLSX.utils.book_append_sheet(wb, summaryWs, "Summary");
+
+    // 3. Category breakdown sheet
+    const categoryMap = new Map();
+    filteredRules.forEach(r => {
+      if (!categoryMap.has(r.item_category)) {
+        categoryMap.set(r.item_category, {
+          category: r.item_category,
+          rules: 0,
+          total_penalty: 0,
+          min_penalty: Infinity,
+          max_penalty: -Infinity,
+          penalties: []
+        });
+      }
+      const cat = categoryMap.get(r.item_category);
+      cat.rules++;
+      cat.total_penalty += r.penalty_amount;
+      cat.penalties.push(r.penalty_amount);
+      cat.min_penalty = Math.min(cat.min_penalty, r.penalty_amount);
+      cat.max_penalty = Math.max(cat.max_penalty, r.penalty_amount);
+    });
+
+    const categoryData = Array.from(categoryMap.values()).map(c => ({
+      'Category': c.category,
+      'Number of Rules': c.rules,
+      'Total Penalty (₹)': c.total_penalty,
+      'Average Penalty (₹)': Math.round(c.total_penalty / c.rules),
+      'Minimum Penalty (₹)': c.min_penalty === Infinity ? 0 : c.min_penalty,
+      'Maximum Penalty (₹)': c.max_penalty === -Infinity ? 0 : c.max_penalty,
+      'Penalty Range': `${currencyFormatter.format(c.min_penalty === Infinity ? 0 : c.min_penalty)} - ${currencyFormatter.format(c.max_penalty === -Infinity ? 0 : c.max_penalty)}`
+    }));
+
+    if (categoryData.length > 0) {
+      const categoryWs = XLSX.utils.json_to_sheet(categoryData);
+      XLSX.utils.book_append_sheet(wb, categoryWs, "By Category");
+    }
+
+    // 4. Condition matrix sheet - Show penalty amounts for each from→to transition
+    const fromConditions = [...new Set(filteredRules.map(r => r.from_condition))];
+    const toConditions = [...new Set(filteredRules.map(r => r.to_condition))];
+    
+    // Create a matrix data structure
+    const matrixData: any[] = [];
+    
+    // Header row
+    const headerRow = ['From \\ To', ...toConditions];
+    matrixData.push(headerRow);
+    
+    // Data rows
+    fromConditions.forEach(from => {
+      const row: any[] = [from];
+      toConditions.forEach(to => {
+        const rule = filteredRules.find(r => r.from_condition === from && r.to_condition === to);
+        row.push(rule ? rule.penalty_amount : '-');
+      });
+      matrixData.push(row);
+    });
+
+    if (matrixData.length > 1) {
+      const matrixWs = XLSX.utils.aoa_to_sheet(matrixData);
+      XLSX.utils.book_append_sheet(wb, matrixWs, "Condition Matrix");
+    }
+
+    // 5. Transition analysis sheet
+    const transitionData = Object.entries(transitions).map(([transition, count]) => {
+      const [from, to] = transition.split('→');
+      const avgPenaltyForTransition = filteredRules
+        .filter(r => r.from_condition === from && r.to_condition === to)
+        .reduce((sum, r) => sum + r.penalty_amount, 0) / count;
+      
+      return {
+        'From Condition': from,
+        'To Condition': to,
+        'Number of Rules': count,
+        'Average Penalty (₹)': Math.round(avgPenaltyForTransition),
+        'Min Penalty (₹)': Math.min(...filteredRules.filter(r => r.from_condition === from && r.to_condition === to).map(r => r.penalty_amount)),
+        'Max Penalty (₹)': Math.max(...filteredRules.filter(r => r.from_condition === from && r.to_condition === to).map(r => r.penalty_amount))
+      };
+    });
+
+    if (transitionData.length > 0) {
+      const transitionWs = XLSX.utils.json_to_sheet(transitionData);
+      XLSX.utils.book_append_sheet(wb, transitionWs, "Transition Analysis");
+    }
+
+    // 6. Penalty severity analysis sheet
+    const severityLevels = [
+      { level: 'Low (₹0-500)', min: 0, max: 500 },
+      { level: 'Medium (₹501-2000)', min: 501, max: 2000 },
+      { level: 'High (₹2001-5000)', min: 2001, max: 5000 },
+      { level: 'Severe (>₹5000)', min: 5001, max: Infinity }
+    ];
+
+    const severityData = severityLevels.map(level => {
+      const rulesInRange = filteredRules.filter(r => 
+        r.penalty_amount >= level.min && r.penalty_amount <= level.max
+      );
+      return {
+        'Severity Level': level.level,
+        'Number of Rules': rulesInRange.length,
+        'Percentage': filteredRules.length > 0 ? `${((rulesInRange.length / filteredRules.length) * 100).toFixed(1)}%` : '0%',
+        'Total Penalty Value (₹)': rulesInRange.reduce((sum, r) => sum + r.penalty_amount, 0),
+        'Average Penalty (₹)': rulesInRange.length > 0 
+          ? Math.round(rulesInRange.reduce((sum, r) => sum + r.penalty_amount, 0) / rulesInRange.length)
+          : 0
+      };
+    });
+
+    const severityWs = XLSX.utils.json_to_sheet(severityData);
+    XLSX.utils.book_append_sheet(wb, severityWs, "Penalty Severity");
+
+    // Generate filename
+    const filename = `penalty_rules_export_${new Date().toISOString().split('T')[0]}.xlsx`;
+
+    // Save file
+    XLSX.writeFile(wb, filename);
+    
+    toast.success(`Exported ${filteredRules.length} penalty rules successfully`);
+  } catch (error) {
+    console.error('Export error:', error);
+    toast.error('Failed to export penalty rules');
+  }
+};
 
   const getConditionBadge = (condition: string) => {
     const colorClass = CONDITION_COLORS[condition as keyof typeof CONDITION_COLORS] || 'bg-gray-100 text-gray-700';

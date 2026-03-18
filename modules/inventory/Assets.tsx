@@ -32,6 +32,7 @@ import { getMasterItemsByTab, getMasterValues } from "@/lib/masterApi";
 import { listProperties } from "@/lib/propertyApi";
 import Swal from 'sweetalert2';
 import { deletePurchase, getPurchases } from "@/lib/materialPurchaseApi";
+import * as XLSX from 'xlsx';
 
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -331,23 +332,105 @@ useEffect(() => { loadCategories(); loadProperties(); loadPurchasedItems(); }, [
   }
 };
 
-  const handleExport = () => {
-    const headers = ['Item Name', 'Category', 'Property', 'Quantity', 'Unit Price', 'Total Value', 'Min Stock', 'Status'];
-    const rows = filteredItems.map(i => {
-      const isLow = i.quantity <= i.min_stock_level && i.quantity > 0;
-      const isOut = i.quantity === 0;
-      return [
-        i.item_name, i.category_name || '', i.property_full_name || '',
-        i.quantity, i.unit_price, i.quantity * i.unit_price, i.min_stock_level,
-        isOut ? 'Out of Stock' : isLow ? 'Low Stock' : 'OK',
-      ];
+
+const handleExport = () => {
+  try {
+    // Prepare data for export
+    const exportData = filteredItems.map(item => {
+      const isLow = item.quantity <= item.min_stock_level && item.quantity > 0;
+      const isOut = item.quantity === 0;
+      const status = isOut ? 'Out of Stock' : isLow ? 'Low Stock' : 'OK';
+      const totalValue = item.quantity * item.unit_price;
+      
+      return {
+        'Item Name': item.item_name,
+        'Category': item.category_name || '',
+        'Property': item.property_full_name || '',
+        'Quantity': item.quantity,
+        'Unit Price (₹)': item.unit_price,
+        'Total Value (₹)': totalValue,
+        'Min Stock Level': item.min_stock_level,
+        'Status': status,
+        'Notes': item.notes || '',
+        'Last Updated': new Date(item.updated_at).toLocaleDateString('en-IN', {
+          day: '2-digit', month: 'short', year: 'numeric'
+        }),
+        'Item ID': item.id
+      };
     });
-    const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = `inventory_${new Date().toISOString().split('T')[0]}.csv`; a.click();
-  };
+
+    // Create worksheet
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    
+    // Auto-size columns
+    const colWidths = [];
+    const headers = Object.keys(exportData[0] || {});
+    headers.forEach(header => {
+      const maxLength = Math.max(
+        header.length,
+        ...exportData.map(row => String(row[header] || '').length)
+      );
+      colWidths.push({ wch: Math.min(maxLength + 2, 50) });
+    });
+    ws['!cols'] = colWidths;
+
+    // Create workbook
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Inventory");
+
+    // Add summary sheet
+    const summaryData = [{
+      'Metric': 'Total Items',
+      'Value': filteredItems.length
+    }, {
+      'Metric': 'Total Quantity',
+      'Value': filteredItems.reduce((sum, item) => sum + item.quantity, 0)
+    }, {
+      'Metric': 'Total Value',
+      'Value': `₹${filteredItems.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0).toLocaleString('en-IN')}`
+    }, {
+      'Metric': 'Low Stock Items',
+      'Value': filteredItems.filter(item => item.quantity <= item.min_stock_level && item.quantity > 0).length
+    }, {
+      'Metric': 'Out of Stock Items',
+      'Value': filteredItems.filter(item => item.quantity === 0).length
+    }, {
+      'Metric': 'Categories',
+      'Value': new Set(filteredItems.map(item => item.category_name)).size
+    }, {
+      'Metric': 'Properties',
+      'Value': new Set(filteredItems.map(item => item.property_full_name)).size
+    }, {
+      'Metric': 'Export Date',
+      'Value': new Date().toLocaleString('en-IN')
+    }];
+
+    // Add category breakdown
+    const categoryCounts = filteredItems.reduce((acc, item) => {
+      const cat = item.category_name || 'Uncategorized';
+      acc[cat] = (acc[cat] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    Object.entries(categoryCounts).forEach(([category, count]) => {
+      summaryData.push({ 'Metric': `${category} Items`, 'Value': count });
+    });
+
+    const summaryWs = XLSX.utils.json_to_sheet(summaryData);
+    XLSX.utils.book_append_sheet(wb, summaryWs, "Summary");
+
+    // Generate filename
+    const filename = `inventory_export_${new Date().toISOString().split('T')[0]}.xlsx`;
+
+    // Save file
+    XLSX.writeFile(wb, filename);
+    
+    toast.success(`Exported ${filteredItems.length} items successfully`);
+  } catch (error) {
+    console.error('Export error:', error);
+    toast.error('Failed to export inventory');
+  }
+};
 
   const stockBadge = (item: InventoryItem) => {
     if (item.quantity === 0)

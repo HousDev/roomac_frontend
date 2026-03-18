@@ -45,6 +45,8 @@ import { getPurchases } from "@/lib/materialPurchaseApi";
 import Swal from 'sweetalert2';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
+
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface HandoverItem {
@@ -684,21 +686,254 @@ const [purchasedItemSearchTerm, setPurchasedItemSearchTerm] = useState('');
   }
 };
 
-  const handleExport = () => {
-    const headers = ['Tenant', 'Phone', 'Property', 'Room', 'Bed', 'Move-In', 'Handover Date', 'Deposit', 'Rent', 'Total', 'Items', 'Status'];
-    const rows = filteredItems.map(h => [
-      h.tenant_name, h.tenant_phone, h.property_name, h.room_number,
-      h.bed_number || '', fmt(h.move_in_date), fmt(h.handover_date),
-      safeNum(h.security_deposit), safeNum(h.rent_amount),
-      safeNum(h.security_deposit) + safeNum(h.rent_amount),
-      h.handover_items?.length || 0, h.status,
-    ]);
-    const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
-    a.download = `handovers_${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-  };
+const handleExport = () => {
+  try {
+    // Create workbook
+    const wb = XLSX.utils.book_new();
+
+    // 1. Main handovers sheet
+    const handoversData = filteredItems.map(h => ({
+      'Tenant Name': h.tenant_name,
+      'Phone': h.tenant_phone,
+      'Email': h.tenant_email || '',
+      'Property': h.property_name,
+      'Room Number': h.room_number,
+      'Bed Number': h.bed_number || '',
+      'Move-In Date': fmt(h.move_in_date),
+      'Handover Date': fmt(h.handover_date),
+      'Inspector': h.inspector_name,
+      'Security Deposit (₹)': safeNum(h.security_deposit),
+      'Rent Amount (₹)': safeNum(h.rent_amount),
+      'Total Amount (₹)': safeNum(h.security_deposit) + safeNum(h.rent_amount),
+      'Items Count': h.handover_items?.length || 0,
+      'Status': h.status,
+      'Notes': h.notes || '',
+      'Created Date': h.created_at ? fmt(h.created_at) : '',
+      'Handover ID': h.id
+    }));
+
+    const handoversWs = XLSX.utils.json_to_sheet(handoversData);
+    
+    // Auto-size columns
+    const handoversColWidths = [];
+    const handoversHeaders = Object.keys(handoversData[0] || {});
+    handoversHeaders.forEach(header => {
+      const maxLength = Math.max(
+        header.length,
+        ...handoversData.map(row => String(row[header] || '').length)
+      );
+      handoversColWidths.push({ wch: Math.min(maxLength + 2, 50) });
+    });
+    handoversWs['!cols'] = handoversColWidths;
+    
+    XLSX.utils.book_append_sheet(wb, handoversWs, "Handovers");
+
+    // 2. Items sheet - all handover items
+    const allItems: any[] = [];
+    filteredItems.forEach(handover => {
+      if (handover.handover_items && handover.handover_items.length > 0) {
+        handover.handover_items.forEach((item, idx) => {
+          allItems.push({
+            'Handover ID': handover.id,
+            'Tenant': handover.tenant_name,
+            'Property': handover.property_name,
+            'Room': handover.room_number,
+            'Item #': idx + 1,
+            'Item Name': item.item_name,
+            'Category': item.category,
+            'Quantity': item.quantity,
+            'Condition': item.condition_at_movein,
+            'Asset ID': item.asset_id || '',
+            'Item Notes': item.notes || '',
+            'Status': handover.status,
+            'Handover Date': fmt(handover.handover_date)
+          });
+        });
+      }
+    });
+
+    if (allItems.length > 0) {
+      const itemsWs = XLSX.utils.json_to_sheet(allItems);
+      XLSX.utils.book_append_sheet(wb, itemsWs, "Items");
+    }
+
+    // 3. Summary sheet
+    const totalHandovers = filteredItems.length;
+    const totalDeposits = filteredItems.reduce((sum, h) => sum + safeNum(h.security_deposit), 0);
+    const totalRent = filteredItems.reduce((sum, h) => sum + safeNum(h.rent_amount), 0);
+    const totalValue = totalDeposits + totalRent;
+    
+    const activeCount = filteredItems.filter(h => h.status === 'Active').length;
+    const confirmedCount = filteredItems.filter(h => h.status === 'Confirmed').length;
+    const completedCount = filteredItems.filter(h => h.status === 'Completed').length;
+    const pendingCount = filteredItems.filter(h => h.status === 'Pending').length;
+    const cancelledCount = filteredItems.filter(h => h.status === 'Cancelled').length;
+
+    const summaryData = [
+      ['Metric', 'Value'],
+      ['Total Handovers', totalHandovers],
+      ['Total Security Deposits (₹)', totalDeposits.toLocaleString('en-IN')],
+      ['Total Monthly Rent (₹)', totalRent.toLocaleString('en-IN')],
+      ['Total Value (₹)', totalValue.toLocaleString('en-IN')],
+      ['Average Deposit (₹)', totalHandovers > 0 ? (totalDeposits / totalHandovers).toLocaleString('en-IN') : '0'],
+      ['Average Rent (₹)', totalHandovers > 0 ? (totalRent / totalHandovers).toLocaleString('en-IN') : '0'],
+      ['Active Handovers', activeCount],
+      ['Confirmed Handovers', confirmedCount],
+      ['Completed Handovers', completedCount],
+      ['Pending Handovers', pendingCount],
+      ['Cancelled Handovers', cancelledCount],
+      ['Unique Properties', new Set(filteredItems.map(h => h.property_name)).size],
+      ['Total Items', allItems.length],
+      ['Export Date', new Date().toLocaleString('en-IN')]
+    ];
+
+    const summaryWs = XLSX.utils.aoa_to_sheet(summaryData);
+    XLSX.utils.book_append_sheet(wb, summaryWs, "Summary");
+
+    // 4. Property summary sheet
+    const propertyMap = new Map();
+    filteredItems.forEach(h => {
+      if (!propertyMap.has(h.property_name)) {
+        propertyMap.set(h.property_name, {
+          property: h.property_name,
+          handovers: 0,
+          deposits: 0,
+          rent: 0,
+          items: 0,
+          active: 0
+        });
+      }
+      const prop = propertyMap.get(h.property_name);
+      prop.handovers++;
+      prop.deposits += safeNum(h.security_deposit);
+      prop.rent += safeNum(h.rent_amount);
+      prop.items += h.handover_items?.length || 0;
+      if (h.status === 'Active') prop.active++;
+    });
+
+    const propertyData = Array.from(propertyMap.values()).map(p => ({
+      'Property': p.property,
+      'Total Handovers': p.handovers,
+      'Active Handovers': p.active,
+      'Total Deposits (₹)': p.deposits,
+      'Total Monthly Rent (₹)': p.rent,
+      'Total Value (₹)': p.deposits + p.rent,
+      'Total Items': p.items,
+      'Avg Deposit (₹)': p.handovers > 0 ? Math.round(p.deposits / p.handovers) : 0
+    }));
+
+    if (propertyData.length > 0) {
+      const propertyWs = XLSX.utils.json_to_sheet(propertyData);
+      XLSX.utils.book_append_sheet(wb, propertyWs, "By Property");
+    }
+
+    // 5. Status summary sheet
+    const statusData = [
+      ['Status', 'Count', 'Total Deposits (₹)', 'Total Rent (₹)', 'Total Value (₹)', 'Items Count'],
+      ['Active', 
+        activeCount,
+        filteredItems.filter(h => h.status === 'Active').reduce((sum, h) => sum + safeNum(h.security_deposit), 0),
+        filteredItems.filter(h => h.status === 'Active').reduce((sum, h) => sum + safeNum(h.rent_amount), 0),
+        filteredItems.filter(h => h.status === 'Active').reduce((sum, h) => sum + safeNum(h.security_deposit) + safeNum(h.rent_amount), 0),
+        filteredItems.filter(h => h.status === 'Active').reduce((sum, h) => sum + (h.handover_items?.length || 0), 0)
+      ],
+      ['Confirmed',
+        confirmedCount,
+        filteredItems.filter(h => h.status === 'Confirmed').reduce((sum, h) => sum + safeNum(h.security_deposit), 0),
+        filteredItems.filter(h => h.status === 'Confirmed').reduce((sum, h) => sum + safeNum(h.rent_amount), 0),
+        filteredItems.filter(h => h.status === 'Confirmed').reduce((sum, h) => sum + safeNum(h.security_deposit) + safeNum(h.rent_amount), 0),
+        filteredItems.filter(h => h.status === 'Confirmed').reduce((sum, h) => sum + (h.handover_items?.length || 0), 0)
+      ],
+      ['Completed',
+        completedCount,
+        filteredItems.filter(h => h.status === 'Completed').reduce((sum, h) => sum + safeNum(h.security_deposit), 0),
+        filteredItems.filter(h => h.status === 'Completed').reduce((sum, h) => sum + safeNum(h.rent_amount), 0),
+        filteredItems.filter(h => h.status === 'Completed').reduce((sum, h) => sum + safeNum(h.security_deposit) + safeNum(h.rent_amount), 0),
+        filteredItems.filter(h => h.status === 'Completed').reduce((sum, h) => sum + (h.handover_items?.length || 0), 0)
+      ],
+      ['Pending',
+        pendingCount,
+        filteredItems.filter(h => h.status === 'Pending').reduce((sum, h) => sum + safeNum(h.security_deposit), 0),
+        filteredItems.filter(h => h.status === 'Pending').reduce((sum, h) => sum + safeNum(h.rent_amount), 0),
+        filteredItems.filter(h => h.status === 'Pending').reduce((sum, h) => sum + safeNum(h.security_deposit) + safeNum(h.rent_amount), 0),
+        filteredItems.filter(h => h.status === 'Pending').reduce((sum, h) => sum + (h.handover_items?.length || 0), 0)
+      ],
+      ['Cancelled',
+        cancelledCount,
+        filteredItems.filter(h => h.status === 'Cancelled').reduce((sum, h) => sum + safeNum(h.security_deposit), 0),
+        filteredItems.filter(h => h.status === 'Cancelled').reduce((sum, h) => sum + safeNum(h.rent_amount), 0),
+        filteredItems.filter(h => h.status === 'Cancelled').reduce((sum, h) => sum + safeNum(h.security_deposit) + safeNum(h.rent_amount), 0),
+        filteredItems.filter(h => h.status === 'Cancelled').reduce((sum, h) => sum + (h.handover_items?.length || 0), 0)
+      ]
+    ];
+
+    const statusWs = XLSX.utils.aoa_to_sheet(statusData);
+    XLSX.utils.book_append_sheet(wb, statusWs, "By Status");
+
+    // 6. Monthly summary sheet
+    const monthlyMap = new Map();
+    filteredItems.forEach(h => {
+      const month = h.handover_date ? new Date(h.handover_date).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }) : 'Unknown';
+      if (!monthlyMap.has(month)) {
+        monthlyMap.set(month, {
+          month,
+          handovers: 0,
+          deposits: 0,
+          rent: 0,
+          items: 0
+        });
+      }
+      const m = monthlyMap.get(month);
+      m.handovers++;
+      m.deposits += safeNum(h.security_deposit);
+      m.rent += safeNum(h.rent_amount);
+      m.items += h.handover_items?.length || 0;
+    });
+
+    const monthlyData = Array.from(monthlyMap.values()).map(m => ({
+      'Month': m.month,
+      'Handovers': m.handovers,
+      'Total Deposits (₹)': m.deposits,
+      'Total Rent (₹)': m.rent,
+      'Total Value (₹)': m.deposits + m.rent,
+      'Items Handed Over': m.items
+    }));
+
+    if (monthlyData.length > 0) {
+      const monthlyWs = XLSX.utils.json_to_sheet(monthlyData);
+      XLSX.utils.book_append_sheet(wb, monthlyWs, "Monthly Trend");
+    }
+
+    // 7. Condition analysis sheet
+    const conditionCounts: Record<string, number> = {};
+    allItems.forEach(item => {
+      const condition = item['Condition'] || 'Unknown';
+      conditionCounts[condition] = (conditionCounts[condition] || 0) + 1;
+    });
+
+    const conditionData = Object.entries(conditionCounts).map(([condition, count]) => ({
+      'Condition': condition,
+      'Count': count,
+      'Percentage': allItems.length > 0 ? `${((count / allItems.length) * 100).toFixed(1)}%` : '0%'
+    }));
+
+    if (conditionData.length > 0) {
+      const conditionWs = XLSX.utils.json_to_sheet(conditionData);
+      XLSX.utils.book_append_sheet(wb, conditionWs, "Item Conditions");
+    }
+
+    // Generate filename
+    const filename = `handovers_export_${new Date().toISOString().split('T')[0]}.xlsx`;
+
+    // Save file
+    XLSX.writeFile(wb, filename);
+    
+    toast.success(`Exported ${filteredItems.length} handovers successfully`);
+  } catch (error) {
+    console.error('Export error:', error);
+    toast.error('Failed to export handovers');
+  }
+};
 
   // ── PDF — FIX: convert id to string safely ────────────────────────────────
   const handleDownloadPDF = () => {

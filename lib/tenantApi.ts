@@ -545,36 +545,95 @@ export async function uploadDocument(tenantId: string | number, type: string, fi
   });
 }
 
-// Export to Excel
-export async function exportTenantsToExcel(filters: any = {}): Promise<{ success: boolean }> {
+// In lib/tenantApi.ts, replace the exportTenantsToExcel function:
+
+export async function exportTenantsToExcel(filters: any = {}): Promise<{ success: boolean; message?: string }> {
   try {
     const params = new URLSearchParams();
     Object.entries(filters).forEach(([key, value]) => {
-      if (value !== undefined && value !== "") {
+      if (value !== undefined && value !== "" && value !== null) {
         params.append(key, value as string);
       }
     });
 
-    // Use the request function instead of direct fetch
-    const response = await request<Blob>(`/api/tenants/export/excel?${params.toString()}`, {
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+    const url = `${apiUrl}/api/tenants/export/excel?${params.toString()}`;
+    
+    console.log('📤 Exporting to Excel:', url);
+    
+    // Get token if available
+    let token: string | null = null;
+    if (typeof window !== 'undefined') {
+      token = localStorage.getItem('admin_token');
+    }
+    
+    // Use fetch directly instead of request for blob response
+    const response = await fetch(url, {
       method: 'GET',
+      headers: {
+        'Authorization': token ? `Bearer ${token}` : '',
+      },
+      credentials: 'include',
     });
-
-    // Handle the blob response
-    const url = window.URL.createObjectURL(response);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Export failed:', response.status, errorText);
+      return { 
+        success: false, 
+        message: `Export failed with status ${response.status}` 
+      };
+    }
+    
+    // Check content type
+    const contentType = response.headers.get('content-type');
+    
+    if (contentType && contentType.includes('application/json')) {
+      // If we got JSON, it's an error
+      const errorData = await response.json();
+      return { 
+        success: false, 
+        message: errorData.message || 'Export failed' 
+      };
+    }
+    
+    // Get the blob from response
+    const blob = await response.blob();
+    
+    // Create download link
+    const url_blob = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url;
-    const date = new Date().toISOString().split('T')[0];
-    a.download = `tenants_${date}.xlsx`;
+    a.href = url_blob;
+    
+    // Get filename from Content-Disposition header or use default
+    const contentDisposition = response.headers.get('content-disposition');
+    let filename = `tenants_${new Date().toISOString().split('T')[0]}.xlsx`;
+    
+    if (contentDisposition) {
+      const match = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+      if (match && match[1]) {
+        filename = match[1].replace(/['"]/g, '');
+      }
+    }
+    
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
-    window.URL.revokeObjectURL(url);
-    document.body.removeChild(a);
+    
+    // Cleanup
+    setTimeout(() => {
+      window.URL.revokeObjectURL(url_blob);
+      document.body.removeChild(a);
+    }, 100);
     
     return { success: true };
+    
   } catch (error: any) {
     console.error('Export error:', error);
-    throw error;
+    return { 
+      success: false, 
+      message: error.message || 'Failed to export tenants' 
+    };
   }
 }
 
@@ -629,13 +688,6 @@ export function createTenantFormData(tenantData: Partial<Tenant>, files?: {
     }
   }
   
-  // Debug form data
-  console.debug('FormData created:', {
-    keys: Array.from(formData.keys()),
-    hasIdProof: files?.id_proof_url ? true : false,
-    hasAddressProof: files?.address_proof_url ? true : false,
-    hasPhoto: files?.photo_url ? true : false,
-  });
   
   return formData;
 }
@@ -772,10 +824,7 @@ export async function testCreateTenant(): Promise<any> {
     };
     
     const formData = createTenantFormData(testData);
-    
-    console.log('Testing tenant creation with:', testData);
     const result = await createTenant(formData);
-    console.log('Test result:', result);
     
     return result;
   } catch (error: any) {

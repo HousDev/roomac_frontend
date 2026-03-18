@@ -43,6 +43,7 @@ import {
 } from "@/lib/moveOutInspectionApi";
 import { getHandovers } from "@/lib/handoverApi";
 import { penaltyRulesApi } from "@/lib/penaltyRulesApi";
+import * as XLSX from 'xlsx';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface InspectionItem {
@@ -785,27 +786,290 @@ const items = (Array.isArray(rawItems) ? rawItems : []).map(item => ({
   }
 };
 
-  // ── Export CSV ───────────────────────────────────────────────────────────────
-  const handleExport = () => {
-    const headers = ['Tenant', 'Phone', 'Property', 'Room', 'Inspector', 'Inspection Date', 'Total Penalty', 'Items', 'Status'];
-    const rows = filteredItems.map(i => [
-      i.tenant_name,
-      i.tenant_phone,
-      i.property_name,
-      `${i.room_number}${i.bed_number ? `/${i.bed_number}` : ''}`,
-      i.inspector_name,
-      fmt(i.inspection_date),
-      money(i.total_penalty),
-      i.inspection_items?.length || 0,
-      i.status,
-    ]);
-    const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
-    a.download = `moveout_inspections_${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-  };
+const handleExport = () => {
+  try {
+    // Create workbook
+    const wb = XLSX.utils.book_new();
 
+    // 1. Main inspections sheet
+    const inspectionsData = filteredItems.map(i => ({
+      'Tenant Name': i.tenant_name,
+      'Phone': i.tenant_phone,
+      'Email': i.tenant_email || '',
+      'Property': i.property_name,
+      'Room Number': i.room_number,
+      'Bed Number': i.bed_number || '',
+      'Move-in Date': fmt(i.move_in_date),
+      'Inspection Date': fmt(i.inspection_date),
+      'Inspector': i.inspector_name,
+      'Total Penalty (₹)': safeNum(i.total_penalty),
+      'Items Count': i.inspection_items?.length || 0,
+      'Status': i.status,
+      'Notes': i.notes || '',
+      'Created Date': i.created_at ? fmt(i.created_at) : '',
+      'Inspection ID': i.id,
+      'Handover ID': i.handover_id
+    }));
+
+    const inspectionsWs = XLSX.utils.json_to_sheet(inspectionsData);
+    
+    // Auto-size columns
+    const inspectionsColWidths = [];
+    const inspectionsHeaders = Object.keys(inspectionsData[0] || {});
+    inspectionsHeaders.forEach(header => {
+      const maxLength = Math.max(
+        header.length,
+        ...inspectionsData.map(row => String(row[header] || '').length)
+      );
+      inspectionsColWidths.push({ wch: Math.min(maxLength + 2, 50) });
+    });
+    inspectionsWs['!cols'] = inspectionsColWidths;
+    
+    XLSX.utils.book_append_sheet(wb, inspectionsWs, "Inspections");
+
+    // 2. Items sheet - all inspection items with details
+    const allItems: any[] = [];
+    filteredItems.forEach(inspection => {
+      if (inspection.inspection_items && inspection.inspection_items.length > 0) {
+        inspection.inspection_items.forEach((item, idx) => {
+          allItems.push({
+            'Inspection ID': inspection.id,
+            'Tenant': inspection.tenant_name,
+            'Property': inspection.property_name,
+            'Item #': idx + 1,
+            'Item Name': item.item_name,
+            'Category': item.category,
+            'Quantity': item.quantity,
+            'Condition at Move-in': item.condition_at_movein,
+            'Condition at Move-out': item.condition_at_moveout,
+            'Penalty Amount (₹)': item.penalty_amount || 0,
+            'Item Notes': item.notes || '',
+            'Status': inspection.status,
+            'Inspection Date': fmt(inspection.inspection_date)
+          });
+        });
+      }
+    });
+
+    if (allItems.length > 0) {
+      const itemsWs = XLSX.utils.json_to_sheet(allItems);
+      XLSX.utils.book_append_sheet(wb, itemsWs, "Inspection Items");
+    }
+
+    // 3. Summary sheet
+    const totalInspections = filteredItems.length;
+    const totalPenalties = filteredItems.reduce((sum, i) => sum + safeNum(i.total_penalty), 0);
+    const maxPenalty = Math.max(...filteredItems.map(i => safeNum(i.total_penalty)), 0);
+    const avgPenalty = totalInspections > 0 ? totalPenalties / totalInspections : 0;
+    
+    const completedCount = filteredItems.filter(i => i.status === 'Completed').length;
+    const approvedCount = filteredItems.filter(i => i.status === 'Approved').length;
+    const pendingCount = filteredItems.filter(i => i.status === 'Pending').length;
+    const activeCount = filteredItems.filter(i => i.status === 'Active').length;
+    const cancelledCount = filteredItems.filter(i => i.status === 'Cancelled').length;
+    const itemsWithDamage = allItems.filter(item => 
+      item['Condition at Move-out'] !== item['Condition at Move-in']
+    ).length;
+
+    const summaryData = [
+      ['Metric', 'Value'],
+      ['Total Inspections', totalInspections],
+      ['Total Penalties (₹)', totalPenalties.toLocaleString('en-IN')],
+      ['Average Penalty (₹)', avgPenalty.toLocaleString('en-IN')],
+      ['Maximum Penalty (₹)', maxPenalty.toLocaleString('en-IN')],
+      ['Completed Inspections', completedCount],
+      ['Approved Inspections', approvedCount],
+      ['Pending Inspections', pendingCount],
+      ['Active Inspections', activeCount],
+      ['Cancelled Inspections', cancelledCount],
+      ['Items with Condition Change', itemsWithDamage],
+      ['Total Items Inspected', allItems.length],
+      ['Unique Properties', new Set(filteredItems.map(i => i.property_name)).size],
+      ['Unique Inspectors', new Set(filteredItems.map(i => i.inspector_name)).size],
+      ['Export Date', new Date().toLocaleString('en-IN')]
+    ];
+
+    const summaryWs = XLSX.utils.aoa_to_sheet(summaryData);
+    XLSX.utils.book_append_sheet(wb, summaryWs, "Summary");
+
+    // 4. Status breakdown sheet
+    const statusData = [
+      ['Status', 'Count', 'Total Penalty (₹)', 'Avg Penalty (₹)', 'Items Count'],
+      ['Completed', 
+        completedCount,
+        filteredItems.filter(i => i.status === 'Completed').reduce((sum, i) => sum + safeNum(i.total_penalty), 0),
+        completedCount > 0 ? filteredItems.filter(i => i.status === 'Completed').reduce((sum, i) => sum + safeNum(i.total_penalty), 0) / completedCount : 0,
+        filteredItems.filter(i => i.status === 'Completed').reduce((sum, i) => sum + (i.inspection_items?.length || 0), 0)
+      ],
+      ['Approved',
+        approvedCount,
+        filteredItems.filter(i => i.status === 'Approved').reduce((sum, i) => sum + safeNum(i.total_penalty), 0),
+        approvedCount > 0 ? filteredItems.filter(i => i.status === 'Approved').reduce((sum, i) => sum + safeNum(i.total_penalty), 0) / approvedCount : 0,
+        filteredItems.filter(i => i.status === 'Approved').reduce((sum, i) => sum + (i.inspection_items?.length || 0), 0)
+      ],
+      ['Pending',
+        pendingCount,
+        filteredItems.filter(i => i.status === 'Pending').reduce((sum, i) => sum + safeNum(i.total_penalty), 0),
+        pendingCount > 0 ? filteredItems.filter(i => i.status === 'Pending').reduce((sum, i) => sum + safeNum(i.total_penalty), 0) / pendingCount : 0,
+        filteredItems.filter(i => i.status === 'Pending').reduce((sum, i) => sum + (i.inspection_items?.length || 0), 0)
+      ],
+      ['Active',
+        activeCount,
+        filteredItems.filter(i => i.status === 'Active').reduce((sum, i) => sum + safeNum(i.total_penalty), 0),
+        activeCount > 0 ? filteredItems.filter(i => i.status === 'Active').reduce((sum, i) => sum + safeNum(i.total_penalty), 0) / activeCount : 0,
+        filteredItems.filter(i => i.status === 'Active').reduce((sum, i) => sum + (i.inspection_items?.length || 0), 0)
+      ],
+      ['Cancelled',
+        cancelledCount,
+        filteredItems.filter(i => i.status === 'Cancelled').reduce((sum, i) => sum + safeNum(i.total_penalty), 0),
+        cancelledCount > 0 ? filteredItems.filter(i => i.status === 'Cancelled').reduce((sum, i) => sum + safeNum(i.total_penalty), 0) / cancelledCount : 0,
+        filteredItems.filter(i => i.status === 'Cancelled').reduce((sum, i) => sum + (i.inspection_items?.length || 0), 0)
+      ]
+    ];
+
+    const statusWs = XLSX.utils.aoa_to_sheet(statusData);
+    XLSX.utils.book_append_sheet(wb, statusWs, "Status Breakdown");
+
+    // 5. Property summary sheet
+    const propertyMap = new Map();
+    filteredItems.forEach(i => {
+      if (!propertyMap.has(i.property_name)) {
+        propertyMap.set(i.property_name, {
+          property: i.property_name,
+          inspections: 0,
+          penalties: 0,
+          items: 0,
+          completed: 0
+        });
+      }
+      const prop = propertyMap.get(i.property_name);
+      prop.inspections++;
+      prop.penalties += safeNum(i.total_penalty);
+      prop.items += i.inspection_items?.length || 0;
+      if (i.status === 'Completed' || i.status === 'Approved') prop.completed++;
+    });
+
+    const propertyData = Array.from(propertyMap.values()).map(p => ({
+      'Property': p.property,
+      'Total Inspections': p.inspections,
+      'Completed/Approved': p.completed,
+      'Completion Rate': p.inspections > 0 ? `${((p.completed / p.inspections) * 100).toFixed(1)}%` : '0%',
+      'Total Penalties (₹)': p.penalties,
+      'Avg Penalty (₹)': p.inspections > 0 ? p.penalties / p.inspections : 0,
+      'Total Items': p.items
+    }));
+
+    if (propertyData.length > 0) {
+      const propertyWs = XLSX.utils.json_to_sheet(propertyData);
+      XLSX.utils.book_append_sheet(wb, propertyWs, "By Property");
+    }
+
+    // 6. Condition change analysis sheet
+    const conditionChanges: Record<string, { from: string, to: string, count: number, totalPenalty: number }> = {};
+    
+    allItems.forEach(item => {
+      const from = item['Condition at Move-in'];
+      const to = item['Condition at Move-out'];
+      const key = `${from}→${to}`;
+      
+      if (!conditionChanges[key]) {
+        conditionChanges[key] = { from, to, count: 0, totalPenalty: 0 };
+      }
+      conditionChanges[key].count++;
+      conditionChanges[key].totalPenalty += item['Penalty Amount (₹)'] || 0;
+    });
+
+    const changeData = Object.values(conditionChanges).map(c => ({
+      'From Condition': c.from,
+      'To Condition': c.to,
+      'Count': c.count,
+      'Total Penalty (₹)': c.totalPenalty,
+      'Avg Penalty (₹)': c.count > 0 ? c.totalPenalty / c.count : 0,
+      'Percentage': allItems.length > 0 ? `${((c.count / allItems.length) * 100).toFixed(1)}%` : '0%'
+    }));
+
+    if (changeData.length > 0) {
+      const changeWs = XLSX.utils.json_to_sheet(changeData);
+      XLSX.utils.book_append_sheet(wb, changeWs, "Condition Changes");
+    }
+
+    // 7. Inspector performance sheet
+    const inspectorMap = new Map();
+    filteredItems.forEach(i => {
+      if (!inspectorMap.has(i.inspector_name)) {
+        inspectorMap.set(i.inspector_name, {
+          inspector: i.inspector_name,
+          inspections: 0,
+          penalties: 0,
+          items: 0,
+          completed: 0
+        });
+      }
+      const ins = inspectorMap.get(i.inspector_name);
+      ins.inspections++;
+      ins.penalties += safeNum(i.total_penalty);
+      ins.items += i.inspection_items?.length || 0;
+      if (i.status === 'Completed' || i.status === 'Approved') ins.completed++;
+    });
+
+    const inspectorData = Array.from(inspectorMap.values()).map(ins => ({
+      'Inspector': ins.inspector,
+      'Inspections': ins.inspections,
+      'Completed/Approved': ins.completed,
+      'Completion Rate': ins.inspections > 0 ? `${((ins.completed / ins.inspections) * 100).toFixed(1)}%` : '0%',
+      'Total Penalties (₹)': ins.penalties,
+      'Avg Penalty (₹)': ins.inspections > 0 ? ins.penalties / ins.inspections : 0,
+      'Items Inspected': ins.items
+    }));
+
+    if (inspectorData.length > 0) {
+      const inspectorWs = XLSX.utils.json_to_sheet(inspectorData);
+      XLSX.utils.book_append_sheet(wb, inspectorWs, "Inspector Performance");
+    }
+
+    // 8. Monthly trend sheet
+    const monthlyMap = new Map();
+    filteredItems.forEach(i => {
+      const month = i.inspection_date ? new Date(i.inspection_date).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }) : 'Unknown';
+      if (!monthlyMap.has(month)) {
+        monthlyMap.set(month, {
+          month,
+          inspections: 0,
+          penalties: 0,
+          items: 0
+        });
+      }
+      const m = monthlyMap.get(month);
+      m.inspections++;
+      m.penalties += safeNum(i.total_penalty);
+      m.items += i.inspection_items?.length || 0;
+    });
+
+    const monthlyData = Array.from(monthlyMap.values()).map(m => ({
+      'Month': m.month,
+      'Inspections': m.inspections,
+      'Total Penalties (₹)': m.penalties,
+      'Avg Penalty (₹)': m.inspections > 0 ? m.penalties / m.inspections : 0,
+      'Items Inspected': m.items
+    }));
+
+    if (monthlyData.length > 0) {
+      const monthlyWs = XLSX.utils.json_to_sheet(monthlyData);
+      XLSX.utils.book_append_sheet(wb, monthlyWs, "Monthly Trend");
+    }
+
+    // Generate filename
+    const filename = `moveout_inspections_${new Date().toISOString().split('T')[0]}.xlsx`;
+
+    // Save file
+    XLSX.writeFile(wb, filename);
+    
+    toast.success(`Exported ${filteredItems.length} inspections successfully`);
+  } catch (error) {
+    console.error('Export error:', error);
+    toast.error('Failed to export inspections');
+  }
+};
   // ── PDF Generation ───────────────────────────────────────────────────────────
   const handleDownloadPDF = () => {
     if (!viewItem) return;

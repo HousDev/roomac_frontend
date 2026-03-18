@@ -432,7 +432,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 import Swal from 'sweetalert2';
-
+import * as XLSX from 'xlsx';
 import {
   getRestrictions, createRestriction, updateRestriction,
   deleteRestriction, bulkDeleteRestrictions,
@@ -450,6 +450,12 @@ const SH = ({ icon, title, color = "text-blue-600" }: { icon: React.ReactNode; t
     {icon}{title}
   </div>
 );
+
+// Add this helper at the top if not already present
+const safeNum = (v: any): number => {
+  const n = parseFloat(String(v));
+  return isNaN(n) ? 0 : n;
+};
 
 const StatCard = ({ title, value, icon: Icon, color, bg }: any) => (
   <Card className={`${bg} border-0 shadow-sm`}>
@@ -495,6 +501,7 @@ const toInputDT = (d?: string | null) => {
     return date.toISOString().slice(0, 16);
   } catch { return ''; }
 };
+
 
 // ── Searchable Property Dropdown ────────────────────────────────────────────
 interface PropOption { id: string; name: string; }
@@ -817,20 +824,254 @@ export function VisitorRestrictions() {
   };
 
   // ── Export CSV ─────────────────────────────────────────────────────────
-  const handleExport = () => {
-    const headers = ['Property', 'Type', 'Start Time', 'End Time', 'Description', 'Status'];
-    const rows = filteredItems.map(r => [
-      r.property_name, r.restriction_type,
-      fmt(r.start_time), fmt(r.end_time),
-      `"${r.description?.replace(/"/g, '""') || ''}"`,
-      r.is_active ? 'Active' : 'Inactive',
-    ]);
-    const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
-    a.download = `visitor_restrictions_${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-  };
+
+const handleExport = () => {
+  try {
+    // Create workbook
+    const wb = XLSX.utils.book_new();
+
+    // 1. Main restrictions sheet
+    const restrictionsData = filteredItems.map(r => ({
+      'Property Name': r.property_name,
+      'Restriction Type': r.restriction_type,
+      'Start Time': fmt(r.start_time),
+      'End Time': fmt(r.end_time),
+      'Description': r.description || '',
+      'Status': r.is_active ? 'Active' : 'Inactive',
+      'Created Date': r.created_at ? fmt(r.created_at) : '',
+      'Last Updated': r.updated_at ? fmt(r.updated_at) : '',
+      'Restriction ID': r.id,
+      'Property ID': r.property_id || ''
+    }));
+
+    const restrictionsWs = XLSX.utils.json_to_sheet(restrictionsData);
+    
+    // Auto-size columns
+    const restrictionsColWidths = [];
+    const restrictionsHeaders = Object.keys(restrictionsData[0] || {});
+    restrictionsHeaders.forEach(header => {
+      const maxLength = Math.max(
+        header.length,
+        ...restrictionsData.map(row => String(row[header] || '').length)
+      );
+      restrictionsColWidths.push({ wch: Math.min(maxLength + 2, 50) });
+    });
+    restrictionsWs['!cols'] = restrictionsColWidths;
+    
+    XLSX.utils.book_append_sheet(wb, restrictionsWs, "Restrictions");
+
+    // 2. Summary sheet
+    const totalRestrictions = filteredItems.length;
+    const activeCount = filteredItems.filter(r => r.is_active).length;
+    const inactiveCount = filteredItems.filter(r => !r.is_active).length;
+    const timeBasedCount = filteredItems.filter(r => r.restriction_type === 'Time-Based').length;
+    const fullRestrictionCount = filteredItems.filter(r => r.restriction_type === 'Full Restriction').length;
+    const conditionalCount = filteredItems.filter(r => r.restriction_type === 'Conditional').length;
+
+    const summaryData = [
+      ['Metric', 'Value'],
+      ['Total Restrictions', totalRestrictions],
+      ['Active Restrictions', activeCount],
+      ['Inactive Restrictions', inactiveCount],
+      ['Time-Based Restrictions', timeBasedCount],
+      ['Full Restrictions', fullRestrictionCount],
+      ['Conditional Restrictions', conditionalCount],
+      ['Unique Properties', new Set(filteredItems.map(r => r.property_name)).size],
+      ['Export Date', new Date().toLocaleString('en-IN')]
+    ];
+
+    const summaryWs = XLSX.utils.aoa_to_sheet(summaryData);
+    XLSX.utils.book_append_sheet(wb, summaryWs, "Summary");
+
+    // 3. Status breakdown sheet
+    const statusData = [
+      ['Status', 'Count', 'Percentage', 'Restriction Types'],
+      ['Active', 
+        activeCount,
+        totalRestrictions > 0 ? `${((activeCount / totalRestrictions) * 100).toFixed(1)}%` : '0%',
+        `Time: ${filteredItems.filter(r => r.is_active && r.restriction_type === 'Time-Based').length}, ` +
+        `Full: ${filteredItems.filter(r => r.is_active && r.restriction_type === 'Full Restriction').length}, ` +
+        `Cond: ${filteredItems.filter(r => r.is_active && r.restriction_type === 'Conditional').length}`
+      ],
+      ['Inactive',
+        inactiveCount,
+        totalRestrictions > 0 ? `${((inactiveCount / totalRestrictions) * 100).toFixed(1)}%` : '0%',
+        `Time: ${filteredItems.filter(r => !r.is_active && r.restriction_type === 'Time-Based').length}, ` +
+        `Full: ${filteredItems.filter(r => !r.is_active && r.restriction_type === 'Full Restriction').length}, ` +
+        `Cond: ${filteredItems.filter(r => !r.is_active && r.restriction_type === 'Conditional').length}`
+      ]
+    ];
+
+    const statusWs = XLSX.utils.aoa_to_sheet(statusData);
+    XLSX.utils.book_append_sheet(wb, statusWs, "Status Breakdown");
+
+    // 4. Property-wise analysis sheet
+    const propertyMap = new Map();
+    filteredItems.forEach(r => {
+      if (!propertyMap.has(r.property_name)) {
+        propertyMap.set(r.property_name, {
+          property: r.property_name,
+          total: 0,
+          active: 0,
+          timeBased: 0,
+          fullRestriction: 0,
+          conditional: 0,
+          restrictions: []
+        });
+      }
+      const prop = propertyMap.get(r.property_name);
+      prop.total++;
+      if (r.is_active) prop.active++;
+      if (r.restriction_type === 'Time-Based') prop.timeBased++;
+      else if (r.restriction_type === 'Full Restriction') prop.fullRestriction++;
+      else if (r.restriction_type === 'Conditional') prop.conditional++;
+      prop.restrictions.push(r.description);
+    });
+
+    const propertyData = Array.from(propertyMap.values()).map(p => ({
+      'Property': p.property,
+      'Total Restrictions': p.total,
+      'Active Restrictions': p.active,
+      'Inactive Restrictions': p.total - p.active,
+      'Active %': p.total > 0 ? `${((p.active / p.total) * 100).toFixed(1)}%` : '0%',
+      'Time-Based': p.timeBased,
+      'Full Restrictions': p.fullRestriction,
+      'Conditional': p.conditional
+    }));
+
+    if (propertyData.length > 0) {
+      const propertyWs = XLSX.utils.json_to_sheet(propertyData);
+      XLSX.utils.book_append_sheet(wb, propertyWs, "By Property");
+    }
+
+    // 5. Time window analysis sheet
+    const timeWindowData = filteredItems.map(r => {
+      // Calculate duration if both times exist
+      let duration = '';
+      if (r.start_time && r.end_time) {
+        try {
+          const start = new Date(r.start_time).getTime();
+          const end = new Date(r.end_time).getTime();
+          const hours = (end - start) / (1000 * 60 * 60);
+          if (hours > 0) {
+            const days = Math.floor(hours / 24);
+            const remainingHours = Math.round(hours % 24);
+            duration = days > 0 ? `${days}d ${remainingHours}h` : `${remainingHours}h`;
+          }
+        } catch { duration = 'N/A'; }
+      }
+      
+      return {
+        'Property': r.property_name,
+        'Restriction Type': r.restriction_type,
+        'Start Time': fmt(r.start_time),
+        'End Time': fmt(r.end_time),
+        'Duration': duration || 'N/A',
+        'Status': r.is_active ? 'Active' : 'Inactive'
+      };
+    });
+
+    const timeWindowWs = XLSX.utils.json_to_sheet(timeWindowData);
+    XLSX.utils.book_append_sheet(wb, timeWindowWs, "Time Windows");
+
+    // 6. Type distribution sheet
+    const typeDistribution = [
+      ['Restriction Type', 'Count', 'Percentage', 'Active Count'],
+      ['Time-Based', 
+        timeBasedCount,
+        totalRestrictions > 0 ? `${((timeBasedCount / totalRestrictions) * 100).toFixed(1)}%` : '0%',
+        filteredItems.filter(r => r.restriction_type === 'Time-Based' && r.is_active).length
+      ],
+      ['Full Restriction',
+        fullRestrictionCount,
+        totalRestrictions > 0 ? `${((fullRestrictionCount / totalRestrictions) * 100).toFixed(1)}%` : '0%',
+        filteredItems.filter(r => r.restriction_type === 'Full Restriction' && r.is_active).length
+      ],
+      ['Conditional',
+        conditionalCount,
+        totalRestrictions > 0 ? `${((conditionalCount / totalRestrictions) * 100).toFixed(1)}%` : '0%',
+        filteredItems.filter(r => r.restriction_type === 'Conditional' && r.is_active).length
+      ]
+    ];
+
+    const typeWs = XLSX.utils.aoa_to_sheet(typeDistribution);
+    XLSX.utils.book_append_sheet(wb, typeWs, "Type Distribution");
+
+    // 7. Active vs Inactive comparison sheet
+    const comparisonData = [
+      ['Metric', 'Active', 'Inactive', 'Total'],
+      ['Count', activeCount, inactiveCount, totalRestrictions],
+      ['Time-Based', 
+        filteredItems.filter(r => r.is_active && r.restriction_type === 'Time-Based').length,
+        filteredItems.filter(r => !r.is_active && r.restriction_type === 'Time-Based').length,
+        timeBasedCount
+      ],
+      ['Full Restriction',
+        filteredItems.filter(r => r.is_active && r.restriction_type === 'Full Restriction').length,
+        filteredItems.filter(r => !r.is_active && r.restriction_type === 'Full Restriction').length,
+        fullRestrictionCount
+      ],
+      ['Conditional',
+        filteredItems.filter(r => r.is_active && r.restriction_type === 'Conditional').length,
+        filteredItems.filter(r => !r.is_active && r.restriction_type === 'Conditional').length,
+        conditionalCount
+      ]
+    ];
+
+    const comparisonWs = XLSX.utils.aoa_to_sheet(comparisonData);
+    XLSX.utils.book_append_sheet(wb, comparisonWs, "Active vs Inactive");
+
+    // 8. Monthly creation trend (if created_at exists)
+    const monthlyMap = new Map();
+    filteredItems.forEach(r => {
+      if (r.created_at) {
+        const month = new Date(r.created_at).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+        if (!monthlyMap.has(month)) {
+          monthlyMap.set(month, {
+            month,
+            total: 0,
+            active: 0,
+            timeBased: 0,
+            fullRestriction: 0,
+            conditional: 0
+          });
+        }
+        const m = monthlyMap.get(month);
+        m.total++;
+        if (r.is_active) m.active++;
+        if (r.restriction_type === 'Time-Based') m.timeBased++;
+        else if (r.restriction_type === 'Full Restriction') m.fullRestriction++;
+        else if (r.restriction_type === 'Conditional') m.conditional++;
+      }
+    });
+
+    const monthlyData = Array.from(monthlyMap.values()).map(m => ({
+      'Month': m.month,
+      'Total Created': m.total,
+      'Active': m.active,
+      'Active %': m.total > 0 ? `${((m.active / m.total) * 100).toFixed(1)}%` : '0%',
+      'Time-Based': m.timeBased,
+      'Full Restrictions': m.fullRestriction,
+      'Conditional': m.conditional
+    }));
+
+    if (monthlyData.length > 0) {
+      const monthlyWs = XLSX.utils.json_to_sheet(monthlyData);
+      XLSX.utils.book_append_sheet(wb, monthlyWs, "Monthly Trend");
+    }
+
+    // Generate filename
+    const filename = `visitor_restrictions_export_${new Date().toISOString().split('T')[0]}.xlsx`;
+
+    // Save file
+    XLSX.writeFile(wb, filename);
+    
+    toast.success(`Exported ${filteredItems.length} restrictions successfully`);
+  } catch (error) {
+    console.error('Export error:', error);
+    toast.error('Failed to export restrictions');
+  }
+};
 
   const hasFilters   = typeFilter !== 'all' || statusFilter !== 'all' || propertyFilter !== 'all';
   const hasColSearch = Object.values(colSearch).some(v => v !== '');

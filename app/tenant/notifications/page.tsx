@@ -1,3 +1,4 @@
+// app/tenant/notifications/page.tsx
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
@@ -44,6 +45,7 @@ import {
   markAllNotificationsAsRead,
   type Notification,
 } from "@/lib/tenantNotificationsApi";
+import { markNoticePeriodAsSeen } from "@/lib/noticePeriodApi";
 
 // Notification Icon Mapper
 const getNotificationIcon = (type: string) => {
@@ -57,6 +59,7 @@ const getNotificationIcon = (type: string) => {
     case "account deletion": return <UserX className="h-4 w-4 text-gray-600" />;
     case "document": return <FileText className="h-4 w-4 text-purple-600" />;
     case "event": return <Calendar className="h-4 w-4 text-green-600" />;
+      case "notice_period": return <Bell className="h-4 w-4 text-amber-600" />;
     default: return <Bell className="h-4 w-4 text-gray-600" />;
   }
 };
@@ -71,12 +74,14 @@ const StatusBadge = ({ status }: { status: 'read' | 'unread' }) => {
 // Notification Item Component
 const NotificationItem = ({ 
   notification, 
+  noitceAsSeen,
   onMarkRead,
   formatDateTime 
 }: { 
   notification: Notification; 
   onMarkRead: (id: number) => void;
   formatDateTime: (date: string) => string;
+  noitceAsSeen : any;
 }) => {
   const type = notification.notification_type || notification.type || 'general';
   
@@ -87,7 +92,7 @@ const NotificationItem = ({
           ? "bg-blue-50/50 border-blue-200 hover:bg-blue-50" 
           : "bg-white border-slate-200 hover:border-slate-300"
       }`}
-      onClick={() => onMarkRead(notification.id)}
+      onClick={() => {onMarkRead(notification.id), noitceAsSeen(notification)} }
     >
       <div className="flex items-start gap-3">
         <div className={`p-2 rounded-lg ${
@@ -140,7 +145,16 @@ const NotificationItem = ({
                 )}
               </div>
             </div>
-            
+            {notification.type === "notice_period" && notification.is_read && (
+              <div className="bg-blue-600 rounded-full px-2 py-1 text-white text-[10px] font-medium">
+                seen
+              </div>
+            )}
+            {notification.type === "notice_period"&& !notification.is_read && (
+              <div className="bg-blue-800 rounded-full px-2 py-1 text-white text-[10px] font-medium">
+                unseen
+              </div>
+            )}
             <StatusBadge status={notification.is_read ? 'read' : 'unread'} />
           </div>
         </div>
@@ -224,25 +238,60 @@ export default function TenantNotificationsPage() {
     }
   }, []);
 
-  const handleNotificationClick = useCallback(async (notification: Notification) => {
-    await handleMarkAsRead(notification.id);
+// app/tenant/notifications/page.tsx - COMPLETE REPLACEMENT for handleNotificationClick
 
-    // Navigate based on notification type
-    const type = notification.notification_type || notification.type;
-    if (type === "complaint" || type === "maintenance") {
-      navigate("/tenant/requests");
-    } else if (type === "leave") {
-      navigate("/tenant/requests");
-    } else if (type === "change bed" || type === "vacate bed") {
-      navigate("/tenant/requests");
-    } else if (type === "account deletion") {
-      navigate("/tenant/profile");
-    } else if (type === "payment") {
-      navigate("/tenant/payments");
-    } else if (type === "document") {
-      navigate("/tenant/documents");
+const handleNotificationClick = useCallback(async (notification: Notification) => {
+  
+  // First mark the notification as read
+  await handleMarkAsRead(notification.id);
+
+  // Check if this is a notice period notification
+  const type = notification.notification_type || notification.type;
+
+  const isNoticePeriod = type === "notice_period" || 
+                         notification.related_entity_type === "notice_period" ||
+                         (notification.title && notification.title.includes("Notice Period"));
+
+
+  // CRITICAL: For notice period notifications, mark as seen in the database
+  if (isNoticePeriod && notification.related_entity_id) {
+    try {
+      const result = await markNoticePeriodAsSeen(notification.related_entity_id);
+
+      
+      if (result.success) {
+        toast.success('Notice period marked as seen');
+        
+        // Force refresh the notifications list to update UI
+        setTimeout(() => {
+          fetchNotifications(true);
+        }, 500);
+      } else {
+        toast.error(result.message || 'Failed to mark as seen');
+      }
+    } catch (error) {
+      console.error('❌ Failed to mark notice period as seen:', error);
+      toast.error('Failed to mark notice period as seen');
     }
-  }, [handleMarkAsRead, navigate]);
+  }
+
+  // Navigate based on notification type
+  if (type === "complaint" || type === "maintenance") {
+    navigate("/tenant/requests");
+  } else if (type === "leave") {
+    navigate("/tenant/requests");
+  } else if (type === "change bed" || type === "vacate bed") {
+    navigate("/tenant/requests");
+  } else if (type === "account deletion") {
+    navigate("/tenant/profile");
+  } else if (type === "payment") {
+    navigate("/tenant/payments");
+  } else if (type === "document") {
+    navigate("/tenant/documents");
+  } else if (type === "notice_period") {
+    // Stay on notifications page - already refreshed above
+  }
+}, [handleMarkAsRead, navigate, fetchNotifications]);
 
   // Filter notifications
   const filteredNotifications = notifications.filter(notification => {
@@ -319,7 +368,6 @@ export default function TenantNotificationsPage() {
                   {filteredNotifications.length} Notifications
                 </span>
               </div>
-              
               <div className="flex flex-wrap gap-2">
                 <Select value={filter} onValueChange={(v: any) => setFilter(v)}>
                   <SelectTrigger className="w-[120px] h-8 text-xs">
@@ -403,6 +451,7 @@ export default function TenantNotificationsPage() {
                     key={notification.id}
                     notification={notification}
                     onMarkRead={handleMarkAsRead}
+                    noitceAsSeen={handleNotificationClick}
                     formatDateTime={formatDateTime}
                   />
                 ))}

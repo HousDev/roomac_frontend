@@ -91,7 +91,7 @@ const RequestsPage = () => {
   return (
     <div className="w-full px-2 sm:px-4">
       {/* Tabs - Mobile Responsive with Horizontal Scroll */}
-      <div className="flex gap-1 sm:gap-2 border-b mb-4 overflow-x-auto pb-1 sticky top-0 bg-white z-10 scrollbar-hide">
+      <div className="flex gap-1 sm:gap-2 border-b mb-4 overflow-x-auto pb-1 sticky top-20 bg-white z-10 scrollbar-hide">
         <button
           onClick={() => handleTabChange("complaint")}
           className={tabButtonClass("complaint")}
@@ -189,7 +189,7 @@ const RequestsPage = () => {
       </div>
 
       {/* Add CSS for hiding scrollbar */}
-      <style jsx>{`
+      <style >{`
         .scrollbar-hide::-webkit-scrollbar {
           display: none;
         }

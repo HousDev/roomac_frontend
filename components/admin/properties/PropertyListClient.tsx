@@ -54,6 +54,7 @@ import PropertyFilters from "./PropertyFilters";
 import { getColumns, filters, getBulkActions, getActions } from "./table-config";
 import PropertyImportModal from "./PropertyImportModal";
 import Swal from "sweetalert2";
+import * as XLSX from 'xlsx';
 
 // Add Unsplash fallback images array for properties
 const UNSPLASH_PROPERTY_FALLBACKS = [
@@ -214,10 +215,8 @@ export default function PropertyListClient({ initialProperties }: PropertyListCl
   const fetchPropertiesMasters = async () => {
     setMastersLoading(true);
     try {
-      console.log("📚 Fetching properties masters...");
       const res = await consumeMasters({ tab: "Properties" });
-      console.log("📚 Masters response:", res);
-      
+   
       if (res?.success && res.data) {
         const grouped: Record<string, MasterValue[]> = {};
         res.data.forEach((item: any) => {
@@ -231,10 +230,7 @@ export default function PropertyListClient({ initialProperties }: PropertyListCl
             isactive: 1,
           });
         });
-        console.log("✅ Properties Masters loaded:", grouped);
-        if (grouped["Tags"]) {
-          console.log("🏷️ Tags in masters:", grouped["Tags"].map(t => ({ id: t.id, name: t.name })));
-        }
+        
         setPropertiesMasters(grouped);
         setMastersLoaded(true);
         return grouped;
@@ -327,11 +323,7 @@ export default function PropertyListClient({ initialProperties }: PropertyListCl
             }))
           : [];
         
-        console.log("✅ Properties loaded with tags:", propertiesData.map(p => ({
-          id: p.id,
-          name: p.name,
-          tags: p.tags
-        })));
+       
         
         setProperties(propertiesData);
         setFilteredProperties(propertiesData);
@@ -467,7 +459,6 @@ export default function PropertyListClient({ initialProperties }: PropertyListCl
       }
 
       if (!res || !res.success) {
-        console.error("❌ API Error:", res?.message);
         toast.error(res?.message || "Failed to save property");
         return;
       }
@@ -487,7 +478,6 @@ export default function PropertyListClient({ initialProperties }: PropertyListCl
   }, [editMode, selectedProperty, loadProperties]);
 
   const handleEdit = useCallback((property: Property) => {
-    console.log("selectedssssssssssssssssssssss", property);
     setSelectedProperty(property);
     setEditMode(true);
     setDialogOpen(true);
@@ -780,60 +770,61 @@ const handleBulkDelete = useCallback(async (ids: string[]) => {
     }
   }, [handleBulkDelete, handleBulkStatusChange]);
 
-  const handleExportToExcel = useCallback(async () => {
-    try {
-      // Get tag names for export
-      const getTagNamesForExport = (tags: any): string => {
-        if (!tags || !Array.isArray(tags)) return "";
-        
-        if (!mastersLoaded || !propertiesMasters["Tags"]) {
-          return tags.join(", ");
-        }
-        
-        const tagNames = tags.map((id: string | number) => {
-          const numId = Number(id);
-          const matchingTag = propertiesMasters["Tags"].find(
-            tag => tag.id === numId || tag.name === String(id)
-          );
-          return matchingTag ? matchingTag.name : String(id);
-        }).filter(Boolean);
-        
-        return tagNames.join(", ");
-      };
 
-      const headers = ["Name", "Area", "Rooms", "Beds", "Occupied Beds", "Starting Price", "Status", "Tags"];
-      const rows = filteredProperties.map(property => [
-        property.name,
-        property.area,
-        property.total_rooms,
-        property.total_beds,
-        property.occupied_beds,
-        property.starting_price,
-        property.is_active ? "Active" : "Inactive",
-        getTagNamesForExport(property.tags)
-      ]);
+
+// Inside your component, replace the handleExportToExcel function:
+
+const handleExportToExcel = useCallback(async () => {
+  try {
+    // Get tag names for export
+    const getTagNamesForExport = (tags: any): string => {
+      if (!tags || !Array.isArray(tags)) return "";
       
-      const csvContent = [
-        headers.join(","),
-        ...rows.map(row => row.map(cell => `"${cell}"`).join(","))
-      ].join("\n");
+      if (!mastersLoaded || !propertiesMasters["Tags"]) {
+        return tags.join(", ");
+      }
       
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement("a");
-      const url = URL.createObjectURL(blob);
-      link.setAttribute("href", url);
-      link.setAttribute("download", `properties_${new Date().toISOString().split('T')[0]}.csv`);
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      const tagNames = tags.map((id: string | number) => {
+        const numId = Number(id);
+        const matchingTag = propertiesMasters["Tags"].find(
+          tag => tag.id === numId || tag.name === String(id)
+        );
+        return matchingTag ? matchingTag.name : String(id);
+      }).filter(Boolean);
       
-      toast.success('Properties exported successfully');
-    } catch (err: any) {
-      console.error('Export error:', err);
-      toast.error(err.message || 'Failed to export data');
-    }
-  }, [filteredProperties, propertiesMasters, mastersLoaded]);
+      return tagNames.join(", ");
+    };
+
+    // Prepare data for Excel
+    const headers = ["Name", "Area", "Rooms", "Beds", "Occupied Beds", "Starting Price", "Status", "Tags"];
+    const data = filteredProperties.map(property => [
+      property.name,
+      property.area,
+      property.total_rooms,
+      property.total_beds,
+      property.occupied_beds,
+      property.starting_price,
+      property.is_active ? "Active" : "Inactive",
+      getTagNamesForExport(property.tags)
+    ]);
+
+    // Create worksheet
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
+    
+    // Create workbook
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Properties");
+    
+    // Generate Excel file
+    const fileName = `properties_${new Date().toISOString().split('T')[0]}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+    
+    toast.success('Properties exported successfully');
+  } catch (err: any) {
+    console.error('Export error:', err);
+    toast.error(err.message || 'Failed to export data');
+  }
+}, [filteredProperties, propertiesMasters, mastersLoaded]);
 
   const handleImportClick = () => {
     setShowImportModal(true);
@@ -965,7 +956,6 @@ const handleBulkDelete = useCallback(async (ids: string[]) => {
   propertiesMasters: Record<string, MasterValue[]>;
   mastersLoaded: boolean;
    }) => {
-   console.log("from card : ", property)
   const isSelected = selectedCardIds.includes(property.id);
   
   // Function to get tag names from IDs
@@ -974,7 +964,6 @@ const handleBulkDelete = useCallback(async (ids: string[]) => {
     
     // If masters are not loaded yet, return empty array to hide tags
     if (!mastersLoaded || !propertiesMasters || !propertiesMasters["Tags"]) {
-      console.log("⏳ Masters not loaded yet, hiding tags for", property.id);
       return [];
     }
     

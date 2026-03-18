@@ -12,7 +12,6 @@ interface SettingsTabsProps {
 
 export default function SettingsTabs({ children }: SettingsTabsProps) {
   const [generalContent, deletionContent,securityContent, actionsContent] = children;
-  console.log("sda",securityContent)
 
   return (
     <Tabs defaultValue="general" className="space-y-6">
