@@ -1,9 +1,10 @@
+// components/admin/admin-profile/NotificationsTab.tsx
 "use client";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Bell } from 'lucide-react';
+import { Bell, Mail, MessageSquare, Smartphone, CreditCard, CalendarCheck, Wrench, Loader2 } from 'lucide-react';
 
 interface NotificationSettings {
   email_notifications: boolean;
@@ -22,151 +23,351 @@ interface NotificationsTabProps {
   loading: boolean;
 }
 
-export default function NotificationsTab({
-  notificationSettings,
-  onNotificationSettingsChange,
-  onSave,
-  onReset,
-  loading
-}: NotificationsTabProps) {
-  const handleToggle = (field: keyof NotificationSettings, checked: boolean) => {
-    onNotificationSettingsChange({ ...notificationSettings, [field]: checked });
-  };
-
-  const Switch = ({ checked, onChange, disabled }: { checked: boolean; onChange: (checked: boolean) => void; disabled?: boolean }) => (
+// ── Internal Toggle ──────────────────────────────────────────
+function Toggle({
+  checked,
+  onChange,
+  disabled,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  disabled?: boolean;
+}) {
+  return (
     <button
       type="button"
       role="switch"
       aria-checked={checked}
       onClick={() => onChange(!checked)}
       disabled={disabled}
-      className={`
-        relative inline-flex h-5 w-9 sm:h-6 sm:w-11 items-center rounded-full 
-        transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
-        ${checked ? 'bg-blue-600' : 'bg-slate-200'}
-        ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-      `}
+      style={{
+        position: 'relative',
+        display: 'inline-flex',
+        alignItems: 'center',
+        width: 46,
+        height: 26,
+        borderRadius: 99,
+        border: 'none',
+        flexShrink: 0,
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        background: checked
+          ? 'linear-gradient(135deg,#2563EB,#1E4ED8)'
+          : '#E2E8F0',
+        boxShadow: checked ? '0 2px 10px rgba(37,99,235,.35)' : 'none',
+        transition: 'background .22s, box-shadow .22s',
+        opacity: disabled ? 0.5 : 1,
+        padding: 0,
+      }}
     >
       <span
-        className={`
-          inline-block h-3 w-3 sm:h-4 sm:w-4 transform rounded-full bg-white transition-transform
-          ${checked ? 'translate-x-5 sm:translate-x-6' : 'translate-x-1'}
-        `}
+        style={{
+          position: 'absolute',
+          left: checked ? 'calc(100% - 22px)' : 2,
+          width: 22,
+          height: 22,
+          borderRadius: '50%',
+          background: '#fff',
+          boxShadow: '0 1px 4px rgba(15,23,42,.18)',
+          transition: 'left .22s cubic-bezier(.34,1.56,.64,1)',
+        }}
       />
     </button>
   );
+}
+
+// ── Channel row ──────────────────────────────────────────────
+function ChannelRow({
+  icon,
+  iconBg,
+  iconColor,
+  title,
+  sub,
+  checked,
+  onChange,
+  disabled,
+}: {
+  icon: React.ReactNode;
+  iconBg: string;
+  iconColor: string;
+  title: string;
+  sub: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 14,
+        padding: '14px 18px',
+        borderRadius: 14,
+        border: `1.5px solid ${checked ? '#BFDBFE' : '#E2E8F0'}`,
+        background: checked ? '#F0F7FF' : '#fff',
+        transition: 'border-color .2s, background .2s',
+        marginBottom: 10,
+      }}
+    >
+      <div
+        style={{
+          width: 40, height: 40, borderRadius: 11, flexShrink: 0,
+          background: iconBg, color: iconColor,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}
+      >
+        {icon}
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 13.5, fontWeight: 700, color: '#0F172A' }}>{title}</div>
+        <div style={{ fontSize: 12, color: '#94A3B8', marginTop: 2 }}>{sub}</div>
+      </div>
+      <Toggle checked={checked} onChange={onChange} disabled={disabled} />
+    </div>
+  );
+}
+
+// ── Alert row ────────────────────────────────────────────────
+function AlertRow({
+  icon,
+  iconBg,
+  iconColor,
+  title,
+  checked,
+  onChange,
+  disabled,
+}: {
+  icon: React.ReactNode;
+  iconBg: string;
+  iconColor: string;
+  title: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '12px 16px',
+        borderRadius: 12,
+        background: checked ? '#F8FAFF' : 'transparent',
+        transition: 'background .2s',
+        marginBottom: 4,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div
+          style={{
+            width: 32, height: 32, borderRadius: 9, flexShrink: 0,
+            background: iconBg, color: iconColor,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          {icon}
+        </div>
+        <span style={{ fontSize: 13.5, fontWeight: 600, color: '#0F172A' }}>{title}</span>
+      </div>
+      <Toggle checked={checked} onChange={onChange} disabled={disabled} />
+    </div>
+  );
+}
+
+// ── Main component ───────────────────────────────────────────
+export default function NotificationsTab({
+  notificationSettings,
+  onNotificationSettingsChange,
+  onSave,
+  onReset,
+  loading,
+}: NotificationsTabProps) {
+  const handleToggle = (field: keyof NotificationSettings, checked: boolean) => {
+    onNotificationSettingsChange({ ...notificationSettings, [field]: checked });
+  };
+
+  const activeCount = Object.values(notificationSettings).filter(Boolean).length;
 
   return (
-    <Card className="overflow-hidden">
-      <CardHeader className="bg-blue-50 p-4 sm:p-6">
-        <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
-          <Bell className="h-4 w-4 sm:h-5 sm:w-5" /> Notification Preferences
-        </CardTitle>
-        <CardDescription className="text-sm">
-          Choose how you want to receive notifications
-        </CardDescription>
-      </CardHeader>
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+        .nt-wrap {
+          font-family: 'Plus Jakarta Sans', sans-serif;
+          background: #fff;
+          border-radius: 24px;
+          overflow: hidden;
+          box-shadow: 0 8px 40px rgba(15,23,42,.10), 0 2px 8px rgba(15,23,42,.06);
+          width: 100%;
+        }
+        .nt-banner {
+          background: linear-gradient(120deg, #0A1F5C 0%, #1740C0 55%, #2563EB 100%);
+          padding: 28px 32px 68px;
+          position: relative; overflow: hidden;
+        }
+        .nt-banner::before {
+          content: ''; position: absolute; inset: 0;
+          background-image: radial-gradient(circle, rgba(255,255,255,.07) 1px, transparent 1px);
+          background-size: 22px 22px; pointer-events: none;
+        }
+        .nt-banner::after {
+          content: ''; position: absolute; bottom: -40px; left: 0; right: 0;
+          height: 80px; background: #fff; border-radius: 40px 40px 0 0;
+        }
+        .nt-banner-in { position: relative; z-index: 1; }
+        .nt-banner-title { font-size: 19px; font-weight: 800; color: #fff; display: flex; align-items: center; gap: 8px; }
+        .nt-banner-sub { font-size: 13px; color: rgba(255,255,255,.6); margin-top: 4px; }
+        .nt-banner-badge {
+          position: absolute; right: 32px; top: 50%; transform: translateY(-60%); z-index: 1;
+          width: 72px; height: 72px; border-radius: 20px;
+          background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.2);
+          display: flex; align-items: center; justify-content: center;
+          box-shadow: 0 8px 24px rgba(0,0,0,.15);
+        }
+        .nt-active-pill {
+          display: inline-flex; align-items: center; gap: 5px;
+          padding: 4px 12px; border-radius: 99px;
+          background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.25);
+          font-size: 11.5px; font-weight: 600; color: rgba(255,255,255,.85);
+          margin-top: 10px;
+        }
+        .nt-body { padding: 20px 28px 8px; }
+        .nt-sec-lbl {
+          font-size: 10.5px; font-weight: 700; letter-spacing: .08em;
+          text-transform: uppercase; color: #94A3B8;
+          margin-bottom: 14px; display: flex; align-items: center; gap: 8px;
+        }
+        .nt-sec-lbl::after { content: ''; flex: 1; height: 1px; background: #E2E8F0; }
+        .nt-footer {
+          padding: 14px 28px 24px;
+          border-top: 1px solid #F1F5F9;
+          display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap;
+        }
+      `}</style>
 
-      <CardContent className="space-y-6 p-4 sm:p-6">
-        {/* Main Notification Channels */}
-        <div className="space-y-3">
-          <h3 className="text-sm font-semibold text-slate-700 mb-2">Notification Channels</h3>
-          
-          {/* Email Notifications */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 border rounded-lg gap-2 sm:gap-4">
-            <div className="flex-1">
-              <h4 className="font-medium text-sm sm:text-base">Email Notifications</h4>
-              <p className="text-xs sm:text-sm text-slate-500">Receive notifications via email</p>
+      <div className="nt-wrap">
+        {/* Banner */}
+        <div className="nt-banner">
+          <div className="nt-banner-in">
+            <div className="nt-banner-title">
+              <Bell size={18} style={{ color: 'rgba(255,255,255,.9)' }} />
+              Notification Preferences
             </div>
-            <Switch
-              checked={notificationSettings.email_notifications}
-              onChange={(checked) => handleToggle('email_notifications', checked)}
-              disabled={loading}
-            />
+            <p className="nt-banner-sub">Choose how you want to receive notifications</p>
+            <div className="nt-active-pill">
+              <span
+                style={{
+                  width: 7, height: 7, borderRadius: '50%',
+                  background: activeCount > 0 ? '#10B981' : '#94A3B8',
+                  display: 'inline-block',
+                }}
+              />
+              {activeCount} of {Object.keys(notificationSettings).length} enabled
+            </div>
           </div>
-
-          {/* SMS Notifications */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 border rounded-lg gap-2 sm:gap-4">
-            <div className="flex-1">
-              <h4 className="font-medium text-sm sm:text-base">SMS Notifications</h4>
-              <p className="text-xs sm:text-sm text-slate-500">Receive notifications via SMS</p>
-            </div>
-            <Switch
-              checked={notificationSettings.sms_notifications}
-              onChange={(checked) => handleToggle('sms_notifications', checked)}
-              disabled={loading}
-            />
-          </div>
-
-          {/* WhatsApp Notifications */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 border rounded-lg gap-2 sm:gap-4">
-            <div className="flex-1">
-              <h4 className="font-medium text-sm sm:text-base">WhatsApp Notifications</h4>
-              <p className="text-xs sm:text-sm text-slate-500">Receive notifications via WhatsApp</p>
-            </div>
-            <Switch
-              checked={notificationSettings.whatsapp_notifications}
-              onChange={(checked) => handleToggle('whatsapp_notifications', checked)}
-              disabled={loading}
-            />
+          <div className="nt-banner-badge">
+            <Bell size={30} color="rgba(255,255,255,.85)" />
           </div>
         </div>
 
-        {/* Alert Types */}
-        <div className="border-t pt-6">
-          <h3 className="text-sm font-semibold text-slate-700 mb-4">Alert Types</h3>
-          <div className="space-y-4">
-            {/* Payment Alerts */}
-            <div className="flex items-center justify-between">
-              <Label className="text-sm sm:text-base cursor-pointer">Payment Alerts</Label>
-              <Switch
-                checked={notificationSettings.payment_alerts}
-                onChange={(checked) => handleToggle('payment_alerts', checked)}
-                disabled={loading}
-              />
-            </div>
+        {/* Body */}
+        <div className="nt-body">
+          <div className="nt-sec-lbl" style={{ marginTop: 20 }}>Notification Channels</div>
 
-            {/* Booking Alerts */}
-            <div className="flex items-center justify-between">
-              <Label className="text-sm sm:text-base cursor-pointer">Booking Alerts</Label>
-              <Switch
-                checked={notificationSettings.booking_alerts}
-                onChange={(checked) => handleToggle('booking_alerts', checked)}
-                disabled={loading}
-              />
-            </div>
-
-            {/* Maintenance Alerts */}
-            <div className="flex items-center justify-between">
-              <Label className="text-sm sm:text-base cursor-pointer">Maintenance Alerts</Label>
-              <Switch
-                checked={notificationSettings.maintenance_alerts}
-                onChange={(checked) => handleToggle('maintenance_alerts', checked)}
-                disabled={loading}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Action Buttons - Stack on mobile */}
-        <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-6">
-          <Button 
-            variant="outline" 
-            onClick={onReset} 
+          <ChannelRow
+            icon={<Mail size={17} />}
+            iconBg="#EFF6FF" iconColor="#2563EB"
+            title="Email Notifications"
+            sub="Receive notifications via email"
+            checked={notificationSettings.email_notifications}
+            onChange={(v) => handleToggle('email_notifications', v)}
             disabled={loading}
-            className="w-full sm:w-auto"
+          />
+          <ChannelRow
+            icon={<Smartphone size={17} />}
+            iconBg="#F0FDF4" iconColor="#059669"
+            title="SMS Notifications"
+            sub="Receive notifications via SMS"
+            checked={notificationSettings.sms_notifications}
+            onChange={(v) => handleToggle('sms_notifications', v)}
+            disabled={loading}
+          />
+          <ChannelRow
+            icon={<MessageSquare size={17} />}
+            iconBg="#F0FFF4" iconColor="#16A34A"
+            title="WhatsApp Notifications"
+            sub="Receive notifications via WhatsApp"
+            checked={notificationSettings.whatsapp_notifications}
+            onChange={(v) => handleToggle('whatsapp_notifications', v)}
+            disabled={loading}
+          />
+
+          <div className="nt-sec-lbl" style={{ marginTop: 20 }}>Alert Types</div>
+
+          <AlertRow
+            icon={<CreditCard size={15} />}
+            iconBg="#FEF3C7" iconColor="#D97706"
+            title="Payment Alerts"
+            checked={notificationSettings.payment_alerts}
+            onChange={(v) => handleToggle('payment_alerts', v)}
+            disabled={loading}
+          />
+          <AlertRow
+            icon={<CalendarCheck size={15} />}
+            iconBg="#EDE9FE" iconColor="#7C3AED"
+            title="Booking Alerts"
+            checked={notificationSettings.booking_alerts}
+            onChange={(v) => handleToggle('booking_alerts', v)}
+            disabled={loading}
+          />
+          <AlertRow
+            icon={<Wrench size={15} />}
+            iconBg="#FFEDD5" iconColor="#EA580C"
+            title="Maintenance Alerts"
+            checked={notificationSettings.maintenance_alerts}
+            onChange={(v) => handleToggle('maintenance_alerts', v)}
+            disabled={loading}
+          />
+        </div>
+
+        {/* Footer */}
+        <div className="nt-footer">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onReset}
+            disabled={loading}
+            style={{
+              borderRadius: 12, fontSize: 13, fontWeight: 600,
+              borderColor: '#E2E8F0', color: '#475569',
+              paddingLeft: 20, paddingRight: 20,
+            }}
+            className="hover:bg-slate-50 transition-all"
           >
             Reset Defaults
           </Button>
-          <Button 
-            onClick={onSave} 
-            disabled={loading} 
-            className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto"
+          <Button
+            type="button"
+            onClick={onSave}
+            disabled={loading}
+            style={{
+              background: 'linear-gradient(135deg,#2563EB,#1E4ED8)',
+              borderRadius: 12, fontSize: 13, fontWeight: 600,
+              paddingLeft: 20, paddingRight: 20,
+              boxShadow: '0 4px 16px rgba(37,99,235,.28)',
+              border: 'none', gap: 7, display: 'flex', alignItems: 'center',
+            }}
+            className="hover:opacity-90 transition-all disabled:opacity-50"
           >
-            {loading ? 'Saving...' : 'Save Preferences'}
+            {loading ? (
+              <><Loader2 size={15} className="animate-spin" /> Saving...</>
+            ) : (
+              <><Bell size={15} /> Save Preferences</>
+            )}
           </Button>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </>
   );
 }

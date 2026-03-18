@@ -1,10 +1,11 @@
+// components/admin/admin-profile/SecurityTab.tsx
 "use client";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Shield, Key, Eye, EyeOff } from 'lucide-react';
+import { Shield, Key, Eye, EyeOff, Loader2, CheckCircle2, XCircle, Lock } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 interface PasswordData {
@@ -26,18 +27,18 @@ export default function SecurityTab({
   onPasswordDataChange,
   onChangePassword,
   onClear,
-  loading
+  loading,
 }: SecurityTabProps) {
   const [showPasswords, setShowPasswords] = useState({
     current: false,
     new: false,
-    confirm: false
+    confirm: false,
   });
-  
+
   const [passwordError, setPasswordError] = useState<string>('');
   const [touched, setTouched] = useState({
     new_password: false,
-    confirm_password: false
+    confirm_password: false,
   });
 
   const handleInputChange = (field: keyof PasswordData, value: string) => {
@@ -45,17 +46,13 @@ export default function SecurityTab({
   };
 
   const handleBlur = (field: keyof typeof touched) => {
-    setTouched(prev => ({ ...prev, [field]: true }));
+    setTouched((prev) => ({ ...prev, [field]: true }));
   };
 
   const togglePasswordVisibility = (field: keyof typeof showPasswords) => {
-    setShowPasswords(prev => ({
-      ...prev,
-      [field]: !prev[field]
-    }));
+    setShowPasswords((prev) => ({ ...prev, [field]: !prev[field] }));
   };
 
-  // Validate passwords
   useEffect(() => {
     if (touched.confirm_password && passwordData.new_password && passwordData.confirm_password) {
       if (passwordData.new_password !== passwordData.confirm_password) {
@@ -68,42 +65,188 @@ export default function SecurityTab({
     }
   }, [passwordData.new_password, passwordData.confirm_password, touched.confirm_password]);
 
-  // Check if new password meets minimum requirements
-  const isNewPasswordValid = passwordData.new_password.length >= 8 || !touched.new_password;
-  const isNewPasswordValidMessage = touched.new_password && passwordData.new_password.length < 8 
-    ? 'Password must be at least 8 characters' 
-    : '';
+  const isNewPasswordValidMessage =
+    touched.new_password && passwordData.new_password.length < 8
+      ? 'Password must be at least 8 characters'
+      : '';
+
+  const passwordsMatch =
+    !passwordError &&
+    touched.confirm_password &&
+    passwordData.new_password &&
+    passwordData.confirm_password &&
+    passwordData.new_password === passwordData.confirm_password;
+
+  // Strength calculation
+  const getStrength = (pw: string) => {
+    if (!pw) return 0;
+    let s = 0;
+    if (pw.length >= 8) s++;
+    if (pw.length >= 12) s++;
+    if (/[A-Z]/.test(pw)) s++;
+    if (/[0-9]/.test(pw)) s++;
+    if (/[^A-Za-z0-9]/.test(pw)) s++;
+    return s;
+  };
+  const strength = getStrength(passwordData.new_password);
+  const strengthLabel = ['', 'Very Weak', 'Weak', 'Fair', 'Strong', 'Very Strong'][strength];
+  const strengthColor = ['', '#DC2626', '#EA580C', '#D97706', '#059669', '#0891B2'][strength];
 
   const handleClear = () => {
     onClear();
-    setTouched({
-      new_password: false,
-      confirm_password: false
-    });
+    setTouched({ new_password: false, confirm_password: false });
     setPasswordError('');
   };
 
   return (
-    <Card className="overflow-hidden w-full max-w-5xl mx-auto">
-      <CardHeader className="bg-blue-50 p-4 sm:p-6">
-        <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
-          <Shield className="h-4 w-4 sm:h-5 sm:w-5" /> Security Settings
-        </CardTitle>
-        <CardDescription className="text-sm">
-          Manage your password and security preferences
-        </CardDescription>
-      </CardHeader>
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
-      <CardContent className="space-y-6 p-4 sm:p-6">
-        <div className="space-y-4">
+        .st-wrap {
+          font-family: 'Plus Jakarta Sans', sans-serif;
+          background: #fff;
+          border-radius: 24px;
+          overflow: hidden;
+          box-shadow: 0 8px 40px rgba(15,23,42,.10), 0 2px 8px rgba(15,23,42,.06);
+          width: 100%;
+        }
+
+        /* Banner */
+        .st-banner {
+          background: linear-gradient(120deg, #0A1F5C 0%, #1740C0 55%, #2563EB 100%);
+          padding: 28px 32px 68px;
+          position: relative; overflow: hidden;
+        }
+        .st-banner::before {
+          content: ''; position: absolute; inset: 0;
+          background-image: radial-gradient(circle, rgba(255,255,255,.07) 1px, transparent 1px);
+          background-size: 22px 22px; pointer-events: none;
+        }
+        .st-banner::after {
+          content: ''; position: absolute; bottom: -40px; left: 0; right: 0;
+          height: 80px; background: #fff; border-radius: 40px 40px 0 0;
+        }
+        .st-banner-in { position: relative; z-index: 1; }
+        .st-banner-title { font-size: 19px; font-weight: 800; color: #fff; display: flex; align-items: center; gap: 8px; }
+        .st-banner-sub { font-size: 13px; color: rgba(255,255,255,.6); margin-top: 4px; }
+
+        /* Icon badge */
+        .st-banner-badge {
+          position: absolute; right: 32px; top: 50%; transform: translateY(-60%); z-index: 1;
+          width: 72px; height: 72px; border-radius: 20px;
+          background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.2);
+          display: flex; align-items: center; justify-content: center;
+          box-shadow: 0 8px 24px rgba(0,0,0,.15);
+        }
+
+        /* Form body */
+        .st-form { padding: 20px 28px 8px; }
+
+        /* Section label */
+        .st-sec-lbl {
+          font-size: 10.5px; font-weight: 700; letter-spacing: .08em;
+          text-transform: uppercase; color: #94A3B8;
+          margin-bottom: 16px; display: flex; align-items: center; gap: 8px;
+        }
+        .st-sec-lbl::after { content: ''; flex: 1; height: 1px; background: #E2E8F0; }
+
+        /* Field */
+        .st-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+        .st-lbl { font-size: 12px; font-weight: 700; color: #475569; }
+        .st-lbl-req { color: #DC2626; margin-left: 2px; }
+
+        /* Input wrapper */
+        .st-inp-wrap { position: relative; }
+        .st-inp-left {
+          position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+          pointer-events: none; color: #94A3B8; display: flex; align-items: center;
+        }
+        .st-inp-right {
+          position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+          background: transparent; border: none; cursor: pointer; color: #94A3B8;
+          display: flex; align-items: center; transition: color .15s; padding: 0;
+        }
+        .st-inp-right:hover { color: #475569; }
+
+        .st-inp {
+          width: 100%; padding: 10px 40px 10px 40px;
+          border-radius: 12px; border: 1.5px solid #E2E8F0;
+          background: #fff; font-family: 'Plus Jakarta Sans', sans-serif;
+          font-size: 13.5px; color: #0F172A; outline: none;
+          transition: border-color .18s, box-shadow .18s;
+        }
+        .st-inp:focus { border-color: #3B82F6; box-shadow: 0 0 0 3px rgba(59,130,246,.12); }
+        .st-inp.err { border-color: #DC2626; }
+        .st-inp.err:focus { box-shadow: 0 0 0 3px rgba(220,38,38,.12); }
+        .st-inp:disabled { background: #F8FAFC; color: #94A3B8; cursor: not-allowed; }
+
+        /* Hints */
+        .st-hint { font-size: 11.5px; color: #94A3B8; display: flex; align-items: center; gap: 5px; margin-top: 4px; }
+        .st-hint.err { color: #DC2626; }
+        .st-hint.ok  { color: #059669; }
+
+        /* Strength bar */
+        .st-strength { margin-top: 8px; }
+        .st-sbar { display: flex; gap: 4px; margin-bottom: 5px; }
+        .st-sbarseg {
+          flex: 1; height: 4px; border-radius: 99px;
+          background: #E2E8F0; transition: background .3s;
+        }
+        .st-slbl { font-size: 11px; font-weight: 600; }
+
+        /* 2FA card */
+        .st-2fa {
+          background: linear-gradient(135deg, #F0F4FF, #EEF2FF);
+          border: 1px solid #C7D2FE;
+          border-radius: 16px;
+          padding: 20px 22px;
+          display: flex; align-items: center; gap: 16px;
+          margin-bottom: 20px;
+        }
+        .st-2fa-icon {
+          width: 46px; height: 46px; flex-shrink: 0;
+          border-radius: 13px; background: #EDE9FE; border: 1px solid #C4B5FD;
+          display: flex; align-items: center; justify-content: center;
+        }
+        .st-2fa-title { font-size: 14px; font-weight: 700; color: #0F172A; }
+        .st-2fa-sub { font-size: 12px; color: #64748B; margin-top: 3px; }
+
+        /* Footer */
+        .st-footer {
+          padding: 14px 28px 24px;
+          border-top: 1px solid #F1F5F9;
+          display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap;
+        }
+      `}</style>
+
+      <div className="st-wrap">
+        {/* Banner */}
+        <div className="st-banner">
+          <div className="st-banner-in">
+            <div className="st-banner-title">
+              <Shield size={18} style={{ color: 'rgba(255,255,255,.9)' }} />
+              Security Settings
+            </div>
+            <p className="st-banner-sub">Manage your password and security preferences</p>
+          </div>
+          <div className="st-banner-badge">
+            <Lock size={30} color="rgba(255,255,255,.85)" />
+          </div>
+        </div>
+
+        {/* Form */}
+        <div className="st-form">
+          <div className="st-sec-lbl" style={{ marginTop: 20 }}>Change Password</div>
+
           {/* Current Password */}
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">Current Password *</Label>
-            <div className="relative">
-              <Key className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 z-10" />
-              <Input 
-                type={showPasswords.current ? "text" : "password"}
-                className="pl-10 pr-10 w-full" 
+          <div className="st-field">
+            <label className="st-lbl">Current Password <span className="st-lbl-req">*</span></label>
+            <div className="st-inp-wrap">
+              <span className="st-inp-left"><Key size={15} /></span>
+              <input
+                className="st-inp"
+                type={showPasswords.current ? 'text' : 'password'}
                 value={passwordData.current_password}
                 onChange={(e) => handleInputChange('current_password', e.target.value)}
                 disabled={loading}
@@ -111,81 +254,76 @@ export default function SecurityTab({
               />
               <button
                 type="button"
+                className="st-inp-right"
                 onClick={() => togglePasswordVisibility('current')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
                 tabIndex={-1}
               >
-                {showPasswords.current ? 
-                  <EyeOff className="h-4 w-4" /> : 
-                  <Eye className="h-4 w-4" />
-                }
+                {showPasswords.current ? <EyeOff size={15} /> : <Eye size={15} />}
               </button>
             </div>
           </div>
 
           {/* New Password */}
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">New Password *</Label>
-            <div className="relative">
-              <Key className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 z-10" />
-              <Input 
-                type={showPasswords.new ? "text" : "password"}
-                className={`pl-10 pr-10 w-full ${
-                  touched.new_password && passwordData.new_password.length < 8 
-                    ? 'border-red-500 focus:ring-red-500' 
-                    : ''
-                }`}
+          <div className="st-field">
+            <label className="st-lbl">New Password <span className="st-lbl-req">*</span></label>
+            <div className="st-inp-wrap">
+              <span className="st-inp-left"><Key size={15} /></span>
+              <input
+                className={`st-inp${touched.new_password && passwordData.new_password.length < 8 ? ' err' : ''}`}
+                type={showPasswords.new ? 'text' : 'password'}
                 value={passwordData.new_password}
                 onChange={(e) => handleInputChange('new_password', e.target.value)}
                 onBlur={() => handleBlur('new_password')}
                 disabled={loading}
-                placeholder="Enter new password (min 8 characters)"
+                placeholder="Minimum 8 characters"
               />
               <button
                 type="button"
+                className="st-inp-right"
                 onClick={() => togglePasswordVisibility('new')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
                 tabIndex={-1}
               >
-                {showPasswords.new ? 
-                  <EyeOff className="h-4 w-4" /> : 
-                  <Eye className="h-4 w-4" />
-                }
+                {showPasswords.new ? <EyeOff size={15} /> : <Eye size={15} />}
               </button>
             </div>
-            
-            {/* Password length hint */}
-            <p className={`text-xs sm:text-sm mt-1 ${
-              touched.new_password && passwordData.new_password.length < 8 
-                ? 'text-red-500' 
-                : 'text-slate-500'
-            }`}>
+
+            {/* Strength bar */}
+            {passwordData.new_password.length > 0 && (
+              <div className="st-strength">
+                <div className="st-sbar">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <div
+                      key={i}
+                      className="st-sbarseg"
+                      style={{ background: i <= strength ? strengthColor : '#E2E8F0' }}
+                    />
+                  ))}
+                </div>
+                <span className="st-slbl" style={{ color: strengthColor }}>{strengthLabel}</span>
+              </div>
+            )}
+
+            <p className={`st-hint${touched.new_password && passwordData.new_password.length < 8 ? ' err' : ''}`}>
               Must be at least 8 characters
               {passwordData.new_password.length > 0 && (
-                <span className="ml-1">
-                  ({passwordData.new_password.length}/8)
-                </span>
+                <span>({passwordData.new_password.length}/8)</span>
               )}
             </p>
-            
-            {/* Password length error */}
             {isNewPasswordValidMessage && (
-              <p className="text-xs sm:text-sm text-red-500 mt-1">
-                {isNewPasswordValidMessage}
+              <p className="st-hint err">
+                <XCircle size={13} /> {isNewPasswordValidMessage}
               </p>
             )}
           </div>
 
           {/* Confirm Password */}
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">Confirm New Password *</Label>
-            <div className="relative">
-              <Key className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 z-10" />
-              <Input 
-                type={showPasswords.confirm ? "text" : "password"}
-                className={`pl-10 pr-10 w-full ${
-                  passwordError ? 'border-red-500 focus:ring-red-500' : ''
-                }`}
+          <div className="st-field">
+            <label className="st-lbl">Confirm New Password <span className="st-lbl-req">*</span></label>
+            <div className="st-inp-wrap">
+              <span className="st-inp-left"><Key size={15} /></span>
+              <input
+                className={`st-inp${passwordError ? ' err' : ''}`}
+                type={showPasswords.confirm ? 'text' : 'password'}
                 value={passwordData.confirm_password}
                 onChange={(e) => handleInputChange('confirm_password', e.target.value)}
                 onBlur={() => handleBlur('confirm_password')}
@@ -194,76 +332,97 @@ export default function SecurityTab({
               />
               <button
                 type="button"
+                className="st-inp-right"
                 onClick={() => togglePasswordVisibility('confirm')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
                 tabIndex={-1}
               >
-                {showPasswords.confirm ? 
-                  <EyeOff className="h-4 w-4" /> : 
-                  <Eye className="h-4 w-4" />
-                }
+                {showPasswords.confirm ? <EyeOff size={15} /> : <Eye size={15} />}
               </button>
             </div>
-            
-            {/* Password mismatch error */}
             {passwordError && (
-              <p className="text-xs sm:text-sm text-red-500 mt-1 flex items-center gap-1">
-                <span className="inline-block w-1 h-1 rounded-full bg-red-500"></span>
-                {passwordError}
+              <p className="st-hint err">
+                <XCircle size={13} /> {passwordError}
               </p>
             )}
-            
-            {/* Success message when passwords match */}
-            {!passwordError && 
-             touched.confirm_password && 
-             passwordData.new_password && 
-             passwordData.confirm_password && 
-             passwordData.new_password === passwordData.confirm_password && (
-              <p className="text-xs sm:text-sm text-green-500 mt-1 flex items-center gap-1">
-                <span className="inline-block w-1 h-1 rounded-full bg-green-500"></span>
-                Passwords match
+            {passwordsMatch && (
+              <p className="st-hint ok">
+                <CheckCircle2 size={13} /> Passwords match
               </p>
             )}
           </div>
+
+          {/* 2FA */}
+          <div className="st-sec-lbl" style={{ marginTop: 8 }}>Two-Factor Authentication</div>
+          <div className="st-2fa">
+            <div className="st-2fa-icon">
+              <Shield size={20} color="#7C3AED" />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div className="st-2fa-title">Two-Factor Authentication</div>
+              <div className="st-2fa-sub">Add an extra layer of security to your account.</div>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => alert('2FA feature coming soon!')}
+              disabled={loading}
+              style={{
+                borderRadius: 12,
+                fontSize: 13,
+                fontWeight: 600,
+                borderColor: '#C4B5FD',
+                color: '#7C3AED',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+              }}
+              className="hover:bg-purple-50 transition-all"
+            >
+              Enable 2FA
+            </Button>
+          </div>
         </div>
 
-        {/* Two-Factor Authentication Section */}
-        <div className="border-t pt-6">
-          <h3 className="font-semibold text-base sm:text-lg mb-2">
-            Two-Factor Authentication
-          </h3>
-          <p className="text-xs sm:text-sm text-slate-600 mb-4">
-            Add an extra layer of security to your account by enabling two-factor authentication.
-          </p>
-          <Button 
+        {/* Footer */}
+        <div className="st-footer">
+          <Button
+            type="button"
             variant="outline"
-            onClick={() => alert("2FA feature coming soon!")}
+            onClick={handleClear}
             disabled={loading}
-            className="w-full sm:w-auto touch-manipulation"
-          >
-            Enable 2FA
-          </Button>
-        </div>
-
-        {/* Action Buttons - Stack on mobile */}
-        <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-4">
-          <Button 
-            variant="outline" 
-            onClick={handleClear} 
-            disabled={loading}
-            className="w-full sm:w-auto min-h-[44px] touch-manipulation"
+            style={{
+              borderRadius: 12, fontSize: 13, fontWeight: 600,
+              borderColor: '#E2E8F0', color: '#475569',
+              paddingLeft: 20, paddingRight: 20,
+            }}
+            className="hover:bg-slate-50 transition-all"
           >
             Clear
           </Button>
-          <Button 
-            onClick={onChangePassword} 
-            disabled={loading || !!passwordError || (touched.new_password && passwordData.new_password.length < 8)} 
-            className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto min-h-[44px] touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed"
+          <Button
+            type="button"
+            onClick={onChangePassword}
+            disabled={
+              loading ||
+              !!passwordError ||
+              (touched.new_password && passwordData.new_password.length < 8)
+            }
+            style={{
+              background: 'linear-gradient(135deg,#2563EB,#1E4ED8)',
+              borderRadius: 12, fontSize: 13, fontWeight: 600,
+              paddingLeft: 20, paddingRight: 20,
+              boxShadow: '0 4px 16px rgba(37,99,235,.28)',
+              border: 'none', gap: 7, display: 'flex', alignItems: 'center',
+            }}
+            className="hover:opacity-90 transition-all disabled:opacity-50"
           >
-            {loading ? 'Updating...' : 'Update Password'}
+            {loading ? (
+              <><Loader2 size={15} className="animate-spin" /> Updating...</>
+            ) : (
+              <><Shield size={15} /> Update Password</>
+            )}
           </Button>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </>
   );
 }
