@@ -544,7 +544,6 @@ const fetchRooms = async (resetFilters = true) => {
   try {
     const response: any = await listRoomsByProperty(Number(propertyData.id));
     
-    // console.log('🔍 RAW API RESPONSE:', JSON.stringify(response, null, 2));
     
     let roomsData = [];
 
@@ -560,21 +559,17 @@ const fetchRooms = async (resetFilters = true) => {
       }
     }
 
-    console.log('🔍 ROOMS DATA:', JSON.stringify(roomsData, null, 2));
     
     if (roomsData.length > 0) {
       // Log the first room's bed_assignments to see structure
-      console.log('🔍 FIRST ROOM BED_ASSIGNMENTS:', roomsData[0].bed_assignments);
       
       const transformedRooms = roomsData.map((room: any) => {
         // Get bed_assignments
         const bedAssignments = room.bed_assignments || [];
         
-        console.log(`🔍 Room ${room.room_number} bed_assignments:`, bedAssignments);
         
         // Create beds array from bed_assignments
         const beds = bedAssignments.map((assignment: any) => {
-          console.log(`🔍 Bed ${assignment.bed_number} assignment:`, assignment);
           
           return {
             bed_number: assignment.bed_number,
@@ -617,15 +612,7 @@ const fetchRooms = async (resetFilters = true) => {
         };
       });
 
-      // console.log('🔍 TRANSFORMED ROOMS:', transformedRooms.map((r: any) => ({
-      //   room: r.room_number,
-      //   beds: r.beds.map((b: any) => ({
-      //     bed: b.bed_number,
-      //     rent: b.bed_rent,
-      //     occupied: b.is_occupied,
-      //     type: b.bed_type
-      //   }))
-      // })));
+     
       
       // Filter only available rooms
       const availableRooms = transformedRooms.filter((room: any) => room.is_available === true);

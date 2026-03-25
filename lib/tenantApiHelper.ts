@@ -21,7 +21,6 @@ export async function tenantApiRequest<T = any>(
   
   
   const token = getTenantToken();
-  console.log('tenant token retrieved for contract details:', token );
   
   if (!token) {
     console.error('❌ No tenant token found! User needs to login.');
@@ -85,6 +84,5 @@ export async function tenantApiRequest<T = any>(
     throw err;
   }
 
-  console.log('✅ Tenant API request successful:', data.success ? 'Yes' : 'No');
   return data as T;
 }

@@ -86,7 +86,6 @@ const createEnquiryNotification = async (enquiryId: string, propertyName: string
     }
 
     const data = await response.json();
-    console.log('✅ Enquiry notification created:', data);
     
   } catch (error) {
     console.error('❌ Error creating notification:', error);

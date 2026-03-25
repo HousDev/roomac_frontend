@@ -1,3 +1,5 @@
+
+
 // components/admin/admin-profile/ProfileTab.tsx
 "use client";
 
@@ -84,7 +86,6 @@ export default function ProfileTab({
 
   return (
     <>
-      {/* ── Scoped styles ── */}
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
@@ -190,7 +191,6 @@ export default function ProfileTab({
         .pt-form { padding: 24px 24px 16px; }
         .pt-g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 18px; }
         .pt-g1 { margin-bottom: 18px; }
-        @media(max-width: 600px) { .pt-g2 { grid-template-columns: 1fr; } }
 
         .pt-field { display: flex; flex-direction: column; gap: 6px; }
         .pt-lbl { font-size: 12px; font-weight: 700; color: #475569; letter-spacing: .01em; }
@@ -209,6 +209,7 @@ export default function ProfileTab({
           background: #fff; font-family: 'Plus Jakarta Sans', sans-serif;
           font-size: 13.5px; color: #0F172A; outline: none;
           transition: border-color .18s, box-shadow .18s;
+          box-sizing: border-box;
         }
         .pt-inp:focus { border-color: #3B82F6; box-shadow: 0 0 0 3px rgba(59,130,246,.12); }
         .pt-inp.with-icon { padding-left: 40px; }
@@ -220,6 +221,7 @@ export default function ProfileTab({
           font-size: 13.5px; color: #0F172A; outline: none;
           resize: none; line-height: 1.6;
           transition: border-color .18s, box-shadow .18s;
+          box-sizing: border-box;
         }
         .pt-inp-ta:focus { border-color: #3B82F6; box-shadow: 0 0 0 3px rgba(59,130,246,.12); }
 
@@ -228,6 +230,43 @@ export default function ProfileTab({
           padding: 14px 24px 22px;
           border-top: 1px solid #F1F5F9;
           display: flex; justify-content: flex-end;
+        }
+
+        /* ── Mobile ── */
+        @media (max-width: 640px) {
+          .pt-banner {
+            padding: 20px 18px 60px;
+          }
+          .pt-banner-title { font-size: 16px; }
+          .pt-banner-sub { font-size: 12px; }
+
+          .pt-av-section { padding: 0 12px; margin-top: -38px; }
+          .pt-av-card {
+            padding: 14px 14px;
+            gap: 12px;
+            border-radius: 16px;
+            flex-direction: row;
+            align-items: flex-start;
+          }
+          .pt-av-ring { width: 68px; height: 68px; }
+          .pt-av-cam { width: 24px; height: 24px; bottom: 1px; right: 1px; }
+          .pt-av-name { font-size: 15px; }
+          .pt-role-pill { font-size: 10.5px; padding: 3px 9px; }
+          .pt-active-dot { font-size: 10.5px; }
+          .pt-av-btns { gap: 7px; margin-top: 10px; }
+          .pt-av-btns .av-btn-text { display: none; }
+
+          .pt-form { padding: 16px 12px 10px; }
+          .pt-g2 { grid-template-columns: 1fr; gap: 12px; margin-bottom: 12px; }
+          .pt-g1 { margin-bottom: 12px; }
+
+          .pt-inp { font-size: 13px; padding: 9px 12px; border-radius: 10px; }
+          .pt-inp.with-icon { padding-left: 36px; }
+          .pt-inp-ta { font-size: 13px; padding: 9px 12px; border-radius: 10px; }
+          .pt-lbl { font-size: 11.5px; }
+          .pt-sec-lbl { font-size: 10px; }
+
+          .pt-footer { padding: 10px 12px 16px; }
         }
       `}</style>
 
@@ -277,7 +316,6 @@ export default function ProfileTab({
                 </Avatar>
               </div>
 
-              {/* Camera badge */}
               <button
                 type="button"
                 className="pt-av-cam"
@@ -332,7 +370,7 @@ export default function ProfileTab({
                   className="hover:bg-red-50 hover:border-red-400 transition-all duration-200"
                 >
                   <Trash2 className="h-4 w-4" />
-                  Remove Photo
+                  <span className="av-btn-text">Remove Photo</span>
                 </Button>
 
                 <Button
@@ -355,12 +393,12 @@ export default function ProfileTab({
                   {loading ? (
                     <>
                       <Loader2 className="h-4 w-4 text-white animate-spin" />
-                      Saving...
+                      <span className="av-btn-text">Saving...</span>
                     </>
                   ) : (
                     <>
                       <Save className="h-4 w-4" />
-                      Save Changes
+                      <span className="av-btn-text">Save Changes</span>
                     </>
                   )}
                 </Button>
@@ -373,7 +411,6 @@ export default function ProfileTab({
         <div className="pt-form">
           <div className="pt-sec-lbl" style={{ marginTop: 24 }}>Personal Information</div>
 
-          {/* Row 1 – Name + Role */}
           <div className="pt-g2">
             <div className="pt-field">
               <Label className="pt-lbl">
@@ -398,7 +435,6 @@ export default function ProfileTab({
             </div>
           </div>
 
-          {/* Row 2 – Email + Phone */}
           <div className="pt-g2">
             <div className="pt-field">
               <Label className="pt-lbl">
@@ -436,7 +472,6 @@ export default function ProfileTab({
             </div>
           </div>
 
-          {/* Row 3 – Address */}
           <div className="pt-g1 pt-field">
             <Label className="pt-lbl">Address</Label>
             <div className="pt-inp-wrap">
@@ -453,7 +488,6 @@ export default function ProfileTab({
             </div>
           </div>
 
-          {/* Row 4 – Bio */}
           <div className="pt-sec-lbl" style={{ marginTop: 8 }}>Bio</div>
           <div className="pt-g1 pt-field">
             <Label className="pt-lbl">Bio</Label>

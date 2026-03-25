@@ -244,6 +244,67 @@ export default function NotificationsTab({
           border-top: 1px solid #F1F5F9;
           display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap;
         }
+
+        /* ── Mobile ── */
+        @media (max-width: 640px) {
+            .nt-banner {
+    padding: 20px 18px 48px !important;
+  }
+
+    .nt-banner::after {
+    bottom: -30px;
+    height: 60px;
+  }
+
+  .nt-body .nt-sec-lbl:first-of-type {
+    margin-top: 0 !important;
+    margin-bottom: 12px !important;
+  }
+          .nt-banner-title { font-size: 16px; }
+          .nt-banner-sub { font-size: 12px; }
+          .nt-banner-badge { display: none; }
+          .nt-active-pill { font-size: 11px; padding: 3px 10px; }
+
+          .nt-body { padding: 16px 14px 8px; }
+          .nt-sec-lbl { font-size: 10px; }
+
+          /* Channel rows — compact on mobile */
+          .nt-body .ch-row {
+            padding: 11px 12px !important;
+            border-radius: 12px !important;
+            gap: 10px !important;
+            margin-bottom: 8px !important;
+          }
+          .nt-body .ch-icon {
+            width: 34px !important;
+            height: 34px !important;
+            border-radius: 9px !important;
+          }
+          .nt-body .ch-title { font-size: 13px !important; }
+          .nt-body .ch-sub { font-size: 11px !important; }
+
+          /* Alert rows — compact on mobile */
+          .nt-body .al-row {
+            padding: 10px 12px !important;
+            border-radius: 10px !important;
+            margin-bottom: 2px !important;
+          }
+          .nt-body .al-icon {
+            width: 28px !important;
+            height: 28px !important;
+            border-radius: 8px !important;
+          }
+          .nt-body .al-title { font-size: 13px !important; }
+
+          .nt-footer {
+            padding: 10px 14px 18px;
+            gap: 8px;
+          }
+          .nt-footer button {
+            flex: 1;
+            justify-content: center;
+          }
+        }
       `}</style>
 
       <div className="nt-wrap">
@@ -265,67 +326,117 @@ export default function NotificationsTab({
               {activeCount} of {Object.keys(notificationSettings).length} enabled
             </div>
           </div>
-          
         </div>
 
         {/* Body */}
         <div className="nt-body">
           <div className="nt-sec-lbl" style={{ marginTop: -20 }}>Notification Channels</div>
 
-          <ChannelRow
-            icon={<Mail size={17} />}
-            iconBg="#EFF6FF" iconColor="#2563EB"
-            title="Email Notifications"
-            sub="Receive notifications via email"
-            checked={notificationSettings.email_notifications}
-            onChange={(v) => handleToggle('email_notifications', v)}
-            disabled={loading}
-          />
-          <ChannelRow
-            icon={<Smartphone size={17} />}
-            iconBg="#F0FDF4" iconColor="#059669"
-            title="SMS Notifications"
-            sub="Receive notifications via SMS"
-            checked={notificationSettings.sms_notifications}
-            onChange={(v) => handleToggle('sms_notifications', v)}
-            disabled={loading}
-          />
-          <ChannelRow
-            icon={<MessageSquare size={17} />}
-            iconBg="#F0FFF4" iconColor="#16A34A"
-            title="WhatsApp Notifications"
-            sub="Receive notifications via WhatsApp"
-            checked={notificationSettings.whatsapp_notifications}
-            onChange={(v) => handleToggle('whatsapp_notifications', v)}
-            disabled={loading}
-          />
+          {/* Channel rows — add className hooks for mobile override */}
+          {[
+            {
+              icon: <Mail size={17} />, iconBg: '#EFF6FF', iconColor: '#2563EB',
+              title: 'Email Notifications', sub: 'Receive notifications via email',
+              field: 'email_notifications' as keyof NotificationSettings,
+            },
+            {
+              icon: <Smartphone size={17} />, iconBg: '#F0FDF4', iconColor: '#059669',
+              title: 'SMS Notifications', sub: 'Receive notifications via SMS',
+              field: 'sms_notifications' as keyof NotificationSettings,
+            },
+            {
+              icon: <MessageSquare size={17} />, iconBg: '#F0FFF4', iconColor: '#16A34A',
+              title: 'WhatsApp Notifications', sub: 'Receive notifications via WhatsApp',
+              field: 'whatsapp_notifications' as keyof NotificationSettings,
+            },
+          ].map(({ icon, iconBg, iconColor, title, sub, field }) => (
+            <div
+              key={field}
+              className="ch-row"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 14,
+                padding: '14px 18px',
+                borderRadius: 14,
+                border: `1.5px solid ${notificationSettings[field] ? '#BFDBFE' : '#E2E8F0'}`,
+                background: notificationSettings[field] ? '#F0F7FF' : '#fff',
+                transition: 'border-color .2s, background .2s',
+                marginBottom: 10,
+              }}
+            >
+              <div
+                className="ch-icon"
+                style={{
+                  width: 40, height: 40, borderRadius: 11, flexShrink: 0,
+                  background: iconBg, color: iconColor,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}
+              >
+                {icon}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="ch-title" style={{ fontSize: 13.5, fontWeight: 700, color: '#0F172A' }}>{title}</div>
+                <div className="ch-sub" style={{ fontSize: 12, color: '#94A3B8', marginTop: 2 }}>{sub}</div>
+              </div>
+              <Toggle
+                checked={notificationSettings[field]}
+                onChange={(v) => handleToggle(field, v)}
+                disabled={loading}
+              />
+            </div>
+          ))}
 
           <div className="nt-sec-lbl" style={{ marginTop: 20 }}>Alert Types</div>
 
-          <AlertRow
-            icon={<CreditCard size={15} />}
-            iconBg="#FEF3C7" iconColor="#D97706"
-            title="Payment Alerts"
-            checked={notificationSettings.payment_alerts}
-            onChange={(v) => handleToggle('payment_alerts', v)}
-            disabled={loading}
-          />
-          <AlertRow
-            icon={<CalendarCheck size={15} />}
-            iconBg="#EDE9FE" iconColor="#7C3AED"
-            title="Booking Alerts"
-            checked={notificationSettings.booking_alerts}
-            onChange={(v) => handleToggle('booking_alerts', v)}
-            disabled={loading}
-          />
-          <AlertRow
-            icon={<Wrench size={15} />}
-            iconBg="#FFEDD5" iconColor="#EA580C"
-            title="Maintenance Alerts"
-            checked={notificationSettings.maintenance_alerts}
-            onChange={(v) => handleToggle('maintenance_alerts', v)}
-            disabled={loading}
-          />
+          {[
+            {
+              icon: <CreditCard size={15} />, iconBg: '#FEF3C7', iconColor: '#D97706',
+              title: 'Payment Alerts', field: 'payment_alerts' as keyof NotificationSettings,
+            },
+            {
+              icon: <CalendarCheck size={15} />, iconBg: '#EDE9FE', iconColor: '#7C3AED',
+              title: 'Booking Alerts', field: 'booking_alerts' as keyof NotificationSettings,
+            },
+            {
+              icon: <Wrench size={15} />, iconBg: '#FFEDD5', iconColor: '#EA580C',
+              title: 'Maintenance Alerts', field: 'maintenance_alerts' as keyof NotificationSettings,
+            },
+          ].map(({ icon, iconBg, iconColor, title, field }) => (
+            <div
+              key={field}
+              className="al-row"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '12px 16px',
+                borderRadius: 12,
+                background: notificationSettings[field] ? '#F8FAFF' : 'transparent',
+                transition: 'background .2s',
+                marginBottom: 4,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div
+                  className="al-icon"
+                  style={{
+                    width: 32, height: 32, borderRadius: 9, flexShrink: 0,
+                    background: iconBg, color: iconColor,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}
+                >
+                  {icon}
+                </div>
+                <span className="al-title" style={{ fontSize: 13.5, fontWeight: 600, color: '#0F172A' }}>{title}</span>
+              </div>
+              <Toggle
+                checked={notificationSettings[field]}
+                onChange={(v) => handleToggle(field, v)}
+                disabled={loading}
+              />
+            </div>
+          ))}
         </div>
 
         {/* Footer */}

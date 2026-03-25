@@ -456,7 +456,6 @@ const PropertyDetailsClient = ({ initialProperty }: PropertyDetailsClientProps) 
         try {
             const res = await getProperty(propertyId);
             if (res && res.success && res.data) {
-                console.log("Property data loaded:", res.data);
                 const propertyData = {
                     ...res.data,
                     id: String(res.data.id || ''),

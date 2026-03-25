@@ -1,63 +1,4 @@
-// "use client";
 
-// import React, { createContext, useContext, useEffect, useState } from "react";
-
-// type User = {
-//     email: string;
-// };
-
-// type AuthContextType = {
-//     user: User | null;
-//     isAuthenticated: boolean;
-//     login: (email: string, token: string) => void;
-//     logout: () => void;
-// };
-
-// const AuthContext = createContext<AuthContextType | null>(null);
-
-// export function AuthProvider({ children }: { children: React.ReactNode }) {
-//     const [user, setUser] = useState<User | null>(null);
-
-//     useEffect(() => {
-//         const token = localStorage.getItem("auth_token");
-//         const email = localStorage.getItem("auth_email");
-
-//         if (token && email) {
-//             setUser({ email });
-//         }
-//     }, []);
-
-//     const login = (email: string, token: string) => {
-//         localStorage.setItem("auth_token", token);
-//         localStorage.setItem("auth_email", email);
-//         setUser({ email });
-//     };
-
-//     const logout = () => {
-//         localStorage.removeItem("auth_token");
-//         localStorage.removeItem("auth_email");
-//         setUser(null); // 🔥 MOST IMPORTANT
-//     };
-
-//     return (
-//         <AuthContext.Provider
-//             value={{
-//                 user,
-//                 isAuthenticated: !!user,
-//                 login,
-//                 logout,
-//             }}
-//         >
-//             {children}
-//         </AuthContext.Provider>
-//     );
-// }
-
-// export function useAuth() {
-//     const ctx = useContext(AuthContext);
-//     if (!ctx) throw new Error("useAuth must be used inside AuthProvider");
-//     return ctx;
-// }
 
 
 // context/authContext.tsx
@@ -127,10 +68,9 @@ console.log(user.data.user)
     localStorage.clear()
     setUser(null);
 
-    // ✅ Redirect based on original login page
+    
    
 
-    // ✅ Naya code — loginSource ke basis par redirect
 
     window.location.href = "/login";
 

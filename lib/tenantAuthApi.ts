@@ -135,14 +135,12 @@ export async function loginTenant(
   password: string
 ): Promise<TenantLoginResponse> {
   try {
-    console.log('🔍 Attempting tenant login for:', email);
     
     const res = await request<TenantLoginResponse>("/api/tenant-auth/login", {
       method: "POST",
       body: JSON.stringify({ email, password }),
     });
 
-    console.log('🔍 Login response:', res);
 
     if (res.success && res.token) {
       setTenantToken(res.token);
@@ -171,14 +169,12 @@ export async function sendTenantOTP(
   email: string
 ): Promise<TenantLoginResponse> {
   try {
-    console.log('🔍 Sending OTP to:', email);
     
     const res = await request<TenantLoginResponse>("/api/tenant-auth/send-otp", {
       method: "POST",
       body: JSON.stringify({ email }),
     });
 
-    console.log('🔍 Send OTP response:', res);
     return res;
   } catch (error: any) {
     console.error('❌ Send OTP error:', error);
@@ -198,7 +194,6 @@ export const verifyTenantOTP = async (
   otp: string
 ): Promise<TenantLoginResponse> => {
   try {
-    console.log('🔍 Verifying OTP for:', email);
 
     const res = await request<TenantLoginResponse>(
       "/api/tenant-auth/verify-otp",
@@ -208,7 +203,6 @@ export const verifyTenantOTP = async (
       }
     );
 
-    console.log('🔍 Verify OTP response:', res);
 
     if (res.success && res.token) {
       setTenantToken(res.token);
@@ -455,11 +449,9 @@ export function initializeTenantAuth(): boolean {
   const tenantId = getTenantId();
   
   if (token && tenantId) {
-    console.log('✅ Tenant authentication initialized');
     return true;
   }
   
-  console.log('⚠️ No tenant authentication found');
   return false;
 }
 

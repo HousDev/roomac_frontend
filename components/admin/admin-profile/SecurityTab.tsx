@@ -1,3 +1,5 @@
+
+
 // components/admin/admin-profile/SecurityTab.tsx
 "use client";
 
@@ -77,7 +79,6 @@ export default function SecurityTab({
     passwordData.confirm_password &&
     passwordData.new_password === passwordData.confirm_password;
 
-  // Strength calculation
   const getStrength = (pw: string) => {
     if (!pw) return 0;
     let s = 0;
@@ -112,7 +113,6 @@ export default function SecurityTab({
           width: 100%;
         }
 
-        /* Banner */
         .st-banner {
           background: linear-gradient(120deg, #0A1F5C 0%, #1740C0 55%, #2563EB 100%);
           padding: 28px 32px 68px;
@@ -131,7 +131,6 @@ export default function SecurityTab({
         .st-banner-title { font-size: 19px; font-weight: 800; color: #fff; display: flex; align-items: center; gap: 8px; }
         .st-banner-sub { font-size: 13px; color: rgba(255,255,255,.6); margin-top: 4px; }
 
-        /* Icon badge */
         .st-banner-badge {
           position: absolute; right: 32px; top: 50%; transform: translateY(-60%); z-index: 1;
           width: 72px; height: 72px; border-radius: 20px;
@@ -140,10 +139,8 @@ export default function SecurityTab({
           box-shadow: 0 8px 24px rgba(0,0,0,.15);
         }
 
-        /* Form body */
         .st-form { padding: 20px 28px 8px; }
 
-        /* Section label */
         .st-sec-lbl {
           font-size: 10.5px; font-weight: 700; letter-spacing: .08em;
           text-transform: uppercase; color: #94A3B8;
@@ -151,12 +148,10 @@ export default function SecurityTab({
         }
         .st-sec-lbl::after { content: ''; flex: 1; height: 1px; background: #E2E8F0; }
 
-        /* Field */
         .st-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
         .st-lbl { font-size: 12px; font-weight: 700; color: #475569; }
         .st-lbl-req { color: #DC2626; margin-left: 2px; }
 
-        /* Input wrapper */
         .st-inp-wrap { position: relative; }
         .st-inp-left {
           position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
@@ -175,18 +170,17 @@ export default function SecurityTab({
           background: #fff; font-family: 'Plus Jakarta Sans', sans-serif;
           font-size: 13.5px; color: #0F172A; outline: none;
           transition: border-color .18s, box-shadow .18s;
+          box-sizing: border-box;
         }
         .st-inp:focus { border-color: #3B82F6; box-shadow: 0 0 0 3px rgba(59,130,246,.12); }
         .st-inp.err { border-color: #DC2626; }
         .st-inp.err:focus { box-shadow: 0 0 0 3px rgba(220,38,38,.12); }
         .st-inp:disabled { background: #F8FAFC; color: #94A3B8; cursor: not-allowed; }
 
-        /* Hints */
         .st-hint { font-size: 11.5px; color: #94A3B8; display: flex; align-items: center; gap: 5px; margin-top: 4px; }
         .st-hint.err { color: #DC2626; }
         .st-hint.ok  { color: #059669; }
 
-        /* Strength bar */
         .st-strength { margin-top: 8px; }
         .st-sbar { display: flex; gap: 4px; margin-bottom: 5px; }
         .st-sbarseg {
@@ -195,7 +189,6 @@ export default function SecurityTab({
         }
         .st-slbl { font-size: 11px; font-weight: 600; }
 
-        /* 2FA card */
         .st-2fa {
           background: linear-gradient(135deg, #F0F4FF, #EEF2FF);
           border: 1px solid #C7D2FE;
@@ -212,11 +205,57 @@ export default function SecurityTab({
         .st-2fa-title { font-size: 14px; font-weight: 700; color: #0F172A; }
         .st-2fa-sub { font-size: 12px; color: #64748B; margin-top: 3px; }
 
-        /* Footer */
         .st-footer {
           padding: 14px 28px 24px;
           border-top: 1px solid #F1F5F9;
           display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap;
+        }
+
+        /* ── Mobile ── */
+        @media (max-width: 640px) {
+          .st-banner {
+            padding: 20px 18px 60px;
+          }
+
+          .st-form .st-sec-lbl:first-of-type {
+    margin-top: 0 !important;
+    margin-bottom: 16px !important;
+  }
+          .st-banner-title { font-size: 16px; }
+          .st-banner-sub { font-size: 12px; }
+          .st-banner-badge { display: none; }
+
+          .st-form { padding: 16px 14px 8px; }
+          .st-sec-lbl { font-size: 10px; }
+          .st-lbl { font-size: 11.5px; }
+
+          .st-inp {
+            font-size: 13px;
+            padding: 9px 38px 9px 38px;
+            border-radius: 10px;
+          }
+          .st-field { margin-bottom: 12px; }
+
+          .st-2fa {
+            flex-direction: row;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 14px 14px;
+            border-radius: 12px;
+          }
+          .st-2fa-icon { width: 38px; height: 38px; border-radius: 10px; flex-shrink: 0; }
+          .st-2fa-title { font-size: 13px; }
+          .st-2fa-sub { font-size: 11.5px; }
+          .st-2fa-btn-wrap { margin-top: 8px; }
+
+          .st-footer {
+            padding: 10px 14px 18px;
+            gap: 8px;
+          }
+          .st-footer button {
+            flex: 1;
+            justify-content: center;
+          }
         }
       `}</style>
 
@@ -230,13 +269,11 @@ export default function SecurityTab({
             </div>
             <p className="st-banner-sub">Manage your password and security preferences</p>
           </div>
-          
         </div>
 
         {/* Form */}
         <div className="st-form">
-          <div className="st-sec-lbl" style={{ marginTop: -20 }}>Change Password</div>
-
+<div className="st-sec-lbl st-change-pwd-label" style={{ marginTop: -20 }}>Change Password</div>
           {/* Current Password */}
           <div className="st-field">
             <label className="st-lbl">Current Password <span className="st-lbl-req">*</span></label>
@@ -285,7 +322,6 @@ export default function SecurityTab({
               </button>
             </div>
 
-            {/* Strength bar */}
             {passwordData.new_password.length > 0 && (
               <div className="st-strength">
                 <div className="st-sbar">
@@ -358,6 +394,27 @@ export default function SecurityTab({
             <div style={{ flex: 1, minWidth: 0 }}>
               <div className="st-2fa-title">Two-Factor Authentication</div>
               <div className="st-2fa-sub">Add an extra layer of security to your account.</div>
+              {/* On mobile the button moves below text */}
+              <div className="st-2fa-btn-wrap" style={{ display: 'none' }}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => alert('2FA feature coming soon!')}
+                  disabled={loading}
+                  style={{
+                    borderRadius: 10,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    borderColor: '#C4B5FD',
+                    color: '#7C3AED',
+                    marginTop: 8,
+                    width: '100%',
+                  }}
+                  className="hover:bg-purple-50 transition-all"
+                >
+                  Enable 2FA
+                </Button>
+              </div>
             </div>
             <Button
               type="button"
@@ -373,7 +430,7 @@ export default function SecurityTab({
                 whiteSpace: 'nowrap',
                 flexShrink: 0,
               }}
-              className="hover:bg-purple-50 transition-all"
+              className="st-2fa-desktop-btn hover:bg-purple-50 transition-all"
             >
               Enable 2FA
             </Button>

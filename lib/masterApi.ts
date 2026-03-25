@@ -376,7 +376,6 @@ export async function importValuesFromExcel(file: File, masterItemId: number): P
         const worksheet = workbook.Sheets[sheetName];
         const jsonData = XLSX.utils.sheet_to_json(worksheet);
         
-        console.log('Excel data:', jsonData); // Debug log
         
         const created: any[] = [];
         const errors: string[] = [];
@@ -394,7 +393,6 @@ export async function importValuesFromExcel(file: File, masterItemId: number): P
         // Get column names from first row
         const firstRow = jsonData[0] as any;
         const columnNames = Object.keys(firstRow);
-        console.log('Column names found:', columnNames);
         
         // Find the name column (case insensitive)
         let nameColumn = columnNames.find(col => 
@@ -411,8 +409,7 @@ export async function importValuesFromExcel(file: File, masterItemId: number): P
           col.toLowerCase() === 'active'
         );
         
-        console.log('Name column detected:', nameColumn);
-        console.log('Status column detected:', statusColumn);
+        
         
         for (let i = 0; i < jsonData.length; i++) {
           const row = jsonData[i] as any;
@@ -461,7 +458,6 @@ export async function importValuesFromExcel(file: File, masterItemId: number): P
             const isactive = statusStr === 'active' ? 1 : 0;
             const nameValue = name.toString().trim();
             
-            console.log(`Row ${rowNumber}: Creating value "${nameValue}" with status ${isactive}`);
             
             const response = await createMasterValue({
               master_item_id: masterItemId,
@@ -480,7 +476,6 @@ export async function importValuesFromExcel(file: File, masterItemId: number): P
           }
         }
         
-        console.log(`Import complete: ${created.length} created, ${errors.length} errors`);
         
         resolve({
           success: true,

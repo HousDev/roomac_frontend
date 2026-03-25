@@ -142,7 +142,6 @@ export async function bulkDeleteLeaveRequests(ids: number[]): Promise<{ success:
       throw new Error('Authentication required. Please log in.');
     }
     
-    console.log(`🗑️ Bulk deleting leave requests:`, ids);
     
     const response = await fetch(`${API_BASE_URL}/api/admin/leave-requests/bulk-delete`, {
       method: 'POST',

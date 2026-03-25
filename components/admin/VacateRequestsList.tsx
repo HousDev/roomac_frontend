@@ -1673,7 +1673,6 @@ const handleBulkDelete = async () => {
 
 function sendNotificationToTenant(tenant_id: number, status: string) {
   // Implementation here
-  console.log('Sending notification to tenant', tenant_id, 'about status', status);
 }
 
 

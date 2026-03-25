@@ -57,7 +57,6 @@ export async function getProfile(): Promise<ProfileResponse> {
 
 // Update the other functions similarly
 export async function updateProfile(data: ProfileUpdateData): Promise<ProfileResponse> {
-  console.log('🔄 updateProfile API called with data:', data);
   try {
     const result = await request<ProfileResponse>('/api/profile', {
       method: 'PUT',
@@ -72,7 +71,6 @@ export async function updateProfile(data: ProfileUpdateData): Promise<ProfileRes
 
 // Change password
 export async function changePassword(data: PasswordChangeData): Promise<ApiResult> {
-  console.log('🔄 changePassword API called');
   try {
     const result = await request<ApiResult>('/api/profile/password', {
       method: 'PUT',
@@ -87,7 +85,6 @@ export async function changePassword(data: PasswordChangeData): Promise<ApiResul
 
 // Update notification settings
 export async function updateNotificationSettings(data: NotificationSettings): Promise<ApiResult> {
-  console.log('🔄 updateNotificationSettings API called with:', data);
   try {
     const result = await request<ApiResult>('/api/profile/notifications', {
       method: 'PUT',
@@ -102,7 +99,6 @@ export async function updateNotificationSettings(data: NotificationSettings): Pr
 
 // Upload profile avatar
 export async function uploadAvatar(file: File): Promise<ApiResult<{ avatar_url: string }>> {
-  console.log('🔄 uploadAvatar API called with file:', file.name);
   const formData = new FormData();
   formData.append('avatar', file);
   

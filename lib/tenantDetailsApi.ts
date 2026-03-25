@@ -32,7 +32,6 @@ async function tenantRequest<T = any>(
     });
 
     const text = await res.text();
-    console.log('🔐 Response text:', text.substring(0, 500));
     
     let data: any = {};
     let errorMessage = `API request failed: ${res.status} ${res.statusText}`;
@@ -89,7 +88,6 @@ export const tenantDetailsApi = {
   async getProfile() {
     try {
       const response = await tenantRequest(`${API_BASE_PATH}/profile`);
-      console.log('📥 getProfile raw response:', response);
       return response;
     } catch (error) {
       console.error('Error fetching profile:', error);
@@ -100,7 +98,6 @@ export const tenantDetailsApi = {
   async getProfileById(tenantId: string) {
     try {
       const response = await tenantRequest(`${API_BASE_PATH}/profile/${tenantId}`);
-      console.log('📥 getProfileById response:', response);
       return response;
     } catch (error) {
       console.error('Error fetching profile by ID:', error);
@@ -113,9 +110,7 @@ export const tenantDetailsApi = {
       const token = getTenantToken();
       const tenantId = getTenantId();
       
-      console.log('🔐 API - Token available:', !!token);
-      console.log('👤 API - Tenant ID:', tenantId);
-      console.log('📦 API - Update data:', updateData);
+      
       
       return await tenantRequest(`${API_BASE_PATH}/profile`, {
         method: 'PATCH',
@@ -146,13 +141,10 @@ async getDocuments() {
 
   async loadProfile() {
     try {
-      console.log('🚀 Starting profile load...');
 
       const tenantId = getTenantId();
       const token = getTenantToken();
 
-      console.log('🔑 Tenant ID:', tenantId);
-      console.log('🔐 Token exists:', !!token);
 
       if (!tenantId) {
         console.error('No tenant ID found');
@@ -186,7 +178,6 @@ async getDocuments() {
         throw new Error('No profile data received');
       }
 
-      console.log('📦 Response from API:', response);
       
       // Get deletion request status
       try {
@@ -203,14 +194,7 @@ async getDocuments() {
         }
       }
 
-      // CRITICAL: Log what we're returning
-      console.log('📤 FINAL DATA BEING SENT TO COMPONENT:', {
-        room_id: response.data?.room_id,
-        room_number: response.data?.room_number,
-        bed_number: response.data?.bed_number,
-        property_name: response.data?.property_name,
-        property_manager_name: response.data?.property_manager_name,
-      });
+      
 
       return response;
     } catch (error: any) {

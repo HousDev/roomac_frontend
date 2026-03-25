@@ -171,31 +171,15 @@ export const listActiveProperties = () => {
 };
 
 
-/* ---------- BED ASSIGNMENT FUNCTIONS ---------- */
-// export const assignBed = async (data: AssignBedPayload): Promise<ApiResult<any>> => {
-//   try {
-//     const result = await request<ApiResult<any>>("/api/rooms/assign-bed", {
-//       method: "POST",
-//       body: JSON.stringify(data),
-//     });
-//     return result;
-//   } catch (error: any) {
-//     return {
-//       success: false,
-//       message: error.message || 'Failed to assign bed'
-//     };
-//   }
-// };
+
 
 // In lib/roomsApi.ts - Update assignBed function
 export const assignBed = async (data: AssignBedPayload): Promise<ApiResult<any>> => {
   try {
-    console.log('📤 Sending assign bed request:', data); // Add logging
     const result = await request<ApiResult<any>>("/api/rooms/assign-bed", {
       method: "POST",
       body: JSON.stringify(data),
     });
-    console.log('📥 Assign bed response:', result);
     return result;
   } catch (error: any) {
     console.error('❌ Assign bed error:', error);
@@ -206,30 +190,15 @@ export const assignBed = async (data: AssignBedPayload): Promise<ApiResult<any>>
   }
 };
 
-// export const updateBedAssignment = async (bedId: string, data: UpdateBedAssignmentPayload): Promise<ApiResult<any>> => {
-//   try {
-//     const result = await request<ApiResult<any>>(`/api/rooms/bed-assignments/${bedId}`, {
-//       method: "PUT",
-//       body: JSON.stringify(data),
-//     });
-//     return result;
-//   } catch (error: any) {
-//     return {
-//       success: false,
-//       message: error.message || 'Failed to update bed assignment'
-//     };
-//   }
-// };
+
 
 // In lib/roomsApi.ts - Update updateBedAssignment function
 export const updateBedAssignment = async (bedId: string, data: UpdateBedAssignmentPayload): Promise<ApiResult<any>> => {
   try {
-    console.log('📤 Sending update bed request:', { bedId, data }); // Add logging
     const result = await request<ApiResult<any>>(`/api/rooms/bed-assignments/${bedId}`, {
       method: "PUT",
       body: JSON.stringify(data),
     });
-    console.log('📥 Update bed response:', result);
     return result;
   } catch (error: any) {
     console.error('❌ Update bed error:', error);

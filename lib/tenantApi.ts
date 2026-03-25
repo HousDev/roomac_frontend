@@ -352,7 +352,6 @@ export async function listTenantsSimple(filters: any = {}): Promise<any> {
   const queryString = params.toString();
   const path = `/api/tenants${queryString ? `?${queryString}` : ""}`;
   
-  console.log('🚀 Direct API call to:', path);
   
   try {
     // Use the request function directly - it already goes to localhost:3001
@@ -397,12 +396,9 @@ export async function getTenantById(id: string): Promise<ApiResult<Tenant>> {
 
 // Create tenant with FormData (for file uploads)
 export async function createTenant(formData: FormData): Promise<ApiResult<{ id: number }>> {
-  console.log('🔍 Creating tenant with FormData');
-  console.log('🔍 FormData entries:');
-  console.log('API tenant with ID:')
+  
 
   Array.from(formData.entries()).forEach(([key, value]) => {
-    console.log(`  ${key}:`, value);
   });
   return enhancedFetch<ApiResult<{ id: number }>>('/api/tenants', {
     method: 'POST',
@@ -531,7 +527,6 @@ export async function getAvailableRooms(gender: string, property_id?: number): P
 
 // Properties
 export async function getAllProperties(): Promise<ApiResult<any[]>> {
-  console.log('Fetching all properties for tenants');
   return enhancedFetch<ApiResult<any[]>>(`/api/tenants/properties/all`, { method: "GET" });
 }
 
@@ -557,7 +552,6 @@ export async function exportTenantsToExcel(filters: any = {}): Promise<{ success
     const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
     const url = `${apiUrl}/api/tenants/export/excel?${params.toString()}`;
     
-    console.log('📤 Exporting to Excel:', url);
     
     // Get token if available
     let token: string | null = null;
@@ -974,7 +968,6 @@ export async function listTenantsOptimized(
     return data;
   } catch (error: any) {
     if (error.name === 'AbortError') {
-      console.log('Request was aborted');
       return { success: false, message: 'Request aborted', data: [] };
     }
     
@@ -1001,7 +994,6 @@ export async function getTenantsWithCache(
   if (!forceRefresh && tenantCache.has(cacheKey)) {
     const cached = tenantCache.get(cacheKey)!;
     if (Date.now() - cached.timestamp < CACHE_DURATION) {
-      console.log('Returning cached tenants');
       return { success: true, data: cached.data };
     }
   }

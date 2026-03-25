@@ -74,11 +74,7 @@ export default function PropertyCardView({ properties }: PropertyCardViewProps) 
 
   // Log the first property to see what data we have
   if (properties && properties.length > 0) {
-    console.log('📊 PropertyCardView - First property:', {
-      id: properties[0].id,
-      name: properties[0].name,
-      occupied_beds: properties[0].occupied_beds
-    });
+   
   }
 
   const handleCardSelect = (propertyId: string) => {
@@ -98,7 +94,6 @@ export default function PropertyCardView({ properties }: PropertyCardViewProps) 
   };
 
   const handleEdit = (property: Property) => {
-    console.log("proopertey from handle edit", property)
     setSelectedProperty(property);
     setEditMode(true);
     setDialogOpen(true);
@@ -220,11 +215,7 @@ export default function PropertyCardView({ properties }: PropertyCardViewProps) 
     const tags = extractTags(property);
     
     // Log property data for debugging
-    console.log(`🏠 Rendering ${property.name}:`, {
-      occupied_beds: property.occupied_beds,
-      total_beds: property.total_beds
-    });
-
+    
     const maxVisibleTags = 3;
     const visibleTags = tags.slice(0, maxVisibleTags);
     const remainingTagsCount = tags.length - maxVisibleTags;

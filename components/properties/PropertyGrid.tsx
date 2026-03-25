@@ -27,8 +27,7 @@ useEffect(() => {
     const transformedProperties = initialProperties.data.map((property: any) => {
       const transformed = transformPropertyData(property);
       
-      console.log('Property ID:', property.id, 'Original tags:', property.tags);
-      console.log('Property ID:', property.id, 'Transformed tags:', transformed.tags);
+      
       
       return {
         ...property,
@@ -42,7 +41,6 @@ useEffect(() => {
       };
     });
     
-    console.log('All properties with transformed data:', transformedProperties);
     setProperties(transformedProperties);
     setFilteredProperties(transformedProperties);
     

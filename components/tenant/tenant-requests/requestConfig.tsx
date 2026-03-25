@@ -45,13 +45,7 @@ export const QUICK_REQUESTS = [
     icon: Wrench,
     color: 'bg-orange-50 border-orange-200'
   },
-  // {
-  //   type: 'leave',
-  //   title: 'Leave Application',
-  //   description: 'Request temporary leave',
-  //   icon: Calendar,
-  //   color: 'bg-purple-50 border-purple-200'
-  // },
+  
   {
     type: 'vacate_bed',
     title: 'Vacate Bed Request',

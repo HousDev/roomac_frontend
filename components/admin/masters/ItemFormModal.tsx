@@ -41,11 +41,9 @@ export default function ItemFormModal({
   
   const isFormValid = name?.trim()?.length > 0 && tabName;
 
-  console.log("Form validity:", { name, tabName, isFormValid }); // Debug log
 
   const handleSubmit = (e: React.MouseEvent) => {
     e.preventDefault();
-    console.log("Submit clicked, valid:", isFormValid);
     if (isFormValid && !submitting) {
       onSubmit();
     }

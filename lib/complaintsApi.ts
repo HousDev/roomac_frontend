@@ -144,7 +144,6 @@ export async function bulkDeleteComplaints(ids: number[]): Promise<any> {
   try {
     const token = getAdminToken();
     
-    console.log(`🗑️ Bulk deleting complaints:`, ids);
     
     const response = await request(`/api/admin/complaints/bulk-delete`, {
       method: "POST",
@@ -260,7 +259,6 @@ export async function updateComplaintStatus(
     const body: any = { status };
     if (adminNotes) body.admin_notes = adminNotes;
     
-    console.log(`📝 Updating complaint ${id} status to ${status} with notes:`, adminNotes);
     
     const response = await request(`/api/admin/complaints/${id}`, {
       method: "PUT",

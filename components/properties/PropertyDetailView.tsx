@@ -330,21 +330,12 @@ const PropertyDetailView = memo(function PropertyDetailView({
   useEffect(() => {
     setIsClient(true);
     
-    // Log the property data to see what's coming from API
-    // console.log("🔥 FULL PROPERTY DATA:", JSON.stringify(propertyData, null, 2));
+    ;
     
     // Specifically log rooms and their bed_assignments
     if (propertyData?.rooms) {
-      // console.log("🔥 ROOMS DATA:", propertyData.rooms.length, "rooms");
       propertyData.rooms.forEach((room: any, index: number) => {
-        // console.log(`🔥 ROOM ${index}:`, {
-        //   id: room.id,
-        //   name: room.name || room.roomNumber,
-        //   bed_assignments: room.bed_assignments,
-        //   beds: room.beds,
-        //   price: room.price,
-        //   rent_per_bed: room.rent_per_bed
-        // });
+        
       });
     }
   }, [propertyData]);
@@ -390,8 +381,7 @@ useEffect(() => {
         });
       }
       
-      console.log('Fetched floors:', floors);
-      console.log('Fetched sharing types:', sharingTypes);
+     
       
       setFloorsMasters(floors);
       setSharingTypesMasters(sharingTypes);
@@ -526,11 +516,9 @@ useEffect(() => {
 // In PropertyDetailView.tsx - update getMinTenantRent function
 
 const getMinTenantRent = (room: any): number => {
-  // console.log(`🔍 Getting min rent for room:`, room.id, room.name || room.roomNumber);
   
   // Method 1: Check bed_assignments array (from API)
   if (room.bed_assignments && Array.isArray(room.bed_assignments) && room.bed_assignments.length > 0) {
-    // console.log(`✅ Room has bed_assignments:`, room.bed_assignments);
     
     const rents = room.bed_assignments
       .map((bed: any) => {
@@ -539,25 +527,21 @@ const getMinTenantRent = (room: any): number => {
         
         if (bed.tenant_rent) {
           rent = parseFloat(bed.tenant_rent);
-          // console.log(`  Bed ${bed.bed_number}: tenant_rent = ${rent}`);
         }
         
         return rent && !isNaN(rent) && rent > 0 ? rent : null;
       })
       .filter((rent: number | null) => rent !== null);
     
-    // console.log(`  Extracted rents:`, rents);
     
     if (rents.length > 0) {
       const minRent = Math.min(...rents);
-      // console.log(`  ✅ Minimum rent from bed_assignments: ₹${minRent}`);
       return minRent;
     }
   }
   
   // Method 2: Check beds array (alternative format)
   if (room.beds && Array.isArray(room.beds) && room.beds.length > 0) {
-    // console.log(`✅ Room has beds array:`, room.beds);
     
     const rents = room.beds
       .map((bed: any) => {
@@ -575,7 +559,6 @@ const getMinTenantRent = (room: any): number => {
     
     if (rents.length > 0) {
       const minRent = Math.min(...rents);
-      // console.log(`  ✅ Minimum rent from beds array: ₹${minRent}`);
       return minRent;
     }
   }
@@ -584,7 +567,6 @@ const getMinTenantRent = (room: any): number => {
   if (room.price) {
     const price = parseFloat(room.price);
     if (!isNaN(price) && price > 0) {
-      // console.log(`  ⚠️ Falling back to room.price: ₹${price}`);
       return price;
     }
   }
@@ -593,30 +575,20 @@ const getMinTenantRent = (room: any): number => {
   if (room.rent_per_bed) {
     const rent = parseFloat(room.rent_per_bed);
     if (!isNaN(rent) && rent > 0) {
-      // console.log(`  ⚠️ Falling back to room.rent_per_bed: ₹${rent}`);
       return rent;
     }
   }
   
   // Method 5: Default fallback
-  // console.log(`  ❌ No rent found, using default 5000`);
   return 5000;
 };
 
   const filteredRooms = useMemo(() => {
     if (!propertyData?.rooms) return [];
 
-    // console.log("🎯 Filtering rooms with", propertyData.rooms.length, "rooms");
     
     return propertyData.rooms.filter((room: any) => {
-      // Debug each room's bed rents
-      // console.log(`🎯 Room ${room.id}:`, {
-      //   name: room.name || room.roomNumber,
-      //   bed_assignments: room.bed_assignments?.map((b: any) => ({
-      //     bed: b.bed_number,
-      //     rent: b.tenant_rent
-      //   }))
-      // });
+      
 
       // Floor filter using masters
       if (selectedFloor !== "all") {
@@ -658,7 +630,6 @@ const getMinTenantRent = (room: any): number => {
 
       // Price range filter using min tenant rent
       const minRent = getMinTenantRent(room);
-      // console.log(`🎯 Room ${room.id} min rent:`, minRent);
       
       if (priceRange === "low" && minRent > 5000) return false;
       if (priceRange === "mid" && (minRent <= 5000 || minRent > 7000)) return false;
@@ -1443,7 +1414,6 @@ const getMinTenantRent = (room: any): number => {
                       
                       // CRITICAL: Get the minimum tenant rent for this room
                       const minRent = getMinTenantRent(room);
-                      // console.log(`🏠 Room ${room.id} display rent:`, minRent);
 
                       return (
                         <div
@@ -2036,72 +2006,102 @@ const getMinTenantRent = (room: any): number => {
               </div>
             </div>
 
-            {/* Terms & Conditions */}
-            <div className="bg-white rounded-xl md:rounded-2xl p-3 md:p-5 shadow-lg md:shadow-2xl">
-              <h2 className="text-sm md:text-base font-black gradient-text mb-2 md:mb-3 flex items-center">
-                <FileCheck className="w-4 h-4 md:w-5 md:h-5 mr-1 md:mr-2" />Terms & Conditions
-              </h2>
-              <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1 md:pr-2">
+           {/* Terms & Conditions */}
+<div className="bg-white rounded-xl md:rounded-2xl p-3 md:p-5 shadow-lg md:shadow-2xl">
+  <h2 className="text-sm md:text-base font-black gradient-text mb-2 md:mb-3 flex items-center">
+    <FileCheck className="w-4 h-4 md:w-5 md:h-5 mr-1 md:mr-2" />Terms & Conditions
+  </h2>
+  <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1 md:pr-2">
 
-                {((Array.isArray(propertyData.termsAndConditions) && propertyData.termsAndConditions.length > 0) ||
-                  (Array.isArray(propertyData.customTerms) && propertyData.customTerms.length > 0)) && (
-                  <div>
-                    <p className="text-xs font-bold text-gray-500 uppercase mb-1.5">General Terms</p>
-                    <div className="space-y-1.5">
-                      {propertyData.termsAndConditions?.map((term: string, i: number) => (
-                        <div key={`gen-${i}`} className="flex items-start gap-1.5 md:gap-2 p-2 md:p-3 bg-white/50 rounded md:rounded-lg border border-gray-200">
-                          <div className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 flex-shrink-0" />
-                          <p className="text-xs text-gray-700 font-medium leading-relaxed">{term}</p>
-                        </div>
-                      ))}
-                      
-                      {propertyData.customTerms?.map((term: string, i: number) => (
-                        <div key={`cust-${i}`} className="flex items-start gap-1.5 md:gap-2 p-2 md:p-3 bg-white/50 rounded md:rounded-lg border border-gray-200">
-                          <div className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 flex-shrink-0" />
-                          <p className="text-xs text-gray-700 font-medium leading-relaxed">{term}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {Array.isArray(propertyData.propertyRules) && propertyData.propertyRules.length > 0 && (
-                  <div>
-                    <p className="text-xs font-bold text-gray-500 uppercase mb-1.5">Property Rules</p>
-                    <div className="space-y-1.5">
-                      {propertyData.propertyRules.map((rule: string, i: number) => (
-                        <div key={i} className="flex items-start gap-1.5 md:gap-2 p-2 md:p-3 bg-amber-50/30 rounded md:rounded-lg border border-amber-200">
-                          <Shield className="w-3 h-3 md:w-4 md:h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-                          <p className="text-xs text-gray-700 font-medium leading-relaxed">{rule}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {Array.isArray(propertyData.additionalTerms) && propertyData.additionalTerms.length > 0 && (
-                  <div>
-                    <p className="text-xs font-bold text-gray-500 uppercase mb-1.5">Additional Terms</p>
-                    <div className="space-y-1.5">
-                      {propertyData.additionalTerms.map((term: string, i: number) => (
-                        <div key={i} className="flex items-start gap-1.5 md:gap-2 p-2 md:p-3 bg-purple-50/30 rounded md:rounded-lg border border-purple-200">
-                          <AlertCircle className="w-3 h-3 md:w-4 md:h-4 text-purple-600 flex-shrink-0 mt-0.5" />
-                          <p className="text-xs text-gray-700 font-medium leading-relaxed">{term}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {(!propertyData.termsAndConditions?.length && 
-                  !propertyData.customTerms?.length &&
-                  !propertyData.propertyRules?.length && 
-                  !propertyData.additionalTerms?.length) && (
-                  <p className="text-xs text-gray-400 text-center py-2">No terms available</p>
-                )}
-
+    {/* General Terms */}
+    {((Array.isArray(propertyData.termsAndConditions) && propertyData.termsAndConditions.length > 0) ||
+      (Array.isArray(propertyData.customTerms) && propertyData.customTerms.length > 0)) && (
+      <div>
+        <p className="text-xs font-bold text-gray-500 uppercase mb-1.5">General Terms</p>
+        <div className="space-y-1.5">
+          {propertyData.termsAndConditions?.map((term: string, i: number) => {
+            // Clean up the term - remove the "📅 Notice Period" header if present
+            let cleanTerm = term;
+            
+            // Remove the specific pattern: ",📅 Notice Period" or just "📅 Notice Period"
+            cleanTerm = cleanTerm.replace(/,?\s*📅\s*Notice Period\s*/g, '');
+            cleanTerm = cleanTerm.replace(/,?\s*Notice Period\s*/g, '');
+            
+            // Also remove any trailing commas or spaces
+            cleanTerm = cleanTerm.replace(/,\s*$/, '');
+            cleanTerm = cleanTerm.trim();
+            
+            if (!cleanTerm) return null;
+            
+            return (
+              <div key={`gen-${i}`} className="flex items-start gap-1.5 md:gap-2 p-2 md:p-3 bg-white/50 rounded md:rounded-lg border border-gray-200">
+                <div className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 flex-shrink-0" />
+                <p className="text-xs text-gray-700 font-medium leading-relaxed">{cleanTerm}</p>
               </div>
+            );
+          })}
+          
+          {propertyData.customTerms?.map((term: string, i: number) => {
+            // Clean custom terms as well
+            let cleanTerm = term;
+            cleanTerm = cleanTerm.replace(/,?\s*📅\s*Notice Period\s*/g, '');
+            cleanTerm = cleanTerm.replace(/,?\s*Notice Period\s*/g, '');
+            cleanTerm = cleanTerm.replace(/,\s*$/, '');
+            cleanTerm = cleanTerm.trim();
+            
+            if (!cleanTerm) return null;
+            
+            return (
+              <div key={`cust-${i}`} className="flex items-start gap-1.5 md:gap-2 p-2 md:p-3 bg-white/50 rounded md:rounded-lg border border-gray-200">
+                <div className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 flex-shrink-0" />
+                <p className="text-xs text-gray-700 font-medium leading-relaxed">{cleanTerm}</p>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    )}
+
+    {/* Property Rules */}
+    {Array.isArray(propertyData.propertyRules) && propertyData.propertyRules.length > 0 && (
+      <div>
+        <p className="text-xs font-bold text-gray-500 uppercase mb-1.5">Property Rules</p>
+        <div className="space-y-1.5">
+          {propertyData.propertyRules.map((rule: string, i: number) => (
+            <div key={i} className="flex items-start gap-1.5 md:gap-2 p-2 md:p-3 bg-amber-50/30 rounded md:rounded-lg border border-amber-200">
+              <Shield className="w-3 h-3 md:w-4 md:h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-gray-700 font-medium leading-relaxed">{rule}</p>
             </div>
+          ))}
+        </div>
+      </div>
+    )}
+
+    {/* Additional Terms */}
+    {Array.isArray(propertyData.additionalTerms) && propertyData.additionalTerms.length > 0 && (
+      <div>
+        <p className="text-xs font-bold text-gray-500 uppercase mb-1.5">Additional Terms</p>
+        <div className="space-y-1.5">
+          {propertyData.additionalTerms.map((term: string, i: number) => (
+            <div key={i} className="flex items-start gap-1.5 md:gap-2 p-2 md:p-3 bg-purple-50/30 rounded md:rounded-lg border border-purple-200">
+              <AlertCircle className="w-3 h-3 md:w-4 md:h-4 text-purple-600 flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-gray-700 font-medium leading-relaxed">{term}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    )}
+
+    {/* If no terms at all */}
+    {(!propertyData.termsAndConditions?.length && 
+      !propertyData.customTerms?.length &&
+      !propertyData.propertyRules?.length && 
+      !propertyData.additionalTerms?.length) && (
+      <p className="text-xs text-gray-400 text-center py-2">No terms available</p>
+    )}
+
+  </div>
+</div>
           </div>
         </div>
       </div>

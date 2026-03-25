@@ -113,8 +113,6 @@ export const getTenantUnseenCount = async (): Promise<number> => {
 export const markNoticePeriodAsSeen = async (
   id: number
 ): Promise<{ success: boolean; message: string }> => {
-  console.log('📤 Calling markNoticePeriodAsSeen API for ID:', id);
-  console.log('📤 Tenant token:', localStorage.getItem('tenant_token') ? 'Present' : 'Missing');
   
   try {
     const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
@@ -130,7 +128,6 @@ export const markNoticePeriodAsSeen = async (
     });
 
     const data = await response.json();
-    console.log('📥 markNoticePeriodAsSeen response:', data);
     
     if (!response.ok) {
       return { 

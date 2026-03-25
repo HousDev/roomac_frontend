@@ -64,10 +64,8 @@ export function TagsBulkModal({
   const fetchMasterTags = useCallback(async () => {
     setLoadingMasterTags(true);
     try {
-      console.log("🔍 Fetching tags using consumeMasters API...");
       const response = await consumeMasters({ tab: "Properties", type: "Tags" });
       
-      console.log("📥 consumeMasters response:", response);
       
       if (response?.success && response.data) {
         // The data from consumeMasters returns an array of objects with value_id and value_name
@@ -81,7 +79,6 @@ export function TagsBulkModal({
         }));
         
         setMasterTags(tags);
-        console.log(`✅ Loaded ${tags.length} tags from master:`, tags);
       } else {
         console.warn("⚠️ No tags found in master response");
         setMasterTags([]);
@@ -98,18 +95,15 @@ export function TagsBulkModal({
   // Fetch existing tags from selected properties
   const fetchExistingTags = useCallback(async () => {
     if (selectedPropertyIds.length === 0) {
-      console.log("⚠️ No property IDs selected");
       setExistingTags([]);
       return;
     }
     
     setLoadingExistingTags(true);
     try {
-      console.log("🔍 Fetching existing tags for property IDs:", selectedPropertyIds);
       
       const url = `${API_BASE}/api/properties/bulk-tags-info?ids=${selectedPropertyIds.join(',')}&_t=${Date.now()}`;
       
-      console.log("📡 API URL:", url);
       
       const response = await fetch(url, {
         headers: {
@@ -120,7 +114,6 @@ export function TagsBulkModal({
       
       if (response.ok) {
         const data = await response.json();
-        console.log("📦 API Response data:", data);
         
         if (data.success && data.tags) {
           // Filter out empty or invalid tags
@@ -128,10 +121,8 @@ export function TagsBulkModal({
             tag && typeof tag === 'string' && tag.trim() !== ''
           ))) as string[];
           
-          console.log(`✅ Found ${uniqueTags.length} unique existing tags:`, uniqueTags);
           setExistingTags(uniqueTags);
         } else {
-          console.log("❌ API response not successful:", data);
           setExistingTags([]);
         }
       } else {

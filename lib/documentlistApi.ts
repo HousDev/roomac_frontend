@@ -178,3 +178,9 @@ export const signTenantDocument = (
   signatureData: string
 ): Promise<ApiResult<Document>> =>
   updateTenantDocumentStatus(id, "Signed", { signed_by: signedBy, signature_data: signatureData });
+
+  export const updateDocument = (id: number | string, payload: Partial<Document>): Promise<ApiResult<Document>> =>
+  req<ApiResult<Document>>(`${BASE}/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });

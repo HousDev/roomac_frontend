@@ -44,7 +44,6 @@ export async function bulkDeleteMaintenanceRequests(ids: number[]): Promise<any>
   try {
     const token = getAdminToken();
     
-    console.log(`🗑️ Bulk deleting maintenance requests:`, ids);
     
     const response = await request(`/api/admin/maintenance/bulk-delete`, {
       method: "POST",
@@ -124,7 +123,6 @@ export async function updateMaintenanceStatus(
   const body: any = { status };
   if (adminNotes) body.admin_notes = adminNotes;
   
-  console.log(`📝 Updating maintenance ${id} status to ${status} with notes:`, adminNotes);
   
   try {
     const response = await request(`/api/admin/maintenance/${id}`, {
