@@ -191,7 +191,6 @@ export default function DashboardCharts({
       secondMonth: '',
       secondYear: ''
     });
-    console.log('All filters reset');
   }, [updateFilter]);
 
   return (

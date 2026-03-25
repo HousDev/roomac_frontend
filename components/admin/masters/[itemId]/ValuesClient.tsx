@@ -194,7 +194,6 @@ const handleImportFile = useCallback(async (file: File) => {
     if (result.success) {
       if (result.errors.length > 0) {
         toast.success(`Import completed: ${result.created} values created, ${result.errors.length} errors`);
-        console.log('Import errors:', result.errors);
       } else {
         toast.success(`Successfully imported ${result.created} values`);
       }

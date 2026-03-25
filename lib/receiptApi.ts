@@ -48,7 +48,6 @@ export async function getAdminReceiptRequests(): Promise<ReceiptRequest[]> {
       return [];
     }
 
-    console.log('📡 Fetching receipt requests...');
     
     const response = await request<{ success: boolean; data: ReceiptRequest[] }>(
       "/api/admin/receipts",
@@ -92,7 +91,6 @@ export async function updateReceiptStatus(
   const body: any = { status };
   if (admin_notes) body.admin_notes = admin_notes;
   
-  console.log(`📝 Updating receipt request ${id} status to ${status}`);
   
   try {
     const response = await request(`/api/admin/receipts/${id}`, {
@@ -116,7 +114,6 @@ export async function bulkDeleteReceiptRequests(ids: number[]): Promise<any> {
     const token = getAdminToken();
     if (!token) throw new Error("No admin token found");
     
-    console.log(`🗑️ Bulk deleting receipt requests:`, ids);
     
     const response = await request(`/api/admin/receipts/bulk-delete`, {
       method: "POST",

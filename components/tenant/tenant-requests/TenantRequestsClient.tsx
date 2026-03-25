@@ -223,14 +223,12 @@ const loadAllData = useCallback(async () => {
     // Handle contract data - FIXED VERSION
     if (results[1].status === 'fulfilled') {
       const contractResponse:any = results[1].value;
-      console.log('📋 Contract response received:', contractResponse);
       
       // Check if the response has the expected structure
       if (contractResponse && contractResponse.success && contractResponse.data) {
         // Extract the nested data
         const { lockinInfo, noticeInfo } = contractResponse.data;
-        console.log('🔒 Setting lockinInfo:', lockinInfo);
-        console.log('📋 Setting noticeInfo:', noticeInfo);
+
         
         setLockinInfo(lockinInfo || null);
         setNoticeInfo(noticeInfo || null);
@@ -266,14 +264,11 @@ const loadAllData = useCallback(async () => {
     // Handle vacate reasons
 if (results[5].status === 'fulfilled') {
   const response: any = results[5].value;
-  console.log('📋 Vacate reasons response:', response);
   
   if (response && Array.isArray(response)) {
     setVacateReasons(response);
-    console.log('✅ Vacate reasons set:', response);
   } else if (response && response.success && Array.isArray(response.data)) {
     setVacateReasons(response.data);
-    console.log('✅ Vacate reasons set from data:', response.data);
   } else {
     console.warn('⚠️ Unexpected vacate reasons format:', response);
     setVacateReasons([]);
@@ -296,7 +291,6 @@ if (results[5].status === 'fulfilled') {
     // Handle maintenance categories
     if (results[8].status === 'fulfilled') {
       const maintenanceCategoriesData = results[8].value;
-      console.log('📋 Maintenance categories from Requests tab:', maintenanceCategoriesData);
       if (Array.isArray(maintenanceCategoriesData)) {
         setMaintenanceCategories(maintenanceCategoriesData);
       }
@@ -305,7 +299,6 @@ if (results[5].status === 'fulfilled') {
     // Handle maintenance locations
     if (results[9].status === 'fulfilled') {
       const maintenanceLocationsData = results[9].value;
-      console.log('📋 Maintenance locations from Requests tab:', maintenanceLocationsData);
       if (Array.isArray(maintenanceLocationsData)) {
         setMaintenanceLocations(maintenanceLocationsData);
       }
@@ -314,7 +307,6 @@ if (results[5].status === 'fulfilled') {
     // Handle visit times
     if (results[10].status === 'fulfilled') {
       const visitTimesData = results[10].value;
-      console.log('📋 Visit times from Requests tab:', visitTimesData);
       if (Array.isArray(visitTimesData)) {
         setVisitTimes(visitTimesData);
       }
@@ -794,8 +786,7 @@ const fetchSecurityDepositInfo = useCallback(async () => {
           notes: formData.changeBedData.notes || '',
           preferred_bed_number: formData.changeBedData.preferred_bed_number
         };
-        console.log('📤 Change bed request data:', requestData.change_bed_data);
-  console.log('📤 Change reason ID:', formData.changeBedData.change_reason_id);
+
       }
 
       if (formData.request_type === 'leave' && formData.leaveData) {
@@ -854,7 +845,6 @@ const fetchSecurityDepositInfo = useCallback(async () => {
 
       
       const result = await createTenantRequest(requestData);
-       console.log('API Response:', result);
 
         
     

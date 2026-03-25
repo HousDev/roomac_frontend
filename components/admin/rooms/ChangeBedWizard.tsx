@@ -313,7 +313,6 @@ export function ChangeBedWizard({ tenantId, tenantName, open, onOpenChange, onSu
           selectedRoom.id
         );
         
-        console.log('Rent difference result:', rentDiff);
         setRentDifference(rentDiff);
         
         // If rent calculation succeeds, proceed to date selection

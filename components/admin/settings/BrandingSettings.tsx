@@ -106,75 +106,7 @@ export default function BrandingSettings({
 
             <Separator className="my-2" />
 
-            {/* <div>
-              <h3 className="text-sm font-semibold text-slate-800 mb-3 flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 bg-purple-600 rounded-full"></span>
-                Brand Colors
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-xs text-slate-700 font-medium">Primary Color</Label>
-                  <div className="flex items-center gap-2">
-                    <div className="relative">
-                      <Input
-                        type="color"
-                        value={settings.primary_color || '#004AAD'}
-                        onChange={(e) => updateSetting('primary_color', e.target.value)}
-                        className="w-10 h-10 rounded-lg cursor-pointer border-0 shadow-sm p-0.5"
-                      />
-                      <div className="absolute -bottom-3 left-1/2 transform -translate-x-1/2 bg-white px-1.5 py-0.5 rounded border text-[10px] font-medium shadow-sm whitespace-nowrap">
-                        Primary
-                      </div>
-                    </div>
-                    <div className="flex-1">
-                      <Input
-                        value={settings.primary_color || '#004AAD'}
-                        onChange={(e) => updateSetting('primary_color', e.target.value)}
-                        placeholder="#004AAD"
-                        className="h-8 text-sm border-slate-300 focus:border-purple-600 focus:ring-purple-600"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex gap-1.5 mt-2">
-                    <div className="flex-1 h-2 rounded-full" style={{ backgroundColor: settings.primary_color || '#004AAD' }}></div>
-                    <div className="flex-1 h-2 rounded-full" style={{ backgroundColor: settings.primary_color || '#004AAD', opacity: 0.8 }}></div>
-                    <div className="flex-1 h-2 rounded-full" style={{ backgroundColor: settings.primary_color || '#004AAD', opacity: 0.6 }}></div>
-                    <div className="flex-1 h-2 rounded-full" style={{ backgroundColor: settings.primary_color || '#004AAD', opacity: 0.4 }}></div>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-xs text-slate-700 font-medium">Secondary Color</Label>
-                  <div className="flex items-center gap-2">
-                    <div className="relative">
-                      <Input
-                        type="color"
-                        value={settings.secondary_color || '#FFC107'}
-                        onChange={(e) => updateSetting('secondary_color', e.target.value)}
-                        className="w-10 h-10 rounded-lg cursor-pointer border-0 shadow-sm p-0.5"
-                      />
-                      <div className="absolute -bottom-3 left-1/2 transform -translate-x-1/2 bg-white px-1.5 py-0.5 rounded border text-[10px] font-medium shadow-sm whitespace-nowrap">
-                        Secondary
-                      </div>
-                    </div>
-                    <div className="flex-1">
-                      <Input
-                        value={settings.secondary_color || '#FFC107'}
-                        onChange={(e) => updateSetting('secondary_color', e.target.value)}
-                        placeholder="#FFC107"
-                        className="h-8 text-sm border-slate-300 focus:border-purple-600 focus:ring-purple-600"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex gap-1.5 mt-2">
-                    <div className="flex-1 h-2 rounded-full" style={{ backgroundColor: settings.secondary_color || '#FFC107' }}></div>
-                    <div className="flex-1 h-2 rounded-full" style={{ backgroundColor: settings.secondary_color || '#FFC107', opacity: 0.8 }}></div>
-                    <div className="flex-1 h-2 rounded-full" style={{ backgroundColor: settings.secondary_color || '#FFC107', opacity: 0.6 }}></div>
-                    <div className="flex-1 h-2 rounded-full" style={{ backgroundColor: settings.secondary_color || '#FFC107', opacity: 0.4 }}></div>
-                  </div>
-                </div>
-              </div>
-            </div> */}
+          
           </div>
         </CardContent>
       </Card>

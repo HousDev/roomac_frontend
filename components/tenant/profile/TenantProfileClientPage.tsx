@@ -143,7 +143,6 @@ const fetchPropertyManagerStaff = useCallback(async (tenantData: TenantProfile) 
     const allStaff = await getAllStaff();
     
     if (!allStaff || allStaff.length === 0) {
-      console.log('No staff found');
       return;
     }
 

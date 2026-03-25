@@ -22,7 +22,6 @@ export const getImageUrl = (imagePath: string | null | undefined) => {
 };
 
 export const transformPropertyData = (property: any) => {
-  // console.log('Raw property from backend:', property);
   
   const defaultImages = [
     "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800",
@@ -43,15 +42,7 @@ export const transformPropertyData = (property: any) => {
   
   const nearbyNames = property.nearbyPlaces?.map((p: any) => p.name) || [];
 
-  // Log raw data for debugging
-  // console.log('Mapped property data:', {
-  //   tags: propertyTags,
-  //   property_rules: propertyRules,
-  //   additional_terms: additionalTerms,
-  //   original_tags: property.tags_mapped,
-  //   original_rules: property.property_rules,
-  //   original_additional: property.additional_terms
-  // });
+ 
 
   // Ensure arrays are properly formatted
   const ensureArray = (data: any): any[] => {
@@ -78,7 +69,6 @@ export const transformPropertyData = (property: any) => {
   if (property.terms_conditions) {
     // Split by double newlines to separate sections
     const sections = property.terms_conditions.split('\n\n');
-    // console.log('Sections:', sections);
     
     for (const section of sections) {
       const lines = section.split('\n').filter(line => line.trim() !== '');
@@ -86,16 +76,13 @@ export const transformPropertyData = (property: any) => {
       
       // Get the first line which might be a header
       const firstLine = lines[0].trim();
-      // console.log('Processing section with header:', firstLine);
       
       // Check if this is a Custom Term section
       if (firstLine.includes('📝 Custom Term')) {
-        console.log('Found Custom Term section');
         // This is a custom term section - extract everything after the header
         for (let i = 1; i < lines.length; i++) {
           const line = lines[i].trim();
           if (line && !line.includes('📝')) {
-            console.log('Adding custom term:', line);
             customTerms.push(line);
           }
         }
@@ -105,7 +92,6 @@ export const transformPropertyData = (property: any) => {
                firstLine.includes('⚠️') || firstLine.includes('⚡') || firstLine.includes('🔧') ||
                firstLine.includes('📋') || firstLine.includes('💵') || firstLine.includes('🏢') ||
                firstLine.includes('🧾')) {
-        console.log('Found template section:', firstLine);
         // This is a template section - extract numbered items
         for (let i = 1; i < lines.length; i++) {
           const line = lines[i].trim();
@@ -117,7 +103,6 @@ export const transformPropertyData = (property: any) => {
       } 
       // For any other format, check if it's a numbered item or custom content
       else {
-        console.log('Found other section:', firstLine);
         for (const line of lines) {
           const trimmedLine = line.trim();
           if (trimmedLine.match(/^\d+\./)) {
@@ -129,7 +114,6 @@ export const transformPropertyData = (property: any) => {
                      !trimmedLine.includes('💵') && !trimmedLine.includes('🏢') && 
                      !trimmedLine.includes('🧾')) {
             // Treat as custom term if it's not empty and not a header
-            console.log('Adding as custom term (other):', trimmedLine);
             customTerms.push(trimmedLine);
           }
         }
@@ -138,7 +122,6 @@ export const transformPropertyData = (property: any) => {
     
     // Fallback: If still no custom terms found, try a direct approach
     if (customTerms.length === 0 && property.terms_conditions.includes('📝 Custom Term')) {
-      console.log('Using fallback extraction for custom terms');
       const lines = property.terms_conditions.split('\n');
       let foundCustomSection = false;
       
@@ -152,7 +135,6 @@ export const transformPropertyData = (property: any) => {
         
         if (foundCustomSection && trimmedLine && !trimmedLine.includes('📝') && 
             !trimmedLine.match(/^\d+\./)) {
-          console.log('Fallback adding custom term:', trimmedLine);
           customTerms.push(trimmedLine);
           break; // Only take the first line after the header
         }
@@ -177,14 +159,7 @@ export const transformPropertyData = (property: any) => {
     }
   }
 
-  console.log('Transformed terms:', {
-    generalTerms,
-    propertyRules: parsedPropertyRules,
-    additionalTerms: parsedAdditionalTerms,
-    customTerms,
-    tags: propertyTags
-  });
-
+ 
   return {
     name: property.name || "Luxury PG Accommodation",
     location: property.area || "Koramangala, Bangalore",
@@ -375,13 +350,7 @@ export const transformRoomData = (room: any) => {
       }
     });
     
-    console.log(`Room ${room.room_number || room.id} bed status:`, 
-      bedAssignments.map((b: any) => ({
-        bed: b.bed_number,
-        occupied: b.is_available === 0 && b.tenant_id !== null,
-        rent: b.tenant_rent
-      }))
-    );
+   
   } else {
     // Fallback to room.occupied_beds if bed_assignments not available
     occupiedBeds = room.occupied_beds || 0;

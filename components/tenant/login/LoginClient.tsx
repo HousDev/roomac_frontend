@@ -52,7 +52,6 @@ export default function LoginClient({
       setTimeout(() => {
         setShowConfirmation(true);
       }, 300);
-      console.log("roleeeeeeeeeee", role);
 
       if (role === "tenant") router.push("/tenant/portal");
       else {
@@ -74,7 +73,6 @@ export default function LoginClient({
           credentials.email,
           credentials.password,
         );
-        console.log("login role , token ", result);
 
         if (result.success && result.token) {
           login(credentials.email, result.role, result.token);

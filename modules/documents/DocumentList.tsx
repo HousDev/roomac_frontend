@@ -31,7 +31,7 @@ import * as XLSX from 'xlsx';
 
 import {
   listDocuments, getDocument, deleteDocument, updateDocumentStatus,
-  bulkDeleteDocuments,
+  bulkDeleteDocuments, updateDocument,
   type Document as Doc, type DocumentStatus,
 } from "@/lib/documentlistApi";
 
@@ -50,7 +50,7 @@ const MAIN_STEPS: Array<{
     label: "Created",       
     short: "Created",  
     Icon: FileText,
-    headerColor: "from-blue-600 to-blue-700",
+    headerColor: "from-green-600 to-green-800",
     headerGradient: "bg-gradient-to-r from-blue-600 to-blue-700",
     accentColor: "blue"
   },
@@ -59,8 +59,8 @@ const MAIN_STEPS: Array<{
     label: "Shared",        
     short: "Shared",   
     Icon: Share2,
-    headerColor: "from-green-600 to-green-700",
-    headerGradient: "bg-gradient-to-r from-green-600 to-green-700",
+    headerColor: "from-green-600 to-green-800",
+    headerGradient: "bg-gradient-to-r from-green-600 to-green-800",
     accentColor: "green"
   },
   { 
@@ -90,15 +90,15 @@ const MAIN_STEPS: Array<{
     headerGradient: "bg-gradient-to-r from-indigo-600 to-indigo-700",
     accentColor: "indigo"
   },
-  { 
-    key: "Completed",      
-    label: "Completed",     
-    short: "Done",     
-    Icon: CheckCircle,
-    headerColor: "from-emerald-600 to-emerald-700",
-    headerGradient: "bg-gradient-to-r from-emerald-600 to-emerald-700",
-    accentColor: "emerald"
-  },
+ { 
+  key: "Completed",      
+  label: "Completed",     
+  short: "Done",     
+  Icon: CheckCircle,
+  headerColor: "from-green-500 to-green-800",
+  headerGradient: "bg-gradient-to-r from-green-500 to-green-800",  // Changed from emerald to green
+  accentColor: "green"  // Changed from emerald to green
+},
 ];
 
 // Cancelled step definition
@@ -183,300 +183,346 @@ const StatCard = ({ title, value, icon: Icon, color, bg }: any) => (
     </CardContent>
   </Card>
 );
-
+const EditField = ({ label, value, onChange, type = "text", required = false }: {
+  label: string; value: string; onChange: (v: string) => void;
+  type?: string; required?: boolean;
+}) => (
+  <div className="space-y-1">
+    <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1">
+      {label}{required && <span className="text-red-400">*</span>}
+    </label>
+    <input
+      type={type}
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      className={`w-full h-8 px-2.5 text-[11px] border rounded-md outline-none font-medium transition-all
+        ${value
+          ? "border-green-300 bg-green-50/40 focus:border-green-400 focus:ring-1 focus:ring-green-100"
+          : "border-gray-200 bg-gray-50 focus:bg-white focus:border-blue-400 focus:ring-1 focus:ring-blue-100"}`}
+    />
+  </div>
+);
 // ════════════════════════════════════════════════════════════════════════════
 // Template Edit Popup (for editing document template)
 // ════════════════════════════════════════════════════════════════════════════
 function TemplateEditPopup({ doc, onClose, onDone }: { doc: Doc; onClose: () => void; onDone: () => void }) {
-  const [templateName, setTemplateName] = useState(doc.document_name || "");
-  const [templateContent, setTemplateContent] = useState(doc.html_content || "");
-  const [templateStyle, setTemplateStyle] = useState("modern");
-  const [fontFamily, setFontFamily] = useState("inter");
-  const [primaryColor, setPrimaryColor] = useState("#3b82f6");
-  const [showPreview, setShowPreview] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<"edit" | "preview">("edit");
+  const [saving, setSaving]       = useState(false);
+  const [activeTab, setActiveTab] = useState<"edit"|"preview">("edit");
+  const [previewHtml, setPreviewHtml] = useState("");
 
-  const templateStyles = [
-    { id: "modern", name: "Modern", icon: Sparkles, color: "blue" },
-    { id: "classic", name: "Classic", icon: FileText, color: "gray" },
-    { id: "minimal", name: "Minimal", icon: Layout, color: "slate" },
-    { id: "professional", name: "Professional", icon: Shield, color: "indigo" },
-  ];
+  const dj = (doc.data_json || {}) as Record<string, any>;
 
-  const fonts = [
-    { id: "inter", name: "Inter", class: "font-sans" },
-    { id: "roboto", name: "Roboto", class: "font-sans" },
-    { id: "poppins", name: "Poppins", class: "font-sans" },
-    { id: "playfair", name: "Playfair", class: "font-serif" },
-  ];
+  const [formData, setFormData] = useState({
+    documentType:         dj.document_type          || doc.document_type          || "",
+    date:                 dj.date                   || "",
+    tenantName:           doc.tenant_name            || "",
+    tenantPhone:          doc.tenant_phone           || "",
+    tenantEmail:          doc.tenant_email           || "",
+    aadhaarNumber:        dj.aadhaar_number          || doc.aadhaar_number         || "",
+    panNumber:            dj.pan_number              || doc.pan_number             || "",
+    emergencyContactName: dj.emergency_contact_name  || doc.emergency_contact_name || "",
+    emergencyPhone:       dj.emergency_phone         || doc.emergency_phone        || "",
+    propertyName:         dj.property_name           || doc.property_name          || "",
+    roomNumber:           dj.room_number != null ? String(dj.room_number) : doc.room_number != null ? String(doc.room_number) : "",
+bedNumber:            dj.bed_number  != null ? String(dj.bed_number)  : doc.bed_number  != null ? String(doc.bed_number)  : "",
+    moveInDate:           dj.move_in_date            || doc.move_in_date           || "",
+    rentAmount:           dj.rent_amount             ? String(dj.rent_amount)      : doc.rent_amount  ? String(doc.rent_amount)  : "",
+    securityDeposit:      dj.security_deposit        ? String(dj.security_deposit) : doc.security_deposit ? String(doc.security_deposit) : "",
+    paymentMode:          dj.payment_mode            || doc.payment_mode           || "",
+    companyName:          dj.company_name            || doc.company_name           || "",
+    companyAddress:       dj.company_address         || doc.company_address        || "",
+    notes:                doc.notes                  || "",
+  });
 
+  const set = useCallback((k: string, v: string) =>
+    setFormData(p => ({ ...p, [k]: v })), []);
+
+  // Build preview by replacing placeholders in html_content
+const buildPreview = useCallback(() => {
+    // Since html_content is already rendered, we do old→new swap using data_json
+    let html = doc.html_content || "";
+
+    // Build old→new mapping using current data_json vs form values
+    const swaps: Array<[string, string]> = [
+      [String(dj.tenant_name            || ""), formData.tenantName],
+      [String(dj.tenant_phone           || ""), formData.tenantPhone],
+      [String(dj.tenant_email           || ""), formData.tenantEmail],
+      [String(dj.aadhaar_number         || ""), formData.aadhaarNumber],
+      [String(dj.pan_number             || ""), formData.panNumber],
+      [String(dj.emergency_contact_name || ""), formData.emergencyContactName],
+      [String(dj.emergency_phone        || ""), formData.emergencyPhone],
+      [String(dj.property_name          || ""), formData.propertyName],
+      [dj.room_number  != null ? String(dj.room_number)  : doc.room_number  != null ? String(doc.room_number)  : "", formData.roomNumber],
+[dj.bed_number   != null ? String(dj.bed_number)   : doc.bed_number   != null ? String(doc.bed_number)   : "", formData.bedNumber],
+      [String(dj.move_in_date           || ""), formData.moveInDate],
+      [String(dj.rent_amount            || ""), formData.rentAmount],
+      [String(dj.security_deposit       || ""), formData.securityDeposit],
+      [String(dj.payment_mode           || ""), formData.paymentMode],
+      [String(dj.company_name           || ""), formData.companyName],
+      [String(dj.company_address        || ""), formData.companyAddress],
+      [String(dj.document_type          || ""), formData.documentType],
+    ];
+
+   swaps.forEach(([oldVal, newVal]) => {
+  if (oldVal && oldVal.trim() && oldVal !== newVal) {
+    const escaped = oldVal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // Use word boundaries to avoid replacing numbers inside CSS/HTML attributes
+    html = html.replace(new RegExp(`(?<![\\w\\-\\.#])${escaped}(?![\\w\\-\\.px%em])`, 'g'), newVal || "");
+  }
+});
+
+    // Also handle {{placeholders}} if any remain
+    const placeholders: Record<string, string> = {
+      tenant_name:            formData.tenantName,
+      tenant_phone:           formData.tenantPhone,
+      tenant_email:           formData.tenantEmail,
+      aadhaar_number:         formData.aadhaarNumber,
+      pan_number:             formData.panNumber,
+      emergency_contact_name: formData.emergencyContactName,
+      emergency_phone:        formData.emergencyPhone,
+      property_name:          formData.propertyName,
+      room_number:            formData.roomNumber,
+      bed_number:             formData.bedNumber,
+      move_in_date:           formData.moveInDate,
+      rent_amount:            formData.rentAmount,
+      security_deposit:       formData.securityDeposit,
+      payment_mode:           formData.paymentMode,
+      company_name:           formData.companyName,
+      company_address:        formData.companyAddress,
+      document_type:          formData.documentType,
+      date:                   formData.date,
+    };
+    Object.entries(placeholders).forEach(([k, v]) => {
+      html = html.replace(new RegExp(`\\{\\{${k}\\}\\}`, "g"), v || "");
+    });
+
+    setPreviewHtml(html);
+    setActiveTab("preview");
+  }, [doc.html_content, dj, formData]);
+
+  
   const handleSave = async () => {
-    if (!templateName.trim()) {
-      toast.error("Please enter template name");
-      return;
-    }
+    if (!formData.tenantName.trim())  { toast.error("Tenant Name required");  return; }
+    if (!formData.tenantPhone.trim()) { toast.error("Tenant Phone required"); return; }
     setSaving(true);
     try {
-      // Here you would call your API to update the document template
-      // For now, we'll simulate an API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Update the document with new template content
-      // await updateDocumentTemplate(doc.id, {
-      //   document_name: templateName,
-      //   html_content: templateContent,
-      // });
-      
-      toast.success("Template updated successfully!");
+      const dataJson = {
+        ...dj,
+        tenant_name:            formData.tenantName,
+        tenant_phone:           formData.tenantPhone,
+        tenant_email:           formData.tenantEmail,
+        aadhaar_number:         formData.aadhaarNumber,
+        pan_number:             formData.panNumber,
+        emergency_contact_name: formData.emergencyContactName,
+        emergency_phone:        formData.emergencyPhone,
+        property_name:          formData.propertyName,
+        room_number:            formData.roomNumber,
+        bed_number:             formData.bedNumber,
+        move_in_date:           formData.moveInDate,
+        rent_amount:            formData.rentAmount,
+        security_deposit:       formData.securityDeposit,
+        payment_mode:           formData.paymentMode,
+        company_name:           formData.companyName,
+        company_address:        formData.companyAddress,
+        document_type:          formData.documentType,
+        date:                   formData.date,
+      };
+      await updateDocument(doc.id, {
+        tenant_name:            formData.tenantName,
+        tenant_phone:           formData.tenantPhone,
+        tenant_email:           formData.tenantEmail,
+        aadhaar_number:         formData.aadhaarNumber,
+        pan_number:             formData.panNumber,
+        emergency_contact_name: formData.emergencyContactName,
+        emergency_phone:        formData.emergencyPhone,
+        property_name:          formData.propertyName,
+        room_number:            formData.roomNumber,
+        bed_number:             formData.bedNumber,
+        move_in_date:           formData.moveInDate,
+        rent_amount:            formData.rentAmount,
+        security_deposit:       formData.securityDeposit,
+        payment_mode:           formData.paymentMode,
+        company_name:           formData.companyName,
+        company_address:        formData.companyAddress,
+        notes:                  formData.notes,
+        data_json:              dataJson,
+      } as any);
+      toast.success("Document updated!");
       onDone();
     } catch (e: any) {
-      toast.error(e.message || "Failed to update template");
+      toast.error(e.message || "Failed to update");
     } finally {
       setSaving(false);
     }
   };
 
-  const insertPlaceholder = (placeholder: string) => {
-    setTemplateContent(prev => prev + ' ' + placeholder);
-  };
-
-  const getHeaderGradient = () => {
-    return "from-purple-600 to-purple-700";
-  };
-
   return (
-    <div 
-      className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-2 sm:p-4 backdrop-blur-md animate-in fade-in duration-300"
+    <div
+      className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-2 sm:p-4 backdrop-blur-md"
       onClick={e => e.target === e.currentTarget && onClose()}
     >
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col animate-in slide-in-from-bottom-5 duration-300">
-        
-        {/* Header with gradient */}
-        <div className={`bg-gradient-to-r ${getHeaderGradient()} px-4 sm:px-5 py-3 sm:py-4 rounded-t-2xl flex items-center justify-between flex-shrink-0`}>
-          <div className="flex items-center gap-2 sm:gap-3">
-            <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center shadow-lg">
-              <Edit className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col">
+
+        {/* Header */}
+        <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-5 py-3.5 rounded-t-2xl flex items-center justify-between flex-shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl bg-white/20 flex items-center justify-center">
+              <Edit className="h-4 w-4 text-white" />
             </div>
             <div>
-              <h2 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
-                Edit Document Template
-                <Badge className="bg-white/30 text-white border-0 text-[8px] sm:text-[10px] px-1.5 py-0.5">
-                  {doc.document_number}
-                </Badge>
+              <h2 className="text-sm font-bold text-white flex items-center gap-2">
+                Edit Document
+                <Badge className="bg-white/30 text-white border-0 text-[9px] px-1.5">{doc.document_number}</Badge>
               </h2>
-              <p className="text-[10px] sm:text-xs text-white/80 flex items-center gap-1">
-                <FileText className="h-3 w-3" />
-                Customize document appearance and content
-              </p>
+              <p className="text-[10px] text-white/80">{doc.document_name}</p>
             </div>
           </div>
-          <button 
-            onClick={onClose} 
-            className="p-1.5 sm:p-2 rounded-xl hover:bg-white/20 text-white transition-all hover:scale-110"
-          >
-            <X className="h-4 w-4 sm:h-5 sm:w-5" />
+          <button onClick={onClose} className="p-1.5 rounded-xl hover:bg-white/20 text-white">
+            <X className="h-5 w-5" />
           </button>
         </div>
 
-        {/* Document Info Bar */}
-        <div className="bg-gray-50 px-4 sm:px-5 py-2 border-b flex flex-wrap gap-3 sm:gap-4 text-[10px] sm:text-xs">
-          <div className="flex items-center gap-1">
-            <User className="h-3 w-3 text-gray-400" />
-            <span className="text-gray-600">Tenant:</span>
-            <span className="font-semibold text-gray-800">{doc.tenant_name}</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <Phone className="h-3 w-3 text-gray-400" />
-            <span className="text-gray-600">Phone:</span>
-            <span className="font-semibold text-gray-800">{doc.tenant_phone}</span>
-          </div>
+        {/* Info bar */}
+        <div className="bg-gray-50 px-5 py-2 border-b flex gap-4 text-[10px] flex-shrink-0 flex-wrap">
+          <span className="flex items-center gap-1 text-gray-600 font-medium">
+            <User className="h-3 w-3 text-gray-400" />{doc.tenant_name}
+          </span>
+          <span className="flex items-center gap-1 text-gray-600">
+            <Phone className="h-3 w-3 text-gray-400" />{doc.tenant_phone}
+          </span>
           {doc.property_name && (
-            <div className="flex items-center gap-1">
-              <Home className="h-3 w-3 text-gray-400" />
-              <span className="text-gray-600">Property:</span>
-              <span className="font-semibold text-gray-800">{doc.property_name}</span>
-            </div>
+            <span className="flex items-center gap-1 text-gray-600">
+              <Home className="h-3 w-3 text-gray-400" />{doc.property_name}
+            </span>
           )}
+          <span className={`ml-auto px-2 py-0.5 rounded-full text-[9px] font-bold
+            ${doc.status === "Completed" ? "bg-green-100 text-green-700" :
+              doc.status === "Cancelled" ? "bg-red-100 text-red-700" :
+              "bg-blue-100 text-blue-700"}`}>
+            {doc.status}
+          </span>
         </div>
 
-        {/* Tab Navigation */}
-        <div className="flex border-b px-4 sm:px-5 pt-2 gap-2">
-          <button
-            onClick={() => setActiveTab("edit")}
-            className={`px-3 py-1.5 text-[10px] sm:text-xs font-medium rounded-t-lg transition-colors ${
-              activeTab === "edit" 
-                ? "bg-purple-100 text-purple-700 border-b-2 border-purple-600" 
-                : "text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            <Edit className="h-3 w-3 inline mr-1" /> Edit
+        {/* Tabs */}
+        <div className="flex border-b px-5 pt-2 gap-1 flex-shrink-0">
+          <button onClick={() => setActiveTab("edit")}
+            className={`px-4 py-1.5 text-[11px] font-semibold rounded-t-lg transition-colors flex items-center gap-1
+              ${activeTab === "edit" ? "bg-purple-100 text-purple-700 border-b-2 border-purple-600" : "text-gray-500 hover:text-gray-700"}`}>
+            <Edit className="h-3 w-3" /> Edit Fields
           </button>
-          <button
-            onClick={() => setActiveTab("preview")}
-            className={`px-3 py-1.5 text-[10px] sm:text-xs font-medium rounded-t-lg transition-colors ${
-              activeTab === "preview" 
-                ? "bg-purple-100 text-purple-700 border-b-2 border-purple-600" 
-                : "text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            <Eye className="h-3 w-3 inline mr-1" /> Preview
+          <button onClick={buildPreview}
+            className={`px-4 py-1.5 text-[11px] font-semibold rounded-t-lg transition-colors flex items-center gap-1
+              ${activeTab === "preview" ? "bg-purple-100 text-purple-700 border-b-2 border-purple-600" : "text-gray-500 hover:text-gray-700"}`}>
+            <Eye className="h-3 w-3" /> Preview
           </button>
         </div>
 
-        {/* Main Content */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 sm:space-y-5">
-          
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto">
           {activeTab === "edit" ? (
-            <>
-              {/* Template Info */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-[11px] sm:text-xs font-semibold text-gray-600 flex items-center gap-1">
-                    <Hash className="h-3 w-3" /> Template Name
-                  </label>
-                  <Input
-                    value={templateName}
-                    onChange={(e) => setTemplateName(e.target.value)}
-                    placeholder="Enter template name"
-                    className="h-8 sm:h-9 text-[11px] sm:text-sm border-gray-200 focus:border-purple-400 focus:ring-1 focus:ring-purple-100"
-                  />
+            <div className="p-5 space-y-4">
+
+              {/* Document Info */}
+              <div className="border border-blue-100 rounded-xl overflow-hidden">
+                <div className="bg-blue-50 px-4 py-2 border-b border-blue-100">
+                  <h3 className="text-[10px] font-bold text-blue-700 uppercase tracking-wide flex items-center gap-1.5">
+                    <FileText className="h-3 w-3" /> Document Info
+                  </h3>
                 </div>
-                <div className="space-y-1.5">
-                  <label className="text-[11px] sm:text-xs font-semibold text-gray-600 flex items-center gap-1">
-                    <Palette className="h-3 w-3" /> Template Style
-                  </label>
-                  <div className="flex gap-1.5">
-                    {templateStyles.map(style => (
-                      <button
-                        key={style.id}
-                        onClick={() => setTemplateStyle(style.id)}
-                        className={`flex-1 h-8 sm:h-9 rounded-lg text-[10px] sm:text-xs font-medium flex items-center justify-center gap-1 transition-all
-                          ${templateStyle === style.id 
-                            ? `bg-${style.color}-100 text-${style.color}-700 border-2 border-${style.color}-300` 
-                            : 'bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100'}`}
-                      >
-                        <style.icon className="h-3 w-3" />
-                        {style.name}
-                      </button>
-                    ))}
-                  </div>
+                <div className="p-4 grid grid-cols-2 gap-3">
+                  <EditField label="Document Type" value={formData.documentType} onChange={v => set("documentType", v)} />
+                  <EditField label="Date"          value={formData.date}         onChange={v => set("date", v)} />
                 </div>
               </div>
 
-              {/* Font & Color */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-[11px] sm:text-xs font-semibold text-gray-600 flex items-center gap-1">
-                    <Type className="h-3 w-3" /> Font Family
-                  </label>
-                  <select
-                    value={fontFamily}
-                    onChange={(e) => setFontFamily(e.target.value)}
-                    className="w-full h-8 sm:h-9 text-[11px] sm:text-sm border border-gray-200 rounded-lg px-2 focus:border-purple-400 focus:ring-1 focus:ring-purple-100"
-                  >
-                    {fonts.map(font => (
-                      <option key={font.id} value={font.id}>{font.name}</option>
-                    ))}
-                  </select>
+              {/* Tenant Information */}
+              <div className="border border-green-100 rounded-xl overflow-hidden">
+                <div className="bg-green-50 px-4 py-2 border-b border-green-100">
+                  <h3 className="text-[10px] font-bold text-green-700 uppercase tracking-wide flex items-center gap-1.5">
+                    <User className="h-3 w-3" /> Tenant Information
+                  </h3>
                 </div>
-                <div className="space-y-1.5">
-                  <label className="text-[11px] sm:text-xs font-semibold text-gray-600 flex items-center gap-1">
-                    <Palette className="h-3 w-3" /> Primary Color
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="color"
-                      value={primaryColor}
-                      onChange={(e) => setPrimaryColor(e.target.value)}
-                      className="h-8 w-8 sm:h-9 sm:w-9 rounded-lg border border-gray-200 cursor-pointer"
-                    />
-                    <Input
-                      value={primaryColor}
-                      onChange={(e) => setPrimaryColor(e.target.value)}
-                      className="h-8 sm:h-9 text-[11px] sm:text-sm flex-1"
-                      placeholder="#3b82f6"
-                    />
-                  </div>
+                <div className="p-4 grid grid-cols-3 gap-3">
+                  <EditField label="Tenant Name"           value={formData.tenantName}           onChange={v => set("tenantName", v)}           required />
+                  <EditField label="Phone Number"          value={formData.tenantPhone}          onChange={v => set("tenantPhone", v)}          type="tel" required />
+                  <EditField label="Email"                 value={formData.tenantEmail}          onChange={v => set("tenantEmail", v)}          type="email" />
+                  <EditField label="Aadhaar Number"        value={formData.aadhaarNumber}        onChange={v => set("aadhaarNumber", v)} />
+                  <EditField label="PAN Number"            value={formData.panNumber}            onChange={v => set("panNumber", v)} />
+                  <EditField label="Emergency Contact"     value={formData.emergencyContactName} onChange={v => set("emergencyContactName", v)} />
+                  <EditField label="Emergency Phone"       value={formData.emergencyPhone}       onChange={v => set("emergencyPhone", v)}       type="tel" />
                 </div>
               </div>
 
-              {/* Content Editor */}
-              <div className="space-y-1.5">
-                <label className="text-[11px] sm:text-xs font-semibold text-gray-600 flex items-center gap-1">
-                  <FileText className="h-3 w-3" /> HTML Content
-                </label>
-                <textarea
-                  value={templateContent}
-                  onChange={(e) => setTemplateContent(e.target.value)}
-                  rows={10}
-                  className="w-full text-[11px] sm:text-sm p-3 border border-gray-200 rounded-lg font-mono bg-gray-50 focus:bg-white focus:border-purple-400 focus:ring-1 focus:ring-purple-100 transition-all"
-                  placeholder="Enter HTML content here..."
-                />
-              </div>
-
-              {/* Placeholders */}
-              <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl p-3 sm:p-4 border border-purple-100">
-                <p className="text-[10px] sm:text-xs font-semibold text-purple-700 mb-2 flex items-center gap-1">
-                  <Zap className="h-3 w-3" /> Available Placeholders
-                </p>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {[
-                    '{tenant_name}', '{tenant_phone}', '{tenant_email}',
-                    '{property_name}', '{room_number}', '{rent_amount}',
-                    '{document_number}', '{created_date}'
-                  ].map(placeholder => (
-                    <button
-                      key={placeholder}
-                      onClick={() => insertPlaceholder(placeholder)}
-                      className="text-[8px] sm:text-[10px] bg-white px-2 py-1 rounded border border-purple-200 text-purple-600 hover:bg-purple-100 transition-colors font-mono"
-                    >
-                      {placeholder}
-                    </button>
-                  ))}
+              {/* Property Details */}
+              <div className="border border-indigo-100 rounded-xl overflow-hidden">
+                <div className="bg-indigo-50 px-4 py-2 border-b border-indigo-100">
+                  <h3 className="text-[10px] font-bold text-indigo-700 uppercase tracking-wide flex items-center gap-1.5">
+                    <Home className="h-3 w-3" /> Property Details
+                  </h3>
+                </div>
+                <div className="p-4 grid grid-cols-3 gap-3">
+                  <EditField label="Property Name"    value={formData.propertyName}    onChange={v => set("propertyName", v)} />
+                  <EditField label="Room Number"      value={formData.roomNumber}      onChange={v => set("roomNumber", v)} />
+                  <EditField label="Bed Number"       value={formData.bedNumber}       onChange={v => set("bedNumber", v)} />
+                  <EditField label="Move In Date"     value={formData.moveInDate}      onChange={v => set("moveInDate", v)}      type="date" />
+                  <EditField label="Rent Amount"      value={formData.rentAmount}      onChange={v => set("rentAmount", v)}      type="number" />
+                  <EditField label="Security Deposit" value={formData.securityDeposit} onChange={v => set("securityDeposit", v)} type="number" />
+                  <EditField label="Payment Mode"     value={formData.paymentMode}     onChange={v => set("paymentMode", v)} />
                 </div>
               </div>
-            </>
+
+              {/* Company Info */}
+              <div className="border border-orange-100 rounded-xl overflow-hidden">
+                <div className="bg-orange-50 px-4 py-2 border-b border-orange-100">
+                  <h3 className="text-[10px] font-bold text-orange-700 uppercase tracking-wide flex items-center gap-1.5">
+                    <Home className="h-3 w-3" /> Company / Manager Info
+                  </h3>
+                </div>
+                <div className="p-4 grid grid-cols-2 gap-3">
+                  <EditField label="Company Name"    value={formData.companyName}    onChange={v => set("companyName", v)} />
+                  <EditField label="Company Address" value={formData.companyAddress} onChange={v => set("companyAddress", v)} />
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide block mb-1">Notes</label>
+                <textarea rows={2} value={formData.notes} onChange={e => set("notes", e.target.value)}
+                  className="w-full text-[11px] p-2.5 border border-gray-200 rounded-lg resize-none bg-gray-50 focus:bg-white focus:border-purple-400 outline-none"
+                  placeholder="Any additional notes..." />
+              </div>
+            </div>
           ) : (
             /* Preview Tab */
-            <div className="border border-gray-200 rounded-lg p-4 bg-white min-h-[400px] overflow-auto">
-              <div 
-                className="prose prose-sm max-w-none"
-                style={{ 
-                  fontFamily: fonts.find(f => f.id === fontFamily)?.class,
-                  color: primaryColor,
-                }}
-                dangerouslySetInnerHTML={{ 
-                  __html: templateContent || '<p class="text-gray-400 text-center py-10">No content to preview</p>' 
-                }} 
-              />
+            <div className="p-4 bg-slate-100 min-h-full">
+              <div className="bg-white rounded-lg shadow max-w-[210mm] mx-auto">
+                {previewHtml
+                  ? <div dangerouslySetInnerHTML={{ __html: previewHtml }} />
+                  : <div className="flex items-center justify-center h-40 text-gray-400 text-sm">
+                      Click Preview tab to generate
+                    </div>
+                }
+              </div>
             </div>
           )}
         </div>
 
         {/* Footer */}
-        <div className="flex-shrink-0 border-t px-4 sm:px-5 py-3 sm:py-4 bg-gray-50 rounded-b-2xl flex items-center justify-between gap-3">
-          <p className="text-[9px] sm:text-xs text-gray-400 flex items-center gap-1">
-            <Sparkles className="h-3 w-3" />
-            Changes will be saved to this document
-          </p>
+        <div className="flex-shrink-0 border-t px-5 py-3 bg-gray-50 rounded-b-2xl flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <button onClick={buildPreview}
+              className="h-8 px-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 text-white text-[11px] font-semibold flex items-center gap-1.5">
+              <Eye className="h-3.5 w-3.5" /> Preview
+            </button>
+          </div>
           <div className="flex gap-2">
-            <button
-              onClick={onClose}
-              className="h-8 sm:h-9 px-3 sm:px-4 rounded-xl border border-gray-200 text-[10px] sm:text-xs font-medium text-gray-600 hover:bg-gray-100 transition-all"
-            >
+            <button onClick={onClose}
+              className="h-8 px-4 rounded-xl border border-gray-200 text-[11px] font-medium text-gray-600 hover:bg-gray-100">
               Cancel
             </button>
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="h-8 sm:h-9 px-4 sm:px-5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-[10px] sm:text-xs font-semibold flex items-center gap-1.5 disabled:opacity-60 shadow-lg hover:shadow-xl transition-all"
-            >
-              {saving ? (
-                <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
-              ) : (
-                <Save className="h-3 w-3 sm:h-4 sm:w-4" />
-              )}
+            <button onClick={handleSave} disabled={saving}
+              className="h-8 px-5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-[11px] font-semibold flex items-center gap-1.5 disabled:opacity-60">
+              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
               Save Changes
             </button>
           </div>
@@ -548,7 +594,7 @@ function SharePopup({ doc, onClose, onDone }: { doc: Doc; onClose: () => void; o
   ];
 
   const getHeaderGradient = () => {
-    return "from-green-600 to-green-700";
+    return "from-green-600 to-green-800";
   };
 
   return (
@@ -611,37 +657,38 @@ function SharePopup({ doc, onClose, onDone }: { doc: Doc; onClose: () => void; o
           </div>
 
           {/* Channels grid */}
-          <div>
-            <p className="text-[10px] sm:text-xs font-bold text-gray-600 mb-2 sm:mb-3 flex items-center gap-1">
-              <Rocket className="h-3 w-3" /> Select Sharing Channels
-            </p>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
-              {CHANNELS.map(c => (
-                <button
-                  key={c.id}
-                  onClick={() => toggleChannel(c.id)}
-                  className={`relative group flex flex-col items-center p-2 sm:p-3 rounded-xl border-2 transition-all duration-300
-                    ${channels.has(c.id) 
-                      ? `border-${c.color}-500 bg-${c.color}-50 shadow-lg scale-105` 
-                      : 'border-gray-200 hover:border-gray-300 bg-white hover:shadow-md'}`}
-                >
-                  <div className={`h-8 w-8 sm:h-10 sm:w-10 rounded-lg flex items-center justify-center mb-1.5 transition-all
-                    ${channels.has(c.id) 
-                      ? `bg-gradient-to-r ${c.gradient} text-white shadow-lg` 
-                      : `bg-${c.color}-50 text-${c.color}-600 group-hover:scale-110`}`}>
-                    <c.Icon className="h-4 w-4 sm:h-5 sm:w-5" />
-                  </div>
-                  <span className="text-[10px] sm:text-xs font-semibold text-gray-800">{c.label}</span>
-                  <span className="text-[7px] sm:text-[9px] text-gray-400">{c.desc}</span>
-                  {channels.has(c.id) && (
-                    <div className="absolute -top-1 -right-1 h-4 w-4 sm:h-5 sm:w-5 rounded-full bg-green-500 text-white flex items-center justify-center shadow-lg animate-in zoom-in">
-                      <Check className="h-2 w-2 sm:h-3 sm:w-3" />
-                    </div>
-                  )}
-                </button>
-              ))}
-            </div>
+          {/* Channels grid - COMPACT */}
+<div>
+  <p className="text-[10px] sm:text-xs font-bold text-gray-600 mb-2 sm:mb-3 flex items-center gap-1">
+    <Rocket className="h-3 w-3" /> Select Sharing Channels
+  </p>
+  <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2">  {/* Changed gap-2 to gap-1.5 */}
+    {CHANNELS.map(c => (
+      <button
+        key={c.id}
+        onClick={() => toggleChannel(c.id)}
+        className={`relative group flex flex-col items-center p-1.5 sm:p-2 rounded-xl border-2 transition-all duration-300  {/* Changed p-2 to p-1.5 */}
+          ${channels.has(c.id) 
+            ? `border-${c.color}-500 bg-${c.color}-50 shadow-lg scale-105` 
+            : 'border-gray-200 hover:border-gray-300 bg-white hover:shadow-md'}`}
+      >
+        <div className={`h-7 w-7 sm:h-8 sm:w-8 rounded-lg flex items-center justify-center mb-1 transition-all  {/* Changed h-8 w-8 to h-7 w-7 */}
+          ${channels.has(c.id) 
+            ? `bg-gradient-to-r ${c.gradient} text-white shadow-lg` 
+            : `bg-${c.color}-50 text-${c.color}-600 group-hover:scale-110`}`}>
+          <c.Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />  {/* Changed h-4 to h-3.5 */}
+        </div>
+        <span className="text-[9px] sm:text-[10px] font-semibold text-gray-800">{c.label}</span>  {/* Changed text-[10px] to text-[9px] */}
+        <span className="text-[6px] sm:text-[8px] text-gray-400">{c.desc}</span>  {/* Changed text-[7px] to text-[6px] */}
+        {channels.has(c.id) && (
+          <div className="absolute -top-1 -right-1 h-3.5 w-3.5 sm:h-4 sm:w-4 rounded-full bg-green-500 text-white flex items-center justify-center shadow-lg animate-in zoom-in">  {/* Changed h-4 to h-3.5 */}
+            <Check className="h-2 w-2 sm:h-2.5 sm:w-2.5" />  {/* Changed h-2 to h-2 */}
           </div>
+        )}
+      </button>
+    ))}
+  </div>
+</div>
 
           {/* Recipients */}
           <div>
@@ -682,7 +729,7 @@ function SharePopup({ doc, onClose, onDone }: { doc: Doc; onClose: () => void; o
               </div>
               <button
                 onClick={addRecipient}
-                className="h-7 sm:h-8 w-7 sm:w-8 rounded-lg bg-gradient-to-r from-green-600 to-green-700 text-white flex items-center justify-center hover:scale-105 transition-all shadow-md hover:shadow-lg"
+                className="h-7 sm:h-8 w-7 sm:w-8 rounded-lg bg-gradient-to-r from-green-600 to-green-800 text-white flex items-center justify-center hover:scale-105 transition-all shadow-md hover:shadow-lg"
               >
                 <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
               </button>
@@ -866,10 +913,13 @@ function ChangeStatusPopup({
     }
   };
 
-  const getHeaderGradient = () => {
-    return m.gradient;
-  };
-
+ const getHeaderGradient = () => {
+  // Make Completed popup header brighter
+  if (targetStatus === "Completed") {
+    return "from-green-500 to-green-800";
+  }
+  return m.gradient;
+};
   return (
     <div 
       className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-2 sm:p-4 backdrop-blur-md animate-in fade-in duration-300"
@@ -963,35 +1013,42 @@ function ChangeStatusPopup({
             Cancel
           </button>
           <button
-            onClick={handleSubmit}
-            disabled={saving}
-            className={`h-8 sm:h-9 px-4 sm:px-5 rounded-xl bg-gradient-to-r ${m.gradient} hover:opacity-90 text-white text-[10px] sm:text-xs font-semibold flex items-center gap-1.5 disabled:opacity-60 shadow-lg hover:shadow-xl transition-all`}
-          >
-            {saving ? (
-              <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
-            ) : (
-              <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4" />
-            )}
-            Update Status
-          </button>
+  onClick={handleSubmit}
+  disabled={saving}
+  className={`h-8 sm:h-9 px-4 sm:px-5 rounded-xl bg-gradient-to-r ${
+    targetStatus === "Completed" 
+      ? "from-green-500 to-green-600 hover:from-green-600 hover:to-green-700" 
+      : m.gradient
+  } hover:opacity-90 text-white text-[10px] sm:text-xs font-semibold flex items-center gap-1.5 disabled:opacity-60 shadow-lg hover:shadow-xl transition-all`}
+>
+  {saving ? (
+    <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
+  ) : (
+    <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4" />
+  )}
+  Update Status
+</button>
         </div>
 
         {/* Step Trail */}
-        <div className="border-t px-4 sm:px-5 py-2.5 sm:py-3 flex items-center gap-1 overflow-x-auto rounded-b-2xl bg-gray-50">
-          {[...MAIN_STEPS.map(s => s.key), "Cancelled"].map((s, i, arr) => (
-            <div key={s} className="flex items-center gap-1 flex-shrink-0">
-              <span className={`text-[8px] sm:text-[9px] font-semibold px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full whitespace-nowrap
-                ${s === targetStatus 
-                  ? (s === "Cancelled" 
-                    ? "bg-gradient-to-r from-red-600 to-red-700 text-white shadow-sm" 
-                    : `bg-gradient-to-r ${meta[s]?.gradient || "from-blue-600 to-blue-700"} text-white shadow-sm`)
-                  : "bg-gray-200 text-gray-600"}`}>
-                {s}
-              </span>
-              {i < arr.length - 1 && <ArrowRight className="h-2 w-2 sm:h-2.5 sm:w-2.5 text-gray-300" />}
-            </div>
-          ))}
-        </div>
+        {/* Step Trail */}
+<div className="border-t px-4 sm:px-5 py-2.5 sm:py-3 flex items-center gap-1 overflow-x-auto rounded-b-2xl bg-gray-50">
+  {[...MAIN_STEPS.map(s => s.key), "Cancelled"].map((s, i, arr) => (
+    <div key={s} className="flex items-center gap-1 flex-shrink-0">
+      <span className={`text-[8px] sm:text-[9px] font-semibold px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full whitespace-nowrap
+        ${s === targetStatus 
+          ? (s === "Cancelled" 
+            ? "bg-gradient-to-r from-red-600 to-red-700 text-white shadow-sm" 
+            : s === "Completed"
+            ? "bg-gradient-to-r from-green-500 to-green-600 text-white shadow-sm"
+            : `bg-gradient-to-r ${meta[s]?.gradient || "from-blue-600 to-blue-700"} text-white shadow-sm`)
+          : "bg-gray-200 text-gray-600"}`}>
+        {s}
+      </span>
+      {i < arr.length - 1 && <ArrowRight className="h-2 w-2 sm:h-2.5 sm:w-2.5 text-gray-300" />}
+    </div>
+  ))}
+</div>
       </div>
     </div>
   );

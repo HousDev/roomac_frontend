@@ -42,7 +42,6 @@ export default function ProfileClient({ initialProfile, initialNotifications }: 
 
   
   const {user} = useAuth();
-  console.log(user,"")
   
   // State for profile data
   const [profileData, setProfileData] = useState<ProfileData>(

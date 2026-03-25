@@ -229,8 +229,6 @@ export async function bulkUpdateStatus(ids: number[], is_active: boolean) {
 /** BULK TAGS UPDATE /api/properties/bulk-tags */
 export async function bulkUpdateTags(ids: number[], tags: string[], operation: 'add' | 'remove' | 'set' = 'add') {
   try {
-    console.log(`🏷️ Sending BULK TAGS UPDATE for ${ids.length} properties`);
-    console.log(`📝 Tags: ${tags.join(', ')}, Operation: ${operation}`);
     
     const res = await request<ApiResult>("/api/properties/bulk-tags", {
       method: "POST",
@@ -244,7 +242,6 @@ export async function bulkUpdateTags(ids: number[], tags: string[], operation: '
       },
     });
     
-    console.log("📊 Bulk tags update response:", res);
     return res;
   } catch (error) {
     console.error('❌ Bulk tags update error:', error);

@@ -1,6 +1,5 @@
 
 
-
 // components/admin/properties/PropertyForm.tsx
 "use client";
 
@@ -943,14 +942,16 @@ export default function PropertyForm({
   };
 
   const generateTermsFromTemplates = () => {
-    const templateTerms = selectedTerms.map((termId) => {
-      const template = TERMS_TEMPLATES.find((t) => t.id === termId);
-      if (!template) return "";
-      return `${template.header}\n${template.detailedContent(formData)}`;
-    }).filter(Boolean);
-    const allTerms = [templateTerms].join("\n\n");
-    setFormData((prev) => ({ ...prev, terms_conditions: allTerms }));
-  };
+  const templateTerms = selectedTerms.map((termId) => {
+    const template = TERMS_TEMPLATES.find((t) => t.id === termId);
+    if (!template) return "";
+    return `${template.header}\n${template.detailedContent(formData)}`;
+  }).filter(Boolean);
+  
+  // Fix: Join the array directly instead of wrapping it in another array
+  const allTerms = templateTerms.join("\n\n");
+  setFormData((prev) => ({ ...prev, terms_conditions: allTerms }));
+};
 
   // ─── Tab label config ─────────────────────────────────────────────────────
   const tabConfig = [
@@ -1601,3 +1602,4 @@ export default function PropertyForm({
     </Dialog>
   );
 }
+Comment

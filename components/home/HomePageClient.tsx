@@ -672,7 +672,6 @@ function PropertiesSection({
     property: null 
   });
   const [copied, setCopied] = useState(false);
-  console.log("properties from properties section ",properties)
 
   const handleShareClick = (e: React.MouseEvent, property: any) => {
     e.preventDefault();

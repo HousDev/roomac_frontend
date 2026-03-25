@@ -150,7 +150,6 @@ export const deleteStaffDocument = async (id: number, documentType: string): Pro
       body: JSON.stringify({ documentType }),
     });
     
-    // console.log("Delete document response:", response);
     
     // Ensure we're returning the data properly
     if (response.success && response.data) {

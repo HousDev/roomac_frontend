@@ -871,14 +871,7 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
       // Ensure isCouple is a boolean
       const coupleValue = isCouple === true;
       
-      console.log('📤 Sending assign with values:', {
-        room_id: room.id,
-        bed_number: bedNumber,
-        tenant_id: tenantIdNum,
-        tenant_gender: tenantGender,
-        tenant_rent: rentValue,
-        is_couple: coupleValue
-      });
+     
       
       const payload: AssignBedPayload = {
         room_id: room.id,
@@ -972,13 +965,7 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
     // Ensure isCouple is a boolean
     const coupleValue = isCouple === true;
     
-    console.log('📤 DIRECT - Updating bed assignment:', {
-      bedAssignmentId: bedAssignment.id,
-      tenant_id: tenant.id,
-      tenant_gender: tenantGender,
-      tenant_rent: rentValue,
-      is_couple: coupleValue
-    });
+    
     
     const payload: UpdateBedAssignmentPayload = {
       tenant_id: tenant.id,

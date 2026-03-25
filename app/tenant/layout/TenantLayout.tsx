@@ -820,8 +820,7 @@ function TenantHeader({
         {/* Right */}
         <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-3">
           <p className="text-[10px] sm:text-xs lg:text-sm font-semibold 
-  bg-gradient-to-r from-indigo-500 via-blue-500 to-cyan-500 
-  bg-clip-text text-transparent">
+bg-gradient-to-br from-[#004aad] to-[#002a7a]  bg-clip-text text-transparent">
 
   {new Date().toLocaleDateString("en-US", {
     weekday: "long",

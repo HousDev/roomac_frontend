@@ -217,10 +217,7 @@ export const getMyTenantRequests = async (): Promise<TenantRequest[]> => {
       method: "GET",
     });
 
-    console.log('📊 Tenant requests response:', {
-      success: res.success,
-      dataLength: res.data?.length || 0
-    });
+    
 
     if (!res.success) {
       console.error('❌ API returned failure:', res);
@@ -232,7 +229,6 @@ export const getMyTenantRequests = async (): Promise<TenantRequest[]> => {
       return [];
     }
 
-    console.log(`✅ Found ${res.data.length} tenant requests`);
     return res.data;
   } catch (error: any) {
     console.error('❌ Error getting tenant requests:', error);
@@ -308,7 +304,6 @@ export async function createTenantRequest(data: any) {
       throw new Error(res.message || "Failed to create request");
     }
 
-    console.log('✅ Request created successfully:', res);
     return res;
   } catch (error: any) {
     console.error('❌ Error creating tenant request:', error);
@@ -338,11 +333,9 @@ export async function createTenantRequest(data: any) {
 // Get master values by tab
 export const getMasterValuesByTab = async (tab: string): Promise<Record<string, any[]>> => {
   try {
-    console.log(`🔍 Fetching master values for tab: ${tab}`);
     
     const res = await consumeMasters({ tab });
     
-    console.log(`📊 Master values response for tab ${tab}:`, res);
     
     if (res?.success && res.data) {
       // Group by type_name (which comes from master_items.name)
@@ -363,7 +356,6 @@ export const getMasterValuesByTab = async (tab: string): Promise<Record<string, 
         });
       });
       
-      console.log(`✅ Grouped master values for tab ${tab}:`, Object.keys(grouped));
       return grouped;
     }
     
@@ -380,7 +372,6 @@ export const getVacateReasonsFromMasters = async (): Promise<any[]> => {
   try {
     const masters = await getMasterValuesByTab('Rooms');
     
-    console.log('📊 Masters from Rooms tab:', masters);
     
     // Look for the 'Vacate Reason' type in the masters object
     // The keys in masters are the type names from master_items
@@ -391,7 +382,6 @@ export const getVacateReasonsFromMasters = async (): Promise<any[]> => {
       return vacateReasons;
     }
     
-    console.log('⚠️ No vacate reasons found in masters. Available types:', Object.keys(masters));
     
     // Fallback reasons if not found
     return [
@@ -440,7 +430,6 @@ export const getMyVacateRequests = async (): Promise<TenantRequest[]> => {
       request.request_type === 'vacate_bed'
     );
 
-    console.log(`✅ Found ${vacateRequests.length} vacate bed requests`);
     return vacateRequests;
   } catch (error: any) {
     console.error('❌ Error getting vacate requests:', error);
@@ -482,18 +471,13 @@ const getAdminToken = (): string => {
     throw new Error('Admin authentication required. Please login.');
   }
   
-  console.log('🔑 Token found:', token.substring(0, 20) + '...');
   
   // Log token details for debugging
   try {
     const parts = token.split('.');
     if (parts.length === 3) {
       const payload = JSON.parse(atob(parts[1]));
-      console.log('📝 Token info:', {
-        type: payload.type || 'unknown',
-        email: payload.email || 'no email',
-        exp: payload.exp ? new Date(payload.exp * 1000).toISOString() : 'no expiration'
-      });
+      
     }
   } catch (e) {
     console.log('⚠️ Token is not a JWT or cannot be decoded');
@@ -507,7 +491,6 @@ const getAdminToken = (): string => {
  */
 export const getAdminVacateRequests = async (): Promise<AdminVacateRequest[]> => {
   try {
-    console.log('🔵 Fetching admin vacate requests...');
     
     const token = getAdminToken();
     
@@ -519,10 +502,7 @@ export const getAdminVacateRequests = async (): Promise<AdminVacateRequest[]> =>
       },
     });
 
-    console.log('📊 Admin vacate requests response:', {
-      success: res.success,
-      dataLength: res.data?.length || 0
-    });
+    
 
     if (!res.success) {
       console.error('❌ API returned failure:', res);
@@ -534,7 +514,6 @@ export const getAdminVacateRequests = async (): Promise<AdminVacateRequest[]> =>
       return [];
     }
 
-    console.log(`✅ Found ${res.data.length} vacate requests`);
     return res.data;
   } catch (error: any) {
     console.error('❌ Error getting admin vacate requests:', error);
@@ -554,7 +533,6 @@ export const getAdminVacateRequests = async (): Promise<AdminVacateRequest[]> =>
 // Update getPropertiesList function to use existing property routes:
 export const getPropertiesList = async (): Promise<Property[]> => {
   try {
-    console.log('🔵 Fetching properties list...');
     
     const token = getAdminToken();
     
@@ -571,17 +549,13 @@ export const getPropertiesList = async (): Promise<Property[]> => {
       },
     });
 
-    console.log('📊 Properties list response:', {
-      success: res.success,
-      dataLength: res.data?.length || 0
-    });
+    
 
     if (!res.success || !Array.isArray(res.data)) {
       console.warn('⚠️ No valid data in response:', res);
       return [];
     }
 
-    console.log(`✅ Found ${res.data.length} properties`);
     return res.data;
   } catch (error: any) {
     console.error('❌ Error getting properties list:', error);
@@ -591,7 +565,6 @@ export const getPropertiesList = async (): Promise<Property[]> => {
 
 export const getMasterValues = async (code: string): Promise<any[]> => {
   try {
-    console.log(`🔵 Fetching master values for code: ${code}`);
     
     const token = getAdminToken();
     
@@ -609,7 +582,6 @@ export const getMasterValues = async (code: string): Promise<any[]> => {
     });
 
     if (res.success && Array.isArray(res.data)) {
-      console.log(`✅ Found ${res.data.length} master values for ${code}`);
       return res.data;
     }
     
@@ -644,29 +616,17 @@ export const checkAuthStatus = () => {
     return;
   }
   
-  console.log('🔍 Checking authentication status:');
-  console.log('auth_token:', localStorage.getItem('auth_token'));
-  console.log('token:', localStorage.getItem('token'));
-  console.log('admin_email:', localStorage.getItem('admin_email'));
-  console.log('admin_logged_in:', localStorage.getItem('admin_logged_in'));
   
   // Try to get token
   try {
     const token = localStorage.getItem('auth_token');
     if (token) {
-      console.log('✅ Token found, length:', token.length);
-      console.log('Token starts with:', token.substring(0, 20));
+      
       
       // Try to decode JWT to check expiration
       try {
         const payload = JSON.parse(atob(token.split('.')[1]));
-        console.log('📝 Token payload:', {
-          id: payload.adminId,
-          email: payload.email,
-          exp: payload.exp,
-          expDate: payload.exp ? new Date(payload.exp * 1000) : 'No expiration',
-          type: payload.type
-        });
+        
       } catch (e) {
         console.log('⚠️ Could not decode token (might not be JWT)');
       }
@@ -688,7 +648,6 @@ export const updateVacateRequestStatus = async (
   payload: StatusUpdatePayload
 ): Promise<{ success: boolean; message?: string }> => {
   try {
-    console.log(`🔵 Updating vacate request ${requestId} status to ${payload.status}`);
     
     const token = getAdminToken();
     
@@ -704,7 +663,6 @@ export const updateVacateRequestStatus = async (
       body: JSON.stringify(payload),
     });
 
-    console.log('📊 Status update response:', res);
 
     if (!res.success) {
       throw new Error(res.message || "Failed to update status");
@@ -729,7 +687,6 @@ export const sendTenantNotification = async (data: {
   data?: any;
 }): Promise<{ success: boolean; message?: string }> => {
   try {
-    console.log(`🔵 Sending notification to tenant ${data.user_id}`);
     
     const token = getAdminToken();
     
@@ -884,11 +841,9 @@ export const getChangeBedReasonsFromMasters = async (): Promise<any[]> => {
                              [];
     
     if (changeBedReasons.length > 0) {
-      console.log(`✅ Found ${changeBedReasons.length} change bed reasons from Rooms tab`);
       return changeBedReasons;
     }
     
-    console.log('⚠️ No change bed reasons found in Rooms tab. Available types:', Object.keys(masters));
     
     // Fallback change bed reasons
     return [
@@ -930,7 +885,6 @@ export const getAvailableBedsForRoom = async (roomId: number): Promise<number[]>
                     return bed.bed_number || bed.bedNumber || bed.number || bed.id;
                 }).filter((bedNumber: any) => typeof bedNumber === 'number');
                 
-                console.log('Extracted bed numbers:', bedNumbers);
                 return bedNumbers;
             }
         }
@@ -985,12 +939,9 @@ export const getLeaveTypesFromMasters = async (): Promise<any[]> => {
                        [];
     
     if (leaveTypes.length > 0) {
-      console.log(`✅ Found ${leaveTypes.length} leave types from Requests tab`);
       return leaveTypes;
     }
     
-    // If no leave types found, log all available types for debugging
-    console.log('⚠️ No leave types found in Requests tab. Available types:', Object.keys(masters));
     
     // Fallback leave types
     return [
@@ -1008,108 +959,6 @@ export const getLeaveTypesFromMasters = async (): Promise<any[]> => {
 };
 
 
-// // Get complaint categories from Requests tab
-// export const getComplaintCategoriesFromMasters = async (): Promise<any[]> => {
-//   try {
-//     const masters = await getMasterValuesByTab('Requests');
-    
-//     // Try different possible type names for complaint categories
-//     const complaintCategories = masters['Complaint Category'] || 
-//                                 masters['ComplaintCategory'] || 
-//                                 masters['Complaint'] || 
-//                                 [];
-    
-//     if (complaintCategories.length > 0) {
-//       console.log(`✅ Found ${complaintCategories.length} complaint categories from Requests tab`);
-//       return complaintCategories;
-//     }
-    
-//     console.log('⚠️ No complaint categories found in Requests tab. Available types:', Object.keys(masters));
-    
-//     // Fallback complaint categories
-//     return [
-//       { id: 1, value: 'Staff Behavior', name: 'Staff Behavior', description: 'Issues with staff conduct' },
-//       { id: 2, value: 'Maintenance', name: 'Maintenance', description: 'Issues with room maintenance' },
-//       { id: 3, value: 'Cleanliness', name: 'Cleanliness', description: 'Issues with cleanliness' },
-//       { id: 4, value: 'Noise', name: 'Noise', description: 'Noise complaints' },
-//       { id: 5, value: 'Food', name: 'Food', description: 'Issues with food quality' },
-//       { id: 6, value: 'Security', name: 'Security', description: 'Security concerns' },
-//       { id: 7, value: 'Billing', name: 'Billing', description: 'Issues with billing or payments' },
-//       { id: 8, value: 'Other', name: 'Other', description: 'Other complaints' }
-//     ];
-//   } catch (error) {
-//     console.error('❌ Error getting complaint categories from masters:', error);
-//     return [];
-//   }
-// };
-
-// Get complaint reasons for a specific category from Requests tab
-// export const getComplaintReasonsFromMasters = async (categoryId: number): Promise<any[]> => {
-//   try {
-//     // First get all complaint reasons
-//     const masters = await getMasterValuesByTab('Requests');
-    
-//     // Try different possible type names for complaint reasons
-//     const complaintReasons = masters['Complaint Reason'] || 
-//                              masters['ComplaintReason'] || 
-//                              masters['Reason'] || 
-//                              [];
-    
-//     if (complaintReasons.length > 0) {
-//       console.log(`✅ Found ${complaintReasons.length} complaint reasons from Requests tab`);
-      
-//       // If categoryId is provided, filter reasons by category
-//       // Note: This assumes your master data has a way to link reasons to categories
-//       // You might need to adjust this based on your actual data structure
-//       if (categoryId) {
-//         const filteredReasons = complaintReasons.filter((reason: any) => 
-//           reason.category_id === categoryId || 
-//           reason.master_type_id === categoryId ||
-//           reason.parent_id === categoryId
-//         );
-        
-//         if (filteredReasons.length > 0) {
-//           return filteredReasons;
-//         }
-//       }
-      
-//       return complaintReasons;
-//     }
-    
-//     console.log('⚠️ No complaint reasons found in Requests tab. Available types:', Object.keys(masters));
-    
-//     // Fallback complaint reasons based on category
-//     const fallbackReasons: Record<number, any[]> = {
-//       1: [ // Staff Behavior
-//         { id: 101, value: 'Rude Behavior', description: 'Staff was rude or unprofessional' },
-//         { id: 102, value: 'Unresponsive', description: 'Staff not responding to requests' },
-//         { id: 103, value: 'Late Service', description: 'Service was delayed' }
-//       ],
-//       2: [ // Maintenance
-//         { id: 201, value: 'Electrical Issue', description: 'Problems with lights, fans, etc.' },
-//         { id: 202, value: 'Plumbing Issue', description: 'Leaking pipes, clogged drains' },
-//         { id: 203, value: 'Furniture Broken', description: 'Damaged furniture' }
-//       ],
-//       3: [ // Cleanliness
-//         { id: 301, value: 'Room Not Clean', description: 'Room was not cleaned properly' },
-//         { id: 302, value: 'Bathroom Dirty', description: 'Bathroom needs cleaning' },
-//         { id: 303, value: 'Common Areas Dirty', description: 'Hallways or common areas unclean' }
-//       ],
-//       4: [ // Noise
-//         { id: 401, value: 'Loud Music', description: 'Loud music from other rooms' },
-//         { id: 402, value: 'Construction Noise', description: 'Noise from construction' },
-//         { id: 403, value: 'Late Night Parties', description: 'Parties late at night' }
-//       ]
-//     };
-    
-//     return fallbackReasons[categoryId] || [
-//       { id: 901, value: 'Other', description: 'Other reason not listed' }
-//     ];
-//   } catch (error) {
-//     console.error('❌ Error getting complaint reasons from masters:', error);
-//     return [];
-//   }
-// };
 
 
 
@@ -1125,11 +974,9 @@ export const getMaintenanceCategoriesFromMasters = async (): Promise<any[]> => {
                                   [];
     
     if (maintenanceCategories.length > 0) {
-      console.log(`✅ Found ${maintenanceCategories.length} maintenance categories from Requests tab`);
       return maintenanceCategories;
     }
     
-    console.log('⚠️ No maintenance categories found in Requests tab. Available types:', Object.keys(masters));
     
     // Fallback maintenance categories
     return [
@@ -1153,23 +1000,19 @@ export const getMaintenanceCategoriesFromMasters = async (): Promise<any[]> => {
 // lib/tenantRequestsApi.ts - CORRECTED
 export const getComplaintCategories = async (): Promise<ComplaintCategory[]> => {
   try {
-    console.log('🔍 Fetching complaint categories...');
     
     const response = await tenantApiRequest("/api/tenant-requests/complaint-categories", {
       method: "GET",
     });
 
-    console.log('📊 Complaint categories response:', response);
     
     // Check if response is an object with data property
     if (response && typeof response === 'object') {
       if (response.success && Array.isArray(response.data)) {
-        console.log(`✅ Found ${response.data.length} complaint categories`);
         return response.data;
       }
       // If backend returns array directly (not wrapped in success/data)
       else if (Array.isArray(response)) {
-        console.log(`✅ Found ${response.length} complaint categories (direct array)`);
         return response;
       }
     }
@@ -1185,23 +1028,19 @@ export const getComplaintCategories = async (): Promise<ComplaintCategory[]> => 
 // In lib/tenantRequestsApi.ts, add this function if it doesn't exist
 export const getComplaintReasons = async (categoryId: number): Promise<ComplaintReason[]> => {
   try {
-    console.log(`🔍 Fetching complaint reasons for category ID: ${categoryId}`);
     
     const response = await tenantApiRequest(`/api/tenant-requests/complaint-categories/${categoryId}/reasons`, {
       method: "GET",
     });
 
-    console.log('📊 Complaint reasons response:', response);
     
     // Check if response is an object with data property
     if (response && typeof response === 'object') {
       if (response.success && Array.isArray(response.data)) {
-        console.log(`✅ Found ${response.data.length} complaint reasons for category ${categoryId}`);
         return response.data;
       }
       // If backend returns array directly (not wrapped in success/data)
       else if (Array.isArray(response)) {
-        console.log(`✅ Found ${response.length} complaint reasons for category ${categoryId} (direct array)`);
         return response;
       }
     }
@@ -1226,11 +1065,9 @@ export const getMaintenanceLocationsFromMasters = async (): Promise<any[]> => {
                                  [];
     
     if (maintenanceLocations.length > 0) {
-      console.log(`✅ Found ${maintenanceLocations.length} maintenance locations from Requests tab`);
       return maintenanceLocations;
     }
     
-    console.log('⚠️ No maintenance locations found in Requests tab. Available types:', Object.keys(masters));
     
     // Fallback maintenance locations
     return [
@@ -1262,7 +1099,6 @@ export const getVisitTimesFromMasters = async (): Promise<any[]> => {
                        [];
     
     if (visitTimes.length > 0) {
-      console.log(`✅ Found ${visitTimes.length} visit time preferences from Requests tab`);
       return visitTimes;
     }
     
