@@ -1,5 +1,4 @@
 // components/properties/BookingModal.tsx
-// components/properties/BookingModal.tsx
 "use client";
 
 import { useState, useCallback, useEffect, memo, useRef } from 'react';
@@ -9,7 +8,7 @@ import {
   Smartphone, Wallet, Building2, Lock, DoorOpen, BedDouble,
   Home, Grid, ChevronRight, MapPin, Hash, Layers, UserCircle,
   AlertCircle, CheckCircle, XCircle, ArrowLeft, Sparkles, Heart,
-  Bed
+  Bed, Ticket, Gift, Percent, Clock, Tag, Star
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { listRoomsByProperty } from "@/lib/roomsApi";
@@ -42,15 +41,15 @@ interface Room {
   gender_preference?: string[];
   current_occupants_gender?: string[];
   room_gender_preference?: string[];
-   beds?: {  // Change from beds_config to beds
+   beds?: {
     bed_number: number;
     bed_type: string;
-    bed_rent: number;  // This comes from tenant_rent in bed_assignments
+    bed_rent: number;
     is_occupied: boolean;
     tenant_id?: number | null;
     assignment_id?: number | null;
   }[];
-  bed_assignments?: any[]; // Keep for reference
+  bed_assignments?: any[];
 }
 
 interface MasterValue {
@@ -329,7 +328,6 @@ const ConfirmationModal = ({
 const SALUTATIONS = ['Mr.', 'Mrs.', 'Ms.', 'Dr.', 'Prof.', 'Adv.', 'Er.', 'Miss'];
 
 const isRoomAllowedForGender = (room: any, gender: string, isCouple: boolean): boolean => {
-  // Gender is always mandatory
   if (!gender) return false;
   
   const preferences = room.gender_preference || [];
@@ -337,9 +335,7 @@ const isRoomAllowedForGender = (room: any, gender: string, isCouple: boolean): b
   
   const normalizedGender = gender.toLowerCase();
   
-  // For couple bookings
   if (isCouple) {
-    // Check if room allows couples OR both/mixed
     const hasCouples = preferences.some((p: string) => 
       p.toLowerCase() === 'couples'
     );
@@ -347,7 +343,6 @@ const isRoomAllowedForGender = (room: any, gender: string, isCouple: boolean): b
       p.toLowerCase() === 'both' || p.toLowerCase() === 'any' || p.toLowerCase() === 'mixed'
     );
     
-    // Also need to check if the room allows the individual's gender
     const genderAllowed = preferences.some((p: string) => {
       const prefLower = p.toLowerCase();
       if (normalizedGender === 'male') {
@@ -361,7 +356,6 @@ const isRoomAllowedForGender = (room: any, gender: string, isCouple: boolean): b
     return (hasCouples || hasBoth) && genderAllowed;
   }
   
-  // Individual booking logic
   if (normalizedGender === 'male') {
     const hasMaleOnly = preferences.some((p: string) => 
       p.toLowerCase() === 'male_only' || p.toLowerCase() === 'male'
@@ -466,6 +460,14 @@ const BookingModal = memo(function BookingModal({
   const preselectionAttempted = useRef(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [selectedBed, setSelectedBed] = useState<{roomId: number, bedNumber: number, bedRent: number} | null>(null);
+  
+  // Offer Code States
+  const [offerCode, setOfferCode] = useState('');
+  const [appliedOffer, setAppliedOffer] = useState<any>(null);
+  const [offerLoading, setOfferLoading] = useState(false);
+  const [offerError, setOfferError] = useState('');
+  const [offerSuccess, setOfferSuccess] = useState('');
+  const [discountedAmount, setDiscountedAmount] = useState(0);
 
   const [formData, setFormData] = useState({
     salutation: 'Mr.',
@@ -489,6 +491,246 @@ const BookingModal = memo(function BookingModal({
     agreeToTerms: false
   });
 
+// Calculate Rent
+const calculateRent = useCallback(() => {
+  if (!selectedBed) return 0;
+  
+  if (bookingType === 'short') {
+    const checkIn = new Date(formData.checkInDate);
+    const checkOut = new Date(formData.checkOutDate);
+    if (isNaN(checkIn.getTime()) || isNaN(checkOut.getTime())) return 0;
+    
+    const days = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
+    const rentMultiplier = formData.isCouple ? 2 : 1;
+    return days * selectedBed.bedRent * rentMultiplier;
+  } else {
+    // Long stay - monthly rent
+    const rentMultiplier = formData.isCouple ? 2 : 1;
+    return selectedBed.bedRent * rentMultiplier;
+  }
+}, [bookingType, selectedBed, formData]);
+
+// Calculate Total (just the rent amount)
+const calculateTotal = useCallback(() => {
+  return calculateRent();
+}, [calculateRent]);
+
+// Calculate Total Payable (rent + security deposit for long stay)
+const calculateTotalPayable = useCallback(() => {
+  if (bookingType === 'short') {
+    return calculateTotal();
+  } else {
+    // Long stay: Rent + Security Deposit
+    return calculateTotal() + (propertyData?.securityDeposit || 0);
+  }
+}, [bookingType, calculateTotal, propertyData]);
+
+// Calculate Final Amount after discount
+const calculateFinalAmount = useCallback(() => {
+  const totalPayable = calculateTotalPayable();
+  return totalPayable - discountedAmount;
+}, [calculateTotalPayable, discountedAmount]);
+
+
+
+// Validate and Apply Offer
+const validateAndApplyOffer = useCallback(async (code: string) => {
+  if (!code || code.trim() === '') {
+    setOfferError('');
+    setAppliedOffer(null);
+    setDiscountedAmount(0);
+    return;
+  }
+
+  setOfferLoading(true);
+  setOfferError('');
+  setOfferSuccess('');
+
+  try {
+    console.log('🔍 Validating offer code:', code);
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/offers`);
+    const offers = await response.json();
+
+    console.log('📋 All offers from API:', offers);
+    
+    // Clean the input code - remove spaces and trim
+    const cleanInputCode = code.trim().toUpperCase();
+    console.log('🔍 Clean input code:', cleanInputCode);
+    
+    // Find matching offer
+    const offer = offers.find((o: any) => {
+      const cleanOfferCode = o.code?.toString().trim().toUpperCase();
+      console.log(`Comparing: "${cleanOfferCode}" vs "${cleanInputCode}"`);
+      
+      const isActive = o.is_active === true || 
+                       o.is_active === 1 || 
+                       o.is_active === 'true' || 
+                       o.is_active === '1';
+      
+      console.log(`Offer active status: ${isActive} for code ${cleanOfferCode}`);
+      
+      return cleanOfferCode === cleanInputCode && isActive;
+    });
+
+    console.log('🎯 Found offer:', offer);
+
+    if (!offer) {
+      setOfferError('Invalid offer code');
+      setAppliedOffer(null);
+      setDiscountedAmount(0);
+      setOfferSuccess('');
+      return;
+    }
+
+    // Check if offer is active
+    const isActive = offer.is_active === true || 
+                     offer.is_active === 1 || 
+                     offer.is_active === 'true' || 
+                     offer.is_active === '1';
+    
+    if (!isActive) {
+      setOfferError('This offer is no longer active');
+      setAppliedOffer(null);
+      return;
+    }
+
+    // Date validation
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const startDate = offer.start_date ? new Date(offer.start_date) : null;
+    if (startDate) startDate.setHours(0, 0, 0, 0);
+
+    const endDate = offer.end_date ? new Date(offer.end_date) : null;
+    if (endDate) endDate.setHours(23, 59, 59, 999);
+
+    if (startDate && today < startDate) {
+      setOfferError(`Offer starts on ${startDate.toLocaleDateString()}`);
+      setAppliedOffer(null);
+      return;
+    }
+
+    if (endDate && today > endDate) {
+      setOfferError(`Offer expired on ${endDate.toLocaleDateString()}`);
+      setAppliedOffer(null);
+      return;
+    }
+
+    // Minimum months requirement
+    if (bookingType === 'long' && offer.min_months && offer.min_months > 0) {
+      const selectedMonths = 1;
+      if (selectedMonths < offer.min_months) {
+        setOfferError(`Requires minimum ${offer.min_months} months stay`);
+        setAppliedOffer(null);
+        return;
+      }
+    }
+
+    // Property-specific check
+    if (offer.property_id && offer.property_id !== propertyData?.id) {
+      setOfferError(`This offer is for a different property`);
+      setAppliedOffer(null);
+      return;
+    }
+
+    let discountAmount = 0;
+    const baseAmount = calculateTotalPayable();
+
+    console.log('💰 Offer details:', {
+      discount_type: offer.discount_type,
+      discount_value: offer.discount_value,
+      discount_percent: offer.discount_percent,
+      baseAmount
+    });
+
+    // Calculate discount based on type
+    if (offer.discount_type === 'percentage' && offer.discount_percent) {
+      // Percentage discount
+      const percentage = parseFloat(offer.discount_percent);
+      discountAmount = baseAmount * (percentage / 100);
+      console.log(`📊 Percentage discount: ${percentage}% = ₹${discountAmount}`);
+    } else if (offer.discount_type === 'fixed' && offer.discount_value) {
+      // Fixed amount discount
+      const fixedAmount = parseFloat(offer.discount_value);
+      discountAmount = fixedAmount;
+      console.log(`💰 Fixed discount: ₹${fixedAmount}`);
+    } else {
+      // Try to determine from available values
+      if (offer.discount_percent && parseFloat(offer.discount_percent) > 0) {
+        const percentage = parseFloat(offer.discount_percent);
+        discountAmount = baseAmount * (percentage / 100);
+        console.log(`📊 Fallback percentage discount: ${percentage}% = ₹${discountAmount}`);
+      } else if (offer.discount_value && parseFloat(offer.discount_value) > 0) {
+        discountAmount = parseFloat(offer.discount_value);
+        console.log(`💰 Fallback fixed discount: ₹${discountAmount}`);
+      } else {
+        setOfferError('Invalid discount configuration');
+        setAppliedOffer(null);
+        return;
+      }
+    }
+
+    // Ensure discount doesn't exceed total
+    discountAmount = Math.min(discountAmount, baseAmount);
+
+    console.log(`✅ Final discount: ₹${discountAmount}`);
+
+    setAppliedOffer(offer);
+    setDiscountedAmount(discountAmount);
+    setOfferSuccess(`Offer applied! You save ₹${discountAmount.toLocaleString()}`);
+    setOfferError('');
+
+  } catch (error) {
+    console.error('Error validating offer:', error);
+    setOfferError('Failed to validate offer');
+  } finally {
+    setOfferLoading(false);
+  }
+}, [bookingType, propertyData?.id, calculateTotalPayable]);
+
+  // Load saved offer from localStorage when modal opens
+// Load saved offer from localStorage when modal opens
+useEffect(() => {
+  if (isOpen) {
+    const savedOfferCode = localStorage.getItem('pendingOfferCode');
+    const savedOfferData = localStorage.getItem('pendingOfferData');
+    
+    if (savedOfferCode) {
+      setOfferCode(savedOfferCode);
+      if (savedOfferData) {
+        try {
+          const offerData = JSON.parse(savedOfferData);
+          // Check if offer is for this property or is general
+          if (!offerData.propertyId || offerData.propertyId === propertyData?.id) {
+            // Small delay to ensure component is ready
+            setTimeout(() => {
+              validateAndApplyOffer(savedOfferCode);
+            }, 100);
+            localStorage.removeItem('pendingOfferCode');
+            localStorage.removeItem('pendingOfferData');
+          }
+        } catch (e) {
+          console.error('Error parsing saved offer data:', e);
+        }
+      } else {
+        // If no offer data, just validate the code
+        setTimeout(() => {
+          validateAndApplyOffer(savedOfferCode);
+        }, 100);
+        localStorage.removeItem('pendingOfferCode');
+      }
+    }
+  }
+}, [isOpen, propertyData?.id, validateAndApplyOffer]);
+  // Reset offer when booking type changes
+  useEffect(() => {
+    setOfferCode('');
+    setAppliedOffer(null);
+    setDiscountedAmount(0);
+    setOfferError('');
+    setOfferSuccess('');
+  }, [bookingType]);
+
   const loadRazorpayScript = useCallback(() => {
     return new Promise((resolve) => {
       if ((window as any).Razorpay) {
@@ -507,7 +749,6 @@ const BookingModal = memo(function BookingModal({
     });
   }, []);
 
-  // Fetch rooms masters
   const fetchRoomsMasters = async () => {
     setLoadingMasters(true);
     try {
@@ -534,141 +775,122 @@ const BookingModal = memo(function BookingModal({
     }
   };
 
-  // Fetch rooms function with reset filters option
-const fetchRooms = async (resetFilters = true) => {
-  if (!propertyData?.id) return;
+  const fetchRooms = async (resetFilters = true) => {
+    if (!propertyData?.id) return;
 
-  setRoomsLoading(true);
-  setRoomsError('');
+    setRoomsLoading(true);
+    setRoomsError('');
 
-  try {
-    const response: any = await listRoomsByProperty(Number(propertyData.id));
-    
-    
-    let roomsData = [];
-
-    if (response.success && response.data) {
-      if (Array.isArray(response.data)) {
-        roomsData = response.data;
-      } else if (response.data.data && Array.isArray(response.data.data)) {
-        roomsData = response.data.data;
-      } else if (response.data.items && Array.isArray(response.data.items)) {
-        roomsData = response.data.items;
-      } else if (typeof response.data === 'object' && response.data !== null) {
-        roomsData = Object.values(response.data);
-      }
-    }
-
-    
-    if (roomsData.length > 0) {
-      // Log the first room's bed_assignments to see structure
+    try {
+      const response: any = await listRoomsByProperty(Number(propertyData.id));
       
-      const transformedRooms = roomsData.map((room: any) => {
-        // Get bed_assignments
-        const bedAssignments = room.bed_assignments || [];
-        
-        
-        // Create beds array from bed_assignments
-        const beds = bedAssignments.map((assignment: any) => {
+      let roomsData = [];
+
+      if (response.success && response.data) {
+        if (Array.isArray(response.data)) {
+          roomsData = response.data;
+        } else if (response.data.data && Array.isArray(response.data.data)) {
+          roomsData = response.data.data;
+        } else if (response.data.items && Array.isArray(response.data.items)) {
+          roomsData = response.data.items;
+        } else if (typeof response.data === 'object' && response.data !== null) {
+          roomsData = Object.values(response.data);
+        }
+      }
+
+      if (roomsData.length > 0) {
+        const transformedRooms = roomsData.map((room: any) => {
+          const bedAssignments = room.bed_assignments || [];
           
+          const beds = bedAssignments.map((assignment: any) => {
+            return {
+              bed_number: assignment.bed_number,
+              bed_type: assignment.bed_type || '',
+              bed_rent: assignment.tenant_rent ? Number(assignment.tenant_rent) : 0,
+              is_occupied: assignment.is_available === 0 && assignment.tenant_id !== null,
+              tenant_id: assignment.tenant_id || null,
+              assignment_id: assignment.id,
+              is_couple: assignment.is_couple || false
+            };
+          });
+
+          beds.sort((a, b) => a.bed_number - b.bed_number);
+          const availableBeds = beds.filter(bed => !bed.is_occupied).length;
+          const occupiedBeds = beds.filter(bed => bed.is_occupied).length;
+          const genderPreference = room.room_gender_preference || [];
+
           return {
-            bed_number: assignment.bed_number,
-            bed_type: assignment.bed_type || '',
-            bed_rent: assignment.tenant_rent ? Number(assignment.tenant_rent) : 0,
-            is_occupied: assignment.is_available === 0 && assignment.tenant_id !== null,
-            tenant_id: assignment.tenant_id || null,
-            assignment_id: assignment.id,
-            is_couple: assignment.is_couple || false
+            id: room.id,
+            room_number: room.room_number?.toString() || `Room ${room.id}`,
+            room_type: room.room_type || '',
+            sharing_type: room.sharing_type || 'double',
+            monthly_rent: Number(room.rent_per_bed || 0),
+            daily_rate: Number(room.daily_rate || Math.round(Number(room.rent_per_bed || 0) / 30) || 500),
+            is_available: room.is_active === 1 || room.is_active === true,
+            floor: room.floor?.toString() || 'Ground',
+            total_beds: beds.length,
+            available_beds: availableBeds,
+            occupied_beds: occupiedBeds,
+            amenities: room.amenities || [],
+            gender_preference: genderPreference,
+            current_occupants_gender: room.current_occupants_gender || [],
+            room_gender_preference: genderPreference,
+            beds: beds,
+            raw_bed_assignments: bedAssignments
           };
         });
+        
+        const availableRooms = transformedRooms.filter((room: any) => room.is_available === true);
+        setAllRooms(availableRooms);
+        
+        if (resetFilters) {
+          setSelectedSharingType('all');
+          setSelectedRoomType('all');
+        }
+        
+        let filteredRooms = [...availableRooms];
+        
+        if (formData.gender) {
+          filteredRooms = filteredRooms.filter((room: any) => 
+            isRoomAllowedForGender(room, formData.gender, formData.isCouple)
+          );
+        }
+        
+        if (selectedSharingType && selectedSharingType !== 'all') {
+          filteredRooms = filteredRooms.filter((room: any) => 
+            room.sharing_type?.toLowerCase() === selectedSharingType.toLowerCase()
+          );
+        }
 
-        // Sort beds by bed_number
-        beds.sort((a, b) => a.bed_number - b.bed_number);
+        if (selectedRoomType && selectedRoomType !== 'all') {
+          filteredRooms = filteredRooms.filter((room: any) => 
+            room.room_type?.toLowerCase() === selectedRoomType.toLowerCase()
+          );
+        }
+        
+        setRooms(filteredRooms);
 
-        // Count available and occupied beds
-        const availableBeds = beds.filter(bed => !bed.is_occupied).length;
-        const occupiedBeds = beds.filter(bed => bed.is_occupied).length;
-
-        const genderPreference = room.room_gender_preference || [];
-
-        return {
-          id: room.id,
-          room_number: room.room_number?.toString() || `Room ${room.id}`,
-          room_type: room.room_type || '',
-          sharing_type: room.sharing_type || 'double',
-          monthly_rent: Number(room.rent_per_bed || 0),
-          daily_rate: Number(room.daily_rate || Math.round(Number(room.rent_per_bed || 0) / 30) || 500),
-          is_available: room.is_active === 1 || room.is_active === true,
-          floor: room.floor?.toString() || 'Ground',
-          total_beds: beds.length,
-          available_beds: availableBeds,
-          occupied_beds: occupiedBeds,
-          amenities: room.amenities || [],
-          gender_preference: genderPreference,
-          current_occupants_gender: room.current_occupants_gender || [],
-          room_gender_preference: genderPreference,
-          beds: beds,
-          raw_bed_assignments: bedAssignments // Keep raw for debugging
-        };
-      });
-
-     
-      
-      // Filter only available rooms
-      const availableRooms = transformedRooms.filter((room: any) => room.is_available === true);
-      
-      setAllRooms(availableRooms);
-      
-      if (resetFilters) {
-        setSelectedSharingType('all');
-        setSelectedRoomType('all');
-      }
-      
-      let filteredRooms = [...availableRooms];
-      
-      if (formData.gender) {
-        filteredRooms = filteredRooms.filter((room: any) => 
-          isRoomAllowedForGender(room, formData.gender, formData.isCouple)
-        );
-      }
-      
-      if (selectedSharingType && selectedSharingType !== 'all') {
-        filteredRooms = filteredRooms.filter((room: any) => 
-          room.sharing_type?.toLowerCase() === selectedSharingType.toLowerCase()
-        );
-      }
-
-      if (selectedRoomType && selectedRoomType !== 'all') {
-        filteredRooms = filteredRooms.filter((room: any) => 
-          room.room_type?.toLowerCase() === selectedRoomType.toLowerCase()
-        );
-      }
-      
-      setRooms(filteredRooms);
-
-      if (filteredRooms.length === 0) {
-        setRoomsError('No rooms match your filters');
+        if (filteredRooms.length === 0) {
+          setRoomsError('No rooms match your filters');
+        } else {
+          setRoomsError('');
+        }
       } else {
-        setRoomsError('');
+        setRoomsError('No rooms found');
       }
-    } else {
-      setRoomsError('No rooms found');
+
+    } catch (error) {
+      console.error('Error fetching rooms:', error);
+      setRoomsError('Unable to load rooms');
+    } finally {
+      setRoomsLoading(false);
     }
+  };
 
-  } catch (error) {
-    console.error('Error fetching rooms:', error);
-    setRoomsError('Unable to load rooms');
-  } finally {
-    setRoomsLoading(false);
-  }
-};
-
-  // Clear filters function
   const clearFilters = () => {
     setSelectedSharingType('all');
     setSelectedRoomType('all');
     
-    // Re-apply filters (which will now show all rooms)
     if (allRooms && allRooms.length > 0 && formData.gender) {
       let filtered = [...allRooms];
       
@@ -681,7 +903,6 @@ const fetchRooms = async (resetFilters = true) => {
     }
   };
 
-  // Reset state when modal opens/closes
   useEffect(() => {
     if (isOpen) {
       setBookingStep(1);
@@ -699,7 +920,6 @@ const fetchRooms = async (resetFilters = true) => {
       setShowFilters(false);
       preselectionAttempted.current = false;
 
-      // Scroll to top when step changes
       if (scrollContainerRef.current) {
         scrollContainerRef.current.scrollTop = 0;
       }
@@ -767,14 +987,12 @@ const fetchRooms = async (resetFilters = true) => {
     }
   }, [isOpen, propertyData?.id]);
 
-  // Scroll to top when step changes
   useEffect(() => {
     if (scrollContainerRef.current) {
       scrollContainerRef.current.scrollTop = 0;
     }
   }, [bookingStep]);
 
-  // Handle preselected room when rooms are loaded
   useEffect(() => {
     if (preselectedRoomId && rooms.length > 0 && !selectedRoom && !preselectionAttempted.current) {
       const preselectedIdStr = String(preselectedRoomId);
@@ -792,13 +1010,12 @@ const fetchRooms = async (resetFilters = true) => {
           autoIsCouple = true;
         }
         
-        // Auto-select gender based on room preference
         if (genderPref.includes('male_only') || genderPref.includes('male')) {
           autoGender = 'male';
         } else if (genderPref.includes('female_only') || genderPref.includes('female')) {
           autoGender = 'female';
         } else if (genderPref.includes('both') || genderPref.includes('mixed')) {
-          autoGender = 'male'; // Default to male for mixed rooms
+          autoGender = 'male';
         }
         
         setFormData(prev => ({
@@ -816,7 +1033,6 @@ const fetchRooms = async (resetFilters = true) => {
     }
   }, [preselectedRoomId, rooms, selectedRoom]);
 
-  // Filter rooms effect
   useEffect(() => {
     if (allRooms && allRooms.length > 0 && formData.gender) {
       let filtered = [...allRooms];
@@ -885,12 +1101,10 @@ const fetchRooms = async (resetFilters = true) => {
     let autoGender = formData.gender;
     let autoIsCouple = formData.isCouple;
     
-    // Auto-adjust based on room preferences
     if (genderPref.includes('couples')) {
       autoIsCouple = true;
     }
     
-    // Keep existing gender if valid for this room
     if (formData.gender) {
       const isGenderAllowed = genderPref.some((p: string) => {
         const prefLower = p.toLowerCase();
@@ -903,13 +1117,12 @@ const fetchRooms = async (resetFilters = true) => {
       });
       
       if (!isGenderAllowed) {
-        // Default to room's preferred gender
         if (genderPref.includes('male_only') || genderPref.includes('male')) {
           autoGender = 'male';
         } else if (genderPref.includes('female_only') || genderPref.includes('female')) {
           autoGender = 'female';
         } else {
-          autoGender = 'male'; // Default
+          autoGender = 'male';
         }
       }
     }
@@ -927,36 +1140,62 @@ const fetchRooms = async (resetFilters = true) => {
     }));
   }, [formData.gender, formData.isCouple]);
 
-const calculateRent = useCallback(() => {
-  if (!selectedBed) return 0;
-  
-  if (bookingType === 'short') {
-    const checkIn = new Date(formData.checkInDate);
-    const checkOut = new Date(formData.checkOutDate);
-    if (isNaN(checkIn.getTime()) || isNaN(checkOut.getTime())) return 0;
-    
-    const days = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
-    // For couple bookings, multiply rent by 2
-    const rentMultiplier = formData.isCouple ? 2 : 1;
-    return days * selectedBed.bedRent * rentMultiplier;
-  } else {
-    // For long stay, couple bookings multiply by 2
-    const rentMultiplier = formData.isCouple ? 2 : 1;
-    return selectedBed.bedRent * rentMultiplier;
-  }
-}, [bookingType, selectedBed, formData]);
-
-  const calculateTotal = useCallback(() => {
-    return calculateRent();
-  }, [calculateRent]);
-
-  const calculateTotalPayable = useCallback(() => {
-    if (bookingType === 'short') {
-      return calculateTotal();
-    } else {
-      return calculateTotal() + (propertyData?.securityDeposit || 0);
+  const getMinTenantRent = (room: any): number => {
+    if (room.bed_assignments && Array.isArray(room.bed_assignments) && room.bed_assignments.length > 0) {
+      const rents = room.bed_assignments
+        .map((bed: any) => {
+          let rent = null;
+          if (bed.tenant_rent) {
+            rent = parseFloat(bed.tenant_rent);
+          }
+          return rent && !isNaN(rent) && rent > 0 ? rent : null;
+        })
+        .filter((rent: number | null) => rent !== null);
+      
+      if (rents.length > 0) {
+        return Math.min(...rents);
+      }
     }
-  }, [bookingType, calculateTotal, propertyData]);
+    
+    if (room.beds && Array.isArray(room.beds) && room.beds.length > 0) {
+      const rents = room.beds
+        .map((bed: any) => {
+          let rent = null;
+          if (bed.bed_rent) {
+            rent = parseFloat(bed.bed_rent);
+          } else if (bed.tenant_rent) {
+            rent = parseFloat(bed.tenant_rent);
+          }
+          return rent && !isNaN(rent) && rent > 0 ? rent : null;
+        })
+        .filter((rent: number | null) => rent !== null);
+      
+      if (rents.length > 0) {
+        return Math.min(...rents);
+      }
+    }
+    
+    if (room.price) {
+      const price = parseFloat(room.price);
+      if (!isNaN(price) && price > 0) {
+        return price;
+      }
+    }
+    
+    if (room.rent_per_bed) {
+      const rent = parseFloat(room.rent_per_bed);
+      if (!isNaN(rent) && rent > 0) {
+        return rent;
+      }
+    }
+    
+    return 5000;
+  };
+
+
+
+
+
 
   const handleOTPVerify = useCallback((otp: string) => {
     if (otp === '123456') {
@@ -1003,49 +1242,53 @@ const calculateRent = useCallback(() => {
     };
   }, [formData, selectedRoom, bookingType, propertyData, paymentMethod, calculateTotalPayable, calculateRent, verified]);
 
-  const submitFinalBooking = async (paymentStatus: string) => {
-    setLoading(true);
+const submitFinalBooking = async (paymentStatus: string) => {
+  setLoading(true);
 
-    try {
-      const bookingData = {
-        ...prepareBookingData(),
-        paymentStatus,
-        bookingStatus: paymentStatus === "paid" ? "confirmed" : "pending",
-        gender: formData.gender, // Make sure gender is included
-      isCouple: formData.isCouple // Add isCouple field
-      };
+  try {
+    const bookingData = {
+      ...prepareBookingData(),
+      paymentStatus,
+      bookingStatus: paymentStatus === "paid" ? "confirmed" : "pending",
+      gender: formData.gender,
+      isCouple: formData.isCouple,
+      offer_code: appliedOffer?.code || null,
+      discount_amount: discountedAmount,
+      original_amount: calculateTotalPayable(),
+      final_amount: calculateFinalAmount()
+    };
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/bookings`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(bookingData),
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/bookings`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(bookingData),
+    });
+
+    const result = await response.json();
+    if (result.success) {
+      setConfirmationData({
+        id: result.bookingId,
+        roomNumber: selectedRoom?.room_number,
+        totalAmount: calculateFinalAmount(),
+        paymentMethod,
+        isCouple: formData.isCouple,
+        appliedOffer: appliedOffer?.code
       });
+      setShowConfirmation(true);
 
-      const result = await response.json();
-      if (result.success) {
-        setConfirmationData({
-          id: result.bookingId,
-          roomNumber: selectedRoom?.room_number,
-          totalAmount: calculateTotalPayable(),
-          paymentMethod,
-           isCouple: formData.isCouple,
-        });
-        setShowConfirmation(true);
-
-        if (onBookingSuccess) {
-          onBookingSuccess(result.data);
-        }
-      } else {
-        throw new Error(result.message || 'Failed to create booking');
+      if (onBookingSuccess) {
+        onBookingSuccess(result.data);
       }
-    } catch (err) {
-      console.error("Error submitting booking:", err);
-      alert("Error submitting booking. Please try again.");
-    } finally {
-      setLoading(false);
+    } else {
+      throw new Error(result.message || 'Failed to create booking');
     }
-  };
-
+  } catch (err) {
+    console.error("Error submitting booking:", err);
+    alert("Error submitting booking. Please try again.");
+  } finally {
+    setLoading(false);
+  }
+};
   const openRazorpay = async () => {
     try {
       setLoading(true);
@@ -1057,7 +1300,7 @@ const calculateRent = useCallback(() => {
         return;
       }
 
-      const orderData = await createRazorpayOrder(calculateTotalPayable());
+      const orderData = await createRazorpayOrder(calculateTotalPayable() - discountedAmount);
 
       if (!orderData || !orderData.order) {
         throw new Error('Failed to create payment order');
@@ -1087,7 +1330,9 @@ const calculateRent = useCallback(() => {
           room_id: selectedRoom?.id,
           booking_type: bookingType,
           is_couple: formData.isCouple,
-          gender: formData.gender
+          gender: formData.gender,
+          offer_code: appliedOffer?.code || null,
+          discount_amount: discountedAmount
         },
         theme: { color: "#2563eb" },
         modal: {
@@ -1402,7 +1647,7 @@ const calculateRent = useCallback(() => {
                       </div>
                     </div>
 
-                    {/* Gender Selection - Male/Female only (mandatory) */}
+                    {/* Gender Selection */}
                     <div>
                       <label className="block text-[10px] sm:text-xs font-semibold text-gray-700 mb-1">
                         Gender <span className="text-red-500">*</span>
@@ -1438,7 +1683,7 @@ const calculateRent = useCallback(() => {
                       </div>
                     </div>
 
-                    {/* Couple Booking Checkbox (optional) */}
+                    {/* Couple Booking Checkbox */}
                     <div className="flex items-center gap-2 p-2 bg-red-50 border border-red-200 rounded-lg">
                       <input
                         type="checkbox"
@@ -1508,7 +1753,7 @@ const calculateRent = useCallback(() => {
                 </div>
               )}
 
-              {/* STEP 2 - ROOM SELECTION WITH MASTERS FILTERS */}
+              {/* STEP 2 - ROOM SELECTION */}
               {bookingStep === 2 && (
                 <div className="space-y-3">
                   <div className="flex items-center gap-1.5 pb-1.5 border-b-2 border-gray-200">
@@ -1595,7 +1840,7 @@ const calculateRent = useCallback(() => {
                       {/* Filter Options */}
                       {showFilters && (
                         <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg space-y-3">
-                          {/* Sharing Type Filter from Masters */}
+                          {/* Sharing Type Filter */}
                           {roomsMasters["Sharing Type"] && roomsMasters["Sharing Type"].length > 0 && (
                             <div>
                               <label className="block text-[9px] font-medium text-gray-700 mb-1.5">
@@ -1615,63 +1860,21 @@ const calculateRent = useCallback(() => {
                                 </button>
                                 {roomsMasters["Sharing Type"].map((type) => {
                                   const typeName = type.name.toLowerCase();
-                                  const capacity = typeName.includes('single') ? 1 :
-                                                  typeName.includes('double') ? 2 :
-                                                  typeName.includes('triple') ? 3 : 2;
                                   return (
                                     <button
                                       key={type.id}
                                       type="button"
                                       onClick={() => setSelectedSharingType(typeName)}
-                                      className={`px-2 py-1 text-[9px] rounded-full border transition-all flex items-center gap-1 ${
+                                      className={`px-2 py-1 text-[9px] rounded-full border transition-all ${
                                         selectedSharingType === typeName
                                           ? 'bg-blue-600 text-white border-blue-600'
                                           : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
                                       }`}
                                     >
-                                      {typeName === 'single' && '👤'}
-                                      {typeName === 'double' && '👥'}
-                                      {typeName === 'triple' && '👥👥'}
-                                      {type.name} ({capacity})
+                                      {type.name}
                                     </button>
                                   );
                                 })}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Room Type Filter from Masters */}
-                          {roomsMasters["Room Type"] && roomsMasters["Room Type"].length > 1 && (
-                            <div>
-                              <label className="block text-[9px] font-medium text-gray-700 mb-1.5">
-                                Room Type
-                              </label>
-                              <div className="flex flex-wrap gap-1.5">
-                                <button
-                                  type="button"
-                                  onClick={() => setSelectedRoomType('all')}
-                                  className={`px-2 py-1 text-[9px] rounded-full border transition-all ${
-                                    selectedRoomType === 'all'
-                                      ? 'bg-blue-600 text-white border-blue-600'
-                                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
-                                  }`}
-                                >
-                                  All
-                                </button>
-                                {roomsMasters["Room Type"].map((type) => (
-                                  <button
-                                    key={type.id}
-                                    type="button"
-                                    onClick={() => setSelectedRoomType(type.name.toLowerCase())}
-                                    className={`px-2 py-1 text-[9px] rounded-full border transition-all capitalize ${
-                                      selectedRoomType === type.name.toLowerCase()
-                                        ? 'bg-blue-600 text-white border-blue-600'
-                                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
-                                    }`}
-                                  >
-                                    {type.name}
-                                  </button>
-                                ))}
                               </div>
                             </div>
                           )}
@@ -1695,11 +1898,6 @@ const calculateRent = useCallback(() => {
                                     {selectedSharingType}
                                   </Badge>
                                 )}
-                                {selectedRoomType !== 'all' && (
-                                  <Badge className="bg-purple-100 text-purple-800 text-[7px] px-1.5 py-0">
-                                    {selectedRoomType}
-                                  </Badge>
-                                )}
                               </div>
                             </div>
                           )}
@@ -1717,131 +1915,125 @@ const calculateRent = useCallback(() => {
                       </div>
 
                       {/* Rooms Grid - Show Individual Beds */}
-<div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-80 overflow-y-auto pr-1 pb-2">
-  {rooms.map((room) => {
-    const beds = room.beds || []; // Use beds array from bed_assignments
-    const availableBeds = beds.filter((bed: any) => !bed.is_occupied);
-    const totalBeds = room.total_beds || getSharingCapacity(room.sharing_type);
-    
-    return (
-      <div
-        key={room.id}
-        className={`border-2 rounded-lg p-3 transition-all ${
-          selectedRoom?.id === room.id 
-            ? 'border-blue-500 bg-blue-50' 
-            : 'border-gray-200 hover:border-gray-300'
-        }`}
-      >
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-100 to-blue-200 rounded flex items-center justify-center">
-              <DoorOpen className="w-4 h-4 text-blue-600" />
-            </div>
-            <div>
-              <p className="text-sm font-bold text-gray-900">Room {room.room_number}</p>
-              <p className="text-[10px] text-gray-500">Floor {room.floor || 'G'}</p>
-            </div>
-          </div>
-          <Badge className={`text-[9px] ${
-            availableBeds.length > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-          }`}>
-            {availableBeds.length} bed{availableBeds.length !== 1 ? 's' : ''} available
-          </Badge>
-        </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-80 overflow-y-auto pr-1 pb-2">
+                        {rooms.map((room) => {
+                          const beds = room.beds || [];
+                          const availableBeds = beds.filter((bed: any) => !bed.is_occupied);
+                          
+                          return (
+                            <div
+                              key={room.id}
+                              className={`border-2 rounded-lg p-3 transition-all ${
+                                selectedRoom?.id === room.id 
+                                  ? 'border-blue-500 bg-blue-50' 
+                                  : 'border-gray-200 hover:border-gray-300'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-8 h-8 bg-gradient-to-br from-blue-100 to-blue-200 rounded flex items-center justify-center">
+                                    <DoorOpen className="w-4 h-4 text-blue-600" />
+                                  </div>
+                                  <div>
+                                    <p className="text-sm font-bold text-gray-900">Room {room.room_number}</p>
+                                    <p className="text-[10px] text-gray-500">Floor {room.floor || 'G'}</p>
+                                  </div>
+                                </div>
+                                <Badge className={`text-[9px] ${
+                                  availableBeds.length > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                }`}>
+                                  {availableBeds.length} bed{availableBeds.length !== 1 ? 's' : ''} available
+                                </Badge>
+                              </div>
 
-        {/* Room Type and Gender */}
-        <div className="flex flex-wrap gap-1 mb-2">
-          <Badge className="text-[8px] bg-gray-100 text-black hover:text-white">
-            {formatSharingType(room.sharing_type)}
-          </Badge>
-          {room.room_gender_preference?.map((pref: string) => {
-            const prefLower = pref.toLowerCase();
-            if (prefLower === 'male_only' || prefLower === 'male') {
-              return <Badge key={pref} className="text-[8px] bg-blue-100 text-blue-800">♂ Male</Badge>;
-            } else if (prefLower === 'female_only' || prefLower === 'female') {
-              return <Badge key={pref} className="text-[8px] bg-pink-100 text-pink-800">♀ Female</Badge>;
-            } else if (prefLower === 'couples') {
-              return <Badge key={pref} className="text-[8px] bg-red-100 text-red-800">💑 Couples</Badge>;
-            } else if (prefLower === 'both' || prefLower === 'mixed') {
-              return <Badge key={pref} className="text-[8px] bg-purple-100 text-purple-800">👥 Mixed</Badge>;
-            }
-            return null;
-          })}
-        </div>
+                              {/* Room Type and Gender */}
+                              <div className="flex flex-wrap gap-1 mb-2">
+                                <Badge className="text-[8px] bg-gray-100 text-black">
+                                  {formatSharingType(room.sharing_type)}
+                                </Badge>
+                                {room.room_gender_preference?.map((pref: string) => {
+                                  const prefLower = pref.toLowerCase();
+                                  if (prefLower === 'male_only' || prefLower === 'male') {
+                                    return <Badge key={pref} className="text-[8px] bg-blue-100 text-blue-800">♂ Male</Badge>;
+                                  } else if (prefLower === 'female_only' || prefLower === 'female') {
+                                    return <Badge key={pref} className="text-[8px] bg-pink-100 text-pink-800">♀ Female</Badge>;
+                                  } else if (prefLower === 'couples') {
+                                    return <Badge key={pref} className="text-[8px] bg-red-100 text-red-800">💑 Couples</Badge>;
+                                  } else if (prefLower === 'both' || prefLower === 'mixed') {
+                                    return <Badge key={pref} className="text-[8px] bg-purple-100 text-purple-800">👥 Mixed</Badge>;
+                                  }
+                                  return null;
+                                })}
+                              </div>
 
-        {/* Individual Beds - Using tenant_rent from bed_assignments */}
-        <div className="space-y-1.5 mt-2">
-          {beds.map((bed: any) => {
-            const isBedAvailable = !bed.is_occupied;
-            const isSelected = selectedBed?.roomId === room.id && selectedBed?.bedNumber === bed.bed_number;
-            
-            return (
-              <div
-                key={bed.bed_number}
-                className={`flex items-center justify-between p-2 rounded-lg border cursor-pointer transition-all ${
-                  isSelected
-                    ? 'border-blue-500 bg-blue-100'
-                    : isBedAvailable
-                      ? 'border-green-200 hover:border-green-400 bg-green-50/50'
-                      : 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-60'
-                }`}
-                onClick={() => {
-                  if (isBedAvailable) {
-                    setSelectedRoom(room);
-                    setSelectedBed({
-                      roomId: room.id,
-                      bedNumber: bed.bed_number,
-                      bedRent: bed.bed_rent // This is tenant_rent from bed_assignments
-                    });
-                    setFormData(prev => ({
-                      ...prev,
-                      roomId: room.id.toString(),
-                      roomNumber: room.room_number,
-                      bedNumber: bed.bed_number,
-                      sharingType: room.sharing_type || '',
-                      monthlyRent: bed.bed_rent, // Use bed_rent from bed_assignments
-                      floor: room.floor || 'Ground'
-                    }));
-                  }
-                }}
-              >
-                <div className="flex items-center gap-2">
-                  <Bed className={`w-3.5 h-3.5 ${isBedAvailable ? 'text-green-600' : 'text-gray-400'}`} />
-                  <div>
-                    <span className="text-xs font-medium">Bed {bed.bed_number}</span>
-                    {bed.bed_type && (
-                      <span className="text-[9px] text-gray-500 ml-1">({bed.bed_type})</span>
-                    )}
-                    {bed.is_couple && (
-                      <span className="text-[8px] text-red-500 ml-1">👫</span>
-                    )}
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold text-green-700">
-                    ₹{Number(bed.bed_rent).toLocaleString()}
-                  </span>
-                  {isSelected && (
-                    <CheckCircle className="w-4 h-4 text-blue-600" />
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
+                              {/* Individual Beds */}
+                              <div className="space-y-1.5 mt-2">
+                                {beds.map((bed: any) => {
+                                  const isBedAvailable = !bed.is_occupied;
+                                  const isSelected = selectedBed?.roomId === room.id && selectedBed?.bedNumber === bed.bed_number;
+                                  
+                                  return (
+                                    <div
+                                      key={bed.bed_number}
+                                      className={`flex items-center justify-between p-2 rounded-lg border cursor-pointer transition-all ${
+                                        isSelected
+                                          ? 'border-blue-500 bg-blue-100'
+                                          : isBedAvailable
+                                            ? 'border-green-200 hover:border-green-400 bg-green-50/50'
+                                            : 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-60'
+                                      }`}
+                                      onClick={() => {
+                                        if (isBedAvailable) {
+                                          setSelectedRoom(room);
+                                          setSelectedBed({
+                                            roomId: room.id,
+                                            bedNumber: bed.bed_number,
+                                            bedRent: bed.bed_rent
+                                          });
+                                          setFormData(prev => ({
+                                            ...prev,
+                                            roomId: room.id.toString(),
+                                            roomNumber: room.room_number,
+                                            bedNumber: bed.bed_number,
+                                            sharingType: room.sharing_type || '',
+                                            monthlyRent: bed.bed_rent,
+                                            floor: room.floor || 'Ground'
+                                          }));
+                                        }
+                                      }}
+                                    >
+                                      <div className="flex items-center gap-2">
+                                        <Bed className={`w-3.5 h-3.5 ${isBedAvailable ? 'text-green-600' : 'text-gray-400'}`} />
+                                        <div>
+                                          <span className="text-xs font-medium">Bed {bed.bed_number}</span>
+                                          {bed.bed_type && (
+                                            <span className="text-[9px] text-gray-500 ml-1">({bed.bed_type})</span>
+                                          )}
+                                        </div>
+                                      </div>
+                                      
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-sm font-bold text-green-700">
+                                          ₹{Number(bed.bed_rent).toLocaleString()}
+                                        </span>
+                                        {isSelected && (
+                                          <CheckCircle className="w-4 h-4 text-blue-600" />
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
 
-        {/* Room Amenities */}
-        <div className="flex items-center gap-1 mt-2 pt-2 border-t border-gray-200">
-          {room.ac && <Wind className="w-3 h-3 text-blue-600" />}
-          {room.wifi && <Wifi className="w-3 h-3 text-blue-600" />}
-          {room.hasAttachedBathroom && <Bath className="w-3 h-3 text-blue-600" />}
-          {room.hasBalcony && <Home className="w-3 h-3 text-blue-600" />}
-        </div>
-      </div>
-    );
-  })}
-</div>
+                              {/* Room Amenities */}
+                              <div className="flex items-center gap-1 mt-2 pt-2 border-t border-gray-200">
+                                {room.ac && <Wind className="w-3 h-3 text-blue-600" />}
+                                {room.wifi && <Wifi className="w-3 h-3 text-blue-600" />}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1904,7 +2096,71 @@ const calculateRent = useCallback(() => {
                     </div>
                   </div>
 
-                  {/* In the payment step summary section */}
+                  {/* Offer Code Section */}
+                  <div className="mt-3">
+                    <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                      Have an Offer Code?
+                    </label>
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <div className="absolute left-2.5 top-1/2 -translate-y-1/2">
+                          <Ticket className="w-4 h-4 text-gray-400" />
+                        </div>
+                        <input
+                          type="text"
+                          value={offerCode}
+                          onChange={(e) => setOfferCode(e.target.value.toUpperCase())}
+                          placeholder="Enter offer code"
+                          className="w-full pl-8 pr-3 py-2 text-xs border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => validateAndApplyOffer(offerCode)}
+                        disabled={offerLoading || !offerCode}
+                        className="px-3 py-2 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                      >
+                        {offerLoading ? (
+                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        ) : (
+                          'Apply'
+                        )}
+                      </button>
+                    </div>
+                    
+                    {/* Offer feedback messages */}
+                    {offerError && (
+                      <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
+                        <AlertCircle className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
+                        <p className="text-[10px] text-red-700">{offerError}</p>
+                      </div>
+                    )}
+                    
+                    {offerSuccess && (
+                      <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
+                        <CheckCircle className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
+                        <p className="text-[10px] text-green-700">{offerSuccess}</p>
+                      </div>
+                    )}
+
+                    {/* Applied Offer Display */}
+                    {appliedOffer && (
+                      <div className="mt-2 p-2 bg-gradient-to-r from-yellow-50 to-amber-50 border border-yellow-200 rounded-lg">
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <Sparkles className="w-3.5 h-3.5 text-yellow-600" />
+                          <p className="text-xs font-bold text-yellow-800">{appliedOffer.title}</p>
+                        </div>
+                        <p className="text-[9px] text-yellow-700">{appliedOffer.description}</p>
+                        {appliedOffer.bonus_title && (
+                          <div className="mt-1 pt-1 border-t border-yellow-200">
+                            <p className="text-[8px] font-semibold text-yellow-800">🎁 Bonus: {appliedOffer.bonus_title}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Booking Summary */}
 <div className="bg-gradient-to-br from-blue-50 to-cyan-50 border border-blue-200 rounded-lg p-3">
   <h4 className="text-xs font-bold text-gray-900 mb-2.5 flex items-center gap-1">
     <Sparkles className="w-3 h-3 text-blue-600" />
@@ -1912,15 +2168,19 @@ const calculateRent = useCallback(() => {
   </h4>
 
   <div className="space-y-2">
+    {/* Room & Bed Details */}
     <div className="flex justify-between items-center">
       <span className="text-[10px] sm:text-xs text-gray-700">
         Room {selectedRoom?.room_number} • Bed {selectedBed?.bedNumber}
       </span>
       <span className="text-xs font-bold text-gray-900">
         ₹{selectedBed?.bedRent.toLocaleString()}
+        {bookingType === 'long' && <span className="text-[9px] text-gray-500 ml-0.5">/month</span>}
+        {bookingType === 'short' && <span className="text-[9px] text-gray-500 ml-0.5">/day</span>}
       </span>
     </div>
 
+    {/* Duration for Short Stay */}
     {bookingType === 'short' && formData.checkInDate && formData.checkOutDate && (
       <div className="flex justify-between items-center text-[9px] text-gray-600">
         <span>Duration</span>
@@ -1930,6 +2190,7 @@ const calculateRent = useCallback(() => {
       </div>
     )}
 
+    {/* Couple Booking Multiplier */}
     {formData.isCouple && (
       <div className="flex justify-between items-center text-[9px] text-gray-600">
         <span>Couple Booking</span>
@@ -1937,22 +2198,69 @@ const calculateRent = useCallback(() => {
       </div>
     )}
 
+    {/* Rent Amount */}
+    <div className="flex justify-between items-center pt-1">
+      <span className="text-[10px] sm:text-xs text-gray-700">
+        {bookingType === 'long' ? 'Monthly Rent' : 'Total Rent'}
+      </span>
+      <span className="text-xs font-bold text-gray-900">
+        ₹{calculateTotal().toLocaleString()}
+      </span>
+    </div>
+
+    {/* Security Deposit (only for long stay) */}
     {bookingType === 'long' && (
-      <div className="flex justify-between items-center pt-2 border-t border-blue-200">
+      <div className="flex justify-between items-center pt-1 border-t border-blue-200">
         <span className="text-[10px] sm:text-xs text-gray-700">Security Deposit</span>
-        <span className="text-xs font-bold text-gray-900">₹{(propertyData?.securityDeposit || 0).toLocaleString()}</span>
+        <span className="text-xs font-bold text-gray-900">
+          ₹{(propertyData?.securityDeposit || 0).toLocaleString()}
+        </span>
       </div>
     )}
 
+    {/* Subtotal */}
+    <div className="flex justify-between items-center pt-1 border-t border-blue-200">
+      <span className="text-[10px] sm:text-xs font-semibold text-gray-700">Subtotal</span>
+      <span className="text-xs font-bold text-gray-900">₹{calculateTotalPayable().toLocaleString()}</span>
+    </div>
+
+    {/* Discount Row */}
+    {appliedOffer && discountedAmount > 0 && (
+      <div className="flex justify-between items-center pt-1">
+        <div className="flex items-center gap-1">
+          <span className="text-[10px] sm:text-xs text-green-600">Discount</span>
+          <Badge className="bg-green-100 text-green-800 text-[8px] px-1.5">
+            {appliedOffer.discount_type === 'percentage' 
+              ? `${appliedOffer.discount_percent}% OFF` 
+              : `₹${appliedOffer.discount_value} OFF`}
+          </Badge>
+        </div>
+        <span className="text-xs font-bold text-green-600">- ₹{discountedAmount.toLocaleString()}</span>
+      </div>
+    )}
+
+    {/* Final Total */}
     <div className="border-t-2 border-blue-300 pt-2.5 mt-2">
       <div className="flex justify-between items-center">
         <span className="text-xs sm:text-sm font-bold text-gray-900">
-          {bookingType === 'long' ? 'Total Payable' : 'Total'}
+          Total Payable
         </span>
         <span className="text-lg sm:text-xl font-bold text-blue-600">
-          ₹{calculateTotalPayable().toLocaleString()}
+          ₹{calculateFinalAmount().toLocaleString()}
         </span>
       </div>
+      
+      {/* Show original price if discounted */}
+      {appliedOffer && discountedAmount > 0 && (
+        <div className="flex justify-end items-center mt-1">
+          <span className="text-[9px] text-gray-400 line-through">
+            ₹{calculateTotalPayable().toLocaleString()}
+          </span>
+          <span className="text-[9px] text-green-600 ml-1.5">
+            Save ₹{discountedAmount.toLocaleString()}
+          </span>
+        </div>
+      )}
     </div>
   </div>
 </div>
@@ -1986,41 +2294,44 @@ const calculateRent = useCallback(() => {
                 Back
               </button>
             )}
-            <button
-              type="submit"
-              form="booking-form"
-              disabled={loading || (bookingStep === 2 && (roomsLoading || !selectedRoom))}
-              className={`flex-1 py-2.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 shadow ${
-                bookingStep === 3 ? 'bg-gradient-to-r from-green-500 to-green-600 text-white' : 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white'
-              } disabled:opacity-50`}
-              onClick={handleBookingSubmit}
-            >
-              {loading ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                  <span className="hidden sm:inline">Processing...</span>
-                </>
-              ) : bookingStep === 1 ? (
-                  <>
-                    Verify & Continue
-                    <ChevronRight className="w-4 h-4" />
-                  </>
-              ) : bookingStep === 2 ? (
-                    selectedRoom ? (
-                      <>
-                        Continue
-                        <ChevronRight className="w-4 h-4" />
-                      </>
-                    ) : (
-                      'Select Room'
-                    )
-                  ) : (
-                    <>
-                      {paymentMethod === 'online' ? `Pay ₹${calculateTotalPayable().toLocaleString()}` : 'Confirm Booking'}
-                      <Check className="w-4 h-4" />
-                    </>
-              )}
-            </button>
+<button
+  type="submit"
+  form="booking-form"
+  disabled={loading || (bookingStep === 2 && (roomsLoading || !selectedRoom))}
+  className={`flex-1 py-2.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 shadow ${
+    bookingStep === 3 ? 'bg-gradient-to-r from-green-500 to-green-600 text-white' : 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white'
+  } disabled:opacity-50`}
+  onClick={handleBookingSubmit}
+>
+  {loading ? (
+    <>
+      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+      <span className="hidden sm:inline">Processing...</span>
+    </>
+  ) : bookingStep === 1 ? (
+    <>
+      Verify & Continue
+      <ChevronRight className="w-4 h-4" />
+    </>
+  ) : bookingStep === 2 ? (
+    selectedRoom ? (
+      <>
+        Continue
+        <ChevronRight className="w-4 h-4" />
+      </>
+    ) : (
+      'Select Room'
+    )
+  ) : (
+    <>
+      {paymentMethod === 'online' 
+        ? `Pay ₹${calculateFinalAmount().toLocaleString()}`
+        : `Confirm Booking ${appliedOffer ? `(Save ₹${discountedAmount.toLocaleString()})` : ''}`
+      }
+      <Check className="w-4 h-4" />
+    </>
+  )}
+</button>
           </div>
         </div>
       </div>

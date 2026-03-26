@@ -25,7 +25,6 @@ import {
   updateMaintenanceStatus,
   assignMaintenanceStaff,
     bulkDeleteMaintenanceRequests,  // Add this line
-
   resolveMaintenance,
   getActiveStaff,
   type MaintenanceRequest
@@ -109,6 +108,29 @@ const [bulkActionLoading, setBulkActionLoading] = useState(false);
       setStaff([]);
     }
   };
+
+  const fetchMaintenanceRequestDetails = async (id: number): Promise<MaintenanceRequest | null> => {
+  try {
+    const token = localStorage.getItem("auth_token") || localStorage.getItem("token");
+    if (!token) return null;
+
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/maintenance/${id}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      return data.data;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error fetching maintenance details:', error);
+    return null;
+  }
+};
 
   const refreshData = async () => {
     try {

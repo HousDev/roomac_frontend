@@ -9,7 +9,8 @@ import {
   Bed,
   Home,
   Check,
-  Receipt // Add Receipt icon
+  Receipt, // Add Receipt icon
+  FileText
 } from 'lucide-react';
 import { 
   REQUEST_TYPE_ICONS, 
@@ -30,6 +31,120 @@ export function RequestCard({ request }: RequestCardProps) {
   // Get the display status using the mapper
   const displayStatus = getDisplayStatus(request);
   const statusConfig = getStatusConfig(displayStatus);
+
+// components/tenant/tenant-requests/RequestCard.tsx - Updated renderAdminNotes function
+
+function renderAdminNotes(request: TenantRequest) {
+  if (!request.admin_notes) return null;
+  
+  // Parse the notes string into individual entries
+  const noteEntries: Array<{ timestamp: string; status: string; note: string }> = [];
+  
+  // Split by timestamp pattern [date, time]
+  const lines = request.admin_notes.split('\n');
+  let currentEntry: { timestamp: string; status: string; note: string } | null = null;
+  
+  for (const line of lines) {
+    const trimmedLine = line.trim();
+    if (!trimmedLine) continue;
+    
+    // Check if this line contains a timestamp
+    const timestampMatch = trimmedLine.match(/\[(.*?)\]/);
+    if (timestampMatch) {
+      // Save previous entry if exists
+      if (currentEntry) {
+        noteEntries.push(currentEntry);
+      }
+      
+      // Start new entry
+      currentEntry = {
+        timestamp: timestampMatch[1],
+        status: '',
+        note: ''
+      };
+      
+      // Extract status from the line
+      const statusMatch = trimmedLine.match(/Status changed to (\w+):/);
+      if (statusMatch) {
+        currentEntry.status = statusMatch[1];
+        // Extract note part after the colon
+        const notePart = trimmedLine.replace(/\[.*?\]\s*Status changed to \w+:\s*/, '');
+        currentEntry.note = notePart;
+      }
+    } else if (currentEntry && trimmedLine) {
+      // This is continuation of the note
+      currentEntry.note = currentEntry.note ? currentEntry.note + ' ' + trimmedLine : trimmedLine;
+    }
+  }
+  
+  // Add the last entry
+  if (currentEntry) {
+    noteEntries.push(currentEntry);
+  }
+  
+  if (noteEntries.length === 0) return null;
+  
+  // Show the most recent 3 entries
+  const recentEntries = noteEntries.slice(-3);
+  
+  // Get status color for display
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'pending': return 'text-yellow-700 bg-yellow-50';
+      case 'in_progress': return 'text-blue-700 bg-blue-50';
+      case 'resolved': return 'text-green-700 bg-green-50';
+      case 'closed': return 'text-gray-700 bg-gray-50';
+      default: return 'text-gray-700 bg-gray-50';
+    }
+  };
+  
+  const getStatusBadge = (status: string) => {
+    const statusMap: Record<string, { label: string; color: string }> = {
+      pending: { label: 'Pending', color: 'bg-yellow-100 text-yellow-800' },
+      in_progress: { label: 'In Progress', color: 'bg-blue-100 text-blue-800' },
+      resolved: { label: 'Resolved', color: 'bg-green-100 text-green-800' },
+      closed: { label: 'Closed', color: 'bg-gray-100 text-gray-800' }
+    };
+    
+    const config = statusMap[status] || statusMap.pending;
+    return (
+      <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${config.color} font-medium`}>
+        {config.label}
+      </span>
+    );
+  };
+  
+  return (
+    <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+      <h4 className="font-medium text-sm mb-2 text-blue-800 flex items-center gap-1">
+        <FileText className="h-3.5 w-3.5" />
+        Admin Updates
+      </h4>
+      <div className="space-y-2 max-h-48 overflow-y-auto">
+        {recentEntries.map((entry, idx) => (
+          <div key={idx} className="border-l-2 border-blue-300 pl-2 py-1">
+            <div className="flex items-center justify-between gap-2 mb-1">
+              <span className="text-[10px] text-gray-500 font-mono">
+                {entry.timestamp}
+              </span>
+              {getStatusBadge(entry.status)}
+            </div>
+            {entry.note && (
+              <p className="text-xs text-gray-700 mt-0.5">
+                {entry.note}
+              </p>
+            )}
+          </div>
+        ))}
+      </div>
+      {noteEntries.length > 3 && (
+        <p className="text-[10px] text-blue-500 mt-2">
+          +{noteEntries.length - 3} older updates
+        </p>
+      )}
+    </div>
+  );
+}
 
   return (
     <Card key={request.id} className="overflow-hidden">
@@ -103,6 +218,7 @@ export function RequestCard({ request }: RequestCardProps) {
             
             {/* Render specific details based on request type */}
             {renderRequestDetails(request)}
+            {renderAdminNotes(request)}
           </div>
         </div>
       </CardContent>
@@ -380,6 +496,10 @@ function LeaveRequestDetails({ request }: { request: TenantRequest }) {
 function MaintenanceRequestDetails({ request }: { request: TenantRequest }) {
   if (!request.maintenance_data) return null;
 
+  // Get status config for display
+  const displayStatus = getDisplayStatus(request);
+  const statusConfig = getStatusConfig(displayStatus);
+
   return (
     <div className="mt-4 p-3 bg-orange-50 rounded-lg border border-orange-200">
       <h4 className="font-medium text-sm mb-2 text-orange-800">Maintenance Details:</h4>
@@ -390,7 +510,7 @@ function MaintenanceRequestDetails({ request }: { request: TenantRequest }) {
         </div>
         <div>
           <span className="font-medium text-orange-700">Location: </span>
-          <span className="capitalize">{request.maintenance_data.location}</span>
+          <span className="capitalize">{request.maintenance_data.location?.replace('_', ' ')}</span>
         </div>
         <div>
           <span className="font-medium text-orange-700">Preferred Visit Time: </span>
@@ -399,6 +519,12 @@ function MaintenanceRequestDetails({ request }: { request: TenantRequest }) {
         <div>
           <span className="font-medium text-orange-700">Access Permission: </span>
           <span>{request.maintenance_data.access_permission ? 'Granted' : 'Not Granted'}</span>
+        </div>
+        <div className="col-span-2">
+          <span className="font-medium text-orange-700">Current Status: </span>
+          <Badge variant={statusConfig.variant} className={`ml-1 ${statusConfig.color}`}>
+            {statusConfig.label}
+          </Badge>
         </div>
       </div>
     </div>
