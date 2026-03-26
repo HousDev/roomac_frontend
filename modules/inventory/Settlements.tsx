@@ -580,11 +580,14 @@ const handleExport = () => {
             </div>
           </div>
 
-<div className={`w-full overflow-x-auto overflow-y-auto rounded-b-lg transition-all duration-300 ${
-  selectedItems.size > 0
-    ? 'max-h-[350px] md:max-h-[450px]'
-    : 'max-h-[350px] md:max-h-[450px]'
-}`}>            <table className="w-full text-[11px] border-collapse" style={{ minWidth: '1380px' }}>
+<div
+  className="overflow-auto rounded-b-lg transition-all duration-300"
+  style={{
+    maxHeight: selectedItems.size > 0
+      ? (window.innerWidth >= 768 ? '460px' : '360px')
+      : (window.innerWidth >= 768 ? '460px' : '360px')
+  }}
+>            <table className="w-full text-[11px] border-collapse" style={{ minWidth: '1380px' }}>
               <thead className="sticky top-0 z-10">
                 <tr className="bg-gray-50 border-b-2 border-gray-200">
                   <th className="py-2 px-2 w-8">

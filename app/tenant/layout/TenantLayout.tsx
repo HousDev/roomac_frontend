@@ -785,21 +785,22 @@ function TenantHeader({
 
   return (
     // ← Reduced header padding on mobile: py-2 on mobile, py-4 on lg+
-    <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-200">
-      <div className="px-3 sm:px-6 py-2 lg:py-4 flex items-center justify-between">
-        {/* Left */}
-        <div className="flex items-center gap-2 lg:gap-3">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="lg:hidden hover:bg-blue-700 h-8 w-8"
-            onClick={onMenuClick}
-          >
-            <Menu className="h-4 w-4" />
-          </Button>
-          <div>
-            {/* ← Smaller title on mobile */}
-             <h1 className="text-lg sm:text-xl font-semibold text-slate-900">
+  <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-200">
+  <div className="px-3 sm:px-6 py-2 lg:py-3 flex items-center justify-between gap-2">
+
+    {/* Left */}
+    <div className="flex items-center gap-2 min-w-0">
+      <Button
+        variant="ghost"
+        size="icon"
+        className="lg:hidden hover:bg-blue-700 h-8 w-8 flex-shrink-0"
+        onClick={onMenuClick}
+      >
+        <Menu className="h-4 w-4" />
+      </Button>
+
+      <div className="min-w-0">
+        <h1 className="text-sm sm:text-base lg:text-xl font-semibold text-slate-900 leading-tight truncate">
           Welcome back,{" "}
           <span className="text-[#0149ab]">
             {tenant?.salutation
@@ -807,131 +808,140 @@ function TenantHeader({
               : tenant?.full_name?.split(" ")[0] || "Tenant"}!👋
           </span>
         </h1>
-        <p className="text-slate-500 text-xs flex items-center gap-1.5 mt-0.5">
-          <Building className="h-3 w-3 shrink-0 text-slate-400" />
+        <p className="text-slate-500 text-[10px] sm:text-xs flex items-center gap-1 mt-0.5 truncate">
+          <Building className="h-3 w-3 flex-shrink-0 text-slate-400" />
           <span className="truncate">
-            {tenant?.property_name || "Roomac Heights"} · Room {tenant?.room_number || "204"} · Bed {tenant?.bed_number || "1"}
-          </span>
+  {tenant?.property_name || "Roomac Heights"}
+
+  <span className="hidden sm:inline">
+    {" "}· Room {tenant?.room_number || "204"} · Bed {tenant?.bed_number || "1"}
+  </span>
+</span>
         </p>
-            
-          </div>
-        </div>
-
-        {/* Right */}
-        <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-3">
-          <p className="text-[10px] sm:text-xs lg:text-sm font-semibold 
-bg-gradient-to-br from-[#004aad] to-[#002a7a]  bg-clip-text text-transparent">
-
-  {new Date().toLocaleDateString("en-US", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  })}
-</p>
-          {/* Bell */}
-          <div className="relative" ref={notificationsRef}>
-            <Button
-              variant="ghost"
-              size="icon"
-              // ← Smaller button on mobile
-              className="relative hover:bg-slate-500 h-8 w-8 lg:h-10 lg:w-10"
-              onClick={() => setNotificationsOpen(!notificationsOpen)}
-            >
-              <Bell className="h-4 w-4 lg:h-5 lg:w-5" />
-              {notificationCount > 0 && (
-                <Badge
-                  variant="destructive"
-                  className="absolute -top-1 -right-1 h-4 w-4 lg:h-5 lg:w-5 flex items-center justify-center text-[9px] lg:text-xs"
-                >
-                  {notificationCount > 9 ? "9+" : notificationCount}
-                </Badge>
-              )}
-            </Button>
-
-            {notificationsOpen && (
-              <NotificationPopup
-                notifications={notifications}
-                unreadCount={notificationCount}
-                onMarkAllRead={onMarkAllRead}
-                onNotificationClick={handleNotificationClick}
-                onClose={() => setNotificationsOpen(false)}
-              onViewAll={() => {
-  setNotificationsOpen(false);
-  onNavigate("/tenant/notifications");  // ← CHANGE THIS from "/tenant/portal/#notifications"
-}}
-                loading={loadingNotifications}
-              />
-            )}
-          </div>
-
-          {/* Profile Dropdown */}
-          <div className="relative" ref={profileRef}>
-            {/* ← Smaller avatar on mobile */}
-            <Button
-              variant="ghost"
-              className="h-7 w-7 lg:h-8 lg:w-8 rounded-full p-0"
-              onClick={() => setProfileOpen(!profileOpen)}
-            >
-              <Avatar className="h-7 w-7 lg:h-8 lg:w-8">
-                <AvatarImage src={tenant?.photo_url} alt={tenant?.full_name} />
-                <AvatarFallback className="bg-[#fec40a] text-black text-xs lg:text-sm font-semibold">
-                  {tenant?.full_name?.charAt(0) || "T"}
-                </AvatarFallback>
-              </Avatar>
-            </Button>
-
-            {profileOpen && (
-              <div className="absolute right-0 mt-2 w-48 lg:w-56 bg-white rounded-lg shadow-xl border border-slate-200 z-50">
-                <div className="p-2.5 lg:p-3 border-b border-slate-200">
-                  <p className="font-medium text-xs lg:text-sm text-slate-900 truncate">
-                    {tenant?.full_name}
-                  </p>
-                  <p className="text-[10px] lg:text-xs text-slate-500 truncate">
-                    {tenant?.email}
-                  </p>
-                </div>
-                <div className="p-1">
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start h-8 lg:h-9 px-2 text-xs lg:text-sm hover:bg-slate-100 hover:text-black"
-                    onClick={() => {
-                      onNavigate("/tenant/profile");
-                      setProfileOpen(false);
-                    }}
-                  >
-                    <User className="h-3.5 w-3.5 lg:h-4 lg:w-4 mr-2" /> Profile
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start h-8 lg:h-9 px-2 text-xs lg:text-sm hover:bg-slate-100 hover:text-black"
-                    onClick={() => {
-                      onNavigate("/tenant/settings");
-                      setProfileOpen(false);
-                    }}
-                  >
-                    <Settings className="h-3.5 w-3.5 lg:h-4 lg:w-4 mr-2" />{" "}
-                    Settings
-                  </Button>
-                </div>
-                <div className="border-t border-slate-200 p-1">
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start h-8 lg:h-9 px-2 text-xs lg:text-sm text-red-600 hover:bg-red-50 hover:text-red-600"
-                    onClick={() => {
-                      onLogout();
-                      setProfileOpen(false);
-                    }}
-                  >
-                    <LogOut className="h-3.5 w-3.5 lg:h-4 lg:w-4 mr-2" /> Logout
-                  </Button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
       </div>
-    </header>
+    </div>
+
+    {/* Right */}
+    <div className="flex items-center gap-1 sm:gap-2 lg:gap-3 flex-shrink-0">
+
+      {/* Date — hidden on small screens */}
+      <p className="hidden sm:block text-[10px] sm:text-xs lg:text-sm font-semibold bg-gradient-to-br from-[#004aad] to-[#002a7a] bg-clip-text text-transparent whitespace-nowrap">
+        {new Date().toLocaleDateString("en-US", {
+          weekday: "long",
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        })}
+      </p>
+
+      {/* Date — short version on mobile only */}
+      <p className="block sm:hidden text-[10px] font-semibold bg-gradient-to-br from-[#004aad] to-[#002a7a] bg-clip-text text-transparent whitespace-nowrap">
+        {new Date().toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+        })}
+      </p>
+
+      {/* Bell */}
+      <div className="relative" ref={notificationsRef}>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="relative hover:bg-slate-100 h-8 w-8 lg:h-9 lg:w-9"
+          onClick={() => setNotificationsOpen(!notificationsOpen)}
+        >
+          <Bell className="h-4 w-4 lg:h-5 lg:w-5" />
+          {notificationCount > 0 && (
+            <Badge
+              variant="destructive"
+              className="absolute -top-1 -right-1 h-4 w-4 lg:h-5 lg:w-5 flex items-center justify-center text-[9px] lg:text-xs p-0"
+            >
+              {notificationCount > 9 ? "9+" : notificationCount}
+            </Badge>
+          )}
+        </Button>
+
+        {notificationsOpen && (
+          <NotificationPopup
+            notifications={notifications}
+            unreadCount={notificationCount}
+            onMarkAllRead={onMarkAllRead}
+            onNotificationClick={handleNotificationClick}
+            onClose={() => setNotificationsOpen(false)}
+            onViewAll={() => {
+              setNotificationsOpen(false);
+              onNavigate("/tenant/notifications");
+            }}
+            loading={loadingNotifications}
+          />
+        )}
+      </div>
+
+      {/* Profile Dropdown */}
+      <div className="relative" ref={profileRef}>
+        <Button
+          variant="ghost"
+          className="h-7 w-7 lg:h-9 lg:w-9 rounded-full p-0"
+          onClick={() => setProfileOpen(!profileOpen)}
+        >
+          <Avatar className="h-7 w-7 lg:h-9 lg:w-9">
+            <AvatarImage src={tenant?.photo_url} alt={tenant?.full_name} />
+            <AvatarFallback className="bg-[#fec40a] text-black text-xs font-semibold">
+              {tenant?.full_name?.charAt(0) || "T"}
+            </AvatarFallback>
+          </Avatar>
+        </Button>
+
+        {profileOpen && (
+          <div className="absolute right-0 mt-2 w-44 sm:w-48 lg:w-56 bg-white rounded-xl shadow-xl border border-slate-200 z-50">
+            <div className="p-2.5 lg:p-3 border-b border-slate-200">
+              <p className="font-medium text-xs lg:text-sm text-slate-900 truncate">
+                {tenant?.full_name}
+              </p>
+              <p className="text-[10px] lg:text-xs text-slate-500 truncate">
+                {tenant?.email}
+              </p>
+            </div>
+            <div className="p-1">
+              <Button
+                variant="ghost"
+                className="w-full justify-start h-8 lg:h-9 px-2 text-xs lg:text-sm hover:bg-slate-100 hover:text-black"
+                onClick={() => {
+                  onNavigate("/tenant/profile");
+                  setProfileOpen(false);
+                }}
+              >
+                <User className="h-3.5 w-3.5 mr-2" /> Profile
+              </Button>
+              <Button
+                variant="ghost"
+                className="w-full justify-start h-8 lg:h-9 px-2 text-xs lg:text-sm hover:bg-slate-100 hover:text-black"
+                onClick={() => {
+                  onNavigate("/tenant/settings");
+                  setProfileOpen(false);
+                }}
+              >
+                <Settings className="h-3.5 w-3.5 mr-2" /> Settings
+              </Button>
+            </div>
+            <div className="border-t border-slate-200 p-1">
+              <Button
+                variant="ghost"
+                className="w-full justify-start h-8 lg:h-9 px-2 text-xs lg:text-sm text-red-600 hover:bg-red-50 hover:text-red-600"
+                onClick={() => {
+                  onLogout();
+                  setProfileOpen(false);
+                }}
+              >
+                <LogOut className="h-3.5 w-3.5 mr-2" /> Logout
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+</header>
   );
 }
 

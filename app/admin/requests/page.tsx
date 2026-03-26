@@ -366,7 +366,7 @@ const RequestsPage = () => {
   ];
 
   return (
-    <div className="w-full px-2 sm:px-4">
+    <div className="w-full px-0 sm:px-0">
 
       {/* ── Tabs ── */}
       <div

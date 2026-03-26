@@ -194,66 +194,71 @@ export default function SupportPage() {
 
 
   return (
-    <div className="p-0 sm:p-6 max-w-9xl mx-auto">
+    <div className="p-3 sm:p-6 max-w-9xl mx-auto">
 
       {/* Page Header */}
-      <div className="mb-6 bg-[#0149ab] rounded-xl p-4 sm:p-6 text-white">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="h-10 w-10 bg-white/20 rounded-lg flex items-center justify-center">
-            <Headphones className="h-5 w-5 text-white" />
-          </div>
-          <div>
-            <h1 className="text-xl sm:text-2xl font-bold">Support Center</h1>
-            <p className="text-blue-100 text-sm">We're here to help — 24/7</p>
-          </div>
-        </div>
-      </div>
+     <div className="mb-6 bg-[#0149ab] rounded-xl p-4 sm:p-6 text-white">
+  <div className="flex items-center gap-3 mb-2">
+    <div className="h-10 w-10 bg-white/20 rounded-lg flex items-center justify-center">
+      <Headphones className="h-5 w-5 text-white" />
+    </div>
+    <div>
+      <h1 className="text-xl sm:text-2xl font-bold">Support Center</h1>
+      <p className="text-blue-100 text-sm">We're here to help — 24/7</p>
+    </div>
+  </div>
+</div>
 
-      {/* Quick Contact Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-6">
-        {[
-          {
-            icon: Phone,
-            title: "Call Us",
-            value: "+91 98765 43210",
-            sub: "Mon–Sat, 9am–7pm",
-            color: "text-green-600",
-            bg: "bg-green-50",
-            border: "border-green-200",
-          },
-          {
-            icon: Mail,
-            title: "Email Us",
-            value: "support@roomac.com",
-            sub: "Reply within 24 hours",
-            color: "text-blue-600",
-            bg: "bg-blue-50",
-            border: "border-blue-200",
-          },
-          {
-            icon: Clock,
-            title: "Response Time",
-            value: "< 24 Hours",
-            sub: "For all support tickets",
-            color: "text-orange-600",
-            bg: "bg-orange-50",
-            border: "border-orange-200",
-          },
-        ].map(({ icon: Icon, title, value, sub, color, bg, border }) => (
-          <Card key={title} className={`border ${border} shadow-sm`}>
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className={`h-10 w-10 rounded-lg ${bg} flex items-center justify-center shrink-0`}>
-                <Icon className={`h-5 w-5 ${color}`} />
-              </div>
-              <div>
-                <p className="text-xs text-slate-500">{title}</p>
-                <p className="font-semibold text-sm text-slate-900">{value}</p>
-                <p className="text-xs text-slate-400">{sub}</p>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+{/* Quick Contact Cards */}
+<div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4 mb-6">
+  {[
+    {
+      icon: Phone,
+      title: "Call Us",
+      value: "+91 98765 43210",
+      sub: "Mon–Sat, 9am–7pm",
+      color: "text-green-600",
+      bg: "bg-green-50",
+      border: "border-green-200",
+    },
+    {
+      icon: Mail,
+      title: "Email Us",
+      value: "support@roomac.com",
+      sub: "Reply within 24 hours",
+      color: "text-blue-600",
+      bg: "bg-blue-50",
+      border: "border-blue-200",
+    },
+    {
+      icon: Clock,
+      title: "Response Time",
+      value: "< 24 Hours",
+      sub: "For all support tickets",
+      color: "text-orange-600",
+      bg: "bg-orange-50",
+      border: "border-orange-200",
+    },
+  ].map(({ icon: Icon, title, value, sub, color, bg, border }) => (
+    <Card key={title} className={`border ${border} shadow-sm`}>
+      <CardContent className="p-3 sm:p-4 flex items-center gap-2 sm:gap-3">
+        
+        {/* Icon */}
+        <div className={`h-8 w-8 sm:h-10 sm:w-10 rounded-lg ${bg} flex items-center justify-center shrink-0`}>
+          <Icon className={`h-4 w-4 sm:h-5 sm:w-5 ${color}`} />
+        </div>
+
+        {/* Text */}
+        <div className="leading-tight">
+          <p className="text-[10px] sm:text-xs text-slate-500">{title}</p>
+          <p className="font-semibold text-xs sm:text-sm text-slate-900">{value}</p>
+          <p className="text-[10px] sm:text-xs text-slate-400">{sub}</p>
+        </div>
+
+      </CardContent>
+    </Card>
+  ))}
+</div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 

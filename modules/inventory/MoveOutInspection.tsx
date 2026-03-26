@@ -1404,11 +1404,14 @@ const handlePrint = () => {
               </div>
             </div>
 
-<div className={`overflow-auto rounded-b-lg transition-all duration-300 ${
-  selectedItems.size > 0
-    ? 'max-h-[310px] md:max-h-[450px]'
-    : 'max-h-[310px] md:max-h-[450px]'
-}`}>              <div className="min-w-[1200px]">
+<div
+  className="overflow-auto rounded-b-lg transition-all duration-300"
+  style={{
+    maxHeight: selectedItems.size > 0
+      ? (window.innerWidth >= 768 ? '450px' : '310px')
+      : (window.innerWidth >= 768 ? '450px' : '310px')
+  }}
+>            <div className="min-w-[1200px]">
                 <Table>
                   <TableHeader className="sticky top-0 z-10 bg-gray-50">
                     <TableRow>

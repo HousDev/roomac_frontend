@@ -454,7 +454,7 @@ export function VisitorDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-6">
-      <div className="max-w-7xl mx-auto px-0 sm:px-0 lg:px-3 py-4 sm:py-6">
+      <div className="max-w-8xl mx-auto px-0 sm:px-0 lg:px-0 py-4 sm:py-6">
 
         {/* Mobile Header */}
         <MobileHeader

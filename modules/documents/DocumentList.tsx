@@ -86,8 +86,8 @@ const MAIN_STEPS: Array<{
     label: "E-Sign Pending",
     short: "E-Sign",   
     Icon: Pen,
-    headerColor: "from-indigo-600 to-indigo-700",
-    headerGradient: "bg-gradient-to-r from-indigo-600 to-indigo-700",
+    headerColor: "from-red-600 to-indigo-800",
+    headerGradient: "bg-gradient-to-r from-indigo-600 to-indigo-800",
     accentColor: "indigo"
   },
  { 
@@ -1337,7 +1337,7 @@ function ESignPopup({ doc, onClose, onDone }: { doc: Doc; onClose: () => void; o
   };
 
   const getHeaderGradient = () => {
-    return "from-indigo-600 to-indigo-700";
+    return "from-indigo-600 to-indigo-800";
   };
 
   return (
@@ -1383,7 +1383,7 @@ function ESignPopup({ doc, onClose, onDone }: { doc: Doc; onClose: () => void; o
               </p>
               <button
                 onClick={addSigner}
-                className="h-5 sm:h-6 px-1.5 sm:px-2 rounded-lg bg-gradient-to-r from-indigo-600 to-indigo-700 text-white text-[8px] sm:text-[9px] font-semibold flex items-center gap-0.5 hover:scale-105 transition-all"
+                className="h-5 sm:h-6 px-1.5 sm:px-2 rounded-lg bg-gradient-to-r from-indigo-600 to-indigo-800 text-white text-[8px] sm:text-[9px] font-semibold flex items-center gap-0.5 hover:scale-105 transition-all"
               >
                 <Plus className="h-2.5 w-2.5" /> Add
               </button>
@@ -1439,7 +1439,7 @@ function ESignPopup({ doc, onClose, onDone }: { doc: Doc; onClose: () => void; o
                 )}
 
                 <div className="flex gap-1 pt-1">
-                  <button className="flex-1 h-6 sm:h-7 rounded-lg bg-gradient-to-r from-indigo-600 to-indigo-700 text-white text-[8px] sm:text-[9px] font-semibold hover:scale-105 transition-all">
+                  <button className="flex-1 h-6 sm:h-7 rounded-lg bg-gradient-to-r from-indigo-600 to-indigo-800 text-white text-[8px] sm:text-[9px] font-semibold hover:scale-105 transition-all">
                     + Add Box
                   </button>
                   <button className="flex-1 h-6 sm:h-7 rounded-lg border border-gray-200 text-[8px] sm:text-[9px] text-gray-600 hover:bg-gray-50">
