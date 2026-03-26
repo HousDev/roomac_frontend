@@ -273,7 +273,7 @@ setProfileData( { full_name: user?user.name : localStorage.getItem("auth_role"),
   }, []);
 
   return (
-    <div className="min-h-screen bg-slate-100 p-2 sm:p-0 lg:p-3">
+    <div className="min-h-screen bg-slate-100 p-0 sm:p-0 lg:p-0">
       <div className="max-w-9xl mx-auto">
         <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
           

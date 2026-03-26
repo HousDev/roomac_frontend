@@ -212,7 +212,7 @@ export default function NotificationsClientPage({
 
   return (
     <div className="bg-gray-50">
-      <div className="max-w-7xl mx-auto p-2 sm:p-3 lg:p-2">
+      <div className="max-w-8xl mx-auto p-0 sm:p-0 lg:p-0">
         {/* Stats Cards */}
         <NotificationsStats stats={statsData} className='sticky top-20 z-10' />
 

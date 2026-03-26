@@ -684,7 +684,7 @@ const handleRemoveDocument = useCallback(
   }
 
   return (
-    <div className="p-2 md:p-2 -mt-9">
+    <div className="p-0 md:p-0 -mt-9">
       <div className="flex flex-row justify-end items-end gap-4 mb-8 sticky top-20 z-10 md:pt-4">
   <Button
     variant="outline"

@@ -22,7 +22,7 @@ export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
         .sb-wrap {
-          font-family: 'Plus Jakarta Sans', sans-serif;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
           width: 100%;
           border-radius: 20px;
           overflow: hidden;

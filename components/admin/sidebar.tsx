@@ -973,7 +973,6 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
         style={{
           background: 'linear-gradient(180deg, #0A1F5C 0%, #0d2870 50%, #0A1F5C 100%)',
           borderRight: '1px solid rgba(27, 79, 216, 0.35)',
-          boxShadow: '4px 0 28px rgba(10, 31, 92, 0.5)',
         }}
       >
         {/* Desktop toggle button */}

@@ -1277,7 +1277,7 @@ const handleUpdateDemandStatus = async (demandId: number, newStatus: string) => 
           {/* Demands Tab Content */}
           {/* Demands Tab Content */}
 <TabsContent value="demands" className="mt-0">
-  <Card className="border-0 shadow-xl overflow-hidden">
+  <Card className="border-0 shadow-sm overflow-hidden">
     
 
     <CardContent className="p-0">
@@ -2623,14 +2623,13 @@ const filteredGroups = tenantGroups.filter((group: any) => {
 });
 
   return (
-    <Card className="border-0 shadow-xl overflow-hidden">
+    <Card className="border-0  overflow-hidden">
      
 
       <div className="relative">
         <div className="overflow-auto max-h-[calc(100vh-250px)] md:max-h-[calc(100vh-380px)]">
           <Table>
-            {/* MAINTENANCE-STYLE HEADER WITH SEARCH BARS */}
-          {/* MAINTENANCE-STYLE HEADER WITH SEARCH BARS IN EVERY COLUMN */}
+          
 <TableHeader className="sticky top-0 z-20 bg-gray-200 border-b border-gray-300">
   <TableRow className="hover:bg-transparent">
     {/* Expand */}
@@ -3038,7 +3037,7 @@ const filteredReceipts = receipts.filter((receipt: any) => {
 });
 
   return (
-    <Card className="border-0 shadow-xl overflow-hidden">
+    <Card className="border-0  overflow-hidden">
   
 
       <div className="relative">

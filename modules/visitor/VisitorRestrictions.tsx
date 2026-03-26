@@ -744,12 +744,14 @@ const handleExport = () => {
                 </button>
               )}
             </div>
-
-<div className={`overflow-auto rounded-b-lg transition-all duration-300 ${
-  selectedItems.size > 0
-    ? 'max-h-[340px] md:max-h-[420px]'
-    : 'max-h-[350px] md:max-h-[450px]'
-}`}>              <div className="min-w-[900px]">
+<div
+  className="overflow-auto rounded-b-lg transition-all duration-300"
+  style={{
+    maxHeight: selectedItems.size > 0
+      ? (window.innerWidth >= 768 ? '410px' : '320px')
+      : (window.innerWidth >= 768 ? '460px' : '370px')
+  }}
+>            <div className="min-w-[900px]">
                 <Table>
                   <TableHeader className="sticky top-0 z-10 bg-gray-50">
                     <TableRow>

@@ -219,7 +219,7 @@ export default function MasterItemsPage() {
         onSearchChange={setSearchQuery}
       />
 
-      <div className="max-w-8xl mx-auto p-4 md:p-6 space-y-4">
+      <div className="max-w-8xl mx-auto p-0 md:p-0 space-y-4 mt-3">
         {/* Horizontal Tabs */}
         <HorizontalTabList
           activeTab={activeTab}

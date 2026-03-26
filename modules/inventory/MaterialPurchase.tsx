@@ -114,6 +114,7 @@ const [editSubmitting, setEditSubmitting] = useState(false);
     invoice: '', vendor: '', property: '', amount: '', status: ''
   });
 
+  
   // Form state
   const [formData, setFormData] = useState({
     purchase_date: new Date().toISOString().split('T')[0],
@@ -1333,11 +1334,15 @@ const handleDownloadPDF = (purchase: MaterialPurchaseType) => {
               </div>
             )}
 
-<div className={`overflow-auto rounded-b-lg transition-all duration-300 ${
-  selectedItems.size > 0
-    ? 'max-h-[310px] md:max-h-[410px]'
-    : 'max-h-[350px] md:max-h-[450px]'
-}`}>              <div className="min-w-[1000px]">
+<div
+  className="overflow-auto rounded-b-lg transition-all duration-300"
+  style={{
+    maxHeight: selectedItems.size > 0
+      ? (window.innerWidth >= 768 ? '410px' : '310px')
+      : (window.innerWidth >= 768 ? '450px' : '370px')
+  }}
+>            
+ <div className="min-w-[1000px]">
                 <Table>
                   <TableHeader className="sticky top-0 z-10 bg-gray-50">
                     <TableRow>

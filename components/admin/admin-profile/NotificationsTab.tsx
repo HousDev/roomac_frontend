@@ -194,7 +194,7 @@ export default function NotificationsTab({
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
         .nt-wrap {
-          font-family: 'Plus Jakarta Sans', sans-serif;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
           background: #fff;
           border-radius: 24px;
           overflow: hidden;
