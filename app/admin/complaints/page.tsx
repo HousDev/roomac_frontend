@@ -1,7 +1,3 @@
-
-
-
-
 // app/admin/complaints/page.tsx
 "use client";
 
@@ -36,7 +32,8 @@ import {
   Clock,
   UserPlus,
   FileText,
-  X
+  X,
+  ArrowRight
 } from "lucide-react";
 import {
   getAdminComplaints,
@@ -163,19 +160,46 @@ export default function ComplaintsPage() {
     }
   };
 
-const handleUpdateStatus = async (id: number, status: string) => {
-  try {
-    await updateComplaintStatus(id, status, adminNotes); // Pass admin notes
-    toast.success(`Status updated to ${status}${adminNotes ? ' with notes' : ''}`);
-    await loadComplaints();
-    setShowStatusDialog(false);
-    setAdminNotes(""); // Reset after update
-    setNewStatus("");
-  } catch (err: any) {
-    console.error('Error updating status:', err);
-    toast.error(err.message || "Failed to update status");
-  }
-};
+  const handleOpenStatusDialog = async (complaint: Complaint) => {
+    try {
+      // Fetch the latest complaint details including existing admin_notes
+      const detailedComplaint = await getComplaintById(complaint.id);
+      if (detailedComplaint) {
+        setSelectedComplaint(detailedComplaint);
+        setNewStatus(detailedComplaint.status);
+        setAdminNotes(''); // Start with empty for new note
+        setShowStatusDialog(true);
+      } else {
+        // Fallback to the existing complaint data if detailed fetch fails
+        setSelectedComplaint(complaint);
+        setNewStatus(complaint.status);
+        setAdminNotes('');
+        setShowStatusDialog(true);
+      }
+    } catch (error) {
+      console.error('Error fetching complaint details:', error);
+      // Still open dialog with existing data
+      setSelectedComplaint(complaint);
+      setNewStatus(complaint.status);
+      setAdminNotes('');
+      setShowStatusDialog(true);
+      toast.error('Could not load full details, using existing data');
+    }
+  };
+
+  const handleUpdateStatus = async (id: number, status: string) => {
+    try {
+      await updateComplaintStatus(id, status, adminNotes);
+      toast.success(`Status updated to ${status}${adminNotes ? ' with notes' : ''}`);
+      await loadComplaints();
+      setShowStatusDialog(false);
+      setAdminNotes("");
+      setNewStatus("");
+    } catch (err: any) {
+      console.error('Error updating status:', err);
+      toast.error(err.message || "Failed to update status");
+    }
+  };
 
   const handleAssignStaff = async () => {
     if (!selectedComplaint || !selectedStaffId) {
@@ -225,12 +249,10 @@ const handleUpdateStatus = async (id: number, status: string) => {
     }
   };
 
-  // Add handler functions for search inputs
   const handleSearchChange = (field: string, value: string) => {
     setSearchFilters(prev => ({ ...prev, [field]: value }));
   };
 
-  // Add handler for checkbox selection
   const handleSelectAll = () => {
     if (selectedComplaints.size === filteredComplaints.length) {
       setSelectedComplaints(new Set());
@@ -249,7 +271,6 @@ const handleUpdateStatus = async (id: number, status: string) => {
     setSelectedComplaints(newSelected);
   };
 
-  // Add bulk delete handler
   const handleBulkDelete = async () => {
     if (selectedComplaints.size === 0) return;
     
@@ -259,7 +280,7 @@ const handleUpdateStatus = async (id: number, status: string) => {
       toast.success(`Successfully deleted ${selectedComplaints.size} complaints`);
       setSelectedComplaints(new Set());
       setShowBulkDeleteDialog(false);
-      await loadComplaints(); // Refresh the list
+      await loadComplaints();
     } catch (error: any) {
       console.error('Error deleting complaints:', error);
       toast.error(error.message || "Failed to delete complaints");
@@ -286,6 +307,16 @@ const handleUpdateStatus = async (id: number, status: string) => {
     );
   };
 
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'pending': return <Clock className="h-4 w-4 mr-1" />;
+      case 'in_progress': return <Loader2 className="h-4 w-4 mr-1 animate-spin" />;
+      case 'resolved': return <CheckCircle className="h-4 w-4 mr-1" />;
+      case 'closed': return <XCircle className="h-4 w-4 mr-1" />;
+      default: return <Clock className="h-4 w-4 mr-1" />;
+    }
+  };
+
   const getPriorityBadge = (priority: string) => {
     const priorityMap: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
       low: "outline",
@@ -301,16 +332,6 @@ const handleUpdateStatus = async (id: number, status: string) => {
         {badgeText}
       </Badge>
     );
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'pending': return <Clock className="h-4 w-4 mr-1" />;
-      case 'in_progress': return <Loader2 className="h-4 w-4 mr-1 animate-spin" />;
-      case 'resolved': return <CheckCircle className="h-4 w-4 mr-1" />;
-      case 'closed': return <XCircle className="h-4 w-4 mr-1" />;
-      default: return <Clock className="h-4 w-4 mr-1" />;
-    }
   };
 
   const getCategoryColor = (categoryName?: string) => {
@@ -336,7 +357,7 @@ const handleUpdateStatus = async (id: number, status: string) => {
     return 0;
   });
 
-  // Add this filtered complaints logic
+  // Filtered complaints
   const filteredComplaints = sortedComplaints.filter(complaint => {
     const matchesId = complaint.id.toString().includes(searchFilters.id);
     const matchesTenant = (complaint.tenant_name || '').toLowerCase().includes(searchFilters.tenant.toLowerCase());
@@ -352,7 +373,7 @@ const handleUpdateStatus = async (id: number, status: string) => {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center  gap-4 bg-gradient-to-br from-blue-50 to-cyan-50">
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4 bg-gradient-to-br from-blue-50 to-cyan-50">
         <Loader2 className="h-12 w-12 animate-spin text-blue-600" />
         <p className="text-gray-600">Loading complaints...</p>
       </div>
@@ -360,88 +381,85 @@ const handleUpdateStatus = async (id: number, status: string) => {
   }
 
   return (
-    <div className="p-0 bg-gradient-to-br from-blue-50/50 to-cyan-50/50 ">
-     
+    <div className="p-0 bg-gradient-to-br from-blue-50/50 to-cyan-50/50">
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 mb-4 -mt-5 md:-mt-2 sticky top-24 z-10">
+        {/* Total Complaints */}
+        <Card className="bg-gradient-to-br from-slate-50 to-slate-100 border-0 shadow-sm">
+          <CardContent className="p-2 sm:p-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[10px] sm:text-xs text-slate-600 font-medium">
+                  Total Complaints
+                </p>
+                <p className="text-sm sm:text-base font-bold text-slate-800">
+                  {complaints.length}
+                </p>
+              </div>
+              <div className="p-1.5 rounded-lg bg-slate-600">
+                <FileText className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 mb-4 -mt-5 md:-mt-2 sticky top-24 z-10">
+        {/* Pending */}
+        <Card className="bg-gradient-to-br from-yellow-50 to-yellow-100 border-0 shadow-sm">
+          <CardContent className="p-2 sm:p-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[10px] sm:text-xs text-slate-600 font-medium">
+                  Pending
+                </p>
+                <p className="text-sm sm:text-base font-bold text-slate-800">
+                  {complaints.filter(c => c.status === 'pending').length}
+                </p>
+              </div>
+              <div className="p-1.5 rounded-lg bg-yellow-600">
+                <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-  {/* Total Complaints */}
-  <Card className="bg-gradient-to-br from-slate-50 to-slate-100 border-0 shadow-sm">
-    <CardContent className="p-2 sm:p-3">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-[10px] sm:text-xs text-slate-600 font-medium">
-            Total Complaints
-          </p>
-          <p className="text-sm sm:text-base font-bold text-slate-800">
-            {complaints.length}
-          </p>
-        </div>
-        <div className="p-1.5 rounded-lg bg-slate-600">
-          <FileText className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
-        </div>
+        {/* In Progress */}
+        <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-0 shadow-sm">
+          <CardContent className="p-2 sm:p-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[10px] sm:text-xs text-slate-600 font-medium">
+                  In Progress
+                </p>
+                <p className="text-sm sm:text-base font-bold text-slate-800">
+                  {complaints.filter(c => c.status === 'in_progress').length}
+                </p>
+              </div>
+              <div className="p-1.5 rounded-lg bg-blue-600">
+                <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Resolved */}
+        <Card className="bg-gradient-to-br from-green-50 to-green-100 border-0 shadow-sm">
+          <CardContent className="p-2 sm:p-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[10px] sm:text-xs text-slate-600 font-medium">
+                  Resolved
+                </p>
+                <p className="text-sm sm:text-base font-bold text-slate-800">
+                  {complaints.filter(c => c.status === 'resolved' || c.status === 'closed').length}
+                </p>
+              </div>
+              <div className="p-1.5 rounded-lg bg-green-600">
+                <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
-    </CardContent>
-  </Card>
-
-  {/* Pending */}
-  <Card className="bg-gradient-to-br from-yellow-50 to-yellow-100 border-0 shadow-sm">
-    <CardContent className="p-2 sm:p-3">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-[10px] sm:text-xs text-slate-600 font-medium">
-            Pending
-          </p>
-          <p className="text-sm sm:text-base font-bold text-slate-800">
-            {complaints.filter(c => c.status === 'pending').length}
-          </p>
-        </div>
-        <div className="p-1.5 rounded-lg bg-yellow-600">
-          <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
-        </div>
-      </div>
-    </CardContent>
-  </Card>
-
-  {/* In Progress */}
-  <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-0 shadow-sm">
-    <CardContent className="p-2 sm:p-3">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-[10px] sm:text-xs text-slate-600 font-medium">
-            In Progress
-          </p>
-          <p className="text-sm sm:text-base font-bold text-slate-800">
-            {complaints.filter(c => c.status === 'in_progress').length}
-          </p>
-        </div>
-        <div className="p-1.5 rounded-lg bg-blue-600">
-          <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
-        </div>
-      </div>
-    </CardContent>
-  </Card>
-
-  {/* Resolved */}
-  <Card className="bg-gradient-to-br from-green-50 to-green-100 border-0 shadow-sm">
-    <CardContent className="p-2 sm:p-3">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-[10px] sm:text-xs text-slate-600 font-medium">
-            Resolved
-          </p>
-          <p className="text-sm sm:text-base font-bold text-slate-800">
-            {complaints.filter(c => c.status === 'resolved' || c.status === 'closed').length}
-          </p>
-        </div>
-        <div className="p-1.5 rounded-lg bg-green-600">
-          <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
-        </div>
-      </div>
-    </CardContent>
-  </Card>
-
-</div>
 
       {/* Bulk Actions Bar */}
       {selectedComplaints.size > 0 && (
@@ -474,525 +492,511 @@ const handleUpdateStatus = async (id: number, status: string) => {
         </div>
       )}
 
-      <Card className="shadow-lg border-0  sticky top-44 z-10">
-  <CardContent className="p-0">
-    {complaints.length === 0 ? (
-      <div className="text-center py-16 bg-gray-50 m-6 rounded-lg">
-        <div className="bg-white p-8 rounded-full w-24 h-24 mx-auto mb-4 flex items-center justify-center shadow-sm">
-          <AlertCircle className="h-12 w-12 text-gray-400" />
-        </div>
-        <h3 className="text-lg font-medium text-gray-900 mb-2">No complaints found</h3>
-        <p className="text-gray-500 mb-4">No tenant complaints have been submitted yet.</p>
-      </div>
-    ) : (
-      <div className="relative">
-        {/* Sticky Header Table */}
-<div className={`overflow-y-auto rounded-b-lg transition-all duration-300 ${
-  selectedComplaints.size > 0 
-    ? 'max-h-[440px] md:max-h-[390px]'  // smaller when bulk bar is visible
-    : 'max-h-[390px] md:max-h-[480px]'  // normal height
-}`}>          <Table className="relative">
-            <TableHeader className="sticky top-0 z-10 bg-gradient-to-r from-gray-50 to-white shadow-sm">
-              <TableRow className="hover:bg-transparent">
-                {/* Checkbox Column */}
-                <TableHead className="w-[50px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-                  <div className="py-2 flex justify-center">
-                    <Checkbox 
-                      checked={selectedComplaints.size === filteredComplaints.length && filteredComplaints.length > 0}
-                      onCheckedChange={handleSelectAll}
-                      aria-label="Select all"
-                    />
-                  </div>
-                </TableHead>
-
-                {/* ID Column with Search */}
-                <TableHead className="min-w-[100px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-                  <div className="space-y-2 py-2">
-                    <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('id')}>
-                      <span className="font-semibold text-gray-700">ID</span>
-                      <ArrowUpDown className="h-3 w-3 text-gray-500" />
-                    </div>
-                    <Input 
-                      placeholder="Search ID..." 
-                      className="h-8 text-xs border-gray-200 focus:border-blue-400"
-                      value={searchFilters.id}
-                      onChange={(e) => handleSearchChange('id', e.target.value)}
-                    />
-                  </div>
-                </TableHead>
-                
-                {/* Tenant Column with Search */}
-                <TableHead className="min-w-[200px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-                  <div className="space-y-2 py-2">
-                    <span className="font-semibold text-gray-700">Tenant</span>
-                    <Input 
-                      placeholder="Search tenant..." 
-                      className="h-8 text-xs border-gray-200 focus:border-blue-400"
-                      value={searchFilters.tenant}
-                      onChange={(e) => handleSearchChange('tenant', e.target.value)}
-                    />
-                  </div>
-                </TableHead>
-                
-                {/* Complaint Details Column with Search */}
-                <TableHead className="min-w-[250px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-                  <div className="space-y-2 py-2">
-                    <span className="font-semibold text-gray-700">Complaint Details</span>
-                    <Input 
-                      placeholder="Search complaints..." 
-                      className="h-8 text-xs border-gray-200 focus:border-blue-400"
-                      value={searchFilters.complaint}
-                      onChange={(e) => handleSearchChange('complaint', e.target.value)}
-                    />
-                  </div>
-                </TableHead>
-                
-                {/* Priority Column with Select Filter */}
-                <TableHead className="min-w-[120px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-                  <div className="space-y-2 py-2">
-                    <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('priority')}>
-                      <span className="font-semibold text-gray-700">Priority</span>
-                      <ArrowUpDown className="h-3 w-3 text-gray-500" />
-                    </div>
-                    <Select 
-                      value={searchFilters.priority} 
-                      onValueChange={(value) => handleSearchChange('priority', value)}
-                    >
-                      <SelectTrigger className="h-8 text-xs border-gray-200">
-                        <SelectValue placeholder="All Priorities" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Priorities</SelectItem>
-                        <SelectItem value="urgent">Urgent</SelectItem>
-                        <SelectItem value="high">High</SelectItem>
-                        <SelectItem value="medium">Medium</SelectItem>
-                        <SelectItem value="low">Low</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </TableHead>
-                
-                {/* Status Column with Select Filter */}
-                <TableHead className="min-w-[140px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-                  <div className="space-y-2 py-2">
-                    <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('status')}>
-                      <span className="font-semibold text-gray-700">Status</span>
-                      <ArrowUpDown className="h-3 w-3 text-gray-500" />
-                    </div>
-                    <Select 
-                      value={searchFilters.status} 
-                      onValueChange={(value) => handleSearchChange('status', value)}
-                    >
-                      <SelectTrigger className="h-8 text-xs border-gray-200">
-                        <SelectValue placeholder="All Status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Status</SelectItem>
-                        <SelectItem value="pending">Pending</SelectItem>
-                        <SelectItem value="in_progress">In Progress</SelectItem>
-                        <SelectItem value="resolved">Resolved</SelectItem>
-                        <SelectItem value="closed">Closed</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </TableHead>
-                
-                {/* Date Column with Search */}
-                <TableHead className="min-w-[150px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-                  <div className="space-y-2 py-2">
-                    <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('created_at')}>
-                      <span className="font-semibold text-gray-700">Date</span>
-                      <ArrowUpDown className="h-3 w-3 text-gray-500" />
-                    </div>
-                    <Input 
-                      placeholder="Search date..." 
-                      type="date"
-                      className="h-8 text-xs border-gray-200 focus:border-blue-400"
-                      value={searchFilters.date}
-                      onChange={(e) => handleSearchChange('date', e.target.value)}
-                    />
-                  </div>
-                </TableHead>
-                
-                {/* Actions Column - NOT STICKY */}
-                <TableHead className="min-w-[100px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-                  <span className="font-semibold text-gray-700">Actions</span>
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            
-            <TableBody>
-              {filteredComplaints.map((complaint, index) => (
-                <TableRow 
-                  key={complaint.id} 
-                  className={`hover:bg-gradient-to-r hover:from-blue-50/50 hover:to-cyan-50/50 transition-all duration-200 ${
-                    index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'
-                  }`}
-                >
-                  {/* Checkbox Cell */}
-                  <TableCell className="w-[50px]">
-                    <div className="flex justify-center">
-                      <Checkbox 
-                        checked={selectedComplaints.has(complaint.id)}
-                        onCheckedChange={() => handleSelectComplaint(complaint.id)}
-                        aria-label={`Select complaint ${complaint.id}`}
-                      />
-                    </div>
-                  </TableCell>
-
-                  <TableCell className="font-mono text-sm font-medium text-blue-600">
-                    <div className="flex items-center gap-1">
-                      <span className="w-2 h-2 rounded-full bg-blue-400"></span>
-                      #{complaint.id}
-                    </div>
-                  </TableCell>
-                  
-                  <TableCell>
-                    <div className="space-y-1.5">
-                      <div className="font-medium flex items-center gap-1.5">
-                        <div className="bg-blue-100 p-1 rounded-full">
-                          <User className="h-3 w-3 text-blue-600" />
+      <Card className="shadow-lg border-0 sticky top-44 z-10">
+        <CardContent className="p-0">
+          {complaints.length === 0 ? (
+            <div className="text-center py-16 bg-gray-50 m-6 rounded-lg">
+              <div className="bg-white p-8 rounded-full w-24 h-24 mx-auto mb-4 flex items-center justify-center shadow-sm">
+                <AlertCircle className="h-12 w-12 text-gray-400" />
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No complaints found</h3>
+              <p className="text-gray-500 mb-4">No tenant complaints have been submitted yet.</p>
+            </div>
+          ) : (
+            <div className="relative">
+              <div className={`overflow-y-auto rounded-b-lg transition-all duration-300 ${
+                selectedComplaints.size > 0 
+                  ? 'max-h-[440px] md:max-h-[390px]'
+                  : 'max-h-[390px] md:max-h-[480px]'
+              }`}>
+                <Table className="relative">
+                  <TableHeader className="sticky top-0 z-10 bg-gradient-to-r from-gray-50 to-white shadow-sm">
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead className="w-[50px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
+                        <div className="py-2 flex justify-center">
+                          <Checkbox 
+                            checked={selectedComplaints.size === filteredComplaints.length && filteredComplaints.length > 0}
+                            onCheckedChange={handleSelectAll}
+                            aria-label="Select all"
+                          />
                         </div>
-                        <span className="truncate max-w-[150px]">
-                          {complaint.tenant_name || "Unknown"}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1 text-xs text-gray-500 ml-6">
-                        <Building className="h-3 w-3" />
-                        {complaint.property_name || "No property"}
-                      </div>
-                      {complaint.room_info && complaint.room_info !== 'Not assigned' && (
-                        <div className="text-xs text-gray-400 ml-6">
-                          🏠 {complaint.room_info}
+                      </TableHead>
+                      <TableHead className="min-w-[100px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
+                        <div className="space-y-2 py-2">
+                          <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('id')}>
+                            <span className="font-semibold text-gray-700">ID</span>
+                            <ArrowUpDown className="h-3 w-3 text-gray-500" />
+                          </div>
+                          <Input 
+                            placeholder="Search ID..." 
+                            className="h-8 text-xs border-gray-200 focus:border-blue-400"
+                            value={searchFilters.id}
+                            onChange={(e) => handleSearchChange('id', e.target.value)}
+                          />
                         </div>
-                      )}
-                    </div>
-                  </TableCell>
-                  
-                  <TableCell>
-                    <div className="space-y-2">
-                      <div className="font-medium text-sm line-clamp-1 text-gray-800">
-                        {complaint.title}
-                      </div>
-                      <div className="flex flex-wrap gap-1.5 items-center">
-                        {complaint.complaint_category && (
-                          <Badge 
-                            variant="outline" 
-                            className={`text-xs border-0 shadow-sm ${getCategoryColor(complaint.complaint_category)}`}
+                      </TableHead>
+                      <TableHead className="min-w-[200px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
+                        <div className="space-y-2 py-2">
+                          <span className="font-semibold text-gray-700">Tenant</span>
+                          <Input 
+                            placeholder="Search tenant..." 
+                            className="h-8 text-xs border-gray-200 focus:border-blue-400"
+                            value={searchFilters.tenant}
+                            onChange={(e) => handleSearchChange('tenant', e.target.value)}
+                          />
+                        </div>
+                      </TableHead>
+                      <TableHead className="min-w-[250px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
+                        <div className="space-y-2 py-2">
+                          <span className="font-semibold text-gray-700">Complaint Details</span>
+                          <Input 
+                            placeholder="Search complaints..." 
+                            className="h-8 text-xs border-gray-200 focus:border-blue-400"
+                            value={searchFilters.complaint}
+                            onChange={(e) => handleSearchChange('complaint', e.target.value)}
+                          />
+                        </div>
+                      </TableHead>
+                      <TableHead className="min-w-[120px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
+                        <div className="space-y-2 py-2">
+                          <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('priority')}>
+                            <span className="font-semibold text-gray-700">Priority</span>
+                            <ArrowUpDown className="h-3 w-3 text-gray-500" />
+                          </div>
+                          <Select 
+                            value={searchFilters.priority} 
+                            onValueChange={(value) => handleSearchChange('priority', value)}
                           >
-                            {complaint.complaint_category}
-                          </Badge>
-                        )}
-                        <span className="text-xs text-gray-500 line-clamp-1">
-                          {complaint.complaint_reason || "No reason specified"}
-                        </span>
-                      </div>
-                    </div>
-                  </TableCell>
+                            <SelectTrigger className="h-8 text-xs border-gray-200">
+                              <SelectValue placeholder="All Priorities" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">All Priorities</SelectItem>
+                              <SelectItem value="urgent">Urgent</SelectItem>
+                              <SelectItem value="high">High</SelectItem>
+                              <SelectItem value="medium">Medium</SelectItem>
+                              <SelectItem value="low">Low</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </TableHead>
+                      <TableHead className="min-w-[140px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
+                        <div className="space-y-2 py-2">
+                          <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('status')}>
+                            <span className="font-semibold text-gray-700">Status</span>
+                            <ArrowUpDown className="h-3 w-3 text-gray-500" />
+                          </div>
+                          <Select 
+                            value={searchFilters.status} 
+                            onValueChange={(value) => handleSearchChange('status', value)}
+                          >
+                            <SelectTrigger className="h-8 text-xs border-gray-200">
+                              <SelectValue placeholder="All Status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">All Status</SelectItem>
+                              <SelectItem value="pending">Pending</SelectItem>
+                              <SelectItem value="in_progress">In Progress</SelectItem>
+                              <SelectItem value="resolved">Resolved</SelectItem>
+                              <SelectItem value="closed">Closed</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </TableHead>
+                      <TableHead className="min-w-[150px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
+                        <div className="space-y-2 py-2">
+                          <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('created_at')}>
+                            <span className="font-semibold text-gray-700">Date</span>
+                            <ArrowUpDown className="h-3 w-3 text-gray-500" />
+                          </div>
+                          <Input 
+                            placeholder="Search date..." 
+                            type="date"
+                            className="h-8 text-xs border-gray-200 focus:border-blue-400"
+                            value={searchFilters.date}
+                            onChange={(e) => handleSearchChange('date', e.target.value)}
+                          />
+                        </div>
+                      </TableHead>
+                      <TableHead className="min-w-[100px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
+                        <span className="font-semibold text-gray-700">Actions</span>
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
                   
-                  <TableCell>
-                    <div className="transform transition-transform hover:scale-105">
-                      {getPriorityBadge(complaint.priority)}
-                    </div>
-                  </TableCell>
-                  
-                  <TableCell>
-                    <div className="flex items-center gap-1.5 bg-white px-2 py-1 rounded-full shadow-sm border">
-                      {getStatusIcon(complaint.status)}
-                      {getStatusBadge(complaint.status)}
-                    </div>
-                  </TableCell>
-                  
-                  <TableCell>
-                    <div className="space-y-1">
-                      <div className="text-sm font-medium">
-                        {new Date(complaint.created_at).toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                          year: 'numeric'
-                        })}
-                      </div>
-                      <div className="text-xs text-gray-500 flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {new Date(complaint.created_at).toLocaleTimeString([], { 
-                          hour: '2-digit', 
-                          minute: '2-digit' 
-                        })}
-                      </div>
-                    </div>
-                  </TableCell>
-                  
-                  {/* Actions Column - NOT STICKY */}
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          className="hover:bg-blue-100 hover:text-blue-600 transition-all duration-200"
-                        >
-                          <MoreVertical className="h-4 w-4" />
-                          <span className="sr-only">Actions</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-56 border-blue-100 shadow-lg">
-                        <DropdownMenuLabel className="text-blue-600">Actions</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem 
-                          onClick={() => handleViewComplaint(complaint.id)}
-                          className="cursor-pointer hover:bg-blue-50"
-                        >
-                          <Eye className="h-4 w-4 mr-2 text-blue-500" />
-                          View Details
-                        </DropdownMenuItem>
-                        <DropdownMenuItem 
-                          onClick={() => {
-                            setSelectedComplaint(complaint);
-                            setShowAssignDialog(true);
-                          }}
-                          className="cursor-pointer hover:bg-blue-50"
-                        >
-                          <UserPlus className="h-4 w-4 mr-2 text-green-500" />
-                          Assign Staff
-                        </DropdownMenuItem>
-                        <DropdownMenuItem 
-                          onClick={() => {
-                            setSelectedComplaint(complaint);
-                            setNewStatus('');
-                            setShowStatusDialog(true);
-                          }}
-                          className="cursor-pointer hover:bg-blue-50"
-                        >
-                          <FileText className="h-4 w-4 mr-2 text-purple-500" />
-                          Update Status
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      </div>
-    )}
-  </CardContent>
-</Card>
-
-      {/* View Complaint Dialog - Compact with Grid */}
-    <Dialog open={showViewDialog} onOpenChange={setShowViewDialog}>
-  <DialogContent className="max-w-3xl w-[95vw] p-0 gap-0 rounded-xl overflow-hidden">
-    
-    {/* Header - Compact */}
-    <DialogHeader className="bg-gradient-to-r from-blue-500 to-cyan-500 px-4 py-3">
-      <div className="flex items-center justify-between">
-        <DialogTitle className="flex items-center gap-2 text-white text-sm sm:text-base font-semibold">
-          <MessageSquare className="h-4 w-4" />
-          Complaint Details - #{selectedComplaint?.id}
-        </DialogTitle>
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          onClick={() => setShowViewDialog(false)}
-          className="h-7 w-7 text-white hover:bg-white/20"
-        >
-          <X className="h-4 w-4" />
-        </Button>
-      </div>
-      <DialogDescription className="text-blue-50 text-xs mt-1">
-        Complete information about the complaint
-      </DialogDescription>
-    </DialogHeader>
-
-    {selectedComplaint && (
-      <div className="p-4 sm:p-5 space-y-3 max-h-[80vh] overflow-y-auto">
-
-        {/* Status + Priority */}
-        <div className="flex flex-wrap gap-2 bg-gray-50 px-3 py-2 rounded-md text-xs">
-          <div className="flex items-center gap-1">
-            <span className="text-gray-500">Status:</span>
-            {getStatusBadge(selectedComplaint.status)}
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="text-gray-500">Priority:</span>
-            {getPriorityBadge(selectedComplaint.priority)}
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="text-gray-500">Category:</span>
-            <Badge 
-              variant="outline" 
-              className={`text-[10px] px-2 py-0 ${getCategoryColor(selectedComplaint.complaint_category)}`}
-            >
-              {selectedComplaint.complaint_category || 'General'}
-            </Badge>
-          </div>
-        </div>
-
-        {/* Tenant Info */}
-        <div className="border rounded-md p-3">
-          <h4 className="text-xs font-semibold flex items-center gap-1 mb-2 text-blue-600">
-            <User className="h-3 w-3" />
-            Tenant Information
-          </h4>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-            <div>
-              <span className="text-gray-500">Name</span>
-              <p className="font-medium truncate">{selectedComplaint.tenant_name}</p>
-            </div>
-
-            <div>
-              <span className="text-gray-500">Property</span>
-              <p className="flex items-center gap-1 truncate">
-                <Building className="h-3 w-3 text-gray-400" />
-                {selectedComplaint.property_name || "Not specified"}
-              </p>
-            </div>
-
-            <div>
-              <span className="text-gray-500">Email</span>
-              <p className="flex items-center gap-1 truncate">
-                <Mail className="h-3 w-3 text-gray-400" />
-                {selectedComplaint.tenant_email || "N/A"}
-              </p>
-            </div>
-
-            <div>
-              <span className="text-gray-500">Phone</span>
-              <p className="flex items-center gap-1 truncate">
-                <Phone className="h-3 w-3 text-gray-400" />
-                {selectedComplaint.tenant_phone || "N/A"}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Complaint Details */}
-        <div className="border rounded-md p-3">
-          <h4 className="text-xs font-semibold flex items-center gap-1 mb-2 text-blue-600">
-            <MessageSquare className="h-3 w-3" />
-            Complaint Details
-          </h4>
-
-          <div className="space-y-2 text-xs">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <span className="text-gray-500">Title</span>
-                <p className="font-medium truncate">{selectedComplaint.title}</p>
-              </div>
-              <div>
-                <span className="text-gray-500">Created</span>
-                <p>{new Date(selectedComplaint.created_at).toLocaleString()}</p>
+                  <TableBody>
+                    {filteredComplaints.map((complaint, index) => (
+                      <TableRow 
+                        key={complaint.id} 
+                        className={`hover:bg-gradient-to-r hover:from-blue-50/50 hover:to-cyan-50/50 transition-all duration-200 ${
+                          index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'
+                        }`}
+                      >
+                        <TableCell className="w-[50px]">
+                          <div className="flex justify-center">
+                            <Checkbox 
+                              checked={selectedComplaints.has(complaint.id)}
+                              onCheckedChange={() => handleSelectComplaint(complaint.id)}
+                              aria-label={`Select complaint ${complaint.id}`}
+                            />
+                          </div>
+                        </TableCell>
+                        <TableCell className="font-mono text-sm font-medium text-blue-600">
+                          <div className="flex items-center gap-1">
+                            <span className="w-2 h-2 rounded-full bg-blue-400"></span>
+                            #{complaint.id}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="space-y-1.5">
+                            <div className="font-medium flex items-center gap-1.5">
+                              <div className="bg-blue-100 p-1 rounded-full">
+                                <User className="h-3 w-3 text-blue-600" />
+                              </div>
+                              <span className="truncate max-w-[150px]">
+                                {complaint.tenant_name || "Unknown"}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1 text-xs text-gray-500 ml-6">
+                              <Building className="h-3 w-3" />
+                              {complaint.property_name || "No property"}
+                            </div>
+                            {complaint.room_info && complaint.room_info !== 'Not assigned' && (
+                              <div className="text-xs text-gray-400 ml-6">
+                                🏠 {complaint.room_info}
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="space-y-2">
+                            <div className="font-medium text-sm line-clamp-1 text-gray-800">
+                              {complaint.title}
+                            </div>
+                            <div className="flex flex-wrap gap-1.5 items-center">
+                              {complaint.complaint_category && (
+                                <Badge 
+                                  variant="outline" 
+                                  className={`text-xs border-0 shadow-sm ${getCategoryColor(complaint.complaint_category)}`}
+                                >
+                                  {complaint.complaint_category}
+                                </Badge>
+                              )}
+                              <span className="text-xs text-gray-500 line-clamp-1">
+                                {complaint.complaint_reason || "No reason specified"}
+                              </span>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="transform transition-transform hover:scale-105">
+                            {getPriorityBadge(complaint.priority)}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1.5 bg-white px-2 py-1 rounded-full shadow-sm border">
+                            {getStatusIcon(complaint.status)}
+                            {getStatusBadge(complaint.status)}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="space-y-1">
+                            <div className="text-sm font-medium">
+                              {new Date(complaint.created_at).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric'
+                              })}
+                            </div>
+                            <div className="text-xs text-gray-500 flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {new Date(complaint.created_at).toLocaleTimeString([], { 
+                                hour: '2-digit', 
+                                minute: '2-digit' 
+                              })}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                className="hover:bg-blue-100 hover:text-blue-600 transition-all duration-200"
+                              >
+                                <MoreVertical className="h-4 w-4" />
+                                <span className="sr-only">Actions</span>
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-56 border-blue-100 shadow-lg">
+                              <DropdownMenuLabel className="text-blue-600">Actions</DropdownMenuLabel>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem 
+                                onClick={() => handleViewComplaint(complaint.id)}
+                                className="cursor-pointer hover:bg-blue-50"
+                              >
+                                <Eye className="h-4 w-4 mr-2 text-blue-500" />
+                                View Details
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                onClick={() => {
+                                  setSelectedComplaint(complaint);
+                                  setShowAssignDialog(true);
+                                }}
+                                className="cursor-pointer hover:bg-blue-50"
+                              >
+                                <UserPlus className="h-4 w-4 mr-2 text-green-500" />
+                                Assign Staff
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                onClick={() => handleOpenStatusDialog(complaint)}
+                                className="cursor-pointer hover:bg-blue-50"
+                              >
+                                <FileText className="h-4 w-4 mr-2 text-purple-500" />
+                                Update Status
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </div>
             </div>
+          )}
+        </CardContent>
+      </Card>
 
-            <div>
-              <span className="text-gray-500">Reason</span>
-              <div className="bg-gray-50 p-2 rounded mt-1">
-                {selectedComplaint.complaint_details?.complaint_reason || 
-                 selectedComplaint.complaint_reason || 
-                 "No reason specified"}
-              </div>
+      {/* View Complaint Dialog */}
+      <Dialog open={showViewDialog} onOpenChange={setShowViewDialog}>
+        <DialogContent className="max-w-3xl w-[95vw] p-0 gap-0 rounded-xl overflow-hidden">
+          <DialogHeader className="bg-gradient-to-r from-blue-500 to-cyan-500 px-4 py-3">
+            <div className="flex items-center justify-between">
+              <DialogTitle className="flex items-center gap-2 text-white text-sm sm:text-base font-semibold">
+                <MessageSquare className="h-4 w-4" />
+                Complaint Details - #{selectedComplaint?.id}
+              </DialogTitle>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => setShowViewDialog(false)}
+                className="h-7 w-7 text-white hover:bg-white/20"
+              >
+                <X className="h-4 w-4" />
+              </Button>
             </div>
+            <DialogDescription className="text-blue-50 text-xs mt-1">
+              Complete information about the complaint
+            </DialogDescription>
+          </DialogHeader>
 
-            <div>
-              <span className="text-gray-500">Description</span>
-              <div className="bg-gray-50 p-2 rounded mt-1 max-h-24 overflow-y-auto">
-                {selectedComplaint.description}
+          {selectedComplaint && (
+            <div className="p-4 sm:p-5 space-y-3 max-h-[80vh] overflow-y-auto">
+              {/* Status + Priority */}
+              <div className="flex flex-wrap gap-2 bg-gray-50 px-3 py-2 rounded-md text-xs">
+                <div className="flex items-center gap-1">
+                  <span className="text-gray-500">Status:</span>
+                  {getStatusBadge(selectedComplaint.status)}
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-gray-500">Priority:</span>
+                  {getPriorityBadge(selectedComplaint.priority)}
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-gray-500">Category:</span>
+                  <Badge 
+                    variant="outline" 
+                    className={`text-[10px] px-2 py-0 ${getCategoryColor(selectedComplaint.complaint_category)}`}
+                  >
+                    {selectedComplaint.complaint_category || 'General'}
+                  </Badge>
+                </div>
               </div>
-            </div>
-          </div>
-        </div>
 
-        {/* Management */}
-        <div className="border rounded-md p-3">
-          <h4 className="text-xs font-semibold mb-2 text-blue-600">
-            Management
-          </h4>
+              {/* Tenant Info */}
+              <div className="border rounded-md p-3">
+                <h4 className="text-xs font-semibold flex items-center gap-1 mb-2 text-blue-600">
+                  <User className="h-3 w-3" />
+                  Tenant Information
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                  <div>
+                    <span className="text-gray-500">Name</span>
+                    <p className="font-medium truncate">{selectedComplaint.tenant_name}</p>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Property</span>
+                    <p className="flex items-center gap-1 truncate">
+                      <Building className="h-3 w-3 text-gray-400" />
+                      {selectedComplaint.property_name || "Not specified"}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Email</span>
+                    <p className="flex items-center gap-1 truncate">
+                      <Mail className="h-3 w-3 text-gray-400" />
+                      {selectedComplaint.tenant_email || "N/A"}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Phone</span>
+                    <p className="flex items-center gap-1 truncate">
+                      <Phone className="h-3 w-3 text-gray-400" />
+                      {selectedComplaint.tenant_phone || "N/A"}
+                    </p>
+                  </div>
+                </div>
+              </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-            <div>
-              <span className="text-gray-500">Assigned To</span>
-              {selectedComplaint.staff_name ? (
-                <p className="font-medium">{selectedComplaint.staff_name}</p>
-              ) : (
-                <Button 
-                  size="sm" 
-                  variant="outline"
-                  className="h-7 text-xs mt-1"
-                  onClick={() => {
-                    setShowViewDialog(false);
-                    setSelectedComplaint(selectedComplaint);
-                    setShowAssignDialog(true);
-                  }}
-                >
-                  <UserPlus className="h-3 w-3 mr-1" />
-                  Assign Staff
-                </Button>
+              {/* Complaint Details */}
+              <div className="border rounded-md p-3">
+                <h4 className="text-xs font-semibold flex items-center gap-1 mb-2 text-blue-600">
+                  <MessageSquare className="h-3 w-3" />
+                  Complaint Details
+                </h4>
+                <div className="space-y-2 text-xs">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <span className="text-gray-500">Title</span>
+                      <p className="font-medium truncate">{selectedComplaint.title}</p>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Created</span>
+                      <p>{new Date(selectedComplaint.created_at).toLocaleString()}</p>
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Reason</span>
+                    <div className="bg-gray-50 p-2 rounded mt-1">
+                      {selectedComplaint.complaint_details?.complaint_reason || 
+                       selectedComplaint.complaint_reason || 
+                       "No reason specified"}
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Description</span>
+                    <div className="bg-gray-50 p-2 rounded mt-1 max-h-24 overflow-y-auto">
+                      {selectedComplaint.description}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Admin Notes History */}
+              {selectedComplaint.admin_notes && (
+                <div className="border rounded-md p-3">
+                  <h4 className="text-xs font-semibold flex items-center gap-1 mb-2 text-blue-600">
+                    <FileText className="h-3 w-3" />
+                    Admin Notes & History
+                  </h4>
+                  <div className="bg-gray-50 p-2 rounded max-h-40 overflow-y-auto text-xs">
+                    {selectedComplaint.admin_notes.split('\n').map((line, idx) => {
+                      if (line.includes('----------------------------------------')) {
+                        return <hr key={idx} className="my-2 border-gray-300" />;
+                      }
+                      if (line.includes('[') && line.includes(']')) {
+                        return <div key={idx} className="text-blue-600 font-mono mt-2">{line}</div>;
+                      }
+                      if (line.trim().startsWith('Note:')) {
+                        return <div key={idx} className="text-gray-700 pl-2 border-l-2 border-blue-300 ml-2 mt-1">{line}</div>;
+                      }
+                      if (line.trim().startsWith('Status:')) {
+                        return <div key={idx} className="font-medium text-blue-700 mt-1">{line}</div>;
+                      }
+                      if (line.trim() && !line.includes('--- Complaint History ---')) {
+                        return <div key={idx} className="text-gray-500 pl-2">{line}</div>;
+                      }
+                      return null;
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Management */}
+              <div className="border rounded-md p-3">
+                <h4 className="text-xs font-semibold mb-2 text-blue-600">
+                  Management
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <span className="text-gray-500">Assigned To</span>
+                    {selectedComplaint.staff_name ? (
+                      <p className="font-medium">{selectedComplaint.staff_name}</p>
+                    ) : (
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        className="h-7 text-xs mt-1"
+                        onClick={() => {
+                          setShowViewDialog(false);
+                          setSelectedComplaint(selectedComplaint);
+                          setShowAssignDialog(true);
+                        }}
+                      >
+                        <UserPlus className="h-3 w-3 mr-1" />
+                        Assign Staff
+                      </Button>
+                    )}
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Status</span>
+                    <div className="flex items-center gap-1 mt-1">
+                      {getStatusIcon(selectedComplaint.status)}
+                      {getStatusBadge(selectedComplaint.status)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Resolution */}
+              {selectedComplaint.status !== 'resolved' && selectedComplaint.status !== 'closed' && (
+                <div className="border rounded-md p-3">
+                  <h4 className="text-xs font-semibold flex items-center gap-1 mb-2 text-blue-600">
+                    <CheckCircle className="h-3 w-3" />
+                    Resolution
+                  </h4>
+                  <div className="space-y-2">
+                    <Textarea
+                      value={resolutionNotes}
+                      onChange={(e) => setResolutionNotes(e.target.value)}
+                      placeholder="Enter resolution notes..."
+                      rows={2}
+                      className="text-xs min-h-[70px]"
+                    />
+                    <div className="flex gap-2">
+                      <Button 
+                        size="sm"
+                        onClick={handleResolve}
+                        disabled={!resolutionNotes.trim()}
+                        className="flex-1 h-8 text-xs bg-gradient-to-r from-blue-500 to-cyan-500"
+                      >
+                        <CheckCircle className="h-3 w-3 mr-1" />
+                        Resolve
+                      </Button>
+                      <Button 
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          handleUpdateStatus(selectedComplaint.id, 'closed');
+                          setShowViewDialog(false);
+                        }}
+                        className="h-8 text-xs"
+                      >
+                        <XCircle className="h-3 w-3 mr-1" />
+                        Close
+                      </Button>
+                    </div>
+                  </div>
+                </div>
               )}
             </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
-            <div>
-              <span className="text-gray-500">Status</span>
-              <div className="flex items-center gap-1 mt-1">
-                {getStatusIcon(selectedComplaint.status)}
-                {getStatusBadge(selectedComplaint.status)}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Resolution */}
-        {selectedComplaint.status !== 'resolved' && selectedComplaint.status !== 'closed' && (
-          <div className="border rounded-md p-3">
-            <h4 className="text-xs font-semibold flex items-center gap-1 mb-2 text-blue-600">
-              <CheckCircle className="h-3 w-3" />
-              Resolution
-            </h4>
-
-            <div className="space-y-2">
-              <Textarea
-                value={resolutionNotes}
-                onChange={(e) => setResolutionNotes(e.target.value)}
-                placeholder="Enter resolution notes..."
-                rows={2}
-                className="text-xs min-h-[70px]"
-              />
-
-              <div className="flex gap-2">
-                <Button 
-                  size="sm"
-                  onClick={handleResolve}
-                  disabled={!resolutionNotes.trim()}
-                  className="flex-1 h-8 text-xs bg-gradient-to-r from-blue-500 to-cyan-500"
-                >
-                  <CheckCircle className="h-3 w-3 mr-1" />
-                  Resolve
-                </Button>
-
-                <Button 
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    handleUpdateStatus(selectedComplaint.id, 'closed');
-                    setShowViewDialog(false);
-                  }}
-                  className="h-8 text-xs"
-                >
-                  <XCircle className="h-3 w-3 mr-1" />
-                  Close
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-
-      </div>
-    )}
-  </DialogContent>
-</Dialog>
-
-      {/* Assign Staff Dialog - Compact with Grid */}
+      {/* Assign Staff Dialog */}
       <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
         <DialogContent className="max-w-2xl w-full p-0 gap-0">
           <DialogHeader className="bg-gradient-to-r from-blue-500 to-cyan-500 p-4 rounded-t-lg">
@@ -1017,7 +1021,6 @@ const handleUpdateStatus = async (id: number, status: string) => {
           {selectedComplaint && (
             <div className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Complaint Info */}
                 <div className="space-y-3">
                   <h4 className="font-medium text-sm text-gray-700">Complaint Information</h4>
                   <div className="bg-gray-50 p-3 rounded-lg space-y-2">
@@ -1035,8 +1038,6 @@ const handleUpdateStatus = async (id: number, status: string) => {
                     </div>
                   </div>
                 </div>
-
-                {/* Staff Selection */}
                 <div className="space-y-3">
                   <h4 className="font-medium text-sm text-gray-700">Select Staff Member</h4>
                   <div className="space-y-3">
@@ -1061,8 +1062,6 @@ const handleUpdateStatus = async (id: number, status: string) => {
                         )}
                       </SelectContent>
                     </Select>
-                    
-                    {/* Selected Staff Preview */}
                     {selectedStaffId && (
                       <div className="bg-blue-50 p-3 rounded-lg">
                         <p className="text-xs text-blue-600 mb-1">Selected Staff:</p>
@@ -1074,7 +1073,6 @@ const handleUpdateStatus = async (id: number, status: string) => {
                   </div>
                 </div>
               </div>
-
               <DialogFooter className="mt-6 flex justify-end gap-3">
                 <Button
                   variant="outline"
@@ -1096,141 +1094,186 @@ const handleUpdateStatus = async (id: number, status: string) => {
         </DialogContent>
       </Dialog>
 
-      {/* Update Status Dialog - Compact with Grid */}
-      {/* Update Status Dialog - Add Admin Notes */}
-<Dialog open={showStatusDialog} onOpenChange={setShowStatusDialog}>
-  <DialogContent className="max-w-2xl w-full p-0 gap-0">
-    <DialogHeader className="bg-gradient-to-r from-blue-500 to-cyan-500 p-4 rounded-t-lg">
-      <div className="flex items-center justify-between">
-        <DialogTitle className="flex items-center gap-2 text-white">
-          <FileText className="h-5 w-5" />
-          Update Status
-        </DialogTitle>
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          onClick={() => setShowStatusDialog(false)}
-          className="h-8 w-8 text-white hover:bg-white/20"
-        >
-          <X className="h-4 w-4" />
-        </Button>
-      </div>
-      <DialogDescription className="text-blue-50">
-        Update status for complaint #{selectedComplaint?.id}
-      </DialogDescription>
-    </DialogHeader>
-    
-    {selectedComplaint && (
-      <div className="p-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Current Status */}
-          <div className="space-y-3">
-            <h4 className="font-medium text-sm text-gray-700">Current Status</h4>
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <div className="flex items-center gap-2">
-                {getStatusIcon(selectedComplaint.status)}
-                {getStatusBadge(selectedComplaint.status)}
-              </div>
-              <div className="mt-2 text-sm">
-                <span className="text-xs text-gray-500">Last Updated:</span>
-                <p className="font-medium">{new Date(selectedComplaint.updated_at || selectedComplaint.created_at).toLocaleString()}</p>
-              </div>
+      {/* Update Status Dialog - Enhanced with existing notes */}
+      <Dialog open={showStatusDialog} onOpenChange={setShowStatusDialog}>
+        <DialogContent className="max-w-2xl w-full p-0 gap-0">
+          <DialogHeader className="bg-gradient-to-r from-blue-500 to-cyan-500 p-4 rounded-t-lg">
+            <div className="flex items-center justify-between">
+              <DialogTitle className="flex items-center gap-2 text-white">
+                <FileText className="h-5 w-5" />
+                Update Status
+              </DialogTitle>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => {
+                  setShowStatusDialog(false);
+                  setAdminNotes("");
+                  setNewStatus("");
+                }}
+                className="h-8 w-8 text-white hover:bg-white/20"
+              >
+                <X className="h-4 w-4" />
+              </Button>
             </div>
-          </div>
+            <DialogDescription className="text-blue-50">
+              Update status for complaint #{selectedComplaint?.id}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedComplaint && (
+            <div className="p-6 max-h-[80vh] overflow-y-auto">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Current Status */}
+                <div className="space-y-3">
+                  <h4 className="font-medium text-sm text-gray-700">Current Status</h4>
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      {getStatusIcon(selectedComplaint.status)}
+                      {getStatusBadge(selectedComplaint.status)}
+                    </div>
+                    <div className="mt-2 text-sm">
+                      <span className="text-xs text-gray-500">Last Updated:</span>
+                      <p className="font-medium">{new Date(selectedComplaint.updated_at || selectedComplaint.created_at).toLocaleString()}</p>
+                    </div>
+                  </div>
+                </div>
 
-          {/* New Status Selection */}
-          <div className="space-y-3">
-            <h4 className="font-medium text-sm text-gray-700">Select New Status</h4>
-            <Select value={newStatus} onValueChange={setNewStatus}>
-              <SelectTrigger className="h-10">
-                <SelectValue placeholder="Choose new status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="pending">
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4" />
-                    <span>Pending</span>
-                  </div>
-                </SelectItem>
-                <SelectItem value="in_progress">
-                  <div className="flex items-center gap-2">
-                    <Loader2 className="h-4 w-4" />
-                    <span>In Progress</span>
-                  </div>
-                </SelectItem>
-                <SelectItem value="resolved">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4" />
-                    <span>Resolved</span>
-                  </div>
-                </SelectItem>
-                <SelectItem value="closed">
-                  <div className="flex items-center gap-2">
-                    <XCircle className="h-4 w-4" />
-                    <span>Closed</span>
-                  </div>
-                </SelectItem>
-              </SelectContent>
-            </Select>
+                {/* New Status Selection */}
+                <div className="space-y-3">
+                  <h4 className="font-medium text-sm text-gray-700">Select New Status</h4>
+                  <Select value={newStatus} onValueChange={setNewStatus}>
+                    <SelectTrigger className="h-10">
+                      <SelectValue placeholder="Choose new status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pending">
+                        <div className="flex items-center gap-2">
+                          <Clock className="h-4 w-4" />
+                          <span>Pending</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="in_progress">
+                        <div className="flex items-center gap-2">
+                          <Loader2 className="h-4 w-4" />
+                          <span>In Progress</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="resolved">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle className="h-4 w-4" />
+                          <span>Resolved</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="closed">
+                        <div className="flex items-center gap-2">
+                          <XCircle className="h-4 w-4" />
+                          <span>Closed</span>
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
 
-            {/* Status Preview */}
-            {newStatus && (
-              <div className="bg-blue-50 p-3 rounded-lg mt-2">
-                <p className="text-xs text-blue-600 mb-1">New Status Preview:</p>
-                <div className="flex items-center gap-2">
-                  {newStatus === 'pending' && <Clock className="h-4 w-4" />}
-                  {newStatus === 'in_progress' && <Loader2 className="h-4 w-4 animate-spin" />}
-                  {newStatus === 'resolved' && <CheckCircle className="h-4 w-4" />}
-                  {newStatus === 'closed' && <XCircle className="h-4 w-4" />}
-                  <span className="font-medium capitalize">{newStatus.replace('_', ' ')}</span>
+                  
                 </div>
               </div>
-            )}
-          </div>
-        </div>
 
-        {/* Admin Notes Section - NEW */}
-        <div className="mt-6 space-y-3">
-          <h4 className="font-medium text-sm text-gray-700 flex items-center gap-2">
-            <MessageSquare className="h-4 w-4 text-blue-500" />
-            Admin Notes
-          </h4>
-          <Textarea
-            value={adminNotes}
-            onChange={(e) => setAdminNotes(e.target.value)}
-            placeholder="Add notes about this status update (optional but recommended)"
-            rows={3}
-            className="w-full text-sm border-gray-200 focus:border-blue-400 focus:ring-blue-400"
-          />
-          <p className="text-xs text-gray-500">
-            These notes will be visible to the tenant and help them understand the status change.
-          </p>
-        </div>
+              {/* Existing Admin Notes History */}
+              {selectedComplaint.admin_notes && (
+                <div className="mt-6 space-y-3">
+                  <h4 className="font-medium text-sm text-gray-700 flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-blue-500" />
+                    Previous Notes & History
+                  </h4>
+                  <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 max-h-48 overflow-y-auto">
+                    {selectedComplaint.admin_notes.split('\n').map((line, idx) => {
+                      const hasTimestamp = line.includes('[') && line.includes(']');
+                      const isSeparator = line.includes('----------------------------------------');
+                      
+                      if (isSeparator) {
+                        return <hr key={idx} className="my-2 border-gray-300" />;
+                      }
+                      
+                      if (hasTimestamp) {
+                        return (
+                          <div key={idx} className="text-xs text-blue-600 font-mono mt-2">
+                            {line}
+                          </div>
+                        );
+                      }
+                      
+                      if (line.trim().startsWith('Note:')) {
+                        return (
+                          <div key={idx} className="text-sm text-gray-700 pl-2 border-l-2 border-blue-300 ml-2 mt-1">
+                            {line}
+                          </div>
+                        );
+                      }
+                      
+                      if (line.trim().startsWith('Status:')) {
+                        return (
+                          <div key={idx} className="text-sm font-medium text-blue-700 mt-1">
+                            {line}
+                          </div>
+                        );
+                      }
+                      
+                      if (line.trim() && !line.includes('--- Complaint History ---')) {
+                        return (
+                          <div key={idx} className="text-xs text-gray-500 pl-2">
+                            {line}
+                          </div>
+                        );
+                      }
+                      
+                      return null;
+                    })}
+                  </div>
+                </div>
+              )}
 
-        <DialogFooter className="mt-6 flex justify-end gap-3">
-          <Button
-            variant="outline"
-            onClick={() => {
-              setShowStatusDialog(false);
-              setAdminNotes("");
-              setNewStatus("");
-            }}
-            className="px-6"
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={() => handleUpdateStatus(selectedComplaint.id, newStatus)}
-            disabled={!newStatus}
-            className="px-6 bg-gradient-to-r from-blue-500 to-cyan-500"
-          >
-            Update Status
-          </Button>
-        </DialogFooter>
-      </div>
-    )}
-  </DialogContent>
-</Dialog>
+              {/* Admin Notes Section - for new note */}
+              <div className="mt-6 space-y-3">
+                <h4 className="font-medium text-sm text-gray-700 flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4 text-blue-500" />
+                  Add New Note
+                </h4>
+                <Textarea
+                  value={adminNotes}
+                  onChange={(e) => setAdminNotes(e.target.value)}
+                  placeholder="Enter notes about this status update (optional but recommended)"
+                  rows={3}
+                  className="w-full text-sm border-gray-200 focus:border-blue-400 focus:ring-blue-400"
+                />
+                <p className="text-xs text-gray-500">
+                  This note will be appended to the history and visible to the tenant.
+                </p>
+              </div>
+
+              <DialogFooter className="mt-6 flex justify-end gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowStatusDialog(false);
+                    setAdminNotes("");
+                    setNewStatus("");
+                  }}
+                  className="px-6"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => handleUpdateStatus(selectedComplaint.id, newStatus)}
+                  disabled={!newStatus}
+                  className="px-6 bg-gradient-to-r from-blue-500 to-cyan-500"
+                >
+                  Update Status
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Bulk Delete Confirmation Dialog */}
       <Dialog open={showBulkDeleteDialog} onOpenChange={setShowBulkDeleteDialog}>

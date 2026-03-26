@@ -81,14 +81,12 @@ export type ComplaintCategory = {
 // Helper function to get admin token
 function getAdminToken(): string {
   if (typeof window === "undefined") {
-    console.error('Cannot access localStorage on server');
     return '';
   }
   
   const adminToken = localStorage.getItem("auth_token") || localStorage.getItem("token");
   
   if (!adminToken) {
-    console.error('No admin token found');
     if (typeof window !== 'undefined') {
       setTimeout(() => {
         window.location.href = '/login';
@@ -144,7 +142,6 @@ export async function bulkDeleteComplaints(ids: number[]): Promise<any> {
   try {
     const token = getAdminToken();
     
-    
     const response = await request(`/api/admin/complaints/bulk-delete`, {
       method: "POST",
       headers: {
@@ -166,8 +163,10 @@ export async function getComplaintById(id: number): Promise<Complaint | null> {
     const token = getAdminToken();
     
     const response = await request<{
-      message(arg0: string, message: any): unknown; success: boolean; data: Complaint 
-}>(
+      success: boolean; 
+      data: Complaint;
+      message?: string;
+    }>(
       `/api/admin/complaints/${id}`,
       {
         method: "GET",
@@ -179,6 +178,8 @@ export async function getComplaintById(id: number): Promise<Complaint | null> {
     );
     
     if (response.success && response.data) {
+      // Ensure admin_notes is included
+      
       return response.data;
     } else {
       console.error('❌ Failed to get complaint details:', response.message);
