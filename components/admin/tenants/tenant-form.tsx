@@ -96,7 +96,8 @@ export function TenantForm({ tenant, onSuccess, onCancel }: TenantFormProps) {
 const [panNumber, setPanNumber] = useState(tenant?.pan_number || "");
 const [idProofType,      setIdProofType]      = useState(tenant?.id_proof_type      || "");
 const [addressProofType, setAddressProofType] = useState(tenant?.address_proof_type || "");
-
+const [idProofNumber, setIdProofNumber] = useState(tenant?.id_proof_number || "");
+const [addressProofNumber, setAddressProofNumber] = useState(tenant?.address_proof_number || "");
 
   const [formData, setFormData] = useState<any>({
     salutation: tenant?.salutation || "",
@@ -349,7 +350,8 @@ const handleSubmit = async (e: React.FormEvent) => {
 if (panNumber) formDataToSend.append('pan_number', panNumber);
 if (idProofType)      formDataToSend.append('id_proof_type',      idProofType);
 if (addressProofType) formDataToSend.append('address_proof_type', addressProofType);
-
+if (idProofNumber) formDataToSend.append('id_proof_number', idProofNumber);
+if (addressProofNumber) formDataToSend.append('address_proof_number', addressProofNumber);
     // Append additional files
     additionalFiles.forEach((file) => {
       formDataToSend.append('additional_documents[]', file);
@@ -892,103 +894,135 @@ if (addressProofType) formDataToSend.append('address_proof_type', addressProofTy
     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
 
       {/* ── ID Proof ── */}
-      <div className="space-y-1.5">
-        <label className={L}>
-          <span className="flex items-center gap-1"><FileText className="h-3 w-3"/> ID Proof Type <span className="text-red-400">*</span></span>
-        </label>
-        <Select value={idProofType} onValueChange={setIdProofType}>
-          <SelectTrigger className={F}><SelectValue placeholder="Select ID type"/></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="Aadhar Card"     className={SI}>Aadhar Card</SelectItem>
-            <SelectItem value="Passport"         className={SI}>Passport</SelectItem>
-            <SelectItem value="PAN Card"         className={SI}>PAN Card</SelectItem>
-            <SelectItem value="Driving Licence"  className={SI}>Driving Licence</SelectItem>
-            <SelectItem value="Voter ID"         className={SI}>Voter ID</SelectItem>
-          </SelectContent>
-        </Select>
+<div className="space-y-1.5">
+  <label className={L}>
+    <span className="flex items-center gap-1"><FileText className="h-3 w-3"/> ID Proof Type <span className="text-red-400">*</span></span>
+  </label>
+  <Select value={idProofType} onValueChange={setIdProofType}>
+    <SelectTrigger className={F}><SelectValue placeholder="Select ID type"/></SelectTrigger>
+    <SelectContent>
+      <SelectItem value="Aadhar Card" className={SI}>Aadhar Card</SelectItem>
+      <SelectItem value="Passport" className={SI}>Passport</SelectItem>
+      <SelectItem value="PAN Card" className={SI}>PAN Card</SelectItem>
+      <SelectItem value="Driving Licence" className={SI}>Driving Licence</SelectItem>
+      <SelectItem value="Voter ID" className={SI}>Voter ID</SelectItem>
+    </SelectContent>
+  </Select>
 
-        {/* Aadhar number — only when Aadhar Card selected as ID proof */}
-        {idProofType === "Aadhar Card" && (
-          <div>
-            <label className={L}>Aadhar Number</label>
-            <Input
-              value={aadharNumber}
-              onChange={e => setAadharNumber(e.target.value)}
-              placeholder="XXXX XXXX XXXX"
-              className={F}
-              maxLength={14}
-            />
-            <p className="text-[10px] text-gray-400 mt-0.5">12-digit Aadhar number</p>
-          </div>
-        )}
+  {/* ID Proof Number Field */}
+  <div>
+    <label className={L}>
+      {idProofType === "Aadhar Card" ? "Aadhar Number" : 
+       idProofType === "Passport" ? "Passport Number" :
+       idProofType === "PAN Card" ? "PAN Number" :
+       idProofType === "Driving Licence" ? "Driving Licence Number" :
+       idProofType === "Voter ID" ? "Voter ID Number" : "Document Number"}
+      {idProofType && <span className="text-red-400">*</span>}
+    </label>
+    <Input
+      value={idProofNumber}
+      onChange={e => {
+        let value = e.target.value;
+        if (idProofType === "Aadhar Card") {
+          // Format Aadhar with spaces
+          value = value.replace(/\D/g, '').slice(0, 12);
+          if (value.length > 4) {
+            value = value.replace(/(\d{4})(?=\d)/g, '$1 ');
+          }
+        } else if (idProofType === "PAN Card") {
+          value = value.toUpperCase().slice(0, 10);
+        } else if (idProofType === "Passport") {
+          value = value.toUpperCase().slice(0, 9);
+        }
+        setIdProofNumber(value);
+      }}
+      placeholder={
+        idProofType === "Aadhar Card" ? "XXXX XXXX XXXX" :
+        idProofType === "PAN Card" ? "ABCDE1234F" :
+        idProofType === "Passport" ? "A1234567" :
+        "Enter document number"
+      }
+      className={F}
+      maxLength={
+        idProofType === "Aadhar Card" ? 14 :
+        idProofType === "PAN Card" ? 10 :
+        idProofType === "Passport" ? 9 : 50
+      }
+    />
+    <p className="text-[10px] text-gray-400 mt-0.5">
+      {idProofType === "Aadhar Card" ? "12-digit Aadhar number" :
+       idProofType === "PAN Card" ? "10-digit PAN number" :
+       idProofType === "Passport" ? "Passport number (e.g., A1234567)" :
+       ""}
+    </p>
+  </div>
 
-        {/* PAN number — only when PAN Card selected as ID proof */}
-        {idProofType === "PAN Card" && (
-          <div>
-            <label className={L}>PAN Number</label>
-            <Input
-              value={panNumber}
-              onChange={e => setPanNumber(e.target.value.toUpperCase())}
-              placeholder="ABCDE1234F"
-              className={`${F} uppercase`}
-              maxLength={10}
-            />
-            <p className="text-[10px] text-gray-400 mt-0.5">10-digit PAN number</p>
-          </div>
-        )}
+  <FileUploadField
+    label="ID Proof Document"
+    file={idProofFile} setFile={setIdProofFile}
+    existingUrl={existingFiles.id_proof_url}
+    fieldName="id_proof_url"
+    description="Upload ID proof document"
+    onRemoveExisting={()=>setExistingFiles(p=>({...p,id_proof_url:""}))}
+  />
+</div>
 
-        <FileUploadField
-          label="ID Proof Document"
-          file={idProofFile} setFile={setIdProofFile}
-          existingUrl={existingFiles.id_proof_url}
-          fieldName="id_proof_url"
-          description="Aadhar, Passport, PAN, DL"
-          onRemoveExisting={()=>setExistingFiles(p=>({...p,id_proof_url:""}))}
-        />
-      </div>
+{/* ── Address Proof ── */}
+<div className="space-y-1.5">
+  <label className={L}>
+    <span className="flex items-center gap-1"><FileText className="h-3 w-3"/> Address Proof Type <span className="text-red-400">*</span></span>
+  </label>
+  <Select value={addressProofType} onValueChange={setAddressProofType}>
+    <SelectTrigger className={F}><SelectValue placeholder="Select address proof"/></SelectTrigger>
+    <SelectContent>
+      <SelectItem value="Aadhar Card" className={SI}>Aadhar Card</SelectItem>
+      <SelectItem value="Utility Bill" className={SI}>Utility Bill</SelectItem>
+      <SelectItem value="Bank Statement" className={SI}>Bank Statement</SelectItem>
+      <SelectItem value="Passport" className={SI}>Passport</SelectItem>
+      <SelectItem value="Rental Agreement" className={SI}>Rental Agreement</SelectItem>
+      <SelectItem value="Voter ID" className={SI}>Voter ID</SelectItem>
+    </SelectContent>
+  </Select>
 
-      {/* ── Address Proof ── */}
-      <div className="space-y-1.5">
-        <label className={L}>
-          <span className="flex items-center gap-1"><FileText className="h-3 w-3"/> Address Proof Type <span className="text-red-400">*</span></span>
-        </label>
-        <Select value={addressProofType} onValueChange={setAddressProofType}>
-          <SelectTrigger className={F}><SelectValue placeholder="Select address proof"/></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="Aadhar Card"      className={SI}>Aadhar Card</SelectItem>
-            <SelectItem value="Utility Bill"     className={SI}>Utility Bill</SelectItem>
-            <SelectItem value="Bank Statement"   className={SI}>Bank Statement</SelectItem>
-            <SelectItem value="Passport"         className={SI}>Passport</SelectItem>
-            <SelectItem value="Rental Agreement" className={SI}>Rental Agreement</SelectItem>
-            <SelectItem value="Voter ID"         className={SI}>Voter ID</SelectItem>
-          </SelectContent>
-        </Select>
+  {/* Address Proof Number Field */}
+  <div>
+    <label className={L}>
+      {addressProofType === "Aadhar Card" ? "Aadhar Number" : 
+       addressProofType === "Passport" ? "Passport Number" :
+       addressProofType === "Voter ID" ? "Voter ID Number" : "Document Number"}
+    </label>
+    <Input
+      value={addressProofNumber}
+      onChange={e => {
+        let value = e.target.value;
+        if (addressProofType === "Aadhar Card") {
+          value = value.replace(/\D/g, '').slice(0, 12);
+          if (value.length > 4) {
+            value = value.replace(/(\d{4})(?=\d)/g, '$1 ');
+          }
+        } else if (addressProofType === "Passport") {
+          value = value.toUpperCase().slice(0, 9);
+        }
+        setAddressProofNumber(value);
+      }}
+      placeholder={
+        addressProofType === "Aadhar Card" ? "XXXX XXXX XXXX" :
+        addressProofType === "Passport" ? "A1234567" :
+        "Enter document number"
+      }
+      className={F}
+    />
+  </div>
 
-        {/* Aadhar number — only when Aadhar selected as address proof
-            AND not already shown in ID proof section */}
-        {addressProofType === "Aadhar Card" && idProofType !== "Aadhar Card" && (
-          <div>
-            <label className={L}>Aadhar Number</label>
-            <Input
-              value={aadharNumber}
-              onChange={e => setAadharNumber(e.target.value)}
-              placeholder="XXXX XXXX XXXX"
-              className={F}
-              maxLength={14}
-            />
-            <p className="text-[10px] text-gray-400 mt-0.5">12-digit Aadhar number</p>
-          </div>
-        )}
-
-        <FileUploadField
-          label="Address Proof Document"
-          file={addressProofFile} setFile={setAddressProofFile}
-          existingUrl={existingFiles.address_proof_url}
-          fieldName="address_proof_url"
-          description="Utility Bill, Bank Statement"
-          onRemoveExisting={()=>setExistingFiles(p=>({...p,address_proof_url:""}))}
-        />
-      </div>
+  <FileUploadField
+    label="Address Proof Document"
+    file={addressProofFile} setFile={setAddressProofFile}
+    existingUrl={existingFiles.address_proof_url}
+    fieldName="address_proof_url"
+    description="Upload address proof document"
+    onRemoveExisting={()=>setExistingFiles(p=>({...p,address_proof_url:""}))}
+  />
+</div>
 
       {/* ── Photograph ── */}
       <FileUploadField

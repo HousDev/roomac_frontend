@@ -23,7 +23,8 @@ import {
   MapPin, Info, Search, Building, Sparkles, UserCheck,
   ShieldCheck, ArrowUpRight, ArrowDownRight, Minus, Eye,
   Clock, MessageSquare, FileText, KeyRound, DoorOpen, Users,
-  User, Hash, Tag, Building2, Circle
+  User, Hash, Tag, Building2, Circle,
+  X
 } from 'lucide-react';
 import {
   getCurrentAssignment,
@@ -600,24 +601,37 @@ export function ChangeBedWizard({ tenantId, tenantName, open, onOpenChange, onSu
               Change Reason <span className="text-red-500">*</span>
             </Label>
             <Select value={selectedReason} onValueChange={setSelectedReason}>
-              <SelectTrigger className="h-11 border-gray-300 focus:ring-blue-500 hover:border-gray-400">
-                <SelectValue placeholder="Select a reason..." />
-              </SelectTrigger>
-              <SelectContent className="max-h-60">
-                {changeReasons.length > 0 ? (
-                  changeReasons.map(reason => (
-                    <SelectItem key={reason.id} value={reason.id.toString()} className="py-3 hover:bg-blue-50">
-                      <div className="flex items-center gap-3">
-                        <Circle className="h-2 w-2 fill-blue-500 text-blue-500" />
-                        <span>{reason.value}</span>
-                      </div>
-                    </SelectItem>
-                  ))
-                ) : (
-                  <div className="px-2 py-1.5 text-sm text-gray-500">No change reasons found</div>
-                )}
-              </SelectContent>
-            </Select>
+  <SelectTrigger className="h-9 border-gray-300 focus:ring-blue-500 hover:border-gray-400 text-sm">
+    <SelectValue placeholder="Select a reason..." />
+  </SelectTrigger>
+  <SelectContent 
+    className="max-h-44 overflow-y-auto bg-white shadow-lg rounded-md border border-gray-200"
+    side="bottom"
+    align="center"
+    sideOffset={5}
+    position="popper"
+    avoidCollisions={false}
+  >
+    <div className="py-1">
+      {changeReasons.length > 0 ? (
+        changeReasons.map(reason => (
+          <SelectItem 
+            key={reason.id} 
+            value={reason.id.toString()} 
+            className="py-1.5 px-3 hover:bg-blue-50 text-xs cursor-pointer focus:bg-blue-50"
+          >
+            <div className="flex items-center gap-2">
+              <Circle className="h-1.5 w-1.5 fill-blue-500 text-blue-500" />
+              <span className="text-xs font-normal">{reason.value}</span>
+            </div>
+          </SelectItem>
+        ))
+      ) : (
+        <div className="px-3 py-2 text-xs text-gray-500">No change reasons found</div>
+      )}
+    </div>
+  </SelectContent>
+</Select>
           </div>
         </div>
       ),
@@ -1512,26 +1526,36 @@ export function ChangeBedWizard({ tenantId, tenantName, open, onOpenChange, onSu
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col border border-gray-300 shadow-xl p-0">
-        {/* Header - ULTRA COMPACT */}
-        <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-3 sticky top-0 z-10">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <RefreshCw className="h-4 w-4" />
-              <div>
-                <DialogTitle className="text-base font-bold">
-                  Change Bed
-                </DialogTitle>
-                <DialogDescription className="text-blue-100 text-xs">
-                  {tenantName}
-                </DialogDescription>
-              </div>
-            </div>
-            <div className="text-xs bg-white/20 px-2 py-1 rounded">
-              Step {currentStepIndex + 1}/{steps.length}
-            </div>
-          </div>
-        </div>
+<DialogContent 
+  className="max-w-xl max-h-[85vh] overflow-hidden flex flex-col border border-gray-300 shadow-xl p-0"
+  onInteractOutside={(e) => e.preventDefault()}
+>        {/* Header - ULTRA COMPACT */}
+       <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-2.5 sticky top-0 z-10">
+  <div className="flex items-center justify-between">
+    <div className="flex items-center gap-2">
+      <RefreshCw className="h-3.5 w-3.5" />
+      <div>
+        <DialogTitle className="text-sm font-bold leading-tight">
+          Change Bed
+        </DialogTitle>
+        <DialogDescription className="text-blue-100 text-[10px]">
+          {tenantName}
+        </DialogDescription>
+      </div>
+    </div>
+    <div className="flex items-center gap-2">
+      <span className="text-[10px] bg-white/20 px-1.5 py-0.5 rounded">
+        {currentStepIndex + 1}/{steps.length}
+      </span>
+      <button
+        onClick={() => onOpenChange(false)}
+        className="p-1 rounded-full hover:bg-white/20 transition"
+      >
+        <X className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  </div>
+</div>
         
         {/* Step Indicator - MINIMAL WITH ICONS */}
         <div className="px-3 py-2 bg-gray-50 border-b border-gray-200">

@@ -36,7 +36,7 @@ const EnquiriesStats = ({ stats }: EnquiriesStatsProps) => {
     : "0.0";
 
   return (
-    <div className="space-y-1.5 mb-2 -mt-3">
+    <div className="space-y-1.5 mb-2 -mt-2">
 
       {/* ── Top 6 status cards ──────────────────────────────────────────
           Mobile  : 3 cols × 2 rows  (grid-cols-3)

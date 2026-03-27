@@ -48,55 +48,41 @@ interface TenantDetails {
   pan_number?: string;
 }
 
-// Enhanced amenities mapping with more icons and vibrant colors
+// Amenity definitions with soft pastel circle bg colors (like reference image)
 const AMENITIES_WITH_COLORS = [
-  // Basic Amenities
-  { id: 'wifi', label: 'WiFi', icon: Wifi, bg: 'bg-blue-500', text: 'text-white' },
-  { id: 'tv', label: 'TV', icon: Tv, bg: 'bg-purple-500', text: 'text-white' },
-  { id: 'ac', label: 'AC', icon: Snowflake, bg: 'bg-cyan-500', text: 'text-white' },
-  { id: 'fan', label: 'Fan', icon: Fan, bg: 'bg-sky-500', text: 'text-white' },
-  { id: 'geyser', label: 'Geyser', icon: Thermometer, bg: 'bg-red-500', text: 'text-white' },
-  { id: 'fridge', label: 'Refrigerator', icon: Refrigerator, bg: 'bg-slate-600', text: 'text-white' },
-  
-  // Furniture
-  { id: 'bed', label: 'Bed', icon: Bed, bg: 'bg-amber-600', text: 'text-white' },
-  { id: 'wardrobe', label: 'Wardrobe', icon: DoorOpen, bg: 'bg-stone-600', text: 'text-white' },
-  { id: 'study table', label: 'Study Table', icon: BookOpen, bg: 'bg-emerald-600', text: 'text-white' },
-  { id: 'chair', label: 'Chair', icon: Armchair, bg: 'bg-orange-500', text: 'text-white' },
-  { id: 'lamp', label: 'Study Lamp', icon: Lamp, bg: 'bg-yellow-500', text: 'text-white' },
-  { id: 'curtains', label: 'Curtains', icon: Sunset, bg: 'bg-indigo-500', text: 'text-white' },
-  
-  // Kitchen & Dining
-  { id: 'kitchen', label: 'Kitchen', icon: CookingPot, bg: 'bg-orange-600', text: 'text-white' },
-  { id: 'dining', label: 'Dining', icon: Utensils, bg: 'bg-amber-600', text: 'text-white' },
-  { id: 'microwave', label: 'Microwave', icon: Coffee, bg: 'bg-stone-600', text: 'text-white' },
-  
-  // Services
-  { id: 'cleaning', label: 'Cleaning', icon: Sparkles, bg: 'bg-teal-500', text: 'text-white' },
-  { id: 'laundry', label: 'Laundry', icon: Droplets, bg: 'bg-blue-600', text: 'text-white' },
-  { id: 'security', label: 'Security', icon: Shield, bg: 'bg-red-600', text: 'text-white' },
-  { id: 'parking', label: 'Parking', icon: Car, bg: 'bg-gray-600', text: 'text-white' },
-  { id: 'power backup', label: 'Power Backup', icon: Factory, bg: 'bg-yellow-600', text: 'text-white' },
-  
-  // Facilities
-  { id: 'gym', label: 'Gym', icon: Dumbbell, bg: 'bg-lime-600', text: 'text-white' },
-  { id: 'garden', label: 'Garden', icon: TreePine, bg: 'bg-green-600', text: 'text-white' },
-  { id: 'terrace', label: 'Terrace', icon: Mountain, bg: 'bg-emerald-600', text: 'text-white' },
-  { id: 'swimming pool', label: 'Swimming Pool', icon: Waves, bg: 'bg-blue-600', text: 'text-white' },
-  
-  // Entertainment
-  { id: 'game zone', label: 'Game Zone', icon: Gamepad, bg: 'bg-violet-600', text: 'text-white' },
-  { id: 'music room', label: 'Music Room', icon: Music, bg: 'bg-fuchsia-600', text: 'text-white' },
-  { id: 'theatre', label: 'Home Theatre', icon: Headphones, bg: 'bg-rose-600', text: 'text-white' },
-  
-  // Others
-  { id: 'balcony', label: 'Balcony', icon: Sun, bg: 'bg-amber-500', text: 'text-white' },
-  { id: 'attached bathroom', label: 'Attached Bathroom', icon: Bath, bg: 'bg-cyan-600', text: 'text-white' },
-  { id: 'smoking', label: 'Smoking Allowed', icon: Cigarette, bg: 'bg-stone-600', text: 'text-white' },
-  { id: 'pet friendly', label: 'Pet Friendly', icon: Dog, bg: 'bg-amber-600', text: 'text-white' },
+  { id: 'wifi', label: 'WiFi', icon: Wifi, circleBg: 'bg-blue-100', iconColor: 'text-blue-500' },
+  { id: 'tv', label: 'TV', icon: Tv, circleBg: 'bg-purple-100', iconColor: 'text-purple-500' },
+  { id: 'ac', label: 'AC', icon: Snowflake, circleBg: 'bg-cyan-100', iconColor: 'text-cyan-500' },
+  { id: 'fan', label: 'Fan', icon: Fan, circleBg: 'bg-sky-100', iconColor: 'text-sky-500' },
+  { id: 'geyser', label: 'Geyser', icon: Thermometer, circleBg: 'bg-red-100', iconColor: 'text-red-500' },
+  { id: 'fridge', label: 'Refrigerator', icon: Refrigerator, circleBg: 'bg-slate-100', iconColor: 'text-slate-600' },
+  { id: 'bed', label: 'Bed', icon: Bed, circleBg: 'bg-amber-100', iconColor: 'text-amber-600' },
+  { id: 'wardrobe', label: 'Wardrobe', icon: DoorOpen, circleBg: 'bg-stone-100', iconColor: 'text-stone-600' },
+  { id: 'study table', label: 'Study Table', icon: BookOpen, circleBg: 'bg-emerald-100', iconColor: 'text-emerald-600' },
+  { id: 'chair', label: 'Chair', icon: Armchair, circleBg: 'bg-orange-100', iconColor: 'text-orange-500' },
+  { id: 'lamp', label: 'Study Lamp', icon: Lamp, circleBg: 'bg-yellow-100', iconColor: 'text-yellow-600' },
+  { id: 'curtains', label: 'Curtains', icon: Sunset, circleBg: 'bg-indigo-100', iconColor: 'text-indigo-500' },
+  { id: 'kitchen', label: 'Kitchen', icon: CookingPot, circleBg: 'bg-orange-100', iconColor: 'text-orange-600' },
+  { id: 'dining', label: 'Dining', icon: Utensils, circleBg: 'bg-amber-100', iconColor: 'text-amber-600' },
+  { id: 'microwave', label: 'Microwave', icon: Coffee, circleBg: 'bg-stone-100', iconColor: 'text-stone-600' },
+  { id: 'cleaning', label: 'Cleaning', icon: Sparkles, circleBg: 'bg-teal-100', iconColor: 'text-teal-500' },
+  { id: 'laundry', label: 'Laundry', icon: Droplets, circleBg: 'bg-blue-100', iconColor: 'text-blue-600' },
+  { id: 'security', label: 'Security', icon: Shield, circleBg: 'bg-red-100', iconColor: 'text-red-500' },
+  { id: 'parking', label: 'Parking', icon: Car, circleBg: 'bg-green-100', iconColor: 'text-green-600' },
+  { id: 'power backup', label: 'Power Backup', icon: Factory, circleBg: 'bg-yellow-100', iconColor: 'text-yellow-600' },
+  { id: 'gym', label: 'Gym', icon: Dumbbell, circleBg: 'bg-lime-100', iconColor: 'text-lime-600' },
+  { id: 'garden', label: 'Garden', icon: TreePine, circleBg: 'bg-green-100', iconColor: 'text-green-600' },
+  { id: 'terrace', label: 'Terrace', icon: Mountain, circleBg: 'bg-emerald-100', iconColor: 'text-emerald-600' },
+  { id: 'swimming pool', label: 'Swimming Pool', icon: Waves, circleBg: 'bg-blue-100', iconColor: 'text-blue-600' },
+  { id: 'game zone', label: 'Game Zone', icon: Gamepad, circleBg: 'bg-violet-100', iconColor: 'text-violet-600' },
+  { id: 'music room', label: 'Music Room', icon: Music, circleBg: 'bg-fuchsia-100', iconColor: 'text-fuchsia-600' },
+  { id: 'theatre', label: 'Home Theatre', icon: Headphones, circleBg: 'bg-rose-100', iconColor: 'text-rose-500' },
+  { id: 'balcony', label: 'Balcony', icon: Sun, circleBg: 'bg-amber-100', iconColor: 'text-amber-500' },
+  { id: 'attached bathroom', label: 'Attached Bathroom', icon: Bath, circleBg: 'bg-cyan-100', iconColor: 'text-cyan-600' },
+  { id: 'smoking', label: 'Smoking Allowed', icon: Cigarette, circleBg: 'bg-stone-100', iconColor: 'text-stone-600' },
+  { id: 'pet friendly', label: 'Pet Friendly', icon: Dog, circleBg: 'bg-amber-100', iconColor: 'text-amber-600' },
 ];
 
-// Gender icon component with colors
 const GenderIcon = ({ gender, size = "h-4 w-4" }: { gender: string; size?: string }) => {
   switch (gender?.toLowerCase()) {
     case 'male':
@@ -113,20 +99,18 @@ const GenderIcon = ({ gender, size = "h-4 w-4" }: { gender: string; size?: strin
   }
 };
 
-// Bed status badge with colors
 const BedStatusBadge = ({ isAvailable, rent }: { isAvailable: boolean; rent?: number }) => {
   if (isAvailable) {
     return (
-      <Badge className="bg-green-100 text-green-700 border-green-200 text-[10px] px-2 py-0.5">
-        <CheckCircle className="h-2.5 w-2.5 mr-1" />
+      <Badge className="bg-green-100 text-green-700 border-green-200 text-[9px] px-1.5 py-0">
+        <CheckCircle className="h-2 w-2 mr-0.5" />
         Available
-        {rent && <span className="ml-1 font-bold">₹{rent}</span>}
       </Badge>
     );
   }
   return (
-    <Badge className="bg-red-100 text-red-700 border-red-200 text-[10px] px-2 py-0.5">
-      <XCircle className="h-2.5 w-2.5 mr-1" />
+    <Badge className="bg-red-100 text-red-700 border-red-200 text-[9px] px-1.5 py-0">
+      <XCircle className="h-2 w-2 mr-0.5" />
       Occupied
     </Badge>
   );
@@ -138,7 +122,6 @@ export function RoomDetailsDialog({ room, open, onOpenChange }: RoomDetailsDialo
   const [errorTenants, setErrorTenants] = useState<string | null>(null);
   const [bedAssignments, setBedAssignments] = useState<BedAssignment[]>([]);
 
-  // Process bed assignments with rent information
   useEffect(() => {
     if (room?.bed_assignments) {
       setBedAssignments(room.bed_assignments);
@@ -147,36 +130,29 @@ export function RoomDetailsDialog({ room, open, onOpenChange }: RoomDetailsDialo
 
   const YesNoIcon = ({ value }: { value: boolean }) => {
     return value ? (
-      <CheckCircle className="h-3 w-3 md:h-4 md:w-4 text-green-600" />
+      <CheckCircle className="h-3 w-3 text-green-600" />
     ) : (
-      <XCircle className="h-3 w-3 md:h-4 md:w-4 text-red-500" />
+      <XCircle className="h-3 w-3 text-red-500" />
     );
   };
 
-  // Handle gender preferences (array or string)
   const genderPreferences = Array.isArray(room.room_gender_preference) 
     ? room.room_gender_preference 
     : [room.room_gender_preference];
 
-  // Get occupied beds with tenant details from bed_assignments
   const occupiedBeds = bedAssignments?.filter((bed: BedAssignment) => bed.tenant_id) || [];
 
-  // Fetch all tenants when dialog opens
   const loadAllTenants = async () => {
     try {
       setLoadingTenants(true);
       setErrorTenants(null);
-      
       const response: any = await request('/api/tenants?is_active=true&portal_access_enabled=true');
-      
       let tenantsList: TenantDetails[] = [];
-      
       if (Array.isArray(response)) {
         tenantsList = response;
       } else if (response.data && Array.isArray(response.data)) {
         tenantsList = response.data;
       }
-      
       setTenants(tenantsList);
     } catch (error: any) {
       console.error('Error loading tenants:', error);
@@ -193,539 +169,404 @@ export function RoomDetailsDialog({ room, open, onOpenChange }: RoomDetailsDialo
     }
   }, [open]);
 
-  // Helper to get tenant details by ID
   const getTenantDetails = (tenantId: number) => {
     return tenants.find(t => t.id === tenantId);
   };
 
-  // Format date from bed_assignments.created_at
   const formatAssignmentDate = (dateString: string) => {
     if (!dateString) return 'N/A';
     try {
       const date = new Date(dateString);
-      return date.toLocaleDateString('en-IN', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-      });
-    } catch {
-      return 'N/A';
-    }
+      return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+    } catch { return 'N/A'; }
   };
 
-  // Calculate days since assignment from bed_assignments.created_at
   const getDaysSinceAssignment = (dateString: string) => {
     if (!dateString) return null;
     try {
       const assignmentDate = new Date(dateString);
       const today = new Date();
       const diffTime = Math.abs(today.getTime() - assignmentDate.getTime());
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      return diffDays;
-    } catch {
-      return null;
-    }
+      return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    } catch { return null; }
   };
 
-  // Get amenity style with vibrant colors
   const getAmenityStyle = (amenityName: string) => {
     const lowerName = amenityName.toLowerCase();
-    const found = AMENITIES_WITH_COLORS.find(a => 
+    const found = AMENITIES_WITH_COLORS.find(a =>
       lowerName.includes(a.id) || a.label.toLowerCase() === lowerName
     );
     return found || {
       id: 'default',
       label: amenityName,
       icon: Sparkles,
-      bg: 'bg-gradient-to-br from-gray-600 to-gray-700',
-      text: 'text-white'
+      circleBg: 'bg-gray-100',
+      iconColor: 'text-gray-500'
     };
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[calc(100vw-1rem)] sm:max-w-[calc(100vw-2rem)] md:max-w-4xl lg:max-w-5xl max-h-[90vh] overflow-hidden p-0 border-0 flex flex-col">
-        {/* Header with blue gradient - Updated as requested */}
-        <div className="sticky top-0 z-10 bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-800 text-white px-3 sm:px-4 py-2 sm:py-3 flex-shrink-0">
-          <DialogHeader className="space-y-1">
-            <div className="flex items-center justify-between">
-              <DialogTitle className="text-sm sm:text-base md:text-lg lg:text-xl font-bold flex items-center gap-2">
-                <div className="p-1.5 bg-white/20 rounded-lg backdrop-blur-sm">
-                  <Eye className="h-4 w-4 sm:h-5 sm:w-5" />
+      <DialogContent
+        className="max-w-[calc(100vw-1.5rem)] sm:max-w-[calc(100vw-2rem)] md:max-w-3xl lg:max-w-4xl max-h-[85vh] overflow-hidden p-0 border-0 flex flex-col rounded-2xl"
+        onInteractOutside={(e) => e.preventDefault()}
+      >
+        {/* ── Header ── */}
+        <div className="bg-gradient-to-r from-blue-600 to-cyan-500 text-white px-3 py-2 flex-shrink-0">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="p-1 bg-white/20 rounded-lg flex-shrink-0">
+                <Eye className="h-3.5 w-3.5" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-sm font-bold leading-tight">Room {room.room_number}</span>
+                  <Badge className="bg-white/20 text-white border-white/30 text-[9px] px-1.5 py-0 h-4">
+                    {room.is_active ? '● Active' : '○ Inactive'}
+                  </Badge>
+                  <Badge className="bg-white/20 text-white border-white/30 text-[9px] px-1.5 py-0 h-4">
+                    {room.sharing_type}
+                  </Badge>
                 </div>
-                <span className="truncate">Room {room.room_number}</span>
-                <Badge 
-                  variant={room.is_active ? "default" : "secondary"} 
-                  className="ml-1 sm:ml-2 bg-white/20 text-white border-white/30 text-[10px] sm:text-xs"
-                >
-                  {room.is_active ? '● Active' : '○ Inactive'}
-                </Badge>
-              </DialogTitle>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 sm:h-8 sm:w-8 text-white hover:bg-white/20 rounded-full"
-                onClick={() => onOpenChange(false)}
-              >
-                <X className="h-4 w-4 sm:h-5 sm:w-5" />
-              </Button>
-            </div>
-            <div className="flex flex-col xs:flex-row xs:items-center gap-1 xs:gap-2 text-[10px] sm:text-sm text-white/90">
-              <div className="flex items-center gap-1">
-                <Building className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-                <span className="truncate max-w-[150px] xs:max-w-[200px] sm:max-w-[300px]">{room.property_name}</span>
-              </div>
-              <span className="hidden xs:inline text-white/50">•</span>
-              <div className="flex items-center gap-1">
-                <MapPin className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-                <span className="truncate max-w-[150px] xs:max-w-[200px] sm:max-w-[300px]">{room.property_address}</span>
+                <div className="flex items-center gap-1 text-[10px] text-white/80 mt-0.5">
+                  <Building className="h-2.5 w-2.5 flex-shrink-0" />
+                  <span className="truncate">{room.property_name}</span>
+                  <span className="text-white/50">•</span>
+                  <MapPin className="h-2.5 w-2.5 flex-shrink-0" />
+                  <span className="truncate max-w-[140px]">{room.property_address}</span>
+                </div>
               </div>
             </div>
-          </DialogHeader>
+            <button
+              onClick={() => onOpenChange(false)}
+              className="h-6 w-6 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center flex-shrink-0 ml-2"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
 
-        <div className="px-3 sm:px-4 py-3 overflow-y-auto flex-1 min-h-0">
-          <div className="space-y-3 sm:space-y-4">
-            {/* Room Stats Cards - Responsive grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
-              <Card className="border-2 border-blue-100 bg-gradient-to-br from-blue-50 to-white">
-                <CardContent className="p-2 sm:p-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-[10px] sm:text-xs text-blue-600 font-medium">Total Beds</p>
-                      <p className="text-lg sm:text-2xl font-bold text-blue-700">{room.total_bed}</p>
-                    </div>
-                    <div className="p-1.5 sm:p-2 bg-blue-100 rounded-lg">
-                      <Bed className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+        {/* ── Scrollable Body ── */}
+        <div className="px-2.5 py-2 overflow-y-auto flex-1 min-h-0 space-y-2">
 
-              <Card className="border-2 border-green-100 bg-gradient-to-br from-green-50 to-white">
-                <CardContent className="p-2 sm:p-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-[10px] sm:text-xs text-green-600 font-medium">Available</p>
-                      <p className="text-lg sm:text-2xl font-bold text-green-700">{room.total_bed - room.occupied_beds}</p>
-                    </div>
-                    <div className="p-1.5 sm:p-2 bg-green-100 rounded-lg">
-                      <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5 text-green-600" />
-                    </div>
+          {/* Stats Row */}
+          <div className="grid grid-cols-4 gap-1.5">
+            {[
+              { label: 'Total Beds', value: room.total_bed, icon: Bed, bg: 'bg-blue-50', border: 'border-blue-100', textColor: 'text-blue-700', iconColor: 'text-blue-500' },
+              { label: 'Available', value: room.total_bed - room.occupied_beds, icon: CheckCircle, bg: 'bg-green-50', border: 'border-green-100', textColor: 'text-green-700', iconColor: 'text-green-500' },
+              { label: 'Occupied', value: room.occupied_beds, icon: Users, bg: 'bg-amber-50', border: 'border-amber-100', textColor: 'text-amber-700', iconColor: 'text-amber-500' },
+              { label: 'Rent/Bed', value: `₹${room.rent_per_bed}`, icon: BadgeIndianRupee, bg: 'bg-purple-50', border: 'border-purple-100', textColor: 'text-purple-700', iconColor: 'text-purple-500' },
+            ].map(({ label, value, icon: Icon, bg, border, textColor, iconColor }) => (
+              <div key={label} className={`${bg} border ${border} rounded-xl p-2`}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className={`text-[9px] font-medium ${textColor} leading-tight`}>{label}</p>
+                    <p className={`text-sm font-bold ${textColor} leading-tight mt-0.5`}>{value}</p>
                   </div>
-                </CardContent>
-              </Card>
+                  <Icon className={`h-4 w-4 ${iconColor} flex-shrink-0`} />
+                </div>
+              </div>
+            ))}
+          </div>
 
-              <Card className="border-2 bg-gradient-to-br from-purple-50 to-white border-purple-100">
-                <CardContent className="p-2 sm:p-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-[10px] sm:text-xs text-purple-600 font-medium">Rent/Bed</p>
-                      <p className="text-base sm:text-xl font-bold text-purple-700">₹{room.rent_per_bed}</p>
-                    </div>
-                    <div className="p-1.5 sm:p-2 bg-purple-100 rounded-lg">
-                      <BadgeIndianRupee className="h-4 w-4 sm:h-5 sm:w-5 text-purple-600" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+          {/* Beds Grid */}
+          <div className="border border-gray-100 rounded-xl overflow-hidden">
+            <div className="bg-gray-50 px-2.5 py-1.5 flex items-center justify-between border-b border-gray-100">
+              <div className="flex items-center gap-1.5">
+                <Bed className="h-3 w-3 text-gray-600" />
+                <span className="text-[10px] font-semibold text-gray-700">Bed Configuration</span>
+              </div>
+              <Badge className="bg-blue-100 text-blue-700 border-blue-200 text-[9px] px-1.5 py-0">
+                {room.total_bed} Beds • ₹{room.rent_per_bed}/bed
+              </Badge>
+            </div>
+            <div className="p-2">
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-1.5">
+                {Array.from({ length: room.total_bed }, (_, i) => i + 1).map((bedNumber) => {
+                  const bedAssignment = bedAssignments.find(b => b.bed_number === bedNumber);
+                  const isOccupied = !!bedAssignment?.tenant_id;
+                  const tenantDetail = bedAssignment ? getTenantDetails(bedAssignment.tenant_id) : null;
+                  const bedRent = bedAssignment?.tenant_rent ? Number(bedAssignment.tenant_rent) : room.rent_per_bed;
 
-              <Card className="border-2 bg-gradient-to-br from-amber-50 to-white border-amber-100">
-                <CardContent className="p-2 sm:p-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-[10px] sm:text-xs text-amber-600 font-medium">Occupied</p>
-                      <p className="text-lg sm:text-2xl font-bold text-amber-700">{room.occupied_beds}</p>
+                  return (
+                    <div
+                      key={bedNumber}
+                      className={`relative p-2 rounded-xl border text-center transition-all hover:shadow-sm
+                        ${isOccupied ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}
+                    >
+                      {/* Bed number pill */}
+                      <div className={`absolute -top-1.5 -left-1.5 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold text-white
+                        ${isOccupied ? 'bg-red-500' : 'bg-green-500'}`}>
+                        {bedNumber}
+                      </div>
+                      <Bed className={`h-4 w-4 mx-auto mb-0.5 ${isOccupied ? 'text-red-400' : 'text-green-500'}`} />
+                      <div className="text-[9px] font-semibold flex items-center justify-center gap-0.5 mb-0.5">
+                        <span>₹{bedRent}</span>
+                      </div>
+                      <BedStatusBadge isAvailable={!isOccupied} />
+                      {isOccupied && tenantDetail && (
+                        <div className="mt-1 text-[8px] text-left border-t border-red-200 pt-1">
+                          <p className="font-semibold truncate text-gray-700">{tenantDetail.full_name}</p>
+                          <p className="text-gray-500 truncate">{formatAssignmentDate(bedAssignment.created_at)}</p>
+                        </div>
+                      )}
                     </div>
-                    <div className="p-1.5 sm:p-2 bg-amber-100 rounded-lg">
-                      <Users className="h-4 w-4 sm:h-5 sm:w-5 text-amber-600" />
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Features + Gender row */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {/* Room Features */}
+            <div className="border border-gray-100 rounded-xl overflow-hidden">
+              <div className="bg-gray-50 px-2.5 py-1.5 border-b border-gray-100 flex items-center gap-1.5">
+                <Sparkles className="h-3 w-3 text-purple-500" />
+                <span className="text-[10px] font-semibold text-gray-700">Room Features</span>
+              </div>
+              <div className="p-2 grid grid-cols-2 gap-1.5">
+                {[
+                  { key: 'has_ac', label: 'AC', sub: room.has_ac ? 'Available' : 'No', icon: Snowflake, activeColor: 'text-cyan-600', activeBg: 'bg-cyan-50 border-cyan-200' },
+                  { key: 'has_balcony', label: 'Balcony', sub: room.has_balcony ? 'Yes' : 'No', icon: Sun, activeColor: 'text-amber-600', activeBg: 'bg-amber-50 border-amber-200' },
+                  { key: 'has_attached_bathroom', label: 'Bathroom', sub: room.has_attached_bathroom ? 'Attached' : 'Shared', icon: Bath, activeColor: 'text-cyan-600', activeBg: 'bg-cyan-50 border-cyan-200' },
+                  { key: 'allow_couples', label: 'Couples', sub: room.allow_couples ? 'Allowed' : 'No', icon: Heart, activeColor: 'text-pink-600', activeBg: 'bg-pink-50 border-pink-200' },
+                ].map(({ key, label, sub, icon: Icon, activeColor, activeBg }) => {
+                  const active = (room as any)[key];
+                  return (
+                    <div key={key} className={`flex items-center gap-1.5 p-1.5 rounded-lg border ${active ? activeBg : 'bg-gray-50 border-gray-200'}`}>
+                      <div className={`p-1 rounded-md ${active ? 'bg-white/70' : 'bg-gray-200'}`}>
+                        <Icon className={`h-3 w-3 ${active ? activeColor : 'text-gray-400'}`} />
+                      </div>
+                      <div>
+                        <p className="text-[9px] font-semibold text-gray-700 leading-tight">{label}</p>
+                        <p className="text-[8px] text-gray-500 leading-tight">{sub}</p>
+                      </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  );
+                })}
+              </div>
             </div>
 
-            {/* Beds Grid */}
-            <Card className="border-2 border-gray-200">
-              <CardHeader className="pb-2 px-3 sm:px-4 pt-2 sm:pt-3 bg-gradient-to-r from-gray-50 to-white">
-                <CardTitle className="text-xs sm:text-sm font-semibold flex items-center gap-2">
-                  <Bed className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-gray-700" />
-                  <span>Bed Configuration ({room.total_bed} Beds Total)</span>
-                  <Badge className="ml-auto sm:ml-2 bg-blue-100 text-blue-700 border-blue-200 text-[9px] sm:text-xs">
-                    ₹{room.rent_per_bed}/bed
-                  </Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-3 sm:p-4">
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3">
-                  {Array.from({ length: room.total_bed }, (_, i) => i + 1).map((bedNumber) => {
-                    const bedAssignment = bedAssignments.find(b => b.bed_number === bedNumber);
-                    const isOccupied = !!bedAssignment?.tenant_id;
-                    const tenantDetail = bedAssignment ? getTenantDetails(bedAssignment.tenant_id) : null;
-                    
-                    // Get rent from bed_assignment or use room's rent_per_bed
-                    const bedRent = bedAssignment?.tenant_rent 
-                      ? Number(bedAssignment.tenant_rent) 
-                      : room.rent_per_bed;
+            {/* Gender Preferences */}
+            <div className="border border-gray-100 rounded-xl overflow-hidden">
+              <div className="bg-gray-50 px-2.5 py-1.5 border-b border-gray-100 flex items-center gap-1.5">
+                <Users className="h-3 w-3 text-indigo-500" />
+                <span className="text-[10px] font-semibold text-gray-700">Gender Preferences</span>
+              </div>
+              <div className="p-2">
+                <div className="flex flex-wrap gap-1.5">
+                  {genderPreferences.map((pref: any) => (
+                    <Badge
+                      key={pref}
+                      className={`text-[9px] px-2 py-1 border font-medium flex items-center gap-1
+                        ${pref === 'male_only' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                          pref === 'female_only' ? 'bg-pink-50 text-pink-700 border-pink-200' :
+                          pref === 'couples' ? 'bg-red-50 text-red-700 border-red-200' :
+                          'bg-gray-50 text-gray-700 border-gray-200'}`}
+                    >
+                      <GenderIcon gender={pref} size="h-3 w-3" />
+                      {pref === 'male_only' ? 'Male Only' :
+                       pref === 'female_only' ? 'Female Only' :
+                       pref === 'couples' ? 'Couples' : pref}
+                    </Badge>
+                  ))}
+                  {genderPreferences.length === 0 && (
+                    <span className="text-[10px] text-gray-400">No preferences set</span>
+                  )}
+                </div>
 
+                {/* Floor & Type info */}
+                <div className="mt-2 pt-2 border-t border-gray-100 grid grid-cols-2 gap-1.5">
+                  <div className="bg-slate-50 rounded-lg p-1.5">
+                    <p className="text-[8px] text-slate-500 font-medium uppercase tracking-wide">Floor</p>
+                    <p className="text-[10px] font-semibold text-slate-700">{room.floor || 'Ground'}</p>
+                  </div>
+                  <div className="bg-slate-50 rounded-lg p-1.5">
+                    <p className="text-[8px] text-slate-500 font-medium uppercase tracking-wide">Room Type</p>
+                    <p className="text-[10px] font-semibold text-slate-700 capitalize">{room.room_type || '—'}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ── Amenities — circle icon + label style (like reference) ── */}
+          {room.amenities && room.amenities.length > 0 && (
+            <div className="border border-gray-100 rounded-xl overflow-hidden">
+              <div className="bg-gray-50 px-2.5 py-1.5 border-b border-gray-100 flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <DoorOpen className="h-3 w-3 text-indigo-500" />
+                  <span className="text-[10px] font-semibold text-gray-700">Amenities & Facilities</span>
+                </div>
+                <Badge className="bg-indigo-100 text-indigo-700 border-indigo-200 text-[9px] px-1.5 py-0">
+                  {room.amenities.length} items
+                </Badge>
+              </div>
+              <div className="p-3">
+                <div className="grid grid-cols-3 xs:grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-x-2 gap-y-3">
+                  {room.amenities.map((amenity: any, index: number) => {
+                    const style = getAmenityStyle(amenity);
+                    const IconComponent = style.icon;
+                    return (
+                      <div key={index} className="flex flex-col items-center gap-1.5 group">
+                        {/* Circle icon — matches reference image */}
+                        <div className={`w-11 h-11 rounded-full ${style.circleBg} flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform`}>
+                          <IconComponent className={`h-5 w-5 ${style.iconColor}`} />
+                        </div>
+                        {/* Label */}
+                        <span className="text-[9px] font-medium text-gray-600 text-center leading-tight line-clamp-2 w-full">
+                          {amenity}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Current Occupants */}
+          <div className="border border-gray-100 rounded-xl overflow-hidden">
+            <div className="bg-gray-50 px-2.5 py-1.5 border-b border-gray-100 flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <UsersRound className="h-3 w-3 text-indigo-500" />
+                <span className="text-[10px] font-semibold text-gray-700">
+                  Current Occupants ({occupiedBeds.length}/{room.total_bed})
+                </span>
+              </div>
+            </div>
+            <div className="p-2">
+              {loadingTenants ? (
+                <div className="flex items-center justify-center py-5">
+                  <Loader2 className="h-4 w-4 animate-spin text-indigo-600" />
+                  <span className="ml-2 text-xs text-gray-500">Loading...</span>
+                </div>
+              ) : errorTenants ? (
+                <div className="bg-red-50 p-2.5 rounded-lg text-center border border-red-200">
+                  <p className="text-xs text-red-600">{errorTenants}</p>
+                  <Button variant="outline" size="sm" className="mt-1.5 h-6 text-[10px]" onClick={loadAllTenants}>
+                    Retry
+                  </Button>
+                </div>
+              ) : occupiedBeds.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                  {occupiedBeds.map((bed: BedAssignment, index: number) => {
+                    const tenantDetail = getTenantDetails(bed.tenant_id);
+                    const formattedDate = formatAssignmentDate(bed.created_at);
                     return (
                       <div
-                        key={bedNumber}
-                        className={`
-                          relative p-2 sm:p-3 rounded-xl border-2 transition-all hover:shadow-md
-                          ${isOccupied 
-                            ? 'bg-gradient-to-br from-red-50 to-red-100/50 border-red-200' 
-                            : 'bg-gradient-to-br from-green-50 to-green-100/50 border-green-200'
-                          }
-                        `}
+                        key={bed.id || index}
+                        className="p-2 rounded-xl border border-gray-100 bg-white hover:shadow-sm transition-shadow"
                       >
-                        {/* Bed Number */}
-                        <div className="absolute -top-2 -left-2">
-                          <div className={`
-                            w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-[10px] sm:text-xs font-bold text-white
-                            ${isOccupied ? 'bg-red-500' : 'bg-green-500'}
-                          `}>
-                            {bedNumber}
+                        <div className="flex items-center gap-1.5 mb-1.5">
+                          <div className="p-1 rounded-md bg-indigo-100">
+                            <Bed className="h-2.5 w-2.5 text-indigo-600" />
+                          </div>
+                          <span className="font-semibold text-[10px] text-gray-700">Bed {bed.bed_number}</span>
+                          {Boolean(bed.is_couple) && (
+                            <Badge className="ml-auto text-[8px] px-1 py-0 bg-red-50 text-red-600 border-red-200">Couple</Badge>
+                          )}
+                        </div>
+
+                        <div className="space-y-0.5">
+                          <p className="font-semibold text-xs text-gray-800 truncate">
+                            {tenantDetail?.full_name || bed.tenant_name || 'Unknown'}
+                          </p>
+                          <div className="flex items-center gap-1">
+                            <GenderIcon gender={tenantDetail?.gender || bed.tenant_gender || 'other'} size="h-2.5 w-2.5" />
+                            <span className="text-[9px] text-gray-500 capitalize">
+                              {tenantDetail?.gender || bed.tenant_gender || 'N/A'}
+                            </span>
+                            {tenantDetail?.phone && (
+                              <>
+                                <span className="text-gray-300">•</span>
+                                <Phone className="h-2.5 w-2.5 text-gray-400" />
+                                <span className="text-[9px] text-gray-500">{tenantDetail.phone}</span>
+                              </>
+                            )}
                           </div>
                         </div>
 
-                        {/* Bed Content */}
-                        <div className="mt-1 sm:mt-2 text-center">
-                          <Bed className={`
-                            h-5 w-5 sm:h-8 sm:w-8 mx-auto mb-0.5 sm:mb-1
-                            ${isOccupied ? 'text-red-500' : 'text-green-500'}
-                          `} />
-                          
-                          {/* Rent Display */}
-                          <div className="mt-0.5 sm:mt-1 font-bold text-xs sm:text-sm flex items-center justify-center gap-0.5">
-                            <BadgeIndianRupee className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
-                            <span className="text-[10px] sm:text-xs">{bedRent}</span>
+                        <div className="mt-1.5 pt-1.5 border-t border-gray-100 flex items-center justify-between">
+                          <div className="flex items-center gap-0.5">
+                            <BadgeIndianRupee className="h-2.5 w-2.5 text-purple-500" />
+                            <span className="text-[9px] font-bold text-purple-700">{bed.tenant_rent || room.rent_per_bed}</span>
+                            <span className="text-[8px] text-gray-400">/mo</span>
                           </div>
-
-                          {/* Status Badge */}
-                          <BedStatusBadge isAvailable={!isOccupied} rent={bedRent} />
-
-                          {/* Tenant Info if occupied */}
-                          {isOccupied && tenantDetail && (
-                            <div className="mt-1 sm:mt-2 text-[8px] sm:text-[10px] text-left border-t border-red-200 pt-1">
-                              <p className="font-semibold truncate">{tenantDetail.full_name}</p>
-                              <div className="flex items-center gap-1 text-gray-600">
-                                <Calendar className="h-2 w-2 sm:h-2.5 sm:w-2.5" />
-                                <span className="truncate">{formatAssignmentDate(bedAssignment.created_at)}</span>
-                              </div>
-                            </div>
-                          )}
+                          <div className="flex items-center gap-0.5 text-[9px] text-gray-500">
+                            <Calendar className="h-2.5 w-2.5" />
+                            <span>{formattedDate}</span>
+                          </div>
                         </div>
                       </div>
                     );
                   })}
                 </div>
-              </CardContent>
-            </Card>
-
-            {/* Room Features and Gender Preferences - Responsive grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-              <Card className="border-2 border-gray-200">
-                <CardHeader className="pb-2 px-3 sm:px-4 pt-2 sm:pt-3 bg-gradient-to-r from-gray-50 to-white">
-                  <CardTitle className="text-xs sm:text-sm font-semibold flex items-center gap-2">
-                    <Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-purple-600" />
-                    Room Features
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-3 sm:p-4">
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className={`p-1.5 sm:p-2 rounded-lg border flex items-center gap-1.5 sm:gap-2 ${room.has_ac ? 'bg-cyan-50 border-cyan-200' : 'bg-gray-50 border-gray-200'}`}>
-                      <div className={`p-1 sm:p-1.5 rounded-lg ${room.has_ac ? 'bg-cyan-100' : 'bg-gray-200'}`}>
-                        <Snowflake className={`h-3 w-3 sm:h-3.5 sm:w-3.5 ${room.has_ac ? 'text-cyan-600' : 'text-gray-500'}`} />
-                      </div>
-                      <div>
-                        <p className="text-[10px] sm:text-xs font-medium">AC</p>
-                        <p className="text-[8px] sm:text-[10px] text-gray-600">{room.has_ac ? 'Available' : 'No'}</p>
-                      </div>
-                    </div>
-
-                    <div className={`p-1.5 sm:p-2 rounded-lg border flex items-center gap-1.5 sm:gap-2 ${room.has_balcony ? 'bg-amber-50 border-amber-200' : 'bg-gray-50 border-gray-200'}`}>
-                      <div className={`p-1 sm:p-1.5 rounded-lg ${room.has_balcony ? 'bg-amber-100' : 'bg-gray-200'}`}>
-                        <Sun className={`h-3 w-3 sm:h-3.5 sm:w-3.5 ${room.has_balcony ? 'text-amber-600' : 'text-gray-500'}`} />
-                      </div>
-                      <div>
-                        <p className="text-[10px] sm:text-xs font-medium">Balcony</p>
-                        <p className="text-[8px] sm:text-[10px] text-gray-600">{room.has_balcony ? 'Yes' : 'No'}</p>
-                      </div>
-                    </div>
-
-                    <div className={`p-1.5 sm:p-2 rounded-lg border flex items-center gap-1.5 sm:gap-2 ${room.has_attached_bathroom ? 'bg-cyan-50 border-cyan-200' : 'bg-gray-50 border-gray-200'}`}>
-                      <div className={`p-1 sm:p-1.5 rounded-lg ${room.has_attached_bathroom ? 'bg-cyan-100' : 'bg-gray-200'}`}>
-                        <Bath className={`h-3 w-3 sm:h-3.5 sm:w-3.5 ${room.has_attached_bathroom ? 'text-cyan-600' : 'text-gray-500'}`} />
-                      </div>
-                      <div>
-                        <p className="text-[10px] sm:text-xs font-medium">Bathroom</p>
-                        <p className="text-[8px] sm:text-[10px] text-gray-600">{room.has_attached_bathroom ? 'Attached' : 'Shared'}</p>
-                      </div>
-                    </div>
-
-                    <div className={`p-1.5 sm:p-2 rounded-lg border flex items-center gap-1.5 sm:gap-2 ${room.allow_couples ? 'bg-pink-50 border-pink-200' : 'bg-gray-50 border-gray-200'}`}>
-                      <div className={`p-1 sm:p-1.5 rounded-lg ${room.allow_couples ? 'bg-pink-100' : 'bg-gray-200'}`}>
-                        <Heart className={`h-3 w-3 sm:h-3.5 sm:w-3.5 ${room.allow_couples ? 'text-pink-600' : 'text-gray-500'}`} />
-                      </div>
-                      <div>
-                        <p className="text-[10px] sm:text-xs font-medium">Couples</p>
-                        <p className="text-[8px] sm:text-[10px] text-gray-600">{room.allow_couples ? 'Allowed' : 'Not Allowed'}</p>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Gender Preferences */}
-              <Card className="border-2 border-gray-200">
-                <CardHeader className="pb-2 px-3 sm:px-4 pt-2 sm:pt-3 bg-gradient-to-r from-gray-50 to-white">
-                  <CardTitle className="text-xs sm:text-sm font-semibold flex items-center gap-2">
-                    <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-indigo-600" />
-                    Gender Preferences
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-3 sm:p-4">
-                  <div className="flex flex-wrap gap-1.5 sm:gap-2">
-                    {genderPreferences.map((pref: any) => (
-                      <Badge 
-                        key={pref} 
-                        className={`
-                          text-[9px] sm:text-xs px-2 sm:px-3 py-1 sm:py-1.5 border-2 font-medium
-                          ${pref === 'male_only' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                            pref === 'female_only' ? 'bg-pink-50 text-pink-700 border-pink-200' :
-                            pref === 'couples' ? 'bg-red-50 text-red-700 border-red-200' :
-                            'bg-gray-50 text-gray-700 border-gray-200'
-                          }
-                        `}
-                      >
-                        <GenderIcon gender={pref} size="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                        <span className="ml-1">
-                          {pref === 'male_only' ? 'Male Only' :
-                           pref === 'female_only' ? 'Female Only' :
-                           pref === 'couples' ? 'Couples' : pref}
-                        </span>
-                      </Badge>
-                    ))}
-                    {genderPreferences.length === 0 && (
-                      <span className="text-xs sm:text-sm text-gray-500">No preferences</span>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Colorful Amenities Section - Updated to show only icon and text with vibrant colors */}
-            <Card className="border-2 border-gray-200">
-              <CardHeader className="pb-2 px-3 sm:px-4 pt-2 sm:pt-3 bg-gradient-to-r from-gray-50 to-white">
-                <CardTitle className="text-xs sm:text-sm font-semibold flex items-center gap-2">
-                  <DoorOpen className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-indigo-600" />
-                  Amenities & Facilities
-                  {room.amenities && room.amenities.length > 0 && (
-                    <Badge className="ml-auto sm:ml-2 bg-indigo-100 text-indigo-700 border-indigo-200 text-[9px] sm:text-xs">
-                      {room.amenities.length} Items
-                    </Badge>
-                  )}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-3 sm:p-4">
-                {room.amenities && room.amenities.length > 0 ? (
-                  <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 sm:gap-3">
-                    {room.amenities.map((amenity: any, index: number) => {
-                      const style = getAmenityStyle(amenity);
-                      const IconComponent = style.icon;
-                      return (
-                        <div 
-                          key={index} 
-                          className="flex items-center gap-2 p-2 rounded-xl bg-white border border-gray-100 shadow-sm hover:shadow-md transition-all hover:-translate-y-1"
-                        >
-                          <div className={`p-2 rounded-lg ${style.bg} shadow-md`}>
-                            <IconComponent className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
-                          </div>
-                          <span className="text-xs sm:text-sm font-medium text-gray-700 truncate">
-                            {amenity}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="text-center py-6 sm:py-8 bg-gray-50 rounded-lg border-2 border-dashed">
-                    <DoorOpen className="h-6 w-6 sm:h-8 sm:w-8 mx-auto text-gray-400 mb-2" />
-                    <p className="text-xs sm:text-sm text-gray-500">No amenities added yet</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Current Occupants */}
-            <Card className="border-2 border-gray-200">
-              <CardHeader className="pb-2 px-3 sm:px-4 pt-2 sm:pt-3 bg-gradient-to-r from-gray-50 to-white">
-                <CardTitle className="text-xs sm:text-sm font-semibold flex items-center gap-2">
-                  <UsersRound className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-indigo-600" />
-                  Current Occupants ({occupiedBeds.length}/{room.total_bed})
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-3 sm:p-4">
-                {loadingTenants ? (
-                  <div className="flex items-center justify-center py-6 sm:py-8">
-                    <Loader2 className="h-5 w-5 sm:h-6 sm:w-6 animate-spin text-indigo-600" />
-                    <span className="ml-2 text-xs sm:text-sm text-gray-600">Loading tenants...</span>
-                  </div>
-                ) : errorTenants ? (
-                  <div className="bg-red-50 p-3 sm:p-4 rounded-lg text-center border-2 border-red-200">
-                    <p className="text-xs sm:text-sm text-red-600">{errorTenants}</p>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      className="mt-2 h-7 sm:h-8 text-xs"
-                      onClick={loadAllTenants}
-                    >
-                      Retry
-                    </Button>
-                  </div>
-                ) : occupiedBeds.length > 0 ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
-                    {occupiedBeds.map((bed: BedAssignment, index: number) => {
-                      const tenantDetail = getTenantDetails(bed.tenant_id);
-                      const assignmentDate = bed.created_at;
-                      const formattedDate = formatAssignmentDate(assignmentDate);
-                      
-                      return (
-                        <div 
-                          key={bed.id || index}
-                          className="p-2 sm:p-3 rounded-xl border-2 bg-gradient-to-br from-white to-gray-50 hover:shadow-md transition-shadow"
-                        >
-                          <div className="flex items-center gap-2 mb-1 sm:mb-2">
-                            <div className="p-1 sm:p-1.5 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500 text-white">
-                              <Bed className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                            </div>
-                            <span className="font-bold text-xs sm:text-sm">Bed #{bed.bed_number}</span>
-                            <Badge variant="outline" className="ml-auto text-[8px] sm:text-[10px] px-1 sm:px-1.5 py-0 bg-white">
-                              Occupied
-                            </Badge>
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-1 sm:gap-2 mt-1 sm:mt-2 text-[10px] sm:text-xs">
-                            <div>
-                              <p className="font-semibold text-xs sm:text-sm">
-                                {tenantDetail?.full_name || bed.tenant_name || 'Unknown'}
-                              </p>
-                              <div className="flex items-center gap-1 mt-0.5">
-                                <GenderIcon gender={tenantDetail?.gender || bed.tenant_gender || 'other'} size="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                                <span className="text-[9px] sm:text-xs capitalize">
-                                  {tenantDetail?.gender || bed.tenant_gender || 'N/A'}
-                                </span>
-                              </div>
-                            </div>
-                            <div className="space-y-0.5">
-                              {tenantDetail?.phone && (
-                                <div className="flex items-center gap-1 text-[9px] sm:text-xs text-gray-600">
-                                  <Phone className="h-2.5 w-2.5 sm:h-3 sm:w-3 flex-shrink-0" />
-                                  <span className="truncate">{tenantDetail.phone}</span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="mt-2 sm:mt-3 pt-1 sm:pt-2 border-t border-gray-200 grid grid-cols-2 gap-1 sm:gap-2 text-[8px] sm:text-xs">
-                            <div className="bg-purple-50 p-1 sm:p-2 rounded-lg">
-                              <p className="text-purple-600 text-[7px] sm:text-[10px] font-medium">Rent</p>
-                              <p className="font-bold text-purple-700 flex items-center">
-                                <BadgeIndianRupee className="h-2 w-2 sm:h-3 sm:w-3 mr-0.5" />
-                                {bed.tenant_rent || room.rent_per_bed}
-                              </p>
-                            </div>
-                            <div className="bg-blue-50 p-1 sm:p-2 rounded-lg">
-                              <p className="text-blue-600 text-[7px] sm:text-[10px] font-medium">Since</p>
-                              <p className="font-semibold text-blue-700 flex items-center text-[8px] sm:text-xs">
-                                <Calendar className="h-2 w-2 sm:h-3 sm:w-3 mr-0.5" />
-                                {formattedDate}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="text-center py-6 sm:py-8 bg-gray-50 rounded-lg border-2 border-dashed">
-                    <UserRound className="h-6 w-6 sm:h-10 sm:w-10 mx-auto text-gray-400 mb-2" />
-                    <span className="text-xs sm:text-sm text-gray-500">No occupants</span>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Description */}
-            {room.description && (
-              <Card className="border-2 border-gray-200">
-                <CardHeader className="pb-2 px-3 sm:px-4 pt-2 sm:pt-3 bg-gradient-to-r from-gray-50 to-white">
-                  <CardTitle className="text-xs sm:text-sm font-semibold flex items-center gap-2">
-                    <Pencil className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-600" />
-                    Description
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-3 sm:p-4">
-                  <p className="text-xs sm:text-sm text-gray-700 whitespace-pre-line leading-relaxed">
-                    {room.description}
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Media Information */}
-            <Card className="border-2 border-gray-200">
-              <CardHeader className="pb-2 px-3 sm:px-4 pt-2 sm:pt-3 bg-gradient-to-r from-gray-50 to-white">
-                <CardTitle className="text-xs sm:text-sm font-semibold flex items-center gap-2">
-                  <ImageIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-emerald-600" />
-                  Media Gallery
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-3 sm:p-4">
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
-                  <div className="p-2 sm:p-3 bg-blue-50 rounded-xl border-2 border-blue-200">
-                    <div className="flex items-center gap-2">
-                      <div className="p-1.5 sm:p-2 bg-blue-100 rounded-lg">
-                        <ImageIcon className="h-3 w-3 sm:h-4 sm:w-4 text-blue-600" />
-                      </div>
-                      <div>
-                        <p className="text-[10px] sm:text-xs font-medium text-blue-700">Photos</p>
-                        <p className="text-xs sm:text-sm font-bold text-blue-800">{room.photo_urls?.length || 0}</p>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {room.video_url && (
-                    <div className="p-2 sm:p-3 bg-red-50 rounded-xl border-2 border-red-200">
-                      <div className="flex items-center gap-2">
-                        <div className="p-1.5 sm:p-2 bg-red-100 rounded-lg">
-                          <Video className="h-3 w-3 sm:h-4 sm:w-4 text-red-600" />
-                        </div>
-                        <div>
-                          <p className="text-[10px] sm:text-xs font-medium text-red-700">Video</p>
-                          <p className="text-[8px] sm:text-xs font-semibold text-red-800 truncate max-w-[80px] sm:max-w-[100px]">
-                            {room.video_label || 'Tour'}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
+              ) : (
+                <div className="text-center py-5 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
+                  <UserRound className="h-6 w-6 mx-auto text-gray-300 mb-1" />
+                  <span className="text-xs text-gray-400">No occupants currently</span>
                 </div>
-              </CardContent>
-            </Card>
+              )}
+            </div>
           </div>
+
+          {/* Description */}
+          {room.description && (
+            <div className="border border-gray-100 rounded-xl overflow-hidden">
+              <div className="bg-gray-50 px-2.5 py-1.5 border-b border-gray-100 flex items-center gap-1.5">
+                <Pencil className="h-3 w-3 text-amber-500" />
+                <span className="text-[10px] font-semibold text-gray-700">Description</span>
+              </div>
+              <div className="p-2.5">
+                <p className="text-xs text-gray-600 whitespace-pre-line leading-relaxed">{room.description}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Media */}
+          <div className="border border-gray-100 rounded-xl overflow-hidden">
+            <div className="bg-gray-50 px-2.5 py-1.5 border-b border-gray-100 flex items-center gap-1.5">
+              <ImageIcon className="h-3 w-3 text-emerald-500" />
+              <span className="text-[10px] font-semibold text-gray-700">Media Gallery</span>
+            </div>
+            <div className="p-2">
+              <div className="flex gap-2">
+                <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-50 rounded-lg border border-blue-100">
+                  <ImageIcon className="h-3.5 w-3.5 text-blue-500" />
+                  <div>
+                    <p className="text-[9px] font-medium text-blue-700">Photos</p>
+                    <p className="text-xs font-bold text-blue-800">{room.photo_urls?.length || 0}</p>
+                  </div>
+                </div>
+                {room.video_url && (
+                  <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-red-50 rounded-lg border border-red-100">
+                    <Video className="h-3.5 w-3.5 text-red-500" />
+                    <div>
+                      <p className="text-[9px] font-medium text-red-700">Video</p>
+                      <p className="text-[9px] font-semibold text-red-800 truncate max-w-[80px]">
+                        {room.video_label || 'Tour'}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
         </div>
 
-        <DialogFooter className="sticky bottom-0 bg-white border-t px-3 sm:px-4 py-2 sm:py-3 flex-shrink-0">
-          <Button 
-            variant="outline" 
+        {/* ── Footer ── */}
+        <div className="border-t border-gray-100 bg-white px-3 py-2 flex-shrink-0 flex justify-end">
+          <Button
+            variant="outline"
             onClick={() => onOpenChange(false)}
-            className="h-8 sm:h-9 text-xs sm:text-sm px-3 sm:px-4"
+            className="h-7 text-[11px] px-4"
           >
             Close
           </Button>
-        </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   );

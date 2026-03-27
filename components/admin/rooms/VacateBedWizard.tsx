@@ -2,14 +2,17 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { AlertCircle, Check, Calendar, UserMinus, Loader2, Info, CheckCircle, FileText, Clock, AlertTriangle } from 'lucide-react';
+import { 
+  AlertCircle, Check, Calendar, UserMinus, Loader2, Info, CheckCircle, FileText, Clock, AlertTriangle, X, Bell, CalendarIcon,
+  Lock  // Add this line
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { vacateApi } from '@/lib/vacateApi';
 import { getMyTenantRequests } from '@/lib/tenantRequestsApi';
@@ -1221,17 +1224,34 @@ const calculatePenaltyAmount = (penaltyType: string, securityDeposit: number, re
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto p-5">
-        <DialogHeader className="pb-4">
-          <DialogTitle className="text-lg flex items-center gap-2">
-            <UserMinus className="h-5 w-5" />
-            Vacate Bed {bedAssignment.bed_number}
-            {!wizardDisabled && <Badge variant="outline" className="ml-2 text-xs">Step {step} of {stepTitles.length}</Badge>}
-          </DialogTitle>
-          <p className="text-sm text-gray-600">
-            Process bed vacate for {tenantDetails?.full_name || 'Tenant'}
-          </p>
-        </DialogHeader>
+<DialogContent 
+  className="sm:max-w-2xl max-h-[85vh] overflow-hidden flex flex-col p-0 rounded-2xl"
+  onInteractOutside={(e) => e.preventDefault()}
+>   
+{/* Header - Match ChangeBedWizard styling */}
+<div className="bg-gradient-to-r from-red-600 to-orange-600 text-white px-4 py-2.5 sticky top-0 z-10">
+  <div className="flex items-center justify-between">
+    <div className="flex items-center gap-2">
+      <UserMinus className="h-3.5 w-3.5" />
+      <div>
+        <DialogTitle className="text-sm font-bold leading-tight text-white">
+          Vacate Bed {bedAssignment?.bed_number}
+        </DialogTitle>
+        <DialogDescription className="text-orange-100 text-[10px]">
+          {tenantDetails?.full_name || 'Tenant'}
+        </DialogDescription>
+      </div>
+    </div>
+    <div className="flex items-center gap-2">
+      <span className="text-[10px] bg-white/20 px-1.5 py-0.5 rounded">
+        Step {step}/{stepTitles.length}
+      </span>
+      <button onClick={handleClose} className="p-1 rounded-full hover:bg-white/20 transition">
+        <X className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  </div>
+</div>
 
         {loadingMasters && (
           <div className="py-2 text-center mb-2">
@@ -1304,72 +1324,122 @@ const calculatePenaltyAmount = (penaltyType: string, securityDeposit: number, re
           </div>
         )}
 
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-5 px-1">
-            {stepTitles.map((title, index) => (
-              <div key={index} className="flex flex-col items-center">
-                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-sm ${
-                  step === index + 1 ? 'bg-blue-600 text-white' : 
-                  step > index + 1 ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-600'
-                }`}>
-                  {step > index + 1 ? <Check className="h-3 w-3" /> : index + 1}
-                </div>
-                <div className={`text-xs mt-1 ${step === index + 1 ? 'font-medium' : 'text-gray-500'}`}>
-                  {title}
-                </div>
-              </div>
-            ))}
+<div className="flex-1 overflow-y-auto p-2">
+  <div className="mb-4">
+    <div className="px-3 py-2 bg-gray-50 border-b border-gray-200 flex-shrink-0">
+  <div className="flex items-center justify-between gap-0.5">
+    {stepTitles.map((title, index) => {
+      const icons = [FileText, Lock, Bell, CalendarIcon, CheckCircle, Check];
+      const StepIcon = icons[index] || Check;
+      return (
+        <div key={index} className="flex-1 flex flex-col items-center relative">
+          {index < stepTitles.length - 1 && (
+            <div className={`absolute top-3 left-1/2 w-full h-0.5 -translate-x-1/2 ${
+              step > index + 1 ? "bg-blue-500" : "bg-gray-300"
+            }`} />
+          )}
+          <div className={`w-7 h-7 rounded-full flex items-center justify-center border-2 z-10 mb-1 ${
+            step > index + 1
+              ? "bg-white border-blue-600 text-blue-600"
+              : step === index + 1
+              ? "bg-white border-blue-600 text-blue-600"
+              : "bg-white border-gray-300 text-gray-400"
+          }`}>
+            {step > index + 1 ? (
+              <Check className="h-3 w-3" />
+            ) : (
+              <StepIcon className="h-3 w-3" />
+            )}
           </div>
+          <span className={`text-[10px] font-medium truncate w-full text-center ${
+            step >= index + 1 ? "text-blue-600 font-semibold" : "text-gray-500"
+          }`}>
+            {title}
+          </span>
+        </div>
+      );
+    })}
+  </div>
+  <div className="mt-1.5">
+    <div className="w-full h-1 bg-gray-200 rounded-full overflow-hidden">
+      <div
+        className="h-full bg-blue-500 transition-all duration-300"
+        style={{ width: `${(step / stepTitles.length) * 100}%` }}
+      />
+    </div>
+  </div>
+</div>
 
           {step === 1 && (
-            <div className="space-y-4">
-              <div className="bg-blue-50 p-3 rounded-lg">
-                <h3 className="font-medium text-blue-800 mb-1 text-sm">Select Vacate Reason</h3>
-                <p className="text-xs text-blue-700">Select or confirm the reason for vacating.</p>
-              </div>
-              
-              {tenantVacateReason && (
-                <div className="bg-amber-50 border border-amber-200 p-2 rounded-lg">
-                  <div className="flex items-center gap-1 mb-1">
-                    <Clock className="h-3 w-3 text-amber-600" />
-                    <span className="text-xs font-medium text-amber-800">
-                      Tenant selected: {tenantVacateReason}
-                    </span>
-                  </div>
-                  <p className="text-xs text-amber-700">
-                    This reason has been pre-selected. You can change it if needed.
-                  </p>
+    <div className="space-y-4">
+      <div className="bg-blue-50 p-3 rounded-lg">
+        <h3 className="font-medium text-blue-800 mb-1 text-sm">Select Vacate Reason</h3>
+        <p className="text-xs text-blue-700">Select or confirm the reason for vacating.</p>
+      </div>
+      
+      {tenantVacateReason && (
+        <div className="bg-amber-50 border border-amber-200 p-2 rounded-lg">
+          <div className="flex items-center gap-1 mb-1">
+            <Clock className="h-3 w-3 text-amber-600" />
+            <span className="text-xs font-medium text-amber-800">
+              Tenant selected: {tenantVacateReason}
+            </span>
+          </div>
+          <p className="text-xs text-amber-700">
+            This reason has been pre-selected. You can change it if needed.
+          </p>
+        </div>
+      )}
+      
+      <div>
+        <Label className="text-sm font-medium mb-1.5 block flex items-center gap-2">
+          <FileText className="h-4 w-4 text-blue-500" />
+          Vacate Reason <span className="text-red-500">*</span>
+        </Label>
+        <Select
+          value={formData.vacateReasonValue}
+          onValueChange={(value) => handleInputChange('vacateReasonValue', value)}
+          disabled={loadingMasters}
+        >
+          <SelectTrigger className="h-9 border-gray-300 focus:ring-blue-500 hover:border-gray-400 text-sm">
+            <SelectValue placeholder={formData.vacateReasonValue || "Select a reason..."} />
+          </SelectTrigger>
+          <SelectContent 
+            className="max-h-48 overflow-y-auto bg-white shadow-lg rounded-md border border-gray-200"
+            side="bottom"
+            align="center"
+            sideOffset={5}
+            position="popper"
+            avoidCollisions={false}
+          >
+            <div className="py-1">
+              {loadingMasters ? (
+                <div className="px-3 py-1.5 text-xs text-gray-500 flex items-center gap-1">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Loading reasons...
                 </div>
+              ) : vacateReasons.length > 0 ? (
+                vacateReasons.map((reason: any) => (
+                  <SelectItem 
+                    key={reason.id} 
+                    value={reason.value} 
+                    className="py-1.5 px-3 hover:bg-blue-50 text-xs cursor-pointer focus:bg-blue-400"
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+                      <span className="text-xs font-normal">{reason.value}</span>
+                    </div>
+                  </SelectItem>
+                ))
+              ) : (
+                <div className="px-3 py-1.5 text-xs text-gray-500">No vacate reasons found</div>
               )}
-              
-              <div>
-                <Label className="text-sm font-medium mb-1.5 block">Vacate Reason *</Label>
-                <Select
-                  value={formData.vacateReasonValue}
-                  onValueChange={(value) => handleInputChange('vacateReasonValue', value)}
-                  disabled={loadingMasters}
-                >
-                  <SelectTrigger className="h-9">
-                    <SelectValue placeholder={formData.vacateReasonValue || "Select reason"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {loadingMasters ? (
-                      <div className="px-2 py-1.5 text-sm text-gray-500 flex items-center gap-1">
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                        Loading reasons...
-                      </div>
-                    ) : vacateReasons.length > 0 ? (
-                      vacateReasons.map((reason: any) => (
-                        <SelectItem key={reason.id} value={reason.value} className="text-sm">{reason.value}</SelectItem>
-                      ))
-                    ) : (
-                      <div className="px-2 py-1.5 text-sm text-gray-500">No vacate reasons found</div>
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
             </div>
-          )}
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+  )}
 
           {step === 2 && (
             <div className="space-y-4">
@@ -1913,8 +1983,9 @@ const calculatePenaltyAmount = (penaltyType: string, securityDeposit: number, re
             </div>
           )}
         </div>
+        </div>
 
-        <DialogFooter className="gap-2 pt-3 border-t">
+<DialogFooter className="gap-2 pt-3 border-t px-4 pb-3 flex-shrink-0 bg-white">
           {step > 1 && step < 6 && (
             <Button variant="outline" onClick={handleBack} disabled={loading || calculating} size="sm">
               Back

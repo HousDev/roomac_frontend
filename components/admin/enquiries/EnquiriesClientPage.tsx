@@ -575,7 +575,7 @@ const handleBulkDelete = async () => {
     <div className="w-full bg-gray-50">
       <div className="p-0 sm:p-0 md:p-0 lg:p-0">
         {/* Header */}
-        <div className="flex flex-col gap-4 mb-6 -mt-10 sticky top-20 z-10">
+        <div className="flex flex-col gap-4 mb-4  sticky top-24 z-10">
           <div className="flex flex-col sm:flex-row justify-end items-end sm:items-end gap-4">
             <div className="flex flex-wrap items-end gap-2 w-full sm:w-auto">
               {/* Refresh Button */}
