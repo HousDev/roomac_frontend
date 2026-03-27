@@ -1341,33 +1341,41 @@ const getServiceIcon = (service: string) => {
                                     Stay Terms
                                 </h3>
                                 
-                                {property.lockin_period_months && property.lockin_period_months > 0 && (
-                                    <div className="mb-3 pb-3 border-b border-slate-100 last:border-0 last:pb-0">
-                                        <p className="text-[10px] text-slate-500 font-medium mb-1">Lock-in Period</p>
-                                        <p className="font-semibold text-xs text-slate-900">
-                                            {property.lockin_period_months} months
-                                            {property.lockin_penalty_amount && property.lockin_penalty_amount > 0 && (
-                                                <span className="text-amber-600 ml-1">
-                                                    (Penalty: ₹{property.lockin_penalty_amount} {property.lockin_penalty_type})
-                                                </span>
-                                            )}
-                                        </p>
-                                    </div>
-                                )}
+                              {property.lockin_period_months && property.lockin_period_months > 0 && (
+    <div className="mb-3 pb-3 border-b border-slate-100 last:border-0 last:pb-0">
+        <p className="text-[10px] text-slate-500 font-medium mb-1">Lock-in Period</p>
+        <p className="font-semibold text-xs text-slate-900">
+            {property.lockin_period_months} months
+            {property.lockin_penalty_amount && property.lockin_penalty_amount > 0 && (
+                <span className="text-amber-600 ml-1">
+                    (Penalty: {
+                        property.lockin_penalty_type === 'percentage' 
+                            ? `${property.lockin_penalty_amount}%` 
+                            : `₹${property.lockin_penalty_amount}`
+                    })
+                </span>
+            )}
+        </p>
+    </div>
+)}
                                 
-                                {property.notice_period_days && property.notice_period_days > 0 && (
-                                    <div>
-                                        <p className="text-[10px] text-slate-500 font-medium mb-1">Notice Period</p>
-                                        <p className="font-semibold text-xs text-slate-900">
-                                            {property.notice_period_days} days
-                                            {property.notice_penalty_amount && property.notice_penalty_amount > 0 && (
-                                                <span className="text-amber-600 ml-1">
-                                                    (Penalty: ₹{property.notice_penalty_amount} {property.notice_penalty_type})
-                                                </span>
-                                            )}
-                                        </p>
-                                    </div>
-                                )}
+                               {property.notice_period_days && property.notice_period_days > 0 && (
+    <div>
+        <p className="text-[10px] text-slate-500 font-medium mb-1">Notice Period</p>
+        <p className="font-semibold text-xs text-slate-900">
+            {property.notice_period_days} days
+            {property.notice_penalty_amount && property.notice_penalty_amount > 0 && (
+                <span className="text-amber-600 ml-1">
+                    (Penalty: {
+                        property.notice_penalty_type === 'percentage' 
+                            ? `${property.notice_penalty_amount}%` 
+                            : `₹${property.notice_penalty_amount}`
+                    })
+                </span>
+            )}
+        </p>
+    </div>
+)}
                             </div>
                         ) : null}
 

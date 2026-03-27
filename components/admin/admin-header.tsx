@@ -1,7 +1,7 @@
 // components/admin/admin-header.tsx
 "use client";
 
-import { Bell, LogOut, User, Home, Settings, Menu, X, Check, AlertCircle, Wrench, Calendar, Move, MessageSquare, Loader2, RefreshCw, ExternalLink, FileText, Mail, UserCog, DoorOpen } from 'lucide-react';
+import { Bell, LogOut, User, Home, Settings, Menu, X, Check, AlertCircle, Wrench, Calendar, Move, MessageSquare, Loader2, RefreshCw, ExternalLink, FileText, Mail, UserCog, DoorOpen, Headphones } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from "@/context/authContext";
@@ -27,6 +27,7 @@ import {
   markAllAdminNotificationsAsRead
 } from '@/lib/notificationApi';
 import { getAllRequestCounts, type RequestCounts } from '@/lib/adminRequestCountsApi';
+import { getSupportTicketCounts } from '@/lib/supportTicketsApi';
 
 interface AdminHeaderProps {
   title: string;
@@ -62,7 +63,7 @@ export function AdminHeader({
   const [refreshing, setRefreshing] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const { logout , user } = useAuth();
-
+const [supportCount, setSupportCount] = useState(0);
   // Add custom CSS for pulsing border animation
   useEffect(() => {
     if (typeof document !== 'undefined') {
@@ -121,14 +122,16 @@ export function AdminHeader({
   }, []);
 
   // Load request counts
-  const loadRequestCounts = useCallback(async () => {
-    try {
-      const counts = await getAllRequestCounts();
-      setRequestCounts(counts);
-    } catch (err: any) {
-      console.error('Error loading request counts:', err);
-    }
-  }, []);
+const loadRequestCounts = useCallback(async () => {
+  try {
+    const counts = await getAllRequestCounts();
+    const supportData = await getSupportTicketCounts();
+    setRequestCounts(counts);
+    setSupportCount(supportData.total);
+  } catch (err) {
+    console.error('Error loading request counts:', err);
+  }
+}, []);
 
   // Initial load and setup interval
   useEffect(() => {
@@ -224,6 +227,8 @@ export function AdminHeader({
       case 'receipt':
       case 'payment':
         return <MessageSquare className="h-4 w-4 text-green-500" />;
+         case 'support_ticket':                                     // ← NEW
+        return <Headphones className="h-4 w-4 text-indigo-500" />;
       default:
         return <Bell className="h-4 w-4 text-gray-500" />;
     }
@@ -293,8 +298,7 @@ export function AdminHeader({
   }, []);
 
   // Get total pending requests count
-  const totalPendingRequests = requestCounts.total;
-
+const totalPendingRequests = requestCounts.total + supportCount;
   return (
     <header className={`
       bg-white border-b border-slate-200

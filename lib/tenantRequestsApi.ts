@@ -1000,58 +1000,86 @@ export const getMaintenanceCategoriesFromMasters = async (): Promise<any[]> => {
 // lib/tenantRequestsApi.ts - CORRECTED
 export const getComplaintCategories = async (): Promise<ComplaintCategory[]> => {
   try {
-    
-    const response = await tenantApiRequest("/api/tenant-requests/complaint-categories", {
-      method: "GET",
-    });
-
-    
-    // Check if response is an object with data property
-    if (response && typeof response === 'object') {
-      if (response.success && Array.isArray(response.data)) {
-        return response.data;
-      }
-      // If backend returns array directly (not wrapped in success/data)
-      else if (Array.isArray(response)) {
-        return response;
-      }
+    // Call with both tab AND type — this returns ONLY Complaint Category values
+    const res = await consumeMasters({ tab: 'Requests', type: 'Complaint Category' });
+ 
+    console.log('🔍 consumeMasters Complaint Category response:', res);
+ 
+    if (res?.success && Array.isArray(res.data) && res.data.length > 0) {
+      return res.data.map((item: any) => ({
+        id:             item.value_id,
+        code:           (item.value_name || '').toLowerCase().replace(/\s+/g, '_'),
+        name:           item.value_name,
+        tab:            item.tab_name,
+        is_active:      item.isactive ?? item.is_active ?? 1,
+        master_item_id: item.master_item_id,
+        description:    item.description || null,
+      }));
     }
-    
-    console.warn('⚠️ No complaint categories found in response');
-    return [];
+ 
+    console.warn('⚠️ No complaint categories from API, using fallback');
+    // Hardcoded fallback from your DB (master_item_values rows for item 38)
+    return [
+      { id: 104, code: 'food',  name: 'Food',  tab: 'Requests', is_active: 1, description: null },
+      { id: 105, code: 'room',  name: 'Room',  tab: 'Requests', is_active: 1, description: null },
+      { id: 107, code: 'other', name: 'Other', tab: 'Requests', is_active: 1, description: null },
+      { id: 109, code: 'staff', name: 'Staff', tab: 'Requests', is_active: 1, description: null },
+    ];
   } catch (error) {
-    console.error('❌ Error getting complaint categories:', error);
-    return [];
+    console.error('❌ getComplaintCategories error:', error);
+    return [
+      { id: 104, code: 'food',  name: 'Food',  tab: 'Requests', is_active: 1, description: null },
+      { id: 105, code: 'room',  name: 'Room',  tab: 'Requests', is_active: 1, description: null },
+      { id: 107, code: 'other', name: 'Other', tab: 'Requests', is_active: 1, description: null },
+      { id: 109, code: 'staff', name: 'Staff', tab: 'Requests', is_active: 1, description: null },
+    ];
   }
 };
 
 // In lib/tenantRequestsApi.ts, add this function if it doesn't exist
 export const getComplaintReasons = async (categoryId: number): Promise<ComplaintReason[]> => {
   try {
-    
-    const response = await tenantApiRequest(`/api/tenant-requests/complaint-categories/${categoryId}/reasons`, {
-      method: "GET",
-    });
-
-    
-    // Check if response is an object with data property
-    if (response && typeof response === 'object') {
-      if (response.success && Array.isArray(response.data)) {
-        return response.data;
-      }
-      // If backend returns array directly (not wrapped in success/data)
-      else if (Array.isArray(response)) {
-        return response;
-      }
+    // Map category value_id → master type name for sub-reasons
+    // From your DB:
+    //   104 = Food  → "Food Reason"  (master item 49)
+    //   105 = Room  → "Room Reason"  (master item 39)
+    //   109 = Staff → "Staff Reason" (master item 50)
+    //   107 = Other → no reasons → show custom input
+    const REASON_TYPE: Record<number, string> = {
+      104: 'Food Reason',
+      105: 'Room Reason',
+      109: 'Staff Reason',
+    };
+ 
+    const typeName = REASON_TYPE[categoryId];
+    console.log(`🔍 getComplaintReasons called: categoryId=${categoryId}, typeName=${typeName}`);
+ 
+    if (!typeName) {
+      console.log('ℹ️ No reason type for this category (Other) — show custom input');
+      return [];
     }
-    
-    console.warn(`⚠️ No complaint reasons found for category ${categoryId}`);
+ 
+    const res = await consumeMasters({ tab: 'Requests', type: typeName });
+    console.log(`🔍 consumeMasters ${typeName} response:`, res);
+ 
+    if (res?.success && Array.isArray(res.data) && res.data.length > 0) {
+      return res.data.map((item: any) => ({
+        id:             item.value_id,
+        value:          item.value_name,
+        description:    item.description || null,
+        master_type_id: item.master_item_id,
+        is_active:      item.isactive ?? item.is_active ?? 1,
+      }));
+    }
+ 
+    console.warn(`⚠️ No reasons returned for ${typeName}`);
     return [];
   } catch (error) {
-    console.error(`❌ Error getting complaint reasons for category ${categoryId}:`, error);
+    console.error(`❌ getComplaintReasons error for categoryId=${categoryId}:`, error);
     return [];
   }
 };
+ 
 
 // Get maintenance locations from Requests tab
 export const getMaintenanceLocationsFromMasters = async (): Promise<any[]> => {

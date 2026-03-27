@@ -911,23 +911,7 @@ export default function OffersClientPage({
 
           <CardContent className="p-6 ">
 
-  {/* Hide only filters on mobile */}
-  {/* <div className="hidden lg:block">
-    <OffersFilters
-      searchQuery={searchQuery}
-      setSearchQuery={setSearchQuery}
-      filterType={filterType}
-      setFilterType={setFilterType}
-      filterProperty={filterProperty}
-      setFilterProperty={setFilterProperty}
-      itemsPerPage={itemsPerPage}
-      setItemsPerPage={setItemsPerPage}
-      properties={properties}
-      pagination={pagination}
-    />
-  </div> */}
 
-  {/* Table will still show on all devices */}
  
 
 

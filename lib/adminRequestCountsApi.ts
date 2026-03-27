@@ -9,6 +9,8 @@ export interface RequestCounts {
   change: number;
   deletion: number;
   notice: number;
+    support: number;       // ← NEW
+
   total: number;
 }
 
@@ -32,6 +34,7 @@ export const getAllRequestCounts = async (): Promise<RequestCounts> => {
       change: 0,
       deletion: 0,
       notice: 0,
+      support: 0,
       total: 0
     };
   } catch (error) {
