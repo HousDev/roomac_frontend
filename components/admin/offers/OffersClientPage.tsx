@@ -168,6 +168,7 @@ interface FormData {
   bonus_conditions: string;
   property_id: number | null;
   room_id: number | null;
+  bed_number: number | null; 
 }
 
 interface BonusDetails {
@@ -247,7 +248,8 @@ export default function OffersClientPage({
     bonus_valid_until: "",
     bonus_conditions: "",
     property_id: null,
-    room_id: null
+    room_id: null,
+    
   });
 
   // Pagination state
@@ -479,6 +481,7 @@ export default function OffersClientPage({
         bonus_conditions: formData.bonus_conditions || null,
         property_id: formData.property_id || null,
         room_id: formData.room_id || null,
+         bed_number: formData.bed_number || null,  
       };
 
       const result = await offerApi.create(body);
@@ -514,7 +517,8 @@ export default function OffersClientPage({
       bonus_valid_until: (offer as any).bonus_valid_until ? (offer as any).bonus_valid_until.split('T')[0] : "",
       bonus_conditions: (offer as any).bonus_conditions || "",
       property_id: offer.property_id || null,
-      room_id: offer.room_id || null
+      room_id: offer.room_id || null,
+      bed_number:offer.bed_number || null,
     });
     
     if (offer.property_id) {

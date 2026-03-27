@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { listRoomsByProperty } from "@/lib/roomsApi";
 import { createRazorpayOrder } from "../../lib/paymentApi";
 import { consumeMasters } from "@/lib/masterApi";
+import { toast } from 'sonner';
 
 interface BookingModalProps {
   isOpen: boolean;
@@ -468,9 +469,15 @@ const BookingModal = memo(function BookingModal({
   const [offerError, setOfferError] = useState('');
   const [offerSuccess, setOfferSuccess] = useState('');
   const [discountedAmount, setDiscountedAmount] = useState(0);
+  // Inside your BookingModal component, add these states
+const [showTermsModal, setShowTermsModal] = useState(false);
+const [termsContent, setTermsContent] = useState<string>('');
+const [loadingTerms, setLoadingTerms] = useState(false);
 
   const [formData, setFormData] = useState({
     salutation: 'Mr.',
+    firstName: '',  // Add this
+  lastName: '',   // Add thi
     fullName: '',
     email: '',
     phone: '',
@@ -490,6 +497,27 @@ const BookingModal = memo(function BookingModal({
     couponCode: '',
     agreeToTerms: false
   });
+
+  // Add this function to combine first and last name for backend
+const combineFullName = useCallback(() => {
+  const firstName = formData.firstName.trim();
+  const lastName = formData.lastName.trim();
+  
+  if (firstName && lastName) {
+    return `${firstName} ${lastName}`;
+  } else if (firstName) {
+    return firstName;
+  } else if (lastName) {
+    return lastName;
+  }
+  return '';
+}, [formData.firstName, formData.lastName]);
+
+// Update fullName whenever firstName or lastName changes
+useEffect(() => {
+  const combinedName = combineFullName();
+  setFormData(prev => ({ ...prev, fullName: combinedName }));
+}, [combineFullName]);
 
 // Calculate Rent
 const calculateRent = useCallback(() => {
@@ -532,7 +560,6 @@ const calculateFinalAmount = useCallback(() => {
 }, [calculateTotalPayable, discountedAmount]);
 
 
-
 // Validate and Apply Offer
 const validateAndApplyOffer = useCallback(async (code: string) => {
   if (!code || code.trim() === '') {
@@ -547,32 +574,23 @@ const validateAndApplyOffer = useCallback(async (code: string) => {
   setOfferSuccess('');
 
   try {
-    console.log('🔍 Validating offer code:', code);
     const response = await fetch(`${import.meta.env.VITE_API_URL}/api/offers`);
     const offers = await response.json();
 
-    console.log('📋 All offers from API:', offers);
     
-    // Clean the input code - remove spaces and trim
     const cleanInputCode = code.trim().toUpperCase();
-    console.log('🔍 Clean input code:', cleanInputCode);
     
-    // Find matching offer
     const offer = offers.find((o: any) => {
       const cleanOfferCode = o.code?.toString().trim().toUpperCase();
-      console.log(`Comparing: "${cleanOfferCode}" vs "${cleanInputCode}"`);
       
       const isActive = o.is_active === true || 
                        o.is_active === 1 || 
                        o.is_active === 'true' || 
                        o.is_active === '1';
       
-      console.log(`Offer active status: ${isActive} for code ${cleanOfferCode}`);
-      
       return cleanOfferCode === cleanInputCode && isActive;
     });
 
-    console.log('🎯 Found offer:', offer);
 
     if (!offer) {
       setOfferError('Invalid offer code');
@@ -581,6 +599,23 @@ const validateAndApplyOffer = useCallback(async (code: string) => {
       setOfferSuccess('');
       return;
     }
+
+      // Check if offer is for a specific room and validate against selected room
+    if (offer.room_id && selectedRoom && selectedRoom.id !== offer.room_id) {
+      setOfferError(`This offer is only valid for Room ${offer.room_number || offer.room_id}. Please select the correct room.`);
+      setAppliedOffer(null);
+      setDiscountedAmount(0);
+      return;
+    }
+
+    // Check if offer is for a specific bed and validate against selected bed
+    if (offer.bed_number && selectedBed && selectedBed.bedNumber !== offer.bed_number) {
+      setOfferError(`This offer is only valid for a specific bed. Please select the correct bed.`);
+      setAppliedOffer(null);
+      setDiscountedAmount(0);
+      return;
+    }
+
 
     // Check if offer is active
     const isActive = offer.is_active === true || 
@@ -594,38 +629,35 @@ const validateAndApplyOffer = useCallback(async (code: string) => {
       return;
     }
 
-    // Date validation
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const startDate = offer.start_date ? new Date(offer.start_date) : null;
-    if (startDate) startDate.setHours(0, 0, 0, 0);
-
-    const endDate = offer.end_date ? new Date(offer.end_date) : null;
-    if (endDate) endDate.setHours(23, 59, 59, 999);
-
-    if (startDate && today < startDate) {
-      setOfferError(`Offer starts on ${startDate.toLocaleDateString()}`);
-      setAppliedOffer(null);
-      return;
-    }
-
-    if (endDate && today > endDate) {
-      setOfferError(`Offer expired on ${endDate.toLocaleDateString()}`);
-      setAppliedOffer(null);
-      return;
-    }
-
-    // Minimum months requirement
-    if (bookingType === 'long' && offer.min_months && offer.min_months > 0) {
-      const selectedMonths = 1;
-      if (selectedMonths < offer.min_months) {
-        setOfferError(`Requires minimum ${offer.min_months} months stay`);
+    // Validate offer end date
+    if (offer.end_date) {
+      const endDate = new Date(offer.end_date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      if (endDate < today) {
+        setOfferError(`Offer expired on ${endDate.toLocaleDateString()}`);
         setAppliedOffer(null);
         return;
       }
     }
 
+    // Validate offer start date
+    if (offer.start_date) {
+      const startDate = new Date(offer.start_date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      if (startDate > today) {
+        setOfferError(`Offer starts on ${startDate.toLocaleDateString()}`);
+        setAppliedOffer(null);
+        return;
+      }
+    }
+
+    // For short stay, check if offer is for short stay (optional)
+    // You can add a field to offers table for stay_type or just let all offers apply to both
+    
     // Property-specific check
     if (offer.property_id && offer.property_id !== propertyData?.id) {
       setOfferError(`This offer is for a different property`);
@@ -633,29 +665,28 @@ const validateAndApplyOffer = useCallback(async (code: string) => {
       return;
     }
 
+    // Store the offer with room and bed info
+    setAppliedOffer({
+      ...offer,
+      room_id: offer.room_id,
+      room_number: offer.room_number,
+      bed_number: offer.bed_number
+    });
+
     let discountAmount = 0;
     const baseAmount = calculateTotalPayable();
 
-    console.log('💰 Offer details:', {
-      discount_type: offer.discount_type,
-      discount_value: offer.discount_value,
-      discount_percent: offer.discount_percent,
-      baseAmount
-    });
-
+   
     // Calculate discount based on type
     if (offer.discount_type === 'percentage' && offer.discount_percent) {
-      // Percentage discount
       const percentage = parseFloat(offer.discount_percent);
       discountAmount = baseAmount * (percentage / 100);
       console.log(`📊 Percentage discount: ${percentage}% = ₹${discountAmount}`);
     } else if (offer.discount_type === 'fixed' && offer.discount_value) {
-      // Fixed amount discount
       const fixedAmount = parseFloat(offer.discount_value);
       discountAmount = fixedAmount;
       console.log(`💰 Fixed discount: ₹${fixedAmount}`);
     } else {
-      // Try to determine from available values
       if (offer.discount_percent && parseFloat(offer.discount_percent) > 0) {
         const percentage = parseFloat(offer.discount_percent);
         discountAmount = baseAmount * (percentage / 100);
@@ -677,7 +708,33 @@ const validateAndApplyOffer = useCallback(async (code: string) => {
 
     setAppliedOffer(offer);
     setDiscountedAmount(discountAmount);
-    setOfferSuccess(`Offer applied! You save ₹${discountAmount.toLocaleString()}`);
+    
+    // Create success message based on booking type
+    let successMessage = `Offer applied! You save ₹${discountAmount.toLocaleString()}`;
+    
+    // Show offer validity period if min_months is set
+    if (offer.min_months && offer.min_months > 0) {
+      successMessage += ` (Valid for ${offer.min_months} month${offer.min_months !== 1 ? 's' : ''})`;
+    }
+    
+    // Check bonus validity if present
+    if (offer.bonus_valid_until) {
+      const bonusEndDate = new Date(offer.bonus_valid_until);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      if (bonusEndDate < today) {
+        console.log(`⚠️ Bonus expired on ${bonusEndDate.toLocaleDateString()}`);
+        successMessage = `Offer applied! Bonus expired on ${bonusEndDate.toLocaleDateString()}. You save ₹${discountAmount.toLocaleString()}`;
+      } else if (offer.bonus_title) {
+        successMessage = `Offer applied! 🎁 Bonus: ${offer.bonus_title} - You save ₹${discountAmount.toLocaleString()}`;
+        if (offer.min_months && offer.min_months > 0) {
+          successMessage += ` (Valid for ${offer.min_months} month${offer.min_months !== 1 ? 's' : ''})`;
+        }
+      }
+    }
+    
+    setOfferSuccess(successMessage);
     setOfferError('');
 
   } catch (error) {
@@ -687,6 +744,37 @@ const validateAndApplyOffer = useCallback(async (code: string) => {
     setOfferLoading(false);
   }
 }, [bookingType, propertyData?.id, calculateTotalPayable]);
+
+useEffect(() => {
+  // If there's an applied offer that has a specific room_id
+  if (appliedOffer && appliedOffer.room_id) {
+    // Check if the selected room exists and matches
+    if (selectedRoom && selectedRoom.id !== appliedOffer.room_id) {
+      setAppliedOffer(null);
+      setOfferCode('');
+      setDiscountedAmount(0);
+      setOfferError('');
+      setOfferSuccess('');
+      toast.warning(`This offer is only valid for a specific room. Offer has been removed.`);
+    }
+  }
+}, [selectedRoom, appliedOffer]);
+
+// Also add for bed selection
+useEffect(() => {
+  // If there's an applied offer that has a specific bed_number
+  if (appliedOffer && appliedOffer.bed_number) {
+    // Check if the selected bed exists and matches
+    if (selectedBed && selectedBed.bedNumber !== appliedOffer.bed_number) {
+      setAppliedOffer(null);
+      setOfferCode('');
+      setDiscountedAmount(0);
+      setOfferError('');
+      setOfferSuccess('');
+      toast.warning(`This offer is only valid for a specific bed. Offer has been removed.`);
+    }
+  }
+}, [selectedBed, appliedOffer]);
 
   // Load saved offer from localStorage when modal opens
 // Load saved offer from localStorage when modal opens
@@ -706,8 +794,6 @@ useEffect(() => {
             setTimeout(() => {
               validateAndApplyOffer(savedOfferCode);
             }, 100);
-            localStorage.removeItem('pendingOfferCode');
-            localStorage.removeItem('pendingOfferData');
           }
         } catch (e) {
           console.error('Error parsing saved offer data:', e);
@@ -994,6 +1080,12 @@ useEffect(() => {
   }, [bookingStep]);
 
   useEffect(() => {
+  if (preselectedRoomId) {
+    console.log('🎯 BookingModal received preselectedRoomId:', preselectedRoomId);
+  }
+}, [preselectedRoomId]);
+
+  useEffect(() => {
     if (preselectedRoomId && rooms.length > 0 && !selectedRoom && !preselectionAttempted.current) {
       const preselectedIdStr = String(preselectedRoomId);
       const room = rooms.find(r => String(r.id) === preselectedIdStr);
@@ -1001,7 +1093,18 @@ useEffect(() => {
       if (room) {
         preselectionAttempted.current = true;
         setSelectedRoom(room);
-        
+         // Auto-select the first available bed in that room
+      if (room.beds && room.beds.length > 0) {
+        const availableBed = room.beds.find((bed: any) => !bed.is_occupied);
+        if (availableBed) {
+          setSelectedBed({
+            roomId: room.id,
+            bedNumber: availableBed.bed_number,
+            bedRent: availableBed.bed_rent
+          });
+        }
+      }
+
         const genderPref = room.gender_preference || [];
         let autoGender = '';
         let autoIsCouple = false;
@@ -1093,9 +1196,40 @@ useEffect(() => {
     }
   }, []);
 
+  const validateOfferForRoom = useCallback((offerData: any, roomId: number) => {
+  // If no offer is applied, return true (no validation needed)
+  if (!appliedOffer) return true;
+  
+  // If the offer has a room_id and it doesn't match the selected room
+  if (appliedOffer.room_id && appliedOffer.room_id !== roomId) {
+    // Clear the offer
+    setAppliedOffer(null);
+    setOfferCode('');
+    setDiscountedAmount(0);
+    setOfferError('');
+    setOfferSuccess('');
+    toast.warning(`This offer is only valid for the specific room. Offer has been removed.`);
+    return false;
+  }
+  
+  // If the offer has a bed_number, we need to validate bed selection too
+  // (We'll handle that in bed selection)
+  return true;
+}, [appliedOffer]);
+
+
   const handleRoomSelect = useCallback((room: Room) => {
     setSelectedRoom(room);
     setSelectedBed(null);
+
+// Validate offer against selected room
+  if (appliedOffer && appliedOffer.room_id) {
+    const isValid = validateOfferForRoom(appliedOffer, room.id);
+    if (!isValid) {
+      // Clear the selected bed as well since offer is removed
+      setSelectedBed(null);
+    }
+  }
     
     const genderPref = room.gender_preference || [];
     let autoGender = formData.gender;
@@ -1138,7 +1272,36 @@ useEffect(() => {
       gender: autoGender,
       isCouple: autoIsCouple
     }));
-  }, [formData.gender, formData.isCouple]);
+  }, [formData.gender, formData.isCouple,  appliedOffer, validateOfferForRoom]);
+
+  // Update handleBedSelect (if you have a separate bed selection function)
+const handleBedSelect = useCallback((room: Room, bed: any) => {
+  // Validate offer against the bed if the offer has a specific bed number
+  if (appliedOffer && appliedOffer.bedNumber) {
+    if (appliedOffer.bedNumber !== bed.bed_number) {
+      setAppliedOffer(null);
+      setOfferCode('');
+      setDiscountedAmount(0);
+      setOfferError('');
+      setOfferSuccess('');
+      toast.warning(`This offer is only valid for a specific bed. Offer has been removed.`);
+      return;
+    }
+  }
+  
+  setSelectedRoom(room);
+  setSelectedBed(bed);
+  
+  setFormData(prev => ({
+    ...prev,
+    roomId: room.id.toString(),
+    roomNumber: room.room_number,
+    bedNumber: bed.bed_number,
+    sharingType: room.sharing_type || '',
+    monthlyRent: bed.bed_rent,
+    floor: room.floor || 'Ground'
+  }));
+}, [appliedOffer]);
 
   const getMinTenantRent = (room: any): number => {
     if (room.bed_assignments && Array.isArray(room.bed_assignments) && room.bed_assignments.length > 0) {
@@ -1193,9 +1356,45 @@ useEffect(() => {
   };
 
 
-
-
-
+// Function to fetch Payment Terms and Conditions
+const fetchPaymentTerms = useCallback(async () => {
+  setLoadingTerms(true);
+  try {
+    // Fetch from Common tab (where Payment Terms and Conditions is stored)
+    const response = await consumeMasters({ tab: "Common" });
+    
+    if (response?.success && response.data) {
+      // Find ALL Payment Terms and Conditions entries
+      const allPaymentTerms = response.data.filter(
+        (item: any) => item.type_name === "Payment Terms and Conditions"
+      );
+      
+      
+      if (allPaymentTerms.length > 0) {
+        // Combine all terms into a formatted list
+        const formattedTerms = allPaymentTerms
+          .map((term: any, index: number) => {
+            // Format as numbered list with proper spacing
+            return `${index + 1}. ${term.value_name}`;
+          })
+          .join('\n\n');
+        
+        setTermsContent(formattedTerms);
+      } else {
+        console.warn('Payment Terms and Conditions not found in masters');
+    
+      }
+    } else {
+      console.error('Failed to fetch masters:', response);
+      
+    }
+  } catch (error) {
+    console.error("❌ Error fetching payment terms:", error);
+    
+  } finally {
+    setLoadingTerms(false);
+  }
+}, []);
 
   const handleOTPVerify = useCallback((otp: string) => {
     if (otp === '123456') {
@@ -1279,6 +1478,8 @@ const submitFinalBooking = async (paymentStatus: string) => {
       if (onBookingSuccess) {
         onBookingSuccess(result.data);
       }
+            localStorage.removeItem('pendingOfferCode');
+            localStorage.removeItem('pendingOfferData');
     } else {
       throw new Error(result.message || 'Failed to create booking');
     }
@@ -1574,33 +1775,50 @@ const submitFinalBooking = async (paymentStatus: string) => {
                   </div>
 
                   <div className="space-y-2.5">
-                    <div className="grid grid-cols-4 gap-2">
-                      <div>
-                        <label className="block text-[10px] sm:text-xs font-semibold text-gray-700 mb-1">
-                          Title <span className="text-red-500">*</span>
-                        </label>
-                        <select
-                          value={formData.salutation}
-                          onChange={(e) => handleInputChange('salutation', e.target.value)}
-                          className="w-full px-2 sm:px-3 py-2 text-[11px] sm:text-xs border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none bg-white"
-                        >
-                          {SALUTATIONS.map(sal => <option key={sal} value={sal}>{sal}</option>)}
-                        </select>
-                      </div>
-                      <div className="col-span-3">
-                        <label className="block text-[10px] sm:text-xs font-semibold text-gray-700 mb-1">
-                          Full Name <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          value={formData.fullName}
-                          onChange={(e) => handleInputChange('fullName', e.target.value)}
-                          className="w-full px-2 sm:px-3 py-2 text-[11px] sm:text-xs border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none"
-                          placeholder="Enter your full name"
-                        />
-                      </div>
-                    </div>
+                    {/* Salutation and Name Row */}
+    <div className="grid grid-cols-4 gap-2">
+      <div>
+        <label className="block text-[10px] sm:text-xs font-semibold text-gray-700 mb-1">
+          Title <span className="text-red-500">*</span>
+        </label>
+        <select
+          value={formData.salutation}
+          onChange={(e) => handleInputChange('salutation', e.target.value)}
+          className="w-full px-2 sm:px-3 py-2 text-[11px] sm:text-xs border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none bg-white"
+        >
+          {SALUTATIONS.map(sal => <option key={sal} value={sal}>{sal}</option>)}
+        </select>
+      </div>
+      <div className="col-span-3 grid grid-cols-2 gap-2">
+        {/* First Name */}
+        <div>
+          <label className="block text-[10px] sm:text-xs font-semibold text-gray-700 mb-1">
+            First Name <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="text"
+            required
+            value={formData.firstName}
+            onChange={(e) => handleInputChange('firstName', e.target.value)}
+            className="w-full px-2 sm:px-3 py-2 text-[11px] sm:text-xs border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none"
+            placeholder="Enter first name"
+          />
+        </div>
+        {/* Last Name */}
+        <div>
+          <label className="block text-[10px] sm:text-xs font-semibold text-gray-700 mb-1">
+            Last Name <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="text"
+            value={formData.lastName}
+            onChange={(e) => handleInputChange('lastName', e.target.value)}
+            className="w-full px-2 sm:px-3 py-2 text-[11px] sm:text-xs border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none"
+            placeholder="Enter last name"
+          />
+        </div>
+      </div>
+    </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       <div>
@@ -2096,69 +2314,134 @@ const submitFinalBooking = async (paymentStatus: string) => {
                     </div>
                   </div>
 
-                  {/* Offer Code Section */}
-                  <div className="mt-3">
-                    <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                      Have an Offer Code?
-                    </label>
-                    <div className="flex gap-2">
-                      <div className="relative flex-1">
-                        <div className="absolute left-2.5 top-1/2 -translate-y-1/2">
-                          <Ticket className="w-4 h-4 text-gray-400" />
-                        </div>
-                        <input
-                          type="text"
-                          value={offerCode}
-                          onChange={(e) => setOfferCode(e.target.value.toUpperCase())}
-                          placeholder="Enter offer code"
-                          className="w-full pl-8 pr-3 py-2 text-xs border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none"
-                        />
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => validateAndApplyOffer(offerCode)}
-                        disabled={offerLoading || !offerCode}
-                        className="px-3 py-2 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
-                      >
-                        {offerLoading ? (
-                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        ) : (
-                          'Apply'
-                        )}
-                      </button>
-                    </div>
-                    
-                    {/* Offer feedback messages */}
-                    {offerError && (
-                      <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
-                        <AlertCircle className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
-                        <p className="text-[10px] text-red-700">{offerError}</p>
-                      </div>
-                    )}
-                    
-                    {offerSuccess && (
-                      <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
-                        <CheckCircle className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
-                        <p className="text-[10px] text-green-700">{offerSuccess}</p>
-                      </div>
-                    )}
+{/* Offer Code Section */}
+<div className="mt-3">
+  <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+    Have an Offer Code?
+  </label>
+  <div className="flex gap-2">
+    <div className="relative flex-1">
+      <div className="absolute left-2.5 top-1/2 -translate-y-1/2">
+        <Ticket className="w-4 h-4 text-gray-400" />
+      </div>
+      <input
+        type="text"
+        value={offerCode}
+        onChange={(e) => setOfferCode(e.target.value.toUpperCase())}
+        placeholder="Enter offer code"
+        className="w-full pl-8 pr-3 py-2 text-xs border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none"
+        disabled={!!appliedOffer} // Disable input when offer is applied
+      />
+    </div>
+    
+    {/* Show Apply or Remove button based on whether offer is applied */}
+    {!appliedOffer ? (
+      <button
+        type="button"
+        onClick={() => validateAndApplyOffer(offerCode)}
+        disabled={offerLoading || !offerCode}
+        className="px-3 py-2 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+      >
+        {offerLoading ? (
+          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+        ) : (
+          'Apply'
+        )}
+      </button>
+    ) : (
+      <button
+        type="button"
+        onClick={() => {
+          // Clear all offer-related states
+          setAppliedOffer(null);
+          setOfferCode('');
+          setDiscountedAmount(0);
+          setOfferError('');
+          setOfferSuccess('');
+          
+          // Clear from localStorage as well
+          localStorage.removeItem('pendingOfferCode');
+          localStorage.removeItem('pendingOfferData');
+          
+          toast.info('Offer code removed');
+        }}
+        className="px-3 py-2 bg-red-600 text-white text-xs font-semibold rounded-lg hover:bg-red-700 transition-colors flex items-center gap-1"
+      >
+        <X className="w-3.5 h-3.5" />
+        Remove
+      </button>
+    )}
+  </div>
+  
+  {/* Offer feedback messages */}
+  {offerError && (
+    <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
+      <AlertCircle className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
+      <p className="text-[10px] text-red-700">{offerError}</p>
+    </div>
+  )}
+  
+  {offerSuccess && (
+    <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
+      <CheckCircle className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
+      <p className="text-[10px] text-green-700">{offerSuccess}</p>
+    </div>
+  )}
 
-                    {/* Applied Offer Display */}
-                    {appliedOffer && (
-                      <div className="mt-2 p-2 bg-gradient-to-r from-yellow-50 to-amber-50 border border-yellow-200 rounded-lg">
-                        <div className="flex items-center gap-1.5 mb-1">
-                          <Sparkles className="w-3.5 h-3.5 text-yellow-600" />
-                          <p className="text-xs font-bold text-yellow-800">{appliedOffer.title}</p>
-                        </div>
-                        <p className="text-[9px] text-yellow-700">{appliedOffer.description}</p>
-                        {appliedOffer.bonus_title && (
-                          <div className="mt-1 pt-1 border-t border-yellow-200">
-                            <p className="text-[8px] font-semibold text-yellow-800">🎁 Bonus: {appliedOffer.bonus_title}</p>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
+  {/* Applied Offer Display */}
+  {appliedOffer && (
+    <div className="mt-2 p-2 bg-gradient-to-r from-yellow-50 to-amber-50 border border-yellow-200 rounded-lg">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1.5">
+          <Sparkles className="w-3.5 h-3.5 text-yellow-600" />
+          <p className="text-xs font-bold text-yellow-800">{appliedOffer.title}</p>
+        </div>
+        <button
+          onClick={() => {
+            // Clear all offer-related states
+            setAppliedOffer(null);
+            setOfferCode('');
+            setDiscountedAmount(0);
+            setOfferError('');
+            setOfferSuccess('');
+            
+            // Clear from localStorage
+            localStorage.removeItem('pendingOfferCode');
+            localStorage.removeItem('pendingOfferData');
+            
+            toast.info('Offer code removed');
+          }}
+          className="text-red-500 hover:text-red-700 transition-colors"
+          title="Remove offer"
+        >
+          <X className="w-3.5 h-3.5" />
+        </button>
+      </div>
+      <p className="text-[9px] text-yellow-700 mt-0.5">{appliedOffer.description}</p>
+      
+      {/* Show room/bed restrictions */}
+      {appliedOffer.room_id && (
+        <div className="mt-1 pt-1 border-t border-yellow-200">
+          <p className="text-[8px] font-semibold text-yellow-800">
+            🏠 Valid only for Room #{appliedOffer.room_number || appliedOffer.room_id}
+          </p>
+        </div>
+      )}
+      {appliedOffer.bed_number && (
+        <div className="mt-0.5">
+          <p className="text-[8px] font-semibold text-yellow-800">
+            🛏️ Valid only for Bed #{appliedOffer.bed_number}
+          </p>
+        </div>
+      )}
+      {appliedOffer.bonus_title && (
+        <div className="mt-1 pt-1 border-t border-yellow-200">
+          <p className="text-[8px] font-semibold text-yellow-800">🎁 Bonus: {appliedOffer.bonus_title}</p>
+        </div>
+      )}
+    </div>
+  )}
+</div>
 
                   {/* Booking Summary */}
 <div className="bg-gradient-to-br from-blue-50 to-cyan-50 border border-blue-200 rounded-lg p-3">
@@ -2179,6 +2462,37 @@ const submitFinalBooking = async (paymentStatus: string) => {
         {bookingType === 'short' && <span className="text-[9px] text-gray-500 ml-0.5">/day</span>}
       </span>
     </div>
+
+    {appliedOffer && (
+  <div className="mt-2 p-2 bg-gradient-to-r from-yellow-50 to-amber-50 border border-yellow-200 rounded-lg">
+    <div className="flex items-center gap-1.5 mb-1">
+      <Sparkles className="w-3.5 h-3.5 text-yellow-600" />
+      <p className="text-xs font-bold text-yellow-800">{appliedOffer.title}</p>
+    </div>
+    <p className="text-[9px] text-yellow-700">{appliedOffer.description}</p>
+    
+    {/* Show room/bed restrictions */}
+    {appliedOffer.room_id && (
+      <div className="mt-1 pt-1 border-t border-yellow-200">
+        <p className="text-[8px] font-semibold text-yellow-800">
+          🏠 Valid only for Room #{appliedOffer.room_number || appliedOffer.room_id}
+        </p>
+      </div>
+    )}
+    {appliedOffer.bed_number && (
+      <div className="mt-0.5">
+        <p className="text-[8px] font-semibold text-yellow-800">
+          🛏️ Valid only for Bed #{appliedOffer.bed_number}
+        </p>
+      </div>
+    )}
+    {appliedOffer.bonus_title && (
+      <div className="mt-1 pt-1 border-t border-yellow-200">
+        <p className="text-[8px] font-semibold text-yellow-800">🎁 Bonus: {appliedOffer.bonus_title}</p>
+      </div>
+    )}
+  </div>
+)}
 
     {/* Duration for Short Stay */}
     {bookingType === 'short' && formData.checkInDate && formData.checkOutDate && (
@@ -2266,17 +2580,31 @@ const submitFinalBooking = async (paymentStatus: string) => {
 </div>
 
                   <label className="flex items-start gap-2 p-2.5 bg-gray-50 border-2 border-gray-200 rounded-lg cursor-pointer hover:bg-gray-100">
-                    <input
-                      type="checkbox"
-                      checked={formData.agreeToTerms}
-                      onChange={(e) => handleInputChange('agreeToTerms', e.target.checked)}
-                      className="w-4 h-4 mt-0.5 text-blue-600 border-gray-300 rounded focus:ring-blue-600 flex-shrink-0"
-                      required
-                    />
-                    <div className="text-[10px] text-gray-700">
-                      I agree to <span className="text-blue-600 font-semibold">terms & conditions</span>, cancellation policy, and house rules.
-                    </div>
-                  </label>
+  <input
+    type="checkbox"
+    checked={formData.agreeToTerms}
+    onChange={(e) => {handleInputChange('agreeToTerms', e.target.checked);  e.preventDefault();
+        fetchPaymentTerms();
+        setShowTermsModal(true);}}
+    className="w-4 h-4 mt-0.5 text-blue-600 border-gray-300 rounded focus:ring-blue-600 flex-shrink-0"
+    required
+  />
+  <div className="text-[10px] text-gray-700">
+    I agree to{' '}
+    <button
+      type="button"
+      onClick={(e) => {
+        e.preventDefault();
+        fetchPaymentTerms();
+        setShowTermsModal(true);
+      }}
+      className="text-blue-600 font-semibold hover:text-blue-700 underline decoration-blue-300 hover:decoration-blue-600 transition-all"
+    >
+      terms & conditions
+    </button>
+    , cancellation policy, and house rules.
+  </div>
+</label>
                 </div>
               )}
             </form>
@@ -2356,6 +2684,88 @@ const submitFinalBooking = async (paymentStatus: string) => {
         }
         bookingDetails={confirmationData}
       />
+
+      {/* Terms & Conditions Modal */}
+{showTermsModal && (
+  <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+    <div className="bg-white rounded-xl max-w-2xl w-full max-h-[80vh] flex flex-col shadow-2xl animate-in fade-in zoom-in duration-200">
+      
+      {/* Modal Header */}
+      <div className="bg-gradient-to-r from-blue-600 to-cyan-600 px-5 py-3 rounded-t-xl flex items-center justify-between flex-shrink-0">
+        <div className="flex items-center gap-2">
+          <div className="bg-white/20 p-1.5 rounded-lg">
+            <FileText className="w-4 h-4 text-white" />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-white">Payment Terms & Conditions</h3>
+            <p className="text-[10px] text-blue-100">Please read carefully before proceeding</p>
+          </div>
+        </div>
+        <button
+          onClick={() => setShowTermsModal(false)}
+          className="p-1.5 hover:bg-white/20 rounded-lg transition-colors"
+        >
+          <X className="w-4 h-4 text-white" />
+        </button>
+      </div>
+      
+      {/* Modal Content */}
+      <div className="flex-1 overflow-y-auto p-5 space-y-4">
+        {loadingTerms ? (
+          <div className="flex flex-col items-center justify-center py-12">
+            <div className="w-8 h-8 border-4 border-gray-300 border-t-blue-600 rounded-full animate-spin mb-3"></div>
+            <p className="text-sm text-gray-500">Loading terms & conditions...</p>
+          </div>
+        ) : (
+          <>
+            {/* Payment Methods Section */}
+            <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
+              <div className="flex items-center gap-2 mb-2">
+                <CreditCard className="w-4 h-4 text-blue-600" />
+                <h4 className="text-xs font-bold text-blue-800">Payment Methods</h4>
+              </div>
+              <p className="text-[11px] text-blue-700 leading-relaxed">
+                We accept online payments via UPI, Credit/Debit Cards, and Net Banking. 
+                Cash payments can be made at the property. All payments are processed securely.
+              </p>
+            </div>
+            
+            {/* Terms Content - Display exactly as stored in master */}
+            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+              <div className="flex items-center gap-2 mb-3">
+                <Shield className="w-4 h-4 text-gray-700" />
+                <h4 className="text-xs font-bold text-gray-800">Terms & Conditions</h4>
+              </div>
+              <div className="prose prose-sm max-w-none">
+                <pre className="whitespace-pre-wrap font-sans text-xs text-gray-700 leading-relaxed bg-transparent p-0 m-0">
+                  {termsContent}
+                </pre>
+              </div>
+            </div>
+            
+            
+          </>
+        )}
+      </div>
+      
+      {/* Modal Footer */}
+      <div className="flex-shrink-0 px-5 py-3 border-t bg-gray-50 rounded-b-xl">
+        <div className="flex justify-between items-center">
+          <p className="text-[10px] text-gray-500">
+            By checking the box, you agree to all terms and conditions
+          </p>
+          <button
+            onClick={() => setShowTermsModal(false)}
+            className="px-4 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-medium hover:bg-blue-700 transition-colors"
+          >
+            I Agree
+          </button>
+        </div>
+      </div>
+      
+    </div>
+  </div>
+)}
     </>
   );
 });
