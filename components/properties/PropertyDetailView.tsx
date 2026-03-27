@@ -92,6 +92,7 @@ import {
 import { generatePropertySlug, getOrCreateTrackingId } from "@/lib/slugUtils";
 import { consumeMasters } from "@/lib/masterApi";
 import { toast } from "sonner";
+import { pricingPlanApi } from "@/lib/pricingPlanApi";
 
 const Icons = {
   Wifi,
@@ -319,6 +320,10 @@ const PropertyDetailView = memo(function PropertyDetailView({
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
 
+  const [pricingPlans, setPricingPlans] = useState<any[]>([]);
+const [shortStayBanner, setShortStayBanner] = useState<any>(null);
+const [loadingPlans, setLoadingPlans] = useState(false);
+
   // Masters data for filters
   const [floorsMasters, setFloorsMasters] = useState<MasterValue[]>([]);
   const [sharingTypesMasters, setSharingTypesMasters] = useState<MasterValue[]>([]);
@@ -510,6 +515,77 @@ useEffect(() => {
     loadAnalytics();
   }, [propertyData?.id, analyticsLoaded]);
 
+
+
+  // Fetch pricing plans for this property
+useEffect(() => {
+  const fetchPricingPlans = async () => {
+    if (!propertyData?.id) return;
+
+    setLoadingPlans(true);
+    try {
+      // Fetch general plans (visible on ALL properties)
+      const generalRes = await pricingPlanApi.getPaginated({
+        property_id: "general",
+        type: "regular",
+        is_active: true,
+        limit: 20,
+      });
+
+      // Fetch property-specific plans
+      const propertyRes = await pricingPlanApi.getPaginated({
+        property_id: propertyData.id.toString(),
+        type: "regular",
+        is_active: true,
+        limit: 20,
+      });
+
+      const propertyPlans = (propertyRes.success ? propertyRes.data : [])
+        .sort((a: any, b: any) => a.display_order - b.display_order);
+
+      const generalPlans = (generalRes.success ? generalRes.data : [])
+        .sort((a: any, b: any) => a.display_order - b.display_order);
+
+      // Property-specific first, then general
+      setPricingPlans([...propertyPlans, ...generalPlans]);
+
+      // Short stay: prefer property-specific, fall back to general
+      try {
+        // Replace the entire short stay fetch block inside fetchPricingPlans
+// Try property-specific first
+const propertyBanner = await pricingPlanApi.getShortStayBanner(
+  propertyData.id.toString()
+);
+if (propertyBanner?.is_active) {
+  setShortStayBanner(propertyBanner);
+} else {
+  // Fall back to general (null property_id)
+  const generalBanner = await pricingPlanApi.getShortStayBanner(undefined);
+  if (generalBanner?.is_active) {
+    setShortStayBanner(generalBanner);
+  }
+}
+      } catch {
+        try {
+          const generalBanner = await pricingPlanApi.getShortStayBanner(undefined);
+          if (generalBanner && generalBanner.is_active) {
+            setShortStayBanner(generalBanner);
+          }
+        } catch {
+          // No short stay banner available
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching pricing plans:", error);
+    } finally {
+      setLoadingPlans(false);
+    }
+  };
+
+  fetchPricingPlans();
+}, [propertyData?.id]);
+
+  
   const handleShortlistClick = async () => {
     if (isLoadingShortlist || !propertyData?.id) return;
 
@@ -1997,94 +2073,120 @@ const getMinTenantRent = (room: any): number => {
             </div>
 
             {/* Pricing Plans */}
-            <div className="bg-white rounded-xl md:rounded-2xl p-3 md:p-6 shadow-lg md:shadow-2xl">
-              <h2 className="text-base md:text-xl font-black gradient-text flex items-center mb-3 md:mb-5">
-                <Sparkles className="w-4 h-4 md:w-5 md:h-5 mr-1 md:mr-2" />
-                Pricing Plans
-              </h2>
-              <div className="space-y-2 md:space-y-4">
-                {propertyData.pricingPlans?.map((plan: any) => (
-                  <div
-                    key={plan.id}
-                    className={`relative bg-white rounded-lg md:rounded-xl p-3 md:p-5 border ${
-                      plan.recommended
-                        ? "border-violet-400 shadow-md md:shadow-xl"
-                        : "border-gray-200 md:border-white/20 hover:border-gray-300"
-                    }`}
-                  >
-                    {plan.recommended && (
-                      <div className="absolute -top-1.5 -right-1.5 md:-top-3 md:-right-3">
-                        <span className="bg-gradient-to-r from-amber-400 to-orange-500 text-white px-2 md:px-4 py-0.5 md:py-1.5 rounded-full text-[10px] md:text-xs font-black shadow md:shadow-lg">
-                          <Crown className="w-2.5 h-2.5 md:w-3 md:h-3 inline mr-0.5" />
-                          <span className="hidden md:inline">Most Popular</span>
-                          <span className="md:hidden">Popular</span>
-                        </span>
-                      </div>
-                    )}
-                    <div className="flex items-start justify-between mb-2 md:mb-4">
-                      <div>
-                        <h3 className="text-sm md:text-lg font-black text-gray-900">
-                          {plan.name}
-                        </h3>
-                        <p className="text-[10px] md:text-sm text-gray-500 font-medium mt-0.5">
-                          All-inclusive
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-xl md:text-3xl font-black gradient-text">
-                          ₹{plan.price.toLocaleString()}
-                        </p>
-                        <p className="text-[10px] md:text-xs text-gray-600 font-semibold">
-                          ~₹{plan.dailyRate}/day
-                        </p>
-                      </div>
-                    </div>
-                    <ul className="space-y-1 md:space-y-2 mb-2 md:mb-5">
-                      {plan.features?.map((feature: string, i: number) => (
-                        <li key={i} className="flex items-start gap-1.5 md:gap-2">
-                          <Check className="w-3 h-3 md:w-4 md:h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
-                          <span className="text-xs md:text-sm text-gray-700 font-semibold">
-                            {feature}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                    <button
-                      onClick={() => {
-                        setPreselectedRoomId(undefined);
-                        setIsBookingModalOpen(true);
-                        setBookingType("long");
-                      }}
-                      className={`w-full py-2 md:py-3 rounded-lg md:rounded-xl font-bold text-xs md:text-sm transition-all hover:shadow ${
-                        plan.recommended
-                          ? "bg-gradient-to-r from-blue-600 to-blue-600 text-white"
-                          : "bg-gradient-to-r from-gray-700 to-gray-800 text-white"
-                      }`}
-                    >
-                      Select Plan
-                    </button>
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-3 md:mt-6 pt-3 md:pt-6 border-t border-gray-200">
-                <div className="text-center">
-                  <p className="text-xs md:text-sm text-gray-600 font-semibold mb-1.5 md:mb-2">
-                    Looking for short stay?
-                  </p>
-                  <button
-                    onClick={() => {
-                      setPreselectedRoomId(undefined);
-                      setIsBookingModalOpen(true);
-                      setBookingType("short");
-                    }}
-                    className="w-full py-2 md:py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-lg md:rounded-xl font-bold hover:shadow-lg transition-all text-xs md:text-sm"
-                  >
-                    Book Short Stay @ ₹{propertyData.dailyRate || 499}/day
-                  </button>
-                </div>
-              </div>
+                      {/* Pricing Plans */}
+<div className="bg-white rounded-xl md:rounded-2xl p-3 md:p-6 shadow-lg md:shadow-2xl">
+  <h2 className="text-base md:text-xl font-black gradient-text flex items-center mb-3 md:mb-5">
+    <Sparkles className="w-4 h-4 md:w-5 md:h-5 mr-1 md:mr-2" />
+    Pricing Plans
+  </h2>
+  
+  {loadingPlans ? (
+    <div className="space-y-3">
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="animate-pulse bg-gray-100 rounded-lg p-4">
+          <div className="h-6 bg-gray-200 rounded w-1/3 mb-2"></div>
+          <div className="h-4 bg-gray-200 rounded w-1/4 mb-3"></div>
+          <div className="space-y-2">
+            <div className="h-3 bg-gray-200 rounded w-full"></div>
+            <div className="h-3 bg-gray-200 rounded w-5/6"></div>
+          </div>
+        </div>
+      ))}
+    </div>
+  ) : pricingPlans.length === 0 ? (
+    <div className="text-center py-6 md:py-8">
+      <p className="text-xs md:text-sm text-gray-500">No pricing plans available</p>
+    </div>
+  ) : (
+    <div className="space-y-2 md:space-y-4">
+      {pricingPlans.map((plan: any) => (
+        <div
+          key={plan.id}
+className={`relative bg-white rounded-lg md:rounded-xl p-3 md:p-5 border ${
+  !!plan.is_popular
+    ? "border-violet-400 shadow-md md:shadow-xl"
+    : "border-gray-200 md:border-white/20 hover:border-gray-300"
+}`}
+        >
+         {!!plan.is_popular && (
+  <div className="absolute -top-1.5 -right-1.5 md:-top-3 md:-right-3">
+    <span className="bg-gradient-to-r from-amber-400 to-orange-500 text-white px-2 md:px-4 py-0.5 md:py-1.5 rounded-full text-[10px] md:text-xs font-black shadow md:shadow-lg">
+      <Crown className="w-2.5 h-2.5 md:w-3 md:h-3 inline mr-0.5" />
+      <span className="hidden md:inline">Most Popular</span>
+      <span className="md:hidden">Popular</span>
+    </span>
+  </div>
+)}
+          <div className="flex items-start justify-between mb-2 md:mb-4">
+            <div>
+              <h3 className="text-sm md:text-lg font-black text-gray-900">
+                {plan.name}
+              </h3>
+              <p className="text-[10px] md:text-sm text-gray-500 font-medium mt-0.5">
+                {plan.subtitle || "All-inclusive"}
+              </p>
             </div>
+            <div className="text-right">
+              <p className="text-xl md:text-3xl font-black gradient-text">
+                ₹{plan.total_price.toLocaleString()}
+              </p>
+              <p className="text-[10px] md:text-xs text-gray-600 font-semibold">
+                ~₹{plan.per_day_price}/day
+              </p>
+            </div>
+          </div>
+          <ul className="space-y-1 md:space-y-2 mb-2 md:mb-5">
+            {plan.features?.map((feature: string, i: number) => (
+              <li key={i} className="flex items-start gap-1.5 md:gap-2">
+                <Check className="w-3 h-3 md:w-4 md:h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
+                <span className="text-xs md:text-sm text-gray-700 font-semibold">
+                  {feature}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <button
+            onClick={() => {
+              setPreselectedRoomId(undefined);
+              setIsBookingModalOpen(true);
+              setBookingType("long");
+            }}
+            className={`w-full py-2 md:py-3 rounded-lg md:rounded-xl font-bold text-xs md:text-sm transition-all hover:shadow ${
+             !!plan.is_popular
+    ? "bg-gradient-to-r from-blue-600 to-cyan-600 text-white"
+    : "bg-gradient-to-r from-gray-700 to-gray-800 text-white"
+}`}
+
+          >
+            Select Plan
+          </button>
+        </div>
+      ))}
+    </div>
+  )}
+
+  {/* Short Stay Section */}
+  {shortStayBanner && shortStayBanner.is_active && (
+    <div className="mt-3 md:mt-6 pt-3 md:pt-6 border-t border-gray-200">
+      <div className="text-center">
+        <p className="text-xs md:text-sm text-gray-600 font-semibold mb-1.5 md:mb-2">
+          {shortStayBanner.label || "Looking for short stay?"}
+        </p>
+        <button
+          onClick={() => {
+            setPreselectedRoomId(undefined);
+            setIsBookingModalOpen(true);
+            setBookingType("short");
+          }}
+          className="w-full py-2 md:py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-lg md:rounded-xl font-bold hover:shadow-lg transition-all text-xs md:text-sm"
+        >
+          Book Short Stay @ ₹{shortStayBanner.rate_per_day}/day
+        </button>
+      </div>
+    </div>
+  )}
+</div>
+
 
            {/* Terms & Conditions */}
 <div className="bg-white rounded-xl md:rounded-2xl p-3 md:p-5 shadow-lg md:shadow-2xl">

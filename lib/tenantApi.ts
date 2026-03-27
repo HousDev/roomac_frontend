@@ -1,5 +1,6 @@
 // lib/tenantApi.ts - UPDATED VERSION
 import { request } from "@/lib/api"; 
+import { toast } from "sonner";
 
 export type Tenant = {
   organization: string;
@@ -32,11 +33,15 @@ export type Tenant = {
   preferred_property_id?: number;
   check_in_date?: string; 
   id_proof_type?: string;
+    id_proof_number?: string;      // NEW FIELD
+
 address_proof_type?: string;
+  address_proof_number?: string;  // NEW FIELD
+
   id_proof_url?: string;
   address_proof_url?: string;
   photo_url?: string;
-    aadhar_number?: string; // NEW FIELD
+    aadhar_number?: string;
   pan_number?: string;   
   is_active?: boolean;
   portal_access_enabled?: boolean;

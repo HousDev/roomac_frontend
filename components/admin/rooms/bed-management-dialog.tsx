@@ -1,5 +1,4 @@
 // components/admin/rooms/BedManagementDialog.tsx
-// components/admin/rooms/BedManagementDialog.tsx
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -459,15 +458,15 @@ function BedCard({
 
   return (
     <Card className={`overflow-hidden ${isOccupied ? 'border-green-200' : 'border-gray-200'}`}>
-      <CardContent className="p-3 md:p-4">
+      <CardContent className="p-2">
         {/* Bed Header */}
-        <div className="flex items-center justify-between mb-3 md:mb-4">
-          <div className="flex items-center gap-2 md:gap-3">
-            <div className={`p-1.5 md:p-2 rounded-lg ${isOccupied ? 'bg-green-100' : 'bg-gray-100'}`}>
-              <Bed className={`h-4 w-4 md:h-5 md:w-5 ${isOccupied ? 'text-green-600' : 'text-gray-600'}`} />
-            </div>
-            <div>
-              <h3 className="font-bold text-base md:text-lg">Bed {bedNumber}</h3>
+       <div className="flex items-center justify-between mb-2">
+  <div className="flex items-center gap-1.5">
+    <div className={`p-1 rounded-md ${isOccupied ? 'bg-green-100' : 'bg-gray-100'}`}>
+      <Bed className={`h-3.5 w-3.5 ${isOccupied ? 'text-green-600' : 'text-gray-600'}`} />
+    </div>
+    <div>
+      <h3 className="font-bold text-xs">Bed {bedNumber}</h3>
               <Badge variant={isOccupied ? "default" : "outline"} className={`text-[9px] md:text-xs ${
                 isOccupied ? 'bg-green-100 text-green-800 border-green-300' : ''
               }`}>
@@ -482,7 +481,7 @@ function BedCard({
         {isOccupied && assignment && tenantDetails && (
           <div className="space-y-3 md:space-y-4">
             {/* Tenant Info */}
-            <div className="bg-gray-50 p-2 md:p-3 rounded-lg">
+<div className="bg-gray-50 p-1.5 rounded-lg">
               <div className="flex items-start justify-between mb-2 md:mb-3">
                 <div>
                   <h4 className="font-semibold text-xs md:text-sm text-gray-800">Current Tenant</h4>
@@ -590,7 +589,7 @@ function BedCard({
 
         {/* Available Bed View */}
         {!isOccupied && (
-          <div className="space-y-3 md:space-y-4">
+<div className="space-y-2">
             {isAssigning ? (
               <>
                 <TenantSelectDropdown
@@ -642,7 +641,7 @@ function BedCard({
         )}
 
         {/* Rent Info */}
-        <div className="mt-3 md:mt-4 pt-3 md:pt-4 border-t">
+<div className="mt-2 pt-2 border-t">
           <div className="flex items-center justify-between">
             <span className="text-[10px] md:text-xs text-gray-600">Monthly Rent</span>
             <div className="text-right">
@@ -1112,10 +1111,11 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-[calc(100vw-1rem)] sm:max-w-[calc(100vw-2rem)] md:max-w-4xl lg:max-w-6xl max-h-[90vh] overflow-hidden p-0 border-0 flex flex-col">
-          <div className="sticky top-0 z-10 bg-gradient-to-r from-blue-600 to-cyan-600 text-white px-3 py-2 md:px-4 md:py-3 flex-shrink-0">
-            <DialogHeader className="space-y-0.5 md:space-y-1">
-              <DialogTitle className="text-sm md:text-base lg:text-lg font-bold flex items-center gap-2 justify-between flex-wrap">
+<DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-[calc(100vw-2rem)] md:max-w-3xl lg:max-w-4xl max-h-[85vh] overflow-hidden p-0 border-0 flex flex-col rounded-2xl"
+ onInteractOutside={(e) => e.preventDefault()}
+>
+  <div className="sticky top-0 z-10 bg-gradient-to-r from-blue-600 to-cyan-600 text-white px-3 py-1.5 md:px-3 md:py-2 flex-shrink-0">            <DialogHeader className="space-y-0.5 md:space-y-1">
+<DialogTitle className="text-xs md:text-base lg:text-lg font-bold flex items-center gap-2 justify-between flex-wrap">
                 <div className="flex items-center gap-2">
                   <Bed className="h-4 w-4 md:h-5 md:w-5 flex-shrink-0" />
                   <span className="flex-1">Bed Management - Room {room.room_number}</span>
@@ -1142,15 +1142,15 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
             </DialogHeader>
           </div>
 
-          <div className="px-3 py-2 md:px-4 md:py-2.5 overflow-y-auto flex-1 min-h-0">
-            <div className="space-y-2 md:space-y-3">
+         <div className="px-2 py-1.5 md:px-3 md:py-2 overflow-y-auto flex-1 min-h-0">
+  <div className="space-y-1.5 md:space-y-2">
               {roomGenderPreferences.length > 0 && (
                 <Card>
-                  <CardContent className="p-2 md:p-3">
-                    <div className="flex items-center gap-1.5 md:gap-2 mb-2 md:mb-3">
-                      <Filter className="h-3 w-3 md:h-4 md:w-4 text-blue-600" />
-                      <h3 className="font-semibold text-xs md:text-sm text-gray-800">Room Preferences</h3>
-                    </div>
+                  <CardContent className="p-2">
+  <div className="flex items-center gap-1.5 mb-1.5">
+    <Filter className="h-3 w-3 text-blue-600" />
+    <h3 className="font-semibold text-xs text-gray-800">Room Preferences</h3>
+  </div>
                     <div className="flex flex-wrap gap-1 md:gap-2">
                       {roomGenderPreferences.map((pref:any) => {
                         const prefLower = pref.toLowerCase();
@@ -1174,71 +1174,68 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
                         );
                       })}
                     </div>
-                    <p className="text-[10px] md:text-xs text-gray-600 mt-1 md:mt-2">
-                      Tenants will be filtered based on these preferences.
-                    </p>
+                   <p className="text-[9px] text-gray-500 mt-1">
+  Tenants will be filtered based on these preferences.
+</p>
                   </CardContent>
                 </Card>
               )}
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
-                <Card>
-                  <CardContent className="p-2 md:p-3">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-[10px] md:text-xs text-gray-600">Total Beds</p>
-                        <h3 className="text-lg md:text-2xl font-bold text-gray-800">{totalBeds}</h3>
-                      </div>
-                      <Bed className="h-6 w-6 md:h-8 md:w-8 text-blue-500" />
-                    </div>
-                  </CardContent>
+<div className="grid grid-cols-2 md:grid-cols-4 gap-1.5">    <Card>
+                  <CardContent className="p-2">
+  <div className="flex items-center justify-between">
+    <div>
+      <p className="text-[9px] text-gray-500 leading-tight">Total Beds</p>
+      <h3 className="text-sm font-bold text-gray-800 leading-tight">{totalBeds}</h3>
+    </div>
+    <Bed className="h-4 w-4 text-blue-500 flex-shrink-0" />
+  </div>
+</CardContent>
                 </Card>
 
                 <Card>
-                  <CardContent className="p-2 md:p-3">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-[10px] md:text-xs text-gray-600">Occupied</p>
-                        <h3 className="text-lg md:text-2xl font-bold text-green-600">{occupiedBeds}</h3>
-                      </div>
-                      <UserRound className="h-6 w-6 md:h-8 md:w-8 text-green-500" />
-                    </div>
-                  </CardContent>
+                 <CardContent className="p-2">
+  <div className="flex items-center justify-between">
+    <div>
+      <p className="text-[9px] text-gray-500 leading-tight">Occupied</p>
+      <h3 className="text-sm font-bold text-green-600 leading-tight">{occupiedBeds}</h3>
+    </div>
+    <UserRound className="h-4 w-4 text-green-500 flex-shrink-0" />
+  </div>
+</CardContent>
                 </Card>
 
                 <Card>
-                  <CardContent className="p-2 md:p-3">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-[10px] md:text-xs text-gray-600">Available</p>
-                        <h3 className="text-lg md:text-2xl font-bold text-cyan-600">{availableBedsCount}</h3>
-                      </div>
-                      <UserPlus className="h-6 w-6 md:h-8 md:w-8 text-cyan-500" />
-                    </div>
-                  </CardContent>
+                  <CardContent className="p-2">
+  <div className="flex items-center justify-between">
+    <div>
+      <p className="text-[9px] text-gray-500 leading-tight">Available</p>
+      <h3 className="text-sm font-bold text-cyan-600 leading-tight">{availableBedsCount}</h3>
+    </div>
+    <UserPlus className="h-4 w-4 text-cyan-500 flex-shrink-0" />
+  </div>
+</CardContent>
                 </Card>
 
                 <Card>
-                  <CardContent className="p-2 md:p-3">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-[10px] md:text-xs text-gray-600">Total Room Rent</p>
-                        <h3 className="text-lg md:text-2xl font-bold text-amber-600">₹{totalRoomRent}</h3>
-                        <p className="text-[8px] md:text-[10px] text-gray-500">
-                          {occupiedBeds} occupied • ₹{room.rent_per_bed}/bed base
-                        </p>
-                      </div>
-                      <BadgeIndianRupee className="h-6 w-6 md:h-8 md:w-8 text-amber-500" />
-                    </div>
-                  </CardContent>
+                 <CardContent className="p-2">
+  <div className="flex items-center justify-between">
+    <div>
+      <p className="text-[9px] text-gray-500 leading-tight">Total Rent</p>
+      <h3 className="text-sm font-bold text-amber-600 leading-tight">₹{totalRoomRent}</h3>
+      <p className="text-[8px] text-gray-400 leading-tight">{occupiedBeds} occ • ₹{room.rent_per_bed}/base</p>
+    </div>
+    <BadgeIndianRupee className="h-4 w-4 text-amber-500 flex-shrink-0" />
+  </div>
+</CardContent>
                 </Card>
               </div>
 
               <div>
-                <div className="flex items-center justify-between mb-3 md:mb-4">
-                  <div>
-                    <h3 className="text-base md:text-lg font-bold flex items-center gap-1.5 md:gap-2">
-                      <ClipboardList className="h-4 w-4 md:h-5 md:w-5" />
+                <div className="flex items-center justify-between mb-2">
+  <div>
+    <h3 className="text-sm font-bold flex items-center gap-1.5">
+      <ClipboardList className="h-3.5 w-3.5" />
                       Bed Assignments
                     </h3>
                     <p className="text-[10px] md:text-xs text-gray-600 mt-0.5 md:mt-1">
@@ -1254,7 +1251,7 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
                   </Badge>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 md:gap-3">
+<div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-1.5">
                   {Array.from({ length: totalBeds }, (_, i) => i + 1).map(bedNumber => {
                     const { status, assignment } = getBedStatus(bedNumber);
                     const isOccupied = status === 'occupied';
@@ -1301,7 +1298,7 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
             </div>
           </div>
 
-          <div className="sticky bottom-0 bg-white border-t px-3 py-2 md:px-4 md:py-2.5 flex-shrink-0">
+<div className="sticky bottom-0 bg-white border-t px-2 py-1.5 flex-shrink-0">
             <div className="flex items-center gap-1.5 md:gap-2 text-[10px] md:text-xs text-gray-600">
               <AlertCircle className="h-3 w-3 md:h-4 md:w-4 flex-shrink-0" />
               <span>Only active tenants with portal access can be assigned • Click "Change Bed" to move tenant</span>
@@ -1339,7 +1336,7 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
             </DialogDescription>
           </DialogHeader>
           
-          <div className="space-y-3 md:space-y-4">
+<div className="space-y-2">
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 md:p-4">
               <div className="flex items-start gap-2 md:gap-3">
                 <AlertCircle className="h-4 w-4 md:h-5 md:w-5 text-amber-600 mt-0.5 flex-shrink-0" />

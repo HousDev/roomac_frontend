@@ -54,7 +54,93 @@ import { toast } from "sonner";
 import { PhotoGalleryModal } from '@/components/admin/rooms/PhotoGalleryModal';
 import { getMediaUrl, processPhotoUrls } from '@/lib/roomsApi';
 import { consumeMasters } from "@/lib/masterApi";
+import React from 'react';
 
+// Add this constant near AMENITIES_OPTIONS
+const AMENITY_ICON_MAP: Record<string, React.ReactNode> = {
+  // exact matches (case-insensitive key lookup)
+  'wifi': <Wifi className="h-4 w-4" />,
+  'tv': <Tv className="h-4 w-4" />,
+  'television': <Tv className="h-4 w-4" />,
+  'air conditioner': <Snowflake className="h-4 w-4" />,
+  'ac': <Snowflake className="h-4 w-4" />,
+  'geyser': <Droplets className="h-4 w-4" />,
+  'refrigerator': <Sparkles className="h-4 w-4" />,
+  'fridge': <Sparkles className="h-4 w-4" />,
+  'bed': <Bed className="h-4 w-4" />,
+  'study table': <BookOpen className="h-4 w-4" />,
+  'wardrobe': <DoorOpen className="h-4 w-4" />,
+  'curtains': <Layers className="h-4 w-4" />,
+  'room heater': <Thermometer className="h-4 w-4" />,
+  'heater': <Thermometer className="h-4 w-4" />,
+  'ceiling fan': <Fan className="h-4 w-4" />,
+  'fan': <Fan className="h-4 w-4" />,
+  'study lamp': <Lamp className="h-4 w-4" />,
+  'lamp': <Lamp className="h-4 w-4" />,
+  'washing machine': <WashingMachine className="h-4 w-4" />,
+  'laundry': <WashingMachine className="h-4 w-4" />,
+  'lift': <MoveVertical className="h-4 w-4" />,
+  'elevator': <MoveVertical className="h-4 w-4" />,
+  'parking': <ParkingCircle className="h-4 w-4" />,
+  'gym': <Dumbbell className="h-4 w-4" />,
+  'kitchen': <UtensilsCrossed className="h-4 w-4" />,
+  'food': <Utensils className="h-4 w-4" />,
+  'meals': <Utensils className="h-4 w-4" />,
+  'security': <ShieldCheck className="h-4 w-4" />,
+  'cctv': <ShieldCheck className="h-4 w-4" />,
+  'power backup': <Zap className="h-4 w-4" />,
+  'generator': <Zap className="h-4 w-4" />,
+  'sofa': <Sofa className="h-4 w-4" />,
+  'garden': <Flower2 className="h-4 w-4" />,
+  'balcony': <Maximize className="h-4 w-4" />,
+  'attached bathroom': <Bath className="h-4 w-4" />,
+  'bathroom': <Bath className="h-4 w-4" />,
+  'microwave': <Flame className="h-4 w-4" />,
+  'coffee': <Coffee className="h-4 w-4" />,
+  'bike': <Bike className="h-4 w-4" />,
+};
+
+// Helper: get icon for any amenity name (master or custom)
+const getAmenityIcon = (name: string, size: 'sm' | 'md' = 'md'): React.ReactNode => {
+  const cls = size === 'sm' ? 'h-3 w-3' : 'h-4 w-4';
+  const key = name.toLowerCase().trim();
+  
+  // Exact match
+  if (AMENITY_ICON_MAP[key]) {
+    return React.cloneElement(AMENITY_ICON_MAP[key] as React.ReactElement, { className: cls });
+  }
+  
+  // Partial match (reuse getCustomAmenityIcon logic but with size)
+  const l = key;
+  if (l.includes('wash') || l.includes('laundry')) return <WashingMachine className={cls} />;
+  if (l.includes('lift') || l.includes('elevator')) return <MoveVertical className={cls} />;
+  if (l.includes('microwave') || l.includes('oven') || l.includes('induction')) return <Flame className={cls} />;
+  if (l.includes('fan') || l.includes('exhaust')) return <Fan className={cls} />;
+  if (l.includes('fire') || l.includes('safety') || l.includes('alarm') || l.includes('security') || l.includes('cctv')) return <ShieldCheck className={cls} />;
+  if (l.includes('park') || l.includes('car')) return <ParkingCircle className={cls} />;
+  if (l.includes('gym') || l.includes('fitness')) return <Dumbbell className={cls} />;
+  if (l.includes('kitchen') || l.includes('cook')) return <UtensilsCrossed className={cls} />;
+  if (l.includes('food') || l.includes('meal') || l.includes('dining')) return <Utensils className={cls} />;
+  if (l.includes('power') || l.includes('backup') || l.includes('generator')) return <Zap className={cls} />;
+  if (l.includes('wifi') || l.includes('internet') || l.includes('broadband')) return <Wifi className={cls} />;
+  if (l.includes('tv') || l.includes('television')) return <Tv className={cls} />;
+  if (l.includes('ac') || l.includes('air condition') || l.includes('cool')) return <Snowflake className={cls} />;
+  if (l.includes('geyser') || l.includes('water heat')) return <Droplets className={cls} />;
+  if (l.includes('fridge') || l.includes('refriger')) return <Sparkles className={cls} />;
+  if (l.includes('bed')) return <Bed className={cls} />;
+  if (l.includes('study') || l.includes('table') || l.includes('desk')) return <BookOpen className={cls} />;
+  if (l.includes('wardrobe') || l.includes('almirah') || l.includes('closet')) return <DoorOpen className={cls} />;
+  if (l.includes('heater') || l.includes('thermometer')) return <Thermometer className={cls} />;
+  if (l.includes('lamp') || l.includes('light')) return <Lamp className={cls} />;
+  if (l.includes('sofa') || l.includes('lounge')) return <Sofa className={cls} />;
+  if (l.includes('bike') || l.includes('cycle')) return <Bike className={cls} />;
+  if (l.includes('garden') || l.includes('plant') || l.includes('flower')) return <Flower2 className={cls} />;
+  if (l.includes('bath') || l.includes('toilet') || l.includes('shower')) return <Bath className={cls} />;
+  if (l.includes('coffee') || l.includes('tea') || l.includes('cafe')) return <Coffee className={cls} />;
+  if (l.includes('music') || l.includes('speaker') || l.includes('audio')) return <Music className={cls} />;
+  if (l.includes('storage') || l.includes('locker') || l.includes('box')) return <Package className={cls} />;
+  return <Sparkles className={cls} />;
+};
 // Types
 interface BedConfig {
   bed_number: number;
@@ -113,8 +199,8 @@ interface MasterValue {
 const sharingTypeToCapacity: Record<string, number> = {
   'single': 1,
   'double': 2,
-  'triple': 3,
-  'other': 2
+  'sharing': 2,
+  'couple': 1
 };
 
 const GENDER_PREFERENCES = [
@@ -447,6 +533,8 @@ export function RoomForm({
       setIsFileDialogOpen(false);
       setIsVideoDialogOpen(false);
       setBedRentInputs({});
+        setCurrentTab('details');   // ← ADD THIS LINE
+
       hasInitializedRef.current = false;
     }
   }, [isEditMode, open, rooms, editingRoomId, setFormData, syncBedRentInputs]);
@@ -615,14 +703,14 @@ export function RoomForm({
     if (videoInputRef.current) videoInputRef.current.value = '';
   };
 
-  useEffect(() => {
-    const h = () => {
-      if (isFileDialogOpen) setTimeout(() => setIsFileDialogOpen(false), 100);
-      if (isVideoDialogOpen) setTimeout(() => setIsVideoDialogOpen(false), 100);
-    };
-    window.addEventListener('click', h);
-    return () => window.removeEventListener('click', h);
-  }, [isFileDialogOpen, isVideoDialogOpen]);
+  // useEffect(() => {
+  //   const h = () => {
+  //     if (isFileDialogOpen) setTimeout(() => setIsFileDialogOpen(false), 100);
+  //     if (isVideoDialogOpen) setTimeout(() => setIsVideoDialogOpen(false), 100);
+  //   };
+  //   window.addEventListener('click', h);
+  //   return () => window.removeEventListener('click', h);
+  // }, [isFileDialogOpen, isVideoDialogOpen]);
 
   useEffect(() => {
     const fi = fileInputRef.current, vi = videoInputRef.current;
@@ -659,13 +747,25 @@ export function RoomForm({
     toast.success('Existing video marked for removal');
   };
 
-  const toggleGenderPreference = (v: string) =>
-    setFormData((p: RoomFormData) => ({
-      ...p,
-      room_gender_preference: p.room_gender_preference.includes(v)
-        ? p.room_gender_preference.filter(x => x !== v)
-        : [...p.room_gender_preference, v],
-    }));
+  const toggleGenderPreference = (v: string) => {
+  setFormData((p: RoomFormData) => {
+    const already = p.room_gender_preference.includes(v);
+    const newPrefs = already
+      ? p.room_gender_preference.filter(x => x !== v)
+      : [...p.room_gender_preference, v];
+
+    // When couples is toggled on, default capacity to 1
+    let extra: Partial<RoomFormData> = {};
+    if (!already && v === 'couples') {
+      const rents = distributeRentEqually(p.rent_per_bed || 0, 1);
+      const updatedBeds: BedConfig[] = [{ bed_number: 1, bed_type: p.beds_config[0]?.bed_type || '', bed_rent: rents[0] || 0 }];
+      setTimeout(() => syncBedRentInputs(updatedBeds), 0);
+      extra = { capacity: 1, isManualCapacity: true, beds_config: updatedBeds };
+    }
+
+    return { ...p, room_gender_preference: newPrefs, ...extra };
+  });
+};;
 
   const toggleAmenity = (a: string) =>
     setFormData((p: RoomFormData) => ({
@@ -738,7 +838,22 @@ export function RoomForm({
   };
 
   const tabs = ['details', 'beds', 'amenities', 'photos', 'video'];
-  const goToNextTab = () => { const i = tabs.indexOf(currentTab); if (i < tabs.length - 1) setCurrentTab(tabs[i + 1]); };
+const goToNextTab = () => {
+  const i = tabs.indexOf(currentTab);
+  if (i >= tabs.length - 1) return;
+
+  // Validate details tab before advancing
+  if (currentTab === 'details') {
+    if (!formData.property_id) { toast.error('Please select a property'); return; }
+    if (!formData.room_number) { toast.error('Please enter a room number'); return; }
+    if (isDuplicateRoom) { toast.error('Room number already exists for this property'); return; }
+    if (!formData.sharing_type) { toast.error('Please select sharing type'); return; }
+    if (!formData.rent_per_bed || formData.rent_per_bed <= 0) { toast.error('Please enter a valid total room rent'); return; }
+    if (!formData.room_gender_preference.length) { toast.error('Please select at least one gender preference'); return; }
+  }
+
+  setCurrentTab(tabs[i + 1]);
+};
   const goToPrevTab = () => { const i = tabs.indexOf(currentTab); if (i > 0) setCurrentTab(tabs[i - 1]); };
 
   const handleFormSubmit = async () => {
@@ -747,6 +862,11 @@ export function RoomForm({
       if (!formData.room_number) { toast.error('Please enter a room number'); setCurrentTab('details'); return; }
       if (!formData.sharing_type) { toast.error('Please select sharing type'); setCurrentTab('details'); return; }
       if (!formData.rent_per_bed || formData.rent_per_bed <= 0) { toast.error('Please enter a valid total room rent'); setCurrentTab('details'); return; }
+      if (!formData.room_gender_preference.length) {
+  toast.error('Please select at least one gender preference');
+  setCurrentTab('details');
+  return;
+}
 
       const noBedType = (formData.beds_config || []).filter(b => !b.bed_type);
       if (noBedType.length) { toast.error(`Please select bed type for beds: ${noBedType.map(b => b.bed_number).join(', ')}`); setCurrentTab('beds'); return; }
@@ -787,7 +907,9 @@ export function RoomForm({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[calc(100vw-1rem)] sm:max-w-[calc(100vw-2rem)] md:max-w-4xl lg:max-w-5xl h-[70vh] overflow-hidden p-0 border-0 flex flex-col rounded-2xl shadow-2xl">
+      <DialogContent className="max-w-[calc(100vw-1rem)] sm:max-w-[calc(100vw-2rem)] md:max-w-4xl lg:max-w-5xl h-[70vh] overflow-hidden p-0 border-0 flex flex-col rounded-2xl shadow-2xl"
+        onInteractOutside={(e) => e.preventDefault()}
+>
 
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-600 to-cyan-500 px-4 py-2.5 flex-shrink-0">
@@ -856,7 +978,7 @@ export function RoomForm({
                                 <div className="flex items-center gap-1.5">
                                   <Building className="h-3 w-3 text-slate-400" />
                                   <span className="text-[10px] font-medium">{p.name}</span>
-                                  {p.address && <span className="text-[9px] text-slate-400 truncate max-w-[120px]">— {p.address}</span>}
+                                  {p.address && <span className="text-[9px] text-slate-800 truncate max-w-[120px]">— {p.address}</span>}
                                 </div>
                               </SelectItem>
                             ))}
@@ -1103,7 +1225,7 @@ export function RoomForm({
                         <div className={`p-1 rounded-lg ${!bed.bed_type ? 'bg-red-100' : 'bg-blue-100'}`}>
                           <Bed className={`h-3 w-3 ${!bed.bed_type ? 'text-red-600' : 'text-blue-600'}`} />
                         </div>
-                        <span className="text-[10px] font-bold text-slate-700">Bed #{bed.bed_number}</span>
+<span className="text-[10px] font-bold text-slate-700">Bed {bed.bed_number}</span>
                         {!bed.bed_type && <Badge variant="destructive" className="text-[8px] px-1 py-0 ml-auto">Required</Badge>}
                       </div>
                       <div className="space-y-1.5">
@@ -1171,21 +1293,34 @@ export function RoomForm({
                     <Sparkles className="h-3 w-3 md:h-3.5 md:w-3.5" />Select Amenities
                   </Label>
                   <p className="text-[10px] md:text-xs text-gray-500 mb-2 md:mb-3">Choose amenities available in this room</p>
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-1.5 md:gap-2">
-                    {AMENITIES_OPTIONS.map(amenity => (
-                      <div key={amenity.id}
-                        className={`p-2 md:p-2.5 border rounded-lg cursor-pointer transition-all ${roomLimitReached ? 'opacity-50 cursor-not-allowed' : ''} ${formData.amenities.includes(amenity.label) ? 'border-cyan-500 bg-cyan-50' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'}`}
-                        onClick={() => !roomLimitReached && toggleAmenity(amenity.label)}
-                      >
-                        <div className="flex items-center gap-1.5">
-                          <div className={`rounded ${formData.amenities.includes(amenity.label) ? 'bg-cyan-100 text-cyan-600' : 'bg-gray-100 text-gray-600'}`}>
-                            {amenity.icon}
-                          </div>
-                          <span className="text-[9px] md:text-[10px] font-medium">{amenity.label}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                 {(() => {
+  // Use master amenities if available, otherwise fall back to hardcoded
+  const amenityOptions = roomsMasters['Amenities']?.length > 0
+    ? roomsMasters['Amenities'].map(a => ({ id: String(a.id), label: a.name }))
+    : AMENITIES_OPTIONS.map(a => ({ id: a.id, label: a.label }));
+
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-1.5 md:gap-2">
+      {loadingMasters ? (
+        <div className="col-span-full flex items-center gap-2 py-4 text-[10px] text-gray-500">
+          <Loader2 className="h-3 w-3 animate-spin" /> Loading amenities...
+        </div>
+      ) : amenityOptions.map(amenity => (
+        <div key={amenity.id}
+          className={`p-2 md:p-2.5 border rounded-lg cursor-pointer transition-all ${roomLimitReached ? 'opacity-50 cursor-not-allowed' : ''} ${formData.amenities.includes(amenity.label) ? 'border-cyan-500 bg-cyan-50' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'}`}
+          onClick={() => !roomLimitReached && toggleAmenity(amenity.label)}
+        >
+          <div className="flex items-center gap-1.5">
+            <div className={`rounded ${formData.amenities.includes(amenity.label) ? 'bg-cyan-100 text-cyan-600' : 'bg-gray-100 text-gray-600'}`}>
+              {getAmenityIcon(amenity.label, 'md')}
+            </div>
+            <span className="text-[9px] md:text-[10px] font-medium">{amenity.label}</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+})()}
                 </div>
 
                 <div className="space-y-1.5 md:space-y-2">
@@ -1223,8 +1358,7 @@ export function RoomForm({
                           return (
                             <Badge key={idx} variant="outline"
                               className={`flex items-center gap-0.5 py-0.5 px-1.5 text-[9px] md:text-[10px] ${!pre ? 'bg-purple-50 border-purple-200 text-purple-700' : 'bg-white border-gray-300 text-gray-700'}`}>
-                              {pre ? pre.icon : getCustomAmenityIcon(amenity)}
-                              <span>{amenity}</span>
+{getAmenityIcon(amenity, 'sm')}                              <span>{amenity}</span>
                               <button type="button" onClick={() => !roomLimitReached && removeAmenity(amenity)} className="ml-0.5 text-gray-400 hover:text-red-500">
                                 <X className="h-2.5 w-2.5" />
                               </button>
