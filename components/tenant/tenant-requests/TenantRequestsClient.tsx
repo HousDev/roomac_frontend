@@ -587,6 +587,9 @@ const fetchSecurityDepositInfo = useCallback(async () => {
       if (isMounted.current) {
         setComplaintReasons(reasons);
       }
+      if (reasons.length === 0) {
+  setShowCustomReason(true);  // auto-show for "Other" category
+}
     } catch (error) {
       console.error('Error loading complaint reasons:', error);
       toast.error('Failed to load complaint reasons');

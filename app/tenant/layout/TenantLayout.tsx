@@ -31,6 +31,7 @@ import {
   Wrench,
   RefreshCw,
   Move,
+  Headphones,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -119,6 +120,8 @@ function NotificationPopup({
         return <Calendar className="h-4 w-4 text-green-600" />;
       case "document":
         return <FileText className="h-4 w-4 text-purple-600" />;
+        case "support_ticket":
+        return <Headphones className="h-4 w-4 text-indigo-600" />;
       default:
         return <Bell className="h-4 w-4 text-gray-600" />;
     }
@@ -779,6 +782,9 @@ function TenantHeader({
     onNavigate("/tenant/requests");
   else if (notificationType === "document") 
     onNavigate("/tenant/documents");
+  else if (notificationType === "support_ticket")
+        onNavigate("/tenant/support");          // ← NEW
+  
   else 
     onNavigate("/tenant/notifications");  // ← CHANGE THIS from "/tenant/portal/#notifications"
 };

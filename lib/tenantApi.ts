@@ -31,7 +31,8 @@ export type Tenant = {
   preferred_room_type?: string;
   preferred_property_id?: number;
   check_in_date?: string; 
-  
+  id_proof_type?: string;
+address_proof_type?: string;
   id_proof_url?: string;
   address_proof_url?: string;
   photo_url?: string;

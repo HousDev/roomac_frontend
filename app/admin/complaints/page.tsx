@@ -668,26 +668,42 @@ export default function ComplaintsPage() {
                             )}
                           </div>
                         </TableCell>
-                        <TableCell>
-                          <div className="space-y-2">
-                            <div className="font-medium text-sm line-clamp-1 text-gray-800">
-                              {complaint.title}
-                            </div>
-                            <div className="flex flex-wrap gap-1.5 items-center">
-                              {complaint.complaint_category && (
-                                <Badge 
-                                  variant="outline" 
-                                  className={`text-xs border-0 shadow-sm ${getCategoryColor(complaint.complaint_category)}`}
-                                >
-                                  {complaint.complaint_category}
-                                </Badge>
-                              )}
-                              <span className="text-xs text-gray-500 line-clamp-1">
-                                {complaint.complaint_reason || "No reason specified"}
-                              </span>
-                            </div>
-                          </div>
-                        </TableCell>
+                       <TableCell>
+  <div className="space-y-2">
+    <div className="font-medium text-sm line-clamp-1 text-gray-800">
+      {complaint.title}
+    </div>
+    <div className="flex flex-wrap gap-1.5 items-center">
+      {/* Show Category */}
+      {complaint.complaint_details?.category_name ? (
+        <Badge 
+          variant="outline" 
+          className={`text-xs border-0 shadow-sm ${getCategoryColor(complaint.complaint_details.category_name)}`}
+        >
+          {complaint.complaint_details.category_name}
+        </Badge>
+      ) : complaint.complaint_category ? (
+        <Badge 
+          variant="outline" 
+          className={`text-xs border-0 shadow-sm ${getCategoryColor(complaint.complaint_category)}`}
+        >
+          {complaint.complaint_category}
+        </Badge>
+      ) : (
+        <Badge variant="outline" className="text-xs border-0 shadow-sm bg-gray-100">
+          General
+        </Badge>
+      )}
+      
+      {/* Show Reason */}
+      <span className="text-xs text-gray-500 line-clamp-1">
+        {complaint.complaint_details?.complaint_reason || 
+         complaint.complaint_reason || 
+         "No reason specified"}
+      </span>
+    </div>
+  </div>
+</TableCell>
                         <TableCell>
                           <div className="transform transition-transform hover:scale-105">
                             {getPriorityBadge(complaint.priority)}
@@ -795,25 +811,30 @@ export default function ComplaintsPage() {
           {selectedComplaint && (
             <div className="p-4 sm:p-5 space-y-3 max-h-[80vh] overflow-y-auto">
               {/* Status + Priority */}
-              <div className="flex flex-wrap gap-2 bg-gray-50 px-3 py-2 rounded-md text-xs">
-                <div className="flex items-center gap-1">
-                  <span className="text-gray-500">Status:</span>
-                  {getStatusBadge(selectedComplaint.status)}
-                </div>
-                <div className="flex items-center gap-1">
-                  <span className="text-gray-500">Priority:</span>
-                  {getPriorityBadge(selectedComplaint.priority)}
-                </div>
-                <div className="flex items-center gap-1">
-                  <span className="text-gray-500">Category:</span>
-                  <Badge 
-                    variant="outline" 
-                    className={`text-[10px] px-2 py-0 ${getCategoryColor(selectedComplaint.complaint_category)}`}
-                  >
-                    {selectedComplaint.complaint_category || 'General'}
-                  </Badge>
-                </div>
-              </div>
+             <div className="flex flex-wrap gap-2 bg-gray-50 px-3 py-2 rounded-md text-xs">
+  <div className="flex items-center gap-1">
+    <span className="text-gray-500">Status:</span>
+    {getStatusBadge(selectedComplaint.status)}
+  </div>
+  <div className="flex items-center gap-1">
+    <span className="text-gray-500">Priority:</span>
+    {getPriorityBadge(selectedComplaint.priority)}
+  </div>
+  <div className="flex items-center gap-1">
+    <span className="text-gray-500">Category:</span>
+    <Badge 
+      variant="outline" 
+      className={`text-[10px] px-2 py-0 ${getCategoryColor(
+        selectedComplaint.complaint_details?.category_name || 
+        selectedComplaint.complaint_category
+      )}`}
+    >
+      {selectedComplaint.complaint_details?.category_name || 
+       selectedComplaint.complaint_category || 
+       'General'}
+    </Badge>
+  </div>
+</div>
 
               {/* Tenant Info */}
               <div className="border rounded-md p-3">
@@ -851,38 +872,50 @@ export default function ComplaintsPage() {
               </div>
 
               {/* Complaint Details */}
-              <div className="border rounded-md p-3">
-                <h4 className="text-xs font-semibold flex items-center gap-1 mb-2 text-blue-600">
-                  <MessageSquare className="h-3 w-3" />
-                  Complaint Details
-                </h4>
-                <div className="space-y-2 text-xs">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <span className="text-gray-500">Title</span>
-                      <p className="font-medium truncate">{selectedComplaint.title}</p>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Created</span>
-                      <p>{new Date(selectedComplaint.created_at).toLocaleString()}</p>
-                    </div>
-                  </div>
-                  <div>
-                    <span className="text-gray-500">Reason</span>
-                    <div className="bg-gray-50 p-2 rounded mt-1">
-                      {selectedComplaint.complaint_details?.complaint_reason || 
-                       selectedComplaint.complaint_reason || 
-                       "No reason specified"}
-                    </div>
-                  </div>
-                  <div>
-                    <span className="text-gray-500">Description</span>
-                    <div className="bg-gray-50 p-2 rounded mt-1 max-h-24 overflow-y-auto">
-                      {selectedComplaint.description}
-                    </div>
-                  </div>
-                </div>
-              </div>
+             {/* Complaint Details */}
+<div className="border rounded-md p-3">
+  <h4 className="text-xs font-semibold flex items-center gap-1 mb-2 text-blue-600">
+    <MessageSquare className="h-3 w-3" />
+    Complaint Details
+  </h4>
+  <div className="space-y-2 text-xs">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div>
+        <span className="text-gray-500">Title</span>
+        <p className="font-medium truncate">{selectedComplaint.title}</p>
+      </div>
+      <div>
+        <span className="text-gray-500">Created</span>
+        <p>{new Date(selectedComplaint.created_at).toLocaleString()}</p>
+      </div>
+    </div>
+    <div>
+      <span className="text-gray-500">Category</span>
+      <div className="mt-1">
+        <Badge 
+          variant="outline" 
+          className={`${getCategoryColor(selectedComplaint.complaint_details?.category_name || selectedComplaint.complaint_category)}`}
+        >
+          {selectedComplaint.complaint_details?.category_name || selectedComplaint.complaint_category || 'General'}
+        </Badge>
+      </div>
+    </div>
+    <div>
+      <span className="text-gray-500">Reason</span>
+      <div className="bg-gray-50 p-2 rounded mt-1">
+        {selectedComplaint.complaint_details?.complaint_reason || 
+         selectedComplaint.complaint_reason || 
+         "No reason specified"}
+      </div>
+    </div>
+    <div>
+      <span className="text-gray-500">Description</span>
+      <div className="bg-gray-50 p-2 rounded mt-1 max-h-24 overflow-y-auto">
+        {selectedComplaint.description}
+      </div>
+    </div>
+  </div>
+</div>
 
               {/* Admin Notes History */}
               {selectedComplaint.admin_notes && (

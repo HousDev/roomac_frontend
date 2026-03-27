@@ -94,6 +94,9 @@ export function TenantForm({ tenant, onSuccess, onCancel }: TenantFormProps) {
   const [showExistingPassword,  setShowExistingPassword]  = useState(false);
   const [aadharNumber, setAadharNumber] = useState(tenant?.aadhar_number || "");
 const [panNumber, setPanNumber] = useState(tenant?.pan_number || "");
+const [idProofType,      setIdProofType]      = useState(tenant?.id_proof_type      || "");
+const [addressProofType, setAddressProofType] = useState(tenant?.address_proof_type || "");
+
 
   const [formData, setFormData] = useState<any>({
     salutation: tenant?.salutation || "",
@@ -344,6 +347,8 @@ const handleSubmit = async (e: React.FormEvent) => {
     if (photoFile) formDataToSend.append('photo_url', photoFile);
     if (aadharNumber) formDataToSend.append('aadhar_number', aadharNumber);
 if (panNumber) formDataToSend.append('pan_number', panNumber);
+if (idProofType)      formDataToSend.append('id_proof_type',      idProofType);
+if (addressProofType) formDataToSend.append('address_proof_type', addressProofType);
 
     // Append additional files
     additionalFiles.forEach((file) => {
@@ -871,7 +876,7 @@ if (panNumber) formDataToSend.append('pan_number', panNumber);
             </div>
           </TabsContent>
 
-          {/* ────────────────────────────────────────────────────────────────
+ {/* ────────────────────────────────────────────────────────────────
     DOCUMENTS
 ──────────────────────────────────────────────────────────────── */}
 <TabsContent value="documents" className="mt-0 data-[state=inactive]:hidden">
@@ -885,49 +890,140 @@ if (panNumber) formDataToSend.append('pan_number', panNumber);
 
     {/* Document Upload Fields */}
     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-      <FileUploadField label="ID Proof" file={idProofFile} setFile={setIdProofFile} existingUrl={existingFiles.id_proof_url} fieldName="id_proof_url" description="Aadhar, Passport, PAN, DL" onRemoveExisting={()=>setExistingFiles(p=>({...p,id_proof_url:""}))}/>
-      <FileUploadField label="Address Proof" file={addressProofFile} setFile={setAddressProofFile} existingUrl={existingFiles.address_proof_url} fieldName="address_proof_url" description="Utility Bill, Bank Statement" onRemoveExisting={()=>setExistingFiles(p=>({...p,address_proof_url:""}))}/>
-      <FileUploadField label="Photograph" file={photoFile} setFile={setPhotoFile} existingUrl={existingFiles.photo_url} fieldName="photo_url" accept=".jpg,.jpeg,.png,.webp,.bmp" description="Passport-size photo" onRemoveExisting={()=>setExistingFiles(p=>({...p,photo_url:""}))}/>
+
+      {/* ── ID Proof ── */}
+      <div className="space-y-1.5">
+        <label className={L}>
+          <span className="flex items-center gap-1"><FileText className="h-3 w-3"/> ID Proof Type <span className="text-red-400">*</span></span>
+        </label>
+        <Select value={idProofType} onValueChange={setIdProofType}>
+          <SelectTrigger className={F}><SelectValue placeholder="Select ID type"/></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Aadhar Card"     className={SI}>Aadhar Card</SelectItem>
+            <SelectItem value="Passport"         className={SI}>Passport</SelectItem>
+            <SelectItem value="PAN Card"         className={SI}>PAN Card</SelectItem>
+            <SelectItem value="Driving Licence"  className={SI}>Driving Licence</SelectItem>
+            <SelectItem value="Voter ID"         className={SI}>Voter ID</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {/* Aadhar number — only when Aadhar Card selected as ID proof */}
+        {idProofType === "Aadhar Card" && (
+          <div>
+            <label className={L}>Aadhar Number</label>
+            <Input
+              value={aadharNumber}
+              onChange={e => setAadharNumber(e.target.value)}
+              placeholder="XXXX XXXX XXXX"
+              className={F}
+              maxLength={14}
+            />
+            <p className="text-[10px] text-gray-400 mt-0.5">12-digit Aadhar number</p>
+          </div>
+        )}
+
+        {/* PAN number — only when PAN Card selected as ID proof */}
+        {idProofType === "PAN Card" && (
+          <div>
+            <label className={L}>PAN Number</label>
+            <Input
+              value={panNumber}
+              onChange={e => setPanNumber(e.target.value.toUpperCase())}
+              placeholder="ABCDE1234F"
+              className={`${F} uppercase`}
+              maxLength={10}
+            />
+            <p className="text-[10px] text-gray-400 mt-0.5">10-digit PAN number</p>
+          </div>
+        )}
+
+        <FileUploadField
+          label="ID Proof Document"
+          file={idProofFile} setFile={setIdProofFile}
+          existingUrl={existingFiles.id_proof_url}
+          fieldName="id_proof_url"
+          description="Aadhar, Passport, PAN, DL"
+          onRemoveExisting={()=>setExistingFiles(p=>({...p,id_proof_url:""}))}
+        />
+      </div>
+
+      {/* ── Address Proof ── */}
+      <div className="space-y-1.5">
+        <label className={L}>
+          <span className="flex items-center gap-1"><FileText className="h-3 w-3"/> Address Proof Type <span className="text-red-400">*</span></span>
+        </label>
+        <Select value={addressProofType} onValueChange={setAddressProofType}>
+          <SelectTrigger className={F}><SelectValue placeholder="Select address proof"/></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Aadhar Card"      className={SI}>Aadhar Card</SelectItem>
+            <SelectItem value="Utility Bill"     className={SI}>Utility Bill</SelectItem>
+            <SelectItem value="Bank Statement"   className={SI}>Bank Statement</SelectItem>
+            <SelectItem value="Passport"         className={SI}>Passport</SelectItem>
+            <SelectItem value="Rental Agreement" className={SI}>Rental Agreement</SelectItem>
+            <SelectItem value="Voter ID"         className={SI}>Voter ID</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {/* Aadhar number — only when Aadhar selected as address proof
+            AND not already shown in ID proof section */}
+        {addressProofType === "Aadhar Card" && idProofType !== "Aadhar Card" && (
+          <div>
+            <label className={L}>Aadhar Number</label>
+            <Input
+              value={aadharNumber}
+              onChange={e => setAadharNumber(e.target.value)}
+              placeholder="XXXX XXXX XXXX"
+              className={F}
+              maxLength={14}
+            />
+            <p className="text-[10px] text-gray-400 mt-0.5">12-digit Aadhar number</p>
+          </div>
+        )}
+
+        <FileUploadField
+          label="Address Proof Document"
+          file={addressProofFile} setFile={setAddressProofFile}
+          existingUrl={existingFiles.address_proof_url}
+          fieldName="address_proof_url"
+          description="Utility Bill, Bank Statement"
+          onRemoveExisting={()=>setExistingFiles(p=>({...p,address_proof_url:""}))}
+        />
+      </div>
+
+      {/* ── Photograph ── */}
+      <FileUploadField
+        label="Photograph"
+        file={photoFile} setFile={setPhotoFile}
+        existingUrl={existingFiles.photo_url}
+        fieldName="photo_url"
+        accept=".jpg,.jpeg,.png,.webp,.bmp"
+        description="Passport-size photo"
+        onRemoveExisting={()=>setExistingFiles(p=>({...p,photo_url:""}))}
+      />
     </div>
 
-    {/* NEW: Aadhar Card Number and PAN Card Number Fields */}
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
-      <div>
-        <label className={L}>
-          <span className="flex items-center gap-1">
-            <FileText className="h-3 w-3"/> Aadhar Card Number
-          </span>
-        </label>
-        <Input 
-          value={aadharNumber} 
-          onChange={e => setAadharNumber(e.target.value)} 
-          placeholder="XXXX XXXX XXXX" 
-          className={F}
-          maxLength={14}
-        />
-        <p className="text-[10px] text-gray-400 mt-0.5">12-digit Aadhar number (optional)</p>
+    {/* PAN standalone — only if PAN not already captured via ID proof */}
+    {/* {idProofType !== "PAN Card" && (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div>
+          <label className={L}>
+            <span className="flex items-center gap-1"><FileText className="h-3 w-3"/> PAN Card Number (Optional)</span>
+          </label>
+          <Input
+            value={panNumber}
+            onChange={e => setPanNumber(e.target.value.toUpperCase())}
+            placeholder="ABCDE1234F"
+            className={`${F} uppercase`}
+            maxLength={10}
+          />
+          <p className="text-[10px] text-gray-400 mt-0.5">10-digit PAN number</p>
+        </div>
       </div>
-      
-      <div>
-        <label className={L}>
-          <span className="flex items-center gap-1">
-            <FileText className="h-3 w-3"/> PAN Card Number
-          </span>
-        </label>
-        <Input 
-          value={panNumber} 
-          onChange={e => setPanNumber(e.target.value.toUpperCase())} 
-          placeholder="ABCDE1234F" 
-          className={`${F} uppercase`}
-          maxLength={10}
-        />
-        <p className="text-[10px] text-gray-400 mt-0.5">10-digit PAN number (optional)</p>
-      </div>
-    </div>
+    )} */}
 
     <Separator/>
 
-    {/* Additional documents (existing) */}
+    {/* Additional documents */}
     <div className="space-y-2">
       <div className="flex items-center justify-between">
         <p className="text-[11px] font-semibold text-gray-600">Additional Documents (Optional)</p>
@@ -956,7 +1052,10 @@ if (panNumber) formDataToSend.append('pan_number', panNumber);
                   <a href={doc.url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-blue-500 hover:underline">View</a>
                 </div>
               </div>
-              <button type="button" className="text-red-400 hover:text-red-600" onClick={()=>{setAdditionalDocuments(p=>p.filter((_,j)=>j!==i));toast.info("Removed on save");}}><X className="h-3 w-3"/></button>
+              <button type="button" className="text-red-400 hover:text-red-600"
+                onClick={()=>{setAdditionalDocuments(p=>p.filter((_,j)=>j!==i));toast.info("Removed on save");}}>
+                <X className="h-3 w-3"/>
+              </button>
             </div>
           ))}
         </div>
@@ -968,9 +1067,14 @@ if (panNumber) formDataToSend.append('pan_number', panNumber);
           {additionalFiles.map((file,i)=>(
             <div key={i} className="flex items-center justify-between p-1.5 border rounded-lg bg-blue-50">
               <div className="flex items-center gap-2"><FileText className="h-3 w-3 text-blue-400"/>
-                <div><p className="text-[10px] font-medium text-blue-700">{file.name}</p><p className="text-[10px] text-blue-400">{(file.size/1024/1024).toFixed(2)} MB</p></div>
+                <div><p className="text-[10px] font-medium text-blue-700">{file.name}</p>
+                  <p className="text-[10px] text-blue-400">{(file.size/1024/1024).toFixed(2)} MB</p>
+                </div>
               </div>
-              <button type="button" className="text-red-400 hover:text-red-600" onClick={()=>setAdditionalFiles(p=>p.filter((_,j)=>j!==i))}><X className="h-3 w-3"/></button>
+              <button type="button" className="text-red-400 hover:text-red-600"
+                onClick={()=>setAdditionalFiles(p=>p.filter((_,j)=>j!==i))}>
+                <X className="h-3 w-3"/>
+              </button>
             </div>
           ))}
         </div>
@@ -979,7 +1083,6 @@ if (panNumber) formDataToSend.append('pan_number', panNumber);
     </div>
   </div>
 </TabsContent>
-
           {/* ────────────────────────────────────────────────────────────────
               CREDENTIALS
           ──────────────────────────────────────────────────────────────── */}
