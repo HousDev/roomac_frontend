@@ -2,13 +2,31 @@
 
 import { ReactNode } from 'react';
 
+// ============================================
+// EXPORT ALL INTERFACES
+// ============================================
+
+export interface Bed {
+  id?: number;
+  bed_number: number;
+  is_available: boolean;
+  tenant_id: number | null;
+  tenant_gender: string | null;
+  tenant_rent: number | null;
+  is_couple: boolean;
+  bed_type: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface Room {
   id: number;
   room_number: number;
-  sharing_type: 'single' | 'double' | 'triple';
+  sharing_type: 'single' | 'double' | 'triple' | string;
   rent_per_bed: number;
   total_bed: number;
   occupied_beds: number;
+  available_beds?: number;
   floor: number;
   has_attached_bathroom: boolean;
   has_balcony: boolean;
@@ -16,6 +34,10 @@ export interface Room {
   amenities: string[];
   room_type: string;
   is_active: boolean;
+  bed_assignments?: Bed[];
+  property_id?: number;
+  property_name?: string;
+  description?: string;
 }
 
 export interface Property {
@@ -29,20 +51,12 @@ export interface Property {
   starting_price: number;
   security_deposit: number;
   description: string | null;
+  total_beds?: number;
+  total_rooms?: number;
+  is_active?: boolean;
 }
 
 export interface Offer {
-  min_stay: ReactNode;
-  valid_from: ReactNode;
-  valid_to: ReactNode;
-  mainColor: string;
-  badgeBg: string;
-  badgeBorder: string;
-  badge: string;
-  iconBg: string;
-  iconText: string;
-  icon: string;
-  buttonColor: string;
   id: string;
   code: string;
   title: string;
@@ -59,6 +73,7 @@ export interface Offer {
   display_order: number;
   property_id: number | null;
   room_id: number | null;
+  bed_number?: number | null;
   property_name: string | null;
   room_number: number | null;
   sharing_type: string | null;
@@ -81,6 +96,18 @@ export interface Offer {
   bonus_conditions: string | null;
   created_at: string;
   updated_at: string | null;
+  // Additional fields for UI
+  min_stay?: ReactNode;
+  valid_from?: ReactNode;
+  valid_to?: ReactNode;
+  mainColor?: string;
+  badgeBg?: string;
+  badgeBorder?: string;
+  badge?: string;
+  iconBg?: string;
+  iconText?: string;
+  icon?: string;
+  buttonColor?: string;
 }
 
 export interface PaginationParams {
@@ -105,6 +132,10 @@ export interface PaginatedResponse<T> {
   };
 }
 
+// ============================================
+// API CONFIGURATION
+// ============================================
+
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 // Simple fetch wrapper
@@ -124,6 +155,10 @@ const request = async <T>(endpoint: string, options?: RequestInit): Promise<T> =
 
   return response.json();
 };
+
+// ============================================
+// API METHODS
+// ============================================
 
 export const offerApi = {
   getAll: async (): Promise<Offer[]> => {
@@ -170,7 +205,41 @@ export const offerApi = {
   },
 
   getRoomsByProperty: async (propertyId: number): Promise<Room[]> => {
-    return await request<Room[]>(`/api/offers/property/${propertyId}/rooms`);
+    try {
+      const response = await fetch(`${API_URL}/api/rooms/property/${propertyId}`);
+      const data = await response.json();
+      
+      if (data.success && data.data) {
+        return data.data.map((room: any) => ({
+          ...room,
+          available_beds: (room.total_bed || 0) - (room.occupied_beds || 0),
+          bed_assignments: room.bed_assignments || []
+        }));
+      }
+      return [];
+    } catch (error) {
+      console.error("Failed to fetch rooms:", error);
+      return [];
+    }
+  },
+
+  getRoomsWithBedDetails: async (propertyId: number): Promise<Room[]> => {
+    try {
+      const response = await fetch(`${API_URL}/api/rooms/property/${propertyId}`);
+      const data = await response.json();
+      
+      if (data.success && data.data) {
+        return data.data.map((room: any) => ({
+          ...room,
+          available_beds: (room.total_bed || 0) - (room.occupied_beds || 0),
+          bed_assignments: room.bed_assignments || []
+        }));
+      }
+      return [];
+    } catch (error) {
+      console.error("Failed to fetch rooms with bed details:", error);
+      return [];
+    }
   },
 
   generateOfferCode: async (): Promise<{ code: string; success: boolean }> => {
@@ -179,13 +248,11 @@ export const offerApi = {
       return response;
     } catch (error: any) {
       console.error("Failed to generate offer code:", error);
-      // Return a fallback code
       const fallbackCode = 'OFF' + Date.now().toString().slice(-8);
       return { code: fallbackCode, success: false };
     }
   },
 
-  // Get offers with pagination
   getPaginated: async (params: PaginationParams): Promise<PaginatedResponse<Offer>> => {
     const queryParams = new URLSearchParams();
     
@@ -199,3 +266,9 @@ export const offerApi = {
     return await request<PaginatedResponse<Offer>>(`/api/offers/paginated?${queryParams.toString()}`);
   },
 };
+
+// ============================================
+// EXPORT DEFAULT
+// ============================================
+
+export default offerApi;

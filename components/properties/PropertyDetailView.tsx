@@ -82,6 +82,7 @@ import {
   Wrench,
   Loader2,
 } from "lucide-react";
+import { useSearchParams } from "react-router-dom"; 
 import BookingModal from "./BookingModal";
 import {
   incrementPropertyView,
@@ -90,6 +91,7 @@ import {
 } from "@/lib/propertyApi";
 import { generatePropertySlug, getOrCreateTrackingId } from "@/lib/slugUtils";
 import { consumeMasters } from "@/lib/masterApi";
+import { toast } from "sonner";
 
 const Icons = {
   Wifi,
@@ -287,6 +289,7 @@ const PropertyDetailView = memo(function PropertyDetailView({
   offers,
 }: PropertyDetailViewProps) {
   const router = useRouter();
+  const [searchParams] = useSearchParams();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showAllRooms, setShowAllRooms] = useState(false);
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
@@ -320,6 +323,10 @@ const PropertyDetailView = memo(function PropertyDetailView({
   const [floorsMasters, setFloorsMasters] = useState<MasterValue[]>([]);
   const [sharingTypesMasters, setSharingTypesMasters] = useState<MasterValue[]>([]);
   const [loadingMasters, setLoadingMasters] = useState(false);
+
+   // Add new state for automatic modal opening
+  const [autoOpenModal, setAutoOpenModal] = useState(false);
+  const [offerRoomId, setOfferRoomId] = useState<number | undefined>(undefined);
 
   // Transform amenities from API
   const transformedAmenities = useMemo(() => {
@@ -394,6 +401,79 @@ useEffect(() => {
 
   fetchMastersForFilters();
 }, [propertyData?.id]);
+
+// Handle offer code from URL and auto-open booking modal
+  useEffect(() => {
+    // Check URL parameters for offer code
+    const offerCodeFromUrl = searchParams.get('offer');
+    const openBookingParam = searchParams.get('openBooking');
+    
+    if (offerCodeFromUrl) {
+      // Store in localStorage for the booking modal
+      localStorage.setItem('pendingOfferCode', offerCodeFromUrl);
+      
+      // Also check if we have offer data in localStorage (from the offer slider)
+      const savedOfferData = localStorage.getItem('pendingOfferData');
+      // if (savedOfferData) {
+      //   try {
+      //     const offerData = JSON.parse(savedOfferData);
+      //   } catch (e) {
+      //     toast.success(`🎉 Offer code ${offerCodeFromUrl} is available! Booking form will open automatically.`);
+      //   }
+      // } else {
+      //   toast.success(`🎉 Offer code ${offerCodeFromUrl} is available! Booking form will open automatically.`);
+      // }
+      
+      // Set flag to auto-open the booking modal
+      setAutoOpenModal(true);
+    } else {
+      // Also check localStorage for pending offer (from previous navigation)
+      const savedOfferCode = localStorage.getItem('pendingOfferCode');
+      const savedOfferData = localStorage.getItem('pendingOfferData');
+      
+      if (savedOfferCode && savedOfferData) {
+        try {
+          const offerData = JSON.parse(savedOfferData);
+          // Check if this offer is for this property or is general
+          if (!offerData.propertyId || offerData.propertyId === propertyData?.id) {
+             // Set the room ID if present
+          if (offerData.roomId) {
+            setOfferRoomId(offerData.roomId);
+            console.log('🎯 Offer has specific room ID from localStorage:', offerData.roomId);
+          }
+          
+            setAutoOpenModal(true);
+          } else {
+            // Clear the stored offer if it's for a different property
+            localStorage.removeItem('pendingOfferCode');
+            localStorage.removeItem('pendingOfferData');
+          }
+        } catch (e) {
+          console.error('Error parsing saved offer data:', e);
+        }
+      }
+    }
+    
+    // Check for explicit openBooking parameter
+    if (openBookingParam === 'true') {
+      setAutoOpenModal(true);
+    }
+  }, [searchParams, propertyData?.id]);
+
+
+  // Auto-open booking modal when autoOpenModal flag is true and property data is loaded
+  useEffect(() => {
+    if (autoOpenModal && propertyData?.id && !isBookingModalOpen) {
+      // Small delay to ensure the page is fully rendered
+      const timer = setTimeout(() => {
+        setIsBookingModalOpen(true);
+        setAutoOpenModal(false); // Reset flag after opening
+      }, 500);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [autoOpenModal, propertyData?.id, isBookingModalOpen]);
+  
 
   // Load analytics
   useEffect(() => {
@@ -2441,11 +2521,13 @@ const getMinTenantRent = (room: any): number => {
           setIsBookingModalOpen(false);
           setBookingType("long");
           setPreselectedRoomId(undefined);
+          setOfferRoomId(undefined); 
+          setAutoOpenModal(false);
         }}
         bookingType={bookingType}
         setBookingType={setBookingType}
         propertyData={propertyData}
-        preselectedRoomId={preselectedRoomId}
+        preselectedRoomId={offerRoomId || preselectedRoomId}
       />
     </div>
   );

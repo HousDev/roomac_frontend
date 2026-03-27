@@ -4,17 +4,68 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ChevronLeft, ChevronRight, Copy, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { useRouter } from 'next/navigation';
+import { generatePropertySlug } from '@/lib/slugUtils'; // Add this import
 
 interface OffersSliderProps {
   offers: any[];
 }
 
 export default function OffersSlider({ offers }: OffersSliderProps) {
+    const router = useRouter(); // <-- THIS IS MISSING!
   const [offersState, setOffersState] = useState(offers);
   const [currentOfferIndex, setCurrentOfferIndex] = useState(0);
   const [isClaimPopupOpen, setIsClaimPopupOpen] = useState(false);
   const [selectedOffer, setSelectedOffer] = useState<any>(null);
   const [copiedCode, setCopiedCode] = useState(false);
+
+
+   // Function to handle redirect to property with offer
+  const handleClaimAndRedirect = (offer: any) => {
+    // Close the popup
+    setIsClaimPopupOpen(false);
+    
+    // Check if offer has a property_id
+    if (!offer.property_id) {
+      toast.error("This offer is not linked to a specific property");
+      return;
+    }
+    
+    // Store the offer code and details in localStorage
+    if (offer.code) {
+      const exactCode = offer.code.toString().trim();
+      localStorage.setItem('pendingOfferCode', exactCode);
+      localStorage.setItem('pendingOfferData', JSON.stringify({
+        code: exactCode,
+        discount_type: offer.discount_type,
+        discount_value: offer.discount_value,
+        discount_percent: offer.discount_percent,
+        title: offer.title,
+        description: offer.description,
+        minMonths: offer.min_months,
+        propertyId: offer.property_id,
+        roomId: offer.room_id,
+        bedNumber: offer.bed_number
+      }));
+      
+    }
+
+     // Redirect to the property page with parameters to open the booking modal
+    if (offer.property_name) {
+      const slug = generatePropertySlug({
+        name: offer.property_name,
+        area: offer.location || '',
+        city: offer.city || '',
+        id: offer.property_id
+      });
+      // Add openBooking=true and offer parameter to the URL
+      router.push(`/properties/${slug}?offer=${offer.code}&openBooking=true`);
+    } else {
+      // Fallback: redirect with property ID
+      router.push(`/properties?property_id=${offer.property_id}&offer=${offer.code}&openBooking=true`);
+    }
+  };
+
 
   // Filter only active offers
   const activeOffers = offersState.filter(offer => {
@@ -43,6 +94,7 @@ export default function OffersSlider({ offers }: OffersSliderProps) {
     );
   }, [activeOffers.length]);
 
+ 
   // Auto-play offers
   useEffect(() => {
     if (offersState.length === 0) return;
@@ -441,7 +493,7 @@ export default function OffersSlider({ offers }: OffersSliderProps) {
                               }}
                               className="w-full bg-blue-700 hover:bg-blue-500 text-white font-bold py-1.5 md:py-2 rounded-md text-sm transition flex items-center justify-center gap-2"
                             >
-                              <span>Claim Offer</span>
+                              <span>View Offer</span>
                               <span className="text-lg">→</span>
                             </button>
                           </div>
@@ -538,32 +590,69 @@ export default function OffersSlider({ offers }: OffersSliderProps) {
               </div>
 
               {/* Offer Code Section - NEW */}
-              {selectedOffer.code && (
-                <div className="px-4 py-3 border-b bg-gradient-to-r from-blue-50 to-cyan-50">
-                  <div className="flex flex-col items-center">
-                    <p className="text-xs font-semibold text-gray-600 mb-2">Use this offer code at checkout</p>
-                    <div className="flex items-center gap-2 bg-white rounded-lg border border-blue-200 p-2 shadow-sm">
-                      <span className="font-mono font-bold text-lg text-blue-700 tracking-wider">
-                        {selectedOffer.code}
-                      </span>
-                      <button
-                        onClick={() => copyOfferCode(selectedOffer.code)}
-                        className="p-1.5 hover:bg-blue-50 rounded-md transition-colors"
-                        title="Copy code"
-                      >
-                        {copiedCode ? (
-                          <CheckCircle className="w-5 h-5 text-green-600" />
-                        ) : (
-                          <Copy className="w-5 h-5 text-blue-600" />
-                        )}
-                      </button>
-                    </div>
-                    <p className="text-[10px] text-gray-500 mt-2">
-                      Copy this code and apply at checkout
-                    </p>
-                  </div>
-                </div>
-              )}
+{selectedOffer.code && (
+  <div className="px-4 py-3 border-b bg-gradient-to-r from-blue-50 to-cyan-50">
+    <div className="flex flex-col items-center">
+      <p className="text-xs font-semibold text-gray-600 mb-2">Use this offer code at checkout</p>
+      <div className="flex items-center gap-2 bg-white rounded-lg border border-blue-200 p-2 shadow-sm">
+        <span className="font-mono font-bold text-lg text-blue-700 tracking-wider">
+          {selectedOffer.code}
+        </span>
+        <button
+          onClick={() => {
+            // Close the popup
+            setIsClaimPopupOpen(false);
+            
+            // Check if offer has a property_id
+            if (!selectedOffer.property_id) {
+              toast.error("This offer is not linked to a specific property");
+              return;
+            }
+            
+            // Store the offer code and details in localStorage
+            if (selectedOffer.code) {
+              const exactCode = selectedOffer.code.toString().trim();
+              localStorage.setItem('pendingOfferCode', exactCode);
+              localStorage.setItem('pendingOfferData', JSON.stringify({
+                code: exactCode,
+                discount_type: selectedOffer.discount_type,
+                discount_value: selectedOffer.discount_value,
+                discount_percent: selectedOffer.discount_percent,
+                title: selectedOffer.title,
+                description: selectedOffer.description,
+                minMonths: selectedOffer.min_months,
+                propertyId: selectedOffer.property_id,
+                roomId: selectedOffer.room_id,
+                bedNumber: selectedOffer.bed_number
+              }));
+              
+            }
+            
+            // Redirect to the property page
+            if (selectedOffer.property_name) {
+              const slug = generatePropertySlug({
+                name: selectedOffer.property_name,
+                area: selectedOffer.location || '',
+                city: selectedOffer.city || '',
+                id: selectedOffer.property_id
+              });
+              router.push(`/properties/${slug}?offer=${selectedOffer.code}&openBooking=true`);
+            } else {
+              router.push(`/properties?property_id=${selectedOffer.property_id}&offer=${selectedOffer.code}&openBooking=true`);
+            }
+          }}
+          className="px-4 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors flex-1 shadow-md"
+          title="Claim Offer"
+        >
+          Claim Offer
+        </button>
+      </div>
+      <p className="text-[10px] text-gray-500 mt-2">
+        Copy this code and apply at checkout
+      </p>
+    </div>
+  </div>
+)}
 
               {/* Price Section */}
               <div className="px-4 py-3 border-b">
@@ -704,31 +793,12 @@ export default function OffersSlider({ offers }: OffersSliderProps) {
                   Cancel
                 </button>
                 <button
-  onClick={() => {
-    setIsClaimPopupOpen(false);
-    if (selectedOffer.code) {
-      const exactCode = selectedOffer.code.toString().trim();
-      localStorage.setItem('pendingOfferCode', exactCode);
-      localStorage.setItem('pendingOfferData', JSON.stringify({
-        code: exactCode,
-        discount_type: selectedOffer.discount_type,
-        discount_value: selectedOffer.discount_value,
-        discount_percent: selectedOffer.discount_percent,
-        title: selectedOffer.title,
-        description: selectedOffer.description,
-        minMonths: selectedOffer.min_months,
-        propertyId: selectedOffer.property_id,
-        roomId: selectedOffer.room_id
-      }));
-      toast.success(`Offer code ${exactCode} saved! You can apply it in the booking form.`);
-    } else {
-      toast.error('No offer code found');
-    }
-  }}
-  className="px-4 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors flex-1 shadow-md"
->
-  Got It
-</button>
+                  onClick={() => handleClaimAndRedirect(selectedOffer)}
+                  className="px-4 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors flex-1 shadow-md flex items-center justify-center gap-2"
+                >
+                  <span>Claim Offer & Book Now</span>
+                  <span className="text-base">→</span>
+                </button>
               </div>
               <p className="text-center text-[10px] text-gray-500 mt-2">
                 By claiming, you agree to our terms and conditions
