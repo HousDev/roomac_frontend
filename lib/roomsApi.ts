@@ -79,6 +79,15 @@ export interface AssignBedPayload {
   tenant_gender: 'Male' | 'Female' | 'Other';
   tenant_rent?: number | null;
   is_couple?: boolean;
+  partner_full_name?: string;
+  partner_phone?: string;
+  partner_email?: string;
+  partner_gender?: string;
+  partner_date_of_birth?: string;
+  partner_address?: string;
+  partner_occupation?: string;
+  partner_organization?: string;
+  partner_relationship?: string;
 }
 
 export interface UpdateBedAssignmentPayload {
@@ -88,6 +97,15 @@ export interface UpdateBedAssignmentPayload {
   tenant_rent?: number | null;
   is_couple?: boolean;
   vacate_reason?: string;
+  partner_full_name?: string;
+  partner_phone?: string;
+  partner_email?: string;
+  partner_gender?: string;
+  partner_date_of_birth?: string;
+  partner_address?: string;
+  partner_occupation?: string;
+  partner_organization?: string;
+  partner_relationship?: string;
 }
 
 export type BedPayload = {
