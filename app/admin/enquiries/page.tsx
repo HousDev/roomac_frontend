@@ -159,7 +159,7 @@ export default function EnquiriesPage() {
     <div className="w-full px-0 sm:px-0">
       {/* Tabs */}
       <div
-        className="flex gap-1.5 px-1 py-0 bg-white border-b border-gray-100 overflow-x-auto sticky top-16 z-10 mb-0"
+        className="flex gap-1.5 px-1 mb-1 bg-white border-b border-gray-100 overflow-x-auto sticky top-16 z-10 mb-0"
         style={{ scrollbarWidth: "none", msOverflowStyle: "none" } as React.CSSProperties}
       >
         {TABS.map(({ key, label, icon }) => {

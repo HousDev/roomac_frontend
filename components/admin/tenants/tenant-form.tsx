@@ -894,6 +894,7 @@ if (addressProofNumber) formDataToSend.append('address_proof_number', addressPro
     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
 
       {/* ── ID Proof ── */}
+{/* ── ID Proof ── */}
 <div className="space-y-1.5">
   <label className={L}>
     <span className="flex items-center gap-1"><FileText className="h-3 w-3"/> ID Proof Type <span className="text-red-400">*</span></span>
@@ -909,53 +910,60 @@ if (addressProofNumber) formDataToSend.append('address_proof_number', addressPro
     </SelectContent>
   </Select>
 
-  {/* ID Proof Number Field */}
-  <div>
-    <label className={L}>
-      {idProofType === "Aadhar Card" ? "Aadhar Number" : 
-       idProofType === "Passport" ? "Passport Number" :
-       idProofType === "PAN Card" ? "PAN Number" :
-       idProofType === "Driving Licence" ? "Driving Licence Number" :
-       idProofType === "Voter ID" ? "Voter ID Number" : "Document Number"}
-      {idProofType && <span className="text-red-400">*</span>}
-    </label>
-    <Input
-      value={idProofNumber}
-      onChange={e => {
-        let value = e.target.value;
-        if (idProofType === "Aadhar Card") {
-          // Format Aadhar with spaces
-          value = value.replace(/\D/g, '').slice(0, 12);
-          if (value.length > 4) {
-            value = value.replace(/(\d{4})(?=\d)/g, '$1 ');
+  {/* ID Proof Number Field - Only shows after type is selected */}
+  {idProofType && (
+    <div className="mt-2 animate-in fade-in slide-in-from-top-2 duration-200">
+      <label className={L}>
+        {idProofType === "Aadhar Card" ? "Aadhar Number" : 
+         idProofType === "Passport" ? "Passport Number" :
+         idProofType === "PAN Card" ? "PAN Number" :
+         idProofType === "Driving Licence" ? "Driving Licence Number" :
+         idProofType === "Voter ID" ? "Voter ID Number" : "Document Number"}
+        <span className="text-red-400">*</span>
+      </label>
+      <Input
+        value={idProofNumber}
+        onChange={e => {
+          let value = e.target.value;
+          if (idProofType === "Aadhar Card") {
+            // Format Aadhar with spaces
+            value = value.replace(/\D/g, '').slice(0, 12);
+            if (value.length > 4) {
+              value = value.replace(/(\d{4})(?=\d)/g, '$1 ');
+            }
+          } else if (idProofType === "PAN Card") {
+            value = value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10);
+          } else if (idProofType === "Passport") {
+            value = value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 9);
           }
-        } else if (idProofType === "PAN Card") {
-          value = value.toUpperCase().slice(0, 10);
-        } else if (idProofType === "Passport") {
-          value = value.toUpperCase().slice(0, 9);
+          setIdProofNumber(value);
+        }}
+        placeholder={
+          idProofType === "Aadhar Card" ? "XXXX XXXX XXXX" :
+          idProofType === "PAN Card" ? "ABCDE1234F" :
+          idProofType === "Passport" ? "A1234567" :
+          idProofType === "Driving Licence" ? "DL-1234567890" :
+          idProofType === "Voter ID" ? "ABC1234567" :
+          "Enter document number"
         }
-        setIdProofNumber(value);
-      }}
-      placeholder={
-        idProofType === "Aadhar Card" ? "XXXX XXXX XXXX" :
-        idProofType === "PAN Card" ? "ABCDE1234F" :
-        idProofType === "Passport" ? "A1234567" :
-        "Enter document number"
-      }
-      className={F}
-      maxLength={
-        idProofType === "Aadhar Card" ? 14 :
-        idProofType === "PAN Card" ? 10 :
-        idProofType === "Passport" ? 9 : 50
-      }
-    />
-    <p className="text-[10px] text-gray-400 mt-0.5">
-      {idProofType === "Aadhar Card" ? "12-digit Aadhar number" :
-       idProofType === "PAN Card" ? "10-digit PAN number" :
-       idProofType === "Passport" ? "Passport number (e.g., A1234567)" :
-       ""}
-    </p>
-  </div>
+        className={F}
+        maxLength={
+          idProofType === "Aadhar Card" ? 14 :
+          idProofType === "PAN Card" ? 10 :
+          idProofType === "Passport" ? 9 : 50
+        }
+        required={true}
+      />
+      <p className="text-[10px] text-gray-400 mt-0.5">
+        {idProofType === "Aadhar Card" ? "12-digit Aadhar number" :
+         idProofType === "PAN Card" ? "10-digit PAN number (e.g., ABCDE1234F)" :
+         idProofType === "Passport" ? "Passport number (e.g., A1234567)" :
+         idProofType === "Driving Licence" ? "Driving licence number" :
+         idProofType === "Voter ID" ? "Voter ID number" :
+         "Document identification number"}
+      </p>
+    </div>
+  )}
 
   <FileUploadField
     label="ID Proof Document"
@@ -973,7 +981,7 @@ if (addressProofNumber) formDataToSend.append('address_proof_number', addressPro
     <span className="flex items-center gap-1"><FileText className="h-3 w-3"/> Address Proof Type <span className="text-red-400">*</span></span>
   </label>
   <Select value={addressProofType} onValueChange={setAddressProofType}>
-    <SelectTrigger className={F}><SelectValue placeholder="Select address proof"/></SelectTrigger>
+    <SelectTrigger className={F}><SelectValue placeholder="Select address proof type"/></SelectTrigger>
     <SelectContent>
       <SelectItem value="Aadhar Card" className={SI}>Aadhar Card</SelectItem>
       <SelectItem value="Utility Bill" className={SI}>Utility Bill</SelectItem>
@@ -984,35 +992,60 @@ if (addressProofNumber) formDataToSend.append('address_proof_number', addressPro
     </SelectContent>
   </Select>
 
-  {/* Address Proof Number Field */}
-  <div>
-    <label className={L}>
-      {addressProofType === "Aadhar Card" ? "Aadhar Number" : 
-       addressProofType === "Passport" ? "Passport Number" :
-       addressProofType === "Voter ID" ? "Voter ID Number" : "Document Number"}
-    </label>
-    <Input
-      value={addressProofNumber}
-      onChange={e => {
-        let value = e.target.value;
-        if (addressProofType === "Aadhar Card") {
-          value = value.replace(/\D/g, '').slice(0, 12);
-          if (value.length > 4) {
-            value = value.replace(/(\d{4})(?=\d)/g, '$1 ');
+  {/* Address Proof Number Field - Only shows after type is selected */}
+  {addressProofType && (
+    <div className="mt-2 animate-in fade-in slide-in-from-top-2 duration-200">
+      <label className={L}>
+        {addressProofType === "Aadhar Card" ? "Aadhar Number" : 
+         addressProofType === "Utility Bill" ? "Bill/Consumer Number" :
+         addressProofType === "Bank Statement" ? "Account Number" :
+         addressProofType === "Passport" ? "Passport Number" :
+         addressProofType === "Rental Agreement" ? "Agreement Number" :
+         addressProofType === "Voter ID" ? "Voter ID Number" : "Document Number"}
+        <span className="text-red-400">*</span>
+      </label>
+      <Input
+        value={addressProofNumber}
+        onChange={e => {
+          let value = e.target.value;
+          if (addressProofType === "Aadhar Card") {
+            // Format Aadhar with spaces
+            value = value.replace(/\D/g, '').slice(0, 12);
+            if (value.length > 4) {
+              value = value.replace(/(\d{4})(?=\d)/g, '$1 ');
+            }
+          } else if (addressProofType === "Passport") {
+            value = value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 9);
           }
-        } else if (addressProofType === "Passport") {
-          value = value.toUpperCase().slice(0, 9);
+          setAddressProofNumber(value);
+        }}
+        placeholder={
+          addressProofType === "Aadhar Card" ? "XXXX XXXX XXXX" :
+          addressProofType === "Utility Bill" ? "Bill/Consumer Number" :
+          addressProofType === "Bank Statement" ? "Account Number" :
+          addressProofType === "Passport" ? "A1234567" :
+          addressProofType === "Rental Agreement" ? "Agreement Number" :
+          addressProofType === "Voter ID" ? "ABC1234567" :
+          "Enter document number"
         }
-        setAddressProofNumber(value);
-      }}
-      placeholder={
-        addressProofType === "Aadhar Card" ? "XXXX XXXX XXXX" :
-        addressProofType === "Passport" ? "A1234567" :
-        "Enter document number"
-      }
-      className={F}
-    />
-  </div>
+        className={F}
+        maxLength={
+          addressProofType === "Aadhar Card" ? 14 :
+          addressProofType === "Passport" ? 9 : 50
+        }
+        required={true}
+      />
+      <p className="text-[10px] text-gray-400 mt-0.5">
+        {addressProofType === "Aadhar Card" ? "12-digit Aadhar number" :
+         addressProofType === "Utility Bill" ? "Consumer/Account number from the bill" :
+         addressProofType === "Bank Statement" ? "Bank account number" :
+         addressProofType === "Passport" ? "Passport number (e.g., A1234567)" :
+         addressProofType === "Rental Agreement" ? "Agreement reference number" :
+         addressProofType === "Voter ID" ? "Voter ID number" :
+         "Document identification number"}
+      </p>
+    </div>
+  )}
 
   <FileUploadField
     label="Address Proof Document"

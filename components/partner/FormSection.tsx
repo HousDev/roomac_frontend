@@ -266,6 +266,7 @@ export const FormSection = forwardRef<HTMLElement, FormSectionProps>(
                           name="phone"
                           value={formData.phone}
                           onChange={onChange}
+                          maxLength={10}
                           required
                           className="h-8 sm:h-9 text-xs sm:text-sm px-2 sm:px-3"
                         />

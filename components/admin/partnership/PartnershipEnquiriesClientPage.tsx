@@ -263,7 +263,7 @@ export default function PartnershipEnquiriesClientPage({
   return (
     <div className="space-y-4">
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-2">
         <Card className="bg-gradient-to-br from-slate-50 to-slate-100">
           <CardContent className="p-3">
             <div className="flex items-center justify-between">

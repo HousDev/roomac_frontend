@@ -48,7 +48,9 @@ import {
   Baby,
   Bike,
   MoveVertical,
-  Flame
+  Flame,
+  ChevronDown,
+  Search
 } from 'lucide-react';
 import { toast } from "sonner";
 import { PhotoGalleryModal } from '@/components/admin/rooms/PhotoGalleryModal';
@@ -907,7 +909,7 @@ const goToNextTab = () => {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[calc(100vw-1rem)] sm:max-w-[calc(100vw-2rem)] md:max-w-4xl lg:max-w-5xl h-[70vh] overflow-hidden p-0 border-0 flex flex-col rounded-2xl shadow-2xl"
+      <DialogContent className="max-w-[calc(100vw-1rem)] sm:max-w-[calc(100vw-2rem)] md:max-w-4xl lg:max-w-5xl h-[65vh] overflow-hidden p-0 border-0 flex flex-col rounded-2xl shadow-2xl"
         onInteractOutside={(e) => e.preventDefault()}
 >
 
@@ -965,25 +967,73 @@ const goToNextTab = () => {
                     <div className="space-y-1.5">
                       <F label="Property" required>
                         <Select 
-                          value={formData.property_id}
-                          onValueChange={v => setFormData((p: RoomFormData) => ({ ...p, property_id: v, floor: '' }))}
-                          // Property selector is NOT disabled when limit reached - user should be able to select a different property
-                        >
-                          <SelectTrigger className="h-7 text-[10px] border-slate-200 bg-slate-50">
-                            <SelectValue placeholder="Select property" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {properties.map(p => (
-                              <SelectItem key={p.id} value={String(p.id)}>
-                                <div className="flex items-center gap-1.5">
-                                  <Building className="h-3 w-3 text-slate-400" />
-                                  <span className="text-[10px] font-medium">{p.name}</span>
-                                  {p.address && <span className="text-[9px] text-slate-800 truncate max-w-[120px]">— {p.address}</span>}
-                                </div>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+  value={formData.property_id}
+  onValueChange={v => setFormData((p: RoomFormData) => ({ ...p, property_id: v, floor: '' }))}
+>
+  <SelectTrigger className="h-7 text-[10px] border-slate-200 bg-slate-50">
+    <SelectValue placeholder="Select property" />
+  </SelectTrigger>
+  <SelectContent 
+    className="[&_[data-radix-select-item]]:hover:bg-transparent [&_[data-radix-select-item]]:hover:text-inherit"
+    onOpenAutoFocus={(e) => {
+      // Prevent Radix from auto-focusing on the first item
+      e.preventDefault();
+      // Instead, focus on the search input
+      setTimeout(() => {
+        const searchInput = document.getElementById('property-search-input');
+        if (searchInput) {
+          (searchInput as HTMLInputElement).focus();
+        }
+      }, 0);
+    }}
+    onCloseAutoFocus={(e) => {
+      // Prevent Radix from stealing focus when closing
+      e.preventDefault();
+    }}
+  >
+    {/* Search input at top */}
+    <div className="sticky top-0 bg-white p-2 border-b border-gray-100 z-10">
+      <div className="relative">
+        <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400" />
+        <input
+          id="property-search-input"
+          type="text"
+          placeholder="Search property..."
+          className="w-full h-7 pl-7 pr-2 text-[10px] border border-gray-200 rounded-md focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400"
+          onClick={(e) => {
+            // Stop propagation to prevent Radix from closing the dropdown
+            e.stopPropagation();
+          }}
+          onChange={(e) => {
+            const searchTerm = e.target.value.toLowerCase();
+            const items = document.querySelectorAll('.property-item');
+            items.forEach((item) => {
+              const text = item.textContent?.toLowerCase() || '';
+              if (text.includes(searchTerm)) {
+                (item as HTMLElement).style.display = 'flex';
+              } else {
+                (item as HTMLElement).style.display = 'none';
+              }
+            });
+          }}
+        />
+      </div>
+    </div>
+    
+    {/* Property list */}
+    <div className="max-h-48 overflow-y-auto">
+      {properties.map(p => (
+        <SelectItem key={p.id} value={String(p.id)} className="property-item">
+          <div className="flex items-center gap-1.5">
+            <Building className="h-3 w-3 text-slate-400" />
+            <span className="text-[10px] font-medium">{p.name}</span>
+            {p.address && <span className="text-[9px] text-slate-800 truncate max-w-[120px]">— {p.address}</span>}
+          </div>
+        </SelectItem>
+      ))}
+    </div>
+  </SelectContent>
+</Select>
                       </F>
 
                       <div className="grid grid-cols-2 gap-1.5">
@@ -1286,129 +1336,190 @@ const goToNextTab = () => {
             </TabsContent>
 
             {/* ══════════ TAB 3 — AMENITIES ══════════ */}
-            <TabsContent value="amenities" className="mt-0 space-y-2 md:space-y-3">
-              <div className="space-y-3 md:space-y-4">
-                <div>
-                  <Label className="text-[10px] md:text-xs font-medium flex items-center gap-1 mb-2">
-                    <Sparkles className="h-3 w-3 md:h-3.5 md:w-3.5" />Select Amenities
-                  </Label>
-                  <p className="text-[10px] md:text-xs text-gray-500 mb-2 md:mb-3">Choose amenities available in this room</p>
-                 {(() => {
-  // Use master amenities if available, otherwise fall back to hardcoded
-  const amenityOptions = roomsMasters['Amenities']?.length > 0
-    ? roomsMasters['Amenities'].map(a => ({ id: String(a.id), label: a.name }))
-    : AMENITIES_OPTIONS.map(a => ({ id: a.id, label: a.label }));
-
-  return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-1.5 md:gap-2">
-      {loadingMasters ? (
-        <div className="col-span-full flex items-center gap-2 py-4 text-[10px] text-gray-500">
-          <Loader2 className="h-3 w-3 animate-spin" /> Loading amenities...
-        </div>
-      ) : amenityOptions.map(amenity => (
-        <div key={amenity.id}
-          className={`p-2 md:p-2.5 border rounded-lg cursor-pointer transition-all ${roomLimitReached ? 'opacity-50 cursor-not-allowed' : ''} ${formData.amenities.includes(amenity.label) ? 'border-cyan-500 bg-cyan-50' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'}`}
-          onClick={() => !roomLimitReached && toggleAmenity(amenity.label)}
-        >
-          <div className="flex items-center gap-1.5">
-            <div className={`rounded ${formData.amenities.includes(amenity.label) ? 'bg-cyan-100 text-cyan-600' : 'bg-gray-100 text-gray-600'}`}>
-              {getAmenityIcon(amenity.label, 'md')}
+           {/* ══════════ TAB 3 — AMENITIES ══════════ */}
+<TabsContent value="amenities" className="mt-0 space-y-2 md:space-y-3">
+  <div className="space-y-3 md:space-y-4">
+    <div>
+      <Label className="text-[10px] md:text-xs font-medium flex items-center gap-1 mb-2">
+        <Sparkles className="h-3 w-3 md:h-3.5 md:w-3.5" />Amenities
+      </Label>
+      <p className="text-[10px] md:text-xs text-gray-500 mb-2 md:mb-3">Select amenities available in this room</p>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Left side - Dropdown with search */}
+        <div className="border border-gray-200 rounded-lg overflow-hidden">
+          {/* Dropdown trigger */}
+          <button
+            type="button"
+            onClick={() => {
+              const el = document.getElementById('amenity-dropdown');
+              if (el) el.classList.toggle('hidden');
+            }}
+            className="w-full flex items-center justify-between px-3 py-2 bg-slate-50 hover:bg-slate-100 transition-colors"
+            disabled={roomLimitReached}
+          >
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-3.5 w-3.5 text-cyan-600" />
+              <span className="text-[11px] font-semibold text-slate-700">
+                Select amenities
+              </span>
             </div>
-            <span className="text-[9px] md:text-[10px] font-medium">{amenity.label}</span>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-})()}
+            <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
+          </button>
+
+          {/* Dropdown content with search and checkboxes */}
+          <div id="amenity-dropdown" className="hidden border-t border-gray-200 bg-white">
+            {/* Search input */}
+            <div className="p-2 border-b border-gray-100">
+              <div className="relative">
+                <input
+                  type="text"
+                  id="amenity-search"
+                  placeholder="Search amenities..."
+                  className="w-full h-7 text-[10px] border border-gray-200 rounded-md px-2 pl-6 bg-gray-50 focus:bg-white focus:outline-none focus:border-cyan-400"
+                  onChange={(e) => {
+                    const searchTerm = e.target.value.toLowerCase();
+                    const items = document.querySelectorAll('.amenity-item');
+                    items.forEach((item) => {
+                      const label = item.getAttribute('data-label')?.toLowerCase() || '';
+                      if (label.includes(searchTerm)) {
+                        (item as HTMLElement).style.display = 'flex';
+                      } else {
+                        (item as HTMLElement).style.display = 'none';
+                      }
+                    });
+                  }}
+                />
+                <Search className="h-3 w-3 absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" />
+              </div>
+            </div>
+
+            {/* Amenities list with checkboxes */}
+            <div className="max-h-48 overflow-y-auto p-2">
+              {loadingMasters ? (
+                <div className="flex items-center gap-2 py-3 justify-center text-[10px] text-gray-500">
+                  <Loader2 className="h-3 w-3 animate-spin" /> Loading amenities...
                 </div>
-
-                <div className="space-y-1.5 md:space-y-2">
-                  <Label className="text-[10px] md:text-xs font-medium flex items-center gap-1">
-                    <Plus className="h-3 w-3 md:h-3.5 md:w-3.5" />Add Custom Amenities
-                  </Label>
-                  <div className="flex gap-1.5">
-                    <Input
-                      ref={amenityInputRef}
-                      value={formData.customAmenityInput}
-                      onChange={e => { const v = e.target.value; setFormData((p: RoomFormData) => ({ ...p, customAmenityInput: v })); }}
-                      onKeyPress={handleAmenityKeyPress}
-                      placeholder="Enter amenity name"
-                      className="flex-1 h-6 md:h-7 text-[10px] md:text-xs"
-                      disabled={roomLimitReached}
-                    />
-                    <Button 
-                      type="button" 
-                      onClick={addCustomAmenity} 
-                      className="bg-cyan-600 hover:bg-cyan-700 h-6 md:h-7 text-[10px] md:text-xs px-2"
-                      disabled={roomLimitReached}
-                    >
-                      <Plus className="h-3 w-3 md:h-3.5 md:w-3.5 mr-0.5" /> Add
-                    </Button>
-                  </div>
-
-                  {formData.amenities.length > 0 ? (
-                    <div className="mt-2 md:mt-3">
-                      <Label className="text-[10px] md:text-xs font-medium flex items-center gap-1 mb-1.5">
-                        <CheckCircle className="h-3 w-3 md:h-3.5 md:w-3.5 text-green-600" />Selected ({formData.amenities.length})
-                      </Label>
-                      <div className="flex flex-wrap gap-1 md:gap-1.5 p-2 md:p-3 border border-gray-200 rounded-lg bg-gray-50">
-                        {formData.amenities.map((amenity, idx) => {
-                          const pre = AMENITIES_OPTIONS.find(o => o.label === amenity);
-                          return (
-                            <Badge key={idx} variant="outline"
-                              className={`flex items-center gap-0.5 py-0.5 px-1.5 text-[9px] md:text-[10px] ${!pre ? 'bg-purple-50 border-purple-200 text-purple-700' : 'bg-white border-gray-300 text-gray-700'}`}>
-{getAmenityIcon(amenity, 'sm')}                              <span>{amenity}</span>
-                              <button type="button" onClick={() => !roomLimitReached && removeAmenity(amenity)} className="ml-0.5 text-gray-400 hover:text-red-500">
-                                <X className="h-2.5 w-2.5" />
-                              </button>
-                            </Badge>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-center py-4 border-2 border-dashed border-gray-300 rounded-lg">
-                      <Sparkles className="h-8 w-8 mx-auto text-gray-400 mb-2" />
-                      <p className="text-xs font-medium text-gray-700 mb-1">No amenities selected yet</p>
-                      <p className="text-[10px] text-gray-500">Select from above or add custom ones</p>
-                    </div>
-                  )}
-                </div>
-
-                <div className="pt-2 border-t">
-                  <Label className="text-[10px] md:text-xs font-medium flex items-center gap-1 mb-2">
-                    <Home className="h-3 w-3 md:h-3.5 md:w-3.5" />Basic Room Features
-                  </Label>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-3">
-                    {[
-                      { key: 'has_ac',               label: 'Air Conditioner',  sub: 'Room has AC',      icon: Wind,    color: 'border-cyan-500 bg-cyan-50' },
-                      { key: 'has_balcony',           label: 'Balcony',          sub: 'Room has balcony', icon: Maximize,color: 'border-cyan-500 bg-cyan-50' },
-                      { key: 'has_attached_bathroom', label: 'Attached Bathroom',sub: 'Private bathroom', icon: Bath,    color: 'border-cyan-500 bg-cyan-50' },
-                    ].map(({ key, label, sub, icon: Icon, color }) => (
-                      <div key={key}
-                        className={`flex items-center gap-2 p-2 md:p-3 border rounded-lg cursor-pointer ${roomLimitReached ? 'opacity-50 cursor-not-allowed' : ''} ${(formData as any)[key] ? color : 'border-gray-200'}`}
-                        onClick={() => !roomLimitReached && setFormData((p: RoomFormData) => ({ ...p, [key]: !(p as any)[key] }))}>
-                        <div className={`p-1.5 rounded-lg ${(formData as any)[key] ? 'bg-cyan-100 text-cyan-600' : 'bg-gray-100 text-gray-600'}`}>
-                          <Icon className="h-4 w-4 md:h-5 md:w-5" />
-                        </div>
-                        <div className="flex-1">
-                          <Label className="cursor-pointer text-[10px] md:text-xs font-medium">{label}</Label>
-                          <p className="text-[9px] md:text-[10px] text-gray-500">{sub}</p>
-                        </div>
-                        <input 
-                          type="checkbox" 
-                          checked={(formData as any)[key]}
-                          onChange={e => { const c = e.target.checked; setFormData((p: RoomFormData) => ({ ...p, [key]: c })); }}
-                          className="h-4 w-4 md:h-5 md:w-5"
+              ) : (
+                <div className="grid grid-cols-1 gap-1">
+                  {(() => {
+                    const amenityOptions = roomsMasters['Amenities']?.length > 0
+                      ? roomsMasters['Amenities'].map(a => ({ id: String(a.id), label: a.name }))
+                      : AMENITIES_OPTIONS.map(a => ({ id: a.id, label: a.label }));
+                    
+                    return amenityOptions.map(amenity => (
+                      <label
+                        key={amenity.id}
+                        data-label={amenity.label}
+                        className={`amenity-item flex items-center gap-2 p-2 rounded-md cursor-pointer transition-all
+                          ${roomLimitReached ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'}
+                          ${formData.amenities.includes(amenity.label) ? 'bg-cyan-50' : ''}`}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          if (!roomLimitReached) toggleAmenity(amenity.label);
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={formData.amenities.includes(amenity.label)}
+                          onChange={() => {}}
+                          className="h-3.5 w-3.5 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500"
                           disabled={roomLimitReached}
                         />
-                      </div>
-                    ))}
-                  </div>
+                        <div className={`rounded flex-shrink-0 ${formData.amenities.includes(amenity.label) ? 'text-cyan-600' : 'text-gray-500'}`}>
+                          {getAmenityIcon(amenity.label, 'sm')}
+                        </div>
+                        <span className="text-[11px] font-medium leading-tight">{amenity.label}</span>
+                      </label>
+                    ));
+                  })()}
                 </div>
-              </div>
-            </TabsContent>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Right side - Selected amenities display */}
+        <div className="border border-gray-200 rounded-lg p-3 bg-white">
+          <div className="flex items-center justify-between mb-2">
+            <Label className="text-[10px] font-semibold text-slate-600 uppercase tracking-wide">
+              Selected Amenities
+            </Label>
+            {formData.amenities.length > 0 && (
+              <Badge variant="outline" className="text-[9px] bg-cyan-50 text-cyan-700 border-cyan-200">
+                {formData.amenities.length} selected
+              </Badge>
+            )}
+          </div>
+          
+          {formData.amenities.length > 0 ? (
+            <div className="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto">
+              {formData.amenities.map((amenity, idx) => (
+                <Badge 
+                  key={idx} 
+                  variant="outline"
+                  className="flex items-center gap-1 py-1 px-2 text-[10px] bg-gray-50 border-gray-200 hover:bg-gray-100"
+                >
+                  {getAmenityIcon(amenity, 'sm')}
+                  <span>{amenity}</span>
+                  <button 
+                    type="button" 
+                    onClick={() => !roomLimitReached && removeAmenity(amenity)} 
+                    className="ml-0.5 text-gray-400 hover:text-red-500 transition-colors"
+                  >
+                    <X className="h-2.5 w-2.5" />
+                  </button>
+                </Badge>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-6">
+              <Sparkles className="h-8 w-8 mx-auto text-gray-300 mb-2" />
+              <p className="text-[11px] text-gray-500">No amenities selected</p>
+              <p className="text-[9px] text-gray-400 mt-1">Select from the dropdown on the left</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+
+    {/* Custom amenities section (optional - can be removed or kept) */}
+  
+
+    {/* Basic Room Features section remains unchanged */}
+    <div className="pt-2 border-t">
+      <Label className="text-[10px] md:text-xs font-medium flex items-center gap-1 mb-2">
+        <Home className="h-3 w-3 md:h-3.5 md:w-3.5" />Basic Room Features
+      </Label>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-3">
+        {[
+          { key: 'has_ac',               label: 'Air Conditioner',  sub: 'Room has AC',      icon: Wind,    color: 'border-cyan-500 bg-cyan-50' },
+          { key: 'has_balcony',           label: 'Balcony',          sub: 'Room has balcony', icon: Maximize,color: 'border-cyan-500 bg-cyan-50' },
+          { key: 'has_attached_bathroom', label: 'Attached Bathroom',sub: 'Private bathroom', icon: Bath,    color: 'border-cyan-500 bg-cyan-50' },
+        ].map(({ key, label, sub, icon: Icon, color }) => (
+          <div key={key}
+            className={`flex items-center gap-2 p-2 md:p-3 border rounded-lg cursor-pointer ${roomLimitReached ? 'opacity-50 cursor-not-allowed' : ''} ${(formData as any)[key] ? color : 'border-gray-200'}`}
+            onClick={() => !roomLimitReached && setFormData((p: RoomFormData) => ({ ...p, [key]: !(p as any)[key] }))}>
+            <div className={`p-1.5 rounded-lg ${(formData as any)[key] ? 'bg-cyan-100 text-cyan-600' : 'bg-gray-100 text-gray-600'}`}>
+              <Icon className="h-4 w-4 md:h-5 md:w-5" />
+            </div>
+            <div className="flex-1">
+              <Label className="cursor-pointer text-[10px] md:text-xs font-medium">{label}</Label>
+              <p className="text-[9px] md:text-[10px] text-gray-500">{sub}</p>
+            </div>
+            <input 
+              type="checkbox" 
+              checked={(formData as any)[key]}
+              onChange={e => { const c = e.target.checked; setFormData((p: RoomFormData) => ({ ...p, [key]: c })); }}
+              className="h-4 w-4 md:h-5 md:w-5"
+              disabled={roomLimitReached}
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+</TabsContent>
 
             {/* ══════════ TAB 4 — PHOTOS ══════════ */}
             <TabsContent value="photos" className="mt-0 space-y-2 md:space-y-3">

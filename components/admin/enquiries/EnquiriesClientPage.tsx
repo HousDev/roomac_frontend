@@ -663,7 +663,7 @@ const handleBulkDelete = async () => {
 
         {/* Stats */}
         {stats && (
-          <div className="mb-9 mt-0 sticky top-32 z-10">
+          <div className="mb-9 mt-0 sticky top-36 z-10">
             <div className="enquiries-stats-compact">
               <EnquiriesStats stats={stats} />
             </div>
@@ -681,7 +681,7 @@ const handleBulkDelete = async () => {
         </div>
 
         {/* Enquiries Table */}
-        <Card className="border rounded-lg md:-mt-6 sticky top-80 z-10">
+        <Card className="border rounded-lg md:-mt-12 sticky top-80 z-10">
           <CardHeader className="bg-white border-b p-2 sm:p-4">
             <div className="flex flex-row justify-between items-center gap-2">
               <CardTitle className="text-base sm:text-lg font-semibold whitespace-nowrap">
