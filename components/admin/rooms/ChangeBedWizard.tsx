@@ -585,15 +585,7 @@ export function ChangeBedWizard({ tenantId, tenantName, open, onOpenChange, onSu
     const stepComponents = {
       'reason': (
         <div className="space-y-4">
-          <div className="text-center mb-4">
-            <div className="w-14 h-14 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3">
-              <MessageSquare className="h-6 w-6 text-blue-600" />
-            </div>
-            <h3 className="text-lg font-bold text-gray-800">Why change bed?</h3>
-            <p className="text-sm text-gray-600 mt-1">
-              Select the reason for {tenantName}'s bed change
-            </p>
-          </div>
+         
           
           <div className="space-y-2">
             <Label className="text-sm font-medium flex items-center gap-2">
@@ -638,15 +630,7 @@ export function ChangeBedWizard({ tenantId, tenantName, open, onOpenChange, onSu
 
       'sharing': (
         <div className="space-y-4">
-          <div className="text-center mb-3">
-            <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-2">
-              <Users className="h-4 w-4 text-green-600" />
-            </div>
-            <h3 className="text-base font-bold text-gray-800">Sharing Type</h3>
-            <p className="text-xs text-gray-500 mt-1">
-              Select room sharing preference
-            </p>
-          </div>
+          
           
           <div className="space-y-2">
             <Label className="text-xs font-medium flex items-center gap-1.5 mb-1">
@@ -656,7 +640,7 @@ export function ChangeBedWizard({ tenantId, tenantName, open, onOpenChange, onSu
             <RadioGroup 
               value={selectedSharingType} 
               onValueChange={setSelectedSharingType}
-              className="grid grid-cols-2 gap-2"
+              className="grid grid-cols-3 gap-2"
             >
               {sharingTypes.map(type => (
                 <div key={type.value}>
@@ -701,15 +685,7 @@ export function ChangeBedWizard({ tenantId, tenantName, open, onOpenChange, onSu
 
       'room': (
         <div className="space-y-4">
-          <div className="text-center mb-4">
-            <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-3">
-              <DoorOpen className="h-5 w-5 text-purple-600" />
-            </div>
-            <h3 className="text-md font-bold text-gray-800">Select New Room</h3>
-            <p className="text-sm text-gray-600 mt-1">
-              Choose a compatible room with available beds
-            </p>
-          </div>
+          
           
           {/* Current Room Preview */}
           {currentAssignment && (
@@ -927,15 +903,7 @@ export function ChangeBedWizard({ tenantId, tenantName, open, onOpenChange, onSu
 
       'bed': (
         <div className="space-y-4">
-          <div className="text-center mb-4">
-            <div className="w-14 h-14 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-3">
-              <Bed className="h-6 w-6 text-amber-600" />
-            </div>
-            <h3 className="text-md font-bold text-gray-800">Select Bed</h3>
-            <p className="text-sm text-gray-600 mt-1">
-              Choose an available bed in the selected room
-            </p>
-          </div>
+         
           
           {/* Selected Room Details */}
           {renderRoomDetails()}
@@ -1008,15 +976,7 @@ export function ChangeBedWizard({ tenantId, tenantName, open, onOpenChange, onSu
 
       'date': (
         <div className="space-y-4">
-          <div className="text-center mb-4">
-            <div className="w-14 h-14 bg-cyan-100 rounded-full flex items-center justify-center mx-auto mb-3">
-              <CalendarIcon className="h-5 w-5 text-cyan-600" />
-            </div>
-            <h3 className="text-md font-bold text-gray-800">Shifting Date</h3>
-            <p className="text-sm text-gray-600 mt-1">
-              When will {tenantName} move to the new bed?
-            </p>
-          </div>
+          
           
           <div className="grid grid-cols-2 gap-4">
             {/* Current Room */}
@@ -1129,15 +1089,7 @@ export function ChangeBedWizard({ tenantId, tenantName, open, onOpenChange, onSu
 
       'rent': (
         <div className="space-y-4">
-          <div className="text-center mb-4">
-            <div className="w-14 h-14 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-3">
-              <IndianRupee className="h-5 w-5 text-emerald-600" />
-            </div>
-            <h3 className="text-md font-bold text-gray-800">Rent Change Preview</h3>
-            <p className="text-sm text-gray-600 mt-1">
-              Review the rent difference before proceeding
-            </p>
-          </div>
+          
           
           {rentDifference && (
             <Card className={cn(
@@ -1263,15 +1215,7 @@ export function ChangeBedWizard({ tenantId, tenantName, open, onOpenChange, onSu
 
       'confirm': (
         <div className="space-y-4">
-          <div className="text-center mb-4">
-            <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
-              <ShieldCheck className="h-5 w-5 text-green-600" />
-            </div>
-            <h3 className="text-md font-bold text-gray-800">Confirm Changes</h3>
-            <p className="text-sm text-gray-600 mt-1">
-              Review all details before finalizing the change
-            </p>
-          </div>
+         
           
           <div className="grid grid-cols-2 gap-4">
             {/* Current Assignment */}
