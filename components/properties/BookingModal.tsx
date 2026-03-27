@@ -500,8 +500,8 @@ const [loadingTerms, setLoadingTerms] = useState(false);
 
   // Add this function to combine first and last name for backend
 const combineFullName = useCallback(() => {
-  const firstName = formData.firstName.trim();
-  const lastName = formData.lastName.trim();
+  const firstName = (formData.firstName || '').trim();
+  const lastName = (formData.lastName || '').trim();
   
   if (firstName && lastName) {
     return `${firstName} ${lastName}`;
