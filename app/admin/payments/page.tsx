@@ -38,6 +38,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { listTenants, type Tenant } from '@/lib/tenantApi';
 import * as paymentApi from '@/lib/paymentRecordApi';
 import { getSettings, type SettingsData } from "@/lib/settingsApi";
+import { getPaymentRejectionReasons } from '@/lib/masterApi';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem } from '@radix-ui/react-dropdown-menu';
 
 // Types
@@ -128,6 +129,8 @@ const [loadingSettings, setLoadingSettings] = useState(false);
 // ===== ADD THIS AFTER YOUR EXISTING useState DECLARATIONS (around line 100-120) =====
 const [sortField, setSortField] = useState<keyof any>('payment_date');
 const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+const [rejectionReasons, setRejectionReasons] = useState<any[]>([]);
+const [selectedRejectionCategory, setSelectedRejectionCategory] = useState<string>('');
 const [columnFilters, setColumnFilters] = useState({
   payment_date: '',
   tenant_name: '',
@@ -217,6 +220,7 @@ const [columnFilters, setColumnFilters] = useState({
       setLoading(false);
     }
   };
+  
 
   // In the main component, add useEffect to clear highlight after some time
 useEffect(() => {
@@ -664,6 +668,24 @@ const handleConfirmApprove = async () => {
   }
 };
 
+// Add useEffect to fetch rejection reasons
+useEffect(() => {
+  fetchRejectionReasons();
+}, []);
+
+// Function to fetch rejection reasons
+const fetchRejectionReasons = async () => {
+  try {
+    const response = await getPaymentRejectionReasons();
+    if (response.success) {
+      setRejectionReasons(response.data);
+    } 
+  } catch (error) {
+    console.error('Error fetching rejection reasons:', error);
+  }
+};
+
+// Update handleRejectPayment function
 const handleRejectPayment = async () => {
   if (!rejectionReason.trim()) {
     toast.error('Please provide a rejection reason');
@@ -672,13 +694,19 @@ const handleRejectPayment = async () => {
   
   setActionLoading(true);
   try {
-    const response = await paymentApi.rejectPayment(selectedPayment.id, rejectionReason, 1); // Replace 1 with actual user ID
+    const response = await paymentApi.rejectPayment(
+      selectedPayment.id, 
+      rejectionReason, 
+      selectedRejectionCategory ? parseInt(selectedRejectionCategory) : null,
+      1
+    );
     if (response.success) {
       toast.success('Payment rejected successfully');
       setIsRejectDialogOpen(false);
       setSelectedPayment(null);
       setRejectionReason('');
-      await loadData(); // Refresh data
+      setSelectedRejectionCategory('');
+      await loadData();
     } else {
       toast.error(response.message || 'Failed to reject payment');
     }
@@ -726,6 +754,8 @@ const handleUpdatePayment = async (updatedData: any) => {
     setActionLoading(false);
   }
 };
+
+
 
 // Add this function in your PaymentsPage component
 const groupPaymentsByTenant = (payments: any[]) => {
@@ -814,6 +844,15 @@ const contactEmail = settings['contact_email']?.value || '';
     return tenant?.phone || '';
   };
   
+  const getTenantSalutation = (tenantId: number) => {
+  const tenant = tenants.find(t => t.id === tenantId);
+  return tenant?.salutation || '';
+};
+
+const getTenantCountryCode = (tenantId: number) => {
+  const tenant = tenants.find(t => t.id === tenantId);
+  return tenant?.country_code || '+91';
+};
 
   // ===== ADD THIS AFTER YOUR EXISTING FUNCTIONS (around line 200) =====
 const handleSort = (field: keyof any) => {
@@ -1234,6 +1273,9 @@ const handleUpdateDemandStatus = async (demandId: number, newStatus: string) => 
     setFilters={setFilters}
     getTenantName={getTenantName}
     getTenantPhone={getTenantPhone}
+    getTenantSalutation={getTenantSalutation}  // This requires the function to be defined
+  getTenantCountryCode={getTenantCountryCode} // This requires the function to be defined
+  tenants={tenants}   
     onApprove={handleApproveClick}
     onReject={(payment) => {
       setSelectedPayment(payment);
@@ -1276,16 +1318,14 @@ const handleUpdateDemandStatus = async (demandId: number, newStatus: string) => 
 
           {/* Demands Tab Content */}
           {/* Demands Tab Content */}
+{/* Demands Tab Content */}
 <TabsContent value="demands" className="mt-0">
   <Card className="border-0 shadow-sm overflow-hidden">
-    
-
     <CardContent className="p-0">
-      {/* Demand Filters - Moved inside table header */}
       <div className="relative">
         <div className="overflow-auto max-h-[calc(100vh-420px)]">
           <Table>
-            {/* COMPACT HEADER WITH SEARCH BARS - LIKE PAYMENTS TABLE */}
+            {/* COMPACT HEADER WITH SEARCH BARS */}
             <TableHeader className="sticky top-0 z-20 bg-gray-200 border-b border-gray-300">
               <TableRow className="hover:bg-transparent">
                 {/* Date Column */}
@@ -1301,8 +1341,8 @@ const handleUpdateDemandStatus = async (demandId: number, newStatus: string) => 
                   </div>
                 </TableHead>
 
-                {/* Tenant Column */}
-                <TableHead className="w-[160px] py-2 px-2 bg-gray-200">
+                {/* Tenant Column - Updated with salutation and phone */}
+                <TableHead className="w-[200px] py-2 px-2 bg-gray-200">
                   <div className="flex flex-col gap-1">
                     <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Tenant</span>
                     <Input
@@ -1384,7 +1424,7 @@ const handleUpdateDemandStatus = async (demandId: number, newStatus: string) => 
               </TableRow>
             </TableHeader>
 
-            {/* EXISTING TABLE BODY - UNCHANGED */}
+            {/* TABLE BODY - Updated with salutation and country code */}
             <TableBody>
               {loading ? (
                 <TableRow>
@@ -1403,48 +1443,64 @@ const handleUpdateDemandStatus = async (demandId: number, newStatus: string) => 
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredDemands.map((demand) => (
-                  <TableRow key={demand.id} className="hover:bg-slate-50">
-                    <TableCell className="py-2 text-xs whitespace-nowrap">
-                      {format(new Date(demand.created_at), 'dd/MM/yy')}
-                    </TableCell>
-                    <TableCell className="py-2">
-                      <p className="text-xs font-medium">{getTenantName(demand.tenant_id)}</p>
-                      <p className="text-[10px] text-slate-500">{getTenantPhone(demand.tenant_id)}</p>
-                    </TableCell>
-                    <TableCell className="py-2 text-xs font-medium">
-                      ₹{Number(demand.amount).toLocaleString('en-IN')}
-                    </TableCell>
-                    <TableCell className="py-2 text-xs whitespace-nowrap">
-                      <span className={new Date(demand.due_date) < new Date() && demand.status === 'pending' ? 'text-red-600 font-medium' : ''}>
-                        {format(new Date(demand.due_date), 'dd/MM/yy')}
-                      </span>
-                    </TableCell>
-                    <TableCell className="py-2">
-                      {getDemandStatusBadge(demand.status)}
-                    </TableCell>
-                    <TableCell className="py-2 text-xs">
-                      {demand.room_number || 'N/A'} {demand.bed_number ? `(B-${demand.bed_number})` : ''}
-                    </TableCell>
-                    <TableCell className="py-2">
-                      <Select
-                        value={demand.status}
-                        onValueChange={(newStatus) => handleUpdateDemandStatus(demand.id, newStatus)}
-                      >
-                        <SelectTrigger className="h-7 w-24 text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="pending">Pending</SelectItem>
-                          <SelectItem value="paid">Paid</SelectItem>
-                          <SelectItem value="partial">Partial</SelectItem>
-                          <SelectItem value="overdue">Overdue</SelectItem>
-                          <SelectItem value="cancelled">Cancelled</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </TableCell>
-                  </TableRow>
-                ))
+                filteredDemands.map((demand) => {
+                  // Get salutation and country code for this tenant
+                  const salutation = getTenantSalutation(demand.tenant_id);
+                  const countryCode = getTenantCountryCode(demand.tenant_id);
+                  const phone = getTenantPhone(demand.tenant_id);
+                  const tenantName = getTenantName(demand.tenant_id);
+                  
+                  return (
+                    <TableRow key={demand.id} className="hover:bg-slate-50">
+                      <TableCell className="py-2 text-xs whitespace-nowrap">
+                        {format(new Date(demand.created_at), 'dd/MM/yy')}
+                      </TableCell>
+                      <TableCell className="py-2">
+                        {/* Show salutation + full name */}
+                        <p className="text-xs font-medium">
+                          {salutation ? `${salutation} ` : ''}{tenantName}
+                        </p>
+                        {/* Show country code + phone number */}
+                        {phone && (
+                          <p className="text-[10px] text-slate-500">
+                            {countryCode || '+91'} {phone}
+                          </p>
+                        )}
+                      </TableCell>
+                      <TableCell className="py-2 text-xs font-medium">
+                        ₹{Number(demand.amount).toLocaleString('en-IN')}
+                      </TableCell>
+                      <TableCell className="py-2 text-xs whitespace-nowrap">
+                        <span className={new Date(demand.due_date) < new Date() && demand.status === 'pending' ? 'text-red-600 font-medium' : ''}>
+                          {format(new Date(demand.due_date), 'dd/MM/yy')}
+                        </span>
+                      </TableCell>
+                      <TableCell className="py-2">
+                        {getDemandStatusBadge(demand.status)}
+                      </TableCell>
+                      <TableCell className="py-2 text-xs">
+                        {demand.room_number || 'N/A'} {demand.bed_number ? `(B-${demand.bed_number})` : ''}
+                      </TableCell>
+                      <TableCell className="py-2">
+                        <Select
+                          value={demand.status}
+                          onValueChange={(newStatus) => handleUpdateDemandStatus(demand.id, newStatus)}
+                        >
+                          <SelectTrigger className="h-7 w-24 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="pending">Pending</SelectItem>
+                            <SelectItem value="paid">Paid</SelectItem>
+                            <SelectItem value="partial">Partial</SelectItem>
+                            <SelectItem value="overdue">Overdue</SelectItem>
+                            <SelectItem value="cancelled">Cancelled</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>
@@ -1459,7 +1515,10 @@ const handleUpdateDemandStatus = async (demandId: number, newStatus: string) => 
             <ReceiptsTable
               receipts={receipts}
               loading={loading}
-              getTenantName={getTenantName}
+              getTenantName={getTenantName} getTenantSalutation={getTenantSalutation}  // ADD THIS
+    getTenantCountryCode={getTenantCountryCode} // ADD THIS
+    getTenantPhone={getTenantPhone}
+    tenants={tenants} 
               highlightedReceipt={highlightedReceipt}
     onPreviewReceipt={handlePreviewReceipt}
     onDownloadReceipt={paymentApi.downloadReceipt}
@@ -2051,6 +2110,7 @@ const handleUpdateDemandStatus = async (demandId: number, newStatus: string) => 
 </Dialog>
 
       {/* Reject Payment Dialog */}
+{/* Reject Payment Dialog - Updated with category selector */}
 <Dialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
   <DialogContent className="max-w-md">
     <DialogHeader>
@@ -2059,19 +2119,49 @@ const handleUpdateDemandStatus = async (demandId: number, newStatus: string) => 
         Reject Payment
       </DialogTitle>
       <DialogDescription>
-        Are you sure you want to reject this payment? Please provide a reason.
+        Are you sure you want to reject this payment? Please select a reason category and provide details.
       </DialogDescription>
     </DialogHeader>
     
-    <div className="py-4">
-      <Label className="text-xs font-medium text-slate-700">Rejection Reason *</Label>
-      <Textarea
-        placeholder="Enter reason for rejection..."
-        value={rejectionReason}
-        onChange={(e) => setRejectionReason(e.target.value)}
-        rows={3}
-        className="mt-1"
-      />
+    <div className="py-4 space-y-4">
+      {/* Reason Category Dropdown */}
+      <div>
+        <Label className="text-xs font-medium text-slate-700 mb-1 block">
+          Rejection Category *
+        </Label>
+        <Select 
+          value={selectedRejectionCategory} 
+          onValueChange={setSelectedRejectionCategory}
+        >
+          <SelectTrigger className="h-9 text-sm">
+            <SelectValue placeholder="Select rejection category..." />
+          </SelectTrigger>
+          <SelectContent>
+            {rejectionReasons.map((reason) => (
+              <SelectItem key={reason.id} value={reason.id.toString()}>
+                {reason.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Detailed Reason Textarea */}
+      <div>
+        <Label className="text-xs font-medium text-slate-700 mb-1 block">
+          Detailed Reason *
+        </Label>
+        <Textarea
+          placeholder="Please provide detailed reason for rejection..."
+          value={rejectionReason}
+          onChange={(e) => setRejectionReason(e.target.value)}
+          rows={3}
+          className="mt-1"
+        />
+        <p className="text-[10px] text-slate-400 mt-1">
+          This detailed reason will be shown to the tenant
+        </p>
+      </div>
       
       {selectedPayment && (
         <div className="mt-3 p-3 bg-slate-50 rounded-lg">
@@ -2093,13 +2183,14 @@ const handleUpdateDemandStatus = async (demandId: number, newStatus: string) => 
           setIsRejectDialogOpen(false);
           setSelectedPayment(null);
           setRejectionReason('');
+          setSelectedRejectionCategory('');
         }}
       >
         Cancel
       </Button>
       <Button
         onClick={handleRejectPayment}
-        disabled={actionLoading || !rejectionReason.trim()}
+        disabled={actionLoading || !rejectionReason.trim() || !selectedRejectionCategory}
         className="bg-red-600 hover:bg-red-700 text-white"
       >
         {actionLoading ? (
@@ -2541,6 +2632,7 @@ const PaymentStatusBadge = ({ status }: { status: string }) => {
 // ===== REPLACE THE ENTIRE PaymentsTable COMPONENT WITH THIS (around line 1400-1800) =====
 // Payments Table Component - Compact like maintenance
 // Payments Table Component - Maintenance style header with search bars
+// Update the PaymentsTable component - modify the Tenant column section
 const PaymentsTable = ({ 
   payments, 
   loading, 
@@ -2548,6 +2640,9 @@ const PaymentsTable = ({
   setFilters, 
   getTenantName, 
   getTenantPhone, 
+  getTenantSalutation,   // RECEIVE as prop
+  getTenantCountryCode,  // RECEIVE as prop
+  tenants,               // RECEIVE as prop
   onApprove,
   onReject,
   onEdit,
@@ -2567,167 +2662,167 @@ const PaymentsTable = ({
   sortDirection
 }: any) => {
   
+  
+  
   // Group payments by tenant using the passed function
-  const tenantGroups = groupPaymentsByTenant ? groupPaymentsByTenant(payments) : [];
+  const tenantGroups = groupPaymentsByTenant(payments).map((group: any) => ({
+    ...group,
+    salutation: getTenantSalutation(group.tenant_id),
+    country_code: getTenantCountryCode(group.tenant_id)
+  }));
 
   // Filter groups based on column filters
- // Filter groups based on column filters
-// Filter groups based on column filters
-const filteredGroups = tenantGroups.filter((group: any) => {
-  // Filter by tenant name
-  if (columnFilters?.tenant_name && !group.tenant_name.toLowerCase().includes(columnFilters.tenant_name.toLowerCase())) {
-    return false;
-  }
-  
-  // Filter by payment count
-  if (columnFilters?.payment_count) {
-    const count = parseInt(columnFilters.payment_count);
-    if (!isNaN(count) && group.payment_count !== count) {
-      return false;
-    }
-  }
-  
-  // ===== REPLACE THIS AMOUNT FILTER SECTION =====
-  // Filter by total amount - CONTAINS search (if type "7", show 7000, 750, etc.)
-  if (columnFilters?.amount) {
-    const searchAmount = columnFilters.amount.trim();
-    if (searchAmount) {
-      // Convert group total to string and check if it includes the search string
-      const amountString = group.total_amount.toString();
-      if (!amountString.includes(searchAmount)) {
+  const filteredGroups = tenantGroups.filter((group: any) => {
+    // Filter by tenant name (including salutation)
+    if (columnFilters?.tenant_name) {
+      const fullName = `${group.salutation} ${group.tenant_name}`.toLowerCase();
+      if (!fullName.includes(columnFilters.tenant_name.toLowerCase())) {
         return false;
       }
     }
-  }
-  // ===== END OF REPLACEMENT =====
-  
-  // Filter by status
-  if (columnFilters?.status && columnFilters.status !== 'all') {
-    if (columnFilters.status === 'approved' && group.approved_count === 0) return false;
-    if (columnFilters.status === 'pending' && group.pending_count === 0) return false;
-    if (columnFilters.status === 'rejected' && group.rejected_count === 0) return false;
-  }
-  
-  // Filter by last payment date - CONTAINS search
-  if (columnFilters?.payment_date && group.last_payment_date) {
-    const searchDate = columnFilters.payment_date;
-    const groupDate = format(new Date(group.last_payment_date), 'dd/MM/yy');
     
-    // Check if the search string appears in the formatted date
-    if (!groupDate.includes(searchDate)) {
-      return false;
+    // Filter by payment count
+    if (columnFilters?.payment_count) {
+      const count = parseInt(columnFilters.payment_count);
+      if (!isNaN(count) && group.payment_count !== count) {
+        return false;
+      }
     }
-  }
-  
-  return true;
-});
+    
+    // Filter by total amount
+    if (columnFilters?.amount) {
+      const searchAmount = columnFilters.amount.trim();
+      if (searchAmount) {
+        const amountString = group.total_amount.toString();
+        if (!amountString.includes(searchAmount)) {
+          return false;
+        }
+      }
+    }
+    
+    // Filter by status
+    if (columnFilters?.status && columnFilters.status !== 'all') {
+      if (columnFilters.status === 'approved' && group.approved_count === 0) return false;
+      if (columnFilters.status === 'pending' && group.pending_count === 0) return false;
+      if (columnFilters.status === 'rejected' && group.rejected_count === 0) return false;
+    }
+    
+    // Filter by last payment date
+    if (columnFilters?.payment_date && group.last_payment_date) {
+      const searchDate = columnFilters.payment_date;
+      const groupDate = format(new Date(group.last_payment_date), 'dd/MM/yy');
+      if (!groupDate.includes(searchDate)) {
+        return false;
+      }
+    }
+    
+    return true;
+  });
 
   return (
-    <Card className="border-0  overflow-hidden">
-     
-
+    <Card className="border-0 overflow-hidden">
       <div className="relative">
         <div className="overflow-auto max-h-[calc(100vh-250px)] md:max-h-[calc(100vh-380px)]">
           <Table>
-          
-<TableHeader className="sticky top-0 z-20 bg-gray-200 border-b border-gray-300">
-  <TableRow className="hover:bg-transparent">
-    {/* Expand */}
-    <TableHead className="w-6 py-2 px-1 bg-gray-200">
-    </TableHead>
+            <TableHeader className="sticky top-0 z-20 bg-gray-200 border-b border-gray-300">
+              <TableRow className="hover:bg-transparent">
+                {/* Expand Column */}
+                <TableHead className="w-6 py-2 px-1 bg-gray-200">
+                </TableHead>
 
-    {/* Tenant */}
-    <TableHead className="w-[160px] py-2 px-2 bg-gray-200">
-      <div className="flex flex-col gap-1">
-        <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort?.('tenant_name')}>
-          <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Tenant</span>
-          <ArrowUpDown className="h-2.5 w-2.5 text-gray-500" />
-        </div>
-        <Input
-          placeholder="Search tenant..."
-          className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
-          value={columnFilters?.tenant_name || ''}
-          onChange={(e) => setColumnFilters?.({ ...columnFilters, tenant_name: e.target.value })}
-        />
-      </div>
-    </TableHead>
+                {/* Tenant Column - Updated with salutation filter */}
+                <TableHead className="w-[200px] py-2 px-2 bg-gray-200">
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort?.('tenant_name')}>
+                      <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Tenant</span>
+                      <ArrowUpDown className="h-2.5 w-2.5 text-gray-500" />
+                    </div>
+                    <Input
+                      placeholder="Search name..."
+                      className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
+                      value={columnFilters?.tenant_name || ''}
+                      onChange={(e) => setColumnFilters?.({ ...columnFilters, tenant_name: e.target.value })}
+                    />
+                  </div>
+                </TableHead>
 
-    {/* CNT */}
-    <TableHead className="w-[55px] py-2 px-2 bg-gray-200 text-center">
-      <div className="flex flex-col gap-1 items-center">
-        <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">CNT</span>
-        <Input
-          placeholder="#"
-          type="number"
-          className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1 text-center font-normal w-full"
-          value={columnFilters?.payment_count || ''}
-          onChange={(e) => setColumnFilters?.({ ...columnFilters, payment_count: e.target.value })}
-        />
-      </div>
-    </TableHead>
+                {/* CNT Column */}
+                <TableHead className="w-[55px] py-2 px-2 bg-gray-200 text-center">
+                  <div className="flex flex-col gap-1 items-center">
+                    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">CNT</span>
+                    <Input
+                      placeholder="#"
+                      type="number"
+                      className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1 text-center font-normal w-full"
+                      value={columnFilters?.payment_count || ''}
+                      onChange={(e) => setColumnFilters?.({ ...columnFilters, payment_count: e.target.value })}
+                    />
+                  </div>
+                </TableHead>
 
-    {/* Amount */}
-    <TableHead className="w-[110px] py-2 px-2 bg-gray-200 text-right">
-      <div className="flex flex-col gap-1 items-end">
-        <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort?.('total_amount')}>
-          <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Amount</span>
-          <ArrowUpDown className="h-2.5 w-2.5 text-gray-500" />
-        </div>
-        <Input
-          placeholder="Search amount..."
-          type="number"
-          className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 text-left font-normal w-full"
-          value={columnFilters?.amount || ''}
-          onChange={(e) => setColumnFilters?.({ ...columnFilters, amount: e.target.value })}
-        />
-      </div>
-    </TableHead>
+                {/* Amount Column */}
+                <TableHead className="w-[110px] py-2 px-2 bg-gray-200 text-right">
+                  <div className="flex flex-col gap-1 items-end">
+                    <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort?.('total_amount')}>
+                      <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Amount</span>
+                      <ArrowUpDown className="h-2.5 w-2.5 text-gray-500" />
+                    </div>
+                    <Input
+                      placeholder="Search amount..."
+                      type="number"
+                      className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 text-left font-normal w-full"
+                      value={columnFilters?.amount || ''}
+                      onChange={(e) => setColumnFilters?.({ ...columnFilters, amount: e.target.value })}
+                    />
+                  </div>
+                </TableHead>
 
-    {/* Status */}
-    <TableHead className="w-[100px] py-2 px-2 bg-gray-200">
-      <div className="flex flex-col gap-1">
-        <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort?.('status')}>
-          <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Status</span>
-          <ArrowUpDown className="h-2.5 w-2.5 text-gray-500" />
-        </div>
-        <Select
-          value={columnFilters?.status || 'all'}
-          onValueChange={(value) => setColumnFilters?.({ ...columnFilters, status: value })}
-        >
-          <SelectTrigger className="h-6 text-[10px] bg-white border-gray-300 px-2 font-normal w-full">
-            <SelectValue placeholder="All" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all" className="text-xs">All</SelectItem>
-            <SelectItem value="approved" className="text-xs">Approved</SelectItem>
-            <SelectItem value="pending" className="text-xs">Pending</SelectItem>
-            <SelectItem value="rejected" className="text-xs">Rejected</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-    </TableHead>
+                {/* Status Column */}
+                <TableHead className="w-[100px] py-2 px-2 bg-gray-200">
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort?.('status')}>
+                      <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Status</span>
+                      <ArrowUpDown className="h-2.5 w-2.5 text-gray-500" />
+                    </div>
+                    <Select
+                      value={columnFilters?.status || 'all'}
+                      onValueChange={(value) => setColumnFilters?.({ ...columnFilters, status: value })}
+                    >
+                      <SelectTrigger className="h-6 text-[10px] bg-white border-gray-300 px-2 font-normal w-full">
+                        <SelectValue placeholder="All" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all" className="text-xs">All</SelectItem>
+                        <SelectItem value="approved" className="text-xs">Approved</SelectItem>
+                        <SelectItem value="pending" className="text-xs">Pending</SelectItem>
+                        <SelectItem value="rejected" className="text-xs">Rejected</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </TableHead>
 
-    {/* Last Pay */}
-    <TableHead className="w-[100px] py-2 px-2 bg-gray-200">
-      <div className="flex flex-col gap-1">
-        <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Last Pay</span>
-        <Input
-          placeholder="dd/mm/yy"
-          type="text"
-          className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
-          value={columnFilters?.payment_date || ''}
-          onChange={(e) => setColumnFilters?.({ ...columnFilters, payment_date: e.target.value })}
-        />
-      </div>
-    </TableHead>
+                {/* Last Pay Column */}
+                <TableHead className="w-[100px] py-2 px-2 bg-gray-200">
+                  <div className="flex flex-col gap-1">
+                    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Last Pay</span>
+                    <Input
+                      placeholder="dd/mm/yy"
+                      type="text"
+                      className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
+                      value={columnFilters?.payment_date || ''}
+                      onChange={(e) => setColumnFilters?.({ ...columnFilters, payment_date: e.target.value })}
+                    />
+                  </div>
+                </TableHead>
 
-    {/* Actions */}
-    <TableHead className="w-[50px] py-2 px-2 bg-gray-200 text-center">
-      <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Actions</span>
-    </TableHead>
-  </TableRow>
-</TableHeader>
-            {/* EXISTING TABLE BODY - UNCHANGED */}
+                {/* Actions Column */}
+                <TableHead className="w-[50px] py-2 px-2 bg-gray-200 text-center">
+                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Actions</span>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            
+            {/* Table Body */}
             <TableBody>
               {loading ? (
                 <TableRow>
@@ -2756,7 +2851,7 @@ const filteredGroups = tenantGroups.filter((group: any) => {
                   
                   return (
                     <Fragment key={group.tenant_id}>
-                      {/* Parent Row - Beautiful Tenant Card */}
+                      {/* Parent Row - Tenant Card with Salutation and Country Code */}
                       <TableRow 
                         className={`
                           group cursor-pointer transition-all duration-200
@@ -2783,8 +2878,14 @@ const filteredGroups = tenantGroups.filter((group: any) => {
                               {group.tenant_name?.charAt(0).toUpperCase()}
                             </div>
                             <div>
-                              <p className="text-sm font-medium text-slate-800">{group.tenant_name}</p>
-                              <p className="text-xs text-slate-500">{group.tenant_phone}</p>
+                              {/* Show salutation + full name */}
+                              <p className="text-sm font-medium text-slate-800">
+                                {group.salutation ? `${group.salutation} ` : ''}{group.tenant_name}
+                              </p>
+                              {/* Show country code + phone number */}
+                              <p className="text-xs text-slate-500">
+                                {group.country_code || '+91'} {group.tenant_phone}
+                              </p>
                             </div>
                           </div>
                         </TableCell>
@@ -2853,7 +2954,7 @@ const filteredGroups = tenantGroups.filter((group: any) => {
                         </TableCell>
                       </TableRow>
                       
-                      {/* Expanded Child Row - Payment Details */}
+                      {/* Expanded Child Row - Payment Details (unchanged) */}
                       {isExpanded && (
                         <TableRow className="bg-blue-50/30">
                           <TableCell colSpan={7} className="p-0 border-t-0">
@@ -2960,7 +3061,7 @@ const filteredGroups = tenantGroups.filter((group: any) => {
                                                   <Pencil className="h-3 w-3" />
                                                 </Button>
                                               )}
-                                              <Button
+                                              {(payment.status === 'pending') && (<Button
                                                 size="sm"
                                                 variant="ghost"
                                                 className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-full"
@@ -2968,7 +3069,7 @@ const filteredGroups = tenantGroups.filter((group: any) => {
                                                 title="Delete"
                                               >
                                                 <Trash2 className="h-3 w-3" />
-                                              </Button>
+                                              </Button>)}
                                             </div>
                                           </TableCell>
                                         </TableRow>
@@ -2996,10 +3097,14 @@ const filteredGroups = tenantGroups.filter((group: any) => {
 
 // Receipts Table Component
 // Receipts Table Component - Compact like payments table with search bars
+// Receipts Table Component - Updated to work with receipt data
 const ReceiptsTable = ({ 
   receipts, 
   loading, 
-  getTenantName,
+  getTenantSalutation,  // Keep this
+  getTenantCountryCode, // Keep this
+  getTenantPhone,       // Keep this
+  tenants,              // ADD THIS - pass tenants array
   highlightedReceipt,
   onPreviewReceipt,
   onDownloadReceipt
@@ -3013,113 +3118,135 @@ const ReceiptsTable = ({
     room: ''
   });
 
+  // Enhance receipts with salutation and country code
+  const enhancedReceipts = receipts.map((receipt: any) => {
+    // Find the tenant by ID if available, or by name as fallback
+    let tenant = null;
+    
+    // Try to find by tenant_id if it exists
+    if (receipt.tenant_id) {
+      tenant = tenants.find((t: any) => t.id === receipt.tenant_id);
+    }
+    
+    // If not found by ID, try to find by name
+    if (!tenant && receipt.tenant_name) {
+      tenant = tenants.find((t: any) => t.full_name === receipt.tenant_name);
+    }
+    
+    return {
+      ...receipt,
+      salutation: tenant?.salutation || '',
+      country_code: tenant?.country_code || '+91',
+      phone: tenant?.phone || receipt.tenant_phone || ''
+    };
+  });
+
   // Filter receipts based on column filters
-  // Filter receipts based on column filters
-const filteredReceipts = receipts.filter((receipt: any) => {
-  const matchesDate = !receiptFilters.date || 
-    format(new Date(receipt.payment_date), 'dd/MM/yy').includes(receiptFilters.date);
-  
-  const matchesTenant = !receiptFilters.tenant || 
-    (receipt.tenant_name && receipt.tenant_name.toLowerCase().includes(receiptFilters.tenant.toLowerCase()));
-  
-  const matchesAmount = !receiptFilters.amount || 
-    (receipt.amount && receipt.amount.toString().includes(receiptFilters.amount));
-  
-  const matchesMethod = !receiptFilters.method || 
-    (receipt.payment_mode && receipt.payment_mode.toLowerCase().includes(receiptFilters.method.toLowerCase())) ||
-    (receipt.bank_name && receipt.bank_name.toLowerCase().includes(receiptFilters.method.toLowerCase()));
-  
-  const matchesRoom = !receiptFilters.room || 
-    (receipt.room_number && receipt.room_number.toString().toLowerCase().includes(receiptFilters.room.toLowerCase())) ||
-    (receipt.bed_number && receipt.bed_number.toString().includes(receiptFilters.room));
-  
-  return matchesDate && matchesTenant && matchesAmount && matchesMethod && matchesRoom;
-});
+  const filteredReceipts = enhancedReceipts.filter((receipt: any) => {
+    const matchesDate = !receiptFilters.date || 
+      format(new Date(receipt.payment_date), 'dd/MM/yy').includes(receiptFilters.date);
+    
+    const fullName = `${receipt.salutation} ${receipt.tenant_name}`.toLowerCase();
+    const matchesTenant = !receiptFilters.tenant || 
+      fullName.includes(receiptFilters.tenant.toLowerCase()) ||
+      receipt.tenant_name.toLowerCase().includes(receiptFilters.tenant.toLowerCase());
+    
+    const matchesAmount = !receiptFilters.amount || 
+      (receipt.amount && receipt.amount.toString().includes(receiptFilters.amount));
+    
+    const matchesMethod = !receiptFilters.method || 
+      (receipt.payment_mode && receipt.payment_mode.toLowerCase().includes(receiptFilters.method.toLowerCase())) ||
+      (receipt.bank_name && receipt.bank_name.toLowerCase().includes(receiptFilters.method.toLowerCase()));
+    
+    const matchesRoom = !receiptFilters.room || 
+      (receipt.room_number && receipt.room_number.toString().toLowerCase().includes(receiptFilters.room.toLowerCase())) ||
+      (receipt.bed_number && receipt.bed_number.toString().includes(receiptFilters.room));
+    
+    return matchesDate && matchesTenant && matchesAmount && matchesMethod && matchesRoom;
+  });
 
   return (
-    <Card className="border-0  overflow-hidden">
-  
-
+    <Card className="border-0 overflow-hidden">
       <div className="relative">
         <div className="overflow-auto max-h-[calc(100vh-380px)]">
           <Table>
-            {/* COMPACT HEADER WITH SEARCH BARS - LIKE PAYMENTS TABLE */}
-         <TableHeader className="sticky top-0 z-20 bg-gray-200 border-b border-gray-300">
-  <TableRow className="hover:bg-transparent">
-    {/* Date Column */}
-    <TableHead className="w-[90px] py-2 px-2 bg-gray-200">
-      <div className="flex flex-col gap-1">
-        <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Date</span>
-        <Input
-          placeholder="dd/mm/yy"
-          className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
-          value={receiptFilters.date}
-          onChange={(e) => setReceiptFilters({ ...receiptFilters, date: e.target.value })}
-        />
-      </div>
-    </TableHead>
+            {/* COMPACT HEADER WITH SEARCH BARS */}
+            <TableHeader className="sticky top-0 z-20 bg-gray-200 border-b border-gray-300">
+              <TableRow className="hover:bg-transparent">
+                {/* Date Column */}
+                <TableHead className="w-[90px] py-2 px-2 bg-gray-200">
+                  <div className="flex flex-col gap-1">
+                    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Date</span>
+                    <Input
+                      placeholder="dd/mm/yy"
+                      className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
+                      value={receiptFilters.date}
+                      onChange={(e) => setReceiptFilters({ ...receiptFilters, date: e.target.value })}
+                    />
+                  </div>
+                </TableHead>
 
-    {/* Tenant Column */}
-    <TableHead className="w-[160px] py-2 px-2 bg-gray-200">
-      <div className="flex flex-col gap-1">
-        <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Tenant</span>
-        <Input
-          placeholder="Search tenant..."
-          className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
-          value={receiptFilters.tenant}
-          onChange={(e) => setReceiptFilters({ ...receiptFilters, tenant: e.target.value })}
-        />
-      </div>
-    </TableHead>
+                {/* Tenant Column - Updated with salutation and phone */}
+                <TableHead className="w-[200px] py-2 px-2 bg-gray-200">
+                  <div className="flex flex-col gap-1">
+                    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Tenant</span>
+                    <Input
+                      placeholder="Search tenant..."
+                      className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
+                      value={receiptFilters.tenant}
+                      onChange={(e) => setReceiptFilters({ ...receiptFilters, tenant: e.target.value })}
+                    />
+                  </div>
+                </TableHead>
 
-    {/* Amount Column */}
-    <TableHead className="w-[90px] py-2 px-2 bg-gray-200 text-right">
-      <div className="flex flex-col gap-1">
-        <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Amount</span>
-        <Input
-          placeholder="Search..."
-          type="number"
-          className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 text-right font-normal w-full"
-          value={receiptFilters.amount}
-          onChange={(e) => setReceiptFilters({ ...receiptFilters, amount: e.target.value })}
-        />
-      </div>
-    </TableHead>
+                {/* Amount Column */}
+                <TableHead className="w-[90px] py-2 px-2 bg-gray-200 text-right">
+                  <div className="flex flex-col gap-1">
+                    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Amount</span>
+                    <Input
+                      placeholder="Search..."
+                      type="number"
+                      className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 text-right font-normal w-full"
+                      value={receiptFilters.amount}
+                      onChange={(e) => setReceiptFilters({ ...receiptFilters, amount: e.target.value })}
+                    />
+                  </div>
+                </TableHead>
 
-    {/* Method/Bank Column */}
-    <TableHead className="w-[120px] py-2 px-2 bg-gray-200">
-      <div className="flex flex-col gap-1">
-        <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Method/Bank</span>
-        <Input
-          placeholder="Search..."
-          className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
-          value={receiptFilters.method}
-          onChange={(e) => setReceiptFilters({ ...receiptFilters, method: e.target.value })}
-        />
-      </div>
-    </TableHead>
+                {/* Method/Bank Column */}
+                <TableHead className="w-[120px] py-2 px-2 bg-gray-200">
+                  <div className="flex flex-col gap-1">
+                    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Method/Bank</span>
+                    <Input
+                      placeholder="Search..."
+                      className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
+                      value={receiptFilters.method}
+                      onChange={(e) => setReceiptFilters({ ...receiptFilters, method: e.target.value })}
+                    />
+                  </div>
+                </TableHead>
 
-    {/* Room/Bed Column */}
-    <TableHead className="w-[100px] py-2 px-2 bg-gray-200">
-      <div className="flex flex-col gap-1">
-        <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Room/Bed</span>
-        <Input
-          placeholder="Search..."
-          className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
-          value={receiptFilters.room}
-          onChange={(e) => setReceiptFilters({ ...receiptFilters, room: e.target.value })}
-        />
-      </div>
-    </TableHead>
+                {/* Room/Bed Column */}
+                <TableHead className="w-[100px] py-2 px-2 bg-gray-200">
+                  <div className="flex flex-col gap-1">
+                    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Room/Bed</span>
+                    <Input
+                      placeholder="Search..."
+                      className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
+                      value={receiptFilters.room}
+                      onChange={(e) => setReceiptFilters({ ...receiptFilters, room: e.target.value })}
+                    />
+                  </div>
+                </TableHead>
 
-    {/* Actions Column */}
-    <TableHead className="w-[60px] py-2 px-2 bg-gray-200 text-center">
-      <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Actions</span>
-    </TableHead>
-  </TableRow>
-</TableHeader>
+                {/* Actions Column */}
+                <TableHead className="w-[60px] py-2 px-2 bg-gray-200 text-center">
+                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">Actions</span>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
 
-            {/* EXISTING TABLE BODY - UNCHANGED */}
+            {/* TABLE BODY */}
             <TableBody>
               {loading ? (
                 <TableRow>
@@ -3138,61 +3265,69 @@ const filteredReceipts = receipts.filter((receipt: any) => {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredReceipts.map((receipt: any) => (
-                  <TableRow 
-                    key={receipt.id}  
-                    className={`hover:bg-slate-50 ${
-                      receipt.id === highlightedReceipt ? 'bg-green-50 animate-pulse' : ''
-                    }`}
-                  >
-                    <TableCell className="py-2 text-xs whitespace-nowrap">
-                      {format(new Date(receipt.payment_date), 'dd/MM/yy')}
-                    </TableCell>
-                    <TableCell className="py-2">
-                      <p className="text-xs whitespace-nowrap">{receipt.tenant_name}</p>
-                      {receipt.tenant_phone && (
-                        <p className="text-[10px] text-slate-500">{receipt.tenant_phone}</p>
-                      )}
-                    </TableCell>
-                    <TableCell className="py-2 text-xs font-medium whitespace-nowrap">
-                      ₹{receipt.amount.toLocaleString()}
-                    </TableCell>
-                    <TableCell className="py-2">
-                      <p className="text-xs capitalize whitespace-nowrap">{receipt.payment_mode}</p>
-                      {receipt.bank_name && (
-                        <p className="text-[10px] text-slate-500">{receipt.bank_name}</p>
-                      )}
-                    </TableCell>
-                    <TableCell className="py-2">
-                      <p className="text-xs whitespace-nowrap">{receipt.room_number || 'N/A'}</p>
-                      {receipt.bed_number && (
-                        <p className="text-[10px] text-slate-500">Bed #{receipt.bed_number}</p>
-                      )}
-                    </TableCell>
-                    <TableCell className="py-2">
-                      <div className="flex items-center gap-1 justify-center">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 w-7 p-0"
-                          onClick={() => onPreviewReceipt(receipt.id)}
-                          title="Preview Receipt"
-                        >
-                          <Eye className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 w-7 p-0"
-                          onClick={() => onDownloadReceipt(receipt.id)}
-                          title="Download Receipt"
-                        >
-                          <Download className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
+                filteredReceipts.map((receipt: any) => {
+                  return (
+                    <TableRow 
+                      key={receipt.id}  
+                      className={`hover:bg-slate-50 ${
+                        receipt.id === highlightedReceipt ? 'bg-green-50 animate-pulse' : ''
+                      }`}
+                    >
+                      <TableCell className="py-2 text-xs whitespace-nowrap">
+                        {format(new Date(receipt.payment_date), 'dd/MM/yy')}
+                      </TableCell>
+                      <TableCell className="py-2">
+                        {/* Show salutation + full name */}
+                        <p className="text-xs font-medium whitespace-nowrap">
+                          {receipt.salutation ? `${receipt.salutation} ` : ''}{receipt.tenant_name}
+                        </p>
+                        {/* Show country code + phone number */}
+                        {receipt.phone && (
+                          <p className="text-[10px] text-slate-500 whitespace-nowrap">
+                            {receipt.country_code || '+91'} {receipt.phone}
+                          </p>
+                        )}
+                      </TableCell>
+                      <TableCell className="py-2 text-xs font-medium whitespace-nowrap">
+                        ₹{receipt.amount.toLocaleString()}
+                      </TableCell>
+                      <TableCell className="py-2">
+                        <p className="text-xs capitalize whitespace-nowrap">{receipt.payment_mode}</p>
+                        {receipt.bank_name && (
+                          <p className="text-[10px] text-slate-500 whitespace-nowrap">{receipt.bank_name}</p>
+                        )}
+                      </TableCell>
+                      <TableCell className="py-2">
+                        <p className="text-xs whitespace-nowrap">{receipt.room_number || 'N/A'}</p>
+                        {receipt.bed_number && (
+                          <p className="text-[10px] text-slate-500">Bed #{receipt.bed_number}</p>
+                        )}
+                      </TableCell>
+                      <TableCell className="py-2">
+                        <div className="flex items-center gap-1 justify-center">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 w-7 p-0"
+                            onClick={() => onPreviewReceipt(receipt.id)}
+                            title="Preview Receipt"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 w-7 p-0"
+                            onClick={() => onDownloadReceipt(receipt.id)}
+                            title="Download Receipt"
+                          >
+                            <Download className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>
