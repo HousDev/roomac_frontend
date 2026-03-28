@@ -47,7 +47,6 @@ console.log(user.data.user)
     token: string,
     loginSource: "admin" | "tenant"
   ) => {
-    console.log(role)
     localStorage.setItem("auth_token", token);
     localStorage.setItem("auth_email", email);
     localStorage.setItem("auth_role", role);

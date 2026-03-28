@@ -59,7 +59,7 @@ export default function LoginClient({
       }
       setTimeout(() => {}, 2500);
     },
-    [router],
+    [],
   );
 
   // ✅ UPDATED with auth context
@@ -73,7 +73,6 @@ export default function LoginClient({
           credentials.email,
           credentials.password,
         );
-
         if (result.success && result.token) {
           login(credentials.email, result.role, result.token);
           if (result.role === "tenant") {
@@ -112,6 +111,7 @@ export default function LoginClient({
   const handleSendOTP = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
+      console.log("otp : ", otpData)
       if (!otpData.email) {
         toast.error("Please enter your email");
         return;
@@ -145,29 +145,41 @@ export default function LoginClient({
 
       try {
         const result: any = await verifyTenantOTP(otpData.email, otpData.otp);
-
+        console.log("otp resp", result)
         if (result.success && result.token) {
           // ✅ Use auth context
-          login(otpData.email, result.token);
+          localStorage.setItem("tenant_token", result.token)
+          localStorage.setItem("tenant_id", result.tenant_id)
+          localStorage.setItem("tenant_logged_in", "true")
+          console.log(result.email, result.role, result.token)
+          login(result.email, result.role, result.token);
 
-          if (rememberMe) {
-            localStorage.setItem("tenant_token", result.token);
-            if (result.tenant_id != null)
-              localStorage.setItem("tenant_id", String(result.tenant_id));
-            else localStorage.setItem("tenant_id", "me");
-            localStorage.setItem("tenant_email", otpData.email);
-          } else {
-            sessionStorage.setItem("tenant_token", result.token);
-            if (result.tenant_id != null)
-              sessionStorage.setItem("tenant_id", String(result.tenant_id));
-            else sessionStorage.setItem("tenant_id", "me");
-            sessionStorage.setItem("tenant_email", otpData.email);
-          }
 
           toast.success("Login successful", {
             duration: 3000,
-          }); // ✅ ADDED
+          });
           handleSuccessfulLogin(result.role);
+
+          // login(credentials.email, result.role, result.token, result.loginSource);
+
+          // if (rememberMe) {
+          //   localStorage.setItem("tenant_token", result.token);
+          //   if (result.tenant_id != null)
+          //     localStorage.setItem("tenant_id", String(result.tenant_id));
+          //   else localStorage.setItem("tenant_id", "me");
+          //   localStorage.setItem("tenant_email", otpData.email);
+          // } else {
+          //   sessionStorage.setItem("tenant_token", result.token);
+          //   if (result.tenant_id != null)
+          //     sessionStorage.setItem("tenant_id", String(result.tenant_id));
+          //   else sessionStorage.setItem("tenant_id", "me");
+          //   sessionStorage.setItem("tenant_email", otpData.email);
+          // }
+
+          // toast.success("Login successful", {
+          //   duration: 3000,
+          // }); // ✅ ADDED
+          // handleSuccessfulLogin(result.role);
         } else {
           toast.error(result.error || result.message || "Invalid OTP");
         }
@@ -189,6 +201,7 @@ export default function LoginClient({
   const handleInputChange = useCallback(
     (field: keyof typeof credentials, value: string) => {
       setCredentials((prev) => ({ ...prev, [field]: value }));
+      setOtpData((prev) => ({ ...prev, [field]: value }));
     },
     [],
   );
