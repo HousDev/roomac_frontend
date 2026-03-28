@@ -1,6 +1,16 @@
 // lib/partnershipApi.ts
+
 import { request } from "@/lib/api";
 
+// Add Followup interface - make sure it's exported
+export interface PartnershipFollowup {
+    id: number;
+    note: string;
+    created_by: string;
+    timestamp: string;
+}
+
+// Update PartnershipEnquiry interface
 export interface PartnershipEnquiry {
     id: number;
     company_name: string;
@@ -15,6 +25,10 @@ export interface PartnershipEnquiry {
     remark: string;
     created_at: string;
     updated_at: string;
+    followup_text?: string;
+    followup_date?: string;
+    followup_by?: string;
+    followup_history?: PartnershipFollowup[];  // This references the exported interface
 }
 
 export interface PartnershipStats {
@@ -32,8 +46,13 @@ export const getPartnershipEnquiries = async (filters?: {
     search?: string;
 }): Promise<{ success: boolean; count: number; results: PartnershipEnquiry[] }> => {
     const queryParams = new URLSearchParams();
-    if (filters?.status) queryParams.append('status', filters.status);
-    if (filters?.search) queryParams.append('search', filters.search);
+    // Fix: Only add status if it's not 'all' or empty
+    if (filters?.status && filters.status !== 'all') {
+        queryParams.append('status', filters.status);
+    }
+    if (filters?.search) {
+        queryParams.append('search', filters.search);
+    }
 
     const url = `/api/partnership-enquiries${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
     return request(url, { method: "GET" });
@@ -76,4 +95,25 @@ export const bulkDeletePartnershipEnquiries = async (ids: number[]): Promise<any
 // Get partnership stats
 export const getPartnershipStats = async (): Promise<{ success: boolean; data: PartnershipStats }> => {
     return request("/api/partnership-enquiries/stats", { method: "GET" });
+};
+
+// Add followup to partnership enquiry
+export const addPartnershipFollowup = async (id: number, data: { note: string; created_by?: string }): Promise<any> => {
+    return request(`/api/partnership-enquiries/${id}/followup`, {
+        method: "POST",
+        body: JSON.stringify(data),
+    });
+};
+
+// Get followup history
+export const getPartnershipFollowupHistory = async (id: number): Promise<{ success: boolean; data: PartnershipFollowup[] }> => {
+    return request(`/api/partnership-enquiries/${id}/followups`, { method: "GET" });
+};
+
+// Update partnership status (with optional followup note)
+export const updatePartnershipStatus = async (id: number, status: string, followup_note?: string): Promise<any> => {
+    return request(`/api/partnership-enquiries/${id}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status, followup_note }),
+    });
 };

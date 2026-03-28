@@ -1223,10 +1223,10 @@ const calculatePenaltyAmount = (penaltyType: string, securityDeposit: number, re
   const stepTitles = ["Reason", "Lock-in", "Notice", "Date", "Summary", "Result"];
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
+    <Dialog open={open} onOpenChange={handleClose} >
 <DialogContent 
-  className="sm:max-w-2xl max-h-[85vh] overflow-hidden flex flex-col p-0 rounded-2xl"
-  onInteractOutside={(e) => e.preventDefault()}
+  // Custom size — exactly xs aur sm ke beech
+className="w-[calc(100%-32px)] max-w-md md:max-w-lg max-h-[75vh] overflow-hidden flex flex-col p-0 rounded-2xl"  onInteractOutside={(e) => e.preventDefault()}
 >   
 {/* Header - Match ChangeBedWizard styling */}
 <div className="bg-gradient-to-r from-red-600 to-orange-600 text-white px-4 py-2.5 sticky top-0 z-10">

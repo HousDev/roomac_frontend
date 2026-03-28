@@ -82,24 +82,28 @@ const StaffTable = ({
     return salutationMap[salutation.toLowerCase()] || salutation;
   };
 
-  const filteredStaff = staff.filter((member) => {
-    const nameStr =
-      `${member.salutation ?? ""} ${member.name} ${member.employee_id ?? ""} ${member.email} ${member.current_address ?? ""}`.toLowerCase();
-    const roleStr = member.role.toLowerCase();
-    const contactStr =
-      `${member.phone ?? ""} ${member.whatsapp_number ?? ""} ${member.blood_group ?? ""}`.toLowerCase();
-    const salaryStr =
-      `${formatSalary(member.salary)} ${member.department ?? ""}`.toLowerCase();
-    const statusStr = (member.is_active ? "active" : "inactive").toLowerCase();
+ const filteredStaff = staff.filter((member) => {
+  const formattedPhone = member.phone 
+    ? `${member.phone_country_code || "+91"}${member.phone}`
+    : "";
+    
+  const nameStr =
+    `${member.salutation ?? ""} ${member.name} ${member.employee_id ?? ""} ${member.email} ${member.current_address ?? ""}`.toLowerCase();
+  const roleStr = member.role.toLowerCase();
+  const contactStr =
+    `${formattedPhone} ${member.whatsapp_number ?? ""} ${member.blood_group ?? ""}`.toLowerCase();
+  const salaryStr =
+    `${formatSalary(member.salary)} ${member.department ?? ""}`.toLowerCase();
+  const statusStr = (member.is_active ? "active" : "inactive").toLowerCase();
 
-    return (
-      nameStr.includes(filters.name.toLowerCase()) &&
-      roleStr.includes(filters.role.toLowerCase()) &&
-      contactStr.includes(filters.contact.toLowerCase()) &&
-      salaryStr.includes(filters.salary.toLowerCase()) &&
-      statusStr.includes(filters.status.toLowerCase())
-    );
-  });
+  return (
+    nameStr.includes(filters.name.toLowerCase()) &&
+    roleStr.includes(filters.role.toLowerCase()) &&
+    contactStr.includes(filters.contact.toLowerCase()) &&
+    salaryStr.includes(filters.salary.toLowerCase()) &&
+    statusStr.includes(filters.status.toLowerCase())
+  );
+});
 
   if (loading && staff.length === 0) {
     return <StaffTableSkeleton />;
@@ -286,11 +290,11 @@ const StaffTable = ({
                             </div>
                           )}
                           <div className="flex items-center gap-1 mt-0.5">
-                            <Calendar className="h-2.5 w-2.5 text-gray-400 flex-shrink-0" />
-                            <span className="text-[10px] text-gray-500 whitespace-nowrap">
-                              Joined: {formatDate(member.joining_date)}
-                            </span>
-                          </div>
+  <Calendar className="h-2.5 w-2.5 text-gray-400 flex-shrink-0" />
+  <span className="text-[10px] text-gray-500 whitespace-nowrap">
+    Joined: {member.joining_date ? new Date(member.joining_date).toLocaleDateString("en-GB") : "—"}
+  </span>
+</div>
                         </div>
                       </div>
                     </TableCell>
@@ -314,33 +318,40 @@ const StaffTable = ({
                     </TableCell>
 
                     {/* Contact */}
-                    <TableCell className="flex py-1.5 px-2 w-[100px] max-w-[200px]">
-                      <div className="flex flex-col gap-0.5 min-w-[100px]">
-                        <div className="flex items-center gap-1">
-                          <Phone className="h-2.5 w-2.5 text-gray-500 flex-shrink-0" />
-                          <span className="text-[10px] truncate">
-                            {member.phone || "No phone"}
-                          </span>
-                        </div>
-                        {member.whatsapp_number && (
-                          <div className="flex items-center gap-1">
-                            <MessageSquare className="h-2.5 w-2.5 text-green-500 flex-shrink-0" />
-                            <span className="text-[10px] truncate">
-                              {member.whatsapp_number}
-                            </span>
-                          </div>
-                        )}
-                        {member.blood_group &&
-                          member.blood_group !== "not_specified" && (
-                            <div className="flex items-center gap-1">
-                              <Droplets className="h-2.5 w-2.5 text-red-500 flex-shrink-0" />
-                              <span className="text-[10px] whitespace-nowrap">
-                                Blood: {member.blood_group.toUpperCase()}
-                              </span>
-                            </div>
-                          )}
-                      </div>
-                    </TableCell>
+                    {/* Contact */}
+<TableCell className="py-1.5 px-2 w-[100px] max-w-[200px]">
+  <div className="flex flex-col gap-0.5 min-w-[100px]">
+    <div className="flex items-center gap-1">
+      <Phone className="h-2.5 w-2.5 text-gray-500 flex-shrink-0" />
+      <span className="text-[10px] truncate">
+        {member.phone ? (
+          <>
+            {member.phone_country_code || "+91"}{member.phone}
+          </>
+        ) : "No phone"}
+      </span>
+    </div>
+   {member.whatsapp_number && (
+  <div className="flex items-center gap-1">
+    <MessageSquare className="h-2.5 w-2.5 text-green-500 flex-shrink-0" />
+    <span className="text-[10px] truncate">
+      {member.whatsapp_number === member.phone && member.phone_country_code 
+        ? `${member.phone_country_code}${member.whatsapp_number}`
+        : member.whatsapp_number}
+    </span>
+  </div>
+)}
+    {member.blood_group &&
+      member.blood_group !== "not_specified" && (
+        <div className="flex items-center gap-1">
+          <Droplets className="h-2.5 w-2.5 text-red-500 flex-shrink-0" />
+          <span className="text-[10px] whitespace-nowrap">
+            Blood: {member.blood_group.toUpperCase()}
+          </span>
+        </div>
+      )}
+  </div>
+</TableCell>
 
                     {/* Salary & Department */}
                     <TableCell className="align-center py-1.5 px-2 w-[200px] max-w-[200px]">

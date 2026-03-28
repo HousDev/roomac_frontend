@@ -56,10 +56,145 @@ import {
   User,
   ChevronLeft,
   ChevronRight,
+  ArrowUp,
+  Bed,
+  Brush,
+  Car,
+  CheckCircle2,
+  DoorOpen,
+  Droplets,
+  Dumbbell,
+  Flame,
+  Maximize,
+  Package,
+  Snowflake,
+  Sofa,
+  Sparkles,
+  Sprout,
+  Stethoscope,
+  Tv,
+  UserCheck,
+  WashingMachine,
+  Waves,
+  Wind,
+  Zap,
+  ChevronDown,
+  Search,
 } from "lucide-react";
 import { consumeMasters } from "@/lib/masterApi";
 import { getAllStaff, type StaffMember } from "@/lib/staffApi";
+import React from "react";
+// Add this after the imports, before the component
+const AMENITY_ICON_MAP: Record<string, React.ReactNode> = {
+  // Connectivity & Entertainment
+  'wifi': <Wifi className="h-3 w-3" />,
+  'internet': <Wifi className="h-3 w-3" />,
+  'tv': <Tv className="h-3 w-3" />,
+  'television': <Tv className="h-3 w-3" />,
+  
+  // Climate Control
+  'ac': <Snowflake className="h-3 w-3" />,
+  'air conditioner': <Snowflake className="h-3 w-3" />,
+  'geyser': <Flame className="h-3 w-3" />,
+  'water heater': <Flame className="h-3 w-3" />,
+  
+  // Building Features
+  'lift': <ArrowUp className="h-3 w-3" />,
+  'elevator': <ArrowUp className="h-3 w-3" />,
+  'parking': <Car className="h-3 w-3" />,
+  
+  // Power & Security
+  'power backup': <Zap className="h-3 w-3" />,
+  'generator': <Zap className="h-3 w-3" />,
+  'security': <Shield className="h-3 w-3" />,
+  'cctv': <Shield className="h-3 w-3" />,
+  '24/7 security': <Shield className="h-3 w-3" />,
+  
+  // Recreational
+  'gym': <Dumbbell className="h-3 w-3" />,
+  'fitness': <Dumbbell className="h-3 w-3" />,
+  'swimming pool': <Waves className="h-3 w-3" />,
+  'pool': <Waves className="h-3 w-3" />,
+  'garden': <Sprout className="h-3 w-3" />,
+  'terrace': <Maximize className="h-3 w-3" />,
+  
+  // Appliances
+  'refrigerator': <Sparkles className="h-3 w-3" />,
+  'fridge': <Sparkles className="h-3 w-3" />,
+  'microwave': <Flame className="h-3 w-3" />,
+  
+  // Furniture
+  'furnished': <Sofa className="h-3 w-3" />,
+  
+  // Services
+  'laundry': <WashingMachine className="h-3 w-3" />,
+  'room cleaning': <Brush className="h-3 w-3" />,
+  'housekeeping': <Brush className="h-3 w-3" />,
+  'maintenance': <Wrench className="h-3 w-3" />,
+  'food service': <Utensils className="h-3 w-3" />,
+  'medical assistance': <Stethoscope className="h-3 w-3" />,
+  'transportation': <Car className="h-3 w-3" />,
+  'concierge': <UserCheck className="h-3 w-3" />,
+};
 
+// Helper function to get amenity icon
+const getAmenityIcon = (name: string, size: 'sm' | 'md' = 'sm'): React.ReactNode => {
+  const cls = size === 'sm' ? 'h-3 w-3' : 'h-4 w-4';
+  const key = name.toLowerCase().trim();
+  
+  // Exact match
+  if (AMENITY_ICON_MAP[key]) {
+    return React.cloneElement(AMENITY_ICON_MAP[key] as React.ReactElement, { className: cls });
+  }
+  
+  // Partial match
+  const l = key;
+  if (l.includes('wash') || l.includes('laundry')) return <WashingMachine className={cls} />;
+  if (l.includes('lift') || l.includes('elevator')) return <ArrowUp className={cls} />;
+  if (l.includes('microwave') || l.includes('oven')) return <Flame className={cls} />;
+  if (l.includes('fan')) return <Wind className={cls} />;
+  if (l.includes('security') || l.includes('cctv')) return <Shield className={cls} />;
+  if (l.includes('park')) return <Car className={cls} />;
+  if (l.includes('gym')) return <Dumbbell className={cls} />;
+  if (l.includes('kitchen')) return <Utensils className={cls} />;
+  if (l.includes('food') || l.includes('meal')) return <Utensils className={cls} />;
+  if (l.includes('power') || l.includes('backup')) return <Zap className={cls} />;
+  if (l.includes('wifi') || l.includes('internet')) return <Wifi className={cls} />;
+  if (l.includes('tv')) return <Tv className={cls} />;
+  if (l.includes('ac') || l.includes('cool')) return <Snowflake className={cls} />;
+  if (l.includes('geyser') || l.includes('heat')) return <Flame className={cls} />;
+  if (l.includes('fridge')) return <Sparkles className={cls} />;
+  if (l.includes('bed')) return <Bed className={cls} />;
+  if (l.includes('study') || l.includes('table')) return <BookOpen className={cls} />;
+  if (l.includes('wardrobe')) return <DoorOpen className={cls} />;
+  if (l.includes('sofa')) return <Sofa className={cls} />;
+  if (l.includes('garden') || l.includes('plant')) return <Sprout className={cls} />;
+  if (l.includes('bath') || l.includes('shower')) return <Droplets className={cls} />;
+  if (l.includes('cleaning')) return <Brush className={cls} />;
+  if (l.includes('maintenance')) return <Wrench className={cls} />;
+  if (l.includes('medical')) return <Stethoscope className={cls} />;
+  if (l.includes('transport')) return <Car className={cls} />;
+  
+  return <Sparkles className={cls} />;
+};
+
+// Helper function to get service icon (can use same mapping or separate)
+const getServiceIcon = (name: string, size: 'sm' | 'md' = 'sm'): React.ReactNode => {
+  const cls = size === 'sm' ? 'h-3 w-3' : 'h-4 w-4';
+  const key = name.toLowerCase().trim();
+  
+  // Use same mapping for services
+  if (key.includes('food') || key.includes('meal')) return <Utensils className={cls} />;
+  if (key.includes('clean') || key.includes('housekeeping')) return <Brush className={cls} />;
+  if (key.includes('laundry')) return <WashingMachine className={cls} />;
+  if (key.includes('maintenance')) return <Wrench className={cls} />;
+  if (key.includes('medical') || key.includes('health')) return <Stethoscope className={cls} />;
+  if (key.includes('transport')) return <Car className={cls} />;
+  if (key.includes('package') || key.includes('parcel')) return <Package className={cls} />;
+  if (key.includes('concierge')) return <UserCheck className={cls} />;
+  
+  return <CheckCircle2 className={cls} />;
+};
 // ─── Constants (unchanged) ───────────────────────────────────────────────────
 const TERMS_TEMPLATES = [
   {
@@ -1247,79 +1382,348 @@ export default function PropertyForm({
             {/* ════════════════════════════════════════
                 TAB 2 — AMENITIES
             ════════════════════════════════════════ */}
-            <TabsContent value="amenities" className="mt-0 space-y-3">
-              {/* Amenities */}
-              <div>
-                <SH icon={Wifi} label="Amenities" />
-                <div className="flex gap-1.5 mb-2">
-                  <Input value={amenityInput} onChange={(e) => setAmenityInput(e.target.value)}
-                    placeholder="Add custom amenity…" className={inputCls}
-                    onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addAmenity())} />
-                  <Button type="button" size="sm" onClick={() => addAmenity()} className="h-7 text-[11px] px-3">Add</Button>
-                </div>
 
-                <p className="text-[10px] text-slate-400 mb-1.5">Quick Select:</p>
-                <div className="flex flex-wrap gap-1 mb-2">
-                  {commonAmenities.map((amenity) => (
-                    <Badge key={amenity}
-                      variant={formData.amenities.includes(amenity) ? "default" : "outline"}
-                      className="cursor-pointer text-[10px] px-1.5 py-0.5 hover:bg-blue-50"
-                      onClick={() => formData.amenities.includes(amenity) ? removeAmenity(formData.amenities.indexOf(amenity)) : addAmenity(amenity)}>
-                      {amenity}{formData.amenities.includes(amenity) && <Check className="h-2 w-2 ml-0.5" />}
-                    </Badge>
+<TabsContent value="amenities" className="mt-0 space-y-3">
+  {/* Amenities Section */}
+  <div>
+    <SH icon={Wifi} label="Amenities" />
+    
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Left side - Dropdown with search */}
+      <div className="border border-gray-200 rounded-lg overflow-hidden">
+        {/* Dropdown trigger */}
+        <button
+          type="button"
+          id="amenity-trigger"
+          onClick={() => {
+            // Force close services dropdown
+            const serviceDropdown = document.getElementById('service-dropdown');
+            if (serviceDropdown) {
+              serviceDropdown.classList.add('hidden');
+            }
+            
+            // Toggle amenities dropdown
+            const amenitiesDropdown = document.getElementById('amenity-dropdown');
+            if (amenitiesDropdown) {
+              if (amenitiesDropdown.classList.contains('hidden')) {
+                amenitiesDropdown.classList.remove('hidden');
+              } else {
+                amenitiesDropdown.classList.add('hidden');
+              }
+            }
+          }}
+          className="w-full flex items-center justify-between px-3 py-2 bg-slate-50 hover:bg-slate-100 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-3.5 w-3.5 text-cyan-600" />
+            <span className="text-[11px] font-semibold text-slate-700">
+              Select Amenities
+            </span>
+          </div>
+          <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
+        </button>
+
+        {/* Dropdown content with search and checkboxes */}
+        <div id="amenity-dropdown" className="hidden border-t border-gray-200 bg-white">
+          {/* Search input */}
+          <div className="p-2 border-b border-gray-100 sticky top-0 bg-white z-10">
+            <div className="relative">
+              <input
+                type="text"
+                id="amenity-search"
+                placeholder="Search amenities..."
+                className="w-full h-7 text-[10px] border border-gray-200 rounded-md px-2 pl-6 bg-gray-50 focus:bg-white focus:outline-none focus:border-cyan-400"
+                onChange={(e) => {
+                  const searchTerm = e.target.value.toLowerCase();
+                  const items = document.querySelectorAll('.amenity-item');
+                  items.forEach((item) => {
+                    const label = item.getAttribute('data-label')?.toLowerCase() || '';
+                    if (label.includes(searchTerm)) {
+                      (item as HTMLElement).style.display = 'flex';
+                    } else {
+                      (item as HTMLElement).style.display = 'none';
+                    }
+                  });
+                }}
+              />
+              <Search className="h-3 w-3 absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" />
+            </div>
+          </div>
+
+          {/* Amenities list - scrollable with max height */}
+          <div className="max-h-[200px] overflow-y-auto p-2">
+            {loadingMasters ? (
+              <div className="flex items-center gap-2 py-3 justify-center text-[10px] text-gray-500">
+                <Loader2 className="h-3 w-3 animate-spin" /> Loading amenities...
+              </div>
+            ) : (() => {
+              const amenityOptions = propertiesMasters["Property Amenities"]?.length > 0
+                ? propertiesMasters["Property Amenities"].map(a => ({ id: String(a.id), label: a.name }))
+                : [];
+              
+              if (amenityOptions.length === 0) {
+                return (
+                  <div className="text-center py-4">
+                    <AlertCircle className="h-6 w-6 mx-auto text-gray-400 mb-2" />
+                    <p className="text-[10px] text-gray-500">No amenities available</p>
+                    <p className="text-[9px] text-gray-400 mt-1">Add amenities to master data first</p>
+                  </div>
+                );
+              }
+              
+              return (
+                <div className="grid grid-cols-1 gap-1">
+                  {amenityOptions.map(amenity => (
+                    <label
+                      key={amenity.id}
+                      data-label={amenity.label}
+                      className={`amenity-item flex items-center gap-2 p-2 rounded-md cursor-pointer transition-all hover:bg-gray-50 ${
+                        formData.amenities.includes(amenity.label) ? 'bg-cyan-50' : ''
+                      }`}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        if (formData.amenities.includes(amenity.label)) {
+                          removeAmenity(formData.amenities.indexOf(amenity.label));
+                        } else {
+                          addAmenity(amenity.label);
+                        }
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={formData.amenities.includes(amenity.label)}
+                        onChange={() => {}}
+                        className="h-3.5 w-3.5 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500"
+                      />
+                      <div className={`rounded flex-shrink-0 ${formData.amenities.includes(amenity.label) ? 'text-cyan-600' : 'text-gray-500'}`}>
+                        {getAmenityIcon(amenity.label, 'sm')}
+                      </div>
+                      <span className="text-[11px] font-medium leading-tight">{amenity.label}</span>
+                    </label>
                   ))}
                 </div>
+              );
+            })()}
+          </div>
+        </div>
+      </div>
 
-                <div className="border border-slate-100 rounded-lg p-2 bg-slate-50">
-                  <p className="text-[10px] font-semibold text-slate-500 mb-1">Selected ({formData.amenities.length})</p>
-                  {formData.amenities.length > 0 ? (
-                    <div className="flex flex-wrap gap-1">
-                      {formData.amenities.map((amenity, index) => (
-                        <Badge key={index} variant="secondary" className="text-[10px] py-0.5 px-1.5">
-                          {amenity}<X className="h-2 w-2 ml-0.5 cursor-pointer hover:text-red-600" onClick={() => removeAmenity(index)} />
-                        </Badge>
-                      ))}
-                    </div>
-                  ) : <p className="text-[10px] text-slate-400">No amenities added</p>}
-                </div>
+      {/* Right side - Selected amenities display */}
+      <div className="border border-gray-200 rounded-lg bg-white flex flex-col">
+        <div className="flex items-center justify-between p-3 pb-2 border-b border-gray-100 flex-shrink-0">
+          <label className="text-[10px] font-semibold text-slate-600 uppercase tracking-wide">
+            Selected Amenities
+          </label>
+          {formData.amenities.length > 0 && (
+            <Badge variant="outline" className="text-[9px] bg-cyan-50 text-cyan-700 border-cyan-200">
+              {formData.amenities.length} selected
+            </Badge>
+          )}
+        </div>
+        
+        <div className="flex-1 p-3">
+          {formData.amenities.length > 0 ? (
+            <div className="flex flex-wrap gap-1.5">
+              {formData.amenities.map((amenity, idx) => (
+                <Badge 
+                  key={idx} 
+                  variant="outline"
+                  className="flex items-center gap-1 py-1 px-2 text-[10px] bg-gray-50 border-gray-200 hover:bg-gray-100"
+                >
+                  {getAmenityIcon(amenity, 'sm')}
+                  <span>{amenity}</span>
+                  <button 
+                    type="button" 
+                    onClick={() => removeAmenity(idx)} 
+                    className="ml-0.5 text-gray-400 hover:text-red-500 transition-colors"
+                  >
+                    <X className="h-2.5 w-2.5" />
+                  </button>
+                </Badge>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-3">
+              <Sparkles className="h-6 w-6 text-gray-300 mb-1" />
+              <p className="text-[10px] text-gray-500">No amenities selected</p>
+              <p className="text-[8px] text-gray-400 mt-0.5">Select from dropdown</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {/* Services Section */}
+  <div>
+    <SH icon={Utensils} label="Services" />
+    
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Left side - Dropdown with search for Services */}
+      <div className="border border-gray-200 rounded-lg overflow-hidden">
+        {/* Dropdown trigger */}
+        <button
+          type="button"
+          id="service-trigger"
+          onClick={() => {
+            // Force close amenities dropdown
+            const amenitiesDropdown = document.getElementById('amenity-dropdown');
+            if (amenitiesDropdown) {
+              amenitiesDropdown.classList.add('hidden');
+            }
+            
+            // Toggle services dropdown
+            const serviceDropdown = document.getElementById('service-dropdown');
+            if (serviceDropdown) {
+              if (serviceDropdown.classList.contains('hidden')) {
+                serviceDropdown.classList.remove('hidden');
+              } else {
+                serviceDropdown.classList.add('hidden');
+              }
+            }
+          }}
+          className="w-full flex items-center justify-between px-3 py-2 bg-slate-50 hover:bg-slate-100 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-3.5 w-3.5 text-green-600" />
+            <span className="text-[11px] font-semibold text-slate-700">
+              Select Services
+            </span>
+          </div>
+          <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
+        </button>
+
+        {/* Dropdown content with search and checkboxes */}
+        <div id="service-dropdown" className="hidden border-t border-gray-200 bg-white">
+          {/* Search input */}
+          <div className="p-2 border-b border-gray-100 sticky top-0 bg-white z-10">
+            <div className="relative">
+              <input
+                type="text"
+                id="service-search"
+                placeholder="Search services..."
+                className="w-full h-7 text-[10px] border border-gray-200 rounded-md px-2 pl-6 bg-gray-50 focus:bg-white focus:outline-none focus:border-cyan-400"
+                onChange={(e) => {
+                  const searchTerm = e.target.value.toLowerCase();
+                  const items = document.querySelectorAll('.service-item');
+                  items.forEach((item) => {
+                    const label = item.getAttribute('data-label')?.toLowerCase() || '';
+                    if (label.includes(searchTerm)) {
+                      (item as HTMLElement).style.display = 'flex';
+                    } else {
+                      (item as HTMLElement).style.display = 'none';
+                    }
+                  });
+                }}
+              />
+              <Search className="h-3 w-3 absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" />
+            </div>
+          </div>
+
+          {/* Services list - scrollable with max height */}
+          <div className="max-h-[200px] overflow-y-auto p-2">
+            {loadingMasters ? (
+              <div className="flex items-center gap-2 py-3 justify-center text-[10px] text-gray-500">
+                <Loader2 className="h-3 w-3 animate-spin" /> Loading services...
               </div>
-
-              {/* Services */}
-              <div>
-                <SH icon={Utensils} label="Services" />
-                <div className="flex gap-1.5 mb-2">
-                  <Input value={serviceInput} onChange={(e) => setServiceInput(e.target.value)}
-                    placeholder="Add custom service…" className={inputCls}
-                    onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addService())} />
-                  <Button type="button" size="sm" onClick={() => addService()} className="h-7 text-[11px] px-3">Add</Button>
-                </div>
-
-                <p className="text-[10px] text-slate-400 mb-1.5">Quick Select:</p>
-                <div className="flex flex-wrap gap-1 mb-2">
-                  {commonServices.map((service) => (
-                    <Badge key={service}
-                      variant={formData.services.includes(service) ? "default" : "outline"}
-                      className="cursor-pointer text-[10px] px-1.5 py-0.5 hover:bg-green-50"
-                      onClick={() => formData.services.includes(service) ? removeService(formData.services.indexOf(service)) : addService(service)}>
-                      {service}{formData.services.includes(service) && <Check className="h-2 w-2 ml-0.5" />}
-                    </Badge>
+            ) : (() => {
+              const serviceOptions = propertiesMasters["Services"]?.length > 0
+                ? propertiesMasters["Services"].map(s => ({ id: String(s.id), label: s.name }))
+                : [];
+              
+              if (serviceOptions.length === 0) {
+                return (
+                  <div className="text-center py-4">
+                    <AlertCircle className="h-6 w-6 mx-auto text-gray-400 mb-2" />
+                    <p className="text-[10px] text-gray-500">No services available</p>
+                    <p className="text-[9px] text-gray-400 mt-1">Add services to master data first</p>
+                  </div>
+                );
+              }
+              
+              return (
+                <div className="grid grid-cols-1 gap-1">
+                  {serviceOptions.map(service => (
+                    <label
+                      key={service.id}
+                      data-label={service.label}
+                      className={`service-item flex items-center gap-2 p-2 rounded-md cursor-pointer transition-all hover:bg-gray-50 ${
+                        formData.services.includes(service.label) ? 'bg-green-50' : ''
+                      }`}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        if (formData.services.includes(service.label)) {
+                          removeService(formData.services.indexOf(service.label));
+                        } else {
+                          addService(service.label);
+                        }
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={formData.services.includes(service.label)}
+                        onChange={() => {}}
+                        className="h-3.5 w-3.5 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                      />
+                      <div className={`rounded flex-shrink-0 ${formData.services.includes(service.label) ? 'text-green-600' : 'text-gray-500'}`}>
+                        {getServiceIcon(service.label, 'sm')}
+                      </div>
+                      <span className="text-[11px] font-medium leading-tight">{service.label}</span>
+                    </label>
                   ))}
                 </div>
+              );
+            })()}
+          </div>
+        </div>
+      </div>
 
-                <div className="border border-slate-100 rounded-lg p-2 bg-slate-50">
-                  <p className="text-[10px] font-semibold text-slate-500 mb-1">Selected ({formData.services.length})</p>
-                  {formData.services.length > 0 ? (
-                    <div className="flex flex-wrap gap-1">
-                      {formData.services.map((service, index) => (
-                        <Badge key={index} variant="secondary" className="text-[10px] py-0.5 px-1.5">
-                          {service}<X className="h-2 w-2 ml-0.5 cursor-pointer hover:text-red-600" onClick={() => removeService(index)} />
-                        </Badge>
-                      ))}
-                    </div>
-                  ) : <p className="text-[10px] text-slate-400">No services added</p>}
-                </div>
-              </div>
-            </TabsContent>
+      {/* Right side - Selected services display */}
+      <div className="border border-gray-200 rounded-lg bg-white flex flex-col">
+        <div className="flex items-center justify-between p-3 pb-2 border-b border-gray-100 flex-shrink-0">
+          <label className="text-[10px] font-semibold text-slate-600 uppercase tracking-wide">
+            Selected Services
+          </label>
+          {formData.services.length > 0 && (
+            <Badge variant="outline" className="text-[9px] bg-green-50 text-green-700 border-green-200">
+              {formData.services.length} selected
+            </Badge>
+          )}
+        </div>
+        
+        <div className="flex-1 p-3">
+          {formData.services.length > 0 ? (
+            <div className="flex flex-wrap gap-1.5">
+              {formData.services.map((service, idx) => (
+                <Badge 
+                  key={idx} 
+                  variant="outline"
+                  className="flex items-center gap-1 py-1 px-2 text-[10px] bg-gray-50 border-gray-200 hover:bg-gray-100"
+                >
+                  {getServiceIcon(service, 'sm')}
+                  <span>{service}</span>
+                  <button 
+                    type="button" 
+                    onClick={() => removeService(idx)} 
+                    className="ml-0.5 text-gray-400 hover:text-red-500 transition-colors"
+                  >
+                    <X className="h-2.5 w-2.5" />
+                  </button>
+                </Badge>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-3">
+              <Sparkles className="h-6 w-6 text-gray-300 mb-1" />
+              <p className="text-[10px] text-gray-500">No services selected</p>
+              <p className="text-[8px] text-gray-400 mt-0.5">Select from dropdown</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  </div>
+</TabsContent>
 
             {/* ════════════════════════════════════════
                 TAB 3 — TERMS

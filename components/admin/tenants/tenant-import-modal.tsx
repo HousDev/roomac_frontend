@@ -422,87 +422,95 @@ export default function TenantImportModal({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Upload className="h-5 w-5 text-blue-600" />
-            Import Tenants
-          </DialogTitle>
-          <DialogDescription>
-            Upload Excel file with tenant data
-          </DialogDescription>
-        </DialogHeader>
+   <Dialog open={isOpen} onOpenChange={onClose}>
+  <DialogContent className="sm:max-w-md w-[92vw] p-0 rounded-xl overflow-hidden">
+    <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-4 py-3 flex items-center justify-between">
+      <div className="flex items-center gap-2">
+        <Upload className="h-4 w-4" />
+        <h2 className="text-sm font-semibold">Import Tenants</h2>
+      </div>
+      <button
+        onClick={() => onClose()}
+        className="p-1 rounded-full hover:bg-white/20 transition-colors"
+      >
+        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
 
-        <div className="space-y-4 py-3">
-          {/* Template Download */}
-          <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-            <button
-              onClick={downloadTemplate}
-              className="text-blue-600 hover:text-blue-800 text-sm flex items-center gap-1"
-            >
-              <Download size={16} />
-              Download Template
-            </button>
-            
-          </div>
+    <div className="p-4 space-y-3">
+      {/* Template Download */}
+      <div className="bg-blue-50 rounded-lg p-3 border border-blue-100">
+        <button
+          onClick={downloadTemplate}
+          className="text-blue-600 hover:text-blue-700 text-xs font-medium flex items-center gap-1.5 w-full justify-center py-1"
+        >
+          <Download size={14} />
+          Download Excel Template
+        </button>
+        <p className="text-[10px] text-gray-500 text-center mt-1.5">
+          Contains required columns for tenant import
+        </p>
+      </div>
 
-          {/* File Upload */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Upload File
-            </label>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".xlsx,.xls,.csv"
-              onChange={handleFileSelect}
-              className="w-full text-sm border rounded p-2"
-            />
-            {selectedFile && (
-              <p className="text-xs text-gray-500 mt-1">
-                Selected: {selectedFile.name}
-              </p>
-            )}
-          </div>
+      {/* File Upload */}
+      <div className="space-y-1.5">
+        <label className="block text-xs font-medium text-gray-600">
+          Upload File <span className="text-gray-400">(.xlsx, .xls, .csv)</span>
+        </label>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".xlsx,.xls,.csv"
+          onChange={handleFileSelect}
+          className="w-full text-xs border border-gray-200 rounded-lg p-2 file:mr-2 file:py-1 file:px-2 file:text-xs file:rounded-md file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+        />
+        {selectedFile && (
+          <p className="text-[10px] text-green-600 bg-green-50 px-2 py-1 rounded-md inline-block">
+            ✓ {selectedFile.name}
+          </p>
+        )}
+      </div>
 
-          {/* Error */}
-          {error && (
-            <div className="text-sm text-red-600 bg-red-50 p-2 rounded">
-              {error}
-            </div>
-          )}
+      {/* Error */}
+      {error && (
+        <div className="text-xs text-red-600 bg-red-50 p-2 rounded-lg border border-red-100">
+          {error}
         </div>
+      )}
+    </div>
 
-        <DialogFooter className="gap-2">
-          <Button
-            variant="outline"
-            onClick={onClose}
-            disabled={importing}
-            size="sm"
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleImport}
-            disabled={!selectedFile || importing}
-            size="sm"
-            className="bg-blue-600 hover:bg-blue-700"
-          >
-            {importing ? (
-              <>
-                <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                Importing...
-              </>
-            ) : (
-              <>
-                <Upload className="h-4 w-4 mr-2" />
-                Import
-              </>
-            )}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <div className="flex justify-end gap-2 px-4 py-3 border-t bg-gray-50">
+      <Button
+        variant="outline"
+        onClick={onClose}
+        disabled={importing}
+        size="sm"
+        className="h-7 text-xs px-3"
+      >
+        Cancel
+      </Button>
+      <Button
+        onClick={handleImport}
+        disabled={!selectedFile || importing}
+        size="sm"
+        className="h-7 text-xs px-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white"
+      >
+        {importing ? (
+          <>
+            <div className="h-3 w-3 border-2 border-white border-t-transparent rounded-full animate-spin mr-1.5" />
+            Importing...
+          </>
+        ) : (
+          <>
+            <Upload className="h-3 w-3 mr-1.5" />
+            Import
+          </>
+        )}
+      </Button>
+    </div>
+  </DialogContent>
+</Dialog>
   );
 }

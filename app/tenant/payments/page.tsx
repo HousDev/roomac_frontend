@@ -330,7 +330,6 @@ export default function TenantPaymentsPage() {
 
     } catch (error) {
       console.error('Error fetching payment data:', error);
-      toast.error('Failed to load payment data');
     } finally {
       setLoading(false);
     }

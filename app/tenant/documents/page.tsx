@@ -3,7 +3,6 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-// Change this line (around line 106):
 import {
   FileText,
   Eye,
@@ -63,7 +62,7 @@ import {
   type DocumentStatus,
 } from "@/lib/documentlistApi";
 
-// ── Status Badge Component ─────────────────────────────────────────────────
+// ── Status Badge Component (Compact) ─────────────────────────────────────────────────
 const StatusBadge = ({ status }: { status: DocumentStatus }) => {
   const statusConfig: Record<DocumentStatus, { color: string; icon: any; label: string }> = {
     'Created': { color: 'bg-slate-100 text-slate-700', icon: FileText, label: 'Created' },
@@ -79,8 +78,8 @@ const StatusBadge = ({ status }: { status: DocumentStatus }) => {
   const Icon = config.icon;
 
   return (
-    <Badge className={`${config.color} border-none flex items-center gap-1 px-2 py-1`}>
-      <Icon className="h-3 w-3" />
+    <Badge className={`${config.color} border-none flex items-center gap-0.5 px-1.5 py-0.5 text-[9px]`}>
+      <Icon className="h-2.5 w-2.5" />
       {config.label}
     </Badge>
   );
@@ -99,42 +98,40 @@ const PriorityBadge = ({ priority }: { priority: string }) => {
   };
 
   return (
-    <Badge className={`text-[9px] px-1.5 py-0 border ${priorityColor(priority)}`}>
+    <Badge className={`text-[8px] px-1 py-0 border ${priorityColor(priority)}`}>
       {priority}
     </Badge>
   );
 };
 
-// ── Stat Card Component ────────────────────────────────────────────────────
+// ── Stat Card Component (Compact) ────────────────────────────────────────────────────
 const StatCard = ({ title, value, icon: Icon, color, bg }: any) => (
   <Card className={`${bg} border-0 shadow-sm hover:shadow-md transition-shadow`}>
-    <CardContent className="p-2 sm:p-3">
+    <CardContent className="p-2">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-[10px] sm:text-xs text-slate-600 font-medium">{title}</p>
-          <p className="text-sm sm:text-base font-bold text-slate-800">{value}</p>
+          <p className="text-[9px] text-slate-600 font-medium">{title}</p>
+          <p className="text-sm font-bold text-slate-800">{value}</p>
         </div>
         <div className={`p-1.5 rounded-lg ${color} shadow-lg`}>
-          <Icon className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
+          <Icon className="h-3 w-3 text-white" />
         </div>
       </div>
     </CardContent>
   </Card>
 );
 
-// ── Document Type Icon ─────────────────────────────────────────────────────
+// ── Document Type Icon (Compact) ─────────────────────────────────────────────────────
 const DocumentTypeIcon = ({ document }: { document: Document }) => {
-  // Determine document type from title, name, or data_json
   const title = (document.document_title || document.document_name || '').toLowerCase();
   const type = document.document_type?.toLowerCase() || '';
   
   if (title.includes('aadhaar') || title.includes('aadhar') || type.includes('aadhaar')) {
     return (
-      <div className="w-full h-24 bg-gradient-to-br from-orange-100 to-orange-200 rounded-t-lg flex items-center justify-center">
+      <div className="w-full h-16 bg-gradient-to-br from-orange-100 to-orange-200 rounded-t-lg flex items-center justify-center">
         <div className="text-center">
-          <FileImage className="h-8 w-8 text-orange-600 mx-auto mb-1" />
-          <p className="text-[8px] font-medium text-orange-700">AADHAAR CARD</p>
-          <p className="text-[6px] text-orange-600">Preview</p>
+          <FileImage className="h-5 w-5 text-orange-600 mx-auto mb-0.5" />
+          <p className="text-[6px] font-medium text-orange-700">AADHAAR</p>
         </div>
       </div>
     );
@@ -142,11 +139,10 @@ const DocumentTypeIcon = ({ document }: { document: Document }) => {
   
   if (title.includes('pan') || type.includes('pan')) {
     return (
-      <div className="w-full h-24 bg-gradient-to-br from-yellow-100 to-yellow-200 rounded-t-lg flex items-center justify-center">
+      <div className="w-full h-16 bg-gradient-to-br from-yellow-100 to-yellow-200 rounded-t-lg flex items-center justify-center">
         <div className="text-center">
-          <FileImage className="h-8 w-8 text-yellow-600 mx-auto mb-1" />
-          <p className="text-[8px] font-medium text-yellow-700">PAN CARD</p>
-          <p className="text-[6px] text-yellow-600">Preview</p>
+          <FileImage className="h-5 w-5 text-yellow-600 mx-auto mb-0.5" />
+          <p className="text-[6px] font-medium text-yellow-700">PAN</p>
         </div>
       </div>
     );
@@ -154,11 +150,10 @@ const DocumentTypeIcon = ({ document }: { document: Document }) => {
   
   if (title.includes('rent') || title.includes('receipt') || type.includes('receipt')) {
     return (
-      <div className="w-full h-24 bg-gradient-to-br from-green-100 to-green-200 rounded-t-lg flex items-center justify-center">
+      <div className="w-full h-16 bg-gradient-to-br from-green-100 to-green-200 rounded-t-lg flex items-center justify-center">
         <div className="text-center">
-          <FileTextIcon className="h-8 w-8 text-green-600 mx-auto mb-1" />
-          <p className="text-[8px] font-medium text-green-700">RENT RECEIPT</p>
-          <p className="text-[6px] text-green-600">Preview</p>
+          <FileTextIcon className="h-5 w-5 text-green-600 mx-auto mb-0.5" />
+          <p className="text-[6px] font-medium text-green-700">RENT</p>
         </div>
       </div>
     );
@@ -166,41 +161,37 @@ const DocumentTypeIcon = ({ document }: { document: Document }) => {
   
   if (title.includes('agreement') || title.includes('contract') || type.includes('agreement')) {
     return (
-      <div className="w-full h-24 bg-gradient-to-br from-blue-100 to-blue-200 rounded-t-lg flex items-center justify-center">
+      <div className="w-full h-16 bg-gradient-to-br from-blue-100 to-blue-200 rounded-t-lg flex items-center justify-center">
         <div className="text-center">
-          <FileText className="h-8 w-8 text-blue-600 mx-auto mb-1" />
-          <p className="text-[8px] font-medium text-blue-700">AGREEMENT</p>
-          <p className="text-[6px] text-blue-600">Preview</p>
+          <FileText className="h-5 w-5 text-blue-600 mx-auto mb-0.5" />
+          <p className="text-[6px] font-medium text-blue-700">AGREEMENT</p>
         </div>
       </div>
     );
   }
   
-if (title.includes('pdf') || document.html_content?.includes('pdf')) {
-  return (
-    <div className="w-full h-24 bg-gradient-to-br from-red-100 to-red-200 rounded-t-lg flex items-center justify-center">
-      <div className="text-center">
-        <FileText className="h-8 w-8 text-red-600 mx-auto mb-1" />  {/* ← Use FileText instead */}
-        <p className="text-[8px] font-medium text-red-700">PDF DOCUMENT</p>
-        <p className="text-[6px] text-red-600">Preview</p>
+  if (title.includes('pdf') || document.html_content?.includes('pdf')) {
+    return (
+      <div className="w-full h-16 bg-gradient-to-br from-red-100 to-red-200 rounded-t-lg flex items-center justify-center">
+        <div className="text-center">
+          <FileText className="h-5 w-5 text-red-600 mx-auto mb-0.5" />
+          <p className="text-[6px] font-medium text-red-700">PDF</p>
+        </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
   
-  // Default thumbnail
   return (
-    <div className="w-full h-24 bg-gradient-to-br from-gray-100 to-gray-200 rounded-t-lg flex items-center justify-center">
+    <div className="w-full h-16 bg-gradient-to-br from-gray-100 to-gray-200 rounded-t-lg flex items-center justify-center">
       <div className="text-center">
-        <File className="h-8 w-8 text-gray-600 mx-auto mb-1" />
-        <p className="text-[8px] font-medium text-gray-700">DOCUMENT</p>
-        <p className="text-[6px] text-gray-600">Preview</p>
+        <File className="h-5 w-5 text-gray-600 mx-auto mb-0.5" />
+        <p className="text-[6px] font-medium text-gray-700">DOC</p>
       </div>
     </div>
   );
 };
 
-// ── Document Card Component with thumbnail ─────────────────────────────────
+// ── Document Card Component (Compact) ─────────────────────────────────────────────────
 const DocumentCard = ({ 
   document, 
   onClick,
@@ -217,7 +208,6 @@ const DocumentCard = ({
     } catch { return "N/A"; }
   };
 
-  // Get a short description from data_json or create one
   const getDescription = () => {
     if (document.document_type) {
       return `${document.document_type} document`;
@@ -234,28 +224,28 @@ const DocumentCard = ({
       className="rounded-lg border border-gray-200 bg-white hover:shadow-md transition-all cursor-pointer overflow-hidden"
       onClick={() => onClick(document)}
     >
-      {/* Thumbnail Preview */}
+      {/* Thumbnail Preview - Compact */}
       <DocumentTypeIcon document={document} />
       
-      {/* Content */}
-      <div className="p-3">
-        <div className="flex items-start justify-between mb-2">
-          <h3 className="font-semibold text-sm text-slate-800 line-clamp-1">
+      {/* Content - Compact */}
+      <div className="p-2">
+        <div className="flex items-start justify-between mb-1">
+          <h3 className="font-semibold text-[11px] text-slate-800 line-clamp-1 flex-1">
             {document.document_title || document.document_name}
           </h3>
         </div>
 
-        <p className="text-xs text-slate-600 mb-2 line-clamp-2">
+        <p className="text-[9px] text-slate-500 mb-1.5 line-clamp-1">
           {document.notes || getDescription()}
         </p>
 
-        <div className="flex items-center justify-between text-xs">
-          <div className="flex items-center gap-1 text-slate-400">
-            <Calendar className="h-3 w-3" />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1 text-[9px] text-slate-400">
+            <Calendar className="h-2.5 w-2.5" />
             {fmt(document.created_at)}
           </div>
+          <StatusBadge status={document.status} />
         </div>
-
       </div>
     </div>
   );
@@ -287,10 +277,8 @@ function PreviewDialog({
       if (result.success && result.data) {
         setFullDocument(result.data);
         
-        // Mark as viewed if status is Sent
         if (result.data.status === 'Sent') {
           await viewTenantDocument(id);
-          // Refresh after marking as viewed
           const refreshed = await getTenantDocument(id);
           if (refreshed.success && refreshed.data) {
             setFullDocument(refreshed.data);
@@ -504,7 +492,6 @@ export default function TenantDocumentsPage() {
     fetchDocuments();
   }, [fetchDocuments]);
 
-  // Filter documents based on search
   const filteredDocs = useMemo(() => {
     return documents.filter(d => {
       if (!search) return true;
@@ -519,14 +506,12 @@ export default function TenantDocumentsPage() {
     });
   }, [documents, search]);
 
-  // Stats
   const stats = useMemo(() => ({
     total: documents.length,
     signed: documents.filter(d => d.status === 'Signed' || d.status === 'Completed').length,
     pending: documents.filter(d => d.status === 'Sent' || d.status === 'Viewed').length,
   }), [documents]);
 
-  // Handle card click
   const handleCardClick = (doc: Document) => {
     setSelectedDocument(doc);
     setShowPreview(true);
@@ -534,7 +519,7 @@ export default function TenantDocumentsPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <div className="max-w-7xl mx-auto p-4 space-y-4">
+      <div className="max-w-7xl mx-auto p-4 space-y-3">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -547,25 +532,25 @@ export default function TenantDocumentsPage() {
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <div>
-              <h1 className="text-xl font-bold text-slate-800">My Documents</h1>
-              <p className="text-xs text-slate-500">View and download your documents</p>
+              <h1 className="text-lg font-bold text-slate-800">My Documents</h1>
+              <p className="text-[10px] text-slate-500">View and download your documents</p>
             </div>
           </div>
           <Button
             variant="outline"
             size="sm"
             onClick={fetchDocuments}
-            className="h-8 text-xs"
+            className="h-7 text-[10px]"
           >
-            <Loader2 className={`h-3 w-3 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            <Loader2 className={`h-3 w-3 mr-1 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        {/* Stats Cards - Compact */}
+        <div className="grid grid-cols-3 gap-2">
           <StatCard 
-            title="Total Documents"  
+            title="Total"  
             value={stats.total}     
             icon={FileText}    
             color="bg-blue-600"    
@@ -589,20 +574,20 @@ export default function TenantDocumentsPage() {
 
         {/* Search and Filter */}
         <Card className="border-slate-200">
-          <CardContent className="p-3">
+          <CardContent className="p-2.5">
             <div className="flex gap-2">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
                 <Input
                   placeholder="Search documents..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="pl-9 h-9 text-sm"
+                  className="pl-8 h-8 text-xs"
                 />
               </div>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[130px] h-9 text-sm">
-                  <Filter className="h-3 w-3 mr-2" />
+                <SelectTrigger className="w-[110px] h-8 text-xs">
+                  <Filter className="h-3 w-3 mr-1" />
                   <SelectValue placeholder="Filter" />
                 </SelectTrigger>
                 <SelectContent>
@@ -618,7 +603,7 @@ export default function TenantDocumentsPage() {
           </CardContent>
         </Card>
 
-        {/* Documents Grid */}
+        {/* Documents Grid - More columns, compact cards */}
         {loading ? (
           <div className="flex justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
@@ -636,7 +621,7 @@ export default function TenantDocumentsPage() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
             {filteredDocs.map((doc) => (
               <DocumentCard
                 key={doc.id}

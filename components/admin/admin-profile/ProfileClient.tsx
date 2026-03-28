@@ -1,8 +1,7 @@
-
 // components/admin/admin-profile/ProfileClient.tsx
 "use client";
 
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { toast } from "sonner";
 import Sidebar from "./Sidebar";
 import ProfileTab from "./ProfileTab";
@@ -21,9 +20,11 @@ import {
 import { useAuth } from "@/context/authContext";
 
 interface ProfileData {
+  salutation: string;
   full_name: string;
   email: string;
   phone: string;
+  phone_country_code?: string;
   role: string;
   address: string;
   bio: string;
@@ -40,71 +41,72 @@ export default function ProfileClient({ initialProfile, initialNotifications }: 
   const [loading, setLoading] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
 
-  
-  const {user} = useAuth();
-  
-  // State for profile data
-  const [profileData, setProfileData] = useState<ProfileData>(
-  
-   { full_name: user?user.name : localStorage.getItem("auth_role"),
-  email: user?user.email : localStorage.getItem("auth_email"),
-  phone: user?user.phone : "",
-  role: user?user.role_name : localStorage.getItem("auth_role"),
-  address: user?user.current_address : "",
-  bio: user?user.bio : "",
-  avatar_url: user?user.photo_url :""});
-  
-  // State for password change
+  const { user } = useAuth();
+
+  const [profileData, setProfileData] = useState<ProfileData>({
+    salutation: user?.salutation || '',
+    full_name: user?.name || '',
+    email: user?.email || localStorage.getItem("auth_email") || '',
+    phone: user?.phone || '',
+    phone_country_code: user?.phone_country_code || '+91',
+    role: user?.role_name || localStorage.getItem("auth_role") || '',
+    address: user?.current_address || '',
+    bio: user?.bio || '',
+    avatar_url: user?.photo_url || '',
+  });
+
   const [passwordData, setPasswordData] = useState({
     current_password: '',
     new_password: '',
-    confirm_password: ''
+    confirm_password: '',
   });
-  
-  // State for notifications
+
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>(initialNotifications);
 
   useEffect(() => {
-setProfileData( { full_name: user?user.name : localStorage.getItem("auth_role"),
-  email: user?user.email : localStorage.getItem("auth_email"),
-  phone: user?user.phone : "",
-  role: user?user.role_name : localStorage.getItem("auth_role"),
-  address: user?user.current_address : "",
-  bio: user?user.bio : "",
-  avatar_url: user?user.photo_url :""})
-  },[user])
-  // Fetch fresh profile data
+    setProfileData({
+      salutation: user?.salutation || '',
+      full_name: user?.name || '',
+      email: user?.email || localStorage.getItem("auth_email") || '',
+      phone: user?.phone || '',
+      phone_country_code: user?.phone_country_code || '+91',
+      role: user?.role_name || localStorage.getItem("auth_role") || '',
+      address: user?.current_address || '',
+      bio: user?.bio || '',
+      avatar_url: user?.photo_url || '',
+    });
+  }, [user]);
+
   const fetchProfile = useCallback(async () => {
-    
     try {
       setLoading(true);
       const result = await getProfile();
-      
+
       if (result.success) {
-        const profileData = result.profile || result.data || {};
-        const notificationData : any = result.notification_settings || result.settings || {};
-        
+        const pd = result.profile || result.data || {};
+        const nd: any = result.notification_settings || result.settings || {};
+
         setProfileData(prev => ({
           ...prev,
-          full_name: profileData.full_name || '',
-          phone: profileData.phone || '',
-          address: profileData.address || '',
-          bio: profileData.bio || '',
-          avatar_url: profileData.avatar_url || ''
+          salutation: pd.salutation || '',
+          full_name: pd.full_name || '',
+          phone: pd.phone || '',
+          phone_country_code: pd.phone_country_code || '+91',
+          address: pd.address || '',
+          bio: pd.bio || '',
+          avatar_url: pd.avatar_url || '',
         }));
-        
-        if (notificationData) {
+
+        if (nd) {
           setNotificationSettings({
-            email_notifications: Boolean(notificationData.email_notifications),
-            sms_notifications: Boolean(notificationData.sms_notifications),
-            whatsapp_notifications: Boolean(notificationData.whatsapp_notifications),
-            payment_alerts: Boolean(notificationData.payment_alerts),
-            booking_alerts: Boolean(notificationData.booking_alerts),
-            maintenance_alerts: Boolean(notificationData.maintenance_alerts)
+            email_notifications: Boolean(nd.email_notifications),
+            sms_notifications: Boolean(nd.sms_notifications),
+            whatsapp_notifications: Boolean(nd.whatsapp_notifications),
+            payment_alerts: Boolean(nd.payment_alerts),
+            booking_alerts: Boolean(nd.booking_alerts),
+            maintenance_alerts: Boolean(nd.maintenance_alerts),
           });
         }
-        
-        toast.success("Profile loaded successfully");
       } else {
         toast.error(result.message || "Failed to load profile");
       }
@@ -116,7 +118,6 @@ setProfileData( { full_name: user?user.name : localStorage.getItem("auth_role"),
     }
   }, []);
 
-  // Handle profile update
   const handleProfileUpdate = useCallback(async () => {
     if (!profileData.full_name.trim()) {
       toast.error("Full name is required");
@@ -124,18 +125,20 @@ setProfileData( { full_name: user?user.name : localStorage.getItem("auth_role"),
     }
 
     const toastId = toast.loading("Updating profile...");
-    
+
     try {
       setLoading(true);
       const updateData: ProfileUpdateData = {
+        salutation: profileData.salutation,
         full_name: profileData.full_name,
         phone: profileData.phone,
+        phone_country_code: profileData.phone_country_code,
         address: profileData.address,
-        bio: profileData.bio
+        bio: profileData.bio,
       };
 
       const result = await updateProfile(updateData);
-      
+
       if (result.success) {
         toast.dismiss(toastId);
         toast.success("Profile updated successfully");
@@ -151,29 +154,25 @@ setProfileData( { full_name: user?user.name : localStorage.getItem("auth_role"),
     }
   }, [profileData]);
 
-  // Handle password change
   const handlePasswordChange = useCallback(async () => {
     if (passwordData.new_password !== passwordData.confirm_password) {
       toast.error("Passwords do not match");
       return;
     }
-
     if (passwordData.new_password.length < 8) {
       toast.error("Password must be at least 8 characters");
       return;
     }
 
     const toastId = toast.loading("Changing password...");
-    
+
     try {
       setLoading(true);
-      const passwordDataToSend: PasswordChangeData = {
+      const result = await changePassword({
         current_password: passwordData.current_password,
-        new_password: passwordData.new_password
-      };
+        new_password: passwordData.new_password,
+      });
 
-      const result = await changePassword(passwordDataToSend);
-      
       if (result.success) {
         toast.dismiss(toastId);
         toast.success("Password changed successfully");
@@ -190,14 +189,13 @@ setProfileData( { full_name: user?user.name : localStorage.getItem("auth_role"),
     }
   }, [passwordData]);
 
-  // Handle notification update
   const handleNotificationUpdate = useCallback(async () => {
     const toastId = toast.loading("Updating notification preferences...");
-    
+
     try {
       setLoading(true);
       const result = await updateNotificationSettings(notificationSettings);
-      
+
       if (result.success) {
         toast.dismiss(toastId);
         toast.success("Notification preferences updated");
@@ -213,24 +211,22 @@ setProfileData( { full_name: user?user.name : localStorage.getItem("auth_role"),
     }
   }, [notificationSettings]);
 
-  // Handle avatar upload
   const handleAvatarUpload = useCallback(async (file: File) => {
     if (!file.type.startsWith('image/')) {
       toast.error("Please upload an image file (JPG, PNG, GIF)");
       return;
     }
-
     if (file.size > 2 * 1024 * 1024) {
       toast.error("File size must be less than 2MB");
       return;
     }
 
     const toastId = toast.loading("Uploading profile picture...");
-    
+
     try {
       setAvatarUploading(true);
       const result = await uploadAvatar(file);
-      
+
       if (result.success && result.avatar_url) {
         setProfileData(prev => ({ ...prev, avatar_url: result.avatar_url! }));
         toast.dismiss(toastId);
@@ -247,13 +243,11 @@ setProfileData( { full_name: user?user.name : localStorage.getItem("auth_role"),
     }
   }, []);
 
-  // Handle cancel profile changes
   const handleCancelProfileChanges = useCallback(() => {
     fetchProfile();
     toast.info("Changes discarded");
   }, [fetchProfile]);
 
-  // Handle reset notification settings
   const handleResetNotifications = useCallback(() => {
     setNotificationSettings({
       email_notifications: true,
@@ -261,12 +255,11 @@ setProfileData( { full_name: user?user.name : localStorage.getItem("auth_role"),
       whatsapp_notifications: true,
       payment_alerts: true,
       booking_alerts: true,
-      maintenance_alerts: false
+      maintenance_alerts: false,
     });
     toast.info("Reset to default settings");
   }, []);
 
-  // Handle clear password form
   const handleClearPasswordForm = useCallback(() => {
     setPasswordData({ current_password: '', new_password: '', confirm_password: '' });
     toast.info("Form cleared");
@@ -276,13 +269,11 @@ setProfileData( { full_name: user?user.name : localStorage.getItem("auth_role"),
     <div className="min-h-screen bg-slate-100 p-0 sm:p-0 lg:p-0">
       <div className="max-w-9xl mx-auto">
         <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
-          
-          {/* Sidebar - Full width on mobile, sticky on desktop */}
+
           <div className="w-full lg:w-64 lg:sticky lg:top-4 lg:self-start">
             <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
           </div>
-          
-          {/* Main Content - Full width */}
+
           <div className="flex-1 min-w-0">
             {loading && activeTab === "profile" ? (
               <div className="flex justify-center items-center h-48 sm:h-64">
@@ -301,7 +292,6 @@ setProfileData( { full_name: user?user.name : localStorage.getItem("auth_role"),
                     avatarUploading={avatarUploading}
                   />
                 )}
-
                 {activeTab === "security" && (
                   <SecurityTab
                     passwordData={passwordData}
@@ -311,7 +301,6 @@ setProfileData( { full_name: user?user.name : localStorage.getItem("auth_role"),
                     loading={loading}
                   />
                 )}
-
                 {activeTab === "notifications" && (
                   <NotificationsTab
                     notificationSettings={notificationSettings}
