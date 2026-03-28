@@ -585,3 +585,60 @@ export async function bulkCreateValues(master_item_id: number, values: Array<{ n
   }
 }
 
+// lib/masterApi.ts - Add this function
+
+// Get payment rejection reasons from masters
+export async function getPaymentRejectionReasons() {
+  try {
+    // First, find the master item ID for "Payment Rejection Reasons"
+    const itemsResponse = await request(`/api/masters/items`, {
+      method: "GET",
+    });
+    
+    if (itemsResponse?.success && itemsResponse.data) {
+      // Find the item with name "Payment Rejection Reasons"
+      const rejectionItem = itemsResponse.data.find(
+        (item: any) => item.name === 'Payment Rejection Reasons' && item.tab_name === 'Common'
+      );
+      
+      if (rejectionItem) {
+        // Get values for this item
+        const valuesResponse = await request(`/api/masters/values/${rejectionItem.id}`, {
+          method: "GET",
+        });
+        
+        if (valuesResponse?.success && valuesResponse.data) {
+          // Return active values only
+          const activeValues = valuesResponse.data.filter((value: any) => value.isactive === 1);
+          return {
+            success: true,
+            data: activeValues.map((value: any) => ({
+              id: value.id,
+              name: value.name,
+              isactive: value.isactive === 1
+            }))
+          };
+        }
+      }
+    }
+    
+    // If no data found, return empty array
+    return { success: false, data: [] };
+  } catch (error) {
+    console.error("Error fetching rejection reasons:", error);
+    return { success: false, data: [] };
+  }
+}
+
+// Alternative: Get by item name
+export async function getMasterValuesByItemName(itemName: string) {
+  try {
+    const response = await request(`/api/masters/consume?type=${encodeURIComponent(itemName)}`, {
+      method: "GET",
+    });
+    return response;
+  } catch (error) {
+    console.error(`Error fetching values for ${itemName}:`, error);
+    return { success: false, data: [] };
+  }
+}

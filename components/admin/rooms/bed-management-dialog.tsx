@@ -1,7 +1,7 @@
 // components/admin/rooms/BedManagementDialog.tsx
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -31,11 +31,6 @@ interface BedManagementDialogProps {
   onRefresh?: () => void;
 }
 
-interface BedAssignmentState {
-  tenantId: string;
-  selectedTenant: any | null;
-}
-
 interface Tenant {
   id: number;
   full_name: string;
@@ -46,7 +41,7 @@ interface Tenant {
   portal_access_enabled: boolean;
   couple_id?: number;
   is_assigned?: boolean;
-   // Partner fields
+  // Partner fields
   partner_full_name?: string;
   partner_phone?: string;
   partner_email?: string;
@@ -56,7 +51,11 @@ interface Tenant {
   partner_occupation?: string;
   partner_organization?: string;
   partner_relationship?: string;
+  partner_id_proof_type?: string;
+  partner_id_proof_number?: string;
   partner_id_proof_url?: string;
+  partner_address_proof_type?: string;
+  partner_address_proof_number?: string;
   partner_address_proof_url?: string;
   partner_photo_url?: string;
   is_couple_booking?: boolean;
@@ -330,7 +329,7 @@ function TenantSelectDropdown({
               <BadgeIndianRupee className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 md:h-4 md:w-4 text-gray-500" />
               <Input
                 id={`custom-rent-${bedNumber}`}
-                type="number"
+                type="text"
                 placeholder={`Enter rent amount`}
                 value={customRent}
                 onChange={(e) => onCustomRentChange?.(e.target.value)}
@@ -429,7 +428,7 @@ function BedCard({
   isOccupied: boolean;
   isAssigning: boolean;
   onAssignClick: () => void;
-  onUpdateClick: (bedAssignment: any, tenantId: string, customRent?: string, isCouple?: boolean, partnerDetails?: any) => void;
+  onUpdateClick: (bedAssignment: any, tenantId: string, customRent?: string, isCouple?: boolean) => void;
   onVacateClick: () => void;
   onChangeBedClick: () => void;
   tenants: Tenant[];
@@ -437,7 +436,7 @@ function BedCard({
   roomGenderPreferences: string[];
   currentRoomAssignments: BedAssignment[];
   isSaving: boolean;
-  tenantDetails?: any;
+  tenantDetails?: Tenant;
   room: RoomResponse;
   bedRent?: number;
 }) {
@@ -446,30 +445,6 @@ function BedCard({
     bedRent ? bedRent.toString() : room.rent_per_bed.toString()
   );
   const [isCouple, setIsCouple] = useState<boolean>(assignment?.is_couple || false);
-  
-  // Partner details state
-  const [partnerDetails, setPartnerDetails] = useState({
-    fullName: '',
-    phone: '',
-    email: '',
-    gender: '',
-    dateOfBirth: '',
-    address: '',
-    occupation: '',
-    organization: '',
-    relationship: 'Spouse',
-     idProof: null as File | null,
-  addressProof: null as File | null,
-  photo: null as File | null,
-  idProofUrl: '',
-  addressProofUrl: '',
-  photoUrl: ''
-  });
-  // Add file input refs
-const idProofInputRef = useRef<HTMLInputElement>(null);
-const addressProofInputRef = useRef<HTMLInputElement>(null);
-const photoInputRef = useRef<HTMLInputElement>(null);
-
 
   // Reset form when assigning state changes
   useEffect(() => {
@@ -477,29 +452,12 @@ const photoInputRef = useRef<HTMLInputElement>(null);
       setSelectedTenantId('');
       setCustomRent(bedRent ? bedRent.toString() : room.rent_per_bed.toString());
       setIsCouple(assignment?.is_couple || false);
-      // Reset partner details when assigning new tenant
-      setPartnerDetails({
-        fullName: '',
-        phone: '',
-        email: '',
-        gender: '',
-        dateOfBirth: '',
-        address: '',
-        occupation: '',
-        organization: '',
-        relationship: 'Spouse'
-      });
     }
   }, [isAssigning, room.rent_per_bed, bedRent, assignment]);
 
   const handleUpdateClick = () => {
     const selectedTenant = tenants.find(t => t.id.toString() === selectedTenantId);
-    // Validate partner details if couple booking
-    if (isCouple && (!partnerDetails.fullName || !partnerDetails.phone)) {
-      toast.error("Please fill in partner's full name and phone number for couple booking");
-      return;
-    }
-    onUpdateClick(assignment, selectedTenantId, customRent, isCouple, partnerDetails);
+    onUpdateClick(assignment, selectedTenantId, customRent, isCouple);
   };
 
   const displayRent = assignment?.tenant_rent || room.rent_per_bed;
@@ -552,42 +510,54 @@ const photoInputRef = useRef<HTMLInputElement>(null);
                   <span className="text-[10px] md:text-xs text-gray-600">Gender</span>
                   <span className="font-medium text-xs md:text-sm">{assignment.tenant_gender}</span>
                 </div>
-                 {/* Show Partner Details if it's a couple booking */}
-        {Boolean(assignment.is_couple) && tenantDetails.partner_full_name && (
-          <>
-            <div className="mt-2 pt-2 border-t border-gray-200">
-              <p className="text-[9px] font-semibold text-pink-600 flex items-center gap-1">
-                <Heart className="h-2.5 w-2.5" /> Partner Details
-              </p>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] md:text-xs text-gray-600">Partner Name</span>
-              <span className="font-medium text-xs md:text-sm">{tenantDetails.partner_full_name}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] md:text-xs text-gray-600">Partner Phone</span>
-              <span className="font-medium text-xs md:text-sm">{tenantDetails.partner_phone}</span>
-            </div>
-            {tenantDetails.partner_gender && (
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] md:text-xs text-gray-600">Partner Gender</span>
-                <span className="font-medium text-xs md:text-sm">{tenantDetails.partner_gender}</span>
-              </div>
-            )}
-            {tenantDetails.partner_relationship && (
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] md:text-xs text-gray-600">Relationship</span>
-                <span className="font-medium text-xs md:text-sm">{tenantDetails.partner_relationship}</span>
-              </div>
-            )}
-            {tenantDetails.partner_occupation && (
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] md:text-xs text-gray-600">Partner Occupation</span>
-                <span className="font-medium text-xs md:text-sm">{tenantDetails.partner_occupation}</span>
-              </div>
-            )}
-          </>
-        )}
+                
+                {/* Show Partner Details from Tenant if it's a couple booking */}
+                {Boolean(assignment.is_couple) && tenantDetails.partner_full_name && (
+                  <>
+                    <div className="mt-2 pt-2 border-t border-gray-200">
+                      <p className="text-[9px] font-semibold text-pink-600 flex items-center gap-1">
+                        <Heart className="h-2.5 w-2.5" /> Partner Details
+                      </p>
+                    </div>
+                    {tenantDetails.couple_id && (
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] md:text-xs text-gray-600">Couple ID</span>
+        <Badge variant="outline" className="text-[9px] bg-pink-50 text-pink-700">
+          {tenantDetails.couple_id}
+        </Badge>
+      </div>
+    )}
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] md:text-xs text-gray-600">Partner Name</span>
+                      <span className="font-medium text-xs md:text-sm">{tenantDetails.partner_full_name}</span>
+                    </div>
+                    {tenantDetails.partner_phone && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] md:text-xs text-gray-600">Partner Phone</span>
+                        <span className="font-medium text-xs md:text-sm">{tenantDetails.partner_phone}</span>
+                      </div>
+                    )}
+                    {tenantDetails.partner_gender && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] md:text-xs text-gray-600">Partner Gender</span>
+                        <span className="font-medium text-xs md:text-sm">{tenantDetails.partner_gender}</span>
+                      </div>
+                    )}
+                    {tenantDetails.partner_relationship && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] md:text-xs text-gray-600">Relationship</span>
+                        <span className="font-medium text-xs md:text-sm">{tenantDetails.partner_relationship}</span>
+                      </div>
+                    )}
+                    {tenantDetails.partner_occupation && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] md:text-xs text-gray-600">Partner Occupation</span>
+                        <span className="font-medium text-xs md:text-sm">{tenantDetails.partner_occupation}</span>
+                      </div>
+                    )}
+                  </>
+                )}
+                
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] md:text-xs text-gray-600">Status</span>
                   <Badge variant={tenantDetails.is_active ? "default" : "secondary"} className="h-4 md:h-5 text-[9px] md:text-xs">
@@ -684,124 +654,6 @@ const photoInputRef = useRef<HTMLInputElement>(null);
                   bedRent={bedRent}
                 />
                 
-                {/* Partner Details Form - Only show when couple is checked */}
-                {isCouple && selectedTenantId && (
-                  <div className="mt-4 p-3 border-2 border-pink-200 rounded-lg bg-pink-50">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Heart className="h-4 w-4 text-pink-600" />
-                      <h4 className="text-xs font-bold text-pink-800">Partner Details</h4>
-                      <Badge variant="outline" className="text-[9px] bg-pink-100 text-pink-700 border-pink-200">
-                        Required for couple booking
-                      </Badge>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="col-span-2">
-                        <Label className="text-[10px] font-semibold text-pink-700">Partner Full Name *</Label>
-                        <Input
-                          value={partnerDetails.fullName}
-                          onChange={(e) => setPartnerDetails(prev => ({ ...prev, fullName: e.target.value }))}
-                          placeholder="Enter partner's full name"
-                          className="h-7 text-[10px] mt-0.5 border-pink-200 focus:border-pink-500"
-                        />
-                      </div>
-                      
-                      <div>
-                        <Label className="text-[10px] font-semibold text-pink-700">Partner Phone *</Label>
-                        <Input
-                          value={partnerDetails.phone}
-                          onChange={(e) => setPartnerDetails(prev => ({ ...prev, phone: e.target.value }))}
-                          placeholder="10-digit mobile number"
-                          className="h-7 text-[10px] mt-0.5 border-pink-200 focus:border-pink-500"
-                          maxLength={10}
-                        />
-                      </div>
-                      
-                      <div>
-                        <Label className="text-[10px] font-semibold text-pink-700">Partner Email</Label>
-                        <Input
-                          type="email"
-                          value={partnerDetails.email}
-                          onChange={(e) => setPartnerDetails(prev => ({ ...prev, email: e.target.value }))}
-                          placeholder="partner@email.com"
-                          className="h-7 text-[10px] mt-0.5 border-pink-200 focus:border-pink-500"
-                        />
-                      </div>
-                      
-                      <div>
-                        <Label className="text-[10px] font-semibold text-pink-700">Partner Gender *</Label>
-                        <Select value={partnerDetails.gender} onValueChange={(v) => setPartnerDetails(prev => ({ ...prev, gender: v }))}>
-                          <SelectTrigger className="h-7 text-[10px] mt-0.5 border-pink-200">
-                            <SelectValue placeholder="Select gender" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Male">Male</SelectItem>
-                            <SelectItem value="Female">Female</SelectItem>
-                            <SelectItem value="Other">Other</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      
-                      <div>
-                        <Label className="text-[10px] font-semibold text-pink-700">Partner Date of Birth</Label>
-                        <Input
-                          type="date"
-                          value={partnerDetails.dateOfBirth}
-                          onChange={(e) => setPartnerDetails(prev => ({ ...prev, dateOfBirth: e.target.value }))}
-                          className="h-7 text-[10px] mt-0.5 border-pink-200"
-                        />
-                      </div>
-                      
-                      <div className="col-span-2">
-                        <Label className="text-[10px] font-semibold text-pink-700">Relationship</Label>
-                        <Select value={partnerDetails.relationship} onValueChange={(v) => setPartnerDetails(prev => ({ ...prev, relationship: v }))}>
-                          <SelectTrigger className="h-7 text-[10px] mt-0.5 border-pink-200">
-                            <SelectValue placeholder="Select relationship" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Spouse">Spouse</SelectItem>
-                            <SelectItem value="Partner">Partner</SelectItem>
-                            <SelectItem value="Fiancé">Fiancé</SelectItem>
-                            <SelectItem value="Fiancée">Fiancée</SelectItem>
-                            <SelectItem value="Other">Other</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      
-                      <div className="col-span-2">
-                        <Label className="text-[10px] font-semibold text-pink-700">Partner Address</Label>
-                        <Textarea
-                          value={partnerDetails.address}
-                          onChange={(e) => setPartnerDetails(prev => ({ ...prev, address: e.target.value }))}
-                          placeholder="Enter partner's address"
-                          className="text-[10px] mt-0.5 resize-none border-pink-200"
-                          rows={2}
-                        />
-                      </div>
-                      
-                      <div className="col-span-2">
-                        <Label className="text-[10px] font-semibold text-pink-700">Partner Occupation</Label>
-                        <Input
-                          value={partnerDetails.occupation}
-                          onChange={(e) => setPartnerDetails(prev => ({ ...prev, occupation: e.target.value }))}
-                          placeholder="e.g., Software Engineer, Student, Business"
-                          className="h-7 text-[10px] mt-0.5 border-pink-200"
-                        />
-                      </div>
-                      
-                      <div className="col-span-2">
-                        <Label className="text-[10px] font-semibold text-pink-700">Partner Organization/Company</Label>
-                        <Input
-                          value={partnerDetails.organization}
-                          onChange={(e) => setPartnerDetails(prev => ({ ...prev, organization: e.target.value }))}
-                          placeholder="Company name or educational institution"
-                          className="h-7 text-[10px] mt-0.5 border-pink-200"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-                
                 <div className="flex gap-2">
                   <Button
                     variant="outline"
@@ -871,18 +723,16 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
   const [transferDialogOpen, setTransferDialogOpen] = useState(false);
   const [transferDetails, setTransferDetails] = useState<{
     bedAssignment: BedAssignment | null;
-    newTenant: any | null;
+    newTenant: Tenant | null;
     existingAssignment: any | null;
     customRent?: string;
     isCouple?: boolean;
-    partnerDetails?: any;
   }>({
     bedAssignment: null,
     newTenant: null,
     existingAssignment: null,
     customRent: undefined,
-    isCouple: undefined,
-    partnerDetails: undefined
+    isCouple: undefined
   });
   const [transferReason, setTransferReason] = useState('');
 
@@ -971,7 +821,7 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
     return { status: 'available', assignment };
   };
 
-  const findTenantDetails = (tenantId: number) => {
+  const findTenantDetails = (tenantId: number): Tenant | undefined => {
     return tenants.find(t => t.id === tenantId);
   };
 
@@ -1020,84 +870,155 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
     }
   };
 
-const handleAssignBed = async (bedNumber: number, tenantId: string, customRent?: string, isCouple?: boolean, partnerDetails?: any) => {
-  if (!tenantId.trim()) {
-    toast.error("Please select a tenant");
-    return;
-  }
-
-  const tenant = tenants.find(t => t.id.toString() === tenantId);
-  if (!tenant) {
-    toast.error("Invalid tenant selected");
-    return;
-  }
-
-  // Validate partner details if couple booking
-  if (isCouple && (!partnerDetails?.fullName || !partnerDetails?.phone)) {
-    toast.error("Please fill in partner's full name and phone number for couple booking");
-    return;
-  }
-
-  const tenantIdNum = parseInt(tenantId);
-  
-  try {
-    setSavingBed(bedNumber);
-    
-    // Check if tenant is already assigned elsewhere
-    const existingAssignment = await checkTenantExistingAssignment(tenantIdNum);
-    
-    if (existingAssignment) {
-      setTransferDetails({
-        bedAssignment: null,
-        newTenant: tenant,
-        existingAssignment: existingAssignment,
-        customRent: customRent,
-        isCouple: isCouple,
-        partnerDetails: partnerDetails
-      });
-      setTransferReason(`Moved to Bed ${bedNumber} in Room ${room.room_number}`);
-      setTransferDialogOpen(true);
-      setSavingBed(null);
+  const handleAssignBed = async (bedNumber: number, tenantId: string, customRent?: string, isCouple?: boolean) => {
+    if (!tenantId.trim()) {
+      toast.error("Please select a tenant");
       return;
     }
+
+    const tenant = tenants.find(t => t.id.toString() === tenantId);
+    if (!tenant) {
+      toast.error("Invalid tenant selected");
+      return;
+    }
+
+    const tenantIdNum = parseInt(tenantId);
     
+    try {
+      setSavingBed(bedNumber);
+      
+      // Check if tenant is already assigned elsewhere
+      const existingAssignment = await checkTenantExistingAssignment(tenantIdNum);
+      
+      if (existingAssignment) {
+        setTransferDetails({
+          bedAssignment: null,
+          newTenant: tenant,
+          existingAssignment: existingAssignment,
+          customRent: customRent,
+          isCouple: isCouple
+        });
+        setTransferReason(`Moved to Bed ${bedNumber} in Room ${room.room_number}`);
+        setTransferDialogOpen(true);
+        setSavingBed(null);
+        return;
+      }
+      
+      // Parse rent value - ensure it's a number
+      const rentValue = customRent && customRent.trim() !== '' 
+        ? parseFloat(customRent) 
+        : room.rent_per_bed;
+      
+      // Get tenant gender
+      const tenantGender = tenant.gender as 'Male' | 'Female' | 'Other';
+      
+      // Ensure isCouple is a boolean
+      const coupleValue = isCouple === true;
+      
+      const payload: AssignBedPayload = {
+        room_id: room.id,
+        bed_number: bedNumber,
+        tenant_id: tenantIdNum,
+        tenant_gender: tenantGender,
+        tenant_rent: rentValue,
+        is_couple: coupleValue
+      };
+
+      const result = await assignBed(payload);
+      
+      if (result.success) {
+        toast.success(`Bed ${bedNumber} assigned successfully!`);
+        
+        // Refresh the bed assignments
+        await refreshRoomData();
+        
+        setAssigningBed(null);
+        
+        if (onRefresh) onRefresh();
+        
+      } else {
+        toast.error(result.message || "Failed to assign bed");
+      }
+    } catch (err: any) {
+      console.error("Assign bed error:", err);
+      toast.error(err.message || "Failed to assign bed");
+    } finally {
+      setSavingBed(null);
+    }
+  };
+
+  const handleUpdateBedAssignment = async (bedAssignment: BedAssignment, tenantId: string, customRent?: string, isCouple?: boolean) => {
+    if (!tenantId.trim()) {
+      toast.error("Please select a tenant");
+      return;
+    }
+
+    const tenant = tenants.find(t => t.id.toString() === tenantId);
+    if (!tenant) {
+      toast.error("Invalid tenant selected");
+      return;
+    }
+
+    const newTenantId = parseInt(tenantId);
+    const currentTenantId = bedAssignment.tenant_id;
+
+    if (currentTenantId === newTenantId) {
+      await updateBedAssignmentDirectly(bedAssignment, tenant, customRent, isCouple);
+      return;
+    }
+
+    try {
+      setSavingBed(bedAssignment.bed_number);
+      
+      const existingAssignment = await checkTenantExistingAssignment(newTenantId, bedAssignment.id);
+      
+      if (existingAssignment) {
+        setTransferDetails({
+          bedAssignment: bedAssignment,
+          newTenant: tenant,
+          existingAssignment: existingAssignment,
+          customRent: customRent,
+          isCouple: isCouple
+        });
+        setTransferReason(`Transferred to Bed ${bedAssignment.bed_number} in Room ${room.room_number}`);
+        setTransferDialogOpen(true);
+        setSavingBed(null);
+        return;
+      }
+      
+      await updateBedAssignmentDirectly(bedAssignment, tenant, customRent, isCouple);
+      
+    } catch (err: any) {
+      console.error("Update bed error:", err);
+      toast.error(err.message || "Failed to update bed assignment");
+    } finally {
+      setSavingBed(null);
+    }
+  };
+
+  const updateBedAssignmentDirectly = async (bedAssignment: BedAssignment, tenant: Tenant, customRent?: string, isCouple?: boolean) => {
     // Parse rent value - ensure it's a number
     const rentValue = customRent && customRent.trim() !== '' 
       ? parseFloat(customRent) 
       : room.rent_per_bed;
     
-    // Get tenant gender
     const tenantGender = tenant.gender as 'Male' | 'Female' | 'Other';
     
     // Ensure isCouple is a boolean
     const coupleValue = isCouple === true;
     
-    const payload: AssignBedPayload = {
-      room_id: room.id,
-      bed_number: bedNumber,
-      tenant_id: tenantIdNum,
+    const payload: UpdateBedAssignmentPayload = {
+      tenant_id: tenant.id,
       tenant_gender: tenantGender,
+      is_available: false,
       tenant_rent: rentValue,
-      is_couple: coupleValue,
-      partner_full_name: partnerDetails?.fullName,
-      partner_phone: partnerDetails?.phone,
-      partner_email: partnerDetails?.email,
-      partner_gender: partnerDetails?.gender,
-      partner_date_of_birth: partnerDetails?.dateOfBirth,
-      partner_address: partnerDetails?.address,
-      partner_occupation: partnerDetails?.occupation,
-      partner_organization: partnerDetails?.organization,
-      partner_relationship: partnerDetails?.relationship,
-       // Document fields - you'll need to upload these separately or handle via form data
-  partner_id_proof_url: partnerDetails?.idProofUrl,
-  partner_address_proof_url: partnerDetails?.addressProofUrl,
-  partner_photo_url: partnerDetails?.photoUrl
+      is_couple: coupleValue
     };
-
-    const result = await assignBed(payload);
+    
+    const result = await updateBedAssignment(bedAssignment.id.toString(), payload);
     
     if (result.success) {
-      toast.success(`Bed ${bedNumber} assigned successfully!`);
+      toast.success(`Bed ${bedAssignment.bed_number} updated successfully!`);
       
       // Refresh the bed assignments
       await refreshRoomData();
@@ -1105,217 +1026,93 @@ const handleAssignBed = async (bedNumber: number, tenantId: string, customRent?:
       setAssigningBed(null);
       
       if (onRefresh) onRefresh();
-      
     } else {
-      toast.error(result.message || "Failed to assign bed");
+      toast.error(result.message || "Failed to update bed assignment");
     }
-  } catch (err: any) {
-    console.error("Assign bed error:", err);
-    toast.error(err.message || "Failed to assign bed");
-  } finally {
-    setSavingBed(null);
-  }
-};
-
-
-const handleUpdateBedAssignment = async (bedAssignment: BedAssignment, tenantId: string, customRent?: string, isCouple?: boolean, partnerDetails?: any) => {
-  if (!tenantId.trim()) {
-    toast.error("Please select a tenant");
-    return;
-  }
-
-  const tenant = tenants.find(t => t.id.toString() === tenantId);
-  if (!tenant) {
-    toast.error("Invalid tenant selected");
-    return;
-  }
-
-  // Validate partner details if couple booking
-  if (isCouple && (!partnerDetails?.fullName || !partnerDetails?.phone)) {
-    toast.error("Please fill in partner's full name and phone number for couple booking");
-    return;
-  }
-
-  const newTenantId = parseInt(tenantId);
-  const currentTenantId = bedAssignment.tenant_id;
-
-  if (currentTenantId === newTenantId) {
-    await updateBedAssignmentDirectly(bedAssignment, tenant, customRent, isCouple, partnerDetails);
-    return;
-  }
-
-  try {
-    setSavingBed(bedAssignment.bed_number);
-    
-    const existingAssignment = await checkTenantExistingAssignment(newTenantId, bedAssignment.id);
-    
-    if (existingAssignment) {
-      setTransferDetails({
-        bedAssignment: bedAssignment,
-        newTenant: tenant,
-        existingAssignment: existingAssignment,
-        customRent: customRent,
-        isCouple: isCouple,
-        partnerDetails: partnerDetails
-      });
-      setTransferReason(`Transferred to Bed ${bedAssignment.bed_number} in Room ${room.room_number}`);
-      setTransferDialogOpen(true);
-      setSavingBed(null);
-      return;
-    }
-    
-    await updateBedAssignmentDirectly(bedAssignment, tenant, customRent, isCouple, partnerDetails);
-    
-  } catch (err: any) {
-    console.error("Update bed error:", err);
-    toast.error(err.message || "Failed to update bed assignment");
-  } finally {
-    setSavingBed(null);
-  }
-};
-
-const updateBedAssignmentDirectly = async (bedAssignment: BedAssignment, tenant: Tenant, customRent?: string, isCouple?: boolean, partnerDetails?: any) => {
-  // Parse rent value - ensure it's a number
-  const rentValue = customRent && customRent.trim() !== '' 
-    ? parseFloat(customRent) 
-    : room.rent_per_bed;
-  
-  const tenantGender = tenant.gender as 'Male' | 'Female' | 'Other';
-  
-  // Ensure isCouple is a boolean
-  const coupleValue = isCouple === true;
-  
-  const payload: UpdateBedAssignmentPayload = {
-    tenant_id: tenant.id,
-    tenant_gender: tenantGender,
-    is_available: false,
-    tenant_rent: rentValue,
-    is_couple: coupleValue,
-    // Add partner details
-    partner_full_name: partnerDetails?.fullName,
-    partner_phone: partnerDetails?.phone,
-    partner_email: partnerDetails?.email,
-    partner_gender: partnerDetails?.gender,
-    partner_date_of_birth: partnerDetails?.dateOfBirth,
-    partner_address: partnerDetails?.address,
-    partner_occupation: partnerDetails?.occupation,
-    partner_organization: partnerDetails?.organization,
-    partner_relationship: partnerDetails?.relationship
   };
-  
-  const result = await updateBedAssignment(bedAssignment.id.toString(), payload);
-  
-  if (result.success) {
-    toast.success(`Bed ${bedAssignment.bed_number} updated successfully!`);
-    
-    // Refresh the bed assignments
-    await refreshRoomData();
-    
-    setAssigningBed(null);
-    
-    if (onRefresh) onRefresh();
-  } else {
-    toast.error(result.message || "Failed to update bed assignment");
-  }
-};
 
-const handleTransferConfirmation = async () => {
-  try {
-    const { bedAssignment, newTenant, existingAssignment, customRent, isCouple, partnerDetails } = transferDetails;
-    
-    if (!existingAssignment || !newTenant) {
-      toast.error("Invalid transfer details");
-      return;
-    }
+  const handleTransferConfirmation = async () => {
+    try {
+      const { bedAssignment, newTenant, existingAssignment, customRent, isCouple } = transferDetails;
+      
+      if (!existingAssignment || !newTenant) {
+        toast.error("Invalid transfer details");
+        return;
+      }
 
-    setSavingBed(bedAssignment?.bed_number || null);
-    
-    // FIRST: Update tenant with partner details if it's a couple booking
-    if (isCouple && partnerDetails) {
-      await updateTenantWithPartnerDetails(newTenant.id, partnerDetails);
-    }
-    
-    const vacateResult = await vacateExistingAssignment(existingAssignment.id, transferReason);
-    
-    if (!vacateResult.success) {
-      toast.error(`Failed to vacate existing bed: ${vacateResult.message}`);
+      setSavingBed(bedAssignment?.bed_number || null);
+      
+      const vacateResult = await vacateExistingAssignment(existingAssignment.id, transferReason);
+      
+      if (!vacateResult.success) {
+        toast.error(`Failed to vacate existing bed: ${vacateResult.message}`);
+        setSavingBed(null);
+        return;
+      }
+      
+      toast.success(`Vacated previous assignment`);
+      
+      const coupleValue = isCouple === true;
+      const tenantGender = newTenant.gender as 'Male' | 'Female' | 'Other';
+      
+      if (!bedAssignment) {
+        const payload: AssignBedPayload = {
+          room_id: room.id,
+          bed_number: existingAssignment.bed_number || 0,
+          tenant_id: newTenant.id,
+          tenant_gender: tenantGender,
+          tenant_rent: customRent ? parseFloat(customRent) : room.rent_per_bed,
+          is_couple: coupleValue
+        };
+
+        const result = await assignBed(payload);
+        
+        if (result.success) {
+          // Refresh bed assignments
+          await refreshRoomData();
+        } else {
+          toast.error(result.message || "Failed to assign bed");
+        }
+      } else {
+        const payload: UpdateBedAssignmentPayload = {
+          tenant_id: newTenant.id,
+          tenant_gender: tenantGender,
+          is_available: false,
+          tenant_rent: customRent ? parseFloat(customRent) : room.rent_per_bed,
+          is_couple: coupleValue
+        };
+        
+        const result = await updateBedAssignment(bedAssignment.id.toString(), payload);
+        
+        if (result.success) {
+          // Refresh bed assignments
+          await refreshRoomData();
+        } else {
+          toast.error(result.message || "Failed to update bed assignment");
+        }
+      }
+      
+      setAssigningBed(null);
+      
+      if (onRefresh) onRefresh();
+      
+      setTransferDialogOpen(false);
+      setTransferDetails({
+        bedAssignment: null,
+        newTenant: null,
+        existingAssignment: null,
+        customRent: undefined,
+        isCouple: undefined
+      });
+      setTransferReason('');
+      
+    } catch (err: any) {
+      console.error("Transfer error:", err);
+      toast.error(err.message || "Failed to process transfer");
+    } finally {
       setSavingBed(null);
-      return;
     }
-    
-    toast.success(`Vacated previous assignment`);
-    
-    const coupleValue = isCouple === true;
-    const tenantGender = newTenant.gender as 'Male' | 'Female' | 'Other';
-    
-    if (!bedAssignment) {
-      const payload: AssignBedPayload = {
-        room_id: room.id,
-        bed_number: existingAssignment.bed_number || 0,
-        tenant_id: newTenant.id,
-        tenant_gender: tenantGender,
-        tenant_rent: customRent ? parseFloat(customRent) : room.rent_per_bed,
-        is_couple: coupleValue,
-        partner_full_name: partnerDetails?.fullName,
-        partner_phone: partnerDetails?.phone,
-        partner_email: partnerDetails?.email,
-        partner_gender: partnerDetails?.gender,
-        partner_date_of_birth: partnerDetails?.dateOfBirth,
-        partner_address: partnerDetails?.address,
-        partner_occupation: partnerDetails?.occupation,
-        partner_organization: partnerDetails?.organization,
-        partner_relationship: partnerDetails?.relationship
-      };
-
-      const result = await assignBed(payload);
-      
-      if (result.success) {
-        // Refresh bed assignments
-        await refreshRoomData();
-      } else {
-        toast.error(result.message || "Failed to assign bed");
-      }
-    } else {
-      const payload: UpdateBedAssignmentPayload = {
-        tenant_id: newTenant.id,
-        tenant_gender: tenantGender,
-        is_available: false,
-        tenant_rent: customRent ? parseFloat(customRent) : room.rent_per_bed,
-        is_couple: coupleValue
-      };
-      
-      const result = await updateBedAssignment(bedAssignment.id.toString(), payload);
-      
-      if (result.success) {
-        // Refresh bed assignments
-        await refreshRoomData();
-      } else {
-        toast.error(result.message || "Failed to update bed assignment");
-      }
-    }
-    
-    setAssigningBed(null);
-    
-    if (onRefresh) onRefresh();
-    
-    setTransferDialogOpen(false);
-    setTransferDetails({
-      bedAssignment: null,
-      newTenant: null,
-      existingAssignment: null,
-      customRent: undefined,
-      isCouple: undefined,
-      partnerDetails: undefined
-    });
-    setTransferReason('');
-    
-  } catch (err: any) {
-    console.error("Transfer error:", err);
-    toast.error(err.message || "Failed to process transfer");
-  } finally {
-    setSavingBed(null);
-  }
-};
+  };
 
   const handleVacateClick = (bedAssignment: BedAssignment) => {
     setSelectedBedForVacate(bedAssignment);
@@ -1347,7 +1144,6 @@ const handleTransferConfirmation = async () => {
   
   // Calculate total room rent from bed assignments using tenant_rent
   const totalRoomRent = bedAssignments.reduce((sum, bed) => {
-    // Use tenant_rent if available (as number), otherwise fallback to room's rent_per_bed
     const bedRent = bed.tenant_rent ? parseFloat(bed.tenant_rent.toString()) : room.rent_per_bed;
     return sum + (isNaN(bedRent) ? 0 : bedRent);
   }, 0);
@@ -1518,11 +1314,11 @@ const handleTransferConfirmation = async () => {
                             setAssigningBed(bedNumber);
                           }
                         }}
-                        onUpdateClick={(bedAssignment, tenantId, customRent, isCouple, partnerDetails) => {
+                        onUpdateClick={(bedAssignment, tenantId, customRent, isCouple) => {
                           if (bedAssignment) {
-                            handleUpdateBedAssignment(bedAssignment, tenantId, customRent, isCouple, partnerDetails);
+                            handleUpdateBedAssignment(bedAssignment, tenantId, customRent, isCouple);
                           } else {
-                            handleAssignBed(bedNumber, tenantId, customRent, isCouple, partnerDetails);
+                            handleAssignBed(bedNumber, tenantId, customRent, isCouple);
                           }
                         }}
                         onVacateClick={() => assignment && handleVacateClick(assignment)}
@@ -1618,8 +1414,7 @@ const handleTransferConfirmation = async () => {
                   newTenant: null,
                   existingAssignment: null,
                   customRent: undefined,
-                  isCouple: undefined,
-                  partnerDetails: undefined
+                  isCouple: undefined
                 });
                 setTransferReason('');
               }}

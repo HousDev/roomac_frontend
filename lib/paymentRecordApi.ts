@@ -499,12 +499,13 @@ export async function approvePayment(id: number, approvedBy?: number): Promise<a
   }
 }
 
-export async function rejectPayment(id: number, reason: string, rejectedBy?: number): Promise<any> {
+export async function rejectPayment(id: number, reason: string, reasonCategoryId: number | null, rejectedBy?: number): Promise<any> {
   try {
     const response = await request(`/api/payments/${id}/reject`, {
       method: 'POST',
       body: JSON.stringify({ 
         rejection_reason: reason,
+        rejection_reason_category_id: reasonCategoryId,
         rejected_by: rejectedBy 
       }),
     });
