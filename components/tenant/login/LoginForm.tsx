@@ -179,9 +179,9 @@ export default function LoginForm({
               maxLength={6}
               required
             />
-            <p className="text-[10px] text-purple-600">
+            {/* <p className="text-[10px] text-purple-600">
               Test OTP: {generatedOtp}
-            </p>
+            </p> */}
             <Button
               type="submit"
               className="w-full h-9 rounded-full
