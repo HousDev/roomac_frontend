@@ -296,14 +296,15 @@ function SidebarAccommodationCard({
 
   // CRITICAL FIX: Get rent from tenant_rent (bed_assignments) first
   // This is the actual rent set for this specific bed
-  let rentAmount = 12000; // Default
-  
-  if (tenant?.tenant_rent) {
-    // This is the actual rent from bed_assignments table
-    rentAmount = Number(tenant.tenant_rent);
-  } else if (tenant?.rent_per_bed) {
-    // Fallback to room's default rent_per_bed
-    rentAmount = Number(tenant.rent_per_bed);
+  // Only get rent if tenant has accommodation
+  let rentAmount = null;
+
+  if (hasAccommodation) {
+    if (tenant?.tenant_rent) {
+      rentAmount = Number(tenant.tenant_rent);
+    } else if (tenant?.rent_per_bed) {
+      rentAmount = Number(tenant.rent_per_bed);
+    }
   }
 
   // Get bed type display
@@ -422,44 +423,57 @@ function SidebarAccommodationCard({
         )}
 
         {/* Next Payment section */}
-        <div
-          className="mt-2 relative z-10 rounded-lg overflow-hidden"
-          style={{ background: "rgba(255,255,255,0.12)" }}
-        >
-          <div className="px-2 py-1.5 lg:px-2.5 lg:py-2">
-            <p className="text-[8px] lg:text-[9px] font-semibold uppercase tracking-widest text-blue-100 mb-1">
-              Next Payment
+      {/* Next Payment section */}
+{hasAccommodation && rentAmount && (
+  <div
+    className="mt-2 relative z-10 rounded-lg overflow-hidden"
+    style={{ background: "rgba(255,255,255,0.12)" }}
+  >
+    <div className="px-2 py-1.5 lg:px-2.5 lg:py-2">
+      <p className="text-[8px] lg:text-[9px] font-semibold uppercase tracking-widest text-blue-100 mb-1">
+        Next Payment
+      </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-xs lg:text-sm font-black text-white leading-none">
+            ₹{rentAmount.toLocaleString("en-IN")}
+          </p>
+          <p className="text-[8px] lg:text-[9px] text-blue-200 mt-0.5">
+            Monthly Rent
+          </p>
+        </div>
+        <div className="flex gap-1 lg:gap-1.5">
+          <div className="bg-white/20 rounded-md px-1.5 py-0.5 lg:px-2 lg:py-1 text-center backdrop-blur-sm">
+            <p className="text-[6px] lg:text-[7px] text-blue-100 uppercase leading-none">
+              Due in
             </p>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs lg:text-sm font-black text-white leading-none">
-                  ₹{rentAmount.toLocaleString("en-IN")}
-                </p>
-                <p className="text-[8px] lg:text-[9px] text-blue-200 mt-0.5">
-                  Monthly Rent
-                </p>
-              </div>
-              <div className="flex gap-1 lg:gap-1.5">
-                <div className="bg-white/20 rounded-md px-1.5 py-0.5 lg:px-2 lg:py-1 text-center backdrop-blur-sm">
-                  <p className="text-[6px] lg:text-[7px] text-blue-100 uppercase leading-none">
-                    Due in
-                  </p>
-                  <p className="text-[9px] lg:text-[11px] font-black text-white leading-tight">
-                    {daysLeft}d
-                  </p>
-                </div>
-                <div className="bg-white/20 rounded-md px-1.5 py-0.5 lg:px-2 lg:py-1 text-center backdrop-blur-sm">
-                  <p className="text-[6px] lg:text-[7px] text-blue-100 uppercase leading-none">
-                    Date
-                  </p>
-                  <p className="text-[9px] lg:text-[11px] font-black text-white leading-tight">
-                    {dueDate}
-                  </p>
-                </div>
-              </div>
-            </div>
+            <p className="text-[9px] lg:text-[11px] font-black text-white leading-tight">
+              {daysLeft}d
+            </p>
+          </div>
+          <div className="bg-white/20 rounded-md px-1.5 py-0.5 lg:px-2 lg:py-1 text-center backdrop-blur-sm">
+            <p className="text-[6px] lg:text-[7px] text-blue-100 uppercase leading-none">
+              Date
+            </p>
+            <p className="text-[9px] lg:text-[11px] font-black text-white leading-tight">
+              {dueDate}
+            </p>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+)}
+
+{!hasAccommodation && (
+  <div className="mt-2 relative z-10 rounded-lg overflow-hidden" style={{ background: "rgba(255,255,255,0.12)" }}>
+    <div className="px-2 py-2 lg:px-2.5 lg:py-2 text-center">
+      <p className="text-[9px] lg:text-[10px] text-blue-100">
+        Rent details will be available once accommodation is assigned
+      </p>
+    </div>
+  </div>
+)}
       </div>
     </div>
   );

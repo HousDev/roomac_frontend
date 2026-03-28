@@ -1471,8 +1471,7 @@ export function ChangeBedWizard({ tenantId, tenantName, open, onOpenChange, onSu
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
 <DialogContent 
-  className="max-w-xl max-h-[85vh] overflow-hidden flex flex-col border border-gray-300 shadow-xl p-0"
-  onInteractOutside={(e) => e.preventDefault()}
+className="max-w-xl md:max-w-[600px] max-h-[75vh] overflow-hidden flex flex-col border border-gray-300 shadow-xl p-0"  onInteractOutside={(e) => e.preventDefault()}
 >        {/* Header - ULTRA COMPACT */}
        <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-2.5 sticky top-0 z-10">
   <div className="flex items-center justify-between">

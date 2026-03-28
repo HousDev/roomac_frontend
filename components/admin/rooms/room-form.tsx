@@ -1335,8 +1335,8 @@ const goToNextTab = () => {
               )}
             </TabsContent>
 
-            {/* ══════════ TAB 3 — AMENITIES ══════════ */}
-           {/* ══════════ TAB 3 — AMENITIES ══════════ */}
+           
+{/* ══════════ TAB 3 — AMENITIES ══════════ */}
 <TabsContent value="amenities" className="mt-0 space-y-2 md:space-y-3">
   <div className="space-y-3 md:space-y-4">
     <div>
@@ -1353,7 +1353,16 @@ const goToNextTab = () => {
             type="button"
             onClick={() => {
               const el = document.getElementById('amenity-dropdown');
-              if (el) el.classList.toggle('hidden');
+              if (el) {
+                el.classList.toggle('hidden');
+                // When opening dropdown, ensure it has proper height
+                if (!el.classList.contains('hidden')) {
+                  const contentDiv = el.querySelector('.amenity-content');
+                  if (contentDiv) {
+                    contentDiv.style.maxHeight = '280px';
+                  }
+                }
+              }
             }}
             className="w-full flex items-center justify-between px-3 py-2 bg-slate-50 hover:bg-slate-100 transition-colors"
             disabled={roomLimitReached}
@@ -1370,7 +1379,7 @@ const goToNextTab = () => {
           {/* Dropdown content with search and checkboxes */}
           <div id="amenity-dropdown" className="hidden border-t border-gray-200 bg-white">
             {/* Search input */}
-            <div className="p-2 border-b border-gray-100">
+            <div className="p-2 border-b border-gray-100 sticky top-0 bg-white z-10">
               <div className="relative">
                 <input
                   type="text"
@@ -1394,20 +1403,51 @@ const goToNextTab = () => {
               </div>
             </div>
 
-            {/* Amenities list with checkboxes */}
-            <div className="max-h-48 overflow-y-auto p-2">
+            {/* Amenities list with fixed max-height */}
+            <div className="amenity-content max-h-[280px] overflow-y-auto p-2">
               {loadingMasters ? (
                 <div className="flex items-center gap-2 py-3 justify-center text-[10px] text-gray-500">
                   <Loader2 className="h-3 w-3 animate-spin" /> Loading amenities...
                 </div>
-              ) : (
-                <div className="grid grid-cols-1 gap-1">
-                  {(() => {
-                    const amenityOptions = roomsMasters['Amenities']?.length > 0
-                      ? roomsMasters['Amenities'].map(a => ({ id: String(a.id), label: a.name }))
-                      : AMENITIES_OPTIONS.map(a => ({ id: a.id, label: a.label }));
-                    
-                    return amenityOptions.map(amenity => (
+              ) : (() => {
+                // Get amenities from masters or use empty array if no master data
+                const amenityOptions = roomsMasters['Amenities']?.length > 0
+                  ? roomsMasters['Amenities'].map(a => ({ id: String(a.id), label: a.name }))
+                  : [];
+                
+                // If no amenities from masters AND no custom amenities, show message
+                if (amenityOptions.length === 0 && formData.amenities.length === 0) {
+                  return (
+                    <div className="text-center py-6">
+                      <AlertCircle className="h-6 w-6 mx-auto text-gray-400 mb-2" />
+                      <p className="text-[11px] text-gray-500">No amenities available</p>
+                      <p className="text-[9px] text-gray-400 mt-1">Add amenities to master data first</p>
+                    </div>
+                  );
+                }
+                
+                // If no amenities from masters but there are custom amenities selected
+                if (amenityOptions.length === 0 && formData.amenities.length > 0) {
+                  return (
+                    <div className="space-y-2">
+                      <p className="text-[10px] text-amber-600 bg-amber-50 p-2 rounded-md flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" />
+                        Amenities not in master list. They will be saved as custom amenities.
+                      </p>
+                      <div className="flex flex-wrap gap-1">
+                        {formData.amenities.map((amenity, idx) => (
+                          <Badge key={idx} variant="outline" className="text-[10px]">
+                            {amenity}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                }
+                
+                return (
+                  <div className="grid grid-cols-1 gap-1">
+                    {amenityOptions.map(amenity => (
                       <label
                         key={amenity.id}
                         data-label={amenity.label}
@@ -1431,17 +1471,17 @@ const goToNextTab = () => {
                         </div>
                         <span className="text-[11px] font-medium leading-tight">{amenity.label}</span>
                       </label>
-                    ));
-                  })()}
-                </div>
-              )}
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
           </div>
         </div>
 
-        {/* Right side - Selected amenities display */}
-        <div className="border border-gray-200 rounded-lg p-3 bg-white">
-          <div className="flex items-center justify-between mb-2">
+        {/* Right side - Selected amenities display with fixed height */}
+        <div className="border border-gray-200 rounded-lg p-3 bg-white flex flex-col h-full">
+          <div className="flex items-center justify-between mb-2 flex-shrink-0">
             <Label className="text-[10px] font-semibold text-slate-600 uppercase tracking-wide">
               Selected Amenities
             </Label>
@@ -1452,39 +1492,63 @@ const goToNextTab = () => {
             )}
           </div>
           
-          {formData.amenities.length > 0 ? (
-            <div className="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto">
-              {formData.amenities.map((amenity, idx) => (
-                <Badge 
-                  key={idx} 
-                  variant="outline"
-                  className="flex items-center gap-1 py-1 px-2 text-[10px] bg-gray-50 border-gray-200 hover:bg-gray-100"
-                >
-                  {getAmenityIcon(amenity, 'sm')}
-                  <span>{amenity}</span>
-                  <button 
-                    type="button" 
-                    onClick={() => !roomLimitReached && removeAmenity(amenity)} 
-                    className="ml-0.5 text-gray-400 hover:text-red-500 transition-colors"
+          <div className="flex-1 min-h-0">
+            {formData.amenities.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5 max-h-[280px] overflow-y-auto">
+                {formData.amenities.map((amenity, idx) => (
+                  <Badge 
+                    key={idx} 
+                    variant="outline"
+                    className="flex items-center gap-1 py-1 px-2 text-[10px] bg-gray-50 border-gray-200 hover:bg-gray-100"
                   >
-                    <X className="h-2.5 w-2.5" />
-                  </button>
-                </Badge>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-6">
-              <Sparkles className="h-8 w-8 mx-auto text-gray-300 mb-2" />
-              <p className="text-[11px] text-gray-500">No amenities selected</p>
-              <p className="text-[9px] text-gray-400 mt-1">Select from the dropdown on the left</p>
-            </div>
-          )}
+                    {getAmenityIcon(amenity, 'sm')}
+                    <span>{amenity}</span>
+                    <button 
+                      type="button" 
+                      onClick={() => !roomLimitReached && removeAmenity(amenity)} 
+                      className="ml-0.5 text-gray-400 hover:text-red-500 transition-colors"
+                    >
+                      <X className="h-2.5 w-2.5" />
+                    </button>
+                  </Badge>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-6">
+                <Sparkles className="h-8 w-8 mx-auto text-gray-300 mb-2" />
+                <p className="text-[11px] text-gray-500">No amenities selected</p>
+                <p className="text-[9px] text-gray-400 mt-1">Select from the dropdown on the left</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
 
-    {/* Custom amenities section (optional - can be removed or kept) */}
-  
+    {/* Custom amenities section */}
+    {/* <div className="pt-2">
+      <div className="flex gap-2">
+        <Input
+          ref={amenityInputRef}
+          value={formData.customAmenityInput}
+          onChange={e => setFormData((p: RoomFormData) => ({ ...p, customAmenityInput: e.target.value }))}
+          onKeyPress={handleAmenityKeyPress}
+          placeholder="Add custom amenity..."
+          className="flex-1 h-7 text-[10px]"
+          disabled={roomLimitReached}
+        />
+        <Button 
+          type="button" 
+          variant="outline" 
+          size="sm" 
+          onClick={addCustomAmenity} 
+          className="h-7 text-[10px]"
+          disabled={roomLimitReached}
+        >
+          <Plus className="h-3 w-3 mr-1" /> Add
+        </Button>
+      </div>
+    </div> */}
 
     {/* Basic Room Features section remains unchanged */}
     <div className="pt-2 border-t">

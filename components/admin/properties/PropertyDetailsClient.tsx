@@ -87,6 +87,8 @@ type Property = {
     description?: string;
     property_manager_name: string;
     property_manager_phone: string;
+        property_manager_phone_country_code?: string; // ADD THIS LINE
+
     property_manager_email?: string;
     property_manager_role?: string;
     staff_id?: string | number;
@@ -117,6 +119,7 @@ interface MasterValue {
     name: string;
     isactive: number;
 }
+
 
 // Helper function to get salutation display
 const getSalutationDisplay = (salutation: string): string => {
@@ -164,6 +167,21 @@ const parseJsonField = (field: string | null | undefined): string[] => {
     }
 };
 
+
+// Helper function to get manager phone with country code
+const getManagerPhone = (staffDataParam: any, propertyParam: any) => {
+    // Priority 1: Staff data (if available)
+    if (staffDataParam?.phone) {
+        const countryCode = staffDataParam.phone_country_code || "";
+        return `${countryCode}${staffDataParam.phone}`;
+    }
+    // Priority 2: Property data
+    if (propertyParam?.property_manager_phone) {
+        const countryCode = propertyParam.property_manager_phone_country_code || "";
+        return `${countryCode}${propertyParam.property_manager_phone}`;
+    }
+    return "";
+};
 // Helper function to map IDs to names using masters data
 const mapIdsToNames = (
     ids: string[],
@@ -470,6 +488,8 @@ const PropertyDetailsClient = ({ initialProperty }: PropertyDetailsClientProps) 
                     description: res.data.description || '',
                     property_manager_name: res.data.property_manager_name || '',
                     property_manager_phone: res.data.property_manager_phone || '',
+                                    property_manager_phone_country_code: res.data.property_manager_phone_country_code || '', // ADD THIS LINE
+
                     property_manager_email: res.data.property_manager_email || '',
                     property_manager_role: res.data.property_manager_role || '',
                     staff_id: res.data.staff_id,
@@ -1229,40 +1249,56 @@ const getServiceIcon = (service: string) => {
                             </div>
 
                             <div className="space-y-3 mb-4">
-                                {property.property_manager_phone && (
-                                    <div className="flex items-center gap-3">
-                                        <div className="bg-gradient-to-br from-green-100 to-emerald-200 rounded-xl p-2">
-                                            <Phone className="h-4 w-4 text-green-600" />
-                                        </div>
-                                        <div>
-                                            <p className="text-[10px] text-slate-500 font-medium">Phone</p>
-                                            <a
-                                                href={`tel:${property.property_manager_phone}`}
-                                                className="font-bold text-xs text-blue-600 hover:text-blue-700"
-                                            >
-                                                {property.property_manager_phone}
-                                            </a>
-                                        </div>
-                                    </div>
-                                )}
+    {/* Phone number with country code */}
+    {(() => {
+        // Get phone number with country code from staff data or property data
+        let phoneWithCode = "";
+        if (staffData?.phone) {
+            const countryCode = staffData.phone_country_code || "";
+            phoneWithCode = `${countryCode}${staffData.phone}`;
+        } else if (property.property_manager_phone) {
+            const countryCode = property.property_manager_phone_country_code || "";
+            phoneWithCode = `${countryCode}${property.property_manager_phone}`;
+        }
+        
+        if (phoneWithCode) {
+            return (
+                <div className="flex items-center gap-3">
+                    <div className="bg-gradient-to-br from-green-100 to-emerald-200 rounded-xl p-2">
+                        <Phone className="h-4 w-4 text-green-600" />
+                    </div>
+                    <div>
+                        <p className="text-[10px] text-slate-500 font-medium">Phone</p>
+                        <a
+                            href={`tel:${phoneWithCode.replace(/[^0-9+]/g, '')}`}
+                            className="font-bold text-xs text-blue-600 hover:text-blue-700"
+                        >
+                            {phoneWithCode}
+                        </a>
+                    </div>
+                </div>
+            );
+        }
+        return null;
+    })()}
 
-                                {getManagerEmail() && (
-                                    <div className="flex items-center gap-3">
-                                        <div className="bg-gradient-to-br from-blue-100 to-cyan-200 rounded-xl p-2">
-                                            <Mail className="h-4 w-4 text-blue-600" />
-                                        </div>
-                                        <div>
-                                            <p className="text-[10px] text-slate-500 font-medium">Email</p>
-                                            <a
-                                                href={`mailto:${getManagerEmail()}`}
-                                                className="font-bold text-xs text-blue-600 hover:text-blue-700 truncate block max-w-[180px]"
-                                            >
-                                                {getManagerEmail()}
-                                            </a>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
+    {getManagerEmail() && (
+        <div className="flex items-center gap-3">
+            <div className="bg-gradient-to-br from-blue-100 to-cyan-200 rounded-xl p-2">
+                <Mail className="h-4 w-4 text-blue-600" />
+            </div>
+            <div>
+                <p className="text-[10px] text-slate-500 font-medium">Email</p>
+                <a
+                    href={`mailto:${getManagerEmail()}`}
+                    className="font-bold text-xs text-blue-600 hover:text-blue-700 truncate block max-w-[180px]"
+                >
+                    {getManagerEmail()}
+                </a>
+            </div>
+        </div>
+    )}
+</div>
                         </div>
 
                         {/* Pricing Card */}

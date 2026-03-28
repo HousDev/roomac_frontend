@@ -29,7 +29,17 @@ import {
   Plus,
   X,
   Gift,
+  Eye,
+  IndianRupee,
+  Clock,
+  Check,
+  Star,
+  Calendar,
+  Tag,
+  Layers,
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import axios from "axios";
 
@@ -77,6 +87,7 @@ export default function PricingPlansClientPage() {
 
   const [isAddPlanOpen, setIsAddPlanOpen] = useState(false);
   const [isEditPlanOpen, setIsEditPlanOpen] = useState(false);
+  const [isViewPlanOpen, setIsViewPlanOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<PricingPlan | null>(null);
   const [planForm, setPlanForm] = useState<PricingPlanFormData>(EMPTY_PLAN_FORM);
 
@@ -131,6 +142,11 @@ export default function PricingPlansClientPage() {
     const t = setTimeout(() => loadPlans(1), 300);
     return () => clearTimeout(t);
   }, [planSearch, planFilterProp, planTypeFilter, loadPlans]);
+
+  const handleViewPlan = useCallback((plan: PricingPlan) => {
+    setSelectedPlan(plan);
+    setIsViewPlanOpen(true);
+  }, []);
 
   const handleAddPlan = useCallback(async () => {
     if (planForm.is_short_stay) {
@@ -265,24 +281,45 @@ export default function PricingPlansClientPage() {
     }
   }, [selectedPlan, planForm, pagination.currentPage, loadPlans, plans]);
 
-  const handleDeletePlan = useCallback(
-    async (id: string) => {
-      if (!confirm("Delete this pricing plan?")) return;
-      try {
-        await pricingPlanApi.remove(id);
-        toast.success("🗑️ Plan deleted!");
-        const page =
-          plans.length === 1 && pagination.currentPage > 1
-            ? pagination.currentPage - 1
-            : pagination.currentPage;
-        await loadPlans(page);
-      } catch (err: any) {
-        toast.error(err.message || "Failed to delete");
-      }
-    },
-    [plans.length, pagination.currentPage, loadPlans]
-  );
+ const handleDeletePlan = useCallback(
+  async (id: string) => {
+    // Removed the confirm() - modal will handle confirmation
+    try {
+      await pricingPlanApi.remove(id);
+      toast.success("🗑️ Plan deleted!");
+      const page =
+        plans.length === 1 && pagination.currentPage > 1
+          ? pagination.currentPage - 1
+          : pagination.currentPage;
+      await loadPlans(page);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete");
+    }
+  },
+  [plans.length, pagination.currentPage, loadPlans]
+);
 
+ 
+const handleBulkDeletePlans = useCallback(
+  async (ids: string[]) => {
+    try {
+      // Call bulk delete API
+      await Promise.all(ids.map(id => pricingPlanApi.remove(id)));
+      toast.success(`✅ ${ids.length} plan(s) deleted successfully!`);
+      
+      // Calculate which page to stay on after deletion
+      const remainingCount = plans.length - ids.length;
+      const page = remainingCount === 0 && pagination.currentPage > 1
+        ? pagination.currentPage - 1
+        : pagination.currentPage;
+      
+      await loadPlans(page);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete plans");
+    }
+  },
+  [plans.length, pagination.currentPage, loadPlans]
+);
   const togglePlanActive = useCallback(
     async (id: string, current: boolean) => {
       try {
@@ -296,9 +333,205 @@ export default function PricingPlansClientPage() {
     [pagination.currentPage, loadPlans]
   );
 
+  const getPropertyName = (propertyId: number | null) => {
+    if (!propertyId) return "General (All Properties)";
+    return properties.find(p => p.id === propertyId)?.name || `Property #${propertyId}`;
+  };
+
   const headerGradient = "bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]";
 
-  // Shared Add Plan Dialog Content
+  // View Dialog Content
+  // View Dialog Content - Compact Version
+const ViewPlanDialogContent = selectedPlan && (
+  <DialogContent className="max-w-2xl w-[95vw] max-h-[88vh] overflow-hidden p-0 rounded-xl">
+    <div className={`${headerGradient} text-white px-4 py-2.5 flex items-center justify-between rounded-t-xl`}>
+      <div>
+        <h2 className="text-sm font-semibold flex items-center gap-1.5">
+          <Eye className="h-3.5 w-3.5" />
+          Plan Details
+        </h2>
+        <p className="text-[10px] text-blue-100">#{selectedPlan.id}</p>
+      </div>
+      <DialogClose asChild>
+        <button className="p-1 rounded-full hover:bg-white/20 transition">
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </DialogClose>
+    </div>
+
+    <div className="p-4 overflow-y-auto max-h-[72vh] space-y-3">
+      {/* Plan Name & Badges */}
+      <div className="flex items-start gap-3">
+        <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
+          selectedPlan.is_short_stay
+            ? "bg-gradient-to-br from-amber-500 to-orange-500"
+            : selectedPlan.button_style === "blue"
+              ? "bg-gradient-to-br from-blue-600 to-cyan-600"
+              : "bg-gradient-to-br from-gray-700 to-gray-900"
+        }`}>
+          {selectedPlan.is_short_stay ? (
+            <Gift className="h-5 w-5 text-white" />
+          ) : (
+            <Sparkles className="h-5 w-5 text-white" />
+          )}
+        </div>
+        <div className="flex-1">
+<div className="flex items-center gap-1.5 flex-wrap">
+  <h3 className="text-sm font-bold text-gray-900">{selectedPlan.name}</h3>
+  {!!selectedPlan.is_short_stay && (
+    <Badge className="text-[9px] px-1.5 py-0 h-4 bg-amber-100 text-amber-700">
+      <Gift className="h-2.5 w-2.5 mr-0.5" />
+      Short Stay
+    </Badge>
+  )}
+  {!!selectedPlan.is_popular && !selectedPlan.is_short_stay && (
+    <Badge className="text-[9px] px-1.5 py-0 h-4 bg-amber-100 text-amber-700">
+      <Star className="h-2.5 w-2.5 mr-0.5 fill-amber-500" />
+      Popular
+    </Badge>
+  )}
+</div>
+          {!selectedPlan.is_short_stay && selectedPlan.duration && (
+            <div className="flex items-center gap-1 mt-0.5 text-[10px] text-gray-500">
+              <Clock className="h-2.5 w-2.5" />
+              <span>{selectedPlan.duration}</span>
+              {selectedPlan.subtitle && (
+                <>
+                  <span className="text-gray-300">•</span>
+                  <span>{selectedPlan.subtitle}</span>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+        <Badge className={selectedPlan.is_active
+          ? "bg-green-100 text-green-700 text-[9px] px-1.5"
+          : "bg-gray-100 text-gray-500 text-[9px] px-1.5"
+        }>
+          {selectedPlan.is_active ? "Active" : "Inactive"}
+        </Badge>
+      </div>
+
+      {/* Pricing */}
+      <div className="bg-gray-50 rounded-lg p-3">
+        <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1">
+          <IndianRupee className="h-3 w-3" />
+          Pricing Information
+        </p>
+        {selectedPlan.is_short_stay ? (
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className="text-[10px] text-gray-500">Rate Per Day</p>
+              <div className="flex items-baseline gap-0.5 mt-0.5">
+                <span className="text-lg font-bold text-amber-600">
+                  ₹{selectedPlan.short_stay_rate_per_day?.toLocaleString()}
+                </span>
+                <span className="text-[10px] text-gray-400">/day</span>
+              </div>
+            </div>
+            <div>
+              <p className="text-[10px] text-gray-500">Button Label</p>
+              <p className="text-sm font-medium text-gray-700 mt-0.5">
+                {selectedPlan.short_stay_label || "Book Short Stay"}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className="text-[10px] text-gray-500">Total Price</p>
+              <div className="flex items-baseline gap-0.5 mt-0.5">
+                <span className="text-lg font-bold text-blue-600">
+                  ₹{selectedPlan.total_price.toLocaleString()}
+                </span>
+              </div>
+            </div>
+            <div>
+              <p className="text-[10px] text-gray-500">Per Day Price</p>
+              <p className="text-sm font-medium text-gray-700 mt-0.5">
+                ₹{selectedPlan.per_day_price}/day
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Features - Only for regular plans */}
+      {!selectedPlan.is_short_stay && selectedPlan.features.length > 0 && (
+        <div>
+          <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1">
+            <Check className="h-3 w-3" />
+            Features Included
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {selectedPlan.features.map((feature, idx) => (
+              <span key={idx} className="inline-flex items-center gap-1 text-[11px] text-gray-600 bg-gray-100 px-2 py-1 rounded-full">
+                <Check className="h-2.5 w-2.5 text-green-500 flex-shrink-0" />
+                {feature}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Property & Order */}
+      <div className="grid grid-cols-2 gap-3 pt-1 border-t border-gray-100">
+        <div>
+          <p className="text-[10px] text-gray-500 flex items-center gap-1">
+            <Building className="h-2.5 w-2.5" />
+            Property
+          </p>
+          <p className="text-xs font-medium text-gray-700 mt-0.5">
+            {getPropertyName(selectedPlan.property_id)}
+          </p>
+        </div>
+        {!selectedPlan.is_short_stay && (
+          <div>
+            <p className="text-[10px] text-gray-500 flex items-center gap-1">
+              <Tag className="h-2.5 w-2.5" />
+              Display Order
+            </p>
+            <p className="text-xs font-medium text-gray-700 mt-0.5">
+              {selectedPlan.display_order ?? 0}
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Dates */}
+      <div className="grid grid-cols-2 gap-3 pt-1 border-t border-gray-100">
+        <div>
+          <p className="text-[10px] text-gray-500 flex items-center gap-1">
+            <Calendar className="h-2.5 w-2.5" />
+            Created
+          </p>
+          <p className="text-[11px] text-gray-600 mt-0.5">
+            {new Date(selectedPlan.created_at).toLocaleString()}
+          </p>
+        </div>
+        <div>
+          <p className="text-[10px] text-gray-500 flex items-center gap-1">
+            <Calendar className="h-2.5 w-2.5" />
+            Last Updated
+          </p>
+          <p className="text-[11px] text-gray-600 mt-0.5">
+            {new Date(selectedPlan.updated_at).toLocaleString()}
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div className="px-4 py-2.5 border-t bg-gray-50 flex justify-end rounded-b-xl">
+      <DialogClose asChild>
+        <Button size="sm" className="h-7 text-xs bg-blue-600 hover:bg-blue-700">
+          Close
+        </Button>
+      </DialogClose>
+    </div>
+  </DialogContent>
+);
+
+  // Add Plan Dialog Content
   const AddPlanDialogContent = (
     <DialogContent className="w-[95vw] sm:max-w-xl max-h-[90vh] overflow-hidden p-0 rounded-xl flex flex-col">
       <div className={`${headerGradient} text-white px-4 py-3 flex items-center justify-between rounded-t-xl flex-shrink-0`}>
@@ -348,9 +581,8 @@ export default function PricingPlansClientPage() {
         <Card className="border-0 shadow-xl bg-white">
           <CardHeader className={`${headerGradient} text-white rounded-t-lg p-3 sm:p-4`}>
 
-            {/* ── MOBILE LAYOUT (below sm) ── */}
+            {/* MOBILE LAYOUT */}
             <div className="flex flex-col gap-2 sm:hidden">
-              {/* Row 1: Icon + Search + Add button */}
               <div className="flex items-center gap-2">
                 <div className="bg-white/20 p-1.5 rounded-lg flex-shrink-0">
                   <Sparkles className="h-5 w-5" />
@@ -377,8 +609,6 @@ export default function PricingPlansClientPage() {
                   {AddPlanDialogContent}
                 </Dialog>
               </div>
-
-              {/* Row 2: Filters */}
               <div className="flex items-center gap-2">
                 <div className="relative flex-1">
                   <Building className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-blue-200 z-10" />
@@ -421,7 +651,7 @@ export default function PricingPlansClientPage() {
               </div>
             </div>
 
-            {/* ── DESKTOP LAYOUT (sm and above) — unchanged ── */}
+            {/* DESKTOP LAYOUT */}
             <div className="hidden sm:flex items-center justify-between flex-wrap gap-2">
               <div className="flex items-center gap-2">
                 <div className="bg-white/20 p-2 rounded-lg">
@@ -502,9 +732,12 @@ export default function PricingPlansClientPage() {
               pagination={pagination}
               onEdit={handleEditPlan}
               onDelete={handleDeletePlan}
+                onBulkDelete={handleBulkDeletePlans}  // ← ADD THIS LINE
+
               onToggleActive={togglePlanActive}
               onPageChange={loadPlans}
               onCreateNew={() => setIsAddPlanOpen(true)}
+              onView={handleViewPlan}
             />
           </CardContent>
         </Card>
@@ -552,6 +785,11 @@ export default function PricingPlansClientPage() {
               </Button>
             </div>
           </DialogContent>
+        </Dialog>
+
+        {/* View Plan Dialog */}
+        <Dialog open={isViewPlanOpen} onOpenChange={setIsViewPlanOpen}>
+          {ViewPlanDialogContent}
         </Dialog>
       </div>
     </div>

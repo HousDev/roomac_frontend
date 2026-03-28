@@ -250,41 +250,49 @@ export const transformPropertyData = (property: any) => {
     termsAndConditions: generalTerms, // Numbered items from template sections in Terms tab
     customTerms: customTerms, // Custom terms from the "📝 Custom Term" section in Terms tab
 
-    manager: (() => {
-      const salutationMap: Record<string, string> = {
-        mr: 'Mr.', mrs: 'Mrs.', miss: 'Miss', dr: 'Dr.', prof: 'Prof.'
-      };
-      const salutation = property.manager_salutation
-        ? (salutationMap[property.manager_salutation.toLowerCase()] || '')
-        : '';
+  // In propertyTransformers.ts - update the manager section
 
-      const managerName = property.staff_id 
-        ? (property.staff_name || property.property_manager_name || "Manager")
-        : (property.property_manager_name || "Manager");
-      
-      const managerPhone = property.staff_id
-        ? (property.staff_phone || property.property_manager_phone || "")
-        : (property.property_manager_phone || "");
+manager: (() => {
+  const salutationMap: Record<string, string> = {
+    mr: 'Mr.', mrs: 'Mrs.', miss: 'Miss', dr: 'Dr.', prof: 'Prof.'
+  };
+  const salutation = property.manager_salutation
+    ? (salutationMap[property.manager_salutation.toLowerCase()] || '')
+    : '';
 
-      const managerEmail = property.staff_id
-        ? (property.staff_email || property.property_manager_email || "")
-        : (property.property_manager_email || "");
+  const managerName = property.staff_id 
+    ? (property.staff_name || property.property_manager_name || "Manager")
+    : (property.property_manager_name || "Manager");
+  
+  const managerPhone = property.staff_id
+    ? (property.staff_phone || property.property_manager_phone || "")
+    : (property.property_manager_phone || "");
 
-      const rawRole = property.staff_id
-        ? (property.staff_role || property.property_manager_role || "Manager")
-        : (property.property_manager_role || "Manager");
+  // CRITICAL: Get phone country code from both possible sources
+  const managerPhoneCountryCode = property.staff_id
+    ? (property.staff_phone_country_code || property.property_manager_phone_country_code || "")
+    : (property.property_manager_phone_country_code || "");
 
-      const formattedRole = rawRole.charAt(0).toUpperCase() + rawRole.slice(1).toLowerCase();
+  const managerEmail = property.staff_id
+    ? (property.staff_email || property.property_manager_email || "")
+    : (property.property_manager_email || "");
 
-      return {
-        name: salutation ? `${salutation} ${managerName}` : managerName,
-        phone: managerPhone,
-        email: managerEmail,
-        role: formattedRole,
-        avatar: avatarUrl,
-        rating: 4.8
-      };
-    })(),
+  const rawRole = property.staff_id
+    ? (property.staff_role || property.property_manager_role || "Manager")
+    : (property.property_manager_role || "Manager");
+
+  const formattedRole = rawRole.charAt(0).toUpperCase() + rawRole.slice(1).toLowerCase();
+
+  return {
+    name: salutation ? `${salutation} ${managerName}` : managerName,
+    phone: managerPhone,
+    phone_country_code: managerPhoneCountryCode,  // This is the key field
+    email: managerEmail,
+    role: formattedRole,
+    avatar: avatarUrl,
+    rating: 4.8
+  };
+})(),
     
     reviews: [
       {

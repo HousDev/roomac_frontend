@@ -53,7 +53,6 @@ console.log(user.data.user)
     localStorage.setItem("auth_role", role);
     localStorage.setItem("auth_login_source", loginSource); // ✅ NEW
 
-    // setUser({ email, role, loginSource });
     fetchUser();
     setLoading(false)
   };
@@ -77,20 +76,18 @@ console.log(user.data.user)
     
   };
 
-  useEffect(() => {
-    const token = localStorage.getItem("auth_token");
-    const email = localStorage.getItem("auth_email");
-    const role = localStorage.getItem("auth_role") as "admin" | "tenant";
-    const loginSource = localStorage.getItem(
-      "auth_login_source"
-    ) as "admin" | "tenant";
+ useEffect(() => {
+  const token = localStorage.getItem("auth_token");
+  const email = localStorage.getItem("auth_email");
+  const role = localStorage.getItem("auth_role") as "admin" | "tenant";
+  const loginSource = localStorage.getItem("auth_login_source") as "admin" | "tenant";
 
-    if (token && email && role && loginSource) {
-      setUser({ email, role, loginSource });
-    }
-
-    setLoading(false);
-  }, []);
+  if (token && email && role && loginSource) {
+    fetchUser().finally(() => setLoading(false)); // ← CHANGE THIS
+  } else {
+    setLoading(false); // ← AND THIS for when no token
+  }
+}, []);
 
   return (
     <AuthContext.Provider

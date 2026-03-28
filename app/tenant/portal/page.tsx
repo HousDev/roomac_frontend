@@ -789,57 +789,72 @@ export default function TenantPortalPage() {
           fetchPropertyManagerStaff(d);
         }
 
-        // ─── Real rent & pending from tenant data ────────────────────────
-        // Rent amount: prefer rent_per_bed, fallback monthly_rent
-        const rentAmount = d.rent_per_bed || d.monthly_rent || 12000;
+      
+const hasAccommodation = d?.room_number && d?.bed_number;
 
-        const totalPaid =
-          d.payments
-            ?.filter((p: any) => p.status === "completed")
-            .reduce((s: number, p: any) => s + p.amount, 0) ?? 0;
-        const totalPending =
-          d.payments
-            ?.filter((p: any) => p.status === "pending")
-            .reduce((s: number, p: any) => s + p.amount, 0) ?? rentAmount;
-        const pendingCount =
-          d.payments?.filter((p: any) => p.status === "pending").length ?? 1;
+let rentAmount = 0;
 
-        let daysUntilRentDue = 7;
-        let nextDueDate = new Date(Date.now() + 7 * 86400000).toISOString();
-        if (d.check_in_date) {
-          const dueDay = new Date(d.check_in_date).getDate();
-          const today = new Date();
-          let nextDue = new Date(today.getFullYear(), today.getMonth(), dueDay);
-          if (today.getDate() > dueDay)
-            nextDue = new Date(
-              today.getFullYear(),
-              today.getMonth() + 1,
-              dueDay,
-            );
-          daysUntilRentDue = Math.ceil(
-            (nextDue.getTime() - today.getTime()) / (1000 * 3600 * 24),
-          );
-          nextDueDate = nextDue.toISOString();
-        }
+if (hasAccommodation) {
+  if (d?.tenant_rent) {
+    rentAmount = Number(d.tenant_rent);
+  } else if (d?.rent_per_bed) {
+    rentAmount = Number(d.rent_per_bed);
+  } else if (d?.monthly_rent) {
+    rentAmount = Number(d.monthly_rent);
+  }
+}
 
-        const occupancyDays = d.check_in_date
-          ? Math.ceil(
-              (Date.now() - new Date(d.check_in_date).getTime()) /
-                (1000 * 3600 * 24),
-            )
-          : 0;
+const totalPaid =
+  d.payments
+    ?.filter((p: any) => p.status === "completed")
+    .reduce((s: number, p: any) => s + p.amount, 0) ?? 0;
 
-        setStats((prev) => ({
-          ...prev,
-          totalPaid,
-          totalPending: totalPending || rentAmount,
-          pendingCount: pendingCount || 1,
-          daysUntilRentDue,
-          // ← Real rent from backend
-          monthlyRent: rentAmount,
-          occupancyDays,
-          nextDueDate,
-        }));
+const totalPending = hasAccommodation
+  ? (d.payments
+      ?.filter((p: any) => p.status === "pending")
+      .reduce((s: number, p: any) => s + p.amount, 0) ?? rentAmount)
+  : 0;
+
+const pendingCount = hasAccommodation
+  ? (d.payments?.filter((p: any) => p.status === "pending").length ?? 1)
+  : 0;
+
+let daysUntilRentDue = 7;
+let nextDueDate = new Date(Date.now() + 7 * 86400000).toISOString();
+
+if (hasAccommodation && d.check_in_date) {
+  const dueDay = new Date(d.check_in_date).getDate();
+  const today = new Date();
+  let nextDue = new Date(today.getFullYear(), today.getMonth(), dueDay);
+  if (today.getDate() > dueDay)
+    nextDue = new Date(
+      today.getFullYear(),
+      today.getMonth() + 1,
+      dueDay,
+    );
+  daysUntilRentDue = Math.ceil(
+    (nextDue.getTime() - today.getTime()) / (1000 * 3600 * 24),
+  );
+  nextDueDate = nextDue.toISOString();
+}
+
+const occupancyDays = d.check_in_date
+  ? Math.ceil(
+      (Date.now() - new Date(d.check_in_date).getTime()) /
+        (1000 * 3600 * 24),
+    )
+  : 0;
+
+setStats((prev) => ({
+  ...prev,
+  totalPaid,
+  totalPending: totalPending || (hasAccommodation ? rentAmount : 0),
+  pendingCount: pendingCount || (hasAccommodation ? 1 : 0),
+  daysUntilRentDue,
+  monthlyRent: rentAmount,
+  occupancyDays,
+  nextDueDate,
+}));
       }
 
       if (requestsRes.status === "fulfilled" && requestsRes.value) {
@@ -1242,8 +1257,8 @@ export default function TenantPortalPage() {
   // ─── Render ────────────────────────────────────────────────────────────────
 
   // Real rent value (same logic as TenantLayout accommodation card)
-  const rentAmount =
-    tenant?.rent_per_bed || tenant?.monthly_rent || stats.monthlyRent;
+  // Real rent value from stats (already calculated in fetchAllData)
+const rentAmount = stats.monthlyRent;
 
   return (
     <div className="p-2 sm:p-2">
@@ -1251,60 +1266,78 @@ export default function TenantPortalPage() {
       {/* MOBILE: very compact. DESKTOP (lg+): unchanged */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 lg:gap-3 mb-4 lg:mb-5">
         {/* Rent Due Card — Blue */}
-        <Card className="border border-blue-200/50 bg-gradient-to-br from-blue-50 to-white shadow-sm hover:shadow-md transition-all">
-          <CardContent className="p-2 lg:p-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5 lg:gap-2">
-                <div className="h-7 w-7 lg:h-9 lg:w-9 rounded-lg bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center shrink-0">
-                  <Calendar className="h-3 w-3 lg:h-4 lg:w-4 text-blue-600" />
-                </div>
-                <div>
-                  <p className="text-[10px] lg:text-xs font-medium text-slate-600 leading-tight">
-                    Rent Due
-                  </p>
-                  <div className="flex items-baseline gap-0.5">
-                    <p className="text-sm lg:text-lg font-bold text-slate-900 leading-tight">
-                      {stats.daysUntilRentDue}
-                    </p>
-                    <span className="text-[9px] lg:text-xs font-medium text-slate-500">
-                      days
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <div className="text-right">
-                <p className="text-[9px] lg:text-xs text-slate-500 mb-0.5">
-                  Amount
-                </p>
-                {/* ← Real rent from backend */}
-                <p className="text-xs lg:text-base font-bold text-blue-700">
-                  ₹{Number(rentAmount).toLocaleString("en-IN")}
-                </p>
-              </div>
+ {/* Rent Due Card — Blue */}
+<Card className="border border-blue-200/50 bg-gradient-to-br from-blue-50 to-white shadow-sm hover:shadow-md transition-all">
+  <CardContent className="p-2 lg:p-3">
+    <div className="flex items-center justify-between">
+      <div className="flex items-center gap-1.5 lg:gap-2">
+        <div className="h-7 w-7 lg:h-9 lg:w-9 rounded-lg bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center shrink-0">
+          <Calendar className="h-3 w-3 lg:h-4 lg:w-4 text-blue-600" />
+        </div>
+        <div>
+          <p className="text-[10px] lg:text-xs font-medium text-slate-600 leading-tight">
+            Rent Due
+          </p>
+          {tenant?.room_number && tenant?.bed_number ? (
+            <div className="flex items-baseline gap-0.5">
+              <p className="text-sm lg:text-lg font-bold text-slate-900 leading-tight">
+                {stats.daysUntilRentDue}
+              </p>
+              <span className="text-[9px] lg:text-xs font-medium text-slate-500">
+                days
+              </span>
             </div>
+          ) : (
+            <p className="text-xs text-amber-600 font-medium">No accommodation</p>
+          )}
+        </div>
+      </div>
+      <div className="text-right">
+        <p className="text-[9px] lg:text-xs text-slate-500 mb-0.5">
+          Amount
+        </p>
+        {tenant?.room_number && tenant?.bed_number ? (
+          <p className="text-xs lg:text-base font-bold text-blue-700">
+            ₹{stats.monthlyRent.toLocaleString("en-IN")}
+          </p>
+        ) : (
+          <Badge variant="outline" className="text-[9px] px-1.5 py-0 bg-amber-50 text-amber-700">
+            Pending
+          </Badge>
+        )}
+      </div>
+    </div>
 
-            <div className="mt-1.5 lg:mt-3">
-              <div className="flex justify-between text-[9px] lg:text-xs text-slate-500 mb-0.5 lg:mb-1">
-                <span>Today</span>
-                <span className="font-medium">
-                  {new Date(stats.nextDueDate).toLocaleDateString("en-IN", {
-                    day: "2-digit",
-                    month: "short",
-                    year: "numeric",
-                  })}
-                </span>
-              </div>
-              <div className="w-full bg-blue-100 rounded-full h-1 lg:h-1.5">
-                <div
-                  className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-full h-1 lg:h-1.5 transition-all duration-500"
-                  style={{
-                    width: `${Math.min((stats.daysUntilRentDue / 30) * 100, 100)}%`,
-                  }}
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+    {tenant?.room_number && tenant?.bed_number ? (
+      <div className="mt-1.5 lg:mt-3">
+        <div className="flex justify-between text-[9px] lg:text-xs text-slate-500 mb-0.5 lg:mb-1">
+          <span>Today</span>
+          <span className="font-medium">
+            {new Date(stats.nextDueDate).toLocaleDateString("en-IN", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            })}
+          </span>
+        </div>
+        <div className="w-full bg-blue-100 rounded-full h-1 lg:h-1.5">
+          <div
+            className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-full h-1 lg:h-1.5 transition-all duration-500"
+            style={{
+              width: `${Math.min((stats.daysUntilRentDue / 30) * 100, 100)}%`,
+            }}
+          />
+        </div>
+      </div>
+    ) : (
+      <div className="mt-1.5 lg:mt-3">
+        <p className="text-[9px] lg:text-xs text-slate-500 text-center">
+          Please contact admin
+        </p>
+      </div>
+    )}
+  </CardContent>
+</Card>
 
         {/* Open Issues Card — Amber/Orange */}
         <Card className="border border-orange-200/50 bg-gradient-to-br from-orange-50 to-white shadow-sm hover:shadow-md transition-all">

@@ -260,10 +260,10 @@ export function RoomDetailsDialog({ room, open, onOpenChange }: RoomDetailsDialo
               <div key={label} className={`${bg} border ${border} rounded-xl p-2`}>
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className={`text-[9px] font-medium ${textColor} leading-tight`}>{label}</p>
-                    <p className={`text-sm font-bold ${textColor} leading-tight mt-0.5`}>{value}</p>
-                  </div>
-                  <Icon className={`h-4 w-4 ${iconColor} flex-shrink-0`} />
+                    <p className={`text-[7px] font-medium ${textColor} leading-tight`}>{label}</p>
+<p className={`text-xs sm:text-xs font-bold ${textColor} leading-tight mt-0.5 truncate`}>{value}</p>          
+        </div>
+                  <Icon className={`h-3 w-3 ${iconColor} flex-shrink-0`} />
                 </div>
               </div>
             ))}

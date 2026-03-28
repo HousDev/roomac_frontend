@@ -1372,7 +1372,7 @@ const columns: Column<Tenant>[] = useMemo(() => [    {
   className="h-7 px-2.5 text-white/80 hover:text-white hover:bg-white/20 rounded-lg text-xs"
   onClick={handleImportClick}
 >
-  <Upload className="w-3.5 h-3.5 mr-1" />
+  {/* <Upload className="w-3.5 h-3.5 mr-1" /> */}
   Import
 </Button>
 
@@ -1489,70 +1489,155 @@ const columns: Column<Tenant>[] = useMemo(() => [    {
           </div>
         )}
 
-        {/* Mobile View */}
         <div className="flex md:hidden items-center gap-1.5 px-3 py-2">
-          <div className="flex items-center gap-1 flex-shrink-0">
-            <Users2 className="w-4 h-4 text-white" />
-            <span className="text-sm font-semibold text-white">Tenants</span>
-            {selectedTenantIds.length > 0 ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Badge className="text-[9px] px-1.5 py-0 h-4 bg-orange-400 text-white border-0 cursor-pointer ml-1">
-                    {selectedTenantIds.length}
-                  </Badge>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  {bulkActions.map((action, index) => (
-                    <DropdownMenuItem key={index} onClick={() => handleBulkAction(action, selectedTenantIds)} className={action.variant === 'destructive' ? 'text-red-600 text-xs' : 'text-xs'}>
-                      {action.icon}<span className="ml-2">{action.label}</span>
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : (
-              <span className="text-[10px] text-blue-200 ml-1">({tenants.length > 0 ? tenants.length : 0})</span>
-            )}
-          </div>
-          <div className="flex-1" />
-          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-white/80 hover:bg-white/20 rounded-lg" onClick={() => loadTenants()} disabled={loading}>
-            <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
-          </Button>
-          <Sheet open={isFilterSidebarOpen} onOpenChange={setIsFilterSidebarOpen}>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-white/80 hover:bg-white/20 rounded-lg relative">
-                <Filter className="w-3 h-3" />
-                {activeFiltersCount > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-orange-400 text-white text-[7px] font-bold rounded-full flex items-center justify-center">
-                    {activeFiltersCount}
-                  </span>
-                )}
-              </Button>
-            </SheetTrigger>
-          </Sheet>
-          <Button size="sm" className="h-7 px-2 bg-white text-blue-700 hover:bg-blue-50 rounded-lg text-xs font-semibold" onClick={() => setIsAddDialogOpen(true)}>
-            <Plus className="w-3 h-3 mr-0.5" />Add
-          </Button>
-        </div>
-
-        {/* Mobile Search Bar */}
-        <div className="flex md:hidden px-3 pb-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-blue-200 pointer-events-none" />
-            <input
-              type="text"
-              placeholder="Search tenants..."
-              value={filters.search || ""}
-              onChange={(e) => handleFilterChange({...filters, search: e.target.value})}
-              className="w-full pl-7 pr-2 py-1.5 text-xs rounded-md bg-white/20 text-white placeholder-blue-200 backdrop-blur-md border border-white/30 shadow-sm focus:outline-none focus:ring-1 focus:ring-white/50"
-            />
-          </div>
-        </div>
-
+ 
+  {/* Left: icon + title + count/bulk badge */}
+  <div className="flex items-center gap-1 flex-shrink-0">
+    <Users2 className="w-4 h-4 text-white" />
+    <span className="text-sm font-semibold text-white">Tenants</span>
+    <span className="text-[10px] text-blue-200 ml-0.5">
+      ({totalTenants})
+    </span>
+    {selectedTenantIds.length > 0 && (
+      <Badge className="ml-1 text-[9px] px-1.5 py-0 h-4 bg-orange-400 text-white border-0">
+        {selectedTenantIds.length} selected
+      </Badge>
+    )}
+  </div>
+ 
+  <div className="flex-1" />
+ 
+  {/* Refresh */}
+  <Button
+    variant="ghost" size="sm"
+    className="h-7 w-7 p-0 text-white/80 hover:bg-white/20 rounded-lg"
+    onClick={() => loadTenants()}
+    disabled={loading}
+  >
+    <RefreshCw className={`w-3 h-3 ${loading ? "animate-spin" : ""}`} />
+  </Button>
+ 
+  {/* Filter */}
+  <Sheet open={isFilterSidebarOpen} onOpenChange={setIsFilterSidebarOpen}>
+    <SheetTrigger asChild>
+      <Button
+        variant="ghost" size="sm"
+        className="h-7 w-7 p-0 text-white/80 hover:bg-white/20 rounded-lg relative"
+      >
+        <Filter className="w-3 h-3" />
         {activeFiltersCount > 0 && (
-          <div className="flex md:hidden px-3 pb-1.5">
-            <span className="text-[10px] text-orange-300">Active filters ({activeFiltersCount})</span>
-          </div>
+          <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-orange-400 text-white text-[7px] font-bold rounded-full flex items-center justify-center">
+            {activeFiltersCount}
+          </span>
         )}
+      </Button>
+    </SheetTrigger>
+  </Sheet>
+ 
+  {/* ── "More" overflow menu (bulk / export / import) ── */}
+  <DropdownMenu>
+    <DropdownMenuTrigger asChild>
+      <Button
+        variant="ghost" size="sm"
+        className="h-7 w-7 p-0 text-white/80 hover:bg-white/20 rounded-lg relative"
+      >
+        <MoreVertical className="w-3.5 h-3.5" />
+        {selectedTenantIds.length > 0 && (
+          <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-orange-400 text-white text-[7px] font-bold rounded-full flex items-center justify-center">
+            {selectedTenantIds.length}
+          </span>
+        )}
+      </Button>
+    </DropdownMenuTrigger>
+ 
+    <DropdownMenuContent align="end" className="w-52">
+ 
+      {/* Export */}
+      <DropdownMenuItem className="text-xs" onClick={handleExportToExcel}>
+        <Download className="w-3 h-3 mr-2 text-gray-500" />
+        Export to Excel
+      </DropdownMenuItem>
+ 
+      {/* Import */}
+      <DropdownMenuItem className="text-xs" onClick={handleImportClick}>
+        <Upload className="w-3 h-3 mr-2 text-gray-500" />
+        Import Tenants
+      </DropdownMenuItem>
+ 
+      {/* Bulk actions — only shown when something is selected */}
+      {selectedTenantIds.length > 0 && (
+        <>
+          <DropdownMenuSeparator />
+          <div className="px-2 py-1">
+            <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider">
+              Bulk Actions ({selectedTenantIds.length})
+            </p>
+          </div>
+          {bulkActions.map((action, index) => (
+            <DropdownMenuItem
+              key={index}
+              className={action.variant === "destructive" ? "text-red-600 text-xs" : "text-xs"}
+              onClick={() => handleBulkAction(action, selectedTenantIds)}
+            >
+              {action.icon}
+              <span className="ml-2">{action.label}</span>
+            </DropdownMenuItem>
+          ))}
+        </>
+      )}
+ 
+      {/* When nothing selected, show hint */}
+      {selectedTenantIds.length === 0 && (
+        <>
+          <DropdownMenuSeparator />
+          <div className="px-2 py-1.5">
+            <p className="text-[10px] text-gray-400 italic">
+              Select rows to enable bulk actions
+            </p>
+          </div>
+        </>
+      )}
+    </DropdownMenuContent>
+  </DropdownMenu>
+ 
+  {/* Add Tenant */}
+  <Button
+    size="sm"
+    className="h-7 px-2.5 bg-white text-blue-700 hover:bg-blue-50 rounded-lg text-xs font-semibold"
+    onClick={() => setIsAddDialogOpen(true)}
+  >
+    <Plus className="w-3 h-3 mr-0.5" />Add
+  </Button>
+</div>
+ 
+{/* ── Mobile Row 2: Search bar ── */}
+<div className="flex md:hidden px-3 pb-2 gap-2">
+  <div className="relative flex-1">
+    <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-blue-200 pointer-events-none" />
+    <input
+      type="text"
+      placeholder="Search tenants..."
+      value={filters.search || ""}
+      onChange={(e) => handleFilterChange({ ...filters, search: e.target.value })}
+      className="w-full pl-7 pr-2 py-1.5 text-xs rounded-md bg-white/20 text-white placeholder-blue-200 backdrop-blur-md border border-white/30 shadow-sm focus:outline-none focus:ring-1 focus:ring-white/50"
+    />
+  </div>
+</div>
+ 
+{/* ── Mobile Row 3: active-filter hint ── */}
+{activeFiltersCount > 0 && (
+  <div className="flex md:hidden items-center gap-1.5 px-3 pb-1.5">
+    <span className="text-[10px] text-orange-300">
+      Active filters ({activeFiltersCount})
+    </span>
+    <button
+      onClick={clearAllFilters}
+      className="text-[10px] text-orange-200 underline"
+    >
+      Clear
+    </button>
+  </div>
+)}
       </CardHeader>
 
       {/* ── TABLE CONTAINER WITH SINGLE HORIZONTAL SCROLL ── */}
