@@ -21,7 +21,9 @@ import {
   Globe,
   Monitor
 } from "lucide-react";
-import { useState } from "react";
+import { FormEvent, useCallback, useState } from "react";
+import { toast } from "sonner";
+import { sendTenantOTP, verifyTenantOTP } from "@/lib/tenantAuthApi";
 
 interface SecuritySectionProps {
   passwordData: {
@@ -143,6 +145,13 @@ export default function SecuritySection({
     newPassword: '',
     confirmPassword: ''
   });
+  const [otpData, setOtpData] = useState({
+    email: localStorage.getItem("auth_email") || "",
+    otp: "",
+  });
+
+  const [showOTPModal, setShowOTPMadal] = useState(false);
+  const [generatedOtp, setGeneratedOtp] = useState("");
 
   // Password strength checker
   const getPasswordStrength = (password: string) => {
@@ -162,9 +171,9 @@ export default function SecuritySection({
       confirmPassword: ''
     };
 
-    if (!passwordData.currentPassword) {
-      errors.currentPassword = 'Current password is required';
-    }
+    // if (!passwordData.currentPassword) {
+    //   errors.currentPassword = 'Current password is required';
+    // }
 
     if (!passwordData.newPassword) {
       errors.newPassword = 'New password is required';
@@ -187,6 +196,51 @@ export default function SecuritySection({
       await onChangePassword();
     }
   };
+
+  const onVerifyOTP = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+
+      try {
+        const result: any = await verifyTenantOTP(otpData.email, otpData.otp);
+
+        if (result.success) {
+          handleChangePassword()
+          setShowOTPMadal(false);
+        } else {
+          toast.error(result.message || "OTP verification failed");
+        }
+      } catch (error: any) {
+        toast.error(error.message || "OTP verification failed");
+      }
+    },
+    [otpData]
+  ); // ✅ ADDED login dependency
+
+  const handleSendOTP = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      console.log("otp : ", otpData)
+      if (!otpData.email) {
+        toast.error("Please enter your email");
+        return;
+      }
+
+      try {
+        const result = await sendTenantOTP(otpData.email);
+        console.log("otp response from reset", result)
+        if (result.success) {
+          setGeneratedOtp(result.otp || "123456");
+          toast.success(`OTP sent! For testing: ${result.otp}`); // Keep test OTP display
+        } else {
+          toast.error(result.error || result.message || "Failed to send OTP");
+        }
+      } catch (error: any) {
+        toast.error(error.message || "Failed to send OTP");
+      }
+    },
+    [otpData.email],
+  );
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -237,13 +291,13 @@ export default function SecuritySection({
                 </div>
               )}
 
-              <PasswordInput
+              {/* <PasswordInput
                 label="Current Password"
                 value={passwordData.currentPassword}
                 onChange={(e) => onPasswordDataChange({ ...passwordData, currentPassword: e.target.value })}
                 placeholder="Enter current password"
                 error={passwordErrors.currentPassword}
-              />
+              /> */}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <PasswordInput
@@ -265,7 +319,12 @@ export default function SecuritySection({
               </div>
 
               <Button 
-                onClick={handleChangePassword} 
+                onClick={(e: FormEvent) => {
+                  if (!validateForm()) { return; }
+                  setOtpData({ ...otpData, email: localStorage.getItem("auth_email") || "" });
+                  setShowOTPMadal(true);
+                  handleSendOTP(e);
+                }} 
                 disabled={loading}
                 className="w-full md:w-auto bg-gradient-to-r from-[#004aad] to-[#002a7a] hover:from-[#003a8d] hover:to-[#001a5a] text-white border-none shadow-lg hover:shadow-xl transition-all duration-200 px-8"
               >
@@ -281,6 +340,33 @@ export default function SecuritySection({
                   </>
                 )}
               </Button>
+              <div>
+                {showOTPModal && <form
+                  onSubmit={onVerifyOTP}
+                  className="mt-3 p-4 rounded-2xl
+              border border-purple-200 bg-purple-50 space-y-2"
+                >
+                  <Input
+                    placeholder="Enter 6-digit OTP"
+                    value={otpData.otp}
+                    onChange={(e) => setOtpData({ ...otpData, otp: e.target.value })}
+                    className="h-9 rounded-full text-xs
+                focus:ring-4 focus:ring-purple-200"
+                    maxLength={6}
+                    required
+                  />
+                  {/* <p className="text-[10px] text-purple-600">
+              Test OTP: {generatedOtp}
+            </p> */}
+                  <Button
+                    type="submit"
+                    className="w-full h-9 rounded-full
+                bg-purple-600 hover:bg-purple-700 text-white"
+                  >
+                    Verify OTP
+                  </Button>
+                </form>}
+              </div>
 
               {/* Password Tips */}
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mt-2">

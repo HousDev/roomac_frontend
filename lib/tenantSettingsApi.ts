@@ -20,7 +20,7 @@ export interface DeletionRequest {
 
 export const tenantSettingsApi = {
   // Change password
-  async changePassword(currentPassword: string, newPassword: string): Promise<ApiResult> {
+  async changePassword(newPassword: string,currentPassword?: string ): Promise<ApiResult> {
     try {
       const token = getTenantToken();
       if (!token) {

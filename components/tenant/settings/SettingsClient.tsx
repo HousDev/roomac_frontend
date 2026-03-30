@@ -193,8 +193,8 @@ export default function SettingsClient({
     try {
       setLoading(true);
       const result = await tenantSettingsApi.changePassword(
-        passwordData.currentPassword,
-        passwordData.newPassword
+        passwordData.newPassword,
+        passwordData.currentPassword
       );
 
       if (result.success) {
