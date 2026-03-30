@@ -7,6 +7,8 @@ import PropertyFilters from "@/components/admin/properties/PropertyFilters";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DataTable } from "@/components/admin/data-table";
+import { useAuth } from "@/context/authContext";
+import { Navigate } from "react-router-dom";
 
 // Loading component
 function PropertiesLoading() {
@@ -32,8 +34,13 @@ function PropertiesLoading() {
 }
 
 export default function PropertiesPage() {
-  const [properties, setProperties] = useState<(PropertyListResponse & any[]) | any[]>([]);
+    const { can } = useAuth();
+
+    const [properties, setProperties] = useState<(PropertyListResponse & any[]) | any[]>([]);
   const [loading, setLoading] = useState(true);
+  if (!can("view_properties")) {
+    return <Navigate to="/admin/dashboard" replace />;
+  }
   useEffect(() => {
     listProperties({ page: 1, pageSize: 200 })
       .then((res) => {

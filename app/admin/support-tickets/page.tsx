@@ -246,7 +246,7 @@ export default function AdminSupportTicketsPage() {
     <div className="p-0 bg-gradient-to-br from-violet-50/30 to-indigo-50/30">
 
       {/* ── Stats ──────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 mb-4 -mt-5 md:-mt-2 sticky top-24 z-10">
+      <div className=" sticky top-32 z-10 grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 mb-4 -mt-5 md:-mt-2 ">
         {[
           { label: "Total Tickets",   value: stats.total,       icon: Headphones,  bg: "from-slate-50  to-slate-100",  iconBg: "bg-slate-600"  },
           { label: "Open",            value: stats.open,        icon: AlertCircle, bg: "from-red-50    to-red-100",    iconBg: "bg-red-600"    },
@@ -286,16 +286,16 @@ export default function AdminSupportTicketsPage() {
         </div>
       )}
 
-      {/* ── Refresh btn ────────────────────────────────────────────────── */}
+      {/* ── Refresh btn ──────────────────────────────────────────────────
       <div className="flex justify-end mb-2 px-0.5">
         <Button variant="outline" size="sm" onClick={refresh} disabled={refreshing} className="text-xs h-8">
           <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${refreshing ? "animate-spin" : ""}`} />
           Refresh
         </Button>
-      </div>
+      </div> */}
 
       {/* ── Table ──────────────────────────────────────────────────────── */}
-      <Card className="shadow-lg border-0">
+      <Card className="shadow-sm border-0">
         <CardContent className="p-0">
           {tickets.length === 0 ? (
             <div className="text-center py-16 bg-gray-50 m-6 rounded-lg">
@@ -308,7 +308,7 @@ export default function AdminSupportTicketsPage() {
           ) : (
             <div className="overflow-x-auto">
               <div className={`overflow-y-auto rounded-b-lg transition-all duration-300 ${
-                selectedIds.size > 0 ? "max-h-[440px] md:max-h-[390px]" : "max-h-[390px] md:max-h-[480px]"
+                selectedIds.size > 0 ? "max-h-[320px] md:max-h-[390px]" : "max-h-[390px] md:max-h-[480px]"
               }`}>
                 <Table>
                   <TableHeader className="sticky top-0 z-10">

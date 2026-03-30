@@ -2,8 +2,8 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import EnquiriesClientPage from '@/components/admin/enquiries/EnquiriesClientPage';
-import PartnershipEnquiriesClientPage from '@/components/admin/partnership/PartnershipEnquiriesClientPage';
-import NewsletterSubscribersClientPage from '@/components/admin/newsletter/NewsletterSubscribersClientPage';
+import PartnershipEnquiriesClientPage from '@/components/admin/partnership/PartnershipClientPage';
+import NewsletterSubscribersClientPage from '@/components/admin/newsletter/NewsletterClientPage';
 import { Enquiry, getEnquiries, getEnquiryStats } from '@/lib/enquiryApi';
 import { getPartnershipEnquiries, getPartnershipStats, PartnershipEnquiry, PartnershipStats, createPartnershipEnquiry } from '@/lib/partnershipApi';
 import { getNewsletterSubscribers, getNewsletterStats, NewsletterSubscriber, NewsletterStats, deleteNewsletterSubscriber, bulkDeleteNewsletterSubscribers } from '@/lib/newsletterApi';

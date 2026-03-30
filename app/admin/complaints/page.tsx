@@ -492,7 +492,7 @@ export default function ComplaintsPage() {
         </div>
       )}
 
-      <Card className="shadow-lg border-0 sticky top-44 z-10">
+      <Card className="shadow-sm border-0 sticky top-44 z-10">
         <CardContent className="p-0">
           {complaints.length === 0 ? (
             <div className="text-center py-16 bg-gray-50 m-6 rounded-lg">
@@ -506,8 +506,8 @@ export default function ComplaintsPage() {
             <div className="relative">
               <div className={`overflow-y-auto rounded-b-lg transition-all duration-300 ${
                 selectedComplaints.size > 0 
-                  ? 'max-h-[440px] md:max-h-[390px]'
-                  : 'max-h-[390px] md:max-h-[480px]'
+                  ? 'max-h-[300px] md:max-h-[390px]'
+                  : 'max-h-[380px] md:max-h-[480px]'
               }`}>
                 <Table className="relative">
                   <TableHeader className="sticky top-0 z-10 bg-gradient-to-r from-gray-50 to-white shadow-sm">

@@ -385,7 +385,7 @@ export default function ReceiptsPage() {
       )}
 
       {/* Main Table Card */}
-      <Card className="shadow-lg border-0 overflow-hidden mx-0 mb-2">
+      <Card className="shadow-sm border-0 overflow-hidden mx-0 mb-2">
         <CardContent className="p-0">
           {requests.length === 0 ? (
             <div className="text-center py-12 bg-gray-50 m-4 rounded-lg">
@@ -402,8 +402,8 @@ export default function ReceiptsPage() {
               {/* Scrollable Table */}
               <div className={`overflow-auto rounded-b-lg transition-all duration-300 ${
                 selectedRequests.size > 0 
-                  ? 'max-h-[260px] md:max-h-[400px]'
-                  : 'max-h-[330px] md:max-h-[480px]'
+                  ? 'max-h-[252px] md:max-h-[400px]'
+                  : 'max-h-[320px] md:max-h-[480px]'
               }`}>
                 <Table className="min-w-[1200px] md:min-w-full table-fixed">
                   <TableHeader className="sticky top-0 z-20 bg-gradient-to-r from-gray-50 to-white shadow-sm">

@@ -25,6 +25,8 @@ type AuthContextType = {
     loginSource: "admin" | "tenant" // ✅ NEW
   ) => void;
   logout: () => void;
+    can: (permission: string) => boolean;  // ← ADD THIS
+
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -88,6 +90,45 @@ console.log(user.data.user)
   }
 }, []);
 
+// const can = (permission: string): boolean => {
+//   // admin role ko sab kuch allow
+//   const role =
+//     (user as any)?.role_name ??
+//     (user as any)?.role ??
+//     null;
+//   if (role === "admin") return true;
+ 
+//   // user ki permissions check karo (users table se aayi hain)
+//   const perms: Record<string, boolean> | null =
+//     (user as any)?.permissions ?? null;
+//   if (perms && typeof perms === "object") return Boolean(perms[permission]);
+ 
+//   return false;
+// };
+
+const can = (permission: string): boolean => {
+  if (!user) return false;
+
+  const role = user?.role_name ?? user?.role ?? null;
+  if (role === "admin" || role === "Admin") return true;
+
+  const hasCustom = user?.has_custom_permissions;
+
+  if (hasCustom) {
+    // ── User has custom overrides: MERGE role + user ──
+    const rolePerms: Record<string, boolean> = user?.role_permissions ?? {};
+    const userPerms: Record<string, boolean> = user?.permissions ?? {};
+    
+    // User override wins, role is the base
+    const merged = { ...rolePerms, ...userPerms };
+    return Boolean(merged[permission]);
+  } else {
+    // ── No custom overrides: just use role permissions ──
+    const rolePerms: Record<string, boolean> = user?.role_permissions ?? {};
+    return Boolean(rolePerms[permission]);
+  }
+};
+
   return (
     <AuthContext.Provider
       value={{
@@ -97,6 +138,8 @@ console.log(user.data.user)
         loading,
         login,
         logout,
+              can,   // ← ADD THIS
+
       }}
     >
       {children}

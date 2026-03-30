@@ -25,6 +25,8 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { getSettings, type SettingsData } from "@/lib/settingsApi";
 import * as paymentApi from "@/lib/paymentRecordApi";
+import { Card, CardContent } from "@/components/ui/card";  // <-- ADD THIS LINE
+
 
 export default function TenantDetailPage() {
   const params = useParams();
@@ -122,7 +124,7 @@ export default function TenantDetailPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 font-inter">
       {/* Modern Header with Glassmorphism */}
-      <div className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-sm">
+      <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-sm">
         <div className="max-w-9xl mx-auto px-0 md:px-0 h-16 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button 
@@ -163,29 +165,44 @@ export default function TenantDetailPage() {
       {/* Main Content */}
       <main className="max-w-9xl mx-auto px-0 md:px-0 py-6 space-y-6">
         {/* Enhanced Stat Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {stats.map((s, i) => (
-            <div key={i} className="group relative overflow-hidden bg-white rounded-2xl p-4 shadow-sm border border-slate-200 hover:shadow-lg hover:border-slate-300 transition-all duration-300">
-              <div className={`absolute top-0 left-0 w-full h-1 bg-gradient-to-r ${s.gradient}`} />
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">{s.label}</p>
-                  <p className="font-lexend font-bold text-sm text-slate-900">{s.value}</p>
-                </div>
-                <div className={`w-8 h-8 rounded-xl ${s.bg} flex items-center justify-center ${s.text}`}>
-                  {s.icon}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+        {/* Enhanced Stat Cards - Payments Page Style */}
+<div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 sticky top-16 z-10">
+  <StatCard 
+    title="Member Since" 
+    value={tenant.created_at ? new Date(tenant.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "N/A"} 
+    icon={CalendarDays} 
+    color="bg-blue-600" 
+    bgColor="bg-gradient-to-br from-blue-50 to-blue-100" 
+  />
+  <StatCard 
+    title="Monthly Rent" 
+    value={rentVal} 
+    icon={IndianRupee} 
+    color="bg-green-600" 
+    bgColor="bg-gradient-to-br from-green-50 to-green-100" 
+  />
+  <StatCard 
+    title="Room / Bed" 
+    value={roomVal} 
+    icon={Bed} 
+    color="bg-purple-600" 
+    bgColor="bg-gradient-to-br from-purple-50 to-purple-100" 
+  />
+  <StatCard 
+    title="Property" 
+    value={assignment?.property?.name || tenant.assigned_property_name || "Not Assigned"} 
+    icon={Building} 
+    color="bg-amber-600" 
+    bgColor="bg-gradient-to-br from-amber-50 to-amber-100" 
+  />
+</div>
 
         {/* Main Card with Modern Tabs */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden ">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             {/* Enhanced Tab Navigation */}
             <div className="border-b border-slate-200 px-4 md:px-6 overflow-x-auto scrollbar-hide">
-              <TabsList className="h-auto p-0 bg-transparent flex gap-6 min-w-max md:min-w-0">
+              <TabsList className="h-auto p-0 bg-transparent flex gap-6 min-w-max md:min-w-0 items-start justify-start">
                 {[
                   { v: "overview", icon: <User className="w-4 h-4" />, label: "Overview" },
                   { v: "occupation", icon: <Briefcase className="w-4 h-4" />, label: "Occupation" },
@@ -974,3 +991,19 @@ function calcAge(dob: string): number {
 
   return age;
 }
+// Stat Card Component - Add this after LoadingSkeleton and calcAge, before the final export
+const StatCard = ({ title, value, icon: Icon, color, bgColor }: any) => (
+  <Card className={`${bgColor} border-0 shadow-sm`}>
+    <CardContent className="p-2 sm:p-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-[10px] sm:text-xs text-slate-600 font-medium">{title}</p>
+          <p className="text-sm sm:text-base font-bold text-slate-800">{value}</p>
+        </div>
+        <div className={`p-1.5 rounded-lg ${color}`}>
+          <Icon className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
+        </div>
+      </div>
+    </CardContent>
+  </Card>
+);

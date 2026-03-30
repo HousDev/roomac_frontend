@@ -532,7 +532,7 @@ const confirmDeleteEnquiry = async () => {
       )}
 
       {/* Table */}
-      <Card className="shadow-lg">
+      <Card className=" border-0">
         <CardContent className="p-0">
           {filteredEnquiries.length === 0 ? (
             <div className="text-center py-16">

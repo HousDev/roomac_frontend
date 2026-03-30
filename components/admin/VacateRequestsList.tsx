@@ -814,7 +814,7 @@ const handleBulkDelete = async () => {
       </div> */}
 
       {/* Main Table Card */}
-      <Card className="shadow-lg border-0  sticky top-60 z-10 ">
+      <Card className="shadow-sm border-0  sticky top-60 z-10 ">
         
         <CardContent className="p-1">
           {filteredRequests.length === 0 ? (
@@ -836,8 +836,8 @@ const handleBulkDelete = async () => {
               {/* Scrollable Table */}
 <div className={`overflow-y-auto rounded-b-lg transition-all duration-300 ${
   selectedRequests.size > 0
-    ? 'max-h-[120px] md:max-h-[280px]'
-    : 'max-h-[225px] md:max-h-[350px]'
+    ? 'max-h-[180px] md:max-h-[350px]'
+    : 'max-h-[245px] md:max-h-[400px]'
 }`}>                <Table className="w-full">
                   <TableHeader className="sticky top-0 z-10 bg-gradient-to-r from-gray-50 to-white shadow-sm">
                     <TableRow className="hover:bg-transparent">

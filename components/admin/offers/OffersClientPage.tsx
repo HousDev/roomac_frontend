@@ -689,7 +689,7 @@ export default function OffersClientPage({
     <div className=" bg-slate-50 -mt-3 px-0 md:px-0">
 
       <div className="p-0">
-        <Card className="border-0 shadow-xl bg-white sticky top-36 z-10 max-h-[650px]" >
+        <Card className="border-0 shadow-sm bg-white sticky top-36 z-10 max-h-[650px]" >
      <CardHeader
   className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] text-white rounded-t-lg p-3 sm:p-4"
 >
