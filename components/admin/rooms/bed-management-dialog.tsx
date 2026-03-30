@@ -446,6 +446,15 @@ function BedCard({
   );
   const [isCouple, setIsCouple] = useState<boolean>(assignment?.is_couple || false);
 
+  
+console.log('📊 BedCard data:', {
+  bedNumber,
+  assignment,
+  tenantId: assignment?.tenant_id,
+  tenantDetails: tenantDetails,
+  isOccupied
+});
+
   // Reset form when assigning state changes
   useEffect(() => {
     if (isAssigning) {
@@ -751,6 +760,7 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
     try {
       const response = await getRoomById(room.id.toString());
       if (response) {
+         console.log('📋 Bed assignments from API:', response.bed_assignments);
         setBedAssignments(response.bed_assignments || []);
       }
     } catch (error) {
@@ -780,6 +790,21 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
         tenantsList = response.data;
       }
       
+       // Log to see what tenants are loaded
+    console.log('📋 All tenants loaded:', tenantsList.map(t => ({
+      id: t.id,
+      name: t.full_name,
+      has_partner: !!t.partner_full_name
+    })));
+
+
+    // SPECIFICALLY LOOK FOR TENANT 1035
+    const tenant1035 = tenantsList.find(t => t.id === 1035);
+    console.log('🎯 Tenant 1035 found:', tenant1035 ? {
+      id: tenant1035.id,
+      name: tenant1035.full_name,
+      partner_name: tenant1035.partner_full_name
+    } : '❌ NOT FOUND IN TENANTS LIST!');
       // Check assignment status for each tenant
       const tenantsWithAssignment = await Promise.all(
         tenantsList.map(async (tenant) => {
@@ -791,6 +816,7 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
                            Array.isArray(assignmentCheck.data) && 
                            assignmentCheck.data.length > 0 &&
                            assignmentCheck.data.some((assignment: any) => !assignment.is_available)
+                           
             };
           } catch {
             return {
@@ -800,6 +826,13 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
           }
         })
       );
+
+       // Log tenants after assignment check
+    console.log('📋 Tenants after assignment check:', tenantsWithAssignment.map(t => ({
+      id: t.id,
+      name: t.full_name,
+      is_assigned: t.is_assigned
+    })));
       
       setTenants(tenantsWithAssignment);
     } catch (error: any) {
@@ -813,6 +846,16 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
 
   const getBedStatus = (bedNumber: number) => {
     const assignment = bedAssignments.find(b => b.bed_number === bedNumber);
+    console.log(`🔍 getBedStatus for bed ${bedNumber}:`, {
+    bedNumber,
+    assignmentFound: !!assignment,
+    assignment: assignment ? {
+      id: assignment.id,
+      tenant_id: assignment.tenant_id,
+      is_available: assignment.is_available,
+      tenant_rent: assignment.tenant_rent
+    } : null
+  });
     if (!assignment) return { status: 'available', assignment: null };
     
     if (!assignment.is_available && assignment.tenant_id) {
@@ -821,9 +864,25 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
     return { status: 'available', assignment };
   };
 
-  const findTenantDetails = (tenantId: number): Tenant | undefined => {
-    return tenants.find(t => t.id === tenantId);
-  };
+// In BedManagementDialog.tsx
+
+const findTenantDetails = (tenantId: number) => {
+  // Don't filter by is_assigned here - we need to find the tenant regardless
+  const tenant = tenants.find(t => t.id === tenantId);
+  
+  console.log('🔍 Finding tenant details:', {
+    tenantId,
+    found: !!tenant,
+    tenant: tenant ? {
+      id: tenant.id,
+      name: tenant.full_name,
+      partner_name: tenant.partner_full_name,
+      is_couple_booking: tenant.is_couple_booking
+    } : null
+  });
+  
+  return tenant;
+};
 
   const checkTenantExistingAssignment = async (tenantId: number, excludeBedAssignmentId?: number) => {
     try {
@@ -1298,6 +1357,18 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
                     const tenantDetails = assignment?.tenant_id ? findTenantDetails(assignment.tenant_id) : null;
                     const isAssigning = assigningBed === bedNumber;
                     const isSaving = savingBed === bedNumber;
+
+                    // ADD THIS LOGGING FOR EACH BED
+  console.log(`🛏️ RENDERING BED ${bedNumber}:`, {
+    bedNumber,
+    status,
+    assignmentExists: !!assignment,
+    tenantIdFromAssignment: assignment?.tenant_id,
+    tenantDetailsFound: !!tenantDetails,
+    tenantDetailsName: tenantDetails?.full_name,
+    tenantDetailsPartner: tenantDetails?.partner_full_name
+  });
+
 
                     return (
                       <BedCard

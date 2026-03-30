@@ -66,7 +66,7 @@ import {
   createTenantRequest,
   getComplaintCategories,
   getComplaintReasons,
-  getLeaveTypesFromMasters,
+  // getLeaveTypesFromMasters,
   type TenantRequest,
   type ComplaintCategory,
   type ComplaintReason,
@@ -747,7 +747,7 @@ export default function TenantPortalPage() {
           tenantDetailsApi.loadProfile(),
           getMyTenantRequests(),
           getComplaintCategories(),
-          getLeaveTypesFromMasters(),
+          // getLeaveTypesFromMasters(),
         ]);
 
       if (profileRes.status === "fulfilled" && profileRes.value?.success) {

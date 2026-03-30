@@ -8,13 +8,45 @@ import {
   Smartphone, Wallet, Building2, Lock, DoorOpen, BedDouble,
   Home, Grid, ChevronRight, MapPin, Hash, Layers, UserCircle,
   AlertCircle, CheckCircle, XCircle, ArrowLeft, Sparkles, Heart,
-  Bed, Ticket, Gift, Percent, Clock, Tag, Star
+  Bed, Ticket, Gift, Percent, Clock, Tag, Star,
+  Upload
 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { listRoomsByProperty } from "@/lib/roomsApi";
 import { createRazorpayOrder } from "../../lib/paymentApi";
 import { consumeMasters } from "@/lib/masterApi";
 import { toast } from 'sonner';
+
+// Add this interface after the existing interfaces
+interface PartnerDetails {
+  // fullName: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
+  email: string;
+  gender: string;
+  dateOfBirth: string;
+  relationship: string;
+}
+
+interface DocumentDetails {
+  idProofType: string;
+  idProofNumber: string;
+  idProofFile: File | null;
+  addressProofType: string;
+  addressProofNumber: string;
+  addressProofFile: File | null;
+  partnerIdProofType: string;
+  partnerIdProofNumber: string;
+  partnerIdProofFile: File | null;
+  partnerAddressProofType: string;
+  partnerAddressProofNumber: string;
+  partnerAddressProofFile: File | null;
+}
 
 interface BookingModalProps {
   isOpen: boolean;
@@ -474,6 +506,17 @@ const [showTermsModal, setShowTermsModal] = useState(false);
 const [termsContent, setTermsContent] = useState<string>('');
 const [loadingTerms, setLoadingTerms] = useState(false);
 
+// Add these after the existing refs (around line 150-160)
+const idProofInputRef = useRef<HTMLInputElement>(null);
+const addressProofInputRef = useRef<HTMLInputElement>(null);
+const partnerIdProofInputRef = useRef<HTMLInputElement>(null);
+const partnerAddressProofInputRef = useRef<HTMLInputElement>(null);
+// Add this state with your other states
+const [enquiryCreated, setEnquiryCreated] = useState(false);
+const [enquiryId, setEnquiryId] = useState(null);
+const [isCreatingEnquiry, setIsCreatingEnquiry] = useState(false);
+const [previousEmail , setPreviousEmail] = useState('');
+
   const [formData, setFormData] = useState({
     salutation: 'Mr.',
     firstName: '',  // Add this
@@ -497,6 +540,32 @@ const [loadingTerms, setLoadingTerms] = useState(false);
     couponCode: '',
     agreeToTerms: false
   });
+
+  const [partnerDetails, setPartnerDetails] = useState<PartnerDetails>({
+    firstName: '',
+  lastName: '',
+  // fullName: '',
+  phone: '',
+  email: '',
+  gender: '',
+  dateOfBirth: '',
+  relationship: 'Spouse' 
+});
+
+const [documentDetails, setDocumentDetails] = useState<DocumentDetails>({
+  idProofType: '',
+  idProofNumber: '',
+  idProofFile: null,
+  addressProofType: '',
+  addressProofNumber: '',
+  addressProofFile: null,
+  partnerIdProofType: '',
+  partnerIdProofNumber: '',
+  partnerIdProofFile: null,
+  partnerAddressProofType: '',
+  partnerAddressProofNumber: '',
+  partnerAddressProofFile: null,
+});
 
   // Add this function to combine first and last name for backend
 const combineFullName = useCallback(() => {
@@ -681,19 +750,15 @@ const validateAndApplyOffer = useCallback(async (code: string) => {
     if (offer.discount_type === 'percentage' && offer.discount_percent) {
       const percentage = parseFloat(offer.discount_percent);
       discountAmount = baseAmount * (percentage / 100);
-      console.log(`📊 Percentage discount: ${percentage}% = ₹${discountAmount}`);
     } else if (offer.discount_type === 'fixed' && offer.discount_value) {
       const fixedAmount = parseFloat(offer.discount_value);
       discountAmount = fixedAmount;
-      console.log(`💰 Fixed discount: ₹${fixedAmount}`);
     } else {
       if (offer.discount_percent && parseFloat(offer.discount_percent) > 0) {
         const percentage = parseFloat(offer.discount_percent);
         discountAmount = baseAmount * (percentage / 100);
-        console.log(`📊 Fallback percentage discount: ${percentage}% = ₹${discountAmount}`);
       } else if (offer.discount_value && parseFloat(offer.discount_value) > 0) {
         discountAmount = parseFloat(offer.discount_value);
-        console.log(`💰 Fallback fixed discount: ₹${discountAmount}`);
       } else {
         setOfferError('Invalid discount configuration');
         setAppliedOffer(null);
@@ -704,7 +769,6 @@ const validateAndApplyOffer = useCallback(async (code: string) => {
     // Ensure discount doesn't exceed total
     discountAmount = Math.min(discountAmount, baseAmount);
 
-    console.log(`✅ Final discount: ₹${discountAmount}`);
 
     setAppliedOffer(offer);
     setDiscountedAmount(discountAmount);
@@ -724,7 +788,6 @@ const validateAndApplyOffer = useCallback(async (code: string) => {
       today.setHours(0, 0, 0, 0);
       
       if (bonusEndDate < today) {
-        console.log(`⚠️ Bonus expired on ${bonusEndDate.toLocaleDateString()}`);
         successMessage = `Offer applied! Bonus expired on ${bonusEndDate.toLocaleDateString()}. You save ₹${discountAmount.toLocaleString()}`;
       } else if (offer.bonus_title) {
         successMessage = `Offer applied! 🎁 Bonus: ${offer.bonus_title} - You save ₹${discountAmount.toLocaleString()}`;
@@ -1081,7 +1144,7 @@ useEffect(() => {
 
   useEffect(() => {
   if (preselectedRoomId) {
-    console.log('🎯 BookingModal received preselectedRoomId:', preselectedRoomId);
+    // console.log('🎯 BookingModal received preselectedRoomId:', preselectedRoomId);
   }
 }, [preselectedRoomId]);
 
@@ -1355,6 +1418,60 @@ const handleBedSelect = useCallback((room: Room, bed: any) => {
     return 5000;
   };
 
+const createEnquiryAtStep1 = async () => {
+  try {
+    // Combine first and last name directly
+    const fullName = `${formData.firstName.trim()} ${formData.lastName.trim()}`.trim();
+    const tenantName = fullName || formData.email || formData.phone || "Guest";
+
+     // Combine partner name if couple booking
+    let partnerInfo = '';
+    if (formData.isCouple) {
+      const partnerFullName = `${partnerDetails.firstName} ${partnerDetails.lastName}`.trim();
+      partnerInfo = `, Partner: ${partnerFullName} (${partnerDetails.phone})`;
+    }
+    
+    
+     const enquiryData = {
+      previousEmail: previousEmail, // Pass previous email for backend to check duplicates
+      tenant_name: tenantName,
+      email: formData.email,
+      phone: formData.phone,
+      property_id: propertyData?.id,
+      property_name: propertyData?.name,
+      preferred_move_in_date: bookingType === 'long' ? formData.moveInDate : formData.checkInDate,
+      budget_range: `₹${calculateTotalPayable().toLocaleString()} per ${bookingType === 'long' ? 'month' : 'day'}`,
+      message: `Booking enquiry for ${bookingType === 'long' ? 'Long Stay' : 'Short Stay'}. ${formData.isCouple ? 'Couple Booking' : 'Individual'}${partnerInfo}`,
+      source: 'website',
+      status: 'new',
+      occupation: formData.occupation_category || null,
+      occupation_category: formData.occupation_category || null,
+      remark: `Gender: ${formData.gender}, ${formData.isCouple ? 'Couple Booking' : 'Individual'}`
+    };
+
+    // Send to backend - let backend handle the duplicate check
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/enquiries/create-or-update`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(enquiryData),
+    });
+
+    const result = await response.json();
+    
+    if (result.success) {
+      setPreviousEmail(formData.email);
+      setEnquiryCreated(true);
+      setEnquiryId(result.data.id);
+      return true;
+    } else {
+      console.error('Failed to process enquiry:', result);
+      return false;
+    }
+  } catch (error) {
+    console.error('Error processing enquiry:', error);
+    return false;
+  }
+};
 
 // Function to fetch Payment Terms and Conditions
 const fetchPaymentTerms = useCallback(async () => {
@@ -1396,78 +1513,165 @@ const fetchPaymentTerms = useCallback(async () => {
   }
 }, []);
 
-  const handleOTPVerify = useCallback((otp: string) => {
-    if (otp === '123456') {
-      setLoading(true);
-      setTimeout(() => {
+const handleOTPVerify = useCallback(async (otp: string) => {
+  if (otp === '123456') {
+    // Prevent multiple submissions
+    if (isCreatingEnquiry) {
+      toast.info("Please wait, enquiry is being processed...");
+      return;
+    }
+    
+    setLoading(true);
+    setIsCreatingEnquiry(true);
+    
+    try {
+      // After OTP verification, create enquiry (or use existing)
+      const enquirySuccess = await createEnquiryAtStep1();
+      
+      if (enquirySuccess) {
         setVerified(true);
         setShowOTPModal(false);
         setBookingStep(2);
-        setLoading(false);
-      }, 800);
-    } else {
-      alert('Invalid OTP. Please try again.');
+      } else {
+        toast.error("Failed to create enquiry. Please try again.");
+      }
+    } catch (error) {
+      console.error('Error in OTP verification:', error);
+      toast.error("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+      setIsCreatingEnquiry(false);
     }
-  }, []);
+  } else {
+    alert('Invalid OTP. Please try again.');
+  }
+}, [createEnquiryAtStep1, isCreatingEnquiry]);
 
-  const prepareBookingData = useCallback((): BookingData => {
-    return {
-      salutation: formData.salutation,
-      fullName: formData.fullName,
-      email: formData.email,
-      phone: formData.phone,
-      gender: formData.gender,
-      isCouple: formData.isCouple,
-      moveInDate: formData.moveInDate,
-      checkInDate: formData.checkInDate,
-      checkOutDate: formData.checkOutDate,
-      roomId: selectedRoom?.id.toString() || '',
-      roomNumber: selectedRoom?.room_number || '',
-      sharingType: selectedRoom?.sharing_type || '',
-      monthlyRent: selectedRoom?.monthly_rent || 0,
-      dailyRate: selectedRoom?.daily_rate || 0,
-      floor: selectedRoom?.floor || 'Ground',
-      bookingType: bookingType === 'long' ? 'monthly' : 'daily',
-      propertyId: propertyData?.id,
-      propertyName: propertyData?.name || '',
-      paymentMethod: paymentMethod,
-      couponCode: formData.couponCode,
-      totalAmount: calculateTotalPayable(),
-      rentAmount: calculateRent(),
-      securityDeposit: bookingType === 'long' ? (propertyData?.securityDeposit || 0) : 0,
-      verificationStatus: verified,
-      bookingStatus: paymentMethod === 'online' ? 'confirmed' : 'pending',
-      paymentStatus: paymentMethod === 'online' ? 'paid' : 'pending'
-    };
-  }, [formData, selectedRoom, bookingType, propertyData, paymentMethod, calculateTotalPayable, calculateRent, verified]);
+useEffect(() => {
+  if (formData.phone || formData.email) {
+    // Reset enquiry state when user changes contact info
+    setEnquiryCreated(false);
+    setEnquiryId(null);
+  }
+}, [formData.phone, formData.email]);
+
+const prepareBookingData = useCallback((): any => {
+  const partnerFullName = `${partnerDetails.firstName} ${partnerDetails.lastName}`.trim();
+ 
+  return {
+    salutation: formData.salutation,
+    fullName: formData.fullName,
+    email: formData.email,
+    phone: formData.phone,
+    gender: formData.gender,
+    isCouple: formData.isCouple,
+    moveInDate: formData.moveInDate,
+    checkInDate: formData.checkInDate,
+    checkOutDate: formData.checkOutDate,
+    roomId: selectedRoom?.id.toString() || '',
+    roomNumber: selectedRoom?.room_number || '',
+    bedNumber: selectedBed?.bedNumber?.toString() || '',
+    sharingType: selectedRoom?.sharing_type || '',
+    monthlyRent: selectedBed?.bedRent || selectedRoom?.monthly_rent || 0,
+    dailyRate: selectedRoom?.daily_rate || 0,
+    floor: selectedRoom?.floor || 'Ground',
+    bookingType: bookingType === 'long' ? 'monthly' : 'daily',
+    propertyId: propertyData?.id,
+    propertyName: propertyData?.name || '',
+    paymentMethod: paymentMethod,
+    couponCode: formData.couponCode,
+    totalAmount: calculateFinalAmount(),
+    rentAmount: calculateRent(),
+    securityDeposit: bookingType === 'long' ? (propertyData?.securityDeposit || 0) : 0,
+    verificationStatus: verified,
+    bookingStatus: paymentMethod === 'online' ? 'confirmed' : 'pending',
+    paymentStatus: paymentMethod === 'online' ? 'paid' : 'pending',
+
+    // ADD THESE - Primary Tenant Documents (these are missing!)
+    id_proof_type: documentDetails.idProofType,
+    id_proof_number: documentDetails.idProofNumber,
+    address_proof_type: documentDetails.addressProofType,
+    address_proof_number: documentDetails.addressProofNumber,
+    
+    // Partner details
+    partner_full_name: partnerFullName,
+    partner_phone: partnerDetails.phone,
+    partner_email: partnerDetails.email,
+    partner_gender: partnerDetails.gender,
+    partner_date_of_birth: partnerDetails.dateOfBirth,
+    partner_relationship: partnerDetails.relationship || "Spouse",
+    
+    // Partner ID Proof
+    partner_id_proof_type: documentDetails.partnerIdProofType,
+    partner_id_proof_number: documentDetails.partnerIdProofNumber,
+    
+    // Partner ADDRESS Proof
+    partner_address_proof_type: documentDetails.partnerAddressProofType,
+    partner_address_proof_number: documentDetails.partnerAddressProofNumber,
+  };
+}, [formData, selectedRoom, selectedBed, bookingType, propertyData, paymentMethod, calculateFinalAmount, calculateRent, verified, partnerDetails, documentDetails]);
 
 const submitFinalBooking = async (paymentStatus: string) => {
   setLoading(true);
 
   try {
-    const bookingData = {
-      ...prepareBookingData(),
-      paymentStatus,
-      bookingStatus: paymentStatus === "paid" ? "confirmed" : "pending",
-      gender: formData.gender,
-      isCouple: formData.isCouple,
-      offer_code: appliedOffer?.code || null,
-      discount_amount: discountedAmount,
-      original_amount: calculateTotalPayable(),
-      final_amount: calculateFinalAmount()
-    };
+    const formDataToSend = new FormData();
+    const bookingData = prepareBookingData();
+    
+    // Append all booking data to FormData
+    Object.keys(bookingData).forEach(key => {
+      if (bookingData[key] !== null && bookingData[key] !== undefined) {
+        if (typeof bookingData[key] === 'string' || typeof bookingData[key] === 'number' || typeof bookingData[key] === 'boolean') {
+          formDataToSend.append(key, String(bookingData[key]));
+        }
+      }
+    });
+    
+    // Append files
+    if (documentDetails.idProofFile) {
+      formDataToSend.append('id_proof_url', documentDetails.idProofFile);
+    }
+    if (documentDetails.addressProofFile) {
+      formDataToSend.append('address_proof_url', documentDetails.addressProofFile);
+    }
+    if (formData.isCouple) {
+      if (documentDetails.partnerIdProofFile) {
+        formDataToSend.append('partner_id_proof_url', documentDetails.partnerIdProofFile);
+      }
+      if (documentDetails.partnerAddressProofFile) {
+        formDataToSend.append('partner_address_proof_url', documentDetails.partnerAddressProofFile);
+      }
+    }
+
+    // Add enquiry ID to the booking data
+    if (enquiryId) {
+      formDataToSend.append('enquiry_id', enquiryId.toString());
+    }
 
     const response = await fetch(`${import.meta.env.VITE_API_URL}/api/bookings`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(bookingData),
+      body: formDataToSend, // Use FormData, not JSON
     });
 
     const result = await response.json();
     if (result.success) {
+       // Update the enquiry status to 'converted' after successful booking
+      if (enquiryId) {
+        await fetch(`${import.meta.env.VITE_API_URL}/api/enquiries/${enquiryId}/convert`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            booking_id: result.bookingId,
+            payment_method: paymentMethod,
+            status: 'converted'
+          }),
+        });
+      }
+      
       setConfirmationData({
         id: result.bookingId,
         roomNumber: selectedRoom?.room_number,
+        bedNumber: selectedBed?.bedNumber,
         totalAmount: calculateFinalAmount(),
         paymentMethod,
         isCouple: formData.isCouple,
@@ -1478,8 +1682,8 @@ const submitFinalBooking = async (paymentStatus: string) => {
       if (onBookingSuccess) {
         onBookingSuccess(result.data);
       }
-            localStorage.removeItem('pendingOfferCode');
-            localStorage.removeItem('pendingOfferData');
+      localStorage.removeItem('pendingOfferCode');
+      localStorage.removeItem('pendingOfferData');
     } else {
       throw new Error(result.message || 'Failed to create booking');
     }
@@ -1490,6 +1694,8 @@ const submitFinalBooking = async (paymentStatus: string) => {
     setLoading(false);
   }
 };
+
+
   const openRazorpay = async () => {
     try {
       setLoading(true);
@@ -1551,58 +1757,114 @@ const submitFinalBooking = async (paymentStatus: string) => {
     }
   };
 
-  const handleBookingSubmit = useCallback(async (e: React.FormEvent) => {
-    e.preventDefault();
+const handleBookingSubmit = useCallback(async (e: React.FormEvent) => {
+  e.preventDefault();
 
-    if (bookingStep === 1) {
-      if (!formData.fullName || !formData.email || !formData.phone) {
-        alert('Please fill all required fields');
-        return;
-      }
-      if (!formData.gender) {
-        alert('Please select gender');
-        return;
-      }
-      if (!validatePhone(formData.phone)) {
-        alert('Please enter a valid 10-digit phone number');
-        return;
-      }
-      if (bookingType === 'long' && !formData.moveInDate) {
-        alert('Please select move-in date');
-        return;
-      }
-      if (bookingType === 'short' && (!formData.checkInDate || !formData.checkOutDate)) {
-        alert('Please select check-in and check-out dates');
-        return;
-      }
-
-      setShowOTPModal(true);
+  if (bookingStep === 1) {
+    // Check first name and last name instead of fullName
+    if (!formData.firstName.trim() || !formData.lastName.trim()) {
+      alert('Please enter both first name and last name');
+      return;
+    }
+    if (!formData.email.trim()) {
+      alert('Please enter email');
+      return;
+    }
+    if (!formData.phone.trim()) {
+      alert('Please enter phone number');
+      return;
+    }
+    if (!formData.gender) {
+      alert('Please select gender');
+      return;
+    }
+    if (!validatePhone(formData.phone)) {
+      alert('Please enter a valid 10-digit phone number');
+      return;
+    }
+    if (bookingType === 'long' && !formData.moveInDate) {
+      alert('Please select move-in date');
+      return;
+    }
+    if (bookingType === 'short' && (!formData.checkInDate || !formData.checkOutDate)) {
+      alert('Please select check-in and check-out dates');
       return;
     }
 
-    if (bookingStep === 2) {
-      if (!selectedRoom) {
-        alert('Please select a room to continue');
+    // Add partner details validation
+if (formData.isCouple) {
+  // Combine first and last name for validation
+  const partnerFullName = `${partnerDetails.firstName} ${partnerDetails.lastName}`.trim();
+  
+  if (!partnerFullName || !partnerDetails.phone || !partnerDetails.gender) {
+    toast.error("Please fill in all required partner details (Full Name, Phone, Gender)");
+    return;
+  }
+  
+  // Validate partner phone
+  if (!validatePhone(partnerDetails.phone)) {
+    toast.error("Please enter a valid 10-digit phone number for partner");
+    return;
+  }
+}
+
+    setShowOTPModal(true);
+    return;
+  }
+
+  if (bookingStep === 2) {
+    if (!selectedRoom) {
+      alert('Please select a room to continue');
+      return;
+    }
+    setBookingStep(3);
+    return;
+  }
+
+  if (bookingStep === 3) {
+    
+    
+    // Validate primary tenant documents
+    if (!documentDetails.idProofType || !documentDetails.idProofNumber || !documentDetails.idProofFile) {
+      toast.error("Please upload your ID proof document");
+      
+      return;
+    }
+    if (!documentDetails.addressProofType || !documentDetails.addressProofNumber || !documentDetails.addressProofFile) {
+      toast.error("Please upload your address proof document");
+      return;
+    }
+    
+    // Validate partner documents if couple booking
+    if (formData.isCouple) {
+      if (!documentDetails.partnerIdProofType || !documentDetails.partnerIdProofNumber || !documentDetails.partnerIdProofFile) {
+        toast.error("Please upload partner's ID proof document");
         return;
       }
-      setBookingStep(3);
+      if (!documentDetails.partnerAddressProofType || !documentDetails.partnerAddressProofNumber || !documentDetails.partnerAddressProofFile) {
+        toast.error("Please upload partner's address proof document");
+        return;
+      }
+    }
+    
+    setBookingStep(4);
+    return;
+  }
+
+  if (bookingStep === 4) {
+    if (!formData.agreeToTerms) {
+      alert("Please agree to terms and conditions");
       return;
     }
 
-    if (bookingStep === 3) {
-      if (!formData.agreeToTerms) {
-        alert("Please agree to terms and conditions");
-        return;
-      }
-
-      if (paymentMethod === "online") {
-        await openRazorpay();
-        return;
-      }
-
-      await submitFinalBooking("pending");
+    if (paymentMethod === "online") {
+      await openRazorpay();
+      return;
     }
-  }, [bookingStep, bookingType, formData, selectedRoom, paymentMethod]);
+
+    await submitFinalBooking("pending");
+  }
+}, [bookingStep, bookingType, formData, selectedRoom, paymentMethod, partnerDetails, documentDetails, validatePhone]);
 
   const handleConfirmationClose = useCallback(() => {
     setShowConfirmation(false);
@@ -1674,7 +1936,8 @@ const submitFinalBooking = async (paymentStatus: string) => {
               {[
                 { step: 1, label: 'Details', icon: User },
                 { step: 2, label: 'Room', icon: DoorOpen },
-                { step: 3, label: 'Payment', icon: CreditCard }
+                 { step: 3, label: 'Documents', icon: FileText },
+                { step: 4, label: 'Payment', icon: CreditCard }
               ].map((item, idx) => (
                 <div key={item.step} className="flex items-center gap-3 sm:gap-6">
                   <div className="flex flex-col items-center">
@@ -1701,7 +1964,7 @@ const submitFinalBooking = async (paymentStatus: string) => {
                       {item.label}
                     </span>
                   </div>
-                  {idx < 2 && (
+                  {idx < 3 && (
                     <div className="w-8 sm:w-16 h-0.5 bg-gray-200 rounded-full overflow-hidden">
                       <div
                         className="h-full bg-gradient-to-r from-green-400 to-green-600 transition-all duration-500"
@@ -1915,6 +2178,145 @@ const submitFinalBooking = async (paymentStatus: string) => {
                         Booking for Couple
                       </label>
                     </div>
+
+                    {/* Partner Details Section - Only show when isCouple is true */}
+{formData.isCouple && (
+  <div className="mt-4 p-3 border-2 border-pink-200 rounded-lg bg-pink-50/30">
+    <div className="flex items-center gap-2 mb-3">
+      <Heart className="h-4 w-4 text-pink-600" />
+      <h4 className="text-xs font-bold text-pink-800">Partner Details</h4>
+      <Badge variant="outline" className="text-[9px] bg-pink-100 text-pink-700 border-pink-200">
+        Required for couple booking
+      </Badge>
+    </div>
+
+    <div className="grid grid-cols-2 gap-2">
+      {/* Partner Full Name */}
+      <div className="col-span-2">
+        <Label className="text-[10px] font-semibold text-pink-700">Partner Full Name *</Label>
+        <div className="grid grid-cols-2 gap-2 mt-1">
+          <div>
+            <Input
+              value={partnerDetails.firstName}
+              onChange={(e) => setPartnerDetails(prev => ({ ...prev, firstName: e.target.value }))}
+              placeholder="First name"
+              className="h-7 text-[10px] border-pink-200 focus:border-pink-500"
+              required={formData.isCouple}
+            />
+          </div>
+          <div>
+            <Input
+              value={partnerDetails.lastName}
+              onChange={(e) => setPartnerDetails(prev => ({ ...prev, lastName: e.target.value }))}
+              placeholder="Last name"
+              className="h-7 text-[10px] border-pink-200 focus:border-pink-500"
+              required={formData.isCouple}
+            />
+          </div>
+        </div>
+      </div>
+      
+      {/* Partner Phone with +91 prefix */}
+      <div>
+        <Label className="text-[10px] font-semibold text-pink-700">Partner Phone *</Label>
+        <div className="flex mt-1">
+          <span className="inline-flex items-center px-2 py-1 text-[11px] border-2 border-r-0 border-pink-200 rounded-l-lg bg-pink-50 text-pink-600 font-semibold">
+            +91
+          </span>
+          <Input
+            type="tel"
+            value={partnerDetails.phone}
+            onChange={(e) => {
+              const value = e.target.value.replace(/\D/g, '').slice(0, 10);
+              setPartnerDetails(prev => ({ ...prev, phone: value }));
+            }}
+            placeholder="9876543210"
+            className="flex-1 h-7 text-[10px] border-pink-200 focus:border-pink-500 rounded-l-none"
+            maxLength={10}
+            required={formData.isCouple}
+          />
+        </div>
+      </div>
+      
+      {/* Partner Email */}
+      <div>
+        <Label className="text-[10px] font-semibold text-pink-700">Partner Email</Label>
+        <Input
+          type="email"
+          value={partnerDetails.email}
+          onChange={(e) => setPartnerDetails(prev => ({ ...prev, email: e.target.value }))}
+          placeholder="partner@email.com"
+          className="h-7 text-[10px] mt-0.5 border-pink-200 focus:border-pink-500"
+        />
+      </div>
+      
+      {/* Partner Gender */}
+      <div>
+        <Label className="text-[10px] font-semibold text-pink-700">Partner Gender *</Label>
+        <Select 
+          value={partnerDetails.gender} 
+          onValueChange={(v) => setPartnerDetails(prev => ({ ...prev, gender: v }))}
+        >
+          <SelectTrigger className="h-7 text-[10px] mt-0.5 border-pink-200">
+            <SelectValue placeholder="Select gender" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Male">Male</SelectItem>
+            <SelectItem value="Female">Female</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      
+      {/* Partner Date of Birth with 18 years age restriction */}
+      <div>
+        <Label className="text-[10px] font-semibold text-pink-700">Partner Date of Birth</Label>
+        <div className="relative mt-1">
+          <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-300" />
+          <Input
+            type="date"
+            value={partnerDetails.dateOfBirth}
+            onChange={(e) => {
+              const selectedDate = new Date(e.target.value);
+              const minDate = new Date();
+              minDate.setFullYear(minDate.getFullYear() - 18);
+              
+              if (selectedDate > minDate) {
+                toast.error("Partner must be at least 18 years old");
+                return;
+              }
+              setPartnerDetails(prev => ({ ...prev, dateOfBirth: e.target.value }));
+            }}
+            max={(() => {
+              const date = new Date();
+              date.setFullYear(date.getFullYear() - 18);
+              return date.toISOString().split('T')[0];
+            })()}
+            className={`pl-8 h-7 text-[10px] border-pink-200 focus:border-pink-500`}
+          />
+        </div>
+      </div>
+      {/* Partner Relationship - Add this to the partner details section */}
+<div>
+  <Label className="text-[10px] font-semibold text-pink-700">Relationship</Label>
+  <Select 
+    value={partnerDetails.relationship} 
+    onValueChange={(v) => setPartnerDetails(prev => ({ ...prev, relationship: v }))}
+  >
+    <SelectTrigger className="h-7 text-[10px] mt-0.5 border-pink-200">
+      <SelectValue placeholder="Select relationship" />
+    </SelectTrigger>
+    <SelectContent>
+      <SelectItem value="Spouse">Spouse</SelectItem>
+      <SelectItem value="Partner">Partner</SelectItem>
+      <SelectItem value="Fiancé">Fiancé</SelectItem>
+      <SelectItem value="Fiancée">Fiancée</SelectItem>
+      <SelectItem value="Other">Other</SelectItem>
+    </SelectContent>
+  </Select>
+</div>
+    </div>
+  </div>
+)}
 
                     {bookingType === 'long' ? (
                       <div>
@@ -2257,8 +2659,316 @@ const submitFinalBooking = async (paymentStatus: string) => {
                 </div>
               )}
 
-              {/* STEP 3 - PAYMENT */}
-              {bookingStep === 3 && selectedRoom && (
+
+              {/* STEP 3 - DOCUMENTS */}
+{bookingStep === 3 && (
+  <div className="space-y-3">
+    <div className="flex items-center gap-1.5 pb-1.5 border-b-2 border-gray-200">
+      <FileText className="w-4 h-4 text-blue-600" />
+      <h3 className="text-sm font-bold text-gray-900">Required Documents</h3>
+    </div>
+
+    <div className="flex items-start gap-2 p-2 bg-blue-50 border border-blue-100 rounded-lg">
+      <AlertCircle className="h-3.5 w-3.5 text-blue-400 flex-shrink-0 mt-0.5" />
+      <p className="text-[10px] text-blue-600">Max 10MB per file · PDF, JPG, PNG, WebP</p>
+    </div>
+
+    {/* Primary Tenant Documents */}
+    <div className="p-3 border border-gray-200 rounded-lg bg-gray-50/30">
+      <div className="flex items-center gap-1.5 mb-2">
+        <User className="h-3.5 w-3.5 text-blue-600" />
+        <h4 className="text-xs font-semibold text-gray-800">Primary Tenant Documents</h4>
+      </div>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {/* ID Proof */}
+        <div className="space-y-1">
+          <Label className="text-[10px] font-semibold">ID Proof Type *</Label>
+          <Select 
+            value={documentDetails.idProofType} 
+            onValueChange={(v) => setDocumentDetails(prev => ({ ...prev, idProofType: v }))}
+          >
+            <SelectTrigger className="h-7 text-[10px]">
+              <SelectValue placeholder="Select ID type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Aadhar Card">Aadhar Card</SelectItem>
+              <SelectItem value="Passport">Passport</SelectItem>
+              <SelectItem value="PAN Card">PAN Card</SelectItem>
+              <SelectItem value="Driving Licence">Driving Licence</SelectItem>
+              <SelectItem value="Voter ID">Voter ID</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {documentDetails.idProofType && (
+            <div className="mt-1">
+              <Label className="text-[10px] font-semibold">ID Proof Number *</Label>
+              <Input
+                value={documentDetails.idProofNumber}
+                onChange={(e) => setDocumentDetails(prev => ({ ...prev, idProofNumber: e.target.value }))}
+                placeholder="Document number"
+                className="h-7 text-[10px]"
+                required
+              />
+            </div>
+          )}
+
+          <div className="mt-1">
+            <Label className="text-[10px] font-semibold">Upload ID Proof *</Label>
+            <div className="flex items-center gap-2 mt-0.5">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => idProofInputRef.current?.click()}
+                className="h-7 text-[10px]"
+              >
+                <Upload className="h-3 w-3 mr-1" />
+                {documentDetails.idProofFile ? 'Change File' : 'Upload'}
+              </Button>
+              {documentDetails.idProofFile && (
+                <span className="text-[9px] text-green-600 truncate">
+                  {documentDetails.idProofFile.name}
+                </span>
+              )}
+              <input
+                type="file"
+                ref={idProofInputRef}
+                className="hidden"
+                accept=".pdf,.jpg,.jpeg,.png,.webp"
+                // For ID Proof file upload
+onChange={(e) => {
+  if (e.target.files?.[0]) {
+    if (e.target.files[0].size > 10 * 1024 * 1024) {
+      toast.error("File exceeds 10MB");
+      return;
+    }
+    setDocumentDetails(prev => ({ ...prev, idProofFile: e.target.files![0] }));
+  }
+}}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Address Proof */}
+        <div className="space-y-1">
+          <Label className="text-[10px] font-semibold">Address Proof Type *</Label>
+          <Select 
+            value={documentDetails.addressProofType} 
+            onValueChange={(v) => setDocumentDetails(prev => ({ ...prev, addressProofType: v }))}
+          >
+            <SelectTrigger className="h-7 text-[10px]">
+              <SelectValue placeholder="Select address proof type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Aadhar Card">Aadhar Card</SelectItem>
+              <SelectItem value="Utility Bill">Utility Bill</SelectItem>
+              <SelectItem value="Bank Statement">Bank Statement</SelectItem>
+              <SelectItem value="Passport">Passport</SelectItem>
+              <SelectItem value="Voter ID">Voter ID</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {documentDetails.addressProofType && (
+            <div className="mt-1">
+              <Label className="text-[10px] font-semibold">Address Proof Number *</Label>
+              <Input
+                value={documentDetails.addressProofNumber}
+                onChange={(e) => setDocumentDetails(prev => ({ ...prev, addressProofNumber: e.target.value }))}
+                placeholder="Document number"
+                className="h-7 text-[10px]"
+                required
+              />
+            </div>
+          )}
+
+          <div className="mt-1">
+            <Label className="text-[10px] font-semibold">Upload Address Proof *</Label>
+            <div className="flex items-center gap-2 mt-0.5">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => addressProofInputRef.current?.click()}
+                className="h-7 text-[10px]"
+              >
+                <Upload className="h-3 w-3 mr-1" />
+                {documentDetails.addressProofFile ? 'Change File' : 'Upload'}
+              </Button>
+              {documentDetails.addressProofFile && (
+                <span className="text-[9px] text-green-600 truncate">
+                  {documentDetails.addressProofFile.name}
+                </span>
+              )}
+              <input
+                type="file"
+                ref={addressProofInputRef}
+                className="hidden"
+                accept=".pdf,.jpg,.jpeg,.png,.webp"
+                onChange={(e) => {
+                  if (e.target.files?.[0]) {
+                    if (e.target.files[0].size > 10 * 1024 * 1024) {
+                      toast.error("File exceeds 10MB");
+                      return;
+                    }
+                    setDocumentDetails(prev => ({ ...prev, addressProofFile: e.target.files![0] }));
+                  }
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+{/* Partner Documents - Only show when isCouple is true */}
+{formData.isCouple && (
+  <div className="p-3 border-2 border-pink-200 rounded-lg bg-pink-50/30">
+    <div className="flex items-center gap-1.5 mb-2">
+      <Heart className="h-3.5 w-3.5 text-pink-600" />
+      <h4 className="text-xs font-semibold text-pink-800">Partner Documents</h4>
+      <Badge variant="outline" className="text-[9px] bg-pink-100 text-pink-700 border-pink-200">
+        Required for couple booking
+      </Badge>
+    </div>
+    
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+      {/* Partner ID Proof */}
+      <div className="space-y-1">
+        <Label className="text-[10px] font-semibold">Partner ID Proof Type *</Label>
+        <Select 
+          value={documentDetails.partnerIdProofType} 
+          onValueChange={(v) => setDocumentDetails(prev => ({ ...prev, partnerIdProofType: v }))}
+        >
+          <SelectTrigger className="h-7 text-[10px]">
+            <SelectValue placeholder="Select ID type" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Aadhar Card">Aadhar Card</SelectItem>
+            <SelectItem value="Passport">Passport</SelectItem>
+            <SelectItem value="PAN Card">PAN Card</SelectItem>
+            <SelectItem value="Driving Licence">Driving Licence</SelectItem>
+            <SelectItem value="Voter ID">Voter ID</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {documentDetails.partnerIdProofType && (
+          <div className="mt-1">
+            <Label className="text-[10px] font-semibold">Partner ID Proof Number *</Label>
+            <Input
+              value={documentDetails.partnerIdProofNumber}
+              onChange={(e) => setDocumentDetails(prev => ({ ...prev, partnerIdProofNumber: e.target.value }))}
+              placeholder="Document number"
+              className="h-7 text-[10px]"
+            />
+          </div>
+        )}
+
+        <div className="mt-1">
+          <Label className="text-[10px] font-semibold">Upload Partner ID Proof *</Label>
+          <div className="flex items-center gap-2 mt-0.5">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => partnerIdProofInputRef.current?.click()}
+              className="h-7 text-[10px]"
+            >
+              <Upload className="h-3 w-3 mr-1" />
+              {documentDetails.partnerIdProofFile ? 'Change File' : 'Upload'}
+            </Button>
+            {documentDetails.partnerIdProofFile && (
+              <span className="text-[9px] text-green-600 truncate">
+                {documentDetails.partnerIdProofFile.name}
+              </span>
+            )}
+            <input
+              type="file"
+              ref={partnerIdProofInputRef}
+              className="hidden"
+              accept=".pdf,.jpg,.jpeg,.png,.webp"
+              onChange={(e) => {
+                if (e.target.files?.[0]) {
+                  setDocumentDetails(prev => ({ ...prev, partnerIdProofFile: e.target.files![0] }));
+                }
+              }}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Partner Address Proof */}
+      <div className="space-y-1">
+        <Label className="text-[10px] font-semibold">Partner Address Proof Type *</Label>
+        <Select 
+          value={documentDetails.partnerAddressProofType} 
+          onValueChange={(v) => setDocumentDetails(prev => ({ ...prev, partnerAddressProofType: v }))}
+        >
+          <SelectTrigger className="h-7 text-[10px]">
+            <SelectValue placeholder="Select address proof type" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Aadhar Card">Aadhar Card</SelectItem>
+            <SelectItem value="Utility Bill">Utility Bill</SelectItem>
+            <SelectItem value="Bank Statement">Bank Statement</SelectItem>
+            <SelectItem value="Passport">Passport</SelectItem>
+            <SelectItem value="Voter ID">Voter ID</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {documentDetails.partnerAddressProofType && (
+          <div className="mt-1">
+            <Label className="text-[10px] font-semibold">Partner Address Proof Number *</Label>
+            <Input
+              value={documentDetails.partnerAddressProofNumber}
+              onChange={(e) => setDocumentDetails(prev => ({ ...prev, partnerAddressProofNumber: e.target.value }))}
+              placeholder="Document number"
+              className="h-7 text-[10px]"
+            />
+          </div>
+        )}
+
+        <div className="mt-1">
+          <Label className="text-[10px] font-semibold">Upload Partner Address Proof *</Label>
+          <div className="flex items-center gap-2 mt-0.5">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => partnerAddressProofInputRef.current?.click()}
+              className="h-7 text-[10px]"
+            >
+              <Upload className="h-3 w-3 mr-1" />
+              {documentDetails.partnerAddressProofFile ? 'Change File' : 'Upload'}
+            </Button>
+            {documentDetails.partnerAddressProofFile && (
+              <span className="text-[9px] text-green-600 truncate">
+                {documentDetails.partnerAddressProofFile.name}
+              </span>
+            )}
+            <input
+              type="file"
+              ref={partnerAddressProofInputRef}
+              className="hidden"
+              accept=".pdf,.jpg,.jpeg,.png,.webp"
+              onChange={(e) => {
+                if (e.target.files?.[0]) {
+                  setDocumentDetails(prev => ({ ...prev, partnerAddressProofFile: e.target.files![0] }));
+                }
+              }}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+  </div>
+)}
+
+              {/* STEP 4 - PAYMENT */}
+              {bookingStep === 4 && selectedRoom && (
                 <div className="space-y-3">
                   <div className="flex items-center gap-1.5 pb-1.5 border-b-2 border-gray-200">
                     <CreditCard className="w-4 h-4 text-blue-600" />
@@ -2611,56 +3321,62 @@ const submitFinalBooking = async (paymentStatus: string) => {
           </div>
 
           {/* Footer Buttons - Fixed */}
-          <div className="flex gap-2 p-3 sm:p-4 border-t-2 border-gray-200 bg-white flex-shrink-0">
-            {bookingStep > 1 && (
-              <button
-                type="button"
-                onClick={() => setBookingStep(bookingStep - 1)}
-                className="flex items-center justify-center gap-1 px-4 py-2.5 border-2 border-gray-300 text-gray-700 text-xs font-semibold rounded-lg hover:bg-gray-50"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" />
-                Back
-              </button>
-            )}
-<button
-  type="submit"
-  form="booking-form"
-  disabled={loading || (bookingStep === 2 && (roomsLoading || !selectedRoom))}
-  className={`flex-1 py-2.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 shadow ${
-    bookingStep === 3 ? 'bg-gradient-to-r from-green-500 to-green-600 text-white' : 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white'
-  } disabled:opacity-50`}
-  onClick={handleBookingSubmit}
->
-  {loading ? (
-    <>
-      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-      <span className="hidden sm:inline">Processing...</span>
-    </>
-  ) : bookingStep === 1 ? (
-    <>
-      Verify & Continue
-      <ChevronRight className="w-4 h-4" />
-    </>
-  ) : bookingStep === 2 ? (
-    selectedRoom ? (
+<div className="flex gap-2 p-3 sm:p-4 border-t-2 border-gray-200 bg-white flex-shrink-0">
+  {bookingStep > 1 && (
+    <button
+      type="button"
+      onClick={() => setBookingStep(bookingStep - 1)}
+      className="flex items-center justify-center gap-1 px-4 py-2.5 border-2 border-gray-300 text-gray-700 text-xs font-semibold rounded-lg hover:bg-gray-50"
+    >
+      <ArrowLeft className="w-3.5 h-3.5" />
+      Back
+    </button>
+  )}
+  <button
+    type="submit"
+    form="booking-form"
+    disabled={loading || (bookingStep === 2 && (roomsLoading || !selectedRoom))}
+    className={`flex-1 py-2.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 shadow ${
+      bookingStep === 4 ? 'bg-gradient-to-r from-green-500 to-green-600 text-white' : 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white'
+    } disabled:opacity-50`}
+    onClick={handleBookingSubmit}
+  >
+    {loading ? (
+      <>
+        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+        <span className="hidden sm:inline">Processing...</span>
+      </>
+    ) : bookingStep === 1 ? (
+      <>
+        Verify & Continue
+        <ChevronRight className="w-4 h-4" />
+      </>
+    ) : bookingStep === 2 ? (
+      selectedRoom ? (
+        <>
+          Continue
+          <ChevronRight className="w-4 h-4" />
+        </>
+      ) : (
+        'Select Room'
+      )
+    ) : bookingStep === 3 ? (
       <>
         Continue
         <ChevronRight className="w-4 h-4" />
       </>
     ) : (
-      'Select Room'
-    )
-  ) : (
-    <>
-      {paymentMethod === 'online' 
-        ? `Pay ₹${calculateFinalAmount().toLocaleString()}`
-        : `Confirm Booking ${appliedOffer ? `(Save ₹${discountedAmount.toLocaleString()})` : ''}`
-      }
-      <Check className="w-4 h-4" />
-    </>
-  )}
-</button>
-          </div>
+      // Step 4 - Payment
+      <>
+        {paymentMethod === 'online' 
+          ? `Pay ₹${calculateFinalAmount().toLocaleString()}`
+          : `Confirm Booking ${appliedOffer ? `(Save ₹${discountedAmount.toLocaleString()})` : ''}`
+        }
+        <Check className="w-4 h-4" />
+      </>
+    )}
+  </button>
+</div>
         </div>
       </div>
 
