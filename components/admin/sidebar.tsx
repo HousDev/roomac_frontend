@@ -21,7 +21,8 @@ import {
   FilePlus,
   Files,
   ReceiptIndianRupee,
-  Clock
+  Clock,
+  ShieldCheck
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -436,7 +437,10 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
     { href: '/admin/visitors', label: 'Visitors', icon: VisitorsIcon },
     { href: '/admin/masters', label: 'Masters', icon: LayoutGrid },
     { href: '/admin/settings', label: 'Settings', icon: Settings },
+      { href: '/admin/permissions', label: 'Permissions', icon: ShieldCheck },  // ← ADD THIS (index 18)
+
     { href: '/admin/profile', label: 'Profile', icon: UserCircle },
+
   ];
 
   const settingsItems = [

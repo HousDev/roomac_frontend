@@ -36,6 +36,8 @@ import {
   DoorOpen,
   Loader2,
 } from "lucide-react";
+import { useAuth } from "@/context/authContext";
+
 
 import {
   listProperties,
@@ -147,6 +149,8 @@ interface PropertyListClientProps {
 }
 
 export default function PropertyListClient({ initialProperties }: PropertyListClientProps) {
+
+  const { can } = useAuth();  // ← ADD THIS LINE
 
   const router = useRouter();
   const [properties, setProperties] = useState<Property[]>([]);
@@ -1169,24 +1173,22 @@ const handleExportToExcel = useCallback(async () => {
             View Details
           </button>
           <div className="flex items-center gap-1">
-            <button
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-[#004AAD] hover:bg-[#004AAD]/8 transition-all duration-200"
-              onClick={(e) => {
-                e.stopPropagation(); // Prevent card click
-                handleEdit(property);
-              }}
-            >
-              <Edit className="h-3.5 w-3.5" />
-            </button>
-            <button
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all duration-200"
-              onClick={(e) => {
-                e.stopPropagation(); // Prevent card click
-                handleDelete(property);
-              }}
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </button>
+            {can("edit_properties") && (   // ← WRAP WITH THIS
+      <button
+        className="w-8 h-8 rounded-lg..."
+        onClick={(e) => { e.stopPropagation(); handleEdit(property); }}
+      >
+        <Edit className="h-3.5 w-3.5" />
+      </button>
+    )}
+            {can("delete_properties") && (  // ← AND THIS
+      <button
+        className="w-8 h-8 rounded-lg..."
+        onClick={(e) => { e.stopPropagation(); handleDelete(property); }}
+      >
+        <Trash2 className="h-3.5 w-3.5" />
+      </button>
+    )}
           </div>
         </div>
       </div>

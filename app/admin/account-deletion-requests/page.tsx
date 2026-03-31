@@ -586,48 +586,10 @@ const handleBulkDelete = async () => {
     </div>
   </div>
 )}
-      {/* Actions Bar */}
-      {/* <div className="flex items-center justify-between mb-3 px-0">
-        <div className="flex items-center gap-2">
-          <div className="relative w-64">
-            <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <Input
-              placeholder="Search by name, email, reason..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-8 h-9 text-sm"
-            />
-          </div>
-          <Select value={selectedProperty} onValueChange={setSelectedProperty}>
-            <SelectTrigger className="w-40 h-9 text-sm">
-              <Building className="h-3 w-3 mr-2 text-gray-400" />
-              <SelectValue placeholder="All Properties" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Properties</SelectItem>
-              {properties.map((property) => (
-                <SelectItem key={property.value} value={property.value.toString()}>
-                  <div className="flex flex-col">
-                    <span className="text-xs">{property.label}</span>
-                    {property.address && (
-                      <span className="text-[10px] text-gray-500">{property.address}</span>
-                    )}
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={refreshData} disabled={refreshing} className="h-9">
-            <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-        </div>
-      </div> */}
+     
 
       {/* Main Table Card */}
-      <Card className="shadow-lg border-0 overflow-hidden mb-6 sticky top-48 z-10">
+      <Card className="shadow-sm border-0 overflow-hidden mb-6 sticky top-48 z-10">
        
         <CardContent className="p-0">
           {filteredRequests.length === 0 ? (

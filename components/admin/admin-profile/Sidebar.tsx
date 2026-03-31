@@ -1,4 +1,3 @@
-
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -97,7 +96,7 @@ export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
         /* ── Mobile view ── */
         @media (max-width: 1023px) {
           .sb-wrap {
-            border-radius: 16px;
+            border-radius: 12px;
           }
 
           .sb-header {
@@ -106,8 +105,8 @@ export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
 
           .sb-nav {
             flex-direction: row;
-            padding: 6px;
-            gap: 6px;
+            padding: 4px;
+            gap: 3px;
           }
 
           .sb-btn {
@@ -115,12 +114,12 @@ export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            gap: 5px;
-            padding: 10px 6px;
+            gap: 3px;
+            padding: 5px 4px;
             border-left: none;
-            border-bottom: 2.5px solid transparent;
-            border-radius: 12px;
-            font-size: 10.5px;
+            border-bottom: 2px solid transparent;
+            border-radius: 8px;
+            font-size: 9px;
             font-weight: 700;
             letter-spacing: 0.01em;
             min-width: 0;
@@ -136,9 +135,9 @@ export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
           }
 
           .sb-btn-icon {
-            width: 34px;
-            height: 34px;
-            border-radius: 10px;
+            width: 22px;
+            height: 22px;
+            border-radius: 6px;
           }
           .sb-btn.active .sb-btn-icon {
             background: #DBEAFE;

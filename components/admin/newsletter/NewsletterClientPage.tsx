@@ -32,7 +32,8 @@ import {
   Copy,
   Send,
   MessageCircle,
-  Twitter
+  Twitter,
+  Check
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -390,7 +391,7 @@ export default function NewsletterSubscribersClientPage({
       )}
 
       {/* Table */}
-      <Card className="shadow-lg">
+      <Card className="">
         <CardContent className="p-0">
           {filteredSubscribers.length === 0 ? (
             <div className="text-center py-16">

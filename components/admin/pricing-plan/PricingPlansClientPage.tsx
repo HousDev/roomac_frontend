@@ -578,7 +578,7 @@ const ViewPlanDialogContent = selectedPlan && (
   return (
     <div className="bg-slate-50 -mt-3 px-0 md:px-0">
       <div className="p-0">
-        <Card className="border-0 shadow-xl bg-white">
+        <Card className="border-0 shadow-sm bg-white">
           <CardHeader className={`${headerGradient} text-white rounded-t-lg p-3 sm:p-4`}>
 
             {/* MOBILE LAYOUT */}

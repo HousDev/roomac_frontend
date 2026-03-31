@@ -51,6 +51,7 @@ import AdminLeaveRequestsPage from "../app/admin/leave-requests/page";
 import AdminVacateRequestsPage from "../app/admin/vacate-requests/page";
 import AdminChangeBedRequestsPage from "../app/admin/change-bed-requests/page";
 import AdminAccountDeletionPage from "../app/admin/account-deletion-requests/page";
+import PermissionsPage from "../app/admin/permissions/page";
 
 
 /* ================= TENANT ================= */
@@ -168,6 +169,7 @@ console.log(user)
             <Route path="masters/:itemId" element={<AdminMastersValues />} />
             <Route path="settings" element={<AdminSettingsPage />} />
             <Route path="settings/integration" element={<AdminIntegrationSettingsPage />} />  
+<Route path="permissions" element={<PermissionsPage />} />
 
             <Route path="profile" element={<AdminProfilePage />} />
             <Route path="requests" element={<RequestsPage />} />

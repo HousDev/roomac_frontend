@@ -314,7 +314,7 @@ export default function NoticePeriodRequestsPage() {
     <div className="p-0 bg-gradient-to-br from-blue-50/50 to-cyan-50/50">
 
       {/* Header with Title and Create Button */}
-      <div className="flex justify-end items-end mb-4">
+      <div className=" sticky top-28 z-10 flex justify-end items-end mb-4">
         <Button 
           onClick={() => setShowCreateDialog(true)}
           className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
@@ -325,7 +325,7 @@ export default function NoticePeriodRequestsPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 mb-4">
+      <div className=" sticky top-36 z-10 grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 mb-4">
         {stats.map((stat, index) => (
           <Card key={index} className={`bg-gradient-to-br from-${stat.bgColor.split('-')[1]}-50 to-${stat.bgColor.split('-')[1]}-100 border-0 shadow-sm`}>
             <CardContent className="p-2 sm:p-3">
@@ -379,7 +379,7 @@ export default function NoticePeriodRequestsPage() {
       )}
 
       {/* Main Table Card */}
-      <Card className="shadow-lg border-0">
+      <Card className="shadow-sm border-0">
         <CardContent className="p-0">
           {requests.length === 0 ? (
             <div className="text-center py-16 bg-gray-50 m-6 rounded-lg">
@@ -399,8 +399,11 @@ export default function NoticePeriodRequestsPage() {
           ) : (
             <div className="relative">
               {/* Table with Sticky Header */}
-              <div className="overflow-y-auto rounded-b-lg max-h-[550px]">
-                <Table className="relative">
+<div className={`overflow-y-auto rounded-b-lg transition-all duration-300 ${
+  selectedRequests.size > 0
+    ? 'max-h-[170px] md:max-h-[350px]'
+    : 'max-h-[310px] md:max-h-[410px]'
+}`}>                  <Table className="relative">
                   <TableHeader className="sticky top-0 z-10 bg-gradient-to-r from-gray-50 to-white shadow-sm">
                     <TableRow className="hover:bg-transparent">
                       {/* Checkbox Column */}
@@ -519,7 +522,7 @@ export default function NoticePeriodRequestsPage() {
                         key={request.id} 
                         className={`hover:bg-gradient-to-r hover:from-blue-50/50 hover:to-cyan-50/50 transition-all duration-200 ${
                           index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'
-                        } ${!request.is_seen ? 'border-l-4 border-l-yellow-400' : ''}`}
+                        } ${!request.is_seen ? '' : ''}`}
                       >
                         {/* Checkbox Cell */}
                         <TableCell className="w-[50px]">

@@ -611,7 +611,7 @@ const handleBulkDelete = async () => {
   </div>
 </div>
       {/* Main Table Card */}
-      <Card className="shadow-lg border-0 overflow-hidden mb-2">
+      <Card className="shadow-sm border-0 overflow-hidden mb-2">
         <CardHeader className="pb-2">
           <CardTitle className="text-base">Change Bed Requests</CardTitle>
           <CardDescription className="text-xs">
@@ -636,7 +636,7 @@ const handleBulkDelete = async () => {
               {/* Scrollable Table */}
 <div className={`overflow-y-auto rounded-b-lg transition-all duration-300 ${
   selectedRequests.size > 0
-    ? 'max-h-[280px] md:max-h-[410px]'
+    ? 'max-h-[170px] md:max-h-[410px]'
     : 'max-h-[310px] md:max-h-[410px]'
 }`}>                <Table className="w-full">
                   <TableHeader className="sticky top-0 z-10 bg-gradient-to-r from-gray-50 to-white shadow-sm">
