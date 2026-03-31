@@ -35,17 +35,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   
-  const fetchUser = async () => {try{
-const user = await axios.get(import.meta.env.VITE_API_URL+"/api/auth/get-user-details/"+localStorage.getItem('auth_email'))
-    // console.log(user.data.user)
-    //    const userData = user.data.user;
-    //    userData.name = userData.name.split(" ").map((n:string) => n.charAt(0).toUpperCase()+n.slice(1)).join(" ")
+  const fetchUser = async () => {
+    try {
+      const email = localStorage.getItem("auth_email");
 
-    setUser(user.data.user)
-}catch(error){
-  console.log(error)
-}
-  }
+      if (!email || email === "null" || email === "undefined") {
+        console.warn("Invalid email:", email);
+        return;
+      }
+
+      const res = await axios.get(
+        `${import.meta.env.VITE_API_URL}/api/auth/get-user-details/${email}`
+      );
+
+      setUser(res.data.user);
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchUser();
+    }, 100); // small delay
+
+    return () => clearTimeout(timer);
+  }, []);
+
   const login = (
     email: string,
     role: string ,
