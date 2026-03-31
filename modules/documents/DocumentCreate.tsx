@@ -22,6 +22,7 @@ import { tenantDetailsApi }                                   from "@/lib/tenant
 import { getProperty, listProperties }                        from "@/lib/propertyApi";
 import { listRoomsByProperty }                                from "@/lib/roomsApi";
 import { getTenantsWithDocumentForTemplate }                  from "@/lib/documentApi";
+import { useAuth } from "@/context/authContext";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
@@ -211,6 +212,7 @@ export function DocumentCreate() {
   const [loadingTpls,  setLoadingTpls]  = useState(true);
   const [tplSearch,    setTplSearch]    = useState("");
   const [catFilter,    setCatFilter]    = useState("All");
+  const { can } = useAuth(); // ← ADD THIS
 
   // ── Tenants ─────────────────────────────────────────────────────────────────
   const [tenantList,         setTenantList]         = useState<any[]>([]);

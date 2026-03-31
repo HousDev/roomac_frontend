@@ -101,16 +101,39 @@ const PERMISSIONS_LIST = [
 
   { action: "view_reports", label: "View Reports", module: "Reports" },
   { action: "export_reports", label: "Export Reports", module: "Reports" },
-  { action: "view_document_dashboard", label: "View Document Dashboard", module: "Documents" },
-  { action: "create_documents", label: "Create Documents", module: "Documents" },
-  { action: "view_all_documents", label: "View All Documents", module: "Documents" },
-  { action: "delete_documents", label: "Delete Documents", module: "Documents" },
-  { action: "export_documents", label: "Export Documents", module: "Documents" },
-  { action: "manage_templates", label: "Manage Templates", module: "Documents" },
-  { action: "view_enquiries", label: "View Enquiries", module: "Enquiries" },
+
+  { action: "view_documents", label: "View All Documents", module: "Documents" },
+{ action: "create_documents", label: "Create Documents", module: "Documents" },
+{ action: "edit_documents", label: "Edit Documents", module: "Documents" },
+{ action: "delete_documents", label: "Delete Documents", module: "Documents" },
+{ action: "export_documents", label: "Export Documents", module: "Documents" },
+{ action: "view_document_templates", label: "View Document Templates", module: "Documents" },
+{ action: "manage_document_templates", label: "Manage Templates (Create/Edit/Delete)", module: "Documents" },
+{ action: "share_documents", label: "Share Documents", module: "Documents" },
+{ action: "verify_documents", label: "Verify/Approve Documents", module: "Documents" },
+{ action: "esign_documents", label: "E-Sign Documents", module: "Documents" },
+
+   { action: "view_enquiries", label: "View Enquiries", module: "Enquiries" },
   { action: "create_enquiries", label: "Create Enquiries", module: "Enquiries" },
   { action: "edit_enquiries", label: "Edit Enquiries", module: "Enquiries" },
   { action: "delete_enquiries", label: "Delete Enquiries", module: "Enquiries" },
+  { action: "schedule_visit", label: "Schedule Visit", module: "Enquiries" },
+  { action: "convert_to_tenant", label: "Convert to Tenant", module: "Enquiries" },
+  { action: "export_enquiries", label: "Export Enquiries", module: "Enquiries" },
+
+  // ── Partnership Enquiries ────────────────────────────────────────────────
+  { action: "view_partnership_enquiries", label: "View Partnership Enquiries", module: "Partnership" },
+  { action: "create_partnership_enquiries", label: "Create Partnership Enquiries", module: "Partnership" },
+  { action: "edit_partnership_enquiries", label: "Edit Partnership Enquiries", module: "Partnership" },
+  { action: "delete_partnership_enquiries", label: "Delete Partnership Enquiries", module: "Partnership" },
+  { action: "export_partnership_enquiries", label: "Export Partnership Enquiries", module: "Partnership" },
+
+  // ── Newsletter Subscribers ───────────────────────────────────────────────
+  { action: "view_newsletter", label: "View Subscribers", module: "Newsletter" },
+  { action: "delete_newsletter", label: "Delete Subscribers", module: "Newsletter" },
+  { action: "bulk_delete_newsletter", label: "Bulk Delete Subscribers", module: "Newsletter" },
+  { action: "export_newsletter", label: "Export Subscribers", module: "Newsletter" },
+  { action: "share_newsletter", label: "Share Subscriber", module: "Newsletter" },
   { action: "view_notifications", label: "View Notifications", module: "Notifications" },
   { action: "send_notifications", label: "Send Notifications", module: "Notifications" },
   { action: "view_requests", label: "View Requests", module: "Requests" },
@@ -137,13 +160,56 @@ const PERMISSIONS_LIST = [
   { action: "create_addons", label: "Create Add-ons", module: "Add-ons" },
   { action: "edit_addons", label: "Edit Add-ons", module: "Add-ons" },
   { action: "delete_addons", label: "Delete Add-ons", module: "Add-ons" },
-  { action: "view_inventory_dashboard", label: "View Inventory Dashboard", module: "Inventory" },
-  { action: "manage_assets", label: "Manage Assets", module: "Inventory" },
-  { action: "manage_material_purchase", label: "Manage Material Purchase", module: "Inventory" },
-  { action: "manage_tenant_handover", label: "Manage Tenant Handover", module: "Inventory" },
-  { action: "manage_moveout_inspection", label: "Manage Move-Out Inspection", module: "Inventory" },
-  { action: "manage_settlements", label: "Manage Settlements", module: "Inventory" },
-  { action: "manage_penalty_rules", label: "Manage Penalty Rules", module: "Inventory" },
+   // ── Inventory Dashboard ──────────────────────────────────────────────────
+  { action: "view_inventory_dashboard",    label: "View Inventory Dashboard",    module: "Inventory" },
+ 
+  // ── Assets ───────────────────────────────────────────────────────────────
+  { action: "view_assets",                 label: "View Assets",                 module: "Assets" },
+  { action: "create_assets",              label: "Create Assets",               module: "Assets" },
+  { action: "edit_assets",                label: "Edit Assets",                 module: "Assets" },
+  { action: "delete_assets",              label: "Delete Assets",               module: "Assets" },
+  { action: "export_assets",              label: "Export Assets",               module: "Assets" },
+ 
+  // ── Material Purchase ─────────────────────────────────────────────────────
+  { action: "view_material_purchase",     label: "View Material Purchase",      module: "Material Purchase" },
+  { action: "create_material_purchase",   label: "Create Material Purchase",    module: "Material Purchase" },
+  { action: "edit_material_purchase",     label: "Edit Material Purchase",      module: "Material Purchase" },
+  { action: "delete_material_purchase",   label: "Delete Material Purchase",    module: "Material Purchase" },
+  { action: "export_material_purchase",   label: "Export Material Purchase",    module: "Material Purchase" },
+  { action: "add_payment_material",       label: "Add Payment",                 module: "Material Purchase" },
+ 
+  // ── Tenant Handover ───────────────────────────────────────────────────────
+  { action: "view_tenant_handover",       label: "View Tenant Handover",        module: "Tenant Handover" },
+  { action: "create_tenant_handover",     label: "Create Tenant Handover",      module: "Tenant Handover" },
+  { action: "edit_tenant_handover",       label: "Edit Tenant Handover",        module: "Tenant Handover" },
+  { action: "delete_tenant_handover",     label: "Delete Tenant Handover",      module: "Tenant Handover" },
+  { action: "export_tenant_handover",     label: "Export Tenant Handover",      module: "Tenant Handover" },
+  { action: "share_tenant_handover",      label: "Share / Print Handover",      module: "Tenant Handover" },
+  { action: "verify_tenant_handover",     label: "Verify via OTP",              module: "Tenant Handover" },
+ 
+  // ── Move-Out Inspection ───────────────────────────────────────────────────
+  { action: "view_moveout_inspection",    label: "View Move-Out Inspection",    module: "Move-Out Inspection" },
+  { action: "create_moveout_inspection",  label: "Create Move-Out Inspection",  module: "Move-Out Inspection" },
+  { action: "edit_moveout_inspection",    label: "Edit Move-Out Inspection",    module: "Move-Out Inspection" },
+  { action: "delete_moveout_inspection",  label: "Delete Move-Out Inspection",  module: "Move-Out Inspection" },
+  { action: "export_moveout_inspection",  label: "Export Move-Out Inspection",  module: "Move-Out Inspection" },
+  { action: "approve_moveout_inspection", label: "Approve Inspection (OTP)",    module: "Move-Out Inspection" },
+  { action: "share_moveout_inspection",   label: "Share / Print Inspection",    module: "Move-Out Inspection" },
+ 
+  // ── Settlements ───────────────────────────────────────────────────────────
+  { action: "view_settlements",           label: "View Settlements",            module: "Settlements" },
+  { action: "create_settlements",         label: "Create Settlements",          module: "Settlements" },
+  { action: "edit_settlements",           label: "Edit Settlements",            module: "Settlements" },
+  { action: "delete_settlements",         label: "Delete Settlements",          module: "Settlements" },
+  { action: "export_settlements",         label: "Export Settlements",          module: "Settlements" },
+ 
+  // ── Penalty Rules ─────────────────────────────────────────────────────────
+  { action: "view_penalty_rules",         label: "View Penalty Rules",          module: "Penalty Rules" },
+  { action: "create_penalty_rules",       label: "Create Penalty Rules",        module: "Penalty Rules" },
+  { action: "edit_penalty_rules",         label: "Edit Penalty Rules",          module: "Penalty Rules" },
+  { action: "delete_penalty_rules",       label: "Delete Penalty Rules",        module: "Penalty Rules" },
+  { action: "export_penalty_rules",       label: "Export Penalty Rules",        module: "Penalty Rules" },
+
   { action: "view_visitors_dashboard", label: "View Visitors Dashboard", module: "Visitors" },
   { action: "view_visitor_logs", label: "View Visitor Logs", module: "Visitors" },
   { action: "manage_restrictions", label: "Manage Restrictions", module: "Visitors" },

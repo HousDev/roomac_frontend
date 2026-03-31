@@ -40,6 +40,7 @@ import {
 import { listProperties } from "@/lib/propertyApi";
 import { getMasterItemsByTab, getMasterValues } from "@/lib/masterApi";
 import Swal from 'sweetalert2';
+import { useAuth } from '@/context/authContext';
 
 interface Property {
   id: string;
@@ -101,6 +102,7 @@ const [propertySearchTerm, setPropertySearchTerm] = useState('');
     partial_count: 0,
     paid_count: 0
   });
+  const { can } = useAuth(); // ← ADD THIS
 
   // Filters
   const [propertyFilter, setPropertyFilter] = useState('all');
@@ -1289,19 +1291,24 @@ const handleDownloadPDF = (purchase: MaterialPurchaseType) => {
               )}
             </button>
 
+  {can('export_material_purchase') && (
+
             <button onClick={handleExport} className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 text-[11px] font-medium transition-colors">
               <Download className="h-3.5 w-3.5 flex-shrink-0" />
               <span className="hidden sm:inline">Export</span>
             </button>
+  )}
 
             <button onClick={loadAll} disabled={loading} className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50">
               <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
             </button>
+  {can('create_material_purchase') && (
 
             <button onClick={openAdd} className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-[11px] font-semibold shadow-sm transition-colors">
               <Plus className="h-3.5 w-3.5 flex-shrink-0" />
               <span className="hidden xs:inline sm:inline">Add Purchase</span>
             </button>
+  )}
           </div>
         </div>
 
@@ -1423,18 +1430,22 @@ const handleDownloadPDF = (purchase: MaterialPurchaseType) => {
                         <TableCell className="py-2 px-3">{getStatusBadge(purchase.payment_status)}</TableCell>
                         <TableCell className="py-2 px-3">
   <div className="flex justify-end gap-1">
+    {can('view_material_purchase') && (
     <Button size="sm" variant="ghost" className="h-6 w-6 p-0 hover:bg-blue-50 hover:text-blue-600" onClick={() => handleViewDetails(purchase)}>
       <Eye className="h-3.5 w-3.5" />
     </Button>
-    
+    )}
     {/* Add Edit Button */}
+        {can('edit_material_purchase') && (
+
     <Button size="sm" variant="ghost" className="h-6 w-6 p-0 hover:bg-amber-50 hover:text-amber-600" onClick={() => handleEdit(purchase)}>
       <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
       </svg>
     </Button>
+        )}
     
-    {purchase.payment_status !== 'Paid' && (
+    {can('add_payment_material') && purchase.payment_status !== 'Paid' && (
       <Button
         size="sm"
         className="h-7 px-3 bg-green-600 hover:bg-green-700 text-white flex items-center gap-1"
@@ -1444,9 +1455,12 @@ const handleDownloadPDF = (purchase: MaterialPurchaseType) => {
         Pay
       </Button>
     )}
+        {can('delete_material_purchase') && (
+
     <Button size="sm" variant="ghost" className="h-6 w-6 p-0 hover:bg-red-50 hover:text-red-600" onClick={() => handleDelete(purchase.id)}>
       <Trash2 className="h-3.5 w-3.5" />
     </Button>
+        )}
   </div>
 </TableCell>
                       </TableRow>

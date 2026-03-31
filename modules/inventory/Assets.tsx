@@ -33,6 +33,7 @@ import { listProperties } from "@/lib/propertyApi";
 import Swal from 'sweetalert2';
 import { deletePurchase, getPurchases } from "@/lib/materialPurchaseApi";
 import * as XLSX from 'xlsx';
+import { useAuth } from "@/context/authContext";
 
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -105,6 +106,7 @@ const [propertySearchTerm, setPropertySearchTerm] = useState('');
   const [stockFilter,    setStockFilter]    = useState<StockFilter>('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [propertyFilter, setPropertyFilter] = useState('all');
+  const { can } = useAuth(); // ← ADD THIS LINE
 
   const [colSearch, setColSearch] = useState({
     item_name: '', category: '', property: '', quantity: '', unit_price: '', status: '',
@@ -496,6 +498,8 @@ const handleExport = () => {
             </button>
 
             {/* Export */}
+              {can('export_assets') && (
+
             <button
               onClick={handleExport}
               className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 text-[11px] font-medium transition-colors"
@@ -503,6 +507,7 @@ const handleExport = () => {
               <Download className="h-3.5 w-3.5 flex-shrink-0" />
               <span className="hidden sm:inline">Export</span>
             </button>
+              )}
 
             {/* Refresh */}
             <button
@@ -514,6 +519,7 @@ const handleExport = () => {
             </button>
 
             {/* Add Item */}
+             {can('create_assets') && (
             <button
               onClick={openAdd}
               className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-[11px] font-semibold shadow-sm transition-colors"
@@ -521,6 +527,7 @@ const handleExport = () => {
               <Plus className="h-3.5 w-3.5 flex-shrink-0" />
               <span className="hidden xs:inline sm:inline">Add Item</span>
             </button>
+             )}
           </div>
         </div>
 
@@ -646,6 +653,8 @@ const handleExport = () => {
                           <TableCell className="py-2 px-3">{stockBadge(item)}</TableCell>
                           <TableCell className="py-2 px-3">
                             <div className="flex justify-end gap-1">
+                                  {can('edit_assets') && (
+
                               <Button size="sm" variant="ghost"
                                 className="h-6 w-6 p-0 hover:bg-blue-50 hover:text-blue-600"
                                 onClick={() => openEdit(item)} title="Edit">
@@ -653,11 +662,15 @@ const handleExport = () => {
                                   <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                 </svg>
                               </Button>
+                                  )}
+                                      {can('delete_assets') && (
+
                               <Button size="sm" variant="ghost"
                                 className="h-6 w-6 p-0 hover:bg-red-50 hover:text-red-600"
                                 onClick={() => handleDelete(item.id)} title="Delete">
                                 <Trash2 className="h-3.5 w-3.5" />
                               </Button>
+                                      )}
                             </div>
                           </TableCell>
                         </TableRow>

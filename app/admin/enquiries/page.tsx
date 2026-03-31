@@ -18,6 +18,7 @@ import {
 import PartnershipForm from '@/components/admin/partnership/PartnershipForm';
 import { toast } from "sonner";
 import * as XLSX from 'xlsx';
+import { useAuth } from '@/context/authContext';
 
 export default function EnquiriesPage() {
   const [searchParams] = useSearchParams();
@@ -31,7 +32,8 @@ export default function EnquiriesPage() {
   const [initialEnquiries, setInitialEnquiries] = useState<Enquiry[]>([]);
   const [initialStats, setInitialStats] = useState<any>(null);
   const [loadingEnquiries, setLoadingEnquiries] = useState(true);
-  
+    const { can } = useAuth(); // ← ADD THIS
+
   // Partnership state
   const [partnershipEnquiries, setPartnershipEnquiries] = useState<PartnershipEnquiry[]>([]);
   const [partnershipStats, setPartnershipStats] = useState<PartnershipStats | null>(null);
@@ -251,7 +253,7 @@ export default function EnquiriesPage() {
         </div>
         
         {/* Action Buttons based on active tab */}
-        {activeTab === "partnership" && (
+{activeTab === "partnership" && can('create_partnership_enquiries') && (
           <Dialog open={showAddPartnershipDialog} onOpenChange={setShowAddPartnershipDialog}>
             <DialogTrigger asChild>
               <Button

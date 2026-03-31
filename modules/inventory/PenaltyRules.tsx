@@ -39,6 +39,7 @@ import { penaltyRulesApi } from "@/lib/penaltyRulesApi";
 import { getMasterItemsByTab, getMasterValues } from "@/lib/masterApi";
 import Swal from 'sweetalert2';
 import * as XLSX from 'xlsx';
+import { useAuth } from '@/context/authContext';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface PenaltyRule {
@@ -112,7 +113,8 @@ export function PenaltyRules() {
   const [submitting, setSubmitting] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState('all');
-  
+    const { can } = useAuth(); // ← ADD THIS
+
   const [colSearch, setColSearch] = useState({
     item_category: '',
     from_condition: '',
@@ -621,6 +623,8 @@ const handleExport = () => {
             </button>
 
             {/* Export */}
+                        {can('export_penalty_rules') && (
+
             <button
               onClick={handleExport}
               className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 text-[11px] font-medium transition-colors"
@@ -628,6 +632,7 @@ const handleExport = () => {
               <Download className="h-3.5 w-3.5 flex-shrink-0" />
               <span className="hidden sm:inline">Export</span>
             </button>
+                        )}
 
             {/* Refresh */}
             <button
@@ -639,6 +644,8 @@ const handleExport = () => {
             </button>
 
             {/* Add Rule */}
+            {can('create_penalty_rules') && (
+
             <button
               onClick={openAdd}
               className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-[11px] font-semibold shadow-sm transition-colors"
@@ -646,6 +653,7 @@ const handleExport = () => {
               <Plus className="h-3.5 w-3.5 flex-shrink-0" />
               <span className="hidden xs:inline sm:inline">New Rule</span>
             </button>
+            )}
           </div>
         </div>
 
@@ -781,6 +789,8 @@ const handleExport = () => {
                         </TableCell>
                         <TableCell className="py-2 px-3">
                           <div className="flex justify-end gap-1">
+                             {can('edit_penalty_rules') && (
+
                             <Button 
                               size="sm" 
                               variant="ghost"
@@ -790,6 +800,9 @@ const handleExport = () => {
                             >
                               <Edit className="h-3.5 w-3.5" />
                             </Button>
+                             )}
+                               {can('delete_penalty_rules') && (
+
                             <Button 
                               size="sm" 
                               variant="ghost"
@@ -799,6 +812,7 @@ const handleExport = () => {
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
+                               )}
                           </div>
                         </TableCell>
                       </TableRow>
