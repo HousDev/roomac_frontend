@@ -34,7 +34,7 @@ import {
   getChangeBedReasonsFromMasters as getChangeBedReasons,
   getAvailableRooms,
   getAvailableBedsForRoom,
-  getLeaveTypesFromMasters,
+  // getLeaveTypesFromMasters,
   getComplaintCategories,
   getComplaintReasons,
   getMaintenanceCategoriesFromMasters,
@@ -187,10 +187,10 @@ const loadAllData = useCallback(async () => {
   console.error('Failed to fetch vacate reasons:', err);
   return [];
   }),
-      getLeaveTypesFromMasters().catch(err => {
-        console.error('Failed to fetch leave types:', err);
-        return [];
-      }),
+      // getLeaveTypesFromMasters().catch(err => {
+      //   console.error('Failed to fetch leave types:', err);
+      //   return [];
+      // }),
       getComplaintCategories().catch(err => {
         console.error('Failed to fetch complaint categories:', err);
         return [];

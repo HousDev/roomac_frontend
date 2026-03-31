@@ -14,7 +14,7 @@ export type TenantRequest = {
     | "complaint"
     | "receipt"
     | "maintenance"
-    | "leave"
+    // | "leave"
     | "vacate_bed"
     | "change_bed";
   title: string;
@@ -55,17 +55,17 @@ export type TenantRequest = {
     lockin_penalty_accepted?: boolean;
     notice_penalty_accepted?: boolean;
   };
-  leave_data?: {
-    leave_type: string;
-    leave_start_date: string;
-    leave_end_date: string;
-    total_days: number;
-    contact_address_during_leave?: string;
-    emergency_contact_number?: string;
-    room_locked?: boolean;
-    keys_submitted?: boolean;
-    created_at?: string;
-  };
+  // leave_data?: {
+  //   leave_type: string;
+  //   leave_start_date: string;
+  //   leave_end_date: string;
+  //   total_days: number;
+  //   contact_address_during_leave?: string;
+  //   emergency_contact_number?: string;
+  //   room_locked?: boolean;
+  //   keys_submitted?: boolean;
+  //   created_at?: string;
+  // };
    maintenance_data?: {
     issue_category?: string;
     location?: string;
@@ -928,35 +928,35 @@ export const getVacateReasons = async (): Promise<any[]> => {
 };
 
 // Get leave types from Requests tab
-export const getLeaveTypesFromMasters = async (): Promise<any[]> => {
-  try {
-    const masters = await getMasterValuesByTab('Requests');
+// export const getLeaveTypesFromMasters = async (): Promise<any[]> => {
+//   try {
+//     const masters = await getMasterValuesByTab('Requests');
     
-    // Try different possible type names for leave types
-    const leaveTypes = masters['Leave Type'] || 
-                       masters['LeaveType'] || 
-                       masters['Leave'] || 
-                       [];
+//     // Try different possible type names for leave types
+//     const leaveTypes = masters['Leave Type'] || 
+//                        masters['LeaveType'] || 
+//                        masters['Leave'] || 
+//                        [];
     
-    if (leaveTypes.length > 0) {
-      return leaveTypes;
-    }
+//     if (leaveTypes.length > 0) {
+//       return leaveTypes;
+//     }
     
     
-    // Fallback leave types
-    return [
-      { id: 1, value: 'Personal Leave', description: 'For personal reasons', type_code: 'PERSONAL' },
-      { id: 2, value: 'Vacation', description: 'Annual vacation leave', type_code: 'VACATION' },
-      { id: 3, value: 'Emergency Leave', description: 'Family or personal emergency', type_code: 'EMERGENCY' },
-      { id: 4, value: 'Medical Leave', description: 'Health-related leave', type_code: 'MEDICAL' },
-      { id: 5, value: 'Family Reasons', description: 'Family functions or emergencies', type_code: 'FAMILY' },
-      { id: 6, value: 'Other', description: 'Other reasons not listed', type_code: 'OTHER' }
-    ];
-  } catch (error) {
-    console.error('❌ Error getting leave types from masters:', error);
-    return [];
-  }
-};
+//     // Fallback leave types
+//     return [
+//       { id: 1, value: 'Personal Leave', description: 'For personal reasons', type_code: 'PERSONAL' },
+//       { id: 2, value: 'Vacation', description: 'Annual vacation leave', type_code: 'VACATION' },
+//       { id: 3, value: 'Emergency Leave', description: 'Family or personal emergency', type_code: 'EMERGENCY' },
+//       { id: 4, value: 'Medical Leave', description: 'Health-related leave', type_code: 'MEDICAL' },
+//       { id: 5, value: 'Family Reasons', description: 'Family functions or emergencies', type_code: 'FAMILY' },
+//       { id: 6, value: 'Other', description: 'Other reasons not listed', type_code: 'OTHER' }
+//     ];
+//   } catch (error) {
+//     console.error('❌ Error getting leave types from masters:', error);
+//     return [];
+//   }
+// };
 
 
 
