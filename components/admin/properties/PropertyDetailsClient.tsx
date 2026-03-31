@@ -87,8 +87,7 @@ type Property = {
     description?: string;
     property_manager_name: string;
     property_manager_phone: string;
-        property_manager_phone_country_code?: string; // ADD THIS LINE
-
+        property_manager_phone_country_code?: string;
     property_manager_email?: string;
     property_manager_role?: string;
     staff_id?: string | number;
