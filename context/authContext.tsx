@@ -38,7 +38,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const fetchUser = async () => {try{
 const user = await axios.get(import.meta.env.VITE_API_URL+"/api/auth/get-user-details/"+localStorage.getItem('auth_email'))
 console.log(user.data.user)
-    setUser(user.data.user)
+   const userData = user.data.user;
+   userData.name = userData.name.split(" ").map((n:string) => n.charAt(0).toUpperCase()+n.slice(1)).join(" ")
+    setUser(userData)
 }catch(error){
   console.log(error)
 }

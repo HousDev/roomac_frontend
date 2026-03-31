@@ -280,7 +280,34 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
   const [settings, setSettings] = useState<SettingsData | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const { can } = useAuth();
 
+  const mainMenuItems = [
+    { href: '/admin/dashboard',    label: 'Dashboard',    icon: Home,          permission: 'view_dashboard' },
+    { href: '/admin/properties',   label: 'Properties',   icon: Building2,     permission: 'view_properties' },
+    { href: '/admin/rooms',        label: 'Rooms',        icon: DoorOpen,      permission: 'view_rooms' },
+    { href: '/admin/tenants',      label: 'Tenants',      icon: Users,         permission: 'view_tenants' },
+    { href: '/admin/payments',     label: 'Payments',     icon: CreditCard,    permission: 'view_payments' },
+    { href: '/admin/expenses',     label: 'Expenses',     icon: ReceiptIndianRupee, permission: 'view_expenses' },
+    { href: '/admin/reports',      label: 'Reports',      icon: BarChart3,     permission: 'view_reports' },
+    { href: '/admin/document-center', label: 'Documents', icon: FileText,      permission: 'view_document_dashboard' },
+    { href: '/admin/enquiries',    label: 'Enquiries',    icon: Mail,          permission: 'view_enquiries' },
+    { href: '/admin/notifications',label: 'Notifications',icon: Bell,          permission: 'view_notifications' },
+    { href: '/admin/requests',     label: 'Requests',     icon: Clock,         permission: 'view_requests' },
+    { href: '/admin/staff',        label: 'Staffs',       icon: UserCog,       permission: 'view_staff' },
+    { href: '/admin/offers',       label: 'Offers',       icon: Tag,           permission: 'view_offers' },
+    { href: '/admin/add-ons',      label: 'Add-ons',      icon: PlusCircle,    permission: 'view_addons' },
+    { href: '/admin/inventory',    label: 'Inventory',    icon: Package,       permission: 'view_inventory_dashboard' },
+    { href: '/admin/visitors',     label: 'Visitors',     icon: VisitorsIcon,  permission: 'view_visitors_dashboard' },
+    { href: '/admin/masters',      label: 'Masters',      icon: LayoutGrid,    permission: 'view_masters' },
+    { href: '/admin/settings',     label: 'Settings',     icon: Settings,      permission: 'view_general_settings' },
+    { href: '/admin/permissions',  label: 'Permissions',  icon: ShieldCheck,   permission: 'manage_permissions' },
+    { href: '/admin/profile',      label: 'Profile',      icon: UserCircle,    permission: 'view_profile' },
+  ];
+
+  const visibleMenuItems = mainMenuItems.filter(item =>
+  !item.permission || can(item.permission)
+);
   // Fetch settings on component mount
   useEffect(() => {
     const fetchSettings = async () => {
@@ -418,32 +445,7 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
     }
   }, [pathname]);
 
-  const mainMenuItems = [
-    { href: '/admin/dashboard', label: 'Dashboard', icon: Home },
-    { href: '/admin/properties', label: 'Properties', icon: Building2 },
-    { href: '/admin/rooms', label: 'Rooms', icon: DoorOpen },
-    { href: '/admin/tenants', label: 'Tenants', icon: Users },
-    { href: '/admin/payments', label: 'Payments', icon: CreditCard },
-    { href: '/admin/expenses', label: 'Expenses', icon: ReceiptIndianRupee },
-    { href: '/admin/reports', label: 'Reports', icon: BarChart3 },
-    { href: '/admin/document-center', label: 'Documents', icon: FileText },
-    { href: '/admin/enquiries', label: 'Enquiries', icon: Mail },
-    { href: '/admin/notifications', label: 'Notifications', icon: Bell },
-    { href: '/admin/requests', label: 'Requests', icon: Clock },
-    { href: '/admin/staff', label: 'Staffs', icon: UserCog },
-    { href: '/admin/offers', label: 'Offers', icon: Tag },
-    { href: '/admin/add-ons', label: 'Add-ons', icon: PlusCircle },
-    { href: '/admin/inventory', label: 'Inventory', icon: Package },
-    { href: '/admin/visitors', label: 'Visitors', icon: VisitorsIcon },
-    { href: '/admin/masters', label: 'Masters', icon: LayoutGrid },
-    { href: '/admin/settings', label: 'Settings', icon: Settings },
-      { href: '/admin/permissions', label: 'Permissions', icon: ShieldCheck },  // ← ADD THIS (index 18)
-
-    { href: '/admin/profile', label: 'Profile', icon: UserCircle },
-
-  ];
-
-  const settingsItems = [
+const settingsItems = [
     { href: '/admin/settings', label: 'General Settings', icon: Sliders },
     { href: '/admin/settings/integration', label: 'Integrations', icon: Link2 },
   ];
@@ -526,13 +528,12 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
   const renderMenuItem = (item: any, index: number) => {
     const Icon = item.icon;
     const active = isActive(item.href);
-    const isDocumentsItem = index === 7; // Document Center
-    const isNotificationsItem = index === 9; // Notifications
-    const isRequestsItem = index === 10; // Requests
-    const isInventoryItem = index === 14; // Inventory
-    const isVisitorsItem = index === 15; // Visitors
-    const isSettingsItem = index === 17; // Settings
-
+    const isDocumentsItem     = item.href === '/admin/document-center';
+const isNotificationsItem = item.href === '/admin/notifications';
+const isRequestsItem      = item.href === '/admin/requests';
+const isInventoryItem     = item.href === '/admin/inventory';
+const isVisitorsItem      = item.href === '/admin/visitors';
+const isSettingsItem      = item.href === '/admin/settings';
     if (!sidebarOpen) {
       if (isDocumentsItem) {
         return (
@@ -1111,7 +1112,8 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
         <nav className="flex-1 overflow-y-auto overflow-x-hidden px-1.5 py-1
           [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] z-50">
           <ul className="space-y-0.5">
-            {mainMenuItems.map((item, index) => renderMenuItem(item, index))}
+{visibleMenuItems.map((item, index) => renderMenuItem(item, index))}
+
           </ul>
         </nav>
 

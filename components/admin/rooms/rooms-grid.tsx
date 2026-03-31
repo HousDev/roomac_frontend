@@ -62,6 +62,9 @@ interface RoomsGridProps {
   onDelete: (id: string) => void;
   onBedManagement: (room: RoomResponse) => void;
   onOpenGallery: (room: RoomResponse) => void;
+  canEdit: boolean;       // ← ADD
+  canDelete: boolean;     // ← ADD
+  canManageBeds: boolean; // ← ADD
 }
 
 // Memoized room card component with selection
@@ -73,7 +76,10 @@ const RoomCard = memo(({
   onEdit, 
   onDelete, 
   onBedManagement,
-  onOpenGallery 
+  onOpenGallery ,
+  canEdit,       // ← ADD
+  canDelete,     // ← ADD
+  canManageBeds, // ← ADD
 }: { 
   room: RoomResponse;
   isSelected: boolean;
@@ -365,7 +371,8 @@ const RoomCard = memo(({
           >
             <Eye className="h-3.5 w-3.5" />
           </Button>
-          
+              {canManageBeds && (
+
      <Button
   variant="outline"
   size="sm"
@@ -378,7 +385,9 @@ const RoomCard = memo(({
             <Bed className="h-3.5 w-3.5 mr-1" />
             Manage
           </Button>
-          
+              )}
+              {canEdit && (
+
           <Button
             variant="outline"
             size="sm"
@@ -391,6 +400,8 @@ const RoomCard = memo(({
           >
             <Edit2 className="h-3.5 w-3.5" />
           </Button>
+              )}
+              {canDelete && (
           
          <Button
   variant="outline"
@@ -404,6 +415,7 @@ const RoomCard = memo(({
 >
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
+              )}
         </div>
       </div>
     </Card>
@@ -422,7 +434,10 @@ export default function RoomsGrid({
   onEdit,
   onDelete,
   onBedManagement,
-  onOpenGallery
+  onOpenGallery,
+  canEdit,       // ← ADD
+  canDelete,     // ← ADD
+  canManageBeds, // ← ADD
 }: RoomsGridProps) {
   // Ensure rooms is always an array
   const safeRooms = Array.isArray(rooms) ? rooms : [];
@@ -503,6 +518,9 @@ export default function RoomsGrid({
             onDelete={onDelete}
             onBedManagement={onBedManagement}
             onOpenGallery={onOpenGallery}
+            canEdit={canEdit}           // ← ADD
+    canDelete={canDelete}       // ← ADD
+    canManageBeds={canManageBeds} // ← ADD
           />
         ))}
       </div>

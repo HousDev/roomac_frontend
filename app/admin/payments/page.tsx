@@ -40,6 +40,7 @@ import * as paymentApi from '@/lib/paymentRecordApi';
 import { getSettings, type SettingsData } from "@/lib/settingsApi";
 import { getPaymentRejectionReasons } from '@/lib/masterApi';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem } from '@radix-ui/react-dropdown-menu';
+import { useAuth } from '@/context/authContext';
 
 // Types
 interface PaymentFormData {
@@ -102,6 +103,7 @@ export default function PaymentsPage() {
   const [activeTab, setActiveTab] = useState('payments');
   // Add this state
 const [securityDepositInfo, setSecurityDepositInfo] = useState<any>(null);
+const { can } = useAuth();
 
 
   // Proof upload states
@@ -1240,6 +1242,8 @@ const handleUpdateDemandStatus = async (demandId: number, newStatus: string) => 
 </TabsList>
 
             <div className="flex justify-end gap-2">
+                {can('create_payments') && (
+
               <Button
   size="sm"
   className="h-8 bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white shadow-sm flex-1 sm:flex-none"
@@ -1251,6 +1255,9 @@ const handleUpdateDemandStatus = async (demandId: number, newStatus: string) => 
   <Plus className="h-3.5 w-3.5 mr-1" />
   <span className="text-xs">Add Payment</span>
 </Button>
+                )}
+                  {can('send_demand_payment') && (
+
               <Button
                 size="sm"
                 variant="outline"
@@ -1260,6 +1267,7 @@ const handleUpdateDemandStatus = async (demandId: number, newStatus: string) => 
                 <Bell className="h-3.5 w-3.5 mr-1" />
                 <span className="text-xs">Demand Payment</span>
               </Button>
+                  )}
             </div>
           </div>
 
@@ -1313,6 +1321,12 @@ const handleUpdateDemandStatus = async (demandId: number, newStatus: string) => 
     handleSort={handleSort}
     sortField={sortField}
     sortDirection={sortDirection}
+    canApprove={can('approve_payments')}
+  canReject={can('reject_payments')}
+  canEdit={can('edit_payments')}
+  canDelete={can('delete_payments')}
+    canViewReceipts={can('view_receipts')}  // ← ADD THIS
+
   />
 </TabsContent>
 
@@ -2659,7 +2673,13 @@ const PaymentsTable = ({
   setColumnFilters,
   handleSort,
   sortField,
-  sortDirection
+  sortDirection,
+  canApprove,
+  canReject,
+  canEdit,
+  canDelete,
+    canViewReceipts,  // ← ADD THIS
+
 }: any) => {
   
   
@@ -2849,6 +2869,8 @@ const PaymentsTable = ({
                 filteredGroups.map((group: any) => {
                   const isExpanded = expandedRows.includes(group.tenant_id);
                   
+                 
+
                   return (
                     <Fragment key={group.tenant_id}>
                       {/* Parent Row - Tenant Card with Salutation and Country Code */}
@@ -3013,64 +3035,47 @@ const PaymentsTable = ({
                                             <PaymentStatusBadge status={payment.status || 'pending'} />
                                           </TableCell>
                                           <TableCell className="py-2">
-                                            <div className="flex items-center gap-0.5 justify-end">
-                                              {payment.status === 'approved' && (
-                                                <Button
-                                                  size="sm"
-                                                  variant="ghost"
-                                                  className="h-6 w-6 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-full"
-                                                  onClick={() => {
-                                                    setActiveTab('receipts');
-                                                    setTimeout(() => onViewReceipt(payment.id), 100);
-                                                  }}
-                                                  title="View Receipt"
-                                                >
-                                                  <ReceiptIndianRupee className="h-3 w-3" />
-                                                </Button>
-                                              )}
-                                              {payment.status === 'pending' && (
-                                                <>
-                                                  <Button
-                                                    size="sm"
-                                                    variant="ghost"
-                                                    className="h-6 w-6 p-0 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-full"
-                                                    onClick={() => onApprove(payment)}
-                                                    title="Approve"
-                                                  >
-                                                    <CheckCircle2 className="h-3 w-3" />
-                                                  </Button>
-                                                  <Button
-                                                    size="sm"
-                                                    variant="ghost"
-                                                    className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-full"
-                                                    onClick={() => onReject(payment)}
-                                                    title="Reject"
-                                                  >
-                                                    <XCircle className="h-3 w-3" />
-                                                  </Button>
-                                                </>
-                                              )}
-                                              {(payment.status === 'pending' || payment.status === 'rejected') && (
-                                                <Button
-                                                  size="sm"
-                                                  variant="ghost"
-                                                  className="h-6 w-6 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-full"
-                                                  onClick={() => onEdit(payment)}
-                                                  title="Edit"
-                                                >
-                                                  <Pencil className="h-3 w-3" />
-                                                </Button>
-                                              )}
-                                              {(payment.status === 'pending') && (<Button
-                                                size="sm"
-                                                variant="ghost"
-                                                className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-full"
-                                                onClick={() => onDelete(payment)}
-                                                title="Delete"
-                                              >
-                                                <Trash2 className="h-3 w-3" />
-                                              </Button>)}
-                                            </div>
+                                           {/* Inside the inner table actions column: */}
+<div className="flex items-center gap-0.5 justify-end">
+  {payment.status === 'approved' && canViewReceipts && (
+  <Button
+    size="sm" variant="ghost"
+    className="h-6 w-6 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-full"
+    onClick={() => { setActiveTab('receipts'); setTimeout(() => onViewReceipt(payment.id), 100); }}
+    title="View Receipt"
+  >
+    <ReceiptIndianRupee className="h-3 w-3" />
+  </Button>
+)}
+  {payment.status === 'pending' && canApprove && (
+    <Button size="sm" variant="ghost"
+      className="h-6 w-6 p-0 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-full"
+      onClick={() => onApprove(payment)} title="Approve">
+      <CheckCircle2 className="h-3 w-3" />
+    </Button>
+  )}
+  {payment.status === 'pending' && canReject && (
+    <Button size="sm" variant="ghost"
+      className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-full"
+      onClick={() => onReject(payment)} title="Reject">
+      <XCircle className="h-3 w-3" />
+    </Button>
+  )}
+  {(payment.status === 'pending' || payment.status === 'rejected') && canEdit && (
+    <Button size="sm" variant="ghost"
+      className="h-6 w-6 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-full"
+      onClick={() => onEdit(payment)} title="Edit">
+      <Pencil className="h-3 w-3" />
+    </Button>
+  )}
+  {payment.status === 'pending' && canDelete && (
+    <Button size="sm" variant="ghost"
+      className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-full"
+      onClick={() => onDelete(payment)} title="Delete">
+      <Trash2 className="h-3 w-3" />
+    </Button>
+  )}
+</div>
                                           </TableCell>
                                         </TableRow>
                                       ))}

@@ -25,6 +25,7 @@ import { RoomForm } from './room-form';
 import { BedManagementDialog } from './bed-management-dialog';
 import { PhotoGalleryModal } from './PhotoGalleryModal';
 import { RoomDetailsDialog } from './RoomDetailsDialog';
+import { useAuth } from "@/context/authContext";
 
 // Import new components
 import SideFilter from './side-filter';
@@ -85,6 +86,7 @@ export default function RoomsClient({ initialRooms, initialProperties }: RoomsCl
   const itemsPerPage = 12;
   const [showImportModal, setShowImportModal] = useState(false);
 const [importing, setImporting] = useState(false);
+const { can } = useAuth();
 
 
 
@@ -892,7 +894,7 @@ const handleAddRoomClick = useCallback(() => {
                   </Button>
 
                   {/* Bulk Actions - ORIGINAL COMPONENT WITH FULL FUNCTIONALITY */}
-                  {selectedRooms.length > 0 && (
+  {selectedRooms.length > 0 && (can('edit_rooms') || can('delete_rooms')) && (
                     <BulkActions
                       selectedRooms={selectedRooms}
                       onActionComplete={handleBulkActionComplete}
@@ -900,6 +902,8 @@ const handleAddRoomClick = useCallback(() => {
                   )}
 
                   {/* Export Button */}
+                    {can('export_rooms') && (
+
                   <Button
                     variant="outline"
                     className="flex items-center gap-2 h-8 bg-white/15 text-white hover:bg-white/25 border-white/30 backdrop-blur-sm shadow-md hover:shadow-lg transition-all duration-200"
@@ -908,8 +912,11 @@ const handleAddRoomClick = useCallback(() => {
                     <Download className="h-4 w-4" />
                     Export
                   </Button>
+                    )}
 
                   {/* Import Button */}
+                   {can('import_rooms') && (
+
                   <Button
                     variant="outline"
                     className="flex items-center gap-2 h-8 bg-white/15 text-white hover:bg-white/25 border-white/30 backdrop-blur-sm shadow-md hover:shadow-lg transition-all duration-200"
@@ -919,8 +926,11 @@ const handleAddRoomClick = useCallback(() => {
                     <Upload className="h-4 w-4" />
                     Import
                   </Button>
+                    )}
 
                   {/* Add New Room Button */}
+                    {can('create_rooms') && (
+
                   <Button
                     className="bg-white text-blue-600 hover:bg-blue-50 shadow-md hover:shadow-lg transition-all duration-200 hover:scale-105 font-semibold border-2 border-white/50 px-3 py-1.5 text-sm flex items-center h-8"
                     onClick={() => {
@@ -931,6 +941,7 @@ const handleAddRoomClick = useCallback(() => {
                     <Plus className="h-4 w-4 mr-2" />
                     Add New Room
                   </Button>
+                    )}
                 </div>
               </div>
             </div>
@@ -950,7 +961,7 @@ const handleAddRoomClick = useCallback(() => {
                 <span className="text-sm font-semibold">Rooms</span>
                 
                 {/* Bulk Actions - ORIGINAL COMPONENT WITH FULL FUNCTIONALITY */}
-                {selectedRooms.length > 0 && (
+  {selectedRooms.length > 0 && (can('edit_rooms') || can('delete_rooms')) && (
                   <BulkActions
                     selectedRooms={selectedRooms}
                     onActionComplete={handleBulkActionComplete}
@@ -981,6 +992,8 @@ const handleAddRoomClick = useCallback(() => {
                 </Button>
 
                 {/* Export Icon */}
+                  {can('export_rooms') && (
+
                 <Button
                   size="icon"
                   variant="ghost"
@@ -989,8 +1002,11 @@ const handleAddRoomClick = useCallback(() => {
                 >
                   <Download className="h-3 w-3" />
                 </Button>
+                  )}
 
                 {/* Import Icon */}
+                  {can('import_rooms') && (
+
                 <Button
                   size="icon"
                   variant="ghost"
@@ -1000,8 +1016,10 @@ const handleAddRoomClick = useCallback(() => {
                 >
                   <Upload className="h-3 w-3" />
                 </Button>
+                  )}
 
                 {/* Add Room Button */}
+                  {can('create_rooms') && (
                 <Button
                   size="sm"
                   className="h-6 bg-white text-blue-600 hover:bg-blue-50 font-semibold border border-white/50 px-2 text-xs flex items-center ml-1"
@@ -1013,6 +1031,7 @@ const handleAddRoomClick = useCallback(() => {
                   <Plus className="h-3 w-3 mr-1" />
                   Add
                 </Button>
+                  )}
               </div>
             </div>
 
@@ -1048,7 +1067,7 @@ const handleAddRoomClick = useCallback(() => {
                   ? 'No rooms match your search criteria. Try adjusting your filters.'
                   : 'Get started by adding your first room.'}
               </p>
-              {!searchQuery && selectedRoomType === 'all' && selectedGenderPref === 'all' && (
+{!searchQuery && selectedRoomType === 'all' && selectedGenderPref === 'all' && can('create_rooms') && (
                 <Button 
                   className="mt-4"
                   onClick={() => {
@@ -1074,6 +1093,9 @@ const handleAddRoomClick = useCallback(() => {
                 onDelete={handleDelete}
                 onBedManagement={handleBedManagement}
                 onOpenGallery={openGallery}
+                canEdit={can('edit_rooms')}           // ← ADD
+  canDelete={can('delete_rooms')}       // ← ADD
+  canManageBeds={can('manage_beds')}    // ← ADD
               />
 
               {totalPages > 1 && (

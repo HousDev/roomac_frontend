@@ -1240,6 +1240,8 @@ const handleExportToExcel = useCallback(async () => {
               ? 'Try adjusting your filters or search query'
               : 'Get started by adding your first property'}
           </p>
+          {can('create_properties') && (
+
           <Button
             onClick={() => {
               setEditMode(false);
@@ -1251,6 +1253,7 @@ const handleExportToExcel = useCallback(async () => {
             <Plus className="h-4 w-4 mr-2" />
             Add New Property
           </Button>
+          )}
         </div>
       );
     }
@@ -1258,7 +1261,7 @@ const handleExportToExcel = useCallback(async () => {
     return (
       <>
         {/* Bulk Actions Bar */}
-        {showBulkActions && (
+{showBulkActions && can('delete_properties') && (
           <>
             {/* Mobile */}
             <div className="md:hidden mb-3 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-md px-2 py-2 shadow-md">
@@ -1461,6 +1464,10 @@ const handleExportToExcel = useCallback(async () => {
             setTagFilter('all');
           }}
           setSidebarOpen={setSidebarOpen}
+          canCreate={can('create_properties')}
+  canExport={can('export_properties')}
+  canImport={can('export_properties')}   // reuse export perm for import
+  canBulkAction={can('delete_properties') || can('edit_properties')}
         />
 
         <PropertyImportModal
