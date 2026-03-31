@@ -19,10 +19,10 @@ import { useRouter } from 'next/navigation';
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
-import { 
-  Notification, 
-  getAdminNotifications, 
-  getAdminUnreadCount, 
+import {
+  Notification,
+  getAdminNotifications,
+  getAdminUnreadCount,
   markNotificationAsRead,
   markAllAdminNotificationsAsRead
 } from '@/lib/notificationApi';
@@ -62,8 +62,8 @@ export function AdminHeader({
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const { logout , user } = useAuth();
-const [supportCount, setSupportCount] = useState(0);
+  const { logout, user } = useAuth();
+  const [supportCount, setSupportCount] = useState(0);
   // Add custom CSS for pulsing border animation
   useEffect(() => {
     if (typeof document !== 'undefined') {
@@ -122,16 +122,16 @@ const [supportCount, setSupportCount] = useState(0);
   }, []);
 
   // Load request counts
-const loadRequestCounts = useCallback(async () => {
-  try {
-    const counts = await getAllRequestCounts();
-    const supportData = await getSupportTicketCounts();
-    setRequestCounts(counts);
-    setSupportCount(supportData.total);
-  } catch (err) {
-    console.error('Error loading request counts:', err);
-  }
-}, []);
+  const loadRequestCounts = useCallback(async () => {
+    try {
+      const counts = await getAllRequestCounts();
+      const supportData = await getSupportTicketCounts();
+      setRequestCounts(counts);
+      setSupportCount(supportData.total);
+    } catch (err) {
+      console.error('Error loading request counts:', err);
+    }
+  }, []);
 
   // Initial load and setup interval
   useEffect(() => {
@@ -202,7 +202,7 @@ const loadRequestCounts = useCallback(async () => {
     if (!notification.is_read) {
       handleMarkAsRead(notification.id);
     }
-    
+
     router.push(`/admin/notifications?highlight=${notification.id}`);
     setDropdownOpen(false);
   };
@@ -227,7 +227,7 @@ const loadRequestCounts = useCallback(async () => {
       case 'receipt':
       case 'payment':
         return <MessageSquare className="h-4 w-4 text-green-500" />;
-         case 'support_ticket':                                     // ← NEW
+      case 'support_ticket':                                     // ← NEW
         return <Headphones className="h-4 w-4 text-indigo-500" />;
       default:
         return <Bell className="h-4 w-4 text-gray-500" />;
@@ -298,7 +298,7 @@ const loadRequestCounts = useCallback(async () => {
   }, []);
 
   // Get total pending requests count
-const totalPendingRequests = requestCounts.total + supportCount;
+  const totalPendingRequests = requestCounts.total + supportCount;
   return (
     <header className={`
       bg-white border-b border-slate-200
@@ -478,8 +478,8 @@ const totalPendingRequests = requestCounts.total + supportCount;
                           <div
                             key={notification.id}
                             className={`p-3 rounded-lg border cursor-pointer transition-all hover:shadow-sm ${notification.is_read
-                                ? 'bg-white hover:bg-slate-50 border-slate-200'
-                                : 'bg-blue-50 hover:bg-blue-100 border-blue-200 animate-pulse-border'
+                              ? 'bg-white hover:bg-slate-50 border-slate-200'
+                              : 'bg-blue-50 hover:bg-blue-100 border-blue-200 animate-pulse-border'
                               }`}
                             onClick={() => handleNotificationClick(notification)}
                           >
@@ -579,43 +579,23 @@ const totalPendingRequests = requestCounts.total + supportCount;
                   className="flex items-center gap-1 h-auto p-1 md:p-2 hover:bg-slate-300"
                 >
                   <Avatar className="h-6 w-6">
-                    <AvatarImage src={user?import.meta.env.VITE_API_URL+"/uploads/staff-documents/"+user.photo_url:profileImage} alt="Admin" />
-                    
+                    <AvatarImage src={user ? import.meta.env.VITE_API_URL + "/uploads/staff-documents/" + user.photo_url : profileImage} alt="Admin" />
+
                     <AvatarFallback className="bg-gradient-to-br from-[#004AAD] to-blue-500 text-white font-semibold">
                       {getInitials()}
                     </AvatarFallback>
                   </Avatar>
                   <div className="hidden md:block text-left">
-                    <p className="text-sm font-medium leading-none">
-  {localStorage.getItem('auth_role') === "admin" && adminEmail
-    ? adminEmail.split('@')[0]
-    : user?.name
-      ? user.name
-          .split(" ")
-          .map((n: string) => n.charAt(0).toUpperCase() + n.slice(1))
-          .join(" ")
-      : ""
-  }
-</p>
-                    <p className="text-xs text-slate-500">{localStorage.getItem('auth_role')? localStorage.getItem('auth_role'): '--'}</p>
+                    <p className="text-sm font-medium leading-none">{localStorage.getItem('auth_role') === "admin" ? adminEmail.split('@')[0].charAt(0).toUpperCase() + adminEmail.split('@')[0].slice(1) : user?.name}</p>
+                    <p className="text-xs text-slate-500">{localStorage.getItem('auth_role') ? localStorage.getItem('auth_role') : '--'}</p>
                   </div>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuLabel>
                   <div>
-                    <p className="text-sm font-medium leading-none">
-  {localStorage.getItem('auth_role') === "admin" && adminEmail
-    ? adminEmail.split('@')[0]
-    : user?.name
-      ? user.name
-          .split(" ")
-          .map((n: string) => n.charAt(0).toUpperCase() + n.slice(1))
-          .join(" ")
-      : ""
-  }
-</p>
-                    <p className="text-xs text-slate-500 font-normal">{localStorage.getItem('auth_email')? localStorage.getItem('auth_email'): '--'}</p>
+                    <p className="font-semibold">{localStorage.getItem('auth_role') === "admin" ? adminEmail.split('@')[0].charAt(0).toUpperCase() + adminEmail.split('@')[0].slice(1) : user?.name}</p>
+                    <p className="text-xs text-slate-500 font-normal">{localStorage.getItem('auth_email') ? localStorage.getItem('auth_email') : '--'}</p>
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
