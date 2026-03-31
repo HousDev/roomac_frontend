@@ -40,6 +40,10 @@ interface PropertyHeaderProps {
   tagFilter: string;
   onClearFilters: () => void;
   setSidebarOpen: (open: boolean) => void;
+  canCreate?: boolean;
+  canExport?: boolean;
+  canImport?: boolean;
+  canBulkAction?: boolean;
 }
 
 export default function PropertyHeader({
@@ -59,6 +63,10 @@ export default function PropertyHeader({
   tagFilter,
   onClearFilters,
   setSidebarOpen,
+   canCreate = true,
+  canExport = true,
+  canImport = true,
+  canBulkAction = true,
 }: PropertyHeaderProps) {
   const [isMobile, setIsMobile] = useState(false);
 
@@ -129,6 +137,8 @@ export default function PropertyHeader({
               </Button>
 
               {/* Bulk Actions Dropdown */}
+              {canBulkAction && (
+
               <DropdownMenu open={isBulkActionOpen} onOpenChange={setIsBulkActionOpen}>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -158,8 +168,10 @@ export default function PropertyHeader({
                   ))}
                 </DropdownMenuContent>
               </DropdownMenu>
+              )}
 
               {/* Export Button */}
+              {canExport && (
               <Button
                 variant="outline"
                 className="flex items-center gap-2 h-8 bg-white/15 text-white hover:bg-white/25 border-white/30 backdrop-blur-sm shadow-md hover:shadow-lg transition-all duration-200"
@@ -168,9 +180,10 @@ export default function PropertyHeader({
                 <Download className="h-4 w-4" />
                 Export
               </Button>
+              )}
 
               {/* Import Button - Added beside Export */}
-              {onImport && (
+{canImport && onImport && (
                 <Button
                   variant="outline"
                   className="flex items-center gap-2 h-8 bg-white/15 text-white hover:bg-white/25 border-white/30 backdrop-blur-sm shadow-md hover:shadow-lg transition-all duration-200"
@@ -182,6 +195,8 @@ export default function PropertyHeader({
               )}
 
               {/* Add Property (old style) */}
+             {canCreate && (
+
               <Button
                 className="bg-white text-blue-600 hover:bg-blue-50 shadow-md hover:shadow-lg transition-all duration-200 hover:scale-105 font-semibold border-2 border-white/50 px-3 py-1.5 text-sm flex items-center"
                 onClick={onAddProperty}
@@ -189,6 +204,7 @@ export default function PropertyHeader({
                 <Plus className="h-4 w-4 mr-2" />
                 Add Property
               </Button>
+                )}
             </div>
           </div>
 

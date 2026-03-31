@@ -21,6 +21,7 @@ import TenantImportModal from "./tenant-import-modal";
 import Swal from "sweetalert2";
 import Link from 'next/link';
 import * as XLSX from 'xlsx';
+import { useAuth } from "@/context/authContext";
 
 
 interface TenantsClientProps {
@@ -56,6 +57,7 @@ const filtersRef = useRef<TenantFilters>({});
 
 const [showImportModal, setShowImportModal] = useState(false);
 const [importing, setImporting] = useState(false);
+const { can } = useAuth();
 
 
 // const [filters, setFiltersState] = useState<TenantFilters>({});
@@ -1329,6 +1331,8 @@ const columns: Column<Tenant>[] = useMemo(() => [    {
             </Sheet>
 
             {/* Bulk Actions Dropdown */}
+            {(can('edit_tenants') || can('delete_tenants')) && (
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="h-7 px-2.5 text-white/80 hover:text-white hover:bg-white/20 rounded-lg text-xs relative">
@@ -1354,8 +1358,11 @@ const columns: Column<Tenant>[] = useMemo(() => [    {
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
+            )}
 
             {/* Export Button */}
+            {can('export_tenants') && (
+
             <Button
               variant="ghost"
               size="sm"
@@ -1365,6 +1372,9 @@ const columns: Column<Tenant>[] = useMemo(() => [    {
               <Download className="w-3.5 h-3.5 mr-1" />
               Export
             </Button>
+            )}
+
+{can('import_tenants') && (
 
 <Button
   variant="ghost"
@@ -1375,8 +1385,10 @@ const columns: Column<Tenant>[] = useMemo(() => [    {
   {/* <Upload className="w-3.5 h-3.5 mr-1" /> */}
   Import
 </Button>
+)}
 
             {/* Add Tenant Button */}
+            {can('create_tenants') && (
             <Button
               size="sm"
               className="h-7 px-3 bg-white text-blue-700 hover:bg-blue-50 rounded-lg text-xs font-semibold shadow-sm"
@@ -1385,6 +1397,7 @@ const columns: Column<Tenant>[] = useMemo(() => [    {
               <Plus className="w-3.5 h-3.5 mr-1" />
               Add Tenant
             </Button>
+            )}
           </div>
         </div>
 
@@ -1461,15 +1474,21 @@ const columns: Column<Tenant>[] = useMemo(() => [    {
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button variant="ghost" size="sm" className="h-7 px-2 text-white/80 hover:bg-white/20 rounded-lg text-xs" onClick={handleExportToExcel}>
-              <Download className="w-3 h-3 mr-1" />Export
-            </Button>
-            <Button variant="ghost" size="sm" className="h-7 px-2 text-white/80 hover:bg-white/20 rounded-lg text-xs" onClick={handleImportClick}>
-              <Download className="w-3 h-3 mr-1" />Import
-            </Button>
-            <Button size="sm" className="h-7 px-2.5 bg-white text-blue-700 hover:bg-blue-50 rounded-lg text-xs font-semibold" onClick={() => setIsAddDialogOpen(true)}>
-              <Plus className="w-3 h-3 mr-1" />Add Tenant
-            </Button>
+           {can('export_tenants') && (
+  <Button variant="ghost" size="sm" className="h-7 px-2 text-white/80 hover:bg-white/20 rounded-lg text-xs" onClick={handleExportToExcel}>
+    <Download className="w-3 h-3 mr-1" />Export
+  </Button>
+)}
+{can('import_tenants') && (
+  <Button variant="ghost" size="sm" className="h-7 px-2 text-white/80 hover:bg-white/20 rounded-lg text-xs" onClick={handleImportClick}>
+    <Download className="w-3 h-3 mr-1" />Import
+  </Button>
+)}
+{can('create_tenants') && (
+  <Button size="sm" className="h-7 px-2.5 bg-white text-blue-700 hover:bg-blue-50 rounded-lg text-xs font-semibold" onClick={() => setIsAddDialogOpen(true)}>
+    <Plus className="w-3 h-3 mr-1" />Add Tenant
+  </Button>
+)}
           </div>
         </div>
 
@@ -1552,20 +1571,26 @@ const columns: Column<Tenant>[] = useMemo(() => [    {
  
     <DropdownMenuContent align="end" className="w-52">
  
+
       {/* Export */}
+      {can('export_tenants') && (
+
       <DropdownMenuItem className="text-xs" onClick={handleExportToExcel}>
         <Download className="w-3 h-3 mr-2 text-gray-500" />
         Export to Excel
       </DropdownMenuItem>
+      )}
  
       {/* Import */}
+      {can('import_tenants') && (
       <DropdownMenuItem className="text-xs" onClick={handleImportClick}>
         <Upload className="w-3 h-3 mr-2 text-gray-500" />
         Import Tenants
       </DropdownMenuItem>
+      )}
  
       {/* Bulk actions — only shown when something is selected */}
-      {selectedTenantIds.length > 0 && (
+{selectedTenantIds.length > 0 && (can('edit_tenants') || can('delete_tenants')) && (
         <>
           <DropdownMenuSeparator />
           <div className="px-2 py-1">
@@ -1601,6 +1626,8 @@ const columns: Column<Tenant>[] = useMemo(() => [    {
   </DropdownMenu>
  
   {/* Add Tenant */}
+  {can('create_tenants') && (
+
   <Button
     size="sm"
     className="h-7 px-2.5 bg-white text-blue-700 hover:bg-blue-50 rounded-lg text-xs font-semibold"
@@ -1608,6 +1635,7 @@ const columns: Column<Tenant>[] = useMemo(() => [    {
   >
     <Plus className="w-3 h-3 mr-0.5" />Add
   </Button>
+  )}
 </div>
  
 {/* ── Mobile Row 2: Search bar ── */}
@@ -1742,9 +1770,12 @@ const columns: Column<Tenant>[] = useMemo(() => [    {
                       <p className="text-sm font-medium text-gray-600">No tenants found</p>
                       <p className="text-xs text-gray-400 mt-0.5">Add your first tenant to get started</p>
                     </div>
+                    {can('create_tenants') && (
+
                     <Button size="sm" className="text-xs h-7 bg-blue-600 hover:bg-blue-700 text-white" onClick={() => setIsAddDialogOpen(true)}>
                       <Plus className="w-3 h-3 mr-1" />Add Tenant
                     </Button>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -1924,21 +1955,37 @@ const columns: Column<Tenant>[] = useMemo(() => [    {
           <Eye className="w-3 h-3 mr-2 text-gray-500" />
           View Details
         </Link>
+
       </DropdownMenuItem>
-                        <DropdownMenuItem className="text-xs" onClick={() => { setSelectedTenant(tenant); setIsEditDialogOpen(true); }}>
-                          <Edit className="w-3 h-3 mr-2 text-gray-500" /> Edit
-                        </DropdownMenuItem>
+
+                        {can('edit_tenants') && (
+    <DropdownMenuItem className="text-xs" onClick={() => { setSelectedTenant(tenant); setIsEditDialogOpen(true); }}>
+      <Edit className="w-3 h-3 mr-2 text-gray-500" /> Edit
+    </DropdownMenuItem>
+  )}
+                           {can('manage_tenant_credentials') && (
+
                         <DropdownMenuItem className="text-xs" onClick={() => { setSelectedTenant(tenant); setCredentialPassword(""); setIsCredentialDialogOpen(true); }}>
                           <Key className="w-3 h-3 mr-2 text-gray-500" /> {tenant.has_credentials ? "Reset Password" : "Create Login"}
                         </DropdownMenuItem>
+                        )}
+
+                          {can('manage_tenant_portal') && (
+
                         <DropdownMenuItem className="text-xs" onClick={() => handleTogglePortalAccess(tenant)}>
                           <Globe className="w-3 h-3 mr-2 text-gray-500" /> {tenant.portal_access_enabled ? "Disable Portal" : "Enable Portal"}
                         </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-xs text-red-600" onClick={() => handleDelete(tenant)}>
-                          <Trash2 className="w-3 h-3 mr-2" /> Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
+                        )}
+                          
+                       {can('delete_tenants') && (
+    <>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem className="text-xs text-red-600" onClick={() => handleDelete(tenant)}>
+        <Trash2 className="w-3 h-3 mr-2" /> Delete
+      </DropdownMenuItem>
+    </>
+  )}
+</DropdownMenuContent>
                     </DropdownMenu>
                   </td>
                 </tr>
