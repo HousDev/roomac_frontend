@@ -9,7 +9,8 @@ import {
   Home, Grid, ChevronRight, MapPin, Hash, Layers, UserCircle,
   AlertCircle, CheckCircle, XCircle, ArrowLeft, Sparkles, Heart,
   Bed, Ticket, Gift, Percent, Clock, Tag, Star,
-  Upload
+  Upload,
+  Building
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -185,6 +186,8 @@ const OTPModal = ({
     alert('OTP resent successfully!');
   };
 
+  
+
   if (!isOpen) return null;
 
   return (
@@ -335,6 +338,25 @@ const ConfirmationModal = ({
                 <span className="text-xs text-gray-600">Room:</span>
                 <span className="text-xs sm:text-sm font-semibold text-gray-900">{bookingDetails.roomNumber}</span>
               </div>
+              {/* Show original amount if discounted */}
+    {bookingDetails.originalAmount > bookingDetails.totalAmount && (
+      <>
+        <div className="flex justify-between items-center">
+          <span className="text-xs text-gray-600">Original Amount:</span>
+          <span className="text-xs text-gray-500 line-through">₹{bookingDetails.originalAmount?.toLocaleString()}</span>
+        </div>
+        {bookingDetails.offerCode && (
+          <div className="flex justify-between items-center">
+            <span className="text-xs text-gray-600">Offer Applied:</span>
+            <span className="text-xs font-semibold text-green-600">{bookingDetails.offerCode}</span>
+          </div>
+        )}
+        <div className="flex justify-between items-center">
+          <span className="text-xs text-gray-600">Discount:</span>
+          <span className="text-xs font-semibold text-green-600">- ₹{bookingDetails.discountAmount?.toLocaleString()}</span>
+        </div>
+      </>
+    )}
               <div className="flex justify-between items-center">
                 <span className="text-xs text-gray-600">Total Amount:</span>
                 <span className="text-base sm:text-lg font-bold text-green-600">₹{bookingDetails.totalAmount?.toLocaleString()}</span>
@@ -517,6 +539,12 @@ const [enquiryId, setEnquiryId] = useState(null);
 const [isCreatingEnquiry, setIsCreatingEnquiry] = useState(false);
 const [previousEmail , setPreviousEmail] = useState('');
 
+const [availableOffers, setAvailableOffers] = useState<any[]>([]);
+const [loadingOffers, setLoadingOffers] = useState(false);
+const [bookedRoomIds, setBookedRoomIds] = useState<Set<number>>(new Set());
+
+const [propertyHasAvailableRooms, setPropertyHasAvailableRooms] = useState(true);
+
   const [formData, setFormData] = useState({
     salutation: 'Mr.',
     firstName: '',  // Add this
@@ -598,12 +626,10 @@ const calculateRent = useCallback(() => {
     if (isNaN(checkIn.getTime()) || isNaN(checkOut.getTime())) return 0;
     
     const days = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
-    const rentMultiplier = formData.isCouple ? 2 : 1;
-    return days * selectedBed.bedRent * rentMultiplier;
+    return days * selectedBed.bedRent;
   } else {
     // Long stay - monthly rent
-    const rentMultiplier = formData.isCouple ? 2 : 1;
-    return selectedBed.bedRent * rentMultiplier;
+    return selectedBed.bedRent;
   }
 }, [bookingType, selectedBed, formData]);
 
@@ -1557,7 +1583,10 @@ useEffect(() => {
 
 const prepareBookingData = useCallback((): any => {
   const partnerFullName = `${partnerDetails.firstName} ${partnerDetails.lastName}`.trim();
- 
+  const originalAmount = calculateTotalPayable();
+  const finalAmount = calculateFinalAmount();
+  const discountAmountValue = originalAmount - finalAmount;
+  
   return {
     salutation: formData.salutation,
     fullName: formData.fullName,
@@ -1580,14 +1609,25 @@ const prepareBookingData = useCallback((): any => {
     propertyName: propertyData?.name || '',
     paymentMethod: paymentMethod,
     couponCode: formData.couponCode,
-    totalAmount: calculateFinalAmount(),
+    
+    // Amount fields
+    totalAmount: finalAmount,  // Final amount after discount
+    originalAmount: originalAmount,  // Original amount before discount
+    discountAmount: discountAmountValue,  // How much was discounted
     rentAmount: calculateRent(),
     securityDeposit: bookingType === 'long' ? (propertyData?.securityDeposit || 0) : 0,
+    
+    // Offer details
+    offerCode: appliedOffer?.code || null,
+    offerId: appliedOffer?.id || null,
+    offerTitle: appliedOffer?.title || null,
+    discountType: appliedOffer?.discount_type || null,
+    
     verificationStatus: verified,
     bookingStatus: paymentMethod === 'online' ? 'confirmed' : 'pending',
     paymentStatus: paymentMethod === 'online' ? 'paid' : 'pending',
 
-    // ADD THESE - Primary Tenant Documents (these are missing!)
+    // Documents
     id_proof_type: documentDetails.idProofType,
     id_proof_number: documentDetails.idProofNumber,
     address_proof_type: documentDetails.addressProofType,
@@ -1609,7 +1649,7 @@ const prepareBookingData = useCallback((): any => {
     partner_address_proof_type: documentDetails.partnerAddressProofType,
     partner_address_proof_number: documentDetails.partnerAddressProofNumber,
   };
-}, [formData, selectedRoom, selectedBed, bookingType, propertyData, paymentMethod, calculateFinalAmount, calculateRent, verified, partnerDetails, documentDetails]);
+}, [formData, selectedRoom, selectedBed, bookingType, propertyData, paymentMethod, calculateFinalAmount, calculateRent, calculateTotalPayable, verified, partnerDetails, documentDetails, appliedOffer]);
 
 const submitFinalBooking = async (paymentStatus: string) => {
   setLoading(true);
@@ -1689,7 +1729,6 @@ const submitFinalBooking = async (paymentStatus: string) => {
     }
   } catch (err) {
     console.error("Error submitting booking:", err);
-    alert("Error submitting booking. Please try again.");
   } finally {
     setLoading(false);
   }
@@ -1881,7 +1920,163 @@ if (formData.isCouple) {
     }
   }, [showConfirmation, handleConfirmationClose]);
 
+  
+  // Add this function inside your BookingModal component
+const fetchAvailableOffers = useCallback(async () => {
+  if (!propertyData?.id) return [];
+  
+  try {
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/offers`);
+    const allOffers = await response.json();
+    
+    // Filter active offers for this property
+    const activeOffers = allOffers.filter((offer: any) => {
+      // Check if offer is active
+      const isActive = offer.is_active === true || 
+                       offer.is_active === 1 || 
+                       offer.is_active === 'true';
+      
+      if (!isActive) return false;
+      
+      // Check date validity
+      let isValidDate = true;
+      if (offer.start_date) {
+        const startDate = new Date(offer.start_date);
+        const today = new Date();
+        if (startDate > today) isValidDate = false;
+      }
+      if (offer.end_date && isValidDate) {
+        const endDate = new Date(offer.end_date);
+        const today = new Date();
+        if (endDate < today) isValidDate = false;
+      }
+      
+      if (!isValidDate) return false;
+      
+      // Filter by property
+      if (offer.property_id && offer.property_id !== propertyData.id) return false;
+      
+      // Filter by selected room (if offer is room-specific)
+      if (offer.room_id && selectedRoom && offer.room_id !== selectedRoom.id) return false;
+      
+      return true;
+    });
+    
+    // Sort by display order
+    activeOffers.sort((a: any, b: any) => (a.display_order || 0) - (b.display_order || 0));
+    
+    return activeOffers;
+  } catch (error) {
+    console.error('Error fetching offers:', error);
+    return [];
+  }
+}, [propertyData?.id, selectedRoom]);
+
+// Fetch booked rooms for this property
+const fetchBookedRooms = useCallback(async () => {
+  if (!propertyData?.id) return;
+  
+  try {
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/bookings/property/${propertyData.id}?status=active`);
+    const result = await response.json();
+    
+    if (result.success && result.data) {
+      // Get unique room IDs that are already booked
+      const bookedRoomIdsSet = new Set(
+        result.data
+          .filter((booking: any) => booking.status === 'active')
+          .map((booking: any) => booking.room_id)
+      );
+      setBookedRoomIds(bookedRoomIdsSet);
+    }
+  } catch (error) {
+    console.error('Error fetching booked rooms:', error);
+  }
+}, [propertyData?.id]);
+// Update the loadOffers useEffect to also fetch booked rooms
+useEffect(() => {
+  if (isOpen && bookingStep === 4 && propertyData?.id) {
+    const loadData = async () => {
+      setLoadingOffers(true);
+      try {
+        // Fetch both offers and booked rooms in parallel
+        const [offersResponse, bookingsResponse] = await Promise.all([
+          fetch(`${import.meta.env.VITE_API_URL}/api/offers`),
+          fetch(`${import.meta.env.VITE_API_URL}/api/bookings/property/${propertyData.id}?status=active`)
+        ]);
+        
+        const allOffers = await offersResponse.json();
+        const bookingsResult = await bookingsResponse.json();
+        
+        // Get booked room IDs
+        const bookedRoomIdsSet = new Set(
+          bookingsResult.success && bookingsResult.data
+            ? bookingsResult.data
+                .filter((booking: any) => booking.status === 'active')
+                .map((booking: any) => booking.room_id)
+            : []
+        );
+        setBookedRoomIds(bookedRoomIdsSet);
+        
+        // Filter offers
+        const activeOffers = allOffers.filter((offer: any) => {
+          const isActive = offer.is_active === true || offer.is_active === 1 || offer.is_active === 'true';
+          if (!isActive) return false;
+          
+          // Date validation
+          let isValidDate = true;
+          if (offer.start_date) {
+            const startDate = new Date(offer.start_date);
+            const today = new Date();
+            if (startDate > today) isValidDate = false;
+          }
+          if (offer.end_date && isValidDate) {
+            const endDate = new Date(offer.end_date);
+            const today = new Date();
+            if (endDate < today) isValidDate = false;
+          }
+          if (!isValidDate) return false;
+          
+          // Property filter
+          if (offer.property_id && offer.property_id !== propertyData.id) return false;
+          
+          if (offer.room_id) {
+  // This is a room-specific offer
+  if (selectedRoom) {
+    // If a room is selected, only show if it matches the selected room
+    if (offer.room_id !== selectedRoom.id) {
+      return false; // Wrong room selected
+    }
+    // Check if this specific room is already fully booked
+    if (bookedRoomIdsSet.has(offer.room_id)) {
+      return false; // Room is fully booked, don't show offer
+    }
+  } else {
+    // No room selected yet, but we still need to check if this room is available
+    if (bookedRoomIdsSet.has(offer.room_id)) {
+      return false; // Room is fully booked, don't show offer
+    }
+    // Room is available, show the offer even without room selected
+  }
+}
+          
+          return true;
+        });
+        
+        activeOffers.sort((a: any, b: any) => (a.display_order || 0) - (b.display_order || 0));
+        setAvailableOffers(activeOffers);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        setLoadingOffers(false);
+      }
+    };
+    loadData();
+  }
+}, [isOpen, bookingStep, propertyData?.id, selectedRoom]);
+
   if (!isOpen) return null;
+
 
   return (
     <>
@@ -2967,356 +3162,443 @@ onChange={(e) => {
   </div>
 )}
 
-              {/* STEP 4 - PAYMENT */}
-              {bookingStep === 4 && selectedRoom && (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-1.5 pb-1.5 border-b-2 border-gray-200">
-                    <CreditCard className="w-4 h-4 text-blue-600" />
-                    <h3 className="text-sm font-bold text-gray-900">Payment</h3>
-                  </div>
-
-                  <div className="bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 rounded-lg p-2.5">
-                    <div className="flex items-center gap-2">
-                      <div className="w-9 h-9 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                        <UserCircle className="w-4 h-4 text-blue-600" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-gray-900 truncate">
-                          {formData.salutation} {formData.fullName}
-                        </p>
-                        <p className="text-[10px] text-gray-600 truncate">
-                          {formData.email} • +91 {formData.phone} • {formData.gender} {formData.isCouple ? '(Couple)' : ''}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-2">
-                      Payment Method
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <label className={`flex items-center gap-2 p-2.5 border-2 rounded-lg cursor-pointer transition-all ${paymentMethod === 'online' ? 'border-blue-500 bg-blue-50 shadow' : 'border-gray-300'
-                        }`}>
-                        <input type="radio" name="paymentMethod" value="online" checked={paymentMethod === 'online'} onChange={(e) => setPaymentMethod(e.target.value as 'online')} className="sr-only" />
-                        <div className="w-9 h-9 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                          <Wallet className="w-4 h-4 text-blue-600" />
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-xs font-bold text-gray-900">Online</p>
-                          <p className="text-[9px] text-gray-500">UPI, Card</p>
-                        </div>
-                        {paymentMethod === 'online' && <CheckCircle className="w-4 h-4 text-blue-600" />}
-                      </label>
-
-                      <label className={`flex items-center gap-2 p-2.5 border-2 rounded-lg cursor-pointer transition-all ${paymentMethod === 'inperson' ? 'border-gray-800 bg-gray-50 shadow' : 'border-gray-300'
-                        }`}>
-                        <input type="radio" name="paymentMethod" value="inperson" checked={paymentMethod === 'inperson'} onChange={(e) => setPaymentMethod(e.target.value as 'inperson')} className="sr-only" />
-                        <div className="w-9 h-9 bg-gray-200 rounded-lg flex items-center justify-center flex-shrink-0">
-                          <Building2 className="w-4 h-4 text-gray-700" />
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-xs font-bold text-gray-900">In Person</p>
-                          <p className="text-[9px] text-gray-500">At Property</p>
-                        </div>
-                        {paymentMethod === 'inperson' && <CheckCircle className="w-4 h-4 text-gray-800" />}
-                      </label>
-                    </div>
-                  </div>
-
-{/* Offer Code Section */}
-<div className="mt-3">
-  <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-    Have an Offer Code?
-  </label>
-  <div className="flex gap-2">
-    <div className="relative flex-1">
-      <div className="absolute left-2.5 top-1/2 -translate-y-1/2">
-        <Ticket className="w-4 h-4 text-gray-400" />
+{/* STEP 4 - PAYMENT */}
+{bookingStep === 4 && selectedRoom && (
+  <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+    {/* Left Column - Payment Form */}
+    <div className="lg:col-span-2 space-y-3">
+      <div className="flex items-center gap-1.5 pb-1.5 border-b-2 border-gray-200">
+        <CreditCard className="w-4 h-4 text-blue-600" />
+        <h3 className="text-sm font-bold text-gray-900">Payment</h3>
       </div>
-      <input
-        type="text"
-        value={offerCode}
-        onChange={(e) => setOfferCode(e.target.value.toUpperCase())}
-        placeholder="Enter offer code"
-        className="w-full pl-8 pr-3 py-2 text-xs border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none"
-        disabled={!!appliedOffer} // Disable input when offer is applied
-      />
-    </div>
-    
-    {/* Show Apply or Remove button based on whether offer is applied */}
-    {!appliedOffer ? (
-      <button
-        type="button"
-        onClick={() => validateAndApplyOffer(offerCode)}
-        disabled={offerLoading || !offerCode}
-        className="px-3 py-2 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
-      >
-        {offerLoading ? (
-          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-        ) : (
-          'Apply'
+
+      <div className="bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 rounded-lg p-2.5">
+        <div className="flex items-center gap-2">
+          <div className="w-9 h-9 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+            <UserCircle className="w-4 h-4 text-blue-600" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-bold text-gray-900 truncate">
+              {formData.salutation} {formData.fullName}
+            </p>
+            <p className="text-[10px] text-gray-600 truncate">
+              {formData.email} • +91 {formData.phone} • {formData.gender} {formData.isCouple ? '(Couple)' : ''}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-xs font-semibold text-gray-700 mb-2">
+          Payment Method
+        </label>
+        <div className="grid grid-cols-2 gap-2">
+          <label className={`flex items-center gap-2 p-2.5 border-2 rounded-lg cursor-pointer transition-all ${paymentMethod === 'online' ? 'border-blue-500 bg-blue-50 shadow' : 'border-gray-300'
+            }`}>
+            <input type="radio" name="paymentMethod" value="online" checked={paymentMethod === 'online'} onChange={(e) => setPaymentMethod(e.target.value as 'online')} className="sr-only" />
+            <div className="w-9 h-9 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+              <Wallet className="w-4 h-4 text-blue-600" />
+            </div>
+            <div className="flex-1">
+              <p className="text-xs font-bold text-gray-900">Online</p>
+              <p className="text-[9px] text-gray-500">UPI, Card</p>
+            </div>
+            {paymentMethod === 'online' && <CheckCircle className="w-4 h-4 text-blue-600" />}
+          </label>
+
+          <label className={`flex items-center gap-2 p-2.5 border-2 rounded-lg cursor-pointer transition-all ${paymentMethod === 'inperson' ? 'border-gray-800 bg-gray-50 shadow' : 'border-gray-300'
+            }`}>
+            <input type="radio" name="paymentMethod" value="inperson" checked={paymentMethod === 'inperson'} onChange={(e) => setPaymentMethod(e.target.value as 'inperson')} className="sr-only" />
+            <div className="w-9 h-9 bg-gray-200 rounded-lg flex items-center justify-center flex-shrink-0">
+              <Building2 className="w-4 h-4 text-gray-700" />
+            </div>
+            <div className="flex-1">
+              <p className="text-xs font-bold text-gray-900">In Person</p>
+              <p className="text-[9px] text-gray-500">At Property</p>
+            </div>
+            {paymentMethod === 'inperson' && <CheckCircle className="w-4 h-4 text-gray-800" />}
+          </label>
+        </div>
+      </div>
+
+      {/* Offer Code Section */}
+      <div>
+        <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+          Have an Offer Code?
+        </label>
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <div className="absolute left-2.5 top-1/2 -translate-y-1/2">
+              <Ticket className="w-4 h-4 text-gray-400" />
+            </div>
+            <input
+              type="text"
+              value={offerCode}
+              onChange={(e) => setOfferCode(e.target.value.toUpperCase())}
+              placeholder="Enter offer code"
+              className="w-full pl-8 pr-3 py-2 text-xs border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none"
+              disabled={!!appliedOffer}
+            />
+          </div>
+          
+          {!appliedOffer ? (
+            <button
+              type="button"
+              onClick={() => validateAndApplyOffer(offerCode)}
+              disabled={offerLoading || !offerCode}
+              className="px-3 py-2 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            >
+              {offerLoading ? (
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                'Apply'
+              )}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setAppliedOffer(null);
+                setOfferCode('');
+                setDiscountedAmount(0);
+                setOfferError('');
+                setOfferSuccess('');
+                localStorage.removeItem('pendingOfferCode');
+                localStorage.removeItem('pendingOfferData');
+                toast.info('Offer code removed');
+              }}
+              className="px-3 py-2 bg-red-600 text-white text-xs font-semibold rounded-lg hover:bg-red-700 transition-colors flex items-center gap-1"
+            >
+              <X className="w-3.5 h-3.5" />
+              Remove
+            </button>
+          )}
+        </div>
+        
+        {offerError && (
+          <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
+            <AlertCircle className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
+            <p className="text-[10px] text-red-700">{offerError}</p>
+          </div>
         )}
-      </button>
-    ) : (
-      <button
-        type="button"
-        onClick={() => {
-          // Clear all offer-related states
-          setAppliedOffer(null);
-          setOfferCode('');
-          setDiscountedAmount(0);
-          setOfferError('');
-          setOfferSuccess('');
-          
-          // Clear from localStorage as well
-          localStorage.removeItem('pendingOfferCode');
-          localStorage.removeItem('pendingOfferData');
-          
-          toast.info('Offer code removed');
-        }}
-        className="px-3 py-2 bg-red-600 text-white text-xs font-semibold rounded-lg hover:bg-red-700 transition-colors flex items-center gap-1"
-      >
-        <X className="w-3.5 h-3.5" />
-        Remove
-      </button>
-    )}
-  </div>
-  
-  {/* Offer feedback messages */}
-  {offerError && (
-    <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
-      <AlertCircle className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
-      <p className="text-[10px] text-red-700">{offerError}</p>
-    </div>
-  )}
-  
-  {offerSuccess && (
-    <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
-      <CheckCircle className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
-      <p className="text-[10px] text-green-700">{offerSuccess}</p>
-    </div>
-  )}
+        
+        {offerSuccess && (
+          <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
+            <CheckCircle className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
+            <p className="text-[10px] text-green-700">{offerSuccess}</p>
+          </div>
+        )}
+      </div>
 
-  {/* Applied Offer Display */}
-  {appliedOffer && (
-    <div className="mt-2 p-2 bg-gradient-to-r from-yellow-50 to-amber-50 border border-yellow-200 rounded-lg">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5">
-          <Sparkles className="w-3.5 h-3.5 text-yellow-600" />
-          <p className="text-xs font-bold text-yellow-800">{appliedOffer.title}</p>
+      {/* Booking Summary */}
+      <div className="bg-gradient-to-br from-blue-50 to-cyan-50 border border-blue-200 rounded-lg p-3">
+        <h4 className="text-xs font-bold text-gray-900 mb-2.5 flex items-center gap-1">
+          <Sparkles className="w-3 h-3 text-blue-600" />
+          Booking Summary
+        </h4>
+
+        <div className="space-y-2">
+          <div className="flex justify-between items-center">
+            <span className="text-[10px] sm:text-xs text-gray-700">
+              Room {selectedRoom?.room_number} • Bed {selectedBed?.bedNumber}
+            </span>
+            <span className="text-xs font-bold text-gray-900">
+              ₹{selectedBed?.bedRent.toLocaleString()}
+              {bookingType === 'long' && <span className="text-[9px] text-gray-500 ml-0.5">/month</span>}
+              {bookingType === 'short' && <span className="text-[9px] text-gray-500 ml-0.5">/day</span>}
+            </span>
+          </div>
+
+          {bookingType === 'short' && formData.checkInDate && formData.checkOutDate && (
+            <div className="flex justify-between items-center text-[9px] text-gray-600">
+              <span>Duration</span>
+              <span>
+                {Math.ceil((new Date(formData.checkOutDate).getTime() - new Date(formData.checkInDate).getTime()) / (1000 * 60 * 60 * 24))} days
+              </span>
+            </div>
+          )}
+
+
+          <div className="flex justify-between items-center pt-1">
+            <span className="text-[10px] sm:text-xs text-gray-700">
+              {bookingType === 'long' ? 'Monthly Rent' : 'Total Rent'}
+            </span>
+            <span className="text-xs font-bold text-gray-900">
+              ₹{calculateTotal().toLocaleString()}
+            </span>
+          </div>
+
+          {bookingType === 'long' && (
+            <div className="flex justify-between items-center pt-1 border-t border-blue-200">
+              <span className="text-[10px] sm:text-xs text-gray-700">Security Deposit</span>
+              <span className="text-xs font-bold text-gray-900">
+                ₹{(propertyData?.securityDeposit || 0).toLocaleString()}
+              </span>
+            </div>
+          )}
+
+          <div className="flex justify-between items-center pt-1 border-t border-blue-200">
+            <span className="text-[10px] sm:text-xs font-semibold text-gray-700">Subtotal</span>
+            <span className="text-xs font-bold text-gray-900">₹{calculateTotalPayable().toLocaleString()}</span>
+          </div>
+
+          {appliedOffer && discountedAmount > 0 && (
+            <div className="flex justify-between items-center pt-1">
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] sm:text-xs text-green-600">Discount</span>
+                <Badge className="bg-green-100 text-green-800 text-[8px] px-1.5">
+                  {appliedOffer.discount_type === 'percentage' 
+                    ? `${appliedOffer.discount_percent}% OFF` 
+                    : `₹${appliedOffer.discount_value} OFF`}
+                </Badge>
+              </div>
+              <span className="text-xs font-bold text-green-600">- ₹{discountedAmount.toLocaleString()}</span>
+            </div>
+          )}
+
+          <div className="border-t-2 border-blue-300 pt-2.5 mt-2">
+            <div className="flex justify-between items-center">
+              <span className="text-xs sm:text-sm font-bold text-gray-900">
+                Total Payable
+              </span>
+              <span className="text-lg sm:text-xl font-bold text-blue-600">
+                ₹{calculateFinalAmount().toLocaleString()}
+              </span>
+            </div>
+            
+            {appliedOffer && discountedAmount > 0 && (
+              <div className="flex justify-end items-center mt-1">
+                <span className="text-[9px] text-gray-400 line-through">
+                  ₹{calculateTotalPayable().toLocaleString()}
+                </span>
+                <span className="text-[9px] text-green-600 ml-1.5">
+                  Save ₹{discountedAmount.toLocaleString()}
+                </span>
+              </div>
+            )}
+          </div>
         </div>
-        <button
-          onClick={() => {
-            // Clear all offer-related states
-            setAppliedOffer(null);
-            setOfferCode('');
-            setDiscountedAmount(0);
-            setOfferError('');
-            setOfferSuccess('');
-            
-            // Clear from localStorage
-            localStorage.removeItem('pendingOfferCode');
-            localStorage.removeItem('pendingOfferData');
-            
-            toast.info('Offer code removed');
+      </div>
+
+      <label className="flex items-start gap-2 p-2.5 bg-gray-50 border-2 border-gray-200 rounded-lg cursor-pointer hover:bg-gray-100">
+        <input
+          type="checkbox"
+          checked={formData.agreeToTerms}
+          onChange={(e) => {
+            handleInputChange('agreeToTerms', e.target.checked);
+            e.preventDefault();
+            fetchPaymentTerms();
+            setShowTermsModal(true);
           }}
-          className="text-red-500 hover:text-red-700 transition-colors"
-          title="Remove offer"
-        >
-          <X className="w-3.5 h-3.5" />
-        </button>
-      </div>
-      <p className="text-[9px] text-yellow-700 mt-0.5">{appliedOffer.description}</p>
-      
-      {/* Show room/bed restrictions */}
-      {appliedOffer.room_id && (
-        <div className="mt-1 pt-1 border-t border-yellow-200">
-          <p className="text-[8px] font-semibold text-yellow-800">
-            🏠 Valid only for Room #{appliedOffer.room_number || appliedOffer.room_id}
+          className="w-4 h-4 mt-0.5 text-blue-600 border-gray-300 rounded focus:ring-blue-600 flex-shrink-0"
+          required
+        />
+        <div className="text-[10px] text-gray-700">
+          I agree to{' '}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              fetchPaymentTerms();
+              setShowTermsModal(true);
+            }}
+            className="text-blue-600 font-semibold hover:text-blue-700 underline decoration-blue-300 hover:decoration-blue-600 transition-all"
+          >
+            terms & conditions
+          </button>
+          , cancellation policy, and house rules.
+        </div>
+      </label>
+    </div>
+
+    {/* Right Column - Available Offers */}
+    <div className="space-y-3">
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden sticky top-4">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-blue-50 to-cyan-50 px-3 py-2.5 border-b border-blue-100">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="bg-blue-600 p-1 rounded-lg">
+                <Ticket className="w-3.5 h-3.5 text-white" />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900 text-xs">Available Offers</h3>
+                <p className="text-[9px] text-gray-500">
+                  {loadingOffers ? 'Loading...' : `${availableOffers.length} offer${availableOffers.length !== 1 ? 's' : ''} available`}
+                </p>
+              </div>
+            </div>
+            {appliedOffer && (
+              <Badge className="bg-green-100 text-green-700 text-[8px]">
+                <CheckCircle className="w-2.5 h-2.5 mr-0.5" />
+                1 Applied
+              </Badge>
+            )}
+          </div>
+        </div>
+
+        {/* Offers List */}
+        <div className="divide-y divide-gray-100 max-h-[400px] overflow-y-auto">
+          {loadingOffers ? (
+            <div className="p-4 text-center">
+              <div className="w-6 h-6 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin mx-auto mb-2"></div>
+              <p className="text-[10px] text-gray-500">Loading offers...</p>
+            </div>
+          ) : availableOffers.length === 0 ? (
+            <div className="text-center py-6">
+              <Tag className="w-8 h-8 text-gray-300 mx-auto mb-1.5" />
+              <p className="text-[10px] text-gray-500">No offers available</p>
+              <p className="text-[9px] text-gray-400 mt-0.5">Check back later for deals</p>
+            </div>
+          ) : (
+            availableOffers.map((offer) => {
+              const isApplied = appliedOffer?.id === offer.id;
+               const isRoomBooked = offer.room_id && bookedRoomIds.has(offer.room_id);
+              const discountDisplay = offer.discount_type === 'percentage' 
+                ? `${offer.discount_percent}% OFF`
+                : `₹${offer.discount_value?.toLocaleString()} OFF`;
+              
+              return (
+                <div 
+                  key={offer.id} 
+      className={`p-3 transition-all ${
+        isApplied ? 'bg-green-50 border-l-2 border-l-green-500' : 
+        isRoomBooked ? 'bg-gray-50 opacity-60' : 'hover:bg-gray-50'
+      }`}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <h4 className="text-xs font-bold text-gray-900 truncate">
+                          {offer.title}
+                        </h4>
+                        <Badge className="bg-yellow-100 text-yellow-700 text-[8px] font-semibold">
+                          {discountDisplay}
+                        </Badge>
+                        {offer.min_months && offer.min_months > 0 && (
+                          <Badge variant="outline" className="text-[7px]">
+                            Min {offer.min_months}M
+                          </Badge>
+                        )}
+                      </div>
+                      
+                      <p className="text-[9px] text-gray-500 mt-0.5 line-clamp-2">
+                        {offer.description || `Get ${discountDisplay} on your booking`}
+                      </p>
+
+                       {/* Show "Fully Booked" badge if room is taken */}
+          {isRoomBooked && (
+            <div className="mt-1">
+              <Badge className="bg-red-100 text-red-600 text-[7px]">
+                <XCircle className="w-2 h-2 mr-0.5" />
+                Room Fully Booked
+              </Badge>
+            </div>
+          )}
+                      
+                      {/* Validity */}
+                      {offer.end_date && (
+                        <div className="flex items-center gap-0.5 mt-1">
+                          <Clock className="w-2 h-2 text-gray-400" />
+                          <span className="text-[8px] text-gray-400">
+                            Valid till {new Date(offer.end_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                          </span>
+                        </div>
+                      )}
+                      
+                      {/* Room Specific Badge */}
+                      {offer.room_id && (
+                        <div className="mt-1">
+                          <Badge className="bg-blue-100 text-blue-600 text-[7px]">
+                            <Building className="w-2 h-2 mr-0.5" />
+                            Room specific offer
+                          </Badge>
+                        </div>
+                      )}
+                      
+                      {/* Bonus Section */}
+                      {offer.bonus_title && (
+                        <div className="mt-1.5 pt-1 border-t border-dashed border-gray-200">
+                          <div className="flex items-center gap-0.5">
+                            <Gift className="w-2.5 h-2.5 text-orange-500" />
+                            <span className="text-[8px] font-semibold text-orange-600">
+                              Bonus: {offer.bonus_title}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+
+
+                    </div>
+                    
+                    {/* Action Button */}
+                    {isApplied ? (
+                      <button
+                        onClick={() => {
+                          setAppliedOffer(null);
+                          setOfferCode('');
+                          setDiscountedAmount(0);
+                          setOfferError('');
+                          setOfferSuccess('');
+                          toast.info('Offer removed');
+                        }}
+                        className="ml-2 px-2 py-0.5 bg-red-50 text-red-600 rounded text-[9px] font-medium hover:bg-red-100 transition-colors whitespace-nowrap"
+                      >
+                        Remove
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => {
+
+                          if (isRoomBooked) {
+                toast.error('This offer is no longer available as the room is already booked');
+                return;
+              }
+                          // Apply the offer
+                          setAppliedOffer(offer);
+                          setOfferCode(offer.code);
+                          
+                          // Calculate discount
+                          const baseAmount = calculateTotalPayable();
+                          let discountAmount = 0;
+                          if (offer.discount_type === 'percentage' && offer.discount_percent) {
+                            discountAmount = baseAmount * (offer.discount_percent / 100);
+                          } else if (offer.discount_type === 'fixed' && offer.discount_value) {
+                            discountAmount = offer.discount_value;
+                          }
+                          setDiscountedAmount(Math.min(discountAmount, baseAmount));
+                          setOfferSuccess(`Offer applied! You save ₹${discountAmount.toLocaleString()}`);
+                          setOfferError('');
+                          toast.success(`Offer "${offer.title}" applied!`);
+                        }}
+                        // disabled={isRoomBooked}
+            className={`ml-2 px-2 py-0.5 rounded text-[9px] font-medium transition-colors whitespace-nowrap ${
+              isRoomBooked 
+                ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                : 'bg-blue-600 text-white hover:bg-blue-700'
+            }`}
+          >
+            {isRoomBooked ? 'Unavailable' : 'Apply'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+        
+        {/* Footer */}
+        <div className="px-3 py-1.5 bg-gray-50 border-t border-gray-100">
+          <p className="text-[8px] text-gray-400 text-center">
+            Offers subject to terms & conditions
           </p>
         </div>
-      )}
-      {appliedOffer.bed_number && (
-        <div className="mt-0.5">
-          <p className="text-[8px] font-semibold text-yellow-800">
-            🛏️ Valid only for Bed #{appliedOffer.bed_number}
-          </p>
-        </div>
-      )}
-      {appliedOffer.bonus_title && (
-        <div className="mt-1 pt-1 border-t border-yellow-200">
-          <p className="text-[8px] font-semibold text-yellow-800">🎁 Bonus: {appliedOffer.bonus_title}</p>
-        </div>
-      )}
-    </div>
-  )}
-</div>
-
-                  {/* Booking Summary */}
-<div className="bg-gradient-to-br from-blue-50 to-cyan-50 border border-blue-200 rounded-lg p-3">
-  <h4 className="text-xs font-bold text-gray-900 mb-2.5 flex items-center gap-1">
-    <Sparkles className="w-3 h-3 text-blue-600" />
-    Booking Summary
-  </h4>
-
-  <div className="space-y-2">
-    {/* Room & Bed Details */}
-    <div className="flex justify-between items-center">
-      <span className="text-[10px] sm:text-xs text-gray-700">
-        Room {selectedRoom?.room_number} • Bed {selectedBed?.bedNumber}
-      </span>
-      <span className="text-xs font-bold text-gray-900">
-        ₹{selectedBed?.bedRent.toLocaleString()}
-        {bookingType === 'long' && <span className="text-[9px] text-gray-500 ml-0.5">/month</span>}
-        {bookingType === 'short' && <span className="text-[9px] text-gray-500 ml-0.5">/day</span>}
-      </span>
-    </div>
-
-    {appliedOffer && (
-  <div className="mt-2 p-2 bg-gradient-to-r from-yellow-50 to-amber-50 border border-yellow-200 rounded-lg">
-    <div className="flex items-center gap-1.5 mb-1">
-      <Sparkles className="w-3.5 h-3.5 text-yellow-600" />
-      <p className="text-xs font-bold text-yellow-800">{appliedOffer.title}</p>
-    </div>
-    <p className="text-[9px] text-yellow-700">{appliedOffer.description}</p>
-    
-    {/* Show room/bed restrictions */}
-    {appliedOffer.room_id && (
-      <div className="mt-1 pt-1 border-t border-yellow-200">
-        <p className="text-[8px] font-semibold text-yellow-800">
-          🏠 Valid only for Room #{appliedOffer.room_number || appliedOffer.room_id}
-        </p>
       </div>
-    )}
-    {appliedOffer.bed_number && (
-      <div className="mt-0.5">
-        <p className="text-[8px] font-semibold text-yellow-800">
-          🛏️ Valid only for Bed #{appliedOffer.bed_number}
-        </p>
-      </div>
-    )}
-    {appliedOffer.bonus_title && (
-      <div className="mt-1 pt-1 border-t border-yellow-200">
-        <p className="text-[8px] font-semibold text-yellow-800">🎁 Bonus: {appliedOffer.bonus_title}</p>
-      </div>
-    )}
+    </div>
   </div>
 )}
-
-    {/* Duration for Short Stay */}
-    {bookingType === 'short' && formData.checkInDate && formData.checkOutDate && (
-      <div className="flex justify-between items-center text-[9px] text-gray-600">
-        <span>Duration</span>
-        <span>
-          {Math.ceil((new Date(formData.checkOutDate).getTime() - new Date(formData.checkInDate).getTime()) / (1000 * 60 * 60 * 24))} days
-        </span>
-      </div>
-    )}
-
-    {/* Couple Booking Multiplier */}
-    {formData.isCouple && (
-      <div className="flex justify-between items-center text-[9px] text-gray-600">
-        <span>Couple Booking</span>
-        <span>×2 persons</span>
-      </div>
-    )}
-
-    {/* Rent Amount */}
-    <div className="flex justify-between items-center pt-1">
-      <span className="text-[10px] sm:text-xs text-gray-700">
-        {bookingType === 'long' ? 'Monthly Rent' : 'Total Rent'}
-      </span>
-      <span className="text-xs font-bold text-gray-900">
-        ₹{calculateTotal().toLocaleString()}
-      </span>
-    </div>
-
-    {/* Security Deposit (only for long stay) */}
-    {bookingType === 'long' && (
-      <div className="flex justify-between items-center pt-1 border-t border-blue-200">
-        <span className="text-[10px] sm:text-xs text-gray-700">Security Deposit</span>
-        <span className="text-xs font-bold text-gray-900">
-          ₹{(propertyData?.securityDeposit || 0).toLocaleString()}
-        </span>
-      </div>
-    )}
-
-    {/* Subtotal */}
-    <div className="flex justify-between items-center pt-1 border-t border-blue-200">
-      <span className="text-[10px] sm:text-xs font-semibold text-gray-700">Subtotal</span>
-      <span className="text-xs font-bold text-gray-900">₹{calculateTotalPayable().toLocaleString()}</span>
-    </div>
-
-    {/* Discount Row */}
-    {appliedOffer && discountedAmount > 0 && (
-      <div className="flex justify-between items-center pt-1">
-        <div className="flex items-center gap-1">
-          <span className="text-[10px] sm:text-xs text-green-600">Discount</span>
-          <Badge className="bg-green-100 text-green-800 text-[8px] px-1.5">
-            {appliedOffer.discount_type === 'percentage' 
-              ? `${appliedOffer.discount_percent}% OFF` 
-              : `₹${appliedOffer.discount_value} OFF`}
-          </Badge>
-        </div>
-        <span className="text-xs font-bold text-green-600">- ₹{discountedAmount.toLocaleString()}</span>
-      </div>
-    )}
-
-    {/* Final Total */}
-    <div className="border-t-2 border-blue-300 pt-2.5 mt-2">
-      <div className="flex justify-between items-center">
-        <span className="text-xs sm:text-sm font-bold text-gray-900">
-          Total Payable
-        </span>
-        <span className="text-lg sm:text-xl font-bold text-blue-600">
-          ₹{calculateFinalAmount().toLocaleString()}
-        </span>
-      </div>
-      
-      {/* Show original price if discounted */}
-      {appliedOffer && discountedAmount > 0 && (
-        <div className="flex justify-end items-center mt-1">
-          <span className="text-[9px] text-gray-400 line-through">
-            ₹{calculateTotalPayable().toLocaleString()}
-          </span>
-          <span className="text-[9px] text-green-600 ml-1.5">
-            Save ₹{discountedAmount.toLocaleString()}
-          </span>
-        </div>
-      )}
-    </div>
-  </div>
-</div>
-
-                  <label className="flex items-start gap-2 p-2.5 bg-gray-50 border-2 border-gray-200 rounded-lg cursor-pointer hover:bg-gray-100">
-  <input
-    type="checkbox"
-    checked={formData.agreeToTerms}
-    onChange={(e) => {handleInputChange('agreeToTerms', e.target.checked);  e.preventDefault();
-        fetchPaymentTerms();
-        setShowTermsModal(true);}}
-    className="w-4 h-4 mt-0.5 text-blue-600 border-gray-300 rounded focus:ring-blue-600 flex-shrink-0"
-    required
-  />
-  <div className="text-[10px] text-gray-700">
-    I agree to{' '}
-    <button
-      type="button"
-      onClick={(e) => {
-        e.preventDefault();
-        fetchPaymentTerms();
-        setShowTermsModal(true);
-      }}
-      className="text-blue-600 font-semibold hover:text-blue-700 underline decoration-blue-300 hover:decoration-blue-600 transition-all"
-    >
-      terms & conditions
-    </button>
-    , cancellation policy, and house rules.
-  </div>
-</label>
-                </div>
-              )}
             </form>
           </div>
 
