@@ -39,6 +39,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import MySwal from "@/app/utils/swal";
 import ScheduleVisitDialog from "./ScheduleVisitDialog";
 import ConvertToTenantDialog from "./ConvertToTenantDialog";
+import { useAuth } from "@/context/authContext";
 
 // Types for initial props
 interface EnquiriesClientPageProps {
@@ -75,6 +76,8 @@ export default function EnquiriesClientPage({
   const [scheduleVisitEnquiry, setScheduleVisitEnquiry] = useState<Enquiry | null>(null);
   const [convertEnquiry, setConvertEnquiry] = useState<Enquiry | null>(null);
   // Add these state variables
+    const { can } = useAuth(); // ← ADD THIS
+
 const [selectedRows, setSelectedRows] = useState<string[]>([]);
 const [selectAll, setSelectAll] = useState(false);
 
@@ -608,7 +611,7 @@ const handleBulkDelete = async () => {
               </Dialog>
 
               {/* Bulk Delete Button */}
-{selectedRows.length > 0 && (
+{selectedRows.length > 0 && can('delete_enquiries') && (
   <Button
     variant="destructive"
     size="sm"
@@ -623,6 +626,8 @@ const handleBulkDelete = async () => {
               {/* Add Enquiry Button */}
               <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
                 <DialogTrigger asChild>
+                  {can('create_enquiries') && (
+
                   <Button
                     className="bg-blue-600 hover:bg-blue-700 text-sm whitespace-nowrap py-1 px-2 sm:py-0 sm:px-2"
                   >
@@ -630,6 +635,7 @@ const handleBulkDelete = async () => {
                     <span className="hidden sm:inline">Add Enquiry</span>
                     <span className="sm:hidden sm:py-2">Add</span>
                   </Button>
+                  )}
                 </DialogTrigger>
                 
                 <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-hidden p-0">
@@ -823,6 +829,8 @@ const handleBulkDelete = async () => {
     <TableCell className="px-2 sm:px-4 py-2 sm:py-3">
       <div className="flex items-center justify-end gap-1 whitespace-nowrap">
         {/* Schedule Visit Button */}
+            {can('schedule_visit') && (
+
         <Button
           size="sm"
           variant="ghost"
@@ -835,8 +843,11 @@ const handleBulkDelete = async () => {
         >
           <Calendar className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
         </Button>
+            )}
 
         {/* View Details Button */}
+            {can('view_enquiries') && (
+
         <Button
           size="sm"
           variant="ghost"
@@ -846,8 +857,11 @@ const handleBulkDelete = async () => {
         >
           <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
         </Button>
+            )}
 
         {/* Edit Button */}
+            {can('edit_enquiries') && (
+
         <Button
           size="sm"
           variant="ghost"
@@ -857,9 +871,10 @@ const handleBulkDelete = async () => {
         >
           <Edit className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
         </Button>
+            )}
 
         {/* Convert to Tenant Button (only if not converted) */}
-        {enquiry.status !== 'converted' && (
+    {enquiry.status !== 'converted' && can('convert_to_tenant') && (
           <Button
             size="sm"
             variant="ghost"
@@ -898,6 +913,8 @@ const handleBulkDelete = async () => {
         </Select>
 
         {/* Delete Button */}
+            {can('delete_enquiries') && (
+
         <Button
           variant="ghost"
           size="sm"
@@ -907,6 +924,7 @@ const handleBulkDelete = async () => {
         >
           <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
         </Button>
+            )}
       </div>
     </TableCell>
   </TableRow>

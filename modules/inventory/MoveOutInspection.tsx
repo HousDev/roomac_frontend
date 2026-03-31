@@ -44,6 +44,7 @@ import {
 import { getHandovers } from "@/lib/handoverApi";
 import { penaltyRulesApi } from "@/lib/penaltyRulesApi";
 import * as XLSX from 'xlsx';
+import { useAuth } from '@/context/authContext';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface InspectionItem {
@@ -207,6 +208,7 @@ const [handoverSearchTerm, setHandoverSearchTerm] = useState('');
 const [propertyFilterSearchTerm, setPropertyFilterSearchTerm] = useState('');
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [selectAll, setSelectAll] = useState(false);
+  const { can } = useAuth(); // ← ADD THIS
 
   const [stats, setStats] = useState({
     total: 0, completed: 0, approved: 0, pending: 0, active: 0, cancelled: 0,
@@ -1338,23 +1340,27 @@ const handlePrint = () => {
                 </span>
               )}
             </button>
+            {can('export_moveout_inspection') && (
 
             <button onClick={handleExport}
               className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 text-[11px] font-medium transition-colors">
               <Download className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Export</span>
             </button>
+            )}
 
             <button onClick={loadAll} disabled={loading}
               className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50">
               <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
             </button>
+{can('create_moveout_inspection') && (
 
             <button onClick={openAdd}
               className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-[11px] font-semibold shadow-sm transition-colors">
               <Plus className="h-3.5 w-3.5 flex-shrink-0" />
               <span className=" xs:inline">New Inspection</span>
             </button>
+)}
           </div>
         </div>
 
@@ -1505,6 +1511,8 @@ const handlePrint = () => {
                         </TableCell>
                         <TableCell className="py-2 px-3">
                           <div className="flex justify-end gap-1">
+                              {can('view_moveout_inspection') && (
+
                             <Button size="sm" variant="ghost"
                               className="h-6 w-6 p-0 hover:bg-blue-50 hover:text-blue-600"
                               onClick={async () => {
@@ -1517,16 +1525,22 @@ const handlePrint = () => {
 }} title="View">
                               <Eye className="h-3.5 w-3.5" />
                             </Button>
+                              )}
+                                {can('edit_moveout_inspection') && (
+
                             <Button size="sm" variant="ghost"
                               className="h-6 w-6 p-0 hover:bg-amber-50 hover:text-amber-600"
                               onClick={() => openEdit(i)} title="Edit">
                               <Edit className="h-3.5 w-3.5" />
-                            </Button>
+                            </Button>)}
+                              {can('delete_moveout_inspection') && (
+
                             <Button size="sm" variant="ghost"
                               className="h-6 w-6 p-0 hover:bg-red-50 hover:text-red-600"
                               onClick={() => handleDelete(i.id, i.tenant_name)} title="Delete">
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
+                              )}
                           </div>
                         </TableCell>
                       </TableRow>

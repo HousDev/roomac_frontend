@@ -34,6 +34,7 @@ import {
   bulkDeleteDocuments, updateDocument,
   type Document as Doc, type DocumentStatus,
 } from "@/lib/documentlistApi";
+import { useAuth } from "@/context/authContext";
 
 // ── Timeline step definitions ─────────────────────────────────────────────────
 const MAIN_STEPS: Array<{
@@ -1653,6 +1654,7 @@ export function DocumentList() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [viewDoc,     setViewDoc]     = useState<Doc | null>(null);
   const [loadingView, setLoadingView] = useState<number|string|null>(null);
+  const { can } = useAuth(); // ← ADD THIS
 
   const [popup, setPopup] = useState<{
     type: "share"|"hold"|"otp"|"esign"|"complete"|"cancel"|"edit" | null;
@@ -2117,6 +2119,8 @@ const handleExport = () => {
                       {/* Actions */}
                       <TableCell className="py-2 px-3">
                         <div className="flex justify-end gap-0.5">
+                              {can("view_documents") && (
+
                           <button onClick={async () => {
                             setLoadingView(d.id);
                             try { const r=await getDocument(d.id); setViewDoc(r.data||d); }
@@ -2125,13 +2129,21 @@ const handleExport = () => {
                           }} title="View" className="p-1.5 rounded-md text-gray-400 hover:bg-blue-50 hover:text-blue-600 transition-colors">
                             {loadingView===d.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Eye className="h-3.5 w-3.5" />}
                           </button>
+                            )}
+                                {can("share_documents") && (
+
                           <button onClick={() => setPopup({type:"share",doc:d})} title="Share"
                             className="p-1.5 rounded-md text-gray-400 hover:bg-green-50 hover:text-green-600 transition-colors"><Share2 className="h-3.5 w-3.5" /></button>
+                                )}
+
                           <button onClick={() => handlePrint(d)} title="Print"
                             className="p-1.5 rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors"><Printer className="h-3.5 w-3.5" /></button>
+                           {can("export_documents") && (
                           <button onClick={() => handleDownload(d)} title="Download"
                             className="p-1.5 rounded-md text-gray-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"><Download className="h-3.5 w-3.5" /></button>
+                           )}
                           {/* Edit button in actions column */}
+                          {can("edit_documents") && (
                           <button 
                             onClick={() => setPopup({type:"edit",doc:d})} 
                             title="Edit Template"
@@ -2139,8 +2151,12 @@ const handleExport = () => {
                           >
                             <Edit className="h-3.5 w-3.5" />
                           </button>
+                          )}
+                              {can("delete_documents") && (
+
                           <button onClick={() => handleDelete(d.id, d.document_name)} title="Delete"
                             className="p-1.5 rounded-md text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors"><Trash2 className="h-3.5 w-3.5" /></button>
+                              )}
                         </div>
                       </TableCell>
                     </TableRow>

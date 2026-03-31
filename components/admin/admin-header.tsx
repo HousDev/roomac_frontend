@@ -586,7 +586,17 @@ const totalPendingRequests = requestCounts.total + supportCount;
                     </AvatarFallback>
                   </Avatar>
                   <div className="hidden md:block text-left">
-                    <p className="text-sm font-medium leading-none">{localStorage.getItem('auth_role') === "admin" ?  adminEmail.split('@')[0]: user?.name }</p>
+                    <p className="text-sm font-medium leading-none">
+  {localStorage.getItem('auth_role') === "admin" && adminEmail
+    ? adminEmail.split('@')[0]
+    : user?.name
+      ? user.name
+          .split(" ")
+          .map((n: string) => n.charAt(0).toUpperCase() + n.slice(1))
+          .join(" ")
+      : ""
+  }
+</p>
                     <p className="text-xs text-slate-500">{localStorage.getItem('auth_role')? localStorage.getItem('auth_role'): '--'}</p>
                   </div>
                 </Button>
@@ -594,7 +604,17 @@ const totalPendingRequests = requestCounts.total + supportCount;
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuLabel>
                   <div>
-                    <p className="font-semibold">{localStorage.getItem('auth_role') === "admin" ?  adminEmail.split('@')[0]: user?.name}</p>
+                    <p className="text-sm font-medium leading-none">
+  {localStorage.getItem('auth_role') === "admin" && adminEmail
+    ? adminEmail.split('@')[0]
+    : user?.name
+      ? user.name
+          .split(" ")
+          .map((n: string) => n.charAt(0).toUpperCase() + n.slice(1))
+          .join(" ")
+      : ""
+  }
+</p>
                     <p className="text-xs text-slate-500 font-normal">{localStorage.getItem('auth_email')? localStorage.getItem('auth_email'): '--'}</p>
                   </div>
                 </DropdownMenuLabel>

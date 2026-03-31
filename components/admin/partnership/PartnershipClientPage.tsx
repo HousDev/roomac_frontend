@@ -58,6 +58,7 @@ import {
   updatePartnershipStatus
 } from "@/lib/partnershipApi";
 import PartnershipForm from './PartnershipForm';
+import { useAuth } from '@/context/authContext';
 
 interface PartnershipEnquiriesClientPageProps {
   initialEnquiries: PartnershipEnquiry[];
@@ -97,6 +98,8 @@ const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 const [enquiryToDelete, setEnquiryToDelete] = useState<PartnershipEnquiry | null>(null);
 const [isDeleting, setIsDeleting] = useState(false);
   // Update local state when props change
+    const { can } = useAuth(); // ← YAHAN ADD KARO
+
   useEffect(() => {
     setEnquiries(initialEnquiries);
   }, [initialEnquiries]);
@@ -636,6 +639,8 @@ const confirmDeleteEnquiry = async () => {
                       <TableCell>
                         <div className="flex items-center gap-1">
                           {/* View Button */}
+                              {can('view_partnership_enquiries') && (
+
                           <Button
                             size="sm"
                             variant="ghost"
@@ -645,8 +650,11 @@ const confirmDeleteEnquiry = async () => {
                           >
                             <Eye className="h-3.5 w-3.5" />
                           </Button>
+                              )}
 
                           {/* Edit Button */}
+                              {can('edit_partnership_enquiries') && (
+
                           <Button
                             size="sm"
                             variant="ghost"
@@ -656,8 +664,11 @@ const confirmDeleteEnquiry = async () => {
                           >
                             <Edit className="h-3.5 w-3.5" />
                           </Button>
+                              )}
 
                           {/* Status Dropdown (like in enquiry system) */}
+                              {can('edit_partnership_enquiries') && (
+
                           <Select
                             value={enquiry.status}
                             onValueChange={(value) => handleUpdateStatus(enquiry.id, value)}
@@ -673,9 +684,13 @@ const confirmDeleteEnquiry = async () => {
                               <SelectItem value="rejected" className="text-xs">Rejected</SelectItem>
                             </SelectContent>
                           </Select>
+                              )}
 
                           {/* Delete Button */}
+     
                          {/* Delete Button */}
+    {can('delete_partnership_enquiries') && (
+
 <Button
   size="sm"
   variant="ghost"
@@ -685,6 +700,7 @@ const confirmDeleteEnquiry = async () => {
 >
   <Trash2 className="h-3.5 w-3.5" />
 </Button>
+    )}
                         </div>
                       </TableCell>
                     </TableRow>

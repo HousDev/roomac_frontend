@@ -28,6 +28,7 @@ import {
   type Settlement, type SettlementPayload,
 } from "@/lib/settlementApi";
 import * as XLSX from 'xlsx';
+import { useAuth } from '@/context/authContext';
 
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -124,6 +125,8 @@ export function Settlements() {
   const [formData,      setFormData]      = useState<SettlementPayload>(emptyForm());
   const [stats, setStats] = useState({ total: 0, pending: 0, paid: 0, totalRefund: 0 });
 const [handoverSearchTerm, setHandoverSearchTerm] = useState('');
+  const { can } = useAuth(); // ← ADD THIS
+
   const loadAll = useCallback(async () => {
     setLoading(true);
     try {
@@ -540,18 +543,24 @@ const handleExport = () => {
               ${sidebarOpen || hasFilters ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
             <Filter className="h-3.5 w-3.5"/><span className="hidden sm:inline">Filters</span>
           </button>
+                    {can('export_settlements') && (
+
           <button onClick={handleExport}
             className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 text-[11px] font-medium">
             <Download className="h-3.5 w-3.5"/><span className="hidden sm:inline">Export</span>
           </button>
+                    )}
           <button onClick={loadAll} disabled={loading}
             className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-50">
             <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`}/>
           </button>
+          {can('create_settlements') && (
+
           <button onClick={openAdd}
             className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-[11px] font-semibold shadow-sm">
             <Plus className="h-3.5 w-3.5"/>New Settlement
           </button>
+          )}
         </div>
 
         <div className="px-0 sm:px-0 pb-3 mt-2 grid grid-cols-2 sm:grid-cols-4 gap-1.5">
@@ -671,18 +680,27 @@ const handleExport = () => {
                     </td>
                     <td className="py-2 px-2 whitespace-nowrap">
                       <div className="flex items-center gap-0.5">
+                         {can('view_settlements') && (
+
                         <button onClick={() => setViewItem(s)} title="View"
                           className="h-6 w-6 flex items-center justify-center rounded hover:bg-blue-100 text-gray-400 hover:text-blue-600 transition-colors">
                           <Eye className="h-3.5 w-3.5"/>
                         </button>
+                         )}
+                           {can('edit_settlements') && (
+
                         <button onClick={() => openEdit(s)} title="Edit"
                           className="h-6 w-6 flex items-center justify-center rounded hover:bg-amber-100 text-gray-400 hover:text-amber-600 transition-colors">
                           <Edit className="h-3.5 w-3.5"/>
                         </button>
+                           )}
+                             {can('delete_settlements') && (
+
                         <button onClick={() => handleDelete(s.id, s.tenant_name)} title="Delete"
                           className="h-6 w-6 flex items-center justify-center rounded hover:bg-red-100 text-gray-400 hover:text-red-600 transition-colors">
                           <Trash2 className="h-3.5 w-3.5"/>
                         </button>
+                             )}
                       </div>
                     </td>
                   </tr>

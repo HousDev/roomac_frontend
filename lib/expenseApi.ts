@@ -19,8 +19,7 @@ export interface Expense {
   category_name: string;
   description: string;
   amount: number;
-  paid_by_staff_id?: number | null;
-  paid_by_name: string;
+  payment_mode: string; 
   receipt_url?: string | null;
   receipt_name?: string | null;
   expense_date: string;
@@ -35,6 +34,7 @@ export interface Expense {
 export interface ExpenseFilters {
   property_id?: string;
   category_id?: string;
+  payment_mode?: string;
   status?: string;
   search?: string;
   from_date?: string;
@@ -54,15 +54,19 @@ export interface ExpenseStats {
 
 export const getExpenses = async (filters: ExpenseFilters = {}): Promise<Expense[]> => {
   const params = new URLSearchParams();
-  Object.entries(filters).forEach(([k, v]) => { if (v) params.append(k, v); });
+  Object.entries(filters).forEach(([k, v]) => {
+    if (v) params.append(k, v);
+  });
   const qs = params.toString() ? `?${params.toString()}` : "";
   const res = await request(`/api/expenses${qs}`, { method: "GET" });
   return res.success ? res.data || [] : [];
 };
 
-export const getExpenseStats = async (filters: { property_id?: string; month?: string } = {}): Promise<ExpenseStats> => {
+export const getExpenseStats = async (filters: { property_id?: string; payment_mode?: string; month?: string } = {}): Promise<ExpenseStats> => {
   const params = new URLSearchParams();
-  Object.entries(filters).forEach(([k, v]) => { if (v) params.append(k, v); });
+  Object.entries(filters).forEach(([k, v]) => {
+    if (v) params.append(k, v);
+  });
   const qs = params.toString() ? `?${params.toString()}` : "";
   const res = await request(`/api/expenses/stats${qs}`, { method: "GET" });
   return res.data || {};

@@ -13,6 +13,7 @@ import { listDocuments } from '../../lib/documentApi';
 import { listTemplates, DocumentTemplate } from '../../lib/documentTemplateApi';
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { useAuth } from '@/context/authContext';
 
 interface DashboardStats {
   totalTemplates: number;
@@ -96,6 +97,8 @@ export function DocumentCenter() {
   });
   const [templates, setTemplates] = useState<DocumentTemplate[]>([]);
   const [loading, setLoading] = useState(true);
+    const { can } = useAuth(); // ← ADD THIS
+
 
   useEffect(() => {
     fetchStats();
@@ -254,27 +257,33 @@ export function DocumentCenter() {
 
       {/* Quick Actions - lighter colors, responsive grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-6 sm:mb-8">
-        <QuickActionCard
-          icon={Layout}
-          title="Manage Templates"
-          description="Create, edit and organize document templates"
-          onClick={handleManageTemplates}
-          lightColor="bg-blue-100 text-blue-700"
-        />
-        <QuickActionCard
-          icon={Plus}
-          title="Create Document"
-          description="Generate new documents from templates"
-          onClick={handleCreateDocument}
-          lightColor="bg-purple-100 text-purple-700"
-        />
-        <QuickActionCard
-          icon={FolderOpen}
-          title="View Documents"
-          description="Browse and manage all documents"
-          onClick={handleViewDocuments}
-          lightColor="bg-green-100 text-green-700"
-        />
+        {can("manage_document_templates") && (
+          <QuickActionCard
+            icon={Layout}
+            title="Manage Templates"
+            description="Create, edit and organize document templates"
+            onClick={handleManageTemplates}
+            lightColor="bg-blue-100 text-blue-700"
+          />
+        )}
+        {can("create_documents") && (
+          <QuickActionCard
+            icon={Plus}
+            title="Create Document"
+            description="Generate new documents from templates"
+            onClick={handleCreateDocument}
+            lightColor="bg-purple-100 text-purple-700"
+          />
+        )}
+        {can("view_documents") && (
+          <QuickActionCard
+            icon={FolderOpen}
+            title="View Documents"
+            description="Browse and manage all documents"
+            onClick={handleViewDocuments}
+            lightColor="bg-green-100 text-green-700"
+          />
+        )}
       </div>
 
       {/* Document Types Section - with card design */}

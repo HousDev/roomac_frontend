@@ -52,6 +52,7 @@ import {
 import PricingPlanForm from "./PricingPlanForm";
 import PricingPlansTable from "./PricingPlansTable";
 import { PropertyApiResponse } from "../offers/OffersClientPage";
+import { useAuth } from "@/context/authContext";
 
 const getApiUrl = () => import.meta.env.VITE_API_URL || "http://localhost:3001";
 
@@ -94,6 +95,7 @@ export default function PricingPlansClientPage() {
   const [planSearch, setPlanSearch] = useState("");
   const [planFilterProp, setPlanFilterProp] = useState("all");
   const [planTypeFilter, setPlanTypeFilter] = useState<"all" | "regular" | "short_stay">("all");
+  const { can } = useAuth(); // ← ADD THIS
 
   useEffect(() => {
     loadProperties();
