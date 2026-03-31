@@ -544,6 +544,10 @@ const [loadingOffers, setLoadingOffers] = useState(false);
 const [bookedRoomIds, setBookedRoomIds] = useState<Set<number>>(new Set());
 
 const [propertyHasAvailableRooms, setPropertyHasAvailableRooms] = useState(true);
+// Add these states with your other state declarations
+const [existingTenant, setExistingTenant] = useState<any>(null);
+const [checkingExisting, setCheckingExisting] = useState(false);
+const [showExistingTenantWarning, setShowExistingTenantWarning] = useState(false);
 
   const [formData, setFormData] = useState({
     salutation: 'Mr.',
@@ -1581,6 +1585,63 @@ useEffect(() => {
   }
 }, [formData.phone, formData.email]);
 
+
+// Check if tenant already exists with email or phone
+const checkExistingTenant = useCallback(async (email: string, phone: string) => {
+  if (!email && !phone) return;
+  
+  setCheckingExisting(true);
+  try {
+    const response = await fetch(
+      `${import.meta.env.VITE_API_URL}/api/tenants/check-existence?email=${encodeURIComponent(email)}&phone=${encodeURIComponent(phone)}`
+    );
+    const result = await response.json();
+    
+    if (result.success && result.exists) {
+      setExistingTenant(result.tenant);
+      setShowExistingTenantWarning(true);
+      
+      // Check if tenant has active assignment
+      if (result.tenant.has_active_assignment) {
+        toast.warning(
+          `This ${result.matched_field} is already registered to ${result.tenant.full_name} who is currently assigned to Room ${result.tenant.assigned_room}.`,
+          { duration: 5000 }
+        );
+      } else {
+        toast.warning(
+          `This ${result.matched_field} is already registered to ${result.tenant.full_name}. You can proceed, but a new booking will be created.`,
+          { duration: 5000 }
+        );
+      }
+    } else {
+      setExistingTenant(null);
+      setShowExistingTenantWarning(false);
+    }
+  } catch (error) {
+    console.error('Error checking existing tenant:', error);
+  } finally {
+    setCheckingExisting(false);
+  }
+}, []);
+
+// Debounce check for existing tenant
+useEffect(() => {
+  if (!formData.email && !formData.phone) return;
+  
+  // Validate phone length before checking
+  if (formData.phone && formData.phone.length < 10) return;
+  
+  const timer = setTimeout(() => {
+    if (formData.email || formData.phone) {
+      checkExistingTenant(formData.email, formData.phone);
+    }
+  }, 500); // 500ms debounce
+  
+  return () => clearTimeout(timer);
+}, [formData.email, formData.phone, checkExistingTenant]);
+
+
+
 const prepareBookingData = useCallback((): any => {
   const partnerFullName = `${partnerDetails.firstName} ${partnerDetails.lastName}`.trim();
   const originalAmount = calculateTotalPayable();
@@ -1657,6 +1718,7 @@ const submitFinalBooking = async (paymentStatus: string) => {
   try {
     const formDataToSend = new FormData();
     const bookingData = prepareBookingData();
+    console.log("booking data :",bookingData)
     
     // Append all booking data to FormData
     Object.keys(bookingData).forEach(key => {
@@ -1687,6 +1749,7 @@ const submitFinalBooking = async (paymentStatus: string) => {
     if (enquiryId) {
       formDataToSend.append('enquiry_id', enquiryId.toString());
     }
+    console.log("formdata of booking" , formDataToSend)
 
     const response = await fetch(`${import.meta.env.VITE_API_URL}/api/bookings`, {
       method: 'POST',
@@ -1821,6 +1884,16 @@ const handleBookingSubmit = useCallback(async (e: React.FormEvent) => {
       alert('Please enter a valid 10-digit phone number');
       return;
     }
+    // Add this validation - Check if tenant exists with active assignment
+  if (existingTenant && existingTenant.has_active_assignment) {
+    const confirmMessage = `This ${existingTenant.matched_field} belongs to ${existingTenant.full_name} who is already assigned to Room ${existingTenant.assigned_room}, Bed ${existingTenant.assigned_bed}. 
+    
+Do you want to continue? This will create a new booking but the existing assignment must be vacated first.`;
+    
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+  }
     if (bookingType === 'long' && !formData.moveInDate) {
       alert('Please select move-in date');
       return;
@@ -1996,81 +2069,103 @@ const fetchBookedRooms = useCallback(async () => {
 // Update the loadOffers useEffect to also fetch booked rooms
 useEffect(() => {
   if (isOpen && bookingStep === 4 && propertyData?.id) {
-    const loadData = async () => {
-      setLoadingOffers(true);
-      try {
-        // Fetch both offers and booked rooms in parallel
-        const [offersResponse, bookingsResponse] = await Promise.all([
-          fetch(`${import.meta.env.VITE_API_URL}/api/offers`),
-          fetch(`${import.meta.env.VITE_API_URL}/api/bookings/property/${propertyData.id}?status=active`)
-        ]);
-        
-        const allOffers = await offersResponse.json();
-        const bookingsResult = await bookingsResponse.json();
-        
-        // Get booked room IDs
-        const bookedRoomIdsSet = new Set(
-          bookingsResult.success && bookingsResult.data
-            ? bookingsResult.data
-                .filter((booking: any) => booking.status === 'active')
-                .map((booking: any) => booking.room_id)
-            : []
-        );
-        setBookedRoomIds(bookedRoomIdsSet);
-        
-        // Filter offers
-        const activeOffers = allOffers.filter((offer: any) => {
-          const isActive = offer.is_active === true || offer.is_active === 1 || offer.is_active === 'true';
-          if (!isActive) return false;
-          
-          // Date validation
-          let isValidDate = true;
-          if (offer.start_date) {
-            const startDate = new Date(offer.start_date);
-            const today = new Date();
-            if (startDate > today) isValidDate = false;
-          }
-          if (offer.end_date && isValidDate) {
-            const endDate = new Date(offer.end_date);
-            const today = new Date();
-            if (endDate < today) isValidDate = false;
-          }
-          if (!isValidDate) return false;
-          
-          // Property filter
-          if (offer.property_id && offer.property_id !== propertyData.id) return false;
-          
-          if (offer.room_id) {
-  // This is a room-specific offer
-  if (selectedRoom) {
-    // If a room is selected, only show if it matches the selected room
-    if (offer.room_id !== selectedRoom.id) {
-      return false; // Wrong room selected
+// In your loadOffers useEffect, after fetching booked rooms, calculate property availability:
+const loadData = async () => {
+  setLoadingOffers(true);
+  try {
+    // Fetch both offers and booked rooms in parallel
+    const [offersResponse, bookingsResponse, roomsResponse] = await Promise.all([
+      fetch(`${import.meta.env.VITE_API_URL}/api/offers`),
+      fetch(`${import.meta.env.VITE_API_URL}/api/bookings/property/${propertyData.id}?status=active`),
+      fetch(`${import.meta.env.VITE_API_URL}/api/rooms/property/${propertyData.id}`) // Fetch all rooms
+    ]);
+    
+    const allOffers = await offersResponse.json();
+    const bookingsResult = await bookingsResponse.json();
+    const roomsResult = await roomsResponse.json();
+    
+    // Get booked room IDs
+    const bookedRoomIdsSet = new Set(
+      bookingsResult.success && bookingsResult.data
+        ? bookingsResult.data
+            .filter((booking: any) => booking.status === 'active')
+            .map((booking: any) => booking.room_id)
+        : []
+    );
+    setBookedRoomIds(bookedRoomIdsSet);
+    
+    // Calculate property availability
+    let allRoomsList = [];
+    if (roomsResult.success && roomsResult.data) {
+      allRoomsList = roomsResult.data;
     }
-    // Check if this specific room is already fully booked
-    if (bookedRoomIdsSet.has(offer.room_id)) {
-      return false; // Room is fully booked, don't show offer
-    }
-  } else {
-    // No room selected yet, but we still need to check if this room is available
-    if (bookedRoomIdsSet.has(offer.room_id)) {
-      return false; // Room is fully booked, don't show offer
-    }
-    // Room is available, show the offer even without room selected
-  }
-}
-          
-          return true;
-        });
-        
-        activeOffers.sort((a: any, b: any) => (a.display_order || 0) - (b.display_order || 0));
-        setAvailableOffers(activeOffers);
-      } catch (error) {
-        console.error('Error fetching data:', error);
-      } finally {
-        setLoadingOffers(false);
+    
+    // Check if property has any available rooms (rooms with at least one available bed)
+    let hasAvailableRooms = false;
+    for (const room of allRoomsList) {
+      // Get available beds count
+      const bedAssignments = room.bed_assignments || [];
+      const hasAvailableBed = bedAssignments.some((bed: any) => bed.is_available === 1);
+      if (hasAvailableBed) {
+        hasAvailableRooms = true;
+        break;
       }
-    };
+    }
+    setPropertyHasAvailableRooms(hasAvailableRooms);
+    
+    // Filter offers
+    const activeOffers = allOffers.filter((offer: any) => {
+      const isActive = offer.is_active === true || offer.is_active === 1 || offer.is_active === 'true';
+      if (!isActive) return false;
+      
+      // Date validation
+      let isValidDate = true;
+      if (offer.start_date) {
+        const startDate = new Date(offer.start_date);
+        const today = new Date();
+        if (startDate > today) isValidDate = false;
+      }
+      if (offer.end_date && isValidDate) {
+        const endDate = new Date(offer.end_date);
+        const today = new Date();
+        if (endDate < today) isValidDate = false;
+      }
+      if (!isValidDate) return false;
+      
+      // Property filter
+      if (offer.property_id && offer.property_id !== propertyData.id) return false;
+      
+      // Room-specific offer filter - FIXED
+      if (offer.room_id) {
+        // This is a room-specific offer
+        if (selectedRoom) {
+          // If a room is selected, only show if it matches
+          if (offer.room_id !== selectedRoom.id) return false;
+          // Check if this specific room is already fully booked
+          if (bookedRoomIdsSet.has(offer.room_id)) return false;
+        } else {
+          // No room selected yet, check if this room is available
+          if (bookedRoomIdsSet.has(offer.room_id)) return false;
+        }
+      }
+      
+      // Property-wide offers: if no rooms available in the property, mark as "full"
+      if (!offer.room_id && !hasAvailableRooms && offer.property_id === propertyData.id) {
+        // This property has no available rooms, so property-wide offers should be unavailable
+        return false;
+      }
+      
+      return true;
+    });
+    
+    activeOffers.sort((a: any, b: any) => (a.display_order || 0) - (b.display_order || 0));
+    setAvailableOffers(activeOffers);
+  } catch (error) {
+    console.error('Error fetching data:', error);
+  } finally {
+    setLoadingOffers(false);
+  }
+};
     loadData();
   }
 }, [isOpen, bookingStep, propertyData?.id, selectedRoom]);
@@ -2287,18 +2382,26 @@ useEffect(() => {
                           <span className="inline-flex items-center px-2 py-2 text-[11px] sm:text-xs border-2 border-r-0 border-gray-300 rounded-l-lg bg-gray-50 text-gray-600 font-semibold">
                             +91
                           </span>
-                          <input
-                            type="tel"
-                            required
-                            maxLength={10}
-                            value={formData.phone}
-                            onChange={(e) => {
-                              const value = e.target.value.replace(/\D/g, '');
-                              handleInputChange('phone', value);
-                            }}
-                            className={`flex-1 px-2 sm:px-3 py-2 text-[11px] sm:text-xs border-2 ${phoneError ? 'border-red-500' : 'border-gray-300'} rounded-r-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none`}
-                            placeholder="98765 43210"
-                          />
+                          {/* In the phone input field */}
+<input
+  type="tel"
+  required
+  maxLength={10}
+  value={formData.phone}
+  onChange={(e) => {
+    const value = e.target.value.replace(/\D/g, '');
+    handleInputChange('phone', value);
+  }}
+  className={`flex-1 px-2 sm:px-3 py-2 text-[11px] sm:text-xs border-2 ${
+    phoneError ? 'border-red-500' : 
+    existingTenant && existingTenant.matched_field === 'phone'
+      ? existingTenant.has_active_assignment 
+        ? 'border-red-500 bg-red-50' 
+        : 'border-yellow-500 bg-yellow-50'
+      : 'border-gray-300'
+  } rounded-r-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none`}
+  placeholder="98765 43210"
+/>
                         </div>
                         {phoneError && (
                           <p className="text-[9px] sm:text-[10px] text-red-600 mt-0.5 flex items-center gap-0.5">
@@ -2313,15 +2416,22 @@ useEffect(() => {
                           Email <span className="text-red-500">*</span>
                         </label>
                         <input
-                          type="email"
-                          required
-                          value={formData.email}
-                          onChange={(e) => handleInputChange('email', e.target.value)}
-                          className="w-full px-2 sm:px-3 py-2 text-[11px] sm:text-xs border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none"
-                          placeholder="your@email.com"
-                        />
+  type="email"
+  required
+  value={formData.email}
+  onChange={(e) => handleInputChange('email', e.target.value)}
+  className={`w-full px-2 sm:px-3 py-2 text-[11px] sm:text-xs border-2 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none ${
+    existingTenant && existingTenant.matched_field === 'email'
+      ? existingTenant.has_active_assignment 
+        ? 'border-red-500 bg-red-50' 
+        : 'border-yellow-500 bg-yellow-50'
+      : 'border-gray-300'
+  }`}
+  placeholder="your@email.com"
+/>
                       </div>
                     </div>
+
 
                     {/* Gender Selection */}
                     <div>
@@ -3451,42 +3561,44 @@ onChange={(e) => {
               <p className="text-[9px] text-gray-400 mt-0.5">Check back later for deals</p>
             </div>
           ) : (
-            availableOffers.map((offer) => {
-              const isApplied = appliedOffer?.id === offer.id;
-               const isRoomBooked = offer.room_id && bookedRoomIds.has(offer.room_id);
-              const discountDisplay = offer.discount_type === 'percentage' 
-                ? `${offer.discount_percent}% OFF`
-                : `₹${offer.discount_value?.toLocaleString()} OFF`;
-              
-              return (
-                <div 
-                  key={offer.id} 
+// In the offers list rendering, add this check:
+availableOffers.map((offer) => {
+  const isApplied = appliedOffer?.id === offer.id;
+  const isRoomBooked = offer.room_id && bookedRoomIds.has(offer.room_id);
+  const isPropertyFull = !offer.room_id && !propertyHasAvailableRooms && offer.property_id === propertyData?.id;
+  const discountDisplay = offer.discount_type === 'percentage' 
+    ? `${offer.discount_percent}% OFF`
+    : `₹${offer.discount_value?.toLocaleString()} OFF`;
+  
+  return (
+    <div 
+      key={offer.id} 
       className={`p-3 transition-all ${
         isApplied ? 'bg-green-50 border-l-2 border-l-green-500' : 
-        isRoomBooked ? 'bg-gray-50 opacity-60' : 'hover:bg-gray-50'
+        (isRoomBooked || isPropertyFull) ? 'bg-gray-50 opacity-60' : 'hover:bg-gray-50'
       }`}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <h4 className="text-xs font-bold text-gray-900 truncate">
-                          {offer.title}
-                        </h4>
-                        <Badge className="bg-yellow-100 text-yellow-700 text-[8px] font-semibold">
-                          {discountDisplay}
-                        </Badge>
-                        {offer.min_months && offer.min_months > 0 && (
-                          <Badge variant="outline" className="text-[7px]">
-                            Min {offer.min_months}M
-                          </Badge>
-                        )}
-                      </div>
-                      
-                      <p className="text-[9px] text-gray-500 mt-0.5 line-clamp-2">
-                        {offer.description || `Get ${discountDisplay} on your booking`}
-                      </p>
+    >
+      <div className="flex items-start justify-between">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <h4 className="text-xs font-bold text-gray-900 truncate">
+              {offer.title}
+            </h4>
+            <Badge className="bg-yellow-100 text-yellow-700 text-[8px] font-semibold">
+              {discountDisplay}
+            </Badge>
+            {offer.min_months && offer.min_months > 0 && (
+              <Badge variant="outline" className="text-[7px]">
+                Min {offer.min_months}M
+              </Badge>
+            )}
+          </div>
+          
+          <p className="text-[9px] text-gray-500 mt-0.5 line-clamp-2">
+            {offer.description || `Get ${discountDisplay} on your booking`}
+          </p>
 
-                       {/* Show "Fully Booked" badge if room is taken */}
+          {/* Show "Room Fully Booked" badge if room is taken */}
           {isRoomBooked && (
             <div className="mt-1">
               <Badge className="bg-red-100 text-red-600 text-[7px]">
@@ -3495,97 +3607,106 @@ onChange={(e) => {
               </Badge>
             </div>
           )}
-                      
-                      {/* Validity */}
-                      {offer.end_date && (
-                        <div className="flex items-center gap-0.5 mt-1">
-                          <Clock className="w-2 h-2 text-gray-400" />
-                          <span className="text-[8px] text-gray-400">
-                            Valid till {new Date(offer.end_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                          </span>
-                        </div>
-                      )}
-                      
-                      {/* Room Specific Badge */}
-                      {offer.room_id && (
-                        <div className="mt-1">
-                          <Badge className="bg-blue-100 text-blue-600 text-[7px]">
-                            <Building className="w-2 h-2 mr-0.5" />
-                            Room specific offer
-                          </Badge>
-                        </div>
-                      )}
-                      
-                      {/* Bonus Section */}
-                      {offer.bonus_title && (
-                        <div className="mt-1.5 pt-1 border-t border-dashed border-gray-200">
-                          <div className="flex items-center gap-0.5">
-                            <Gift className="w-2.5 h-2.5 text-orange-500" />
-                            <span className="text-[8px] font-semibold text-orange-600">
-                              Bonus: {offer.bonus_title}
-                            </span>
-                          </div>
-                        </div>
-                      )}
-
-
-
-                    </div>
-                    
-                    {/* Action Button */}
-                    {isApplied ? (
-                      <button
-                        onClick={() => {
-                          setAppliedOffer(null);
-                          setOfferCode('');
-                          setDiscountedAmount(0);
-                          setOfferError('');
-                          setOfferSuccess('');
-                          toast.info('Offer removed');
-                        }}
-                        className="ml-2 px-2 py-0.5 bg-red-50 text-red-600 rounded text-[9px] font-medium hover:bg-red-100 transition-colors whitespace-nowrap"
-                      >
-                        Remove
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => {
-
-                          if (isRoomBooked) {
+          
+          {/* Show "Property Fully Booked" badge if all rooms are taken */}
+          {isPropertyFull && (
+            <div className="mt-1">
+              <Badge className="bg-orange-100 text-orange-600 text-[7px]">
+                <XCircle className="w-2 h-2 mr-0.5" />
+                Property Fully Booked
+              </Badge>
+            </div>
+          )}
+          
+          {/* Validity */}
+          {offer.end_date && (
+            <div className="flex items-center gap-0.5 mt-1">
+              <Clock className="w-2 h-2 text-gray-400" />
+              <span className="text-[8px] text-gray-400">
+                Valid till {new Date(offer.end_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+              </span>
+            </div>
+          )}
+          
+          {/* Room Specific Badge */}
+          {offer.room_id && (
+            <div className="mt-1">
+              <Badge className="bg-blue-100 text-blue-600 text-[7px]">
+                <Building className="w-2 h-2 mr-0.5" />
+                Room specific offer
+              </Badge>
+            </div>
+          )}
+          
+          {/* Bonus Section */}
+          {offer.bonus_title && (
+            <div className="mt-1.5 pt-1 border-t border-dashed border-gray-200">
+              <div className="flex items-center gap-0.5">
+                <Gift className="w-2.5 h-2.5 text-orange-500" />
+                <span className="text-[8px] font-semibold text-orange-600">
+                  Bonus: {offer.bonus_title}
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+        
+        {/* Action Button - Disabled if room/property is full */}
+        {isApplied ? (
+          <button
+            onClick={() => {
+              setAppliedOffer(null);
+              setOfferCode('');
+              setDiscountedAmount(0);
+              setOfferError('');
+              setOfferSuccess('');
+              toast.info('Offer removed');
+            }}
+            className="ml-2 px-2 py-0.5 bg-red-50 text-red-600 rounded text-[9px] font-medium hover:bg-red-100 transition-colors whitespace-nowrap"
+          >
+            Remove
+          </button>
+        ) : (
+          <button
+            onClick={() => {
+              if (isRoomBooked) {
                 toast.error('This offer is no longer available as the room is already booked');
                 return;
               }
-                          // Apply the offer
-                          setAppliedOffer(offer);
-                          setOfferCode(offer.code);
-                          
-                          // Calculate discount
-                          const baseAmount = calculateTotalPayable();
-                          let discountAmount = 0;
-                          if (offer.discount_type === 'percentage' && offer.discount_percent) {
-                            discountAmount = baseAmount * (offer.discount_percent / 100);
-                          } else if (offer.discount_type === 'fixed' && offer.discount_value) {
-                            discountAmount = offer.discount_value;
-                          }
-                          setDiscountedAmount(Math.min(discountAmount, baseAmount));
-                          setOfferSuccess(`Offer applied! You save ₹${discountAmount.toLocaleString()}`);
-                          setOfferError('');
-                          toast.success(`Offer "${offer.title}" applied!`);
-                        }}
-                        // disabled={isRoomBooked}
+              if (isPropertyFull) {
+                toast.error('This property is fully booked, no rooms available');
+                return;
+              }
+              // Apply the offer logic...
+              setAppliedOffer(offer);
+              setOfferCode(offer.code);
+              
+              const baseAmount = calculateTotalPayable();
+              let discountAmount = 0;
+              if (offer.discount_type === 'percentage' && offer.discount_percent) {
+                discountAmount = baseAmount * (offer.discount_percent / 100);
+              } else if (offer.discount_type === 'fixed' && offer.discount_value) {
+                discountAmount = offer.discount_value;
+              }
+              setDiscountedAmount(Math.min(discountAmount, baseAmount));
+              setOfferSuccess(`Offer applied! You save ₹${discountAmount.toLocaleString()}`);
+              setOfferError('');
+              toast.success(`Offer "${offer.title}" applied!`);
+            }}
+            disabled={isRoomBooked || isPropertyFull}
             className={`ml-2 px-2 py-0.5 rounded text-[9px] font-medium transition-colors whitespace-nowrap ${
-              isRoomBooked 
+              (isRoomBooked || isPropertyFull) 
                 ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
                 : 'bg-blue-600 text-white hover:bg-blue-700'
             }`}
           >
-            {isRoomBooked ? 'Unavailable' : 'Apply'}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })
+            {(isRoomBooked || isPropertyFull) ? 'Unavailable' : 'Apply'}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+})
           )}
         </div>
         
