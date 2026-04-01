@@ -89,6 +89,7 @@ import { listProperties } from "@/lib/propertyApi";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useAuth } from "@/context/authContext";
 
 type PropertyOption = {
   value: number;
@@ -115,6 +116,7 @@ const [bulkActionLoading, setBulkActionLoading] = useState(false);
   const [approveDialogOpen, setApproveDialogOpen] = useState(false);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [reviewNotes, setReviewNotes] = useState("");
+const { can } = useAuth();
 
   // Column search filters
   const [searchFilters, setSearchFilters] = useState({
@@ -623,6 +625,8 @@ const handleBulkDelete = async () => {
                     <TableRow className="hover:bg-transparent">
                       {/* Checkbox Column */}
 <TableHead className="w-[50px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
+   {can('delete_requests') && (
+
   <div className="py-2 flex justify-center">
     <Checkbox 
       checked={selectedRequests.size === sortedRequests.length && sortedRequests.length > 0}
@@ -630,6 +634,7 @@ const handleBulkDelete = async () => {
       aria-label="Select all"
     />
   </div>
+   )}
 </TableHead>
                       {/* Tenant Column */}
                       <TableHead className="w-[200px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
@@ -740,6 +745,8 @@ const handleBulkDelete = async () => {
                       >
                         {/* Checkbox Cell */}
 <TableCell className="w-[50px]">
+    {can('delete_requests') && (
+
   <div className="flex justify-center">
     <Checkbox 
       checked={selectedRequests.has(request.request_id)}
@@ -747,6 +754,7 @@ const handleBulkDelete = async () => {
       aria-label={`Select request ${request.request_id}`}
     />
   </div>
+    )}
 </TableCell>
                         <TableCell className="truncate">
                           <div className="space-y-1">
@@ -833,6 +841,8 @@ const handleBulkDelete = async () => {
                               <DropdownMenuContent align="end" className="w-48">
                                 <DropdownMenuLabel className="text-xs text-blue-600">Actions</DropdownMenuLabel>
                                 <DropdownMenuSeparator />
+                                {can('manage_account_deletion') && (
+
                                 <DropdownMenuItem
                                   onClick={() => {
                                     setSelectedRequest(request);
@@ -843,6 +853,9 @@ const handleBulkDelete = async () => {
                                   <CheckCircle className="h-3.5 w-3.5 mr-2" />
                                   Approve
                                 </DropdownMenuItem>
+                                )}
+                                {can('manage_account_deletion') && (
+
                                 <DropdownMenuItem
                                   onClick={() => {
                                     setSelectedRequest(request);
@@ -853,6 +866,7 @@ const handleBulkDelete = async () => {
                                   <XCircle className="h-3.5 w-3.5 mr-2" />
                                   Reject
                                 </DropdownMenuItem>
+                                )}
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </div>

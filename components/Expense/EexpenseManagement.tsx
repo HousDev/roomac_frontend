@@ -728,7 +728,7 @@ export default function ExpensesManagement() {
       style={{
         fontFamily: "'DM Sans','Segoe UI',sans-serif",
         background: "#F4F6FB",
-        minHeight: "100vh",
+        
       }}
     >
       <link
@@ -737,7 +737,7 @@ export default function ExpensesManagement() {
       />
 
       {/* ── STICKY HEADER + COMPACT STATS ────────────────────────────────── */}
-      <div style={{ position: "sticky", top: 0, zIndex: 100, background: "#F4F6FB" }}>
+      <div style={{ position: "sticky", top:16, zIndex: 10, background: "#F4F6FB" }}>
         {/* Top row */}
         <div
           style={{
@@ -788,7 +788,7 @@ export default function ExpensesManagement() {
         <div
           className="exp-stat-grid"
           style={{
-            padding: "10px 14px 0",
+            padding: "4px 3px 0",
             display: "grid",
             gridTemplateColumns: "repeat(4,1fr)",
             gap: 8,
@@ -910,7 +910,7 @@ export default function ExpensesManagement() {
         </div>
       </div>
 
-      <div style={{ padding: "12px 14px" }}>
+      <div style={{ padding: "4px 0px" }}>
         {/* ── TABLE CARD ──────────────────────────────────────────────────── */}
         <div
           style={{
@@ -921,9 +921,8 @@ export default function ExpensesManagement() {
             boxShadow: "0 2px 12px rgba(0,0,0,0.04)",
           }}
         >
-          {/* Filters bar */}
+           {/* Filters bar */}
           <div
-            className="exp-filter-wrap"
             style={{
               padding: "12px 14px",
               borderBottom: "1px solid #F0F3FA",
@@ -933,14 +932,16 @@ export default function ExpensesManagement() {
               alignItems: "center",
             }}
           >
-            {/* Search */}
-            <div style={{ position: "relative", flex: "1 1 180px", minWidth: 160 }}>
+            <div
+              style={{ position: "relative", flex: "1 1 200px", minWidth: 0 }}
+            >
               <svg
                 style={{
                   position: "absolute",
                   left: 10,
                   top: "50%",
                   transform: "translateY(-50%)",
+                  pointerEvents: "none",
                 }}
                 width="13"
                 height="13"
@@ -964,45 +965,11 @@ export default function ExpensesManagement() {
                   fontSize: 12,
                   background: "#F8FAFF",
                   outline: "none",
-                  boxSizing: "border-box",
                   color: "#374151",
                 }}
               />
             </div>
 
-            {/* Mobile: toggle more filters */}
-            <button
-              onClick={() => setMobileFiltersOpen((o) => !o)}
-              style={{
-                display: "none",
-                padding: "8px 12px",
-                border: "1px solid #E8ECF4",
-                borderRadius: 9,
-                fontSize: 12,
-                background: "#F8FAFF",
-                cursor: "pointer",
-                alignItems: "center",
-                gap: 6,
-                color: "#374151",
-              }}
-              className="mobile-filter-btn"
-            >
-              <svg
-                width="13"
-                height="13"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                viewBox="0 0 24 24"
-              >
-                <line x1="4" y1="6" x2="20" y2="6" />
-                <line x1="8" y1="12" x2="16" y2="12" />
-                <line x1="11" y1="18" x2="13" y2="18" />
-              </svg>
-              Filters
-            </button>
-
-            {/* Filter selects */}
             <div
               style={{
                 display: "flex",
@@ -1010,7 +977,6 @@ export default function ExpensesManagement() {
                 flexWrap: "wrap",
                 flex: "1 1 auto",
               }}
-              className="filter-selects"
             >
               <select
                 value={filterProp}
@@ -1056,30 +1022,6 @@ export default function ExpensesManagement() {
                 {uniqueCats.map((c) => (
                   <option key={c} value={c}>
                     {c}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                value={filterPaymentMode}
-                onChange={(e) => setFilterPaymentMode(e.target.value)}
-                style={{
-                  padding: "9px 12px",
-                  border: "1px solid #E8ECF4",
-                  borderRadius: 9,
-                  fontSize: 12,
-                  background: "#F8FAFF",
-                  color: "#374151",
-                  outline: "none",
-                  cursor: "pointer",
-                  flex: "1 1 120px",
-                  minWidth: 110,
-                }}
-              >
-                <option value="All">All Payment Modes</option>
-                {paymentModes.map((mode) => (
-                  <option key={mode} value={mode}>
-                    {mode}
                   </option>
                 ))}
               </select>
@@ -1139,17 +1081,17 @@ export default function ExpensesManagement() {
                 style={{
                   width: "100%",
                   borderCollapse: "collapse",
-                  minWidth: 1000,
+                  minWidth: 900,
                 }}
               >
                 <thead>
                   <tr style={{ background: "#F8FAFF" }}>
                     {[
                       "Property",
-                      "Category",
+                      "Expenses Category",
                       "Description",
                       "Amount",
-                      "Paid Through",
+                      "Paid By",
                       "Receipt",
                       "Date",
                       "Status",
@@ -1194,9 +1136,6 @@ export default function ExpensesManagement() {
                   ) : (
                     filtered.map((exp) => {
                       const cc = getCatColor(exp.category_name);
-                      const validItems = (exp.items || []).filter(
-                        (i: any) => i.name || i.item_name
-                      );
                       return (
                         <tr
                           key={exp.id}
@@ -1221,7 +1160,13 @@ export default function ExpensesManagement() {
                               whiteSpace: "nowrap",
                             }}
                           >
-                            <span style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                            <span
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 7,
+                              }}
+                            >
                               <span
                                 style={{
                                   width: 7,
@@ -1278,21 +1223,6 @@ export default function ExpensesManagement() {
                               }}
                             >
                               {exp.description}
-                              {validItems.length > 0 && (
-                                <span
-                                  style={{
-                                    marginLeft: 7,
-                                    background: "#EEF1FB",
-                                    color: "#3B5BDB",
-                                    fontSize: 9,
-                                    padding: "2px 7px",
-                                    borderRadius: 12,
-                                    fontWeight: 700,
-                                  }}
-                                >
-                                  {validItems.length} items
-                                </span>
-                              )}
                             </div>
                           </td>
                           {/* Amount */}
@@ -1307,22 +1237,16 @@ export default function ExpensesManagement() {
                           >
                             {fmt(exp.amount)}
                           </td>
-                          {/* Paid Through */}
-                          <td style={{ padding: "11px 14px" }}>
-                            <span
-                              style={{
-                                background: "#F8FAFF",
-                                color: "#374151",
-                                padding: "3px 10px",
-                                borderRadius: 20,
-                                fontSize: 11,
-                                fontWeight: 500,
-                                display: "inline-block",
-                                whiteSpace: "nowrap",
-                              }}
-                            >
-                              {exp.payment_mode || "Cash"}
-                            </span>
+                          {/* Paid By */}
+                          <td
+                            style={{
+                              padding: "11px 14px",
+                              fontSize: 12,
+                              color: "#374151",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {exp.paid_by_name}
                           </td>
                           {/* Receipt */}
                           <td style={{ padding: "11px 14px" }}>
@@ -1333,7 +1257,9 @@ export default function ExpensesManagement() {
                                 onClick={() => setViewItem(exp)}
                               />
                             ) : (
-                              <span style={{ color: "#CBD5E1", fontSize: 12 }}>—</span>
+                              <span style={{ color: "#CBD5E1", fontSize: 12 }}>
+                                —
+                              </span>
                             )}
                           </td>
                           {/* Date */}
@@ -1351,8 +1277,14 @@ export default function ExpensesManagement() {
                           <td style={{ padding: "11px 14px" }}>
                             <span
                               style={{
-                                background: exp.status === "Paid" ? "#E8F5F0" : "#FFF3E0",
-                                color: exp.status === "Paid" ? "#1B7A4E" : "#B45309",
+                                background:
+                                  exp.status === "Paid"
+                                    ? "#E8F5F0"
+                                    : "#FFF3E0",
+                                color:
+                                  exp.status === "Paid"
+                                    ? "#1B7A4E"
+                                    : "#B45309",
                                 padding: "3px 10px",
                                 borderRadius: 20,
                                 fontSize: 11,
@@ -1416,65 +1348,69 @@ export default function ExpensesManagement() {
                                   <circle cx="12" cy="12" r="3" />
                                 </svg>
                               </button>
-                              {can("edit_expenses") && (
-                                <button
-                                  onClick={() => openEdit(exp)}
-                                  title="Edit"
-                                  style={{
-                                    width: 30,
-                                    height: 30,
-                                    borderRadius: 7,
-                                    border: "1px solid #E8ECF4",
-                                    background: "#F8FAFF",
-                                    cursor: "pointer",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                  }}
+                                  {can('edit_expenses') && (
+
+                              <button
+                                onClick={() => openEdit(exp)}
+                                title="Edit"
+                                style={{
+                                  width: 30,
+                                  height: 30,
+                                  borderRadius: 7,
+                                  border: "1px solid #E8ECF4",
+                                  background: "#F8FAFF",
+                                  cursor: "pointer",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                }}
+                              >
+                                <svg
+                                  width="13"
+                                  height="13"
+                                  fill="none"
+                                  stroke="#1A2B6D"
+                                  strokeWidth="2"
+                                  viewBox="0 0 24 24"
                                 >
-                                  <svg
-                                    width="13"
-                                    height="13"
-                                    fill="none"
-                                    stroke="#1A2B6D"
-                                    strokeWidth="2"
-                                    viewBox="0 0 24 24"
-                                  >
-                                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                                  </svg>
-                                </button>
-                              )}
-                              {can("delete_expenses") && (
-                                <button
-                                  onClick={() => handleDelete(exp.id, exp.description)}
-                                  title="Delete"
-                                  style={{
-                                    width: 30,
-                                    height: 30,
-                                    borderRadius: 7,
-                                    border: "1px solid #FFE4E4",
-                                    background: "#FFF5F5",
-                                    cursor: "pointer",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                  }}
+                                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                                </svg>
+                              </button>
+                                  )}
+                                      {can('delete_expenses') && (
+
+                              <button
+                                onClick={() =>
+                                  handleDelete(exp.id, exp.description)
+                                }
+                                title="Delete"
+                                style={{
+                                  width: 30,
+                                  height: 30,
+                                  borderRadius: 7,
+                                  border: "1px solid #FFE4E4",
+                                  background: "#FFF5F5",
+                                  cursor: "pointer",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                }}
+                              >
+                                <svg
+                                  width="13"
+                                  height="13"
+                                  fill="none"
+                                  stroke="#E53E3E"
+                                  strokeWidth="2"
+                                  viewBox="0 0 24 24"
                                 >
-                                  <svg
-                                    width="13"
-                                    height="13"
-                                    fill="none"
-                                    stroke="#E53E3E"
-                                    strokeWidth="2"
-                                    viewBox="0 0 24 24"
-                                  >
-                                    <polyline points="3 6 5 6 21 6" />
-                                    <path d="M19 6l-1 14H6L5 6" />
-                                    <path d="M10 11v6M14 11v6M9 6V4h6v2" />
-                                  </svg>
-                                </button>
-                              )}
+                                  <polyline points="3 6 5 6 21 6" />
+                                  <path d="M19 6l-1 14H6L5 6" />
+                                  <path d="M10 11v6M14 11v6M9 6V4h6v2" />
+                                </svg>
+                              </button>
+                                      )}
                             </div>
                           </td>
                         </tr>
@@ -1485,6 +1421,7 @@ export default function ExpensesManagement() {
               </table>
             )}
           </div>
+
 
           {/* Table footer */}
           <div

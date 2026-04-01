@@ -1815,170 +1815,168 @@ const handlePrint = () => {
               </>
             )}
 
-            {/* ── STEP 2: Item Checklist — with purchased items dropdown ── */}
-         {currentStep === 2 && (
+        {/* ── STEP 2: Item Checklist — with purchased items dropdown ── */}
+{currentStep === 2 && (
   <div>
     <SH icon={<FileText className="h-3 w-3" />} title="Item Checklist" />
     <div className="space-y-2">
       {/* Table Header */}
       <div className="
-  grid grid-cols-12 gap-2 
-  px-2 sm:px-3 py-2 
-  bg-gray-100 rounded-lg 
-  text-[9px] sm:text-[11px] 
-  font-bold text-gray-600 uppercase tracking-wider
-">
-  <div className="col-span-3 break-words leading-tight">ITEM NAME *</div>
-  
-  <div className="col-span-3 break-words leading-tight">CATEGORY</div>
-  
-  <div className="col-span-2 break-words leading-tight">CONDITION</div>
-  
-  <div className="col-span-1 text-center break-words">QTY</div>
-  
-  <div className="col-span-2 break-words leading-tight">ASSET ID</div>
-  
-  <div className="col-span-1 text-center"></div>
-</div>
+        grid grid-cols-12 gap-2 
+        px-2 sm:px-3 py-2 
+        bg-gray-100 rounded-lg 
+        text-[9px] sm:text-[11px] 
+        font-bold text-gray-600 uppercase tracking-wider
+      ">
+        <div className="col-span-3 break-words leading-tight">ITEM NAME *</div>
+        <div className="col-span-3 break-words leading-tight">CATEGORY</div>
+        <div className="col-span-2 break-words leading-tight">CONDITION</div>
+        <div className="col-span-1 text-center break-words">QTY</div>
+        <div className="col-span-2 break-words leading-tight">ASSET ID</div>
+        <div className="col-span-1 text-center"></div>
+      </div>
 
-      {/* Items List */}
-      {handoverItems.map((item, idx) => (
-        <div key={idx} className="border border-gray-200 rounded-lg bg-white">
-          {/* Main Row */}
-          <div className="grid grid-cols-12 gap-2 items-center p-2">
-            {/* Item Name */}
-            <div className="col-span-3">
-              {purchasedItems.length > 0 ? (
-                <Select
-                  value={item.item_name}
-                  onValueChange={v => {
-                    updateHandoverItemField(idx, 'item_name', v);
-                    setPurchasedItemSearchTerm('');
-                  }}
-                >
-                  <SelectTrigger className="h-6 text-xs border-gray-200 bg-gray-50 w-full">
-                    <SelectValue placeholder="Item name" />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-[300px]">
-                    <div className="sticky top-0 bg-white p-2 border-b z-10">
-                      <div className="relative">
-                        <svg className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
-                        <Input
-                          placeholder="Search items..."
-                          className="pl-7 h-7 text-xs"
-                          value={purchasedItemSearchTerm}
-                          onChange={(e) => setPurchasedItemSearchTerm(e.target.value)}
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                      </div>
-                    </div>
-                    <div className="py-1">
-                      {purchasedItems
-                        .filter(pi => pi.label.toLowerCase().includes(purchasedItemSearchTerm.toLowerCase()))
-                        .map((pi, i) => (
-                          <SelectItem key={i} value={pi.value} className="text-xs">{pi.label}</SelectItem>
-                        ))}
-                      {purchasedItems.filter(pi => 
-                        pi.label.toLowerCase().includes(purchasedItemSearchTerm.toLowerCase())
-                      ).length === 0 && (
-                        <div className="px-2 py-3 text-center">
-                          <p className="text-xs text-gray-400">No items found</p>
+      {/* Single Card Container for ALL items */}
+      <div className="border border-gray-200 rounded-lg bg-white overflow-hidden">
+        {/* Items List - without any separators */}
+        {handoverItems.map((item, idx) => (
+          <div key={idx}>
+            {/* Main Row */}
+            <div className="grid grid-cols-12 gap-2 items-center p-2">
+              {/* Item Name */}
+              <div className="col-span-3">
+                {purchasedItems.length > 0 ? (
+                  <Select
+                    value={item.item_name}
+                    onValueChange={v => {
+                      updateHandoverItemField(idx, 'item_name', v);
+                      setPurchasedItemSearchTerm('');
+                    }}
+                  >
+                    <SelectTrigger className="h-6 text-xs border-gray-200 bg-gray-50 w-full">
+                      <SelectValue placeholder="Item name" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[300px]">
+                      <div className="sticky top-0 bg-white p-2 border-b z-10">
+                        <div className="relative">
+                          <svg className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                          </svg>
+                          <Input
+                            placeholder="Search items..."
+                            className="pl-7 h-7 text-xs"
+                            value={purchasedItemSearchTerm}
+                            onChange={(e) => setPurchasedItemSearchTerm(e.target.value)}
+                            onClick={(e) => e.stopPropagation()}
+                          />
                         </div>
-                      )}
-                    </div>
+                      </div>
+                      <div className="py-1">
+                        {purchasedItems
+                          .filter(pi => pi.label.toLowerCase().includes(purchasedItemSearchTerm.toLowerCase()))
+                          .map((pi, i) => (
+                            <SelectItem key={i} value={pi.value} className="text-xs">{pi.label}</SelectItem>
+                          ))}
+                        {purchasedItems.filter(pi => 
+                          pi.label.toLowerCase().includes(purchasedItemSearchTerm.toLowerCase())
+                        ).length === 0 && (
+                          <div className="px-2 py-3 text-center">
+                            <p className="text-xs text-gray-400">No items found</p>
+                          </div>
+                        )}
+                      </div>
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input 
+                    className="h-6 text-xs border-gray-200 bg-gray-50 w-full" 
+                    placeholder="Item name"
+                    value={item.item_name}
+                    onChange={e => updateHandoverItemField(idx, 'item_name', e.target.value)} 
+                  />
+                )}
+              </div>
+
+              {/* Category */}
+              <div className="col-span-3">
+                <Select value={item.category} onValueChange={v => updateHandoverItemField(idx, 'category', v)}>
+                  <SelectTrigger className="h-6 text-xs border-gray-200 bg-gray-50 w-full">
+                    <SelectValue placeholder="Category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.length > 0 ? (
+                      categories.map(c => (
+                        <SelectItem key={c.id} value={c.name} className="text-xs">{c.name}</SelectItem>
+                      ))
+                    ) : (
+                      ['Furniture', 'Electronics', 'Mattress', 'Bedding', 'Utensils', 'Appliances', 'Other'].map(c => (
+                        <SelectItem key={c} value={c} className="text-xs">{c}</SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
-              ) : (
+              </div>
+
+              {/* Condition */}
+              <div className="col-span-2">
+                <Select 
+                  value={item.condition_at_movein} 
+                  onValueChange={v => updateHandoverItemField(idx, 'condition_at_movein', v)}
+                >
+                  <SelectTrigger className="h-6 text-xs border-gray-200 bg-gray-50 w-full">
+                    <SelectValue placeholder="Condition" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CONDITIONS.map(c => <SelectItem key={c} value={c} className="text-xs">{c}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Quantity */}
+              <div className="col-span-1">
+                <Input 
+                  type="number" 
+                  min={1} 
+                  className="h-6 text-xs text-center border-gray-200 bg-gray-50 w-full"
+                  value={item.quantity}
+                  onChange={e => updateHandoverItemField(idx, 'quantity', parseInt(e.target.value) || 1)} 
+                />
+              </div>
+
+              {/* Asset ID */}
+              <div className="col-span-2">
                 <Input 
                   className="h-6 text-xs border-gray-200 bg-gray-50 w-full" 
-                  placeholder="Item name"
-                  value={item.item_name}
-                  onChange={e => updateHandoverItemField(idx, 'item_name', e.target.value)} 
+                  placeholder="Asset ID"
+                  value={item.asset_id || ''}
+                  onChange={e => updateHandoverItemField(idx, 'asset_id', e.target.value)} 
                 />
-              )}
+              </div>
+
+              {/* Delete Button */}
+              <div className="col-span-1 flex justify-center">
+                <button 
+                  type="button" 
+                  onClick={() => removeHandoverItem(idx)}
+                  className="p-1 hover:bg-red-100 text-gray-400 hover:text-red-500 rounded transition-colors"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
             </div>
 
-            {/* Category */}
-            <div className="col-span-3">
-              <Select value={item.category} onValueChange={v => updateHandoverItemField(idx, 'category', v)}>
-                <SelectTrigger className="h-6 text-xs border-gray-200 bg-gray-50 w-full">
-                  <SelectValue placeholder="Category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.length > 0 ? (
-                    categories.map(c => (
-                      <SelectItem key={c.id} value={c.name} className="text-xs">{c.name}</SelectItem>
-                    ))
-                  ) : (
-                    ['Furniture', 'Electronics', 'Mattress', 'Bedding', 'Utensils', 'Appliances', 'Other'].map(c => (
-                      <SelectItem key={c} value={c} className="text-xs">{c}</SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Condition */}
-            <div className="col-span-2">
-              <Select 
-                value={item.condition_at_movein} 
-                onValueChange={v => updateHandoverItemField(idx, 'condition_at_movein', v)}
-              >
-                <SelectTrigger className="h-6 text-xs border-gray-200 bg-gray-50 w-full">
-                  <SelectValue placeholder="Condition" />
-                </SelectTrigger>
-                <SelectContent>
-                  {CONDITIONS.map(c => <SelectItem key={c} value={c} className="text-xs">{c}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Quantity */}
-            <div className="col-span-1">
+            {/* Second Row - Notes (Full Width) */}
+            <div className="px-2 pb-2 pt-0">
               <Input 
-                type="number" 
-                min={1} 
-                className="h-6 text-xs text-center border-gray-200 bg-gray-50 w-full"
-                value={item.quantity}
-                onChange={e => updateHandoverItemField(idx, 'quantity', parseInt(e.target.value) || 1)} 
+                className="h-7 text-xs border-gray-200 bg-gray-50 w-full" 
+                placeholder="Notes (Optional)"
+                value={item.notes || ''}
+                onChange={e => updateHandoverItemField(idx, 'notes', e.target.value)} 
               />
             </div>
-
-            {/* Asset ID */}
-            <div className="col-span-2">
-              <Input 
-                className="h-6 text-xs border-gray-200 bg-gray-50 w-full" 
-                placeholder="Asset ID"
-                value={item.asset_id || ''}
-                onChange={e => updateHandoverItemField(idx, 'asset_id', e.target.value)} 
-              />
-            </div>
-
-            {/* Delete Button */}
-            <div className="col-span-1 flex justify-center">
-              <button 
-                type="button" 
-                onClick={() => removeHandoverItem(idx)}
-                className="p-1 hover:bg-red-100 text-gray-400 hover:text-red-500 rounded transition-colors"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </button>
-            </div>
           </div>
-
-          {/* Second Row - Notes (Full Width) */}
-          <div className="px-2 pb-2 pt-0">
-            <Input 
-              className="h-7 text-xs border-gray-200 bg-gray-50 w-full" 
-              placeholder="Notes (Optional)"
-              value={item.notes || ''}
-              onChange={e => updateHandoverItemField(idx, 'notes', e.target.value)} 
-            />
-          </div>
-        </div>
-      ))}
+        ))}
+      </div>
 
       {/* Add Item Button */}
       <button 

@@ -136,6 +136,7 @@ const PERMISSIONS_LIST = [
   { action: "share_newsletter", label: "Share Subscriber", module: "Newsletter" },
   { action: "view_notifications", label: "View Notifications", module: "Notifications" },
   { action: "send_notifications", label: "Send Notifications", module: "Notifications" },
+
   { action: "view_requests", label: "View Requests", module: "Requests" },
   { action: "update_request_status", label: "Update Request Status", module: "Requests" },
   { action: "manage_complaints", label: "Manage Complaints", module: "Requests" },
@@ -147,15 +148,25 @@ const PERMISSIONS_LIST = [
   { action: "manage_notice_period", label: "Manage Notice Period", module: "Requests" },
   { action: "manage_support", label: "Manage Support", module: "Requests" },
   { action: "delete_requests", label: "Delete Requests", module: "Requests" },
+
+
   { action: "view_staff", label: "View Staff", module: "Staffs" },
   { action: "create_staff", label: "Create Staff", module: "Staffs" },
   { action: "edit_staff", label: "Edit Staff", module: "Staffs" },
   { action: "delete_staff", label: "Delete Staff", module: "Staffs" },
   { action: "export_staff", label: "Export Staff", module: "Staffs" },
+
+
   { action: "view_offers", label: "View Offers", module: "Offers" },
-  { action: "create_offers", label: "Create Offers", module: "Offers" },
-  { action: "edit_offers", label: "Edit Offers", module: "Offers" },
-  { action: "delete_offers", label: "Delete Offers", module: "Offers" },
+{ action: "create_offers", label: "Create Offers", module: "Offers" },
+{ action: "edit_offers", label: "Edit Offers", module: "Offers" },
+{ action: "delete_offers", label: "Delete Offers", module: "Offers" },
+{ action: "share_offers", label: "Share Offers", module: "Offers" },
+{ action: "view_pricing_plans", label: "View Pricing Plans", module: "Pricing Plans" },
+{ action: "create_pricing_plans", label: "Create Pricing Plans", module: "Pricing Plans" },
+{ action: "edit_pricing_plans", label: "Edit Pricing Plans", module: "Pricing Plans" },
+{ action: "delete_pricing_plans", label: "Delete Pricing Plans", module: "Pricing Plans" },
+
   { action: "view_addons", label: "View Add-ons", module: "Add-ons" },
   { action: "create_addons", label: "Create Add-ons", module: "Add-ons" },
   { action: "edit_addons", label: "Edit Add-ons", module: "Add-ons" },
@@ -210,14 +221,28 @@ const PERMISSIONS_LIST = [
   { action: "delete_penalty_rules",       label: "Delete Penalty Rules",        module: "Penalty Rules" },
   { action: "export_penalty_rules",       label: "Export Penalty Rules",        module: "Penalty Rules" },
 
-  { action: "view_visitors_dashboard", label: "View Visitors Dashboard", module: "Visitors" },
-  { action: "view_visitor_logs", label: "View Visitor Logs", module: "Visitors" },
-  { action: "manage_restrictions", label: "Manage Restrictions", module: "Visitors" },
+   { action: "view_visitors_dashboard", label: "View Visitors Dashboard", module: "Visitors" },
+{ action: "view_visitor_logs",    label: "View Visitor Logs",    module: "Visitors" },
+{ action: "create_visitor",       label: "Create / Register Visitor", module: "Visitors" },
+{ action: "export_visitor_logs",  label: "Export Visitor Logs",  module: "Visitors" },
+{ action: "delete_visitor_logs",  label: "Delete Visitor Logs",  module: "Visitors" },
+{ action: "checkout_visitor",     label: "Check Out Visitor",    module: "Visitors" },
+{ action: "block_visitor",        label: "Block Visitor",        module: "Visitors" },
+
+// ── Visitor Restrictions ──────────────────────────────────────────────────────
+{ action: "view_restrictions",    label: "View Restrictions",    module: "Visitors" },
+{ action: "create_restrictions",  label: "Create Restrictions",  module: "Visitors" },
+{ action: "edit_restrictions",    label: "Edit Restrictions",    module: "Visitors" },
+{ action: "delete_restrictions",  label: "Delete Restrictions",  module: "Visitors" },
+{ action: "export_restrictions",  label: "Export Restrictions",  module: "Visitors" },
+{ action: "toggle_restrictions",  label: "Toggle Active Status", module: "Visitors" },
+
   { action: "view_masters", label: "View Masters", module: "Masters" },
   { action: "manage_masters", label: "Manage Masters", module: "Masters" },
   { action: "view_general_settings", label: "View General Settings", module: "Settings" },
   { action: "edit_general_settings", label: "Edit General Settings", module: "Settings" },
   { action: "manage_integrations", label: "Manage Integrations", module: "Settings" },
+  
   { action: "manage_permissions", label: "Manage Permissions", module: "Administration" },
   { action: "view_users_list", label: "View Users List", module: "Administration" },
   { action: "create_users", label: "Create Users", module: "Administration" },
@@ -767,10 +792,10 @@ export default function Permissions() {
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className=" bg-gray-50">
 
       {/* ── Sticky Header ─────────────────────────────────────────────────── */}
-      <div className="sticky top-0 z-20 border-b border-gray-200 shadow-sm bg-white">
+      <div className="sticky top-24 z-10 border-b border-gray-200 shadow-sm bg-white">
         <div className="px-3 sm:px-6 py-2 flex flex-wrap sm:flex-nowrap items-center gap-y-2 gap-x-2">
 
           {/* Tabs */}
@@ -898,7 +923,7 @@ export default function Permissions() {
       <div className="p-3 sm:p-6">
 
         {/* Selector row */}
-        <div className="flex flex-col sm:flex-row sm:items-start gap-3 mb-5">
+        <div className=" sticky top-36 z-10 flex flex-col sm:flex-row sm:items-start gap-3 mb-5">
 
           {activeTab === "user" ? (
             <div className="w-full sm:w-auto">
@@ -935,13 +960,7 @@ export default function Permissions() {
                       Reset to Role
                     </button>
                   </div>
-                ) : (
-                  selectedUser?.role && (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
-                      Using role defaults ({selectedUser.role})
-                    </span>
-                  )
-                )}
+                ) : null}
               </div>
             </div>
           ) : (
@@ -956,9 +975,7 @@ export default function Permissions() {
                 options={roleOptions}
                 placeholder="Select a role..."
               />
-              <p className="mt-1.5 text-xs text-gray-400">
-                Roles fetched from Masters → Roles. Saving applies to all users with this role (except custom overrides).
-              </p>
+              
             </div>
           )}
 

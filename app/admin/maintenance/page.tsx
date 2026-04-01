@@ -38,6 +38,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useAuth } from "@/context/authContext";
 
 export default function MaintenancePage() {
   const router = useRouter();
@@ -61,7 +62,8 @@ export default function MaintenancePage() {
 const [selectedRequests, setSelectedRequests] = useState<Set<number>>(new Set());
 const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
 const [bulkActionLoading, setBulkActionLoading] = useState(false);
-  
+  const { can } = useAuth();
+
   // Search filters for all columns
   const [searchFilters, setSearchFilters] = useState({
     id: '',
@@ -461,7 +463,7 @@ const handleBulkDelete = async () => {
         </Card>
       </div>
       {/* Bulk Actions Bar */}
-{selectedRequests.size > 0 && (
+{can('delete_requests') && selectedRequests.size > 0 && (
   <div className="sticky top-36 z-10 mb-4 bg-white rounded-lg shadow-lg border border-blue-200 p-3 flex items-center justify-between animate-in slide-in-from-top-2">
     <div className="flex items-center gap-3">
       <Badge variant="secondary" className="bg-blue-100 text-blue-700">
@@ -516,6 +518,7 @@ const handleBulkDelete = async () => {
                   <TableHeader className=" bg-gradient-to-r from-gray-50 to-white shadow-sm">
                     <TableRow className="hover:bg-transparent">
                       <TableHead className="w-[50px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
+  {can('delete_requests') && (
   <div className="py-2 flex justify-center">
     <Checkbox 
       checked={selectedRequests.size === filteredRequests.length && filteredRequests.length > 0}
@@ -523,6 +526,7 @@ const handleBulkDelete = async () => {
       aria-label="Select all"
     />
   </div>
+  )}
 </TableHead>
                       {/* ID Column */}
                       <TableHead className="w-[80px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
@@ -676,6 +680,7 @@ const handleBulkDelete = async () => {
                       >
                         {/* Checkbox Cell */}
 <TableCell className="w-[50px]">
+  {can('delete_requests') && (
   <div className="flex justify-center">
     <Checkbox 
       checked={selectedRequests.has(request.id)}
@@ -683,6 +688,7 @@ const handleBulkDelete = async () => {
       aria-label={`Select request ${request.id}`}
     />
   </div>
+  )}
 </TableCell>
                         <TableCell className="font-mono text-xs font-medium text-blue-600 truncate">
                           <div className="flex items-center gap-1">
@@ -803,6 +809,8 @@ const handleBulkDelete = async () => {
                                 <Eye className="h-3.5 w-3.5 mr-2" />
                                 View Details
                               </DropdownMenuItem>
+                              {can('manage_maintenance') && (
+
                               <DropdownMenuItem
                                 onClick={() => handleOpenAssignStaff(request)}
                                 className="cursor-pointer text-xs"
@@ -810,6 +818,9 @@ const handleBulkDelete = async () => {
                                 <UserPlus className="h-3.5 w-3.5 mr-2" />
                                 Assign Staff
                               </DropdownMenuItem>
+                              )}
+                              {can('manage_maintenance') && (
+
                               <DropdownMenuItem
                                 onClick={() => handleOpenUpdateStatus(request)}
                                 className="cursor-pointer text-xs"
@@ -817,6 +828,7 @@ const handleBulkDelete = async () => {
                                 <Settings className="h-3.5 w-3.5 mr-2" />
                                 Update Status
                               </DropdownMenuItem>
+                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>

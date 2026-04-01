@@ -102,6 +102,7 @@ import OffersFilters from "./OffersFilters";
 import OfferForm from "./OfferForm";
 import ShareModal from "./ShareModal";
 import OfferPreview from "./OfferPreview";
+import { useAuth } from "@/context/authContext";
 
 // Types for initial props
 interface OffersClientPageProps {
@@ -227,6 +228,7 @@ export default function OffersClientPage({
   const [filterProperty, setFilterProperty] = useState(initialSearchParams.property_id || "all");
   const [itemsPerPage, setItemsPerPage] = useState("10");
   const [isGeneratingCode, setIsGeneratingCode] = useState(false);
+const { can } = useAuth();
 
   // Form state
   const [formData, setFormData] = useState<FormData>({
@@ -785,6 +787,8 @@ export default function OffersClientPage({
       {/* Create Offer Button */}
   <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
   <DialogTrigger asChild>
+    {can('create_offers') && (
+
     <Button
       size="sm"
       className="bg-white text-blue-600 hover:bg-blue-50 hover:text-blue-700 border-0 font-semibold h-8 sm:h-9 text-xs sm:text-sm whitespace-nowrap"
@@ -793,6 +797,7 @@ export default function OffersClientPage({
       <span className="md:hidden">Create</span>
       <span className="hidden md:inline">Create New Offer</span>
     </Button>
+    )}
   </DialogTrigger>
 
   <DialogContent className="w-[95vw] sm:max-w-xl max-h-[90vh] overflow-hidden p-0 rounded-xl flex flex-col">

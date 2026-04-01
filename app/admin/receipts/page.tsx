@@ -37,6 +37,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useAuth } from "@/context/authContext";
 
 export default function ReceiptsPage() {
   const router = useRouter();
@@ -56,6 +57,7 @@ export default function ReceiptsPage() {
   const [selectedRequests, setSelectedRequests] = useState<Set<number>>(new Set());
   const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
+const { can } = useAuth();
 
   // Search filters for all columns
   const [searchFilters, setSearchFilters] = useState({
@@ -354,7 +356,7 @@ export default function ReceiptsPage() {
       </div>
 
       {/* Bulk Actions Bar */}
-      {selectedRequests.size > 0 && (
+{can('delete_requests') && selectedRequests.size> 0 && (
         <div className="sticky top-36 z-10 mb-2 bg-white rounded-lg shadow-lg border border-blue-200 p-3 flex items-center justify-between animate-in slide-in-from-top-2">
           <div className="flex items-center gap-3">
             <Badge variant="secondary" className="bg-blue-100 text-blue-700">
@@ -409,6 +411,8 @@ export default function ReceiptsPage() {
                   <TableHeader className="sticky top-0 z-20 bg-gradient-to-r from-gray-50 to-white shadow-sm">
                     <TableRow className="hover:bg-transparent">
                       <TableHead className="w-[50px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
+                          {can('delete_requests') && (
+
                         <div className="py-2 flex justify-center">
                           <Checkbox 
                             checked={selectedRequests.size === filteredRequests.length && filteredRequests.length > 0}
@@ -416,6 +420,7 @@ export default function ReceiptsPage() {
                             aria-label="Select all"
                           />
                         </div>
+                          )}
                       </TableHead>
 
                       {/* ID Column */}
@@ -589,6 +594,8 @@ export default function ReceiptsPage() {
                       >
                         {/* Checkbox Cell */}
                         <TableCell className="w-[50px]">
+                           {can('delete_requests') && (
+
                           <div className="flex justify-center">
                             <Checkbox 
                               checked={selectedRequests.has(request.id)}
@@ -596,6 +603,7 @@ export default function ReceiptsPage() {
                               aria-label={`Select request ${request.id}`}
                             />
                           </div>
+                           )}
                         </TableCell>
                         
                         <TableCell className="font-mono text-xs font-medium text-blue-600 truncate">
@@ -728,6 +736,8 @@ export default function ReceiptsPage() {
                                 <DropdownMenuSeparator />
                                 
                                 {/* Status Update Option */}
+                                {can('manage_receipts') && (
+
                                 <DropdownMenuItem
                                   onClick={() => {
                                     setSelectedActionRequest(request);
@@ -739,9 +749,10 @@ export default function ReceiptsPage() {
                                   <Settings className="h-3.5 w-3.5 mr-2" />
                                   Update Status
                                 </DropdownMenuItem>
+                                )}
                                 
                                 {/* Approve/Reject Quick Actions for Pending Requests */}
-                                {request.status === 'pending' && (
+{can('manage_receipts') && request.status === 'pending' && (
                                   <>
                                     <DropdownMenuSeparator />
                                     <DropdownMenuItem
@@ -751,6 +762,8 @@ export default function ReceiptsPage() {
                                       <CheckCircle className="h-3.5 w-3.5 mr-2" />
                                       Approve Request
                                     </DropdownMenuItem>
+                                    {can('manage_receipts') && request.status === 'pending' && (
+
                                     <DropdownMenuItem
                                       onClick={() => {
                                         setSelectedActionRequest(request);
@@ -761,6 +774,7 @@ export default function ReceiptsPage() {
                                       <XCircle className="h-3.5 w-3.5 mr-2" />
                                       Reject Request
                                     </DropdownMenuItem>
+                                    )}
                                   </>
                                 )}
                               </DropdownMenuContent>

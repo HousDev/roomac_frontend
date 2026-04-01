@@ -46,6 +46,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useAuth } from "@/context/authContext";
 
 interface Tenant {
   id: number;
@@ -65,7 +66,8 @@ export default function NoticePeriodRequestsPage() {
   const [loading, setLoading] = useState(true);
   const [sortField, setSortField] = useState<keyof NoticePeriodRequest>('created_at');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
-  
+  const { can } = useAuth();
+
   // Search filters
   const [searchFilters, setSearchFilters] = useState({
     id: '',
@@ -315,6 +317,8 @@ export default function NoticePeriodRequestsPage() {
 
       {/* Header with Title and Create Button */}
       <div className=" sticky top-28 z-10 flex justify-end items-end mb-4">
+       {can('manage_notice_period') && (
+
         <Button 
           onClick={() => setShowCreateDialog(true)}
           className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
@@ -322,6 +326,7 @@ export default function NoticePeriodRequestsPage() {
           <Plus className="h-4 w-4 mr-2" />
           Notice Period
         </Button>
+       )}
       </div>
 
       {/* Stats Cards */}
@@ -348,7 +353,7 @@ export default function NoticePeriodRequestsPage() {
       </div>
 
       {/* Bulk Actions Bar */}
-      {selectedRequests.size > 0 && (
+{can('delete_requests') && selectedRequests.size > 0 && (
         <div className="sticky top-20 z-10 mb-4 bg-white rounded-lg shadow-lg border border-blue-200 p-3 flex items-center justify-between animate-in slide-in-from-top-2">
           <div className="flex items-center gap-3">
             <Badge variant="secondary" className="bg-blue-100 text-blue-700">
@@ -408,6 +413,8 @@ export default function NoticePeriodRequestsPage() {
                     <TableRow className="hover:bg-transparent">
                       {/* Checkbox Column */}
                       <TableHead className="w-[50px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
+                          {can('delete_requests') && (
+
                         <div className="py-2 flex justify-center">
                           <Checkbox 
                             checked={selectedRequests.size === filteredRequests.length && filteredRequests.length > 0}
@@ -415,6 +422,7 @@ export default function NoticePeriodRequestsPage() {
                             aria-label="Select all"
                           />
                         </div>
+                          )}
                       </TableHead>
 
                       {/* ID Column with Search */}
@@ -526,6 +534,7 @@ export default function NoticePeriodRequestsPage() {
                       >
                         {/* Checkbox Cell */}
                         <TableCell className="w-[50px]">
+                          {can('delete_requests') && (
                           <div className="flex justify-center">
                             <Checkbox 
                               checked={selectedRequests.has(request.id)}
@@ -533,6 +542,7 @@ export default function NoticePeriodRequestsPage() {
                               aria-label={`Select request ${request.id}`}
                             />
                           </div>
+                          )}
                         </TableCell>
 
                         <TableCell className="font-mono text-sm font-medium text-blue-600">
@@ -642,6 +652,8 @@ export default function NoticePeriodRequestsPage() {
                                 <Eye className="h-4 w-4 mr-2 text-blue-500" />
                                 View Details
                               </DropdownMenuItem>
+                                {can('delete_requests') && (
+
                               <DropdownMenuItem 
                                 onClick={() => handleDelete(request.id)}
                                 className="cursor-pointer hover:bg-red-50 text-red-600 focus:text-red-600"
@@ -649,6 +661,7 @@ export default function NoticePeriodRequestsPage() {
                                 <XCircle className="h-4 w-4 mr-2 text-red-500" />
                                 Delete
                               </DropdownMenuItem>
+                                )}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>

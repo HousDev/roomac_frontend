@@ -75,7 +75,7 @@ function SMSCardOnly({ settings, updateSetting, showSecrets, toggleSecretVisibil
             <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 text-xs text-blue-700 mt-3">Configure SMS provider to send notifications.</div>
           </div>
           <div className="mt-auto pt-3 border-t border-slate-100">
-            <Button onClick={openModal} className="w-full bg-slate-800 hover:bg-slate-700 text-white rounded-xl h-10 text-sm"><Settings2 className="h-4 w-4 mr-2" />Configure</Button>
+            <Button onClick={openModal} className="w-full bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] hover:bg-blue-700 border-blue-600 text-white rounded-xl h-10 text-sm"><Settings2 className="h-4 w-4 mr-2" />Configure</Button>
             <div className="flex justify-between items-center mt-3">
               <span className="text-xs text-slate-400">Status</span>
               <span className={`px-2.5 py-1 rounded-full font-semibold border text-xs ${isConnected ? 'bg-green-50 text-green-700 border-green-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>{isConnected ? '● Connected' : '○ Disconnected'}</span>
@@ -165,7 +165,7 @@ function EmailCardOnly({ settings, updateSetting, showSecrets, toggleSecretVisib
             <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 text-xs text-blue-700 mt-3">Configure SMTP to enable email sending.</div>
           </div>
           <div className="mt-auto pt-3 border-t border-slate-100">
-            <Button onClick={openModal} className="w-full bg-slate-800 hover:bg-slate-700 text-white rounded-xl h-10 text-sm"><Settings2 className="h-4 w-4 mr-2" />Configure</Button>
+            <Button onClick={openModal} className="w-full bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] hover:bg-blue-700 border-blue-600 text-white rounded-xl h-10 text-sm"><Settings2 className="h-4 w-4 mr-2" />Configure</Button>
             <div className="flex justify-between items-center mt-3">
               <span className="text-xs text-slate-400">Status</span>
               <span className={`px-2.5 py-1 rounded-full font-semibold border text-xs ${isConnected ? 'bg-green-50 text-green-700 border-green-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>{isConnected ? '● Connected' : '○ Disconnected'}</span>
@@ -256,7 +256,7 @@ function PaymentCardOnly({ settings, updateSetting, showSecrets, toggleSecretVis
             <div className="bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2 text-xs text-emerald-700 mt-3">Configure Razorpay to accept online payments.</div>
           </div>
           <div className="mt-auto pt-3 border-t border-slate-100">
-            <Button onClick={openModal} className="w-full bg-slate-800 hover:bg-slate-700 text-white rounded-xl h-10 text-sm"><Settings2 className="h-4 w-4 mr-2" />Configure</Button>
+            <Button onClick={openModal} className="w-full bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] hover:bg-blue-700 border-blue-600 text-white rounded-xl h-10 text-sm"><Settings2 className="h-4 w-4 mr-2" />Configure</Button>
             <div className="flex justify-between items-center mt-3">
               <span className="text-xs text-slate-400">Status</span>
               <span className={`px-2.5 py-1 rounded-full font-semibold border text-xs ${isConnected ? 'bg-green-50 text-green-700 border-green-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>{isConnected ? '● Connected' : '○ Disconnected'}</span>
