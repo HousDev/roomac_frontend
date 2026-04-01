@@ -92,7 +92,7 @@ export default function LoginClient({
           }
 
           toast.success("Login successful", {
-            duration: 3000,
+            duration: 500,
           });
           handleSuccessfulLogin(result.role);
         } else {

@@ -653,13 +653,45 @@ const calculateTotalPayable = useCallback(() => {
 }, [bookingType, calculateTotal, propertyData]);
 
 // Calculate Final Amount after discount
+// const calculateFinalAmount = useCallback(() => {
+//   const totalPayable = calculateTotalPayable();
+//   return totalPayable - discountedAmount;
+// }, [calculateTotalPayable, discountedAmount]);
+
+// Calculate Rent Amount (before discount)
+const calculateRentAmount = useCallback(() => {
+  if (!selectedBed) return 0;
+  
+  if (bookingType === 'short') {
+    const checkIn = new Date(formData.checkInDate);
+    const checkOut = new Date(formData.checkOutDate);
+    if (isNaN(checkIn.getTime()) || isNaN(checkOut.getTime())) return 0;
+    
+    const days = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
+    return days * selectedBed.bedRent;
+  } else {
+    // Long stay - monthly rent
+    return selectedBed.bedRent;
+  }
+}, [bookingType, selectedBed, formData]);
+
+// Calculate Final Amount after discount - ONLY apply discount to rent
 const calculateFinalAmount = useCallback(() => {
-  const totalPayable = calculateTotalPayable();
-  return totalPayable - discountedAmount;
-}, [calculateTotalPayable, discountedAmount]);
+  const rentAmount = calculateRentAmount();
+  const securityDeposit = bookingType === 'long' ? (propertyData?.securityDeposit || 0) : 0;
+  
+  // Ensure discountedAmount is a valid number
+  const validDiscount = isNaN(discountedAmount) ? 0 : discountedAmount;
+  
+  // Apply discount only to rent, not to security deposit
+  const discountedRent = Math.max(0, rentAmount - validDiscount);
+  const finalTotal = discountedRent + securityDeposit;
+  
+  return finalTotal;
+}, [calculateRentAmount, discountedAmount, bookingType, propertyData]);
 
 
-// Validate and Apply Offer
+// Validate and Apply Offer - Handle both percentage and fixed discounts
 const validateAndApplyOffer = useCallback(async (code: string) => {
   if (!code || code.trim() === '') {
     setOfferError('');
@@ -675,21 +707,17 @@ const validateAndApplyOffer = useCallback(async (code: string) => {
   try {
     const response = await fetch(`${import.meta.env.VITE_API_URL}/api/offers`);
     const offers = await response.json();
-
     
     const cleanInputCode = code.trim().toUpperCase();
     
     const offer = offers.find((o: any) => {
       const cleanOfferCode = o.code?.toString().trim().toUpperCase();
-      
       const isActive = o.is_active === true || 
                        o.is_active === 1 || 
                        o.is_active === 'true' || 
                        o.is_active === '1';
-      
       return cleanOfferCode === cleanInputCode && isActive;
     });
-
 
     if (!offer) {
       setOfferError('Invalid offer code');
@@ -699,22 +727,13 @@ const validateAndApplyOffer = useCallback(async (code: string) => {
       return;
     }
 
-      // Check if offer is for a specific room and validate against selected room
+    // Check if offer is for a specific room
     if (offer.room_id && selectedRoom && selectedRoom.id !== offer.room_id) {
       setOfferError(`This offer is only valid for Room ${offer.room_number || offer.room_id}. Please select the correct room.`);
       setAppliedOffer(null);
       setDiscountedAmount(0);
       return;
     }
-
-    // Check if offer is for a specific bed and validate against selected bed
-    if (offer.bed_number && selectedBed && selectedBed.bedNumber !== offer.bed_number) {
-      setOfferError(`This offer is only valid for a specific bed. Please select the correct bed.`);
-      setAppliedOffer(null);
-      setDiscountedAmount(0);
-      return;
-    }
-
 
     // Check if offer is active
     const isActive = offer.is_active === true || 
@@ -753,9 +772,6 @@ const validateAndApplyOffer = useCallback(async (code: string) => {
         return;
       }
     }
-
-    // For short stay, check if offer is for short stay (optional)
-    // You can add a field to offers table for stay_type or just let all offers apply to both
     
     // Property-specific check
     if (offer.property_id && offer.property_id !== propertyData?.id) {
@@ -764,31 +780,30 @@ const validateAndApplyOffer = useCallback(async (code: string) => {
       return;
     }
 
-    // Store the offer with room and bed info
-    setAppliedOffer({
-      ...offer,
-      room_id: offer.room_id,
-      room_number: offer.room_number,
-      bed_number: offer.bed_number
-    });
-
+    // Calculate discount - ONLY on RENT
+    const rentAmount = calculateRentAmount();
     let discountAmount = 0;
-    const baseAmount = calculateTotalPayable();
-
-   
+    let discountDisplay = '';
+    
     // Calculate discount based on type
     if (offer.discount_type === 'percentage' && offer.discount_percent) {
       const percentage = parseFloat(offer.discount_percent);
-      discountAmount = baseAmount * (percentage / 100);
+      discountAmount = rentAmount * (percentage / 100);
+      discountDisplay = `${percentage}%`;
     } else if (offer.discount_type === 'fixed' && offer.discount_value) {
       const fixedAmount = parseFloat(offer.discount_value);
-      discountAmount = fixedAmount;
+      discountAmount = Math.min(fixedAmount, rentAmount);
+      discountDisplay = `₹${fixedAmount.toLocaleString()}`;
     } else {
+      // Fallback - try to determine from available fields
       if (offer.discount_percent && parseFloat(offer.discount_percent) > 0) {
         const percentage = parseFloat(offer.discount_percent);
-        discountAmount = baseAmount * (percentage / 100);
+        discountAmount = rentAmount * (percentage / 100);
+        discountDisplay = `${percentage}%`;
       } else if (offer.discount_value && parseFloat(offer.discount_value) > 0) {
-        discountAmount = parseFloat(offer.discount_value);
+        const fixedAmount = parseFloat(offer.discount_value);
+        discountAmount = Math.min(fixedAmount, rentAmount);
+        discountDisplay = `₹${fixedAmount.toLocaleString()}`;
       } else {
         setOfferError('Invalid discount configuration');
         setAppliedOffer(null);
@@ -796,35 +811,32 @@ const validateAndApplyOffer = useCallback(async (code: string) => {
       }
     }
 
-    // Ensure discount doesn't exceed total
-    discountAmount = Math.min(discountAmount, baseAmount);
+    // Ensure discount doesn't exceed rent
+    discountAmount = Math.min(discountAmount, rentAmount);
+    
+    // Round to 2 decimal places
+    discountAmount = Math.round(discountAmount * 100) / 100;
 
-
-    setAppliedOffer(offer);
+    setAppliedOffer({
+      ...offer,
+      discount_amount: discountAmount,
+      discount_display: discountDisplay
+    });
     setDiscountedAmount(discountAmount);
     
-    // Create success message based on booking type
-    let successMessage = `Offer applied! You save ₹${discountAmount.toLocaleString()}`;
+    // Success message
+    const securityDeposit = bookingType === 'long' ? (propertyData?.securityDeposit || 0) : 0;
+    const discountedRent = rentAmount - discountAmount;
+    const finalTotal = discountedRent + securityDeposit;
     
-    // Show offer validity period if min_months is set
+    let successMessage = `Offer applied! Rent reduced from ₹${rentAmount.toLocaleString()} to ₹${discountedRent.toLocaleString()}. You save ₹${discountAmount.toLocaleString()}`;
+    
     if (offer.min_months && offer.min_months > 0) {
       successMessage += ` (Valid for ${offer.min_months} month${offer.min_months !== 1 ? 's' : ''})`;
     }
     
-    // Check bonus validity if present
-    if (offer.bonus_valid_until) {
-      const bonusEndDate = new Date(offer.bonus_valid_until);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      
-      if (bonusEndDate < today) {
-        successMessage = `Offer applied! Bonus expired on ${bonusEndDate.toLocaleDateString()}. You save ₹${discountAmount.toLocaleString()}`;
-      } else if (offer.bonus_title) {
-        successMessage = `Offer applied! 🎁 Bonus: ${offer.bonus_title} - You save ₹${discountAmount.toLocaleString()}`;
-        if (offer.min_months && offer.min_months > 0) {
-          successMessage += ` (Valid for ${offer.min_months} month${offer.min_months !== 1 ? 's' : ''})`;
-        }
-      }
+    if (offer.bonus_title) {
+      successMessage += ` 🎁 Bonus: ${offer.bonus_title}`;
     }
     
     setOfferSuccess(successMessage);
@@ -836,7 +848,7 @@ const validateAndApplyOffer = useCallback(async (code: string) => {
   } finally {
     setOfferLoading(false);
   }
-}, [bookingType, propertyData?.id, calculateTotalPayable]);
+}, [bookingType, propertyData?.id, calculateRentAmount, selectedRoom]);
 
 useEffect(() => {
   // If there's an applied offer that has a specific room_id
@@ -1599,23 +1611,15 @@ const checkExistingTenant = useCallback(async (email: string, phone: string) => 
     
     if (result.success && result.exists) {
       setExistingTenant(result.tenant);
-      setShowExistingTenantWarning(true);
       
-      // Check if tenant has active assignment
-      if (result.tenant.has_active_assignment) {
-        toast.warning(
-          `This ${result.matched_field} is already registered to ${result.tenant.full_name} who is currently assigned to Room ${result.tenant.assigned_room}.`,
-          { duration: 5000 }
-        );
-      } else {
-        toast.warning(
-          `This ${result.matched_field} is already registered to ${result.tenant.full_name}. You can proceed, but a new booking will be created.`,
-          { duration: 5000 }
-        );
+      // Simple toast notification based on what matched
+      if (result.matched_field === 'email') {
+        toast.warning(`Email ${email} is already registered to ${result.tenant.full_name}`);
+      } else if (result.matched_field === 'phone') {
+        toast.warning(`Phone number ${phone} is already registered to ${result.tenant.full_name}`);
       }
     } else {
       setExistingTenant(null);
-      setShowExistingTenantWarning(false);
     }
   } catch (error) {
     console.error('Error checking existing tenant:', error);
@@ -1641,12 +1645,13 @@ useEffect(() => {
 }, [formData.email, formData.phone, checkExistingTenant]);
 
 
-
 const prepareBookingData = useCallback((): any => {
   const partnerFullName = `${partnerDetails.firstName} ${partnerDetails.lastName}`.trim();
-  const originalAmount = calculateTotalPayable();
-  const finalAmount = calculateFinalAmount();
-  const discountAmountValue = originalAmount - finalAmount;
+  const rentAmount = calculateRentAmount();
+  const securityDeposit = bookingType === 'long' ? (propertyData?.securityDeposit || 0) : 0;
+  const discountedRent = Math.max(0, rentAmount - discountedAmount);
+  const totalAmount = discountedRent + securityDeposit;
+  const discountValue = rentAmount - discountedRent;
   
   return {
     salutation: formData.salutation,
@@ -1662,7 +1667,7 @@ const prepareBookingData = useCallback((): any => {
     roomNumber: selectedRoom?.room_number || '',
     bedNumber: selectedBed?.bedNumber?.toString() || '',
     sharingType: selectedRoom?.sharing_type || '',
-    monthlyRent: selectedBed?.bedRent || selectedRoom?.monthly_rent || 0,
+    monthlyRent: discountedRent,  // ✅ FIXED: Use discounted rent here
     dailyRate: selectedRoom?.daily_rate || 0,
     floor: selectedRoom?.floor || 'Ground',
     bookingType: bookingType === 'long' ? 'monthly' : 'daily',
@@ -1672,17 +1677,20 @@ const prepareBookingData = useCallback((): any => {
     couponCode: formData.couponCode,
     
     // Amount fields
-    totalAmount: finalAmount,  // Final amount after discount
-    originalAmount: originalAmount,  // Original amount before discount
-    discountAmount: discountAmountValue,  // How much was discounted
-    rentAmount: calculateRent(),
-    securityDeposit: bookingType === 'long' ? (propertyData?.securityDeposit || 0) : 0,
+    rentAmount: rentAmount,                    // Original rent amount
+    discountedRent: discountedRent,            // Rent after discount
+    securityDeposit: securityDeposit,          // Security deposit (unchanged)
+    totalAmount: totalAmount,                  // Final total after discount
+    originalAmount: rentAmount + securityDeposit,  // Original total
+    discountAmount: discountValue,               // Discount applied to rent only
     
     // Offer details
     offerCode: appliedOffer?.code || null,
     offerId: appliedOffer?.id || null,
     offerTitle: appliedOffer?.title || null,
     discountType: appliedOffer?.discount_type || null,
+    discountPercent: appliedOffer?.discount_percent || null,
+  
     
     verificationStatus: verified,
     bookingStatus: paymentMethod === 'online' ? 'confirmed' : 'pending',
@@ -1711,6 +1719,7 @@ const prepareBookingData = useCallback((): any => {
     partner_address_proof_number: documentDetails.partnerAddressProofNumber,
   };
 }, [formData, selectedRoom, selectedBed, bookingType, propertyData, paymentMethod, calculateFinalAmount, calculateRent, calculateTotalPayable, verified, partnerDetails, documentDetails, appliedOffer]);
+
 
 const submitFinalBooking = async (paymentStatus: string) => {
   setLoading(true);
@@ -3401,94 +3410,86 @@ onChange={(e) => {
       </div>
 
       {/* Booking Summary */}
-      <div className="bg-gradient-to-br from-blue-50 to-cyan-50 border border-blue-200 rounded-lg p-3">
-        <h4 className="text-xs font-bold text-gray-900 mb-2.5 flex items-center gap-1">
-          <Sparkles className="w-3 h-3 text-blue-600" />
-          Booking Summary
-        </h4>
+<div className="bg-gradient-to-br from-blue-50 to-cyan-50 border border-blue-200 rounded-lg p-3">
+  <h4 className="text-xs font-bold text-gray-900 mb-2.5 flex items-center gap-1">
+    <Sparkles className="w-3 h-3 text-blue-600" />
+    Booking Summary
+  </h4>
 
-        <div className="space-y-2">
-          <div className="flex justify-between items-center">
-            <span className="text-[10px] sm:text-xs text-gray-700">
-              Room {selectedRoom?.room_number} • Bed {selectedBed?.bedNumber}
-            </span>
-            <span className="text-xs font-bold text-gray-900">
-              ₹{selectedBed?.bedRent.toLocaleString()}
-              {bookingType === 'long' && <span className="text-[9px] text-gray-500 ml-0.5">/month</span>}
-              {bookingType === 'short' && <span className="text-[9px] text-gray-500 ml-0.5">/day</span>}
-            </span>
-          </div>
+  <div className="space-y-2">
+    {/* Room & Bed Details */}
+    <div className="flex justify-between items-center">
+      <span className="text-[10px] sm:text-xs text-gray-700">
+        Room {selectedRoom?.room_number} • Bed {selectedBed?.bedNumber}
+      </span>
+      <span className="text-xs font-bold text-gray-900">
+        ₹{selectedBed?.bedRent.toLocaleString()}
+        {bookingType === 'long' && <span className="text-[9px] text-gray-500 ml-0.5">/month</span>}
+        {bookingType === 'short' && <span className="text-[9px] text-gray-500 ml-0.5">/day</span>}
+      </span>
+    </div>
 
-          {bookingType === 'short' && formData.checkInDate && formData.checkOutDate && (
-            <div className="flex justify-between items-center text-[9px] text-gray-600">
-              <span>Duration</span>
-              <span>
-                {Math.ceil((new Date(formData.checkOutDate).getTime() - new Date(formData.checkInDate).getTime()) / (1000 * 60 * 60 * 24))} days
-              </span>
-            </div>
-          )}
+    {/* Rent Amount */}
+<div className="flex justify-between items-center">
+  <span className="text-[10px] sm:text-xs text-gray-700">
+    Rent Amount
+  </span>
+  <div className="text-right">
+    {appliedOffer && discountedAmount > 0 ? (
+      <>
+        <span className="text-xs line-through text-gray-400 mr-2">
+          ₹{calculateRentAmount().toLocaleString()}
+        </span>
+        <span className="text-xs font-bold text-green-600">
+          ₹{(calculateRentAmount() - discountedAmount).toLocaleString()}
+        </span>
+      </>
+    ) : (
+      <span className="text-xs font-bold text-gray-900">
+        ₹{calculateRentAmount().toLocaleString()}
+      </span>
+    )}
+  </div>
+</div>
 
+{/* Security Deposit */}
+{bookingType === 'long' && (
+  <div className="flex justify-between items-center pt-1 border-t border-blue-200">
+    <span className="text-[10px] sm:text-xs text-gray-700">Security Deposit</span>
+    <span className="text-xs font-bold text-gray-900">
+      ₹{(propertyData?.securityDeposit || 0).toLocaleString()}
+    </span>
+  </div>
+)}
 
-          <div className="flex justify-between items-center pt-1">
-            <span className="text-[10px] sm:text-xs text-gray-700">
-              {bookingType === 'long' ? 'Monthly Rent' : 'Total Rent'}
-            </span>
-            <span className="text-xs font-bold text-gray-900">
-              ₹{calculateTotal().toLocaleString()}
-            </span>
-          </div>
+{/* Discount Row - Show applied offer details */}
+{appliedOffer && discountedAmount > 0 && (
+  <div className="flex justify-between items-center pt-1">
+    <div className="flex items-center gap-1">
+      <span className="text-[10px] sm:text-xs text-green-600">Discount Applied</span>
+      <Badge className="bg-green-100 text-green-800 text-[8px] px-1.5">
+        {appliedOffer.discount_type === 'percentage' 
+          ? `${appliedOffer.discount_percent}% OFF` 
+          : `₹${parseFloat(appliedOffer.discount_value).toLocaleString()} OFF`}
+      </Badge>
+    </div>
+    <span className="text-xs font-bold text-green-600">- ₹{discountedAmount.toLocaleString()}</span>
+  </div>
+)}
 
-          {bookingType === 'long' && (
-            <div className="flex justify-between items-center pt-1 border-t border-blue-200">
-              <span className="text-[10px] sm:text-xs text-gray-700">Security Deposit</span>
-              <span className="text-xs font-bold text-gray-900">
-                ₹{(propertyData?.securityDeposit || 0).toLocaleString()}
-              </span>
-            </div>
-          )}
-
-          <div className="flex justify-between items-center pt-1 border-t border-blue-200">
-            <span className="text-[10px] sm:text-xs font-semibold text-gray-700">Subtotal</span>
-            <span className="text-xs font-bold text-gray-900">₹{calculateTotalPayable().toLocaleString()}</span>
-          </div>
-
-          {appliedOffer && discountedAmount > 0 && (
-            <div className="flex justify-between items-center pt-1">
-              <div className="flex items-center gap-1">
-                <span className="text-[10px] sm:text-xs text-green-600">Discount</span>
-                <Badge className="bg-green-100 text-green-800 text-[8px] px-1.5">
-                  {appliedOffer.discount_type === 'percentage' 
-                    ? `${appliedOffer.discount_percent}% OFF` 
-                    : `₹${appliedOffer.discount_value} OFF`}
-                </Badge>
-              </div>
-              <span className="text-xs font-bold text-green-600">- ₹{discountedAmount.toLocaleString()}</span>
-            </div>
-          )}
-
-          <div className="border-t-2 border-blue-300 pt-2.5 mt-2">
-            <div className="flex justify-between items-center">
-              <span className="text-xs sm:text-sm font-bold text-gray-900">
-                Total Payable
-              </span>
-              <span className="text-lg sm:text-xl font-bold text-blue-600">
-                ₹{calculateFinalAmount().toLocaleString()}
-              </span>
-            </div>
-            
-            {appliedOffer && discountedAmount > 0 && (
-              <div className="flex justify-end items-center mt-1">
-                <span className="text-[9px] text-gray-400 line-through">
-                  ₹{calculateTotalPayable().toLocaleString()}
-                </span>
-                <span className="text-[9px] text-green-600 ml-1.5">
-                  Save ₹{discountedAmount.toLocaleString()}
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+{/* Total Payable */}
+<div className="border-t-2 border-blue-300 pt-2.5 mt-2">
+  <div className="flex justify-between items-center">
+    <span className="text-xs sm:text-sm font-bold text-gray-900">
+      Total Payable
+    </span>
+    <span className="text-lg sm:text-xl font-bold text-blue-600">
+      ₹{calculateFinalAmount().toLocaleString()}
+    </span>
+  </div>
+</div>
+  </div>
+</div>
 
       <label className="flex items-start gap-2 p-2.5 bg-gray-50 border-2 border-gray-200 rounded-lg cursor-pointer hover:bg-gray-100">
         <input

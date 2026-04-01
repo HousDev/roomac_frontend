@@ -3,7 +3,7 @@
 // components/tenant/layout/TenantLayout.tsx
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import {
   Home,
@@ -51,6 +51,8 @@ import {
 } from "@/lib/tenantNotificationsApi";
 import roomacLogo from "@/app/src/assets/images/image.png";
 import { useAuth } from "@/context/authContext";
+import { markNoticePeriodAsSeen } from "@/lib/noticePeriodApi";
+import { number } from "framer-motion";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -126,6 +128,8 @@ function NotificationPopup({
         return <Bell className="h-4 w-4 text-gray-600" />;
     }
   };
+
+  
 
   return (
     <div
@@ -780,9 +784,20 @@ function TenantHeader({
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+    const handleMarkAsRead = useCallback(async (id:number) => {
+      try {
+        
+        await markNoticePeriodAsSeen(id);
+        
+      } catch (error) {
+        console.error('Error marking notification as read:', error);
+      }
+    }, [notifications]);
+
  const handleNotificationClick = (n: Notification) => {
   if (!n.is_read) onMarkNotificationRead(n.id);
   setNotificationsOpen(false);
+  handleMarkAsRead(Number(n.related_entity_id)); // Ensure we mark as read in the backend
 
   const notificationType = n.type || n.notification_type || "general";
 

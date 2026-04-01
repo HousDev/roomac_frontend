@@ -112,7 +112,7 @@ export const getTenantUnseenCount = async (): Promise<number> => {
 // lib/noticePeriodApi.ts
 export const markNoticePeriodAsSeen = async (
   id: number
-): Promise<{ success: boolean; message: string }> => {
+): Promise<{ success?: boolean; message: string }> => {
   
   try {
     const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';

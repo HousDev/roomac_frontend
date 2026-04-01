@@ -95,7 +95,7 @@ export default function TenantRequestsClient() {
   const [complaintCategories, setComplaintCategories] = useState<ComplaintCategory[]>([]);
   const [complaintReasons, setComplaintReasons] = useState<ComplaintReason[]>([]);
   const [selectedComplaintCategory, setSelectedComplaintCategory] = useState<number | null>(null);
-
+  
   // Add these state declarations with your other state
   const [maintenanceCategories, setMaintenanceCategories] = useState<any[]>([]);
   const [maintenanceLocations, setMaintenanceLocations] = useState<any[]>([]);
@@ -133,7 +133,7 @@ export default function TenantRequestsClient() {
       router.push('/login');
       return;
     }
-
+    
     // Only load data if not already loaded and not currently loading
     if (!isDataLoaded.current && !initialLoadComplete && !isLoadingRef.current) {
       loadAllData();
@@ -147,16 +147,16 @@ export default function TenantRequestsClient() {
       console.log('Load already in progress, skipping...');
       return;
     }
-
+    
     // Prevent multiple loads after initial success
     if (isDataLoaded.current && initialLoadComplete) {
       return;
     }
-
+    
     try {
       isLoadingRef.current = true;
       setLoading(true);
-
+      
       // Check authentication first
       const token = getTenantToken();
       if (!token) {
@@ -222,11 +222,11 @@ export default function TenantRequestsClient() {
       // Handle contract data - FIXED with proper error handling
       if (results[1].status === 'fulfilled') {
         const contractResponse = results[1].value;
-
+        
         // Safe extraction with multiple patterns
         let lockinInfoValue = null;
         let noticeInfoValue = null;
-
+        
         if (contractResponse) {
           // Pattern 1: { success: true, data: { lockinInfo, noticeInfo } }
           if (contractResponse.success && contractResponse.data) {
@@ -243,7 +243,7 @@ export default function TenantRequestsClient() {
             console.warn('Unexpected contract response structure:', contractResponse);
           }
         }
-
+        
         setLockinInfo(lockinInfoValue);
         setNoticeInfo(noticeInfoValue);
       }
@@ -314,21 +314,21 @@ export default function TenantRequestsClient() {
 
     } catch (error: any) {
       console.error('Error loading data:', error);
-
+      
       // Only handle errors if component is still mounted
       if (!isMounted.current) return;
-
+      
       // Check for authentication errors
-      if (error.message?.includes('Authentication') ||
-        error.message?.includes('token') ||
-        error.message?.includes('401')) {
+      if (error.message?.includes('Authentication') || 
+          error.message?.includes('token') || 
+          error.message?.includes('401')) {
         toast.error('Authentication failed. Please login again.');
         router.push('/login');
       } else if (retryCount.current < MAX_RETRIES) {
         // Retry with exponential backoff
         retryCount.current += 1;
         const delay = 1000 * Math.pow(2, retryCount.current - 1);
-
+        
         setTimeout(() => {
           if (isMounted.current && !isDataLoaded.current) {
             loadAllData();
@@ -356,7 +356,7 @@ export default function TenantRequestsClient() {
   // Memoized values
   const filteredRequests = useMemo(() => {
     if (activeFilter === 'all') return requests;
-
+    
     return requests.filter(req => {
       const displayStatus = getDisplayStatus(req);
       return displayStatus === activeFilter;
@@ -389,7 +389,7 @@ export default function TenantRequestsClient() {
   const fetchPaymentFormData = useCallback(async () => {
     const tenantId = getTenantId();
     if (!tenantId) return;
-
+    
     try {
       const response = await paymentApi.getTenantPaymentFormData(parseInt(tenantId));
       if (response.success && isMounted.current) {
@@ -404,7 +404,7 @@ export default function TenantRequestsClient() {
   const fetchSecurityDepositInfo = useCallback(async () => {
     const tenantId = getTenantId();
     if (!tenantId) return;
-
+    
     try {
       const response = await paymentApi.getSecurityDepositInfo(parseInt(tenantId));
       if (response.success && isMounted.current) {
@@ -656,7 +656,7 @@ export default function TenantRequestsClient() {
   // Submit request
   const handleSubmitRequest = useCallback(async () => {
     if (submitting) return; // Prevent double submission
-
+    
     try {
       // Basic validation
       if (!formData.title.trim() || !formData.description.trim()) {
@@ -797,12 +797,12 @@ export default function TenantRequestsClient() {
           toast.error('Please select a receipt type');
           return;
         }
-
+        
         if (formData.receiptData.receipt_type === 'rent' && !formData.receiptData.month_key) {
           toast.error('Please select a month for the rent receipt');
           return;
         }
-
+        
         requestData.receipt_data = {
           receipt_type: formData.receiptData.receipt_type,
           month: formData.receiptData.month,
@@ -831,7 +831,7 @@ export default function TenantRequestsClient() {
       }
 
       const result = await createTenantRequest(requestData);
-
+      
       if (result && result.success && isMounted.current) {
         toast.success('Request created successfully!');
         setIsDialogOpen(false);
@@ -892,8 +892,8 @@ export default function TenantRequestsClient() {
                 My Requests
               </h1>
 
-              <Button
-                onClick={() => setIsDialogOpen(true)}
+              <Button 
+                onClick={() => setIsDialogOpen(true)} 
                 className="bg-blue-600 hover:bg-blue-700 h-8 sm:h-9 px-3 sm:px-4 text-xs sm:text-sm"
               >
                 <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
@@ -1001,64 +1001,76 @@ export default function TenantRequestsClient() {
           <div className="px-4 py-3 overflow-y-auto max-h-[calc(90vh-80px)]">
             <div className="space-y-4">
               {/* Request Type and Priority in grid */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="request_type" className="text-sm font-medium">Request Type *</Label>
-                  <Select
-                    value={formData.request_type}
-                    onValueChange={(value) => {
-                      setFormData({
-                        ...formData,
-                        request_type: value,
-                        vacateData: value === 'vacate_bed' ? formData.vacateData : undefined,
-                        changeBedData: value === 'change_bed' ? formData.changeBedData : undefined,
-                        leaveData: value === 'leave' ? formData.leaveData : undefined,
-                        maintenanceData: value === 'maintenance' ? formData.maintenanceData : undefined,
-                        complaintData: value === 'complaint' ? formData.complaintData : undefined
-                      });
-                      if (value === 'change_bed') {
-                        setStep(1);
-                      }
-                      if (value === 'complaint') {
-                        setSelectedComplaintCategory(null);
-                        setComplaintReasons([]);
-                        setShowCustomReason(false);
-                      }
-                    }}
-                  >
-                    <SelectTrigger className="h-10">
-                      <SelectValue placeholder="Select request type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="general">General Query</SelectItem>
-                      <SelectItem value="complaint">Complaint</SelectItem>
-                      <SelectItem value="receipt">Receipt Request</SelectItem>
-                      <SelectItem value="maintenance">Maintenance Request</SelectItem>
-                      <SelectItem value="leave">Leave Application</SelectItem>
-                      <SelectItem value="vacate_bed">Vacate Bed Request</SelectItem>
-                      <SelectItem value="change_bed">Change Bed Request</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+<div className="grid grid-cols-2 gap-4">
+  <div className="space-y-2">
+    <Label htmlFor="request_type" className="text-sm font-medium">Request Type *</Label>
+    {formData.request_type !== 'general' ? (
+      // Show as read-only text when opened from quick request
+      <div className="h-10 px-3 py-2 rounded-md border border-gray-300 bg-gray-50 text-gray-700">
+        {formData.request_type === 'complaint' && 'Complaint'}
+        {formData.request_type === 'receipt' && 'Receipt Request'}
+        {formData.request_type === 'maintenance' && 'Maintenance Request'}
+        {formData.request_type === 'leave' && 'Leave Application'}
+        {formData.request_type === 'vacate_bed' && 'Vacate Bed Request'}
+        {formData.request_type === 'change_bed' && 'Change Bed Request'}
+        {formData.request_type === 'general' && 'General Query'}
+      </div>
+    ) : (
+      // Show dropdown for general request
+      <Select
+        value={formData.request_type}
+        onValueChange={(value) => {
+          setFormData({ 
+            ...formData, 
+            request_type: value,
+            vacateData: value === 'vacate_bed' ? formData.vacateData : undefined,
+            changeBedData: value === 'change_bed' ? formData.changeBedData : undefined,
+            leaveData: value === 'leave' ? formData.leaveData : undefined,
+            maintenanceData: value === 'maintenance' ? formData.maintenanceData : undefined,
+            complaintData: value === 'complaint' ? formData.complaintData : undefined
+          });
+          if (value === 'change_bed') {
+            setStep(1);
+          }
+          if (value === 'complaint') {
+            setSelectedComplaintCategory(null);
+            setComplaintReasons([]);
+            setShowCustomReason(false);
+          }
+        }}
+      >
+        <SelectTrigger className="h-10">
+          <SelectValue placeholder="Select request type" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="complaint">Complaint</SelectItem>
+          <SelectItem value="receipt">Receipt Request</SelectItem>
+          <SelectItem value="maintenance">Maintenance Request</SelectItem>
+          <SelectItem value="vacate_bed">Vacate Bed Request</SelectItem>
+          <SelectItem value="change_bed">Change Bed Request</SelectItem>
+        </SelectContent>
+      </Select>
+    )}
+  </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="priority" className="text-sm font-medium">Priority *</Label>
-                  <Select
-                    value={formData.priority}
-                    onValueChange={(value) => setFormData({ ...formData, priority: value })}
-                  >
-                    <SelectTrigger className="h-10">
-                      <SelectValue placeholder="Select priority" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="low">Low</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="high">High</SelectItem>
-                      <SelectItem value="urgent">Urgent</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+  <div className="space-y-2">
+    <Label htmlFor="priority" className="text-sm font-medium">Priority *</Label>
+    <Select
+      value={formData.priority}
+      onValueChange={(value) => setFormData({ ...formData, priority: value })}
+    >
+      <SelectTrigger className="h-10">
+        <SelectValue placeholder="Select priority" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="low">Low</SelectItem>
+        <SelectItem value="medium">Medium</SelectItem>
+        <SelectItem value="high">High</SelectItem>
+        <SelectItem value="urgent">Urgent</SelectItem>
+      </SelectContent>
+    </Select>
+  </div>
+</div>
 
               {/* Title and Description */}
               <div className="grid grid-cols-3 gap-4">
@@ -1469,7 +1481,7 @@ export default function TenantRequestsClient() {
               {formData.request_type === 'receipt' && (
                 <div className="border-t border-gray-200 pt-3 space-y-3">
                   <h3 className="font-semibold text-base">Receipt Request Details</h3>
-
+                  
                   {/* Receipt Type Selection */}
                   <div className="space-y-2">
                     <Label htmlFor="receipt_type" className="text-sm font-medium">Receipt Type *</Label>
@@ -1501,11 +1513,11 @@ export default function TenantRequestsClient() {
                     <>
                       <div className="space-y-2">
                         <Label htmlFor="month" className="text-sm font-medium">Select Month *</Label>
-                        <Select
-                          value={selectedReceiptMonth}
+                        <Select 
+                          value={selectedReceiptMonth} 
                           onValueChange={(value) => {
                             setSelectedReceiptMonth(value);
-
+                            
                             if (value && paymentFormData?.unpaid_months) {
                               const selectedMonth = paymentFormData.unpaid_months.find((m: any) => m.month_key === value);
                               if (selectedMonth) {
@@ -1585,7 +1597,7 @@ export default function TenantRequestsClient() {
               {formData.request_type === 'maintenance' && (
                 <div className="space-y-4 p-4 border border-gray-200 rounded-lg">
                   <h3 className="font-semibold text-lg">Maintenance Request Details</h3>
-
+                  
                   <div>
                     <Label htmlFor="issue_category">Issue Category *</Label>
                     <Select

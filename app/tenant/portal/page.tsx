@@ -887,7 +887,6 @@ setStats((prev) => ({
       setPayments(MOCK_PAYMENTS);
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
-      toast.error("Failed to load dashboard data");
       setPayments(MOCK_PAYMENTS);
     } finally {
       setLoading(false);
