@@ -34,7 +34,6 @@ import {
   getChangeBedReasonsFromMasters as getChangeBedReasons,
   getAvailableRooms,
   getAvailableBedsForRoom,
-  // getLeaveTypesFromMasters,
   getComplaintCategories,
   getComplaintReasons,
   getMaintenanceCategoriesFromMasters,
@@ -61,6 +60,7 @@ export default function TenantRequestsClient() {
   // Refs to prevent infinite loops
   const isMounted = useRef(true);
   const isDataLoaded = useRef(false);
+  const isLoadingRef = useRef(false);
   const retryCount = useRef(0);
   const MAX_RETRIES = 2;
   
@@ -95,10 +95,11 @@ export default function TenantRequestsClient() {
   const [complaintCategories, setComplaintCategories] = useState<ComplaintCategory[]>([]);
   const [complaintReasons, setComplaintReasons] = useState<ComplaintReason[]>([]);
   const [selectedComplaintCategory, setSelectedComplaintCategory] = useState<number | null>(null);
+  
   // Add these state declarations with your other state
-const [maintenanceCategories, setMaintenanceCategories] = useState<any[]>([]);
-const [maintenanceLocations, setMaintenanceLocations] = useState<any[]>([]);
-const [visitTimes, setVisitTimes] = useState<any[]>([]);
+  const [maintenanceCategories, setMaintenanceCategories] = useState<any[]>([]);
+  const [maintenanceLocations, setMaintenanceLocations] = useState<any[]>([]);
+  const [visitTimes, setVisitTimes] = useState<any[]>([]);
   const [showCustomReason, setShowCustomReason] = useState(false);
   
   // Other data
@@ -108,10 +109,10 @@ const [visitTimes, setVisitTimes] = useState<any[]>([]);
   const [noticeInfo, setNoticeInfo] = useState<any>(null);
   const [secondaryReasonsInput, setSecondaryReasonsInput] = useState('');
 
- // Add these with your other useState declarations
-const [paymentFormData, setPaymentFormData] = useState<any>(null);
-const [securityDepositInfo, setSecurityDepositInfo] = useState<any>(null);
-const [selectedReceiptMonth, setSelectedReceiptMonth] = useState('');
+  // Add these with your other useState declarations
+  const [paymentFormData, setPaymentFormData] = useState<any>(null);
+  const [securityDepositInfo, setSecurityDepositInfo] = useState<any>(null);
+  const [selectedReceiptMonth, setSelectedReceiptMonth] = useState('');
 
   // Cleanup on unmount
   useEffect(() => {
@@ -119,6 +120,7 @@ const [selectedReceiptMonth, setSelectedReceiptMonth] = useState('');
     return () => {
       isMounted.current = false;
       isDataLoaded.current = false;
+      isLoadingRef.current = false;
       retryCount.current = 0;
     };
   }, []);
@@ -132,300 +134,286 @@ const [selectedReceiptMonth, setSelectedReceiptMonth] = useState('');
       return;
     }
     
-    // Only load data if not already loaded
-    if (!isDataLoaded.current && !initialLoadComplete) {
+    // Only load data if not already loaded and not currently loading
+    if (!isDataLoaded.current && !initialLoadComplete && !isLoadingRef.current) {
       loadAllData();
     }
-  }, [router, initialLoadComplete]);
+  }, [router, initialLoadComplete]); // Removed unnecessary dependencies
 
   // Load all data
-// Load all data
-const loadAllData = useCallback(async () => {
-  // Prevent multiple simultaneous calls
-  if (isDataLoaded.current) {
-    return;
-  }
-  
-  try {
-    setLoading(true);
-    
-    // Check authentication first
-    const token = getTenantToken();
-    if (!token) {
-      if (isMounted.current) {
-        toast.error('Authentication required');
-        router.push('/login');
-      }
+  const loadAllData = useCallback(async () => {
+    // Prevent concurrent loads
+    if (isLoadingRef.current) {
+      console.log('Load already in progress, skipping...');
       return;
     }
-
-    // Load all data in parallel with error handling for each
-    const results = await Promise.allSettled([
-      getMyTenantRequests().catch(err => {
-        console.error('Failed to fetch tenant requests:', err);
-        return [];
-      }),
-      getTenantContractDetails().catch(err => {
-        console.error('Failed to fetch contract details:', err);
-        return { lockinInfo: null, noticeInfo: null };
-      }),
-      getCurrentRoomInfo().catch(err => {
-        console.error('Failed to fetch current room:', err);
-        return null;
-      }),
-      getActiveProperties().catch(err => {
-        console.error('Failed to fetch properties:', err);
-        return [];
-      }),
-      getChangeBedReasons().catch(err => {
-        console.error('Failed to fetch change reasons:', err);
-        return [];
-      }),
-      // Make sure this function is imported
-      // In the Promise.allSettled array, replace the getActiveMasterValuesByCode line with:
-  getVacateReasonsFromMasters().catch(err => {
-  console.error('Failed to fetch vacate reasons:', err);
-  return [];
-  }),
-      // getLeaveTypesFromMasters().catch(err => {
-      //   console.error('Failed to fetch leave types:', err);
-      //   return [];
-      // }),
-      getComplaintCategories().catch(err => {
-        console.error('Failed to fetch complaint categories:', err);
-        return [];
-      }),
-      // Get maintenance categories from Requests tab
-      getMaintenanceCategoriesFromMasters().catch(err => {
-        console.error('Failed to fetch maintenance categories:', err);
-        return [];
-      }),
-      // Get maintenance locations from Requests tab
-      getMaintenanceLocationsFromMasters().catch(err => {
-        console.error('Failed to fetch maintenance locations:', err);
-        return [];
-      }),
-      // Get visit times from Requests tab
-      getVisitTimesFromMasters().catch(err => {
-        console.error('Failed to fetch visit times:', err);
-        return [];
-      })
-    ]);
-
-    // Only update state if component is still mounted
-    if (!isMounted.current) return;
-
-    // Handle requests data
-    if (results[0].status === 'fulfilled') {
-      setRequests(results[0].value);
-    }
-
-    // Handle contract data - FIXED VERSION
-    if (results[1].status === 'fulfilled') {
-      const contractResponse:any = results[1].value;
-      
-      // Check if the response has the expected structure
-      if (contractResponse && contractResponse.success && contractResponse.data) {
-        // Extract the nested data
-        const { lockinInfo, noticeInfo } = contractResponse.data;
-
-        
-        setLockinInfo(lockinInfo || null);
-        setNoticeInfo(noticeInfo || null);
-      } 
-      // If the API function already returns just the data
-      else if (contractResponse && contractResponse.lockinInfo) {
-        setLockinInfo(contractResponse.lockinInfo || null);
-        setNoticeInfo(contractResponse.noticeInfo || null);
-      }
-      else {
-        console.warn('⚠️ Unexpected contract response structure:', contractResponse);
-        setLockinInfo(null);
-        setNoticeInfo(null);
-      }
-    }
-
-    // Handle room info
-    if (results[2].status === 'fulfilled') {
-      setCurrentRoom(results[2].value);
-    }
-
-    // Handle properties
-    if (results[3].status === 'fulfilled') {
-      setProperties(results[3].value);
-    }
-
-    // Handle change reasons
-    if (results[4].status === 'fulfilled') {
-      setChangeReasons(results[4].value);
-    }
-
-    // Handle vacate reasons - FIXED VERSION
-    // Handle vacate reasons
-if (results[5].status === 'fulfilled') {
-  const response: any = results[5].value;
-  
-  if (response && Array.isArray(response)) {
-    setVacateReasons(response);
-  } else if (response && response.success && Array.isArray(response.data)) {
-    setVacateReasons(response.data);
-  } else {
-    console.warn('⚠️ Unexpected vacate reasons format:', response);
-    setVacateReasons([]);
-  }
-}
-
-    // Handle leave types
-    if (results[6].status === 'fulfilled') {
-      setLeaveTypes(results[6].value);
-    }
-
-    // Handle complaint categories
-    if (results[7].status === 'fulfilled') {
-      const categories = results[7].value;
-      if (Array.isArray(categories)) {
-        setComplaintCategories(categories);
-      }
-    }
-
-    // Handle maintenance categories
-    if (results[8].status === 'fulfilled') {
-      const maintenanceCategoriesData = results[8].value;
-      if (Array.isArray(maintenanceCategoriesData)) {
-        setMaintenanceCategories(maintenanceCategoriesData);
-      }
-    }
-
-    // Handle maintenance locations
-    if (results[9].status === 'fulfilled') {
-      const maintenanceLocationsData = results[9].value;
-      if (Array.isArray(maintenanceLocationsData)) {
-        setMaintenanceLocations(maintenanceLocationsData);
-      }
-    }
-
-    // Handle visit times
-    if (results[10].status === 'fulfilled') {
-      const visitTimesData = results[10].value;
-      if (Array.isArray(visitTimesData)) {
-        setVisitTimes(visitTimesData);
-      }
-    }
-
-    // Mark as loaded successfully
-    isDataLoaded.current = true;
-    setInitialLoadComplete(true);
-    retryCount.current = 0;
-
-  } catch (error: any) {
-    console.error('Error loading data:', error);
     
-    // Only handle errors if component is still mounted
-    if (!isMounted.current) return;
+    // Prevent multiple loads after initial success
+    if (isDataLoaded.current && initialLoadComplete) {
+      return;
+    }
     
-    // Check for authentication errors
-    if (error.message?.includes('Authentication') || 
-        error.message?.includes('token') || 
-        error.message?.includes('401')) {
-      toast.error('Authentication failed. Please login again.');
-      router.push('/login');
-    } else if (retryCount.current < MAX_RETRIES) {
-      // Retry with exponential backoff
-      retryCount.current += 1;
-      const delay = 1000 * Math.pow(2, retryCount.current - 1);
+    try {
+      isLoadingRef.current = true;
+      setLoading(true);
       
-      setTimeout(() => {
+      // Check authentication first
+      const token = getTenantToken();
+      if (!token) {
         if (isMounted.current) {
-          loadAllData();
+          toast.error('Authentication required');
+          router.push('/login');
         }
-      }, delay);
-    } else {
-      toast.error('Failed to load data after multiple attempts. Please refresh the page.');
-      setLoading(false);
+        return;
+      }
+
+      // Load all data in parallel with error handling for each
+      const results = await Promise.allSettled([
+        getMyTenantRequests().catch(err => {
+          console.error('Failed to fetch tenant requests:', err);
+          return [];
+        }),
+        getTenantContractDetails().catch(err => {
+          console.error('Failed to fetch contract details:', err);
+          return null;
+        }),
+        getCurrentRoomInfo().catch(err => {
+          console.error('Failed to fetch current room:', err);
+          return null;
+        }),
+        getActiveProperties().catch(err => {
+          console.error('Failed to fetch properties:', err);
+          return [];
+        }),
+        getChangeBedReasons().catch(err => {
+          console.error('Failed to fetch change reasons:', err);
+          return [];
+        }),
+        getVacateReasonsFromMasters().catch(err => {
+          console.error('Failed to fetch vacate reasons:', err);
+          return [];
+        }),
+        getComplaintCategories().catch(err => {
+          console.error('Failed to fetch complaint categories:', err);
+          return [];
+        }),
+        getMaintenanceCategoriesFromMasters().catch(err => {
+          console.error('Failed to fetch maintenance categories:', err);
+          return [];
+        }),
+        getMaintenanceLocationsFromMasters().catch(err => {
+          console.error('Failed to fetch maintenance locations:', err);
+          return [];
+        }),
+        getVisitTimesFromMasters().catch(err => {
+          console.error('Failed to fetch visit times:', err);
+          return [];
+        })
+      ]);
+
+      // Only update state if component is still mounted
+      if (!isMounted.current) return;
+
+      // Handle requests data
+      if (results[0].status === 'fulfilled') {
+        setRequests(results[0].value || []);
+      }
+
+      // Handle contract data - FIXED with proper error handling
+      if (results[1].status === 'fulfilled') {
+        const contractResponse = results[1].value;
+        
+        // Safe extraction with multiple patterns
+        let lockinInfoValue = null;
+        let noticeInfoValue = null;
+        
+        if (contractResponse) {
+          // Pattern 1: { success: true, data: { lockinInfo, noticeInfo } }
+          if (contractResponse.success && contractResponse.data) {
+            lockinInfoValue = contractResponse.data.lockinInfo || null;
+            noticeInfoValue = contractResponse.data.noticeInfo || null;
+          }
+          // Pattern 2: { lockinInfo, noticeInfo } directly
+          else if ('lockinInfo' in contractResponse || 'noticeInfo' in contractResponse) {
+            lockinInfoValue = contractResponse.lockinInfo || null;
+            noticeInfoValue = contractResponse.noticeInfo || null;
+          }
+          // Pattern 3: Array or other structure
+          else {
+            console.warn('Unexpected contract response structure:', contractResponse);
+          }
+        }
+        
+        setLockinInfo(lockinInfoValue);
+        setNoticeInfo(noticeInfoValue);
+      }
+
+      // Handle room info
+      if (results[2].status === 'fulfilled') {
+        setCurrentRoom(results[2].value);
+      }
+
+      // Handle properties
+      if (results[3].status === 'fulfilled') {
+        setProperties(results[3].value || []);
+      }
+
+      // Handle change reasons
+      if (results[4].status === 'fulfilled') {
+        setChangeReasons(results[4].value || []);
+      }
+
+      // Handle vacate reasons
+      if (results[5].status === 'fulfilled') {
+        const vacateData = results[5].value;
+        if (Array.isArray(vacateData)) {
+          setVacateReasons(vacateData);
+        } else if (vacateData?.success && Array.isArray(vacateData.data)) {
+          setVacateReasons(vacateData.data);
+        } else {
+          setVacateReasons([]);
+        }
+      }
+
+      // Handle complaint categories
+      if (results[6].status === 'fulfilled') {
+        const categories = results[6].value;
+        if (Array.isArray(categories)) {
+          setComplaintCategories(categories);
+        }
+      }
+
+      // Handle maintenance categories
+      if (results[7].status === 'fulfilled') {
+        const maintenanceCategoriesData = results[7].value;
+        if (Array.isArray(maintenanceCategoriesData)) {
+          setMaintenanceCategories(maintenanceCategoriesData);
+        }
+      }
+
+      // Handle maintenance locations
+      if (results[8].status === 'fulfilled') {
+        const maintenanceLocationsData = results[8].value;
+        if (Array.isArray(maintenanceLocationsData)) {
+          setMaintenanceLocations(maintenanceLocationsData);
+        }
+      }
+
+      // Handle visit times
+      if (results[9].status === 'fulfilled') {
+        const visitTimesData = results[9].value;
+        if (Array.isArray(visitTimesData)) {
+          setVisitTimes(visitTimesData);
+        }
+      }
+
+      // Mark as loaded successfully
+      isDataLoaded.current = true;
+      setInitialLoadComplete(true);
+      retryCount.current = 0;
+
+    } catch (error: any) {
+      console.error('Error loading data:', error);
+      
+      // Only handle errors if component is still mounted
+      if (!isMounted.current) return;
+      
+      // Check for authentication errors
+      if (error.message?.includes('Authentication') || 
+          error.message?.includes('token') || 
+          error.message?.includes('401')) {
+        toast.error('Authentication failed. Please login again.');
+        router.push('/login');
+      } else if (retryCount.current < MAX_RETRIES) {
+        // Retry with exponential backoff
+        retryCount.current += 1;
+        const delay = 1000 * Math.pow(2, retryCount.current - 1);
+        
+        setTimeout(() => {
+          if (isMounted.current && !isDataLoaded.current) {
+            loadAllData();
+          }
+        }, delay);
+      } else {
+        toast.error('Failed to load data after multiple attempts. Please refresh the page.');
+        setLoading(false);
+      }
+    } finally {
+      if (isMounted.current) {
+        setLoading(false);
+        isLoadingRef.current = false;
+      }
     }
-  } finally {
-    if (isMounted.current) {
-      setLoading(false);
-    }
-  }
-}, [router]);
+  }, [router]);
 
   const refreshData = useCallback(async () => {
     // Reset loaded flag to allow reload
     isDataLoaded.current = false;
+    setInitialLoadComplete(false);
     await loadAllData();
   }, [loadAllData]);
 
   // Memoized values
-// Update the filteredRequests memo
-const filteredRequests = useMemo(() => {
-  if (activeFilter === 'all') return requests;
-  
-  return requests.filter(req => {
-    const displayStatus = getDisplayStatus(req);
-    return displayStatus === activeFilter;
-  });
-}, [requests, activeFilter]);
+  const filteredRequests = useMemo(() => {
+    if (activeFilter === 'all') return requests;
+    
+    return requests.filter(req => {
+      const displayStatus = getDisplayStatus(req);
+      return displayStatus === activeFilter;
+    });
+  }, [requests, activeFilter]);
 
-// Update the requestCounts calculation
-const requestCounts = useMemo(() => {
-  const counts: Record<string, number> = {
-    all: requests.length,
-    pending: 0,
-    in_progress: 0,
-    approved: 0,
-    rejected: 0,
-    completed: 0,
-    resolved: 0,
-    closed: 0
-  };
+  const requestCounts = useMemo(() => {
+    const counts: Record<string, number> = {
+      all: requests.length,
+      pending: 0,
+      in_progress: 0,
+      approved: 0,
+      rejected: 0,
+      completed: 0,
+      resolved: 0,
+      closed: 0
+    };
 
-  requests.forEach(req => {
-    const displayStatus = getDisplayStatus(req);
-    if (displayStatus in counts) {
-      counts[displayStatus]++;
+    requests.forEach(req => {
+      const displayStatus = getDisplayStatus(req);
+      if (displayStatus in counts) {
+        counts[displayStatus]++;
+      }
+    });
+
+    return counts;
+  }, [requests]);
+
+  // Fetch payment form data
+  const fetchPaymentFormData = useCallback(async () => {
+    const tenantId = getTenantId();
+    if (!tenantId) return;
+    
+    try {
+      const response = await paymentApi.getTenantPaymentFormData(parseInt(tenantId));
+      if (response.success && isMounted.current) {
+        setPaymentFormData(response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching payment form data:', error);
     }
-  });
+  }, []);
 
-  return counts;
-}, [requests]);
-
-// Update fetchPaymentFormData function
-const fetchPaymentFormData = useCallback(async () => {
-  // Get tenant_id from somewhere - you have it in the URL or from auth
-  // Since you're using tenantAuth, you might need to get it from token
-  const token = getTenantToken();
-  const tenantId = getTenantId(); // Add this import from tenantAuthApi
-  
-  if (!tenantId) return;
-  
-  try {
-    const response = await paymentApi.getTenantPaymentFormData(parseInt(tenantId));
-    if (response.success) {
-      setPaymentFormData(response.data);
+  // Fetch security deposit info
+  const fetchSecurityDepositInfo = useCallback(async () => {
+    const tenantId = getTenantId();
+    if (!tenantId) return;
+    
+    try {
+      const response = await paymentApi.getSecurityDepositInfo(parseInt(tenantId));
+      if (response.success && isMounted.current) {
+        setSecurityDepositInfo(response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching security deposit info:', error);
     }
-  } catch (error) {
-    console.error('Error fetching payment form data:', error);
-  }
-}, []);
-
-// Update fetchSecurityDepositInfo function
-const fetchSecurityDepositInfo = useCallback(async () => {
-  const token = getTenantToken();
-  const tenantId = getTenantId();
-  
-  if (!tenantId) return;
-  
-  try {
-    const response = await paymentApi.getSecurityDepositInfo(parseInt(tenantId));
-    if (response.success) {
-      setSecurityDepositInfo(response.data);
-    }
-  } catch (error) {
-    console.error('Error fetching security deposit info:', error);
-  }
-}, []);
-
+  }, []);
 
   // Event handlers
   const handleQuickRequest = useCallback((type: string) => {
@@ -456,11 +444,10 @@ const fetchSecurityDepositInfo = useCallback(async () => {
     }
 
     if (type === 'receipt') {
-    // Fetch payment data for receipt
-    fetchPaymentFormData();
-    fetchSecurityDepositInfo();
-    setSelectedReceiptMonth('');
-  }
+      fetchPaymentFormData();
+      fetchSecurityDepositInfo();
+      setSelectedReceiptMonth('');
+    }
     setIsDialogOpen(true);
   }, [fetchPaymentFormData, fetchSecurityDepositInfo]);
 
@@ -588,8 +575,8 @@ const fetchSecurityDepositInfo = useCallback(async () => {
         setComplaintReasons(reasons);
       }
       if (reasons.length === 0) {
-  setShowCustomReason(true);  // auto-show for "Other" category
-}
+        setShowCustomReason(true);
+      }
     } catch (error) {
       console.error('Error loading complaint reasons:', error);
       toast.error('Failed to load complaint reasons');
@@ -668,6 +655,8 @@ const fetchSecurityDepositInfo = useCallback(async () => {
 
   // Submit request
   const handleSubmitRequest = useCallback(async () => {
+    if (submitting) return; // Prevent double submission
+    
     try {
       // Basic validation
       if (!formData.title.trim() || !formData.description.trim()) {
@@ -725,8 +714,6 @@ const fetchSecurityDepositInfo = useCallback(async () => {
         formData.leaveData!.total_days = totalDays;
       }
 
-
-
       if (formData.request_type === 'maintenance') {
         if (!formData.maintenanceData?.issue_category) {
           toast.error('Please select an issue category');
@@ -753,7 +740,6 @@ const fetchSecurityDepositInfo = useCallback(async () => {
 
       setSubmitting(true);
 
-      
       const requestData: any = {
         request_type: formData.request_type,
         title: formData.title,
@@ -765,8 +751,7 @@ const fetchSecurityDepositInfo = useCallback(async () => {
       if (formData.request_type === 'vacate_bed' && formData.vacateData) {
         requestData.vacate_data = {
           ...formData.vacateData,
-    primary_reason_name: formData.vacateData.primary_reason_text, // CHANGE THIS LINE
-
+          primary_reason_name: formData.vacateData.primary_reason_text,
           secondary_reasons: secondaryReasonsInput
             .split(',')
             .map(r => r.trim())
@@ -789,7 +774,6 @@ const fetchSecurityDepositInfo = useCallback(async () => {
           notes: formData.changeBedData.notes || '',
           preferred_bed_number: formData.changeBedData.preferred_bed_number
         };
-
       }
 
       if (formData.request_type === 'leave' && formData.leaveData) {
@@ -809,25 +793,25 @@ const fetchSecurityDepositInfo = useCallback(async () => {
       }
 
       if (formData.request_type === 'receipt') {
-  if (!formData.receiptData?.receipt_type) {
-    toast.error('Please select a receipt type');
-    return;
-  }
-  
-  if (formData.receiptData.receipt_type === 'rent' && !formData.receiptData.month_key) {
-    toast.error('Please select a month for the rent receipt');
-    return;
-  }
-  
-  requestData.receipt_data = {
-    receipt_type: formData.receiptData.receipt_type,
-    month: formData.receiptData.month,
-    year: formData.receiptData.year,
-    month_key: formData.receiptData.month_key,
-    amount: formData.receiptData.amount,
-    include_all_deposit: formData.receiptData.include_all_deposit || false
-  };
-}
+        if (!formData.receiptData?.receipt_type) {
+          toast.error('Please select a receipt type');
+          return;
+        }
+        
+        if (formData.receiptData.receipt_type === 'rent' && !formData.receiptData.month_key) {
+          toast.error('Please select a month for the rent receipt');
+          return;
+        }
+        
+        requestData.receipt_data = {
+          receipt_type: formData.receiptData.receipt_type,
+          month: formData.receiptData.month,
+          year: formData.receiptData.year,
+          month_key: formData.receiptData.month_key,
+          amount: formData.receiptData.amount,
+          include_all_deposit: formData.receiptData.include_all_deposit || false
+        };
+      }
 
       if (formData.request_type === 'maintenance' && formData.maintenanceData) {
         requestData.maintenance_data = {
@@ -846,11 +830,7 @@ const fetchSecurityDepositInfo = useCallback(async () => {
         };
       }
 
-      
       const result = await createTenantRequest(requestData);
-
-        
-    
       
       if (result && result.success && isMounted.current) {
         toast.success('Request created successfully!');
@@ -876,8 +856,8 @@ const fetchSecurityDepositInfo = useCallback(async () => {
         
         // Refresh data
         await refreshData();
-      }else {
-        toast.error('Failed to create request. Please try again.');
+      } else {
+        toast.error(result?.message || 'Failed to create request. Please try again.');
       }
     } catch (error: any) {
       console.error('Submit error:', error);
@@ -889,7 +869,7 @@ const fetchSecurityDepositInfo = useCallback(async () => {
         setSubmitting(false);
       }
     }
-  }, [formData, currentRoom, secondaryReasonsInput, calculateTotalDays, refreshData]);
+  }, [formData, currentRoom, secondaryReasonsInput, calculateTotalDays, refreshData, submitting]);
 
   // Loading state
   if (loading && !initialLoadComplete) {
@@ -903,33 +883,28 @@ const fetchSecurityDepositInfo = useCallback(async () => {
 
   return (
     <div>
-      {/* <TenantHeader /> */}
-      <div className=" bg-gray-50">
+      <div className="bg-gray-50">
         <div className="max-w-7xl mx-auto p-3">
           {/* Header */}
-        <div className="mb-4 sm:mb-6">
+          <div className="mb-4 sm:mb-6">
+            <div className="flex items-center justify-between">
+              <h1 className="text-lg sm:text-2xl lg:text-3xl font-bold text-gray-900 leading-tight">
+                My Requests
+              </h1>
 
-  {/* Top Row: Title + Button */}
-  <div className="flex items-center justify-between">
-    <h1 className="text-lg sm:text-2xl lg:text-3xl font-bold text-gray-900 leading-tight">
-      My Requests
-    </h1>
+              <Button 
+                onClick={() => setIsDialogOpen(true)} 
+                className="bg-blue-600 hover:bg-blue-700 h-8 sm:h-9 px-3 sm:px-4 text-xs sm:text-sm"
+              >
+                <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                New Request
+              </Button>
+            </div>
 
-    <Button 
-      onClick={() => setIsDialogOpen(true)} 
-      className="bg-blue-600 hover:bg-blue-700 h-8 sm:h-9 px-3 sm:px-4 text-xs sm:text-sm"
-    >
-      <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-      New Request
-    </Button>
-  </div>
-
-  {/* Subtitle */}
-  <p className="text-xs sm:text-sm text-gray-600 mt-1">
-    Raise requests and track their status
-  </p>
-
-</div>
+            <p className="text-xs sm:text-sm text-gray-600 mt-1">
+              Raise requests and track their status
+            </p>
+          </div>
 
           {/* Quick Request Cards */}
           <QuickRequestCards onQuickRequest={handleQuickRequest} />
@@ -969,7 +944,7 @@ const fetchSecurityDepositInfo = useCallback(async () => {
                       </Button>
                     </div>
                   ) : (
-                   <div className="space-y-2 md:space-y-4 max-h-[50vh] overflow-y-auto pr-1">
+                    <div className="space-y-2 md:space-y-4 max-h-[50vh] overflow-y-auto pr-1">
                       {filteredRequests.map((request) => (
                         <RequestCard key={request.id} request={request} vacateReasons={vacateReasons} />
                       ))}
@@ -983,7 +958,7 @@ const fetchSecurityDepositInfo = useCallback(async () => {
       </div>
 
       {/* Request Form Dialog */}
-    <Dialog open={isDialogOpen} onOpenChange={(open) => {
+      <Dialog open={isDialogOpen} onOpenChange={(open) => {
         setIsDialogOpen(open);
         if (!open) {
           // Reset form when dialog closes
@@ -1003,89 +978,99 @@ const fetchSecurityDepositInfo = useCallback(async () => {
           setSelectedComplaintCategory(null);
           setComplaintReasons([]);
           setShowCustomReason(false);
-          // Reset receipt data
-    setPaymentFormData(null);
-    setSecurityDepositInfo(null);
-    setSelectedReceiptMonth('');
+          setPaymentFormData(null);
+          setSecurityDepositInfo(null);
+          setSelectedReceiptMonth('');
         }
       }}>
         <DialogContent className="max-w-3xl w-[98vw] p-0 max-h-[95vh] overflow-hidden rounded-2xl">
-        <DialogHeader className="bg-gradient-to-r from-blue-600 to-cyan-600 px-4 py-3 sticky top-0 z-10 ">
-  <DialogTitle className="text-white text-lg">Create New Request</DialogTitle>
-  <DialogDescription className="text-blue-50 text-sm">
-    Fill in the details below to submit your request
-  </DialogDescription>
-  {/* Close button in header */}
-  <button
-    onClick={() => setIsDialogOpen(false)}
-    className="absolute right-4 top-4 rounded-sm opacity-70  transition-opacity hover:opacity-100  disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
-  >
-    <X className="h-4 w-4 text-white" />
-    <span className="sr-only">Close</span>
-  </button>
-</DialogHeader>
+          <DialogHeader className="bg-gradient-to-r from-blue-600 to-cyan-600 px-4 py-3 sticky top-0 z-10">
+            <DialogTitle className="text-white text-lg">Create New Request</DialogTitle>
+            <DialogDescription className="text-blue-50 text-sm">
+              Fill in the details below to submit your request
+            </DialogDescription>
+            <button
+              onClick={() => setIsDialogOpen(false)}
+              className="absolute right-4 top-4 rounded-sm opacity-70 transition-opacity hover:opacity-100 disabled:pointer-events-none"
+            >
+              <X className="h-4 w-4 text-white" />
+              <span className="sr-only">Close</span>
+            </button>
+          </DialogHeader>
 
           <div className="px-4 py-3 overflow-y-auto max-h-[calc(90vh-80px)]">
             <div className="space-y-4">
               {/* Request Type and Priority in grid */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="request_type" className="text-sm font-medium">Request Type *</Label>
-                  <Select
-                    value={formData.request_type}
-                    onValueChange={(value) => {
-                      setFormData({ 
-                        ...formData, 
-                        request_type: value,
-                        vacateData: value === 'vacate_bed' ? formData.vacateData : undefined,
-                        changeBedData: value === 'change_bed' ? formData.changeBedData : undefined,
-                        leaveData: value === 'leave' ? formData.leaveData : undefined,
-                        maintenanceData: value === 'maintenance' ? formData.maintenanceData : undefined,
-                        complaintData: value === 'complaint' ? formData.complaintData : undefined
-                      });
-                      if (value === 'change_bed') {
-                        setStep(1);
-                      }
-                      if (value === 'complaint') {
-                        setSelectedComplaintCategory(null);
-                        setComplaintReasons([]);
-                        setShowCustomReason(false);
-                      }
-                    }}
-                  >
-                    <SelectTrigger className="h-10">
-                      <SelectValue placeholder="Select request type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="general">General Query</SelectItem>
-                      <SelectItem value="complaint">Complaint</SelectItem>
-                      <SelectItem value="receipt">Receipt Request</SelectItem>
-                      <SelectItem value="maintenance">Maintenance Request</SelectItem>
-                      <SelectItem value="leave">Leave Application</SelectItem>
-                      <SelectItem value="vacate_bed">Vacate Bed Request</SelectItem>
-                      <SelectItem value="change_bed">Change Bed Request</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+<div className="grid grid-cols-2 gap-4">
+  <div className="space-y-2">
+    <Label htmlFor="request_type" className="text-sm font-medium">Request Type *</Label>
+    {formData.request_type !== 'general' ? (
+      // Show as read-only text when opened from quick request
+      <div className="h-10 px-3 py-2 rounded-md border border-gray-300 bg-gray-50 text-gray-700">
+        {formData.request_type === 'complaint' && 'Complaint'}
+        {formData.request_type === 'receipt' && 'Receipt Request'}
+        {formData.request_type === 'maintenance' && 'Maintenance Request'}
+        {formData.request_type === 'leave' && 'Leave Application'}
+        {formData.request_type === 'vacate_bed' && 'Vacate Bed Request'}
+        {formData.request_type === 'change_bed' && 'Change Bed Request'}
+        {formData.request_type === 'general' && 'General Query'}
+      </div>
+    ) : (
+      // Show dropdown for general request
+      <Select
+        value={formData.request_type}
+        onValueChange={(value) => {
+          setFormData({ 
+            ...formData, 
+            request_type: value,
+            vacateData: value === 'vacate_bed' ? formData.vacateData : undefined,
+            changeBedData: value === 'change_bed' ? formData.changeBedData : undefined,
+            leaveData: value === 'leave' ? formData.leaveData : undefined,
+            maintenanceData: value === 'maintenance' ? formData.maintenanceData : undefined,
+            complaintData: value === 'complaint' ? formData.complaintData : undefined
+          });
+          if (value === 'change_bed') {
+            setStep(1);
+          }
+          if (value === 'complaint') {
+            setSelectedComplaintCategory(null);
+            setComplaintReasons([]);
+            setShowCustomReason(false);
+          }
+        }}
+      >
+        <SelectTrigger className="h-10">
+          <SelectValue placeholder="Select request type" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="complaint">Complaint</SelectItem>
+          <SelectItem value="receipt">Receipt Request</SelectItem>
+          <SelectItem value="maintenance">Maintenance Request</SelectItem>
+          <SelectItem value="vacate_bed">Vacate Bed Request</SelectItem>
+          <SelectItem value="change_bed">Change Bed Request</SelectItem>
+        </SelectContent>
+      </Select>
+    )}
+  </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="priority" className="text-sm font-medium">Priority *</Label>
-                  <Select
-                    value={formData.priority}
-                    onValueChange={(value) => setFormData({ ...formData, priority: value })}
-                  >
-                    <SelectTrigger className="h-10">
-                      <SelectValue placeholder="Select priority" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="low">Low</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="high">High</SelectItem>
-                      <SelectItem value="urgent">Urgent</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+  <div className="space-y-2">
+    <Label htmlFor="priority" className="text-sm font-medium">Priority *</Label>
+    <Select
+      value={formData.priority}
+      onValueChange={(value) => setFormData({ ...formData, priority: value })}
+    >
+      <SelectTrigger className="h-10">
+        <SelectValue placeholder="Select priority" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="low">Low</SelectItem>
+        <SelectItem value="medium">Medium</SelectItem>
+        <SelectItem value="high">High</SelectItem>
+        <SelectItem value="urgent">Urgent</SelectItem>
+      </SelectContent>
+    </Select>
+  </div>
+</div>
 
               {/* Title and Description */}
               <div className="grid grid-cols-3 gap-4">
@@ -1247,31 +1232,28 @@ const fetchSecurityDepositInfo = useCallback(async () => {
                       />
                     </div>
 
-<div className="space-y-1">
-  <Label htmlFor="primary_reason" className="text-sm font-medium">Primary Reason *</Label>
-  <Select
-    value={formData.vacateData?.primary_reason_id?.toString() || ''}
-    onValueChange={(value) => {
-      // Find the selected reason object
-      const selectedReason = vacateReasons.find(r => r.id.toString() === value);
-      
-      // Update both ID and text
-      handleVacateDataChange('primary_reason_id', parseInt(value));
-      handleVacateDataChange('primary_reason_text', selectedReason?.value || '');
-    }}
-  >
-    <SelectTrigger className="h-10">
-      <SelectValue placeholder="Select primary reason" />
-    </SelectTrigger>
-    <SelectContent>
-      {Array.isArray(vacateReasons) && vacateReasons.map((reason) => (
-        <SelectItem key={reason.id} value={reason.id.toString()}>
-          {reason.value}
-        </SelectItem>
-      ))}
-    </SelectContent>
-  </Select>
-</div>
+                    <div className="space-y-1">
+                      <Label htmlFor="primary_reason" className="text-sm font-medium">Primary Reason *</Label>
+                      <Select
+                        value={formData.vacateData?.primary_reason_id?.toString() || ''}
+                        onValueChange={(value) => {
+                          const selectedReason = vacateReasons.find(r => r.id.toString() === value);
+                          handleVacateDataChange('primary_reason_id', parseInt(value));
+                          handleVacateDataChange('primary_reason_text', selectedReason?.value || '');
+                        }}
+                      >
+                        <SelectTrigger className="h-10">
+                          <SelectValue placeholder="Select primary reason" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Array.isArray(vacateReasons) && vacateReasons.map((reason) => (
+                            <SelectItem key={reason.id} value={reason.id.toString()}>
+                              {reason.value}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
 
                     <div className="space-y-1">
                       <Label htmlFor="secondary_reasons" className="text-sm font-medium">Secondary</Label>
@@ -1297,11 +1279,11 @@ const fetchSecurityDepositInfo = useCallback(async () => {
                           <SelectValue placeholder="Select Rating" />
                         </SelectTrigger>
                         <SelectContent>
-                           <SelectItem value="1">1 - Very Poor</SelectItem>
-                        <SelectItem value="2">2 - Poor</SelectItem>
-                        <SelectItem value="3">3 - Average</SelectItem>
-                        <SelectItem value="4">4 - Good</SelectItem>
-                        <SelectItem value="5">5 - Excellent</SelectItem>
+                          <SelectItem value="1">1 - Very Poor</SelectItem>
+                          <SelectItem value="2">2 - Poor</SelectItem>
+                          <SelectItem value="3">3 - Average</SelectItem>
+                          <SelectItem value="4">4 - Good</SelectItem>
+                          <SelectItem value="5">5 - Excellent</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -1317,10 +1299,10 @@ const fetchSecurityDepositInfo = useCallback(async () => {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="1">1 - Very Poor</SelectItem>
-                        <SelectItem value="2">2 - Poor</SelectItem>
-                        <SelectItem value="3">3 - Average</SelectItem>
-                        <SelectItem value="4">4 - Good</SelectItem>
-                        <SelectItem value="5">5 - Excellent</SelectItem>
+                          <SelectItem value="2">2 - Poor</SelectItem>
+                          <SelectItem value="3">3 - Average</SelectItem>
+                          <SelectItem value="4">4 - Good</SelectItem>
+                          <SelectItem value="5">5 - Excellent</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -1335,11 +1317,11 @@ const fetchSecurityDepositInfo = useCallback(async () => {
                           <SelectValue placeholder="Select Rating" />
                         </SelectTrigger>
                         <SelectContent>
-                           <SelectItem value="1">1 - Very Poor</SelectItem>
-                        <SelectItem value="2">2 - Poor</SelectItem>
-                        <SelectItem value="3">3 - Average</SelectItem>
-                        <SelectItem value="4">4 - Good</SelectItem>
-                        <SelectItem value="5">5 - Excellent</SelectItem>
+                          <SelectItem value="1">1 - Very Poor</SelectItem>
+                          <SelectItem value="2">2 - Poor</SelectItem>
+                          <SelectItem value="3">3 - Average</SelectItem>
+                          <SelectItem value="4">4 - Good</SelectItem>
+                          <SelectItem value="5">5 - Excellent</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -1354,11 +1336,11 @@ const fetchSecurityDepositInfo = useCallback(async () => {
                           <SelectValue placeholder="Select Rating" />
                         </SelectTrigger>
                         <SelectContent>
-                           <SelectItem value="1">1 - Very Poor</SelectItem>
-                        <SelectItem value="2">2 - Poor</SelectItem>
-                        <SelectItem value="3">3 - Average</SelectItem>
-                        <SelectItem value="4">4 - Good</SelectItem>
-                        <SelectItem value="5">5 - Excellent</SelectItem>
+                          <SelectItem value="1">1 - Very Poor</SelectItem>
+                          <SelectItem value="2">2 - Poor</SelectItem>
+                          <SelectItem value="3">3 - Average</SelectItem>
+                          <SelectItem value="4">4 - Good</SelectItem>
+                          <SelectItem value="5">5 - Excellent</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -1495,237 +1477,235 @@ const fetchSecurityDepositInfo = useCallback(async () => {
                 </div>
               )}
 
-
               {/* Conditional rendering for Receipt Request */}
-{/* Conditional rendering for Receipt Request */}
-{formData.request_type === 'receipt' && (
-  <div className="border-t border-gray-200 pt-3 space-y-3">
-    <h3 className="font-semibold text-base">Receipt Request Details</h3>
-    
-    {/* Receipt Type Selection */}
-    <div className="space-y-2">
-      <Label htmlFor="receipt_type" className="text-sm font-medium">Receipt Type *</Label>
-      <Select
-        value={formData.receiptData?.receipt_type || ''}
-        onValueChange={(value) => {
-          setFormData({
-            ...formData,
-            receiptData: {
-              ...(formData.receiptData || {}),
-              receipt_type: value
-            }
-          });
-          setSelectedReceiptMonth('');
-        }}
-      >
-        <SelectTrigger className="h-10">
-          <SelectValue placeholder="Select receipt type" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="rent">Rent Receipt</SelectItem>
-          <SelectItem value="security_deposit">Security Deposit Receipt</SelectItem>
-        </SelectContent>
-      </Select>
-    </div>
-
-    {/* Rent Receipt Fields */}
-    {formData.receiptData?.receipt_type === 'rent' && (
-      <>
-        <div className="space-y-2">
-          <Label htmlFor="month" className="text-sm font-medium">Select Month *</Label>
-          <Select 
-            value={selectedReceiptMonth} 
-            onValueChange={(value) => {
-              setSelectedReceiptMonth(value);
-              
-              if (value && paymentFormData?.unpaid_months) {
-                const selectedMonth = paymentFormData.unpaid_months.find((m: any) => m.month_key === value);
-                if (selectedMonth) {
-                  setFormData({
-                    ...formData,
-                    receiptData: {
-                      ...(formData.receiptData || {}),
-                      receipt_type: 'rent',
-                      month: selectedMonth.month,
-                      year: selectedMonth.year,
-                      month_key: selectedMonth.month_key,
-                      amount: selectedMonth.pending
-                    }
-                  });
-                }
-              }
-            }}
-          >
-            <SelectTrigger className="h-10">
-              <SelectValue placeholder="Select month..." />
-            </SelectTrigger>
-            <SelectContent>
-              {paymentFormData?.unpaid_months?.map((month: any) => (
-                <SelectItem key={month.month_key} value={month.month_key}>
-                  <div className="flex items-center justify-between w-full">
-                    <span>{month.month} {month.year}</span>
-                    <span className="ml-4 text-xs text-amber-600 font-medium">
-                      ₹{month.pending.toLocaleString()}
-                    </span>
+              {formData.request_type === 'receipt' && (
+                <div className="border-t border-gray-200 pt-3 space-y-3">
+                  <h3 className="font-semibold text-base">Receipt Request Details</h3>
+                  
+                  {/* Receipt Type Selection */}
+                  <div className="space-y-2">
+                    <Label htmlFor="receipt_type" className="text-sm font-medium">Receipt Type *</Label>
+                    <Select
+                      value={formData.receiptData?.receipt_type || ''}
+                      onValueChange={(value) => {
+                        setFormData({
+                          ...formData,
+                          receiptData: {
+                            ...(formData.receiptData || {}),
+                            receipt_type: value
+                          }
+                        });
+                        setSelectedReceiptMonth('');
+                      }}
+                    >
+                      <SelectTrigger className="h-10">
+                        <SelectValue placeholder="Select receipt type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="rent">Rent Receipt</SelectItem>
+                        <SelectItem value="security_deposit">Security Deposit Receipt</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {paymentFormData?.unpaid_months?.length === 0 && (
-            <p className="text-xs text-green-600 mt-1">All months paid! 🎉</p>
-          )}
-        </div>
-      </>
-    )}
 
-    {/* Security Deposit Receipt Fields */}
-    {formData.receiptData?.receipt_type === 'security_deposit' && (
-      <>
-        {securityDepositInfo ? (
-          <div className="space-y-3">
-            <div className="bg-purple-50 p-3 rounded-lg border border-purple-200">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <p className="text-xs text-purple-600">Total Deposit</p>
-                  <p className="text-lg font-bold text-purple-700">
-                    ₹{securityDepositInfo.security_deposit.toLocaleString()}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-purple-600">Paid Amount</p>
-                  <p className="text-lg font-bold text-green-600">
-                    ₹{securityDepositInfo.paid_amount.toLocaleString()}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
-            <p className="text-sm text-yellow-700">
-              No security deposit information found.
-            </p>
-          </div>
-        )}
-      </>
-    )}
-  </div>
-)}
+                  {/* Rent Receipt Fields */}
+                  {formData.receiptData?.receipt_type === 'rent' && (
+                    <>
+                      <div className="space-y-2">
+                        <Label htmlFor="month" className="text-sm font-medium">Select Month *</Label>
+                        <Select 
+                          value={selectedReceiptMonth} 
+                          onValueChange={(value) => {
+                            setSelectedReceiptMonth(value);
+                            
+                            if (value && paymentFormData?.unpaid_months) {
+                              const selectedMonth = paymentFormData.unpaid_months.find((m: any) => m.month_key === value);
+                              if (selectedMonth) {
+                                setFormData({
+                                  ...formData,
+                                  receiptData: {
+                                    ...(formData.receiptData || {}),
+                                    receipt_type: 'rent',
+                                    month: selectedMonth.month,
+                                    year: selectedMonth.year,
+                                    month_key: selectedMonth.month_key,
+                                    amount: selectedMonth.pending
+                                  }
+                                });
+                              }
+                            }
+                          }}
+                        >
+                          <SelectTrigger className="h-10">
+                            <SelectValue placeholder="Select month..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {paymentFormData?.unpaid_months?.map((month: any) => (
+                              <SelectItem key={month.month_key} value={month.month_key}>
+                                <div className="flex items-center justify-between w-full">
+                                  <span>{month.month} {month.year}</span>
+                                  <span className="ml-4 text-xs text-amber-600 font-medium">
+                                    ₹{month.pending.toLocaleString()}
+                                  </span>
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {paymentFormData?.unpaid_months?.length === 0 && (
+                          <p className="text-xs text-green-600 mt-1">All months paid! 🎉</p>
+                        )}
+                      </div>
+                    </>
+                  )}
 
-              {/* Conditional rendering for Maintenance Request - UPDATED with masters */}
-{formData.request_type === 'maintenance' && (
-  <div className="space-y-4 p-4 border border-gray-200 rounded-lg">
-    <h3 className="font-semibold text-lg">Maintenance Request Details</h3>
-    
-    <div>
-      <Label htmlFor="issue_category">Issue Category *</Label>
-      <Select
-        value={formData.maintenanceData?.issue_category || ''}
-        onValueChange={(value) => handleMaintenanceDataChange('issue_category', value)}
-        disabled={maintenanceCategories.length === 0}
-      >
-        <SelectTrigger className="h-12">
-          <SelectValue placeholder={maintenanceCategories.length === 0 ? "Loading categories..." : "Select issue category"} />
-        </SelectTrigger>
-        <SelectContent>
-          {maintenanceCategories.length > 0 ? (
-            maintenanceCategories.map((category) => (
-              <SelectItem key={category.id} value={category.value}>
-                <div className="flex flex-col">
-                  <span className="font-medium">{category.value}</span>
-                  {category.description && (
-                    <span className="text-xs text-gray-500">{category.description}</span>
+                  {/* Security Deposit Receipt Fields */}
+                  {formData.receiptData?.receipt_type === 'security_deposit' && (
+                    <>
+                      {securityDepositInfo ? (
+                        <div className="space-y-3">
+                          <div className="bg-purple-50 p-3 rounded-lg border border-purple-200">
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <p className="text-xs text-purple-600">Total Deposit</p>
+                                <p className="text-lg font-bold text-purple-700">
+                                  ₹{securityDepositInfo.security_deposit.toLocaleString()}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-xs text-purple-600">Paid Amount</p>
+                                <p className="text-lg font-bold text-green-600">
+                                  ₹{securityDepositInfo.paid_amount.toLocaleString()}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
+                          <p className="text-sm text-yellow-700">
+                            No security deposit information found.
+                          </p>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
-              </SelectItem>
-            ))
-          ) : (
-            <div className="px-2 py-4 text-center text-gray-500">
-              <Loader2 className="h-4 w-4 animate-spin mx-auto mb-2" />
-              <span className="text-xs">Loading categories...</span>
-            </div>
-          )}
-        </SelectContent>
-      </Select>
-    </div>
+              )}
 
-    <div>
-      <Label htmlFor="location">Location *</Label>
-      <Select
-        value={formData.maintenanceData?.location || ''}
-        onValueChange={(value) => handleMaintenanceDataChange('location', value)}
-        disabled={maintenanceLocations.length === 0}
-      >
-        <SelectTrigger className="h-12">
-          <SelectValue placeholder={maintenanceLocations.length === 0 ? "Loading locations..." : "Select location"} />
-        </SelectTrigger>
-        <SelectContent>
-          {maintenanceLocations.length > 0 ? (
-            maintenanceLocations.map((location) => (
-              <SelectItem key={location.id} value={location.value}>
-                <div className="flex flex-col">
-                  <span className="font-medium">{location.value}</span>
-                  {location.description && (
-                    <span className="text-xs text-gray-500">{location.description}</span>
-                  )}
+              {/* Conditional rendering for Maintenance Request */}
+              {formData.request_type === 'maintenance' && (
+                <div className="space-y-4 p-4 border border-gray-200 rounded-lg">
+                  <h3 className="font-semibold text-lg">Maintenance Request Details</h3>
+                  
+                  <div>
+                    <Label htmlFor="issue_category">Issue Category *</Label>
+                    <Select
+                      value={formData.maintenanceData?.issue_category || ''}
+                      onValueChange={(value) => handleMaintenanceDataChange('issue_category', value)}
+                      disabled={maintenanceCategories.length === 0}
+                    >
+                      <SelectTrigger className="h-12">
+                        <SelectValue placeholder={maintenanceCategories.length === 0 ? "Loading categories..." : "Select issue category"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {maintenanceCategories.length > 0 ? (
+                          maintenanceCategories.map((category) => (
+                            <SelectItem key={category.id} value={category.value}>
+                              <div className="flex flex-col">
+                                <span className="font-medium">{category.value}</span>
+                                {category.description && (
+                                  <span className="text-xs text-gray-500">{category.description}</span>
+                                )}
+                              </div>
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <div className="px-2 py-4 text-center text-gray-500">
+                            <Loader2 className="h-4 w-4 animate-spin mx-auto mb-2" />
+                            <span className="text-xs">Loading categories...</span>
+                          </div>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="location">Location *</Label>
+                    <Select
+                      value={formData.maintenanceData?.location || ''}
+                      onValueChange={(value) => handleMaintenanceDataChange('location', value)}
+                      disabled={maintenanceLocations.length === 0}
+                    >
+                      <SelectTrigger className="h-12">
+                        <SelectValue placeholder={maintenanceLocations.length === 0 ? "Loading locations..." : "Select location"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {maintenanceLocations.length > 0 ? (
+                          maintenanceLocations.map((location) => (
+                            <SelectItem key={location.id} value={location.value}>
+                              <div className="flex flex-col">
+                                <span className="font-medium">{location.value}</span>
+                                {location.description && (
+                                  <span className="text-xs text-gray-500">{location.description}</span>
+                                )}
+                              </div>
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <div className="px-2 py-4 text-center text-gray-500">
+                            <Loader2 className="h-4 w-4 animate-spin mx-auto mb-2" />
+                            <span className="text-xs">Loading locations...</span>
+                          </div>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="preferred_visit_time">Preferred Visit Time</Label>
+                    <Select
+                      value={formData.maintenanceData?.preferred_visit_time || ''}
+                      onValueChange={(value) => handleMaintenanceDataChange('preferred_visit_time', value)}
+                      disabled={visitTimes.length === 0}
+                    >
+                      <SelectTrigger className="h-12">
+                        <SelectValue placeholder={visitTimes.length === 0 ? "Loading visit times..." : "Select preferred time"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {visitTimes.length > 0 ? (
+                          visitTimes.map((time) => (
+                            <SelectItem key={time.id} value={time.value}>
+                              <div className="flex flex-col">
+                                <span className="font-medium">{time.value}</span>
+                                {time.description && (
+                                  <span className="text-xs text-gray-500">{time.description}</span>
+                                )}
+                              </div>
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <div className="px-2 py-4 text-center text-gray-500">
+                            <Loader2 className="h-4 w-4 animate-spin mx-auto mb-2" />
+                            <span className="text-xs">Loading visit times...</span>
+                          </div>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="access_permission"
+                      checked={formData.maintenanceData?.access_permission || false}
+                      onCheckedChange={(checked) => handleMaintenanceDataChange('access_permission', checked)}
+                    />
+                    <Label htmlFor="access_permission" className="cursor-pointer">
+                      I grant permission for staff to enter my room when I'm away if needed
+                    </Label>
+                  </div>
                 </div>
-              </SelectItem>
-            ))
-          ) : (
-            <div className="px-2 py-4 text-center text-gray-500">
-              <Loader2 className="h-4 w-4 animate-spin mx-auto mb-2" />
-              <span className="text-xs">Loading locations...</span>
-            </div>
-          )}
-        </SelectContent>
-      </Select>
-    </div>
-
-    <div>
-      <Label htmlFor="preferred_visit_time">Preferred Visit Time</Label>
-      <Select
-        value={formData.maintenanceData?.preferred_visit_time || ''}
-        onValueChange={(value) => handleMaintenanceDataChange('preferred_visit_time', value)}
-        disabled={visitTimes.length === 0}
-      >
-        <SelectTrigger className="h-12">
-          <SelectValue placeholder={visitTimes.length === 0 ? "Loading visit times..." : "Select preferred time"} />
-        </SelectTrigger>
-        <SelectContent>
-          {visitTimes.length > 0 ? (
-            visitTimes.map((time) => (
-              <SelectItem key={time.id} value={time.value}>
-                <div className="flex flex-col">
-                  <span className="font-medium">{time.value}</span>
-                  {time.description && (
-                    <span className="text-xs text-gray-500">{time.description}</span>
-                  )}
-                </div>
-              </SelectItem>
-            ))
-          ) : (
-            <div className="px-2 py-4 text-center text-gray-500">
-              <Loader2 className="h-4 w-4 animate-spin mx-auto mb-2" />
-              <span className="text-xs">Loading visit times...</span>
-            </div>
-          )}
-        </SelectContent>
-      </Select>
-    </div>
-
-    <div className="flex items-center space-x-2">
-      <Checkbox
-        id="access_permission"
-        checked={formData.maintenanceData?.access_permission || false}
-        onCheckedChange={(checked) => handleMaintenanceDataChange('access_permission', checked)}
-      />
-      <Label htmlFor="access_permission" className="cursor-pointer">
-        I grant permission for staff to enter my room when I'm away if needed
-      </Label>
-    </div>
-  </div>
-)}
+              )}
 
               {/* Conditional rendering for Complaint Request */}
               {formData.request_type === 'complaint' && (
@@ -1789,43 +1769,34 @@ const fetchSecurityDepositInfo = useCallback(async () => {
               )}
             </div>
 
-           <DialogFooter className="mt-4 pt-3 border-t border-gray-200 flex flex-row gap-2">
+            <DialogFooter className="mt-4 pt-3 border-t border-gray-200 flex flex-row gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setIsDialogOpen(false)}
+                disabled={submitting}
+                className="flex-1 h-8 sm:h-10 text-xs sm:text-sm"
+              >
+                Cancel
+              </Button>
 
-  <Button
-    variant="outline"
-    onClick={() => setIsDialogOpen(false)}
-    disabled={submitting}
-    className="flex-1 
-               h-8 sm:h-10 
-               text-xs sm:text-sm"
-  >
-    Cancel
-  </Button>
-
-  <Button
-    onClick={handleSubmitRequest}
-    disabled={submitting}
-    className="flex-1 
-               h-8 sm:h-10 
-               text-xs sm:text-sm
-               bg-gradient-to-r 
-               from-blue-600 to-cyan-600 
-               hover:from-blue-700 hover:to-cyan-700"
-  >
-    {submitting ? (
-      <>
-        <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 animate-spin" />
-        Submitting...
-      </>
-    ) : (
-      <>
-        <Send className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-        Submit
-      </>
-    )}
-  </Button>
-
-</DialogFooter>
+              <Button
+                onClick={handleSubmitRequest}
+                disabled={submitting}
+                className="flex-1 h-8 sm:h-10 text-xs sm:text-sm bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
+              >
+                {submitting ? (
+                  <>
+                    <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 animate-spin" />
+                    Submitting...
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                    Submit
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
           </div>
         </DialogContent>
       </Dialog>
