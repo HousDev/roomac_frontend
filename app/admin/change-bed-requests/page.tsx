@@ -76,6 +76,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useAuth } from '@/context/authContext';
 export default function AdminChangeBedRequestsPage() {
   const router = useRouter();
   const [requests, setRequests] = useState<AdminChangeBedRequest[]>([]);
@@ -84,6 +85,8 @@ export default function AdminChangeBedRequestsPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [updating, setUpdating] = useState<number | null>(null);
   const [stats, setStats] = useState<any>(null);
+  const { can } = useAuth();
+
   // Add these state variables for bulk actions
 const [selectedRequests, setSelectedRequests] = useState<Set<number>>(new Set());
 const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
@@ -558,7 +561,7 @@ const handleBulkDelete = async () => {
     {/* RIGHT SIDE – Actions */}
     <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
 
-      {selectedRequests.size > 0 && (
+{can('delete_requests') && selectedRequests.size > 0 && (
         <>
           <Badge className="bg-blue-100 text-blue-700 text-xs h-9 px-3 flex items-center">
             {selectedRequests.size} selected
@@ -643,6 +646,8 @@ const handleBulkDelete = async () => {
                     <TableRow className="hover:bg-transparent">
                       {/* Checkbox Column */}
 <TableHead className="w-[50px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
+   {can('delete_requests') && (
+
   <div className="py-2 flex justify-center">
     <Checkbox 
       checked={selectedRequests.size === currentItems.length && currentItems.length > 0}
@@ -650,6 +655,7 @@ const handleBulkDelete = async () => {
       aria-label="Select all"
     />
   </div>
+   )}
 </TableHead>
                       {/* ID Column */}
                       <TableHead className="w-[90px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
@@ -810,6 +816,8 @@ const handleBulkDelete = async () => {
                       >
                         {/* Checkbox Cell */}
 <TableCell className="w-[50px]">
+    {can('delete_requests') && (
+
   <div className="flex justify-center">
     <Checkbox 
       checked={selectedRequests.has(request.id)}
@@ -817,6 +825,7 @@ const handleBulkDelete = async () => {
       aria-label={`Select request ${request.id}`}
     />
   </div>
+    )}
 </TableCell>
                         <TableCell className="font-mono text-xs font-medium text-blue-600 truncate">
                           <div className="flex items-center gap-1">
@@ -929,6 +938,8 @@ const handleBulkDelete = async () => {
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
+                            {can('manage_change_bed') && (
+
                             <Button
                               size="sm"
                               onClick={() => openStatusUpdateDialog(request)}
@@ -936,6 +947,7 @@ const handleBulkDelete = async () => {
                             >
                               Update
                             </Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>

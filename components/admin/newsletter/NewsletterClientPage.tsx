@@ -51,6 +51,7 @@ import {
   deleteNewsletterSubscriber,
   bulkDeleteNewsletterSubscribers
 } from "@/lib/newsletterApi";
+import { useAuth } from '@/context/authContext';
 
 interface NewsletterSubscribersClientPageProps {
   initialSubscribers: NewsletterSubscriber[];
@@ -80,6 +81,8 @@ export default function NewsletterSubscribersClientPage({
   const [isDeleting, setIsDeleting] = useState(false);
   const [copied, setCopied] = useState(false);
   const [shareUrl, setShareUrl] = useState('');
+    const { can } = useAuth(); // ← ADD THIS
+
 
   // Update local state when props change
   useEffect(() => {
@@ -292,43 +295,57 @@ export default function NewsletterSubscribersClientPage({
   return (
     <div className="space-y-4">
       {/* Stats Cards */}
-      <div className="grid grid-cols-3 gap-3 mt-2">
-        <Card className="bg-gradient-to-br from-slate-50 to-slate-100">
-          <CardContent className="p-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-slate-600">Total Subscribers</p>
-                <p className="text-xl font-bold">{stats?.total || 0}</p>
-              </div>
-              <Mail className="h-6 w-6 text-slate-500" />
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card className="bg-gradient-to-br from-green-50 to-green-100">
-          <CardContent className="p-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-green-600">Active</p>
-                <p className="text-xl font-bold text-green-700">{stats?.active_count || 0}</p>
-              </div>
-              <CheckCircle className="h-6 w-6 text-green-500" />
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card className="bg-gradient-to-br from-gray-50 to-gray-100">
-          <CardContent className="p-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-gray-600">Unsubscribed</p>
-                <p className="text-xl font-bold text-gray-700">{stats?.unsubscribed_count || 0}</p>
-              </div>
-              <XCircle className="h-6 w-6 text-gray-500" />
-            </div>
-          </CardContent>
-        </Card>
+    <div className="grid grid-cols-3 gap-2 mt-2">
+
+  <Card className="bg-gray-50 rounded-xl shadow-sm">
+    <CardContent className="p-2.5">
+      <div className="flex items-center justify-between">
+        <div className="flex flex-col">
+          <p className="text-lg font-semibold leading-none">
+            {stats?.total || 0}
+          </p>
+          <p className="text-[11px] text-gray-500 mt-0.5">
+            Total
+          </p>
+        </div>
+        <Mail className="h-5 w-5 text-gray-400" />
       </div>
+    </CardContent>
+  </Card>
+
+  <Card className="bg-green-50 rounded-xl shadow-sm">
+    <CardContent className="p-2.5">
+      <div className="flex items-center justify-between">
+        <div className="flex flex-col">
+          <p className="text-lg font-semibold text-green-700 leading-none">
+            {stats?.active_count || 0}
+          </p>
+          <p className="text-[11px] text-green-600 mt-0.5">
+            Active
+          </p>
+        </div>
+        <CheckCircle className="h-5 w-5 text-green-500" />
+      </div>
+    </CardContent>
+  </Card>
+
+  <Card className="bg-gray-100 rounded-xl shadow-sm">
+    <CardContent className="p-2.5">
+      <div className="flex items-center justify-between">
+        <div className="flex flex-col">
+          <p className="text-lg font-semibold text-gray-700 leading-none">
+            {stats?.unsubscribed_count || 0}
+          </p>
+          <p className="text-[11px] text-gray-500 mt-0.5">
+            Unsubscribed
+          </p>
+        </div>
+        <XCircle className="h-5 w-5 text-gray-400" />
+      </div>
+    </CardContent>
+  </Card>
+
+</div>
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3 items-center justify-between">
@@ -362,7 +379,7 @@ export default function NewsletterSubscribersClientPage({
       </div>
 
       {/* Bulk Actions Bar */}
-      {selectedSubscribers.size > 0 && (
+{selectedSubscribers.size > 0 && can('bulk_delete_newsletter') && (
         <div className="bg-white rounded-lg shadow-lg border border-blue-200 p-3 flex items-center justify-between animate-in slide-in-from-top-2">
           <div className="flex items-center gap-3">
             <Badge variant="secondary" className="bg-blue-100 text-blue-700">
@@ -400,7 +417,7 @@ export default function NewsletterSubscribersClientPage({
               <p className="text-gray-500">Newsletter subscribers will appear here.</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="max-h-[calc(100vh-290px)] md:max-h-[calc(100vh-300px)] overflow-y-auto">
               <Table>
                 <TableHeader className="bg-gray-50">
                   <TableRow>
@@ -462,6 +479,8 @@ export default function NewsletterSubscribersClientPage({
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
+                              {can('view_newsletter') && (
+
                           <Button
                             size="sm"
                             variant="ghost"
@@ -471,6 +490,9 @@ export default function NewsletterSubscribersClientPage({
                           >
                             <Eye className="h-3.5 w-3.5" />
                           </Button>
+                              )}
+                                  {can('share_newsletter') && (
+
                           <Button
                             size="sm"
                             variant="ghost"
@@ -480,6 +502,9 @@ export default function NewsletterSubscribersClientPage({
                           >
                             <Share2 className="h-3.5 w-3.5" />
                           </Button>
+                                  )}
+                              {can('delete_newsletter') && (
+
                           <Button
                             size="sm"
                             variant="ghost"
@@ -489,6 +514,7 @@ export default function NewsletterSubscribersClientPage({
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
+                              )}
                         </div>
                       </TableCell>
                     </TableRow>

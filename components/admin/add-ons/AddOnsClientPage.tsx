@@ -15,6 +15,7 @@ import AddOnsGrid from './AddOnsGrid';
 import { AddOnForm } from '@/components/admin/AddOnForm';
 import { CATEGORY_LABELS } from './table-config';
 import { Badge } from 'lucide-react';
+import { useAuth } from '@/context/authContext';
 
 interface AddOnsClientPageProps {
   initialAddOns: AddOn[];
@@ -37,6 +38,7 @@ export default function AddOnsClientPage({
   const [editingAddOn, setEditingAddOn] = useState<AddOn | null>(null);
   const [activeFilter, setActiveFilter] = useState<string>(initialFilter);
   const [stats, setStats] = useState(initialStats);
+const { can } = useAuth();
 
   // Memoized calculations
   const statsData = useMemo(() => ({
@@ -210,6 +212,8 @@ export default function AddOnsClientPage({
                   >
                     {loading ? 'Loading...' : 'Refresh'}
                   </Button>
+                    {can('create_addons') && (
+
                   <Button 
                     className="bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] hover:opacity-90 text-white h-8 sm:h-9 text-xs sm:text-sm"
                     onClick={() => setShowForm(true)}
@@ -217,6 +221,7 @@ export default function AddOnsClientPage({
                   >
                     New Add-on
                   </Button>
+                    )}
                 </div>
               </div>
 

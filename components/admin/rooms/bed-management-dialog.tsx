@@ -214,15 +214,28 @@ function TenantSelectDropdown({
       </div>
       
       <Select value={value} onValueChange={onValueChange} disabled={loading}>
-        <SelectTrigger className="h-8 md:h-10">
-          <SelectValue placeholder={
-            loading ? "Loading..." : 
-            sortedTenants.length > 0 ? "Choose a tenant" : 
-            "No tenants available"
-          } />
-        </SelectTrigger>
+  <SelectTrigger className="h-8 md:h-10">
+    <SelectValue placeholder={
+      loading ? "Loading..." : 
+      sortedTenants.length > 0 ? "Choose a tenant" : 
+      "No tenants available"
+    }>
+      {value && (() => {
+        const selected = tenants.find(t => t.id.toString() === value);
+        if (selected) {
+          return (
+            <div className="flex items-center gap-2">
+              <span className="font-medium truncate">{selected.full_name}</span>
+              <span className="text-xs text-gray-500">(ID: {selected.id})</span>
+            </div>
+          );
+        }
+        return null;
+      })()}
+    </SelectValue>
+  </SelectTrigger>
         <SelectContent className="max-h-[350px] p-0">
-          <div className="sticky top-0 z-10 bg-white border-b p-2 md:p-3">
+          {/* <div className="sticky top-0 z-10 bg-white border-b p-2 md:p-3">
             <div className="relative">
               <Search className="absolute left-2 md:left-3 top-1/2 transform -translate-y-1/2 h-3 w-3 md:h-4 md:w-4 text-gray-500" />
               <Input
@@ -232,8 +245,26 @@ function TenantSelectDropdown({
                 className="pl-7 md:pl-9 h-7 md:h-9 text-xs md:text-sm"
                 onClick={(e) => e.stopPropagation()}
               />
-            </div>
-          </div>
+            </div> */}
+           <div className="sticky top-0 z-10 bg-white border-b p-2 md:p-3">
+  <div className="relative">
+    <Search className="absolute left-2 md:left-3 top-1/2 transform -translate-y-1/2 h-3 w-3 md:h-4 md:w-4 text-gray-500" />
+    <Input
+      placeholder="Search by name, phone, email or ID..."
+      value={searchQuery}
+      onChange={(e) => setSearchQuery(e.target.value)}
+      className="pl-7 md:pl-9 h-7 md:h-9 text-xs md:text-sm"
+      onClick={(e) => e.stopPropagation()}
+    />
+  </div>
+  <div className="mt-1 text-[10px] text-gray-500 flex justify-between">
+    <span>Total: {sortedTenants.length} tenants</span>
+    <span className="flex items-center gap-1">
+      <span className="inline-block w-1.5 h-1.5 bg-green-500 rounded-full"></span>
+      Active only
+    </span>
+  </div>
+</div>
 
           <div className="max-h-[250px] overflow-y-auto">
             {loading ? (
@@ -252,41 +283,92 @@ function TenantSelectDropdown({
             ) : (
               <div className="divide-y">
                 {sortedTenants.map(tenant => (
-                  <SelectItem 
-                    key={tenant.id} 
-                    value={tenant.id.toString()}
-                    className="py-2 md:py-3"
-                  >
-                    <div className="flex items-center gap-2 md:gap-3">
-                      <div className="relative">
-                        {tenant.couple_id ? (
-                          <UsersRound className="h-4 w-4 md:h-5 md:w-5 text-red-600" />
-                        ) : (
-                          <GenderIcon gender={tenant.gender || 'Other'} size="h-4 w-4 md:h-5 md:w-5" />
-                        )}
-                        {tenant.is_active && (
-                          <div className="absolute -top-1 -right-1 w-1.5 h-1.5 md:w-2 md:h-2 bg-green-500 rounded-full border border-white"></div>
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium text-xs md:text-sm truncate">
-                          {tenant.full_name}
-                          {tenant.couple_id && (
-                            <Badge variant="outline" className="ml-1 md:ml-2 h-4 md:h-5 px-1 md:px-1.5 text-[9px] md:text-xs bg-red-50 text-red-700 border-red-200">
-                              Couple
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="text-[10px] md:text-xs text-gray-500 flex items-center gap-1 md:gap-2 mt-0.5">
-                          <span>ID: {tenant.id}</span>
-                          <span>•</span>
-                          <span className="flex items-center gap-1">
-                            {tenant.gender || 'Not specified'}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </SelectItem>
+                  // <SelectItem 
+                  //   key={tenant.id} 
+                  //   value={tenant.id.toString()}
+                  //   className="py-2 md:py-3"
+                  // >
+                  //   <div className="flex items-center gap-2 md:gap-3">
+                  //     <div className="relative">
+                  //       {tenant.couple_id ? (
+                  //         <UsersRound className="h-4 w-4 md:h-5 md:w-5 text-red-600" />
+                  //       ) : (
+                  //         <GenderIcon gender={tenant.gender || 'Other'} size="h-4 w-4 md:h-5 md:w-5" />
+                  //       )}
+                  //       {tenant.is_active && (
+                  //         <div className="absolute -top-1 -right-1 w-1.5 h-1.5 md:w-2 md:h-2 bg-green-500 rounded-full border border-white"></div>
+                  //       )}
+                  //     </div>
+                  //     <div className="flex-1 min-w-0">
+                  //       <div className="font-medium text-xs md:text-sm truncate">
+                  //         {tenant.full_name}
+                  //         {tenant.couple_id && (
+                  //           <Badge variant="outline" className="ml-1 md:ml-2 h-4 md:h-5 px-1 md:px-1.5 text-[9px] md:text-xs bg-red-50 text-red-700 border-red-200">
+                  //             Couple
+                  //           </Badge>
+                  //         )}
+                  //       </div>
+                  //       <div className="text-[10px] md:text-xs text-gray-500 flex items-center gap-1 md:gap-2 mt-0.5">
+                  //         <span>ID: {tenant.id}</span>
+                  //         <span>•</span>
+                  //         <span className="flex items-center gap-1">
+                  //           {tenant.gender || 'Not specified'}
+                  //         </span>
+                  //       </div>
+                  //     </div>
+                  //   </div>
+                  // </SelectItem>
+<SelectItem 
+  key={tenant.id} 
+  value={tenant.id.toString()}
+  className="py-2 md:py-3"
+>
+  <div className="flex flex-col gap-1 w-full">
+    <div className="flex items-center gap-2 md:gap-3">
+      <div className="relative">
+        {tenant.couple_id ? (
+          <UsersRound className="h-4 w-4 md:h-5 md:w-5 text-red-600" />
+        ) : (
+          <GenderIcon gender={tenant.gender || 'Other'} size="h-4 w-4 md:h-5 md:w-5" />
+        )}
+        {tenant.is_active && (
+          <div className="absolute -top-1 -right-1 w-1.5 h-1.5 md:w-2 md:h-2 bg-green-500 rounded-full border border-white"></div>
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="font-medium text-xs md:text-sm truncate flex items-center gap-2">
+          {tenant.full_name}
+          {tenant.couple_id && (
+            <Badge variant="outline" className="h-4 md:h-5 px-1 md:px-1.5 text-[9px] md:text-xs bg-red-50 text-red-700 border-red-200">
+              Couple
+            </Badge>
+          )}
+          {tenant.is_active && (
+            <Badge variant="outline" className="h-4 md:h-5 px-1 md:px-1.5 text-[9px] md:text-xs bg-green-50 text-green-700 border-green-200">
+              Active
+            </Badge>
+          )}
+        </div>
+        <div className="text-[10px] md:text-xs text-gray-500 flex flex-wrap items-center gap-1 md:gap-2 mt-0.5">
+          <span>ID: {tenant.id}</span>
+          <span>•</span>
+          <span className="flex items-center gap-1">
+            {tenant.gender || 'Not specified'}
+          </span>
+          {tenant.phone && (
+            <>
+              <span>•</span>
+              <span className="flex items-center gap-1">
+                <Phone className="h-2.5 w-2.5" />
+                {tenant.phone}
+              </span>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  </div>
+</SelectItem>
                 ))}
               </div>
             )}
@@ -348,58 +430,60 @@ function TenantSelectDropdown({
       )}
 
       {/* Selected tenant preview */}
-      {selectedTenant && (
-        <div className="mt-2 md:mt-3 p-2 md:p-3 bg-blue-50 rounded-lg border border-blue-200">
-          <div className="flex items-center justify-between mb-1 md:mb-2">
-            <h4 className="text-xs md:text-sm font-semibold text-blue-800">Selected Tenant</h4>
-            {selectedTenant.couple_id ? (
-              <UsersRound className="h-3 w-3 md:h-4 md:w-4 text-red-600" />
-            ) : (
-              <GenderIcon gender={selectedTenant.gender || 'Other'} size="h-3 w-3 md:h-4 md:w-4" />
-            )}
-          </div>
-          
-          <div className="space-y-1 md:space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] md:text-xs text-gray-600">Name</span>
-              <span className="text-xs md:text-sm font-medium">{selectedTenant.full_name}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] md:text-xs text-gray-600">ID</span>
-              <span className="text-xs md:text-sm font-mono">{selectedTenant.id}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] md:text-xs text-gray-600">Gender</span>
-              <span className="text-xs md:text-sm">{selectedTenant.couple_id ? 'Couple' : selectedTenant.gender || 'Not specified'}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] md:text-xs text-gray-600">This Bed Rent</span>
-              <span className="text-xs md:text-sm font-medium text-green-600">₹{displayRent}</span>
-            </div>
-            {selectedTenant.couple_id && (
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] md:text-xs text-gray-600">Couple ID</span>
-                <span className="text-xs md:text-sm font-mono">{selectedTenant.couple_id}</span>
-              </div>
-            )}
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] md:text-xs text-gray-600">Status</span>
-              <Badge variant={selectedTenant.is_active ? "default" : "secondary"} className="h-4 md:h-5 text-[9px] md:text-xs">
-                {selectedTenant.is_active ? 'Active' : 'Inactive'}
-              </Badge>
-            </div>
-          </div>
-          
-          {selectedTenant.phone && (
-            <div className="mt-1 md:mt-2 pt-1 md:pt-2 border-t border-blue-100">
-              <div className="flex items-center gap-1 md:gap-2">
-                <Phone className="h-2.5 w-2.5 md:h-3 md:w-3 text-gray-500" />
-                <span className="text-[10px] md:text-xs">{selectedTenant.phone}</span>
-              </div>
-            </div>
-          )}
+{/* Selected tenant preview */}
+{selectedTenant && (
+  <div className="mt-2 md:mt-3 p-2 md:p-3 bg-blue-50 rounded-lg border border-blue-200">
+    <div className="flex items-center justify-between mb-1 md:mb-2">
+      <h4 className="text-xs md:text-sm font-semibold text-blue-800">Selected Tenant</h4>
+      <div className="flex items-center gap-1">
+        {selectedTenant.is_active && (
+          <Badge variant="outline" className="h-4 text-[9px] bg-green-50 text-green-700 border-green-200">
+            Active
+          </Badge>
+        )}
+        {selectedTenant.couple_id ? (
+          <UsersRound className="h-3 w-3 md:h-4 md:w-4 text-red-600" />
+        ) : (
+          <GenderIcon gender={selectedTenant.gender || 'Other'} size="h-3 w-3 md:h-4 md:w-4" />
+        )}
+      </div>
+    </div>
+    
+    <div className="space-y-1 md:space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] md:text-xs text-gray-600">Name</span>
+        <span className="text-xs md:text-sm font-medium">{selectedTenant.full_name}</span>
+      </div>
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] md:text-xs text-gray-600">ID</span>
+        <span className="text-xs md:text-sm font-mono">{selectedTenant.id}</span>
+      </div>
+      {selectedTenant.phone && (
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] md:text-xs text-gray-600">Phone</span>
+          <span className="text-xs md:text-sm flex items-center gap-1">
+            <Phone className="h-3 w-3" />
+            {selectedTenant.phone}
+          </span>
         </div>
       )}
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] md:text-xs text-gray-600">Gender</span>
+        <span className="text-xs md:text-sm">{selectedTenant.couple_id ? 'Couple' : selectedTenant.gender || 'Not specified'}</span>
+      </div>
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] md:text-xs text-gray-600">This Bed Rent</span>
+        <span className="text-xs md:text-sm font-medium text-green-600">₹{displayRent}</span>
+      </div>
+      {selectedTenant.couple_id && (
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] md:text-xs text-gray-600">Couple ID</span>
+          <span className="text-xs md:text-sm font-mono">{selectedTenant.couple_id}</span>
+        </div>
+      )}
+    </div>
+  </div>
+)}
     </div>
   );
 }

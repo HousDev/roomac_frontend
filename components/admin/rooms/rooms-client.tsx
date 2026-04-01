@@ -350,23 +350,31 @@ const handleImportFile = async (file: File) => {
 
   // Refresh handler
   const handleRefresh = useCallback(async () => {
-    try {
-      setLoading(true);
-      const { listRooms } = await import('@/lib/roomsApi');
-      const response:any = await listRooms();
-      if (response && Array.isArray(response)) {
-        setRooms(response);
-      } else if (response?.data && Array.isArray(response.data)) {
-        setRooms(response.data);
+  try {
+    setLoading(true);
+    const { listRooms } = await import('@/lib/roomsApi');
+    const response:any = await listRooms();
+    let roomsData = response && Array.isArray(response) ? response : (response?.data && Array.isArray(response.data) ? response.data : []);
+    
+    // Sort rooms numerically
+    roomsData = roomsData.sort((a: RoomResponse, b: RoomResponse) => {
+      const numA = parseInt(String(a.room_number).replace(/[^0-9]/g, ''), 10);
+      const numB = parseInt(String(b.room_number).replace(/[^0-9]/g, ''), 10);
+      if (!isNaN(numA) && !isNaN(numB)) {
+        return numA - numB;
       }
-      toast.success("Rooms refreshed successfully!");
-    } catch (error) {
-      console.error('Error refreshing rooms:', error);
-      toast.error("Failed to refresh rooms");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+      return String(a.room_number).localeCompare(String(b.room_number), undefined, { numeric: true });
+    });
+    
+    setRooms(roomsData);
+    toast.success("Rooms refreshed successfully!");
+  } catch (error) {
+    console.error('Error refreshing rooms:', error);
+    toast.error("Failed to refresh rooms");
+  } finally {
+    setLoading(false);
+  }
+}, []);
 
 
 
@@ -704,13 +712,21 @@ const handleAddRoomClick = useCallback(() => {
       setRoomDialogOpen(false);
       resetForm();
       
-      const { listRooms } = await import('@/lib/roomsApi');
-      const response:any = await listRooms();
-      if (response && Array.isArray(response)) {
-        setRooms(response);
-      } else if (response?.data && Array.isArray(response.data)) {
-        setRooms(response.data);
-      }
+     const { listRooms } = await import('@/lib/roomsApi');
+const response:any = await listRooms();
+let roomsData = response && Array.isArray(response) ? response : (response?.data && Array.isArray(response.data) ? response.data : []);
+
+// Sort rooms numerically
+roomsData = roomsData.sort((a: RoomResponse, b: RoomResponse) => {
+  const numA = parseInt(String(a.room_number).replace(/[^0-9]/g, ''), 10);
+  const numB = parseInt(String(b.room_number).replace(/[^0-9]/g, ''), 10);
+  if (!isNaN(numA) && !isNaN(numB)) {
+    return numA - numB;
+  }
+  return String(a.room_number).localeCompare(String(b.room_number), undefined, { numeric: true });
+});
+
+setRooms(roomsData);
       
     } catch (err: any) {
       console.error('Error saving room:', err);
@@ -756,28 +772,36 @@ const handleAddRoomClick = useCallback(() => {
 
   // Load data on component mount if initialRooms is empty
   useEffect(() => {
-    const loadData = async () => {
-      if (rooms.length === 0) {
-        try {
-          setLoading(true);
-          const { listRooms } = await import('@/lib/roomsApi');
-          const response:any = await listRooms();
-          if (response && Array.isArray(response)) {
-            setRooms(response);
-          } else if (response?.data && Array.isArray(response.data)) {
-            setRooms(response.data);
+  const loadData = async () => {
+    if (rooms.length === 0) {
+      try {
+        setLoading(true);
+        const { listRooms } = await import('@/lib/roomsApi');
+        const response:any = await listRooms();
+        let roomsData = response && Array.isArray(response) ? response : (response?.data && Array.isArray(response.data) ? response.data : []);
+        
+        // Sort rooms numerically
+        roomsData = roomsData.sort((a: RoomResponse, b: RoomResponse) => {
+          const numA = parseInt(String(a.room_number).replace(/[^0-9]/g, ''), 10);
+          const numB = parseInt(String(b.room_number).replace(/[^0-9]/g, ''), 10);
+          if (!isNaN(numA) && !isNaN(numB)) {
+            return numA - numB;
           }
-        } catch (error) {
-          console.error('Error loading rooms:', error);
-          toast.error("Failed to load rooms");
-        } finally {
-          setLoading(false);
-        }
+          return String(a.room_number).localeCompare(String(b.room_number), undefined, { numeric: true });
+        });
+        
+        setRooms(roomsData);
+      } catch (error) {
+        console.error('Error loading rooms:', error);
+        toast.error("Failed to load rooms");
+      } finally {
+        setLoading(false);
       }
-    };
+    }
+  };
 
-    loadData();
-  }, [rooms.length]);
+  loadData();
+}, [rooms.length]);
 
   return (
     <div className=" ">

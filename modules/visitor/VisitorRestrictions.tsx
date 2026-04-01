@@ -25,6 +25,7 @@ import {
   VisitorRestriction, RestrictionPayload,
 } from "@/lib/restrictionApi";
 import { listProperties } from "@/lib/propertyApi";
+import { useAuth } from '@/context/authContext';
 
 // ─── Style tokens ───────────────────────────────────────────────────────────
 const F = "h-8 text-[11px] rounded-md border-gray-200 focus:border-blue-400 focus:ring-0 bg-gray-50 focus:bg-white transition-colors";
@@ -169,6 +170,7 @@ function PropertySearchDropdown({ value, onChange, properties }: {
 
 // ═══════════════════════════════════════════════════════════════════════════
 export function VisitorRestrictions() {
+  const { can } = useAuth();
   const [restrictions, setRestrictions] = useState<VisitorRestriction[]>([]);
   const [properties, setProperties]     = useState<PropOption[]>([]);
   const [loading, setLoading]           = useState(true);
@@ -684,22 +686,28 @@ const handleExport = () => {
               )}
             </button>
 
+            {can('export_restrictions') && (
+
             <button onClick={handleExport}
               className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 text-[11px] font-medium transition-colors">
               <Download className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Export</span>
             </button>
+            )}
 
             <button onClick={loadAll} disabled={loading}
               className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50">
               <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
             </button>
 
+            {can('create_restrictions') && (
+
             <button onClick={openAdd}
               className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-[11px] font-semibold shadow-sm transition-colors">
               <Plus className="h-3.5 w-3.5 flex-shrink-0" />
               <span>Add Restriction</span>
             </button>
+            )}
           </div>
         </div>
 
@@ -718,7 +726,7 @@ const handleExport = () => {
       <div className="relative">
         <main className="p-0 sm:p-0">
 
-          {selectedItems.size > 0 && (
+{can('delete_restrictions') && selectedItems.size > 0 && (
             <div className="flex items-center gap-2 mb-3 flex-wrap">
               <span className="text-[11px] text-blue-700 font-semibold bg-blue-50 px-2 py-1 rounded-lg">
                 {selectedItems.size} selected
@@ -756,11 +764,14 @@ const handleExport = () => {
                   <TableHeader className="sticky top-0 z-10 bg-gray-50">
                     <TableRow>
                       <TableHead className="py-2 px-3 text-xs w-8">
+                          {can('delete_restrictions') && (
+
                         <button onClick={toggleSelectAll} className="p-1 hover:bg-gray-200 rounded">
                           {selectAll
                             ? <CheckSquare className="h-3.5 w-3.5 text-blue-600" />
                             : <Square className="h-3.5 w-3.5 text-gray-400" />}
                         </button>
+                          )}
                       </TableHead>
                       <TableHead className="py-2 px-3 text-xs">Property</TableHead>
                       <TableHead className="py-2 px-3 text-xs">Type</TableHead>
@@ -816,11 +827,14 @@ const handleExport = () => {
                     ) : filteredItems.map(r => (
                       <TableRow key={r.id} className="hover:bg-gray-50">
                         <TableCell className="py-2 px-3">
+                            {can('delete_restrictions') && (
+
                           <button onClick={() => toggleSelectItem(r.id)} className="p-1 hover:bg-gray-200 rounded">
                             {selectedItems.has(r.id)
                               ? <CheckSquare className="h-3.5 w-3.5 text-blue-600" />
                               : <Square className="h-3.5 w-3.5 text-gray-400" />}
                           </button>
+                            )}
                         </TableCell>
                         <TableCell className="py-2 px-3">
                           <div className="flex items-center gap-1.5">
@@ -855,16 +869,22 @@ const handleExport = () => {
                         </TableCell>
                         <TableCell className="py-2 px-3">
                           <div className="flex justify-end gap-1">
+                                {can('view_restrictions') && (
+
                             <Button size="sm" variant="ghost"
                               className="h-6 w-6 p-0 hover:bg-blue-50 hover:text-blue-600"
                               onClick={() => setViewItem(r)} title="View">
                               <Eye className="h-3.5 w-3.5" />
                             </Button>
+                                )}
+                                    {can('edit_restrictions') && (
+
                             <Button size="sm" variant="ghost"
                               className="h-6 w-6 p-0 hover:bg-amber-50 hover:text-amber-600"
                               onClick={() => openEdit(r)} title="Edit">
                               <Edit className="h-3.5 w-3.5" />
                             </Button>
+                                    )}
                             <Button size="sm" variant="ghost"
                               className={`h-6 w-6 p-0 ${r.is_active ? 'hover:bg-orange-50 hover:text-orange-600' : 'hover:bg-green-50 hover:text-green-600'}`}
                               onClick={() => handleToggle(r.id, r.property_name, r.is_active)}
@@ -873,11 +893,14 @@ const handleExport = () => {
                                 ? <ToggleRight className="h-3.5 w-3.5 text-green-500" />
                                 : <ToggleLeft  className="h-3.5 w-3.5 text-gray-400" />}
                             </Button>
+                              {can('delete_restrictions') && (
+
                             <Button size="sm" variant="ghost"
                               className="h-6 w-6 p-0 hover:bg-red-50 hover:text-red-600"
                               onClick={() => handleDelete(r.id, r.property_name)} title="Delete">
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
+                              )}
                           </div>
                         </TableCell>
                       </TableRow>
@@ -1193,10 +1216,13 @@ const handleExport = () => {
               )}
 
               <div className="flex gap-2 pt-1">
+                  {can('edit_restrictions') && (
+
                 <Button onClick={() => { openEdit(viewItem); setViewItem(null); }}
                   className="flex-1 h-8 text-[11px] bg-gradient-to-r from-blue-600 to-indigo-600 text-white gap-1.5">
                   Edit Restriction
                 </Button>
+                  )}
                 <Button variant="outline"
                   onClick={() => { handleToggle(viewItem.id, viewItem.property_name, viewItem.is_active); setViewItem(null); }}
                   className={`h-8 text-[11px] gap-1.5 ${viewItem.is_active ? 'border-orange-200 text-orange-600 hover:bg-orange-50' : 'border-green-200 text-green-600 hover:bg-green-50'}`}>

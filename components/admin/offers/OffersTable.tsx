@@ -43,6 +43,7 @@ import {
 import Pagination from "./Pagination";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState, useEffect } from "react";
+import { useAuth } from "@/context/authContext";
 
 interface OffersTableProps {
   offers: Offer[];
@@ -99,6 +100,7 @@ const OffersTable = ({
   });
 
   const [filteredOffers, setFilteredOffers] = useState<Offer[]>(offers);
+const { can } = useAuth();
 
   useEffect(() => {
     const filtered = offers.filter((offer) => {
@@ -109,7 +111,7 @@ const OffersTable = ({
       
       const propertyText = `${offer.property_name || ""} ${offer.room_number || ""} ${offer.sharing_type || ""}`.toLowerCase();
       const matchesProperty = propertyText.includes(filters.property.toLowerCase());
-      
+
       const discountText = offer.discount_type === "percentage" 
         ? `${offer.discount_percent}% off`
         : `₹${offer.discount_value} off`;
@@ -392,7 +394,10 @@ const OffersTable = ({
                           </Button>
                         </TableCell>
                         <TableCell className="py-1.5 px-2">
+                         
                           <div className="flex items-center gap-0.5">
+                            {can('view_offers') && (
+
                             <Button
                               size="sm"
                               variant="ghost"
@@ -402,6 +407,9 @@ const OffersTable = ({
                             >
                               <Eye className="h-3 w-3" />
                             </Button>
+                            )}
+                            {can('edit_offers') && (
+
                             <Button
                               size="sm"
                               variant="ghost"
@@ -411,6 +419,8 @@ const OffersTable = ({
                             >
                               <Edit className="h-3 w-3" />
                             </Button>
+                            )}
+                            {can('delete_offers') && (
                             <Button
                               size="sm"
                               variant="ghost"
@@ -420,6 +430,9 @@ const OffersTable = ({
                             >
                               <Trash2 className="h-3 w-3" />
                             </Button>
+                            )}
+                            {can('share_offers') && (
+
                             <Button
                               size="sm"
                               variant="ghost"
@@ -429,6 +442,7 @@ const OffersTable = ({
                             >
                               <Share2 className="h-3 w-3" />
                             </Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>

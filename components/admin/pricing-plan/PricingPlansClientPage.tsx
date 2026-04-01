@@ -537,6 +537,8 @@ const ViewPlanDialogContent = selectedPlan && (
   const AddPlanDialogContent = (
     <DialogContent className="w-[95vw] sm:max-w-xl max-h-[90vh] overflow-hidden p-0 rounded-xl flex flex-col">
       <div className={`${headerGradient} text-white px-4 py-3 flex items-center justify-between rounded-t-xl flex-shrink-0`}>
+        {can('create_pricing_plans') && (
+
         <div>
           <h2 className="text-sm font-semibold flex items-center gap-1.5">
             <Sparkles className="h-3.5 w-3.5" />
@@ -544,6 +546,7 @@ const ViewPlanDialogContent = selectedPlan && (
           </h2>
           <p className="text-[10px] text-blue-100 mt-0.5">Create a new pricing plan for tenants</p>
         </div>
+        )}
         <DialogClose asChild>
           <button className="p-1 rounded-full hover:bg-white/20 transition">
             <X className="h-3.5 w-3.5" />
@@ -598,8 +601,11 @@ const ViewPlanDialogContent = selectedPlan && (
                     className="w-full pl-7 h-8 text-xs bg-white/20 text-white placeholder:text-blue-200 border-white/30 focus:border-white/50"
                   />
                 </div>
+
                 <Dialog open={isAddPlanOpen} onOpenChange={setIsAddPlanOpen}>
                   <DialogTrigger asChild>
+                    {can('create_pricing_plans') && (
+
                     <Button
                       size="sm"
                       className="bg-white text-blue-600 hover:bg-blue-50 hover:text-blue-700 border-0 font-semibold h-8 text-xs whitespace-nowrap flex-shrink-0"
@@ -607,6 +613,7 @@ const ViewPlanDialogContent = selectedPlan && (
                       <Plus className="h-3.5 w-3.5 mr-1" />
                       Add
                     </Button>
+                    )}
                   </DialogTrigger>
                   {AddPlanDialogContent}
                 </Dialog>

@@ -24,6 +24,7 @@ import {
   VisitorLog,
 } from "@/lib/visitorApi";
 import { NewVisitorEntry } from "./NewVisitorEntry";
+import { useAuth } from '@/context/authContext';
 
 // ─── Style tokens (same as TenantHandover) ───────────────────────────────────
 const SI = "text-[11px] py-0.5";
@@ -81,6 +82,7 @@ export function VisitorLogs() {
   const [viewItem, setViewItem]   = useState<VisitorLog | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [guardName, setGuardName] = useState('Security Guard');
+const { can } = useAuth();
 
   // filters
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
@@ -693,22 +695,28 @@ const handleExport = () => {
               )}
             </button>
 
+
+          {can('export_visitor_logs') && (
             <button onClick={handleExport}
               className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 text-[11px] font-medium transition-colors">
               <Download className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Export</span>
             </button>
+          )}
 
             <button onClick={loadAll} disabled={loading}
               className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50">
               <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
             </button>
 
+            {can('create_visitor') && (
+
             <button onClick={() => setShowModal(true)}
               className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white text-[11px] font-semibold shadow-sm transition-colors">
               <UserPlus className="h-3.5 w-3.5 flex-shrink-0" />
               <span className="xs:inline">New Visitor</span>
             </button>
+            )}
           </div>
         </div>
 
@@ -744,14 +752,20 @@ const handleExport = () => {
                 <span className="text-[11px] text-blue-700 font-semibold bg-blue-50 px-2 py-1 rounded-lg">
                   {selectedItems.size} selected
                 </span>
+                    {can('checkout_visitor') && (
+
                 <Button size="sm" onClick={handleBulkCheckOut}
                   className="h-7 text-[10px] px-2.5 bg-blue-600 hover:bg-blue-700 text-white gap-1">
                   <LogOut className="h-3 w-3" /> Bulk Check Out
                 </Button>
+                    )}
+                        {can('delete_visitor_logs') && (
+
                 <Button size="sm" variant="destructive" onClick={handleBulkDelete}
                   className="h-7 text-[10px] px-2.5 bg-red-600 hover:bg-red-700 gap-1">
                   <Trash2 className="h-3 w-3" /> Delete Selected
                 </Button>
+                        )}
               </div>
             )}
           </div>
@@ -911,6 +925,7 @@ const handleExport = () => {
   <div className="flex justify-end items-center gap-1 flex-nowrap">
 
     {/* View */}
+    {can('view_visitor_logs') && (
     <Button
       size="sm"
       variant="ghost"
@@ -920,9 +935,10 @@ const handleExport = () => {
     >
       <Eye className="h-3.5 w-3.5" />
     </Button>
+    )}
 
     {/* Check Out — only if active */}
-    {(log.status === 'checked_in' || log.status === 'overstayed') && !log.is_blocked && (
+    {can('checkout_visitor') && (log.status === 'checked_in' || log.status === 'overstayed') && !log.is_blocked && (
       <Button
         size="sm"
         variant="ghost"
@@ -936,7 +952,7 @@ const handleExport = () => {
     )}
 
     {/* UNBLOCK — show if blocked */}
-    {log.is_blocked === 1 ? (
+    {can('block_visitor') && log.is_blocked === 1 ? (
       <Button
         size="sm"
         variant="ghost"
@@ -947,7 +963,7 @@ const handleExport = () => {
         <ShieldCheck className="h-3.5 w-3.5" />
         <span className="hidden md:inline">Unblock</span>
       </Button>
-    ) : (
+    ) : can('block_visitor') ? (
       /* BLOCK — show if not blocked */
       <Button
         size="sm"
@@ -959,9 +975,11 @@ const handleExport = () => {
         <Ban className="h-3.5 w-3.5" />
         <span className="hidden md:inline">Block</span>
       </Button>
-    )}
+    ) : null}
 
     {/* Delete */}
+        {can('delete_visitor_logs') && (
+
     <Button
       size="sm"
       variant="ghost"
@@ -971,6 +989,7 @@ const handleExport = () => {
     >
       <Trash2 className="h-3.5 w-3.5" />
     </Button>
+        )}
 
   </div>
 </TableCell>
@@ -1170,14 +1189,14 @@ const handleExport = () => {
 
         {/* Action buttons */}
         <div className="flex gap-2 pt-1 flex-wrap">
-          {(viewItem.status === 'checked_in' || viewItem.status === 'overstayed') && !viewItem.is_blocked && (
+  {can('checkout_visitor') && (viewItem.status === 'checked_in' || viewItem.status === 'overstayed') && !viewItem.is_blocked && (
             <Button onClick={() => { handleCheckOut(viewItem.id); setViewItem(null); }}
               className="flex-1 h-8 text-[11px] bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white gap-1.5">
               <LogOut className="h-3.5 w-3.5" /> Check Out Now
             </Button>
           )}
 
-          {viewItem.is_blocked === 1 ? (
+  {can('block_visitor') && (viewItem.is_blocked === 1 ? (
             <Button
               onClick={() => { handleUnblock(viewItem); setViewItem(null); }}
               className="flex-1 h-8 text-[11px] bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white gap-1.5"
@@ -1192,7 +1211,7 @@ const handleExport = () => {
             >
               <Ban className="h-3.5 w-3.5" /> Block
             </Button>
-          )}
+          ))}
 
           {/* Blocked reason shown in modal */}
           {viewItem.is_blocked === 1 && viewItem.block_reason && (

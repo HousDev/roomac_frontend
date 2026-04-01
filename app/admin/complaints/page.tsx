@@ -57,6 +57,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useAuth } from "@/context/authContext";
 
 export default function ComplaintsPage() {
   const router = useRouter();
@@ -75,7 +76,8 @@ export default function ComplaintsPage() {
   const [sortField, setSortField] = useState<keyof Complaint>('created_at');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [adminNotes, setAdminNotes] = useState("");
-  
+  const { can } = useAuth();
+
   // Add these state variables for search filters
   const [searchFilters, setSearchFilters] = useState({
     id: '',
@@ -462,7 +464,7 @@ export default function ComplaintsPage() {
       </div>
 
       {/* Bulk Actions Bar */}
-      {selectedComplaints.size > 0 && (
+{can('delete_requests') && selectedComplaints.size > 0 && (
         <div className="sticky top-36 z-10 mb-4 bg-white rounded-lg shadow-lg border border-blue-200 p-3 flex items-center justify-between animate-in slide-in-from-top-2">
           <div className="flex items-center gap-3">
             <Badge variant="secondary" className="bg-blue-100 text-blue-700">
@@ -513,6 +515,8 @@ export default function ComplaintsPage() {
                   <TableHeader className="sticky top-0 z-10 bg-gradient-to-r from-gray-50 to-white shadow-sm">
                     <TableRow className="hover:bg-transparent">
                       <TableHead className="w-[50px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
+                          {can('delete_requests') && (
+
                         <div className="py-2 flex justify-center">
                           <Checkbox 
                             checked={selectedComplaints.size === filteredComplaints.length && filteredComplaints.length > 0}
@@ -520,6 +524,7 @@ export default function ComplaintsPage() {
                             aria-label="Select all"
                           />
                         </div>
+                          )}
                       </TableHead>
                       <TableHead className="min-w-[100px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
                         <div className="space-y-2 py-2">
@@ -633,6 +638,8 @@ export default function ComplaintsPage() {
                         }`}
                       >
                         <TableCell className="w-[50px]">
+                            {can('delete_requests') && (
+
                           <div className="flex justify-center">
                             <Checkbox 
                               checked={selectedComplaints.has(complaint.id)}
@@ -640,6 +647,7 @@ export default function ComplaintsPage() {
                               aria-label={`Select complaint ${complaint.id}`}
                             />
                           </div>
+                            )}
                         </TableCell>
                         <TableCell className="font-mono text-sm font-medium text-blue-600">
                           <div className="flex items-center gap-1">
@@ -755,6 +763,8 @@ export default function ComplaintsPage() {
                                 <Eye className="h-4 w-4 mr-2 text-blue-500" />
                                 View Details
                               </DropdownMenuItem>
+                              {can('manage_complaints') && (
+
                               <DropdownMenuItem 
                                 onClick={() => {
                                   setSelectedComplaint(complaint);
@@ -765,6 +775,9 @@ export default function ComplaintsPage() {
                                 <UserPlus className="h-4 w-4 mr-2 text-green-500" />
                                 Assign Staff
                               </DropdownMenuItem>
+                              )}
+                              {can('manage_complaints') && (
+
                               <DropdownMenuItem 
                                 onClick={() => handleOpenStatusDialog(complaint)}
                                 className="cursor-pointer hover:bg-blue-50"
@@ -772,6 +785,7 @@ export default function ComplaintsPage() {
                                 <FileText className="h-4 w-4 mr-2 text-purple-500" />
                                 Update Status
                               </DropdownMenuItem>
+                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>

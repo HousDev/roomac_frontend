@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Edit, Trash2, ToggleLeft, ToggleRight, Plus } from 'lucide-react';
 import { CATEGORY_COLORS, CATEGORY_LABELS } from './table-config';
 import { AddOn } from '@/lib/addOnsApi';
+import { useAuth } from '@/context/authContext';
 
 interface AddOnsGridProps {
   addOns: AddOn[];
@@ -26,6 +27,8 @@ export default function AddOnsGrid({
   activeFilter,
   formatCurrency,
 }: AddOnsGridProps) {
+  const { can } = useAuth();
+
   if (loading && addOns.length === 0) {
     return (
       <div className="flex justify-center items-center h-40">
@@ -139,6 +142,8 @@ export default function AddOnsGrid({
                   Order: {addOn.sort_order || 0} · Max: {addOn.max_per_tenant || 1}
                 </span>
                 <div className="flex gap-1">
+                    {can('edit_addons') && (
+
                   <Button
                     variant="outline"
                     size="sm"
@@ -148,6 +153,8 @@ export default function AddOnsGrid({
                   >
                     <Edit className="h-3 w-3" />
                   </Button>
+                    )}
+                    {can('delete_addons') && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -157,6 +164,7 @@ export default function AddOnsGrid({
                   >
                     <Trash2 className="h-3 w-3" />
                   </Button>
+                    )}
                 </div>
               </div>
 

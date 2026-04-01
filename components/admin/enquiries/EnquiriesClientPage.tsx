@@ -705,7 +705,7 @@ const handleBulkDelete = async () => {
           </CardHeader>
 
           <CardContent className="p-0">
-            <div className="max-h-[calc(100vh-490px)] md:max-h-[calc(100vh-365px)] overflow-y-auto overflow-x-auto">
+            <div className="max-h-[calc(100vh-490px)] md:max-h-[calc(100vh-420px)] overflow-y-auto overflow-x-auto">
               <div className="min-w-[1200px] lg:min-w-full">
                 <Table>
                   <TableHeader className="bg-gray-50 sticky top-0 z-10">

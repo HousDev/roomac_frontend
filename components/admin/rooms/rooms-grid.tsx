@@ -444,21 +444,18 @@ export default function RoomsGrid({
   
   // Sort rooms in ascending order by room number
   const sortedRooms = [...safeRooms].sort((a, b) => {
-    // Convert room numbers to strings for comparison
-    const roomA = String(a.room_number || '');
-    const roomB = String(b.room_number || '');
-    
-    // Try numeric comparison first
-    const numA = parseInt(roomA);
-    const numB = parseInt(roomB);
-    
-    if (!isNaN(numA) && !isNaN(numB)) {
-      return numA - numB;
-    }
-    
-    // Fall back to string comparison
-    return roomA.localeCompare(roomB, undefined, { numeric: true });
-  });
+  // Extract only numbers from room number (remove any non-numeric characters)
+  const numA = parseInt(String(a.room_number).replace(/[^0-9]/g, ''), 10);
+  const numB = parseInt(String(b.room_number).replace(/[^0-9]/g, ''), 10);
+  
+  // Sort numerically
+  if (!isNaN(numA) && !isNaN(numB)) {
+    return numA - numB;
+  }
+  
+  // Fallback to string comparison with numeric option
+  return String(a.room_number).localeCompare(String(b.room_number), undefined, { numeric: true });
+});
   
   if (sortedRooms.length === 0) {
     return null;

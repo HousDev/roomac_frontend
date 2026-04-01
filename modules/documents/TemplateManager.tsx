@@ -358,10 +358,10 @@ const DEFAULT_HTML = `<!DOCTYPE html>
               <span style="font-size: 12px; color: #6b7280;">Represented by: Authorized Signatory</span></div>
             </div>
             <div class="field-group">
-              <span class="field-label">LESSEE / RECIPIENT</span>
-              <div class="field-value">{{tenant_name}}<br>
-              <span style="font-size: 12px; color: #6b7280;">S/o, D/o {{emergency_contact_name}}</span></div>
-            </div>
+  <span class="field-label">LESSEE / RECIPIENT</span>
+  <div class="field-value">{{tenant_name}}<br>
+  <span style="font-size: 12px; color: #6b7280;">S/o, D/o {{emergency_contact_name}}</span></div>
+</div>
           </div>
         </div>
       </div>
@@ -373,21 +373,21 @@ const DEFAULT_HTML = `<!DOCTYPE html>
         </div>
         <div class="section-body">
           <div class="grid-2">
-            <div class="field-group">
+           <div class="field-group">
               <span class="field-label">PROPERTY NAME</span>
-              <div class="field-value"></div>
+              <div class="field-value">{{property_name}}</div>
             </div>
             <div class="field-group">
               <span class="field-label">ROOM / BED NUMBER</span>
-              <div class="field-value"> / </div>
+              <div class="field-value">{{room_number}} / {{bed_number}}</div>
             </div>
             <div class="field-group">
               <span class="field-label">MOVE-IN DATE</span>
-              <div class="field-value"></div>
+              <div class="field-value">{{move_in_date}}</div>
             </div>
             <div class="field-group">
               <span class="field-label">SECURITY DEPOSIT</span>
-              <div class="field-value money-value"> </div>
+              <div class="field-value money-value">₹ {{security_deposit}}</div>
             </div>
           </div>
         </div>
@@ -435,12 +435,12 @@ const DEFAULT_HTML = `<!DOCTYPE html>
         <div class="section-body">
           <table class="terms-table">
             <tr>
-              <td>Monthly Rent / Fee</td>
-              <td class="money-value"></td>
+             <td>Monthly Rent / Fee</td>
+              <td class="money-value">₹ {{rent_amount}}/-</td>
             </tr>
             <tr>
               <td>Payment Mode</td>
-              <td></td>
+              <td>{{payment_mode}}</td>
             </tr>
             <tr>
               <td>Due Date</td>
@@ -620,6 +620,8 @@ export function TemplateManager() {
 // Add this with your other useState declarations
 const [showVariables, setShowVariables] = useState(false);
   // ── Sidebar / selection ────────────────────────────────────────────────────
+  const [isCodeView, setIsCodeView] = useState(false);
+const visualIframeRef = useRef<HTMLIFrameElement>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string | number>>(new Set());
 
@@ -656,6 +658,19 @@ const [showVariables, setShowVariables] = useState(false);
     inactive: templates.filter(t => !t.is_active).length,
     cats: new Set(templates.map(t => t.category)).size,
   }), [templates]);
+
+ useEffect(() => {
+  const iframe = visualIframeRef.current;
+  if (!iframe || isCodeView) return;
+  
+  const html = buildPreview(form.html_content, logoPreview);
+  const blob = new Blob([html], { type: "text/html" });
+  const url = URL.createObjectURL(blob);
+  
+  iframe.src = url;
+  
+  return () => URL.revokeObjectURL(url);
+}, [form.html_content, logoPreview, isCodeView]);
 
   // Update HTML when category changes to set appropriate title
   useEffect(() => {
@@ -771,221 +786,178 @@ const [showVariables, setShowVariables] = useState(false);
   
 const toggleVariable = (name: string) => {
   const varTag = `{{${name}}}`;
-  const textarea = htmlEditorRef.current;
   const currentContent = form.html_content;
   const varRegex = new RegExp(escapeRegExp(varTag), 'g');
-  const isPresent = varRegex.test(currentContent);
-
-  if (textarea) {
-    if (isPresent) {
-      // Remove variable (keep existing removal code)
-      // ... (keep your removal logic)
-    } else {
-      // Insert variable - find the appropriate location
-      const cursorPos = textarea.selectionStart;
-      const fullHtml = textarea.value;
-      
-      // SIMPLIFIED: Map variables to their correct locations
-      const variableLocations: Record<string, { field: string, format?: string }> = {
-        // System variables
-        'date': { field: 'Date' },
-        'document_number': { field: 'Document No' },
-        'document_title': { field: 'document-title' },
-        'document_type': { field: 'document_type' },
-        
-        // Company variables
-        'company_name': { field: 'LESSOR / PROVIDER' },
-        'company_address': { field: 'LESSOR / PROVIDER' },
-        'logo_url': { field: 'logo' },
-        
-        // Tenant variables - EXACT field matches
-'tenant_name': { field: 'FULL NAME', format: '{value}' },
-        'tenant_phone': { field: 'PHONE NUMBER' },
-        'tenant_email': { field: 'EMAIL' },
-        'aadhaar_number': { field: 'AADHAAR NUMBER' },
-        'pan_number': { field: 'PAN NUMBER' },
-        'emergency_contact_name': { field: 'EMERGENCY CONTACT' },
-'emergency_phone': { field: 'EMERGENCY CONTACT', format: ' ({value})' },        
-        // Property variables - EXACT field matches
-        'property_name': { field: 'PROPERTY NAME' },
-        'room_number': { field: 'ROOM / BED NUMBER' },
-        'bed_number': { field: 'ROOM / BED NUMBER' },
-        'move_in_date': { field: 'MOVE-IN DATE' },
-        'security_deposit': { field: 'SECURITY DEPOSIT', format: '₹ {value}' },
-        
-        // Terms variables
-        'rent_amount': { field: 'Monthly Rent / Fee', format: '₹ {value}/-' },
-        'payment_mode': { field: 'Payment Mode' },
-      };
-      
-      const location = variableLocations[name];
-      let insertPosition = cursorPos;
-      let foundLocation = false;
-      
-      if (location) {
-        // Handle different sections based on field name
-        const fieldLabels = fullHtml.match(/<span class="field-label">(.*?)<\/span>/g) || [];
-        
-        for (let i = 0; i < fieldLabels.length; i++) {
-          // Extract the label text without HTML tags
-          const labelMatch = fieldLabels[i].match(/>([^<]+)</);
-          const labelText = labelMatch ? labelMatch[1].trim() : '';
-          
-          // Check if this label matches the field we're looking for
-          if (labelText === location.field) {
-            const labelPos = fullHtml.indexOf(fieldLabels[i]);
-            const afterLabel = fullHtml.substring(labelPos + fieldLabels[i].length);
-            
-            // Find the field-value div after this label
-            const divMatch = afterLabel.match(/<div class="field-value[^>]*>/);
-            
-            if (divMatch && divMatch[0]) {
-              const divPos = labelPos + fieldLabels[i].length + afterLabel.indexOf(divMatch[0]);
-              const divContentStart = divPos + divMatch[0].length;
-              
-              // Get the content of this div
-              const divEndPos = fullHtml.indexOf('</div>', divContentStart);
-              const divContent = fullHtml.substring(divContentStart, divEndPos);
-              
-              // Special handling for different fields
-              if (location.field === 'SECURITY DEPOSIT') {
-                // Insert after ₹ symbol if it exists
-                if (divContent.includes('₹')) {
-                  const rupeePos = divContent.indexOf('₹');
-                  insertPosition = divContentStart + rupeePos + '₹'.length + 1;
-                } else {
-                  insertPosition = divContentStart;
-                }
-              } 
-              // SPECIAL HANDLING FOR FULL NAME FIELD
-else if (location.field === 'FULL NAME') {
-  insertPosition = divContentStart;
-  foundLocation = true;
-}
-              else if (location.field === 'ROOM / BED NUMBER') {
-                if (name === 'room_number') {
-                  // Insert room_number at the beginning
-                  insertPosition = divContentStart;
-                } else if (name === 'bed_number') {
-                  // Check if room_number exists
-                  if (divContent.includes('{{room_number}}')) {
-                    const roomPos = divContent.indexOf('{{room_number}}');
-                    insertPosition = divContentStart + roomPos + '{{room_number}}'.length + 3; // +3 for " / "
-                  } else {
-                    // Insert after a space for the slash
-                    insertPosition = divContentStart;
-                  }
-                }
-              }
-              else if (location.field === 'EMERGENCY CONTACT') {
-                if (name === 'emergency_contact_name') {
-                  insertPosition = divContentStart;
-                } else if (name === 'emergency_phone') {
-                  // Check if emergency_contact_name exists
-                  if (divContent.includes('{{emergency_contact_name}}')) {
-                    const namePos = divContent.indexOf('{{emergency_contact_name}}');
-                    insertPosition = divContentStart + namePos + '{{emergency_contact_name}}'.length ;
-                  } else {
-                    insertPosition = divContentStart;
-                  }
-                }
-              }
-              else {
-                // For all other fields, insert at the start of the div
-                insertPosition = divContentStart;
-              }
-              
-              foundLocation = true;
-              break;
-            }
-          }
-        }
-        
-        // If not found by label, try terms table
-        if (!foundLocation && (name === 'rent_amount' || name === 'payment_mode')) {
-          const termsTable = fullHtml.match(/<table class="terms-table">[\s\S]*?<\/table>/);
-          if (termsTable && termsTable[0]) {
-            const tableStart = fullHtml.indexOf(termsTable[0]);
-            const rows = termsTable[0].match(/<tr>[\s\S]*?<\/tr>/g) || [];
-            
-            for (let i = 0; i < rows.length; i++) {
-              if (rows[i].includes(location.field)) {
-                const rowStart = tableStart + termsTable[0].indexOf(rows[i]);
-                const tds = rows[i].match(/<td[^>]*>([\s\S]*?)<\/td>/g);
-                
-                if (tds && tds.length >= 2) {
-                  const secondTd = tds[1];
-                  const tdPos = rowStart + rows[i].indexOf(secondTd);
-                  const tdContentStart = tdPos + secondTd.indexOf('>') + 1;
-                  insertPosition = tdContentStart;
-                  foundLocation = true;
-                }
-                break;
-              }
-            }
-          }
-        }
-        
-        // If not found by label, try meta section
-        if (!foundLocation && (name === 'date' || name === 'document_number')) {
-          if (location.field === 'Date') {
-            const dateSpan = fullHtml.match(/<span>Date: <strong>[^<]*<\/strong><\/span>/);
-            if (dateSpan && dateSpan[0]) {
-              const spanPos = fullHtml.indexOf(dateSpan[0]);
-              const strongStart = spanPos + dateSpan[0].indexOf('<strong>') + '<strong>'.length;
-              insertPosition = strongStart;
-              foundLocation = true;
-            }
-          } else if (location.field === 'Document No') {
-            const docNoSpan = fullHtml.match(/<span>{{document_type}} No: <strong>[^<]*<\/strong><\/span>/);
-            if (docNoSpan && docNoSpan[0]) {
-              const spanPos = fullHtml.indexOf(docNoSpan[0]);
-              const strongStart = spanPos + docNoSpan[0].indexOf('<strong>') + '<strong>'.length;
-              insertPosition = strongStart;
-              foundLocation = true;
-            }
-          }
-        }
-      }
-      
-      // Format the tag if needed
-      let finalTag = varTag;
-      if (location?.format) {
-        finalTag = location.format.replace('{value}', varTag);
-      }
-      
-      // If no specific location found, use cursor position
-      if (!foundLocation) {
-        insertPosition = cursorPos;
-      }
-      
-      // Insert the variable
-      const newHtml = 
-        fullHtml.substring(0, insertPosition) + 
-        finalTag + 
-        fullHtml.substring(insertPosition);
-      
-      setForm(p => ({ ...p, html_content: newHtml }));
-      
-      setTimeout(() => {
-        textarea.focus();
-        const newCursorPos = insertPosition + finalTag.length;
-        textarea.setSelectionRange(newCursorPos, newCursorPos);
-      }, 10);
-      
-      toast.success(`Inserted ${finalTag}`);
-    }
+  
+  // For tenant_name: check presence ONLY in FULL NAME field, not globally
+  let isPresent: boolean;
+  if (name === 'tenant_name') {
+    const fullNameFieldMatch = currentContent.match(
+      /<span class="field-label">FULL NAME<\/span>\s*<div class="field-value[^"]*">\{\{tenant_name\}\}/
+    );
+    isPresent = !!fullNameFieldMatch;
   } else {
-    // Fallback when textarea ref not available
-    if (isPresent) {
-      const newHtml = currentContent.replace(varRegex, '');
+    isPresent = varRegex.test(currentContent);
+  }
+
+  if (isPresent) {
+    // Remove only from specific known locations, not ALL instances
+    // For tenant_name: remove from FULL NAME field only, keep LESSEE and signature
+    if (name === 'tenant_name') {
+      // Only remove from FULL NAME field-value div
+      let newHtml = currentContent;
+      // Remove from FULL NAME field only
+      newHtml = newHtml.replace(
+        /(<span class="field-label">FULL NAME<\/span>\s*<div class="field-value[^"]*">)\{\{tenant_name\}\}/,
+        '$1'
+      );
       setForm(p => ({ ...p, html_content: newHtml }));
-      toast.success(`Removed all {{${name}}} instances`);
-    } else {
-      setForm(p => ({ ...p, html_content: p.html_content + varTag }));
-      toast.success(`Inserted {{${name}}}`);
+      toast.success(`Removed {{tenant_name}} from Full Name field`);
+      return;
+    }
+    // For all others: remove all instances
+    const newHtml = currentContent.replace(varRegex, '');
+    setForm(p => ({ ...p, html_content: newHtml }));
+    toast.success(`Removed {{${name}}}`);
+    return;
+  }
+  // Always work from form.html_content (not textarea.value which can be stale)
+  const fullHtml = currentContent;
+
+  const variableLocations: Record<string, { field: string, format?: string }> = {
+    'date': { field: 'Date' },
+    'document_number': { field: 'Document No' },
+    'document_title': { field: 'document-title' },
+    'document_type': { field: 'document_type' },
+    'company_name': { field: 'LESSOR / PROVIDER' },
+    'company_address': { field: 'LESSOR / PROVIDER' },
+    'logo_url': { field: 'logo' },
+    'tenant_name': { field: 'FULL NAME' },
+    'tenant_phone': { field: 'PHONE NUMBER' },
+    'tenant_email': { field: 'EMAIL' },
+    'aadhaar_number': { field: 'AADHAAR NUMBER' },
+    'pan_number': { field: 'PAN NUMBER' },
+    'emergency_contact_name': { field: 'EMERGENCY CONTACT' },
+    'emergency_phone': { field: 'EMERGENCY CONTACT', format: ' ({value})' },
+    'property_name': { field: 'PROPERTY NAME' },
+    'room_number': { field: 'ROOM / BED NUMBER' },
+    'bed_number': { field: 'ROOM / BED NUMBER' },
+    'move_in_date': { field: 'MOVE-IN DATE' },
+    'security_deposit': { field: 'SECURITY DEPOSIT', format: '₹ {value}' },
+    'rent_amount': { field: 'Monthly Rent / Fee', format: '₹ {value}/-' },
+    'payment_mode': { field: 'Payment Mode' },
+  };
+
+  const location = variableLocations[name];
+  let insertPosition = -1;
+  let finalTag = varTag;
+
+  if (location?.format) {
+    finalTag = location.format.replace('{value}', varTag);
+  }
+
+  if (location) {
+    // Try field-label spans
+    const fieldLabelRegex = /<span class="field-label">(.*?)<\/span>/g;
+    let labelMatch;
+    while ((labelMatch = fieldLabelRegex.exec(fullHtml)) !== null) {
+      const labelText = labelMatch[1].trim();
+      if (labelText === location.field) {
+        const afterLabelPos = labelMatch.index + labelMatch[0].length;
+        const afterLabel = fullHtml.substring(afterLabelPos);
+        const divMatch = afterLabel.match(/<div class="field-value[^>]*>/);
+        if (divMatch) {
+          const divStart = afterLabelPos + afterLabel.indexOf(divMatch[0]) + divMatch[0].length;
+          const divContent = fullHtml.substring(divStart, fullHtml.indexOf('</div>', divStart));
+
+          if (location.field === 'ROOM / BED NUMBER') {
+            if (name === 'room_number') {
+              insertPosition = divStart;
+            } else if (name === 'bed_number') {
+              if (divContent.includes('{{room_number}}')) {
+                const rp = divContent.indexOf('{{room_number}}');
+                insertPosition = divStart + rp + '{{room_number}}'.length + 3;
+              } else {
+                insertPosition = divStart;
+              }
+            }
+          } else if (location.field === 'EMERGENCY CONTACT') {
+            if (name === 'emergency_contact_name') {
+              insertPosition = divStart;
+            } else if (name === 'emergency_phone') {
+              if (divContent.includes('{{emergency_contact_name}}')) {
+                const np = divContent.indexOf('{{emergency_contact_name}}');
+                insertPosition = divStart + np + '{{emergency_contact_name}}'.length;
+              } else {
+                insertPosition = divStart;
+              }
+            }
+          } else if (location.field === 'SECURITY DEPOSIT') {
+            if (divContent.includes('₹')) {
+              const rp = divContent.indexOf('₹');
+              insertPosition = divStart + rp + '₹'.length + 1;
+            } else {
+              insertPosition = divStart;
+            }
+          } else {
+            insertPosition = divStart;
+          }
+          break;
+        }
+      }
+    }
+
+    // Try terms table
+    if (insertPosition === -1 && (name === 'rent_amount' || name === 'payment_mode')) {
+      const tableMatch = fullHtml.match(/<table class="terms-table">[\s\S]*?<\/table>/);
+      if (tableMatch) {
+        const tableStart = fullHtml.indexOf(tableMatch[0]);
+        const rows = tableMatch[0].match(/<tr>[\s\S]*?<\/tr>/g) || [];
+        for (const row of rows) {
+          if (row.includes(location.field)) {
+            const rowStart = tableStart + tableMatch[0].indexOf(row);
+            const tds = row.match(/<td[^>]*>[\s\S]*?<\/td>/g);
+            if (tds && tds.length >= 2) {
+              const secondTd = tds[1];
+              const tdPos = rowStart + row.indexOf(secondTd);
+              insertPosition = tdPos + secondTd.indexOf('>') + 1;
+            }
+            break;
+          }
+        }
+      }
+    }
+
+    // Try meta section for date/document_number
+    if (insertPosition === -1 && name === 'date') {
+      const dateSpan = fullHtml.match(/<span>Date: <strong>[^<]*<\/strong><\/span>/);
+      if (dateSpan) {
+        const spanPos = fullHtml.indexOf(dateSpan[0]);
+        insertPosition = spanPos + dateSpan[0].indexOf('<strong>') + '<strong>'.length;
+      }
+    }
+    if (insertPosition === -1 && name === 'document_number') {
+      const docSpan = fullHtml.match(/<span>{{document_type}} No: <strong>[^<]*<\/strong><\/span>/);
+      if (docSpan) {
+        const spanPos = fullHtml.indexOf(docSpan[0]);
+        insertPosition = spanPos + docSpan[0].indexOf('<strong>') + '<strong>'.length;
+      }
     }
   }
+
+  // If still not found, insert before </body>
+  if (insertPosition === -1) {
+    const bodyClose = fullHtml.lastIndexOf('</body>');
+    insertPosition = bodyClose !== -1 ? bodyClose : fullHtml.length;
+  }
+
+  const newHtml =
+    fullHtml.substring(0, insertPosition) +
+    finalTag +
+    fullHtml.substring(insertPosition);
+
+  setForm(p => ({ ...p, html_content: newHtml }));
+  toast.success(`Inserted ${finalTag}`);
 };
 
 // Helper function to escape regex special characters
@@ -1064,13 +1036,24 @@ const extractVars = (html?: string) => {
     }
     
     if (t.html_content) {
-      setEditingTpl(t);
-      setForm({
-        name: t.name,
-        category: t.category,
-        description: t.description || "",
-        html_content: t.html_content
-      });
+  setEditingTpl(t);
+  // Fix: ensure LESSEE block has tenant_name
+  let fixedHtml = t.html_content;
+  fixedHtml = fixedHtml.replace(
+    /(<span class="field-label">LESSEE \/ RECIPIENT<\/span>\s*<div class="field-value">)(?!\{\{tenant_name\}\})/,
+    '$1{{tenant_name}}<br>\n              <span style="font-size: 12px; color: #6b7280;">S/o, D/o {{emergency_contact_name}}</span>'
+  );
+  // Fix: ensure RECIPIENT'S SIGNATURE has tenant_name
+  fixedHtml = fixedHtml.replace(
+    /(<div class="signature-label">RECIPIENT'S SIGNATURE<\/div>\s*<div class="signature-name">)(?!\{\{tenant_name\}\})/,
+    '$1{{tenant_name}}'
+  );
+  setForm({
+    name: t.name,
+    category: t.category,
+    description: t.description || "",
+    html_content: fixedHtml
+  });
       setShowForm(true);
     } else {
       try {
@@ -1130,14 +1113,17 @@ const extractVars = (html?: string) => {
   // PREVIEW
   // ══════════════════════════════════════════════════════════════════════════
 
-  const buildPreview = (html: string, logoSrc?: string): string => {
-  if (!html) return "";
+ const buildPreview = (html: string, logoSrc?: string): string => {
+  if (!html) return `<!DOCTYPE html><html><body></body></html>`;
   
-  // Clean HTML
-  const doctypeIndex = html.indexOf("<!DOCTYPE");
-  const htmlTagIndex = html.indexOf("<html");
-  const startIndex = doctypeIndex !== -1 ? doctypeIndex : (htmlTagIndex !== -1 ? htmlTagIndex : 0);
-  let c = startIndex > 0 ? html.substring(startIndex) : html;
+  // Ensure we have a clean complete HTML document
+  let c = html.trim();
+  if (!c.startsWith("<!DOCTYPE") && !c.startsWith("<html")) {
+    c = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body>${c}</body></html>`;
+    
+  }
+
+
 
   // Replace logo_url with actual logo
   if (logoSrc) {
@@ -1175,8 +1161,8 @@ const extractVars = (html?: string) => {
   c = c.replace(/\{\{document_type\}\}/g, SAMPLE_DATA.document_type);
 
   // Remove any remaining variables
-  c = c.replace(/\{\{[\w_]+\}\}/g, "");
-
+// Remove any remaining variables
+c = c.replace(/\{\{[\w_]+\}\}/g, "");
   return c;
 };
 
@@ -1905,63 +1891,120 @@ const handleExport = () => {
           className="space-y-5"
         >
           {/* Template Info */}
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-xl border border-blue-100">
-            <SH icon={<FileText className="h-3 w-3" />} title="Template Information" color="text-blue-700" />
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className={L}>
-                  <span className="text-red-400">*</span> Template Name
-                </label>
-                <Input 
-                  ref={nameInputRef}
-                  className={F} 
-                  placeholder="e.g., Rental Agreement"
-                  value={form.name}
-                  onChange={e => setForm(p => ({ ...p, name: e.target.value }))} 
-                />
-              </div>
-              <div>
-                <label className={L}>Category</label>
-                <Select 
-                  value={form.category} 
-                  onValueChange={v => setForm(p => ({ ...p, category: v }))}
-                >
-                  <SelectTrigger className={F}><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {CATEGORIES.map(c => (
-                      <SelectItem key={c} value={c} className={SI}>{c}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="col-span-2">
-                <label className={L}>Description</label>
-                <Input 
-                  className={F} 
-                  placeholder="Brief description of this template"
-                  value={form.description}
-                  onChange={e => setForm(p => ({ ...p, description: e.target.value }))} 
-                />
-              </div>
-              {editingTpl && (
-                <div className="col-span-2">
-                  <label className={L}>
-                    Change Notes
-                    <span className="text-gray-400 font-normal ml-2">(optional)</span>
-                  </label>
-                  <Input 
-                    className={F} 
-                    placeholder="What changed in this version?"
-                    value={changeNotes}
-                    onChange={e => setChangeNotes(e.target.value)} 
-                  />
-                </div>
-              )}
-            </div>
+         {/* Template Info + Logo combined - compact */}
+<div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-2 sm:p-3 rounded-lg border border-blue-100">
+  <SH icon={<FileText className="h-3 w-3" />} title="Template Information" color="text-blue-700" />
+  
+  <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+    
+    {/* Logo */}
+    <div className="sm:w-28 md:w-32 flex-shrink-0">
+      <label className={`${L} text-[11px] sm:text-xs`}>Logo</label>
+      
+      <div
+        className="relative cursor-pointer w-full"
+        onClick={() => logoInputRef.current?.click()}
+      >
+        {logoPreview ? (
+          <>
+            <img
+              src={logoPreview}
+              alt="Logo"
+              className="w-full h-16 sm:h-24 object-contain border-2 border-blue-200 rounded-lg bg-white p-1.5 shadow-sm"
+            />
+            <button
+              onClick={e => { e.stopPropagation(); removeLogo(); }}
+              className="absolute -top-1.5 -right-1.5 h-4 w-4 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 shadow-sm"
+            >
+              <X className="h-2.5 w-2.5" />
+            </button>
+          </>
+        ) : (
+          <div className="w-full h-16 sm:h-24 border-2 border-dashed border-blue-300 rounded-lg flex flex-col items-center justify-center bg-white hover:bg-blue-50 transition-colors gap-1">
+            <ImageIcon className="h-5 w-5 text-blue-300" />
+            <span className="text-[10px] text-blue-400 font-medium text-center">
+              Click to upload
+            </span>
           </div>
+        )}
+        
+        <input
+          ref={logoInputRef}
+          type="file"
+          accept="image/*"
+          onChange={onLogoChange}
+          className="hidden"
+        />
+      </div>
+    </div>
+
+    {/* Right side */}
+    <div className="flex-1">
+      
+      {/* Name + Category */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        
+        <div>
+          <label className={`${L} text-[11px] sm:text-xs`}>
+            <span className="text-red-400">*</span> Template Name
+          </label>
+          <Input
+            ref={nameInputRef}
+            className={`${F} h-8 sm:h-9 text-sm`}
+            placeholder="e.g., Rental Agreement"
+            value={form.name}
+            onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
+          />
+        </div>
+        
+        <div>
+          <label className={`${L} text-[11px] sm:text-xs`}>Category</label>
+          <Select value={form.category} onValueChange={v => setForm(p => ({ ...p, category: v }))}>
+            <SelectTrigger className={`${F} h-8 sm:h-9 text-sm`}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {CATEGORIES.map(c => (
+                <SelectItem key={c} value={c} className={SI}>{c}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+      </div>
+
+      {/* Description */}
+      <div className="mt-1.5 sm:mt-2">
+        <label className={`${L} text-[11px] sm:text-xs`}>Description</label>
+        <Input
+          className={`${F} h-8 sm:h-9 text-sm`}
+          placeholder="Brief description of this template"
+          value={form.description}
+          onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
+        />
+      </div>
+    </div>
+  </div>
+
+  {/* Change Notes */}
+  {editingTpl && (
+    <div className="mt-1.5 sm:mt-2">
+      <label className={`${L} text-[11px] sm:text-xs`}>
+        Change Notes
+        <span className="text-gray-400 font-normal ml-1">(optional)</span>
+      </label>
+      <Input
+        className={`${F} h-8 sm:h-9 text-sm`}
+        placeholder="What changed in this version?"
+        value={changeNotes}
+        onChange={e => setChangeNotes(e.target.value)}
+      />
+    </div>
+  )}
+</div>
 
           {/* Logo Upload */}
-          <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-4 rounded-xl border border-purple-100">
+          {/* <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-4 rounded-xl border border-purple-100">
             <SH icon={<ImageIcon className="h-3 w-3" />} title="Company Logo" color="text-purple-700" />
             <div className="flex items-center gap-4">
               <div className="relative">
@@ -2000,10 +2043,10 @@ const handleExport = () => {
                 <p className="text-[10px] text-gray-400 mt-1">PNG, JPG, SVG up to 2 MB</p>
               </div>
             </div>
-          </div>
+          </div> */}
 
           {/* HTML Editor */}
-          <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-4 rounded-xl border border-green-100">
+          {/* <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-4 rounded-xl border border-green-100">
             <div className="flex items-center justify-between mb-2">
               <SH icon={<Code className="h-3 w-3" />} title="HTML Content (A4 Size)" color="text-green-700" />
               <Badge className="bg-green-100 text-green-700 border-green-200 text-[10px] px-2 py-0.5">
@@ -2019,6 +2062,348 @@ const handleExport = () => {
               rows={12}
               placeholder="Enter HTML with {{variables}}... Click variables from right panel to insert them"
             />
+          </div> */}
+
+          {/* TinyMCE-style Editor */}
+          <div className="rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+
+            {/* ── Toolbar Row 1: formatting tools ── */}
+            <div className="flex items-center gap-0.5 px-2 py-1.5 bg-[#f9fafb] border-b border-gray-200 flex-wrap">
+
+              {/* Page size */}
+              <select className="h-6 text-[10px] border border-gray-200 rounded bg-white px-1.5 text-gray-600 mr-1">
+                <option>A4 · Blank Page</option>
+              </select>
+
+              <div className="h-4 w-px bg-gray-300 mx-1" />
+
+              {/* File buttons */}
+              {[
+                { icon: <FileText className="h-3.5 w-3.5" />, title: "New" },
+                { icon: <Upload className="h-3.5 w-3.5" />,   title: "Import" },
+                { icon: <Download className="h-3.5 w-3.5" />, title: "Export" },
+              ].map((b, i) => (
+                <button key={i} title={b.title}
+                  className="p-1 rounded hover:bg-gray-200 text-gray-500 transition-colors">
+                  {b.icon}
+                </button>
+              ))}
+
+              <div className="h-4 w-px bg-gray-300 mx-1" />
+
+              {/* B I U S */}
+              {/* B I U S */}
+{[
+  { ch: "B", title: "Bold",          cls: "font-bold",    style: "font-weight:bold" },
+  { ch: "I", title: "Italic",        cls: "italic",       style: "font-style:italic" },
+  { ch: "U", title: "Underline",     cls: "underline",    style: "text-decoration:underline" },
+  { ch: "S", title: "Strikethrough", cls: "line-through", style: "text-decoration:line-through" },
+].map((b, i) => (
+  <button
+    key={i}
+    title={b.title}
+    className={`h-6 w-6 rounded text-[11px] ${b.cls} hover:bg-gray-200 text-gray-700 transition-colors`}
+    onClick={() => {
+      // Apply style to body tag in the HTML
+      setForm(p => {
+        let html = p.html_content;
+        // Check if style already applied on body
+        const bodyMatch = html.match(/<body([^>]*)>/);
+        if (!bodyMatch) return p;
+        const bodyTag = bodyMatch[0];
+        const bodyAttrs = bodyMatch[1];
+        const styleMatch = bodyAttrs.match(/style="([^"]*)"/);
+        if (styleMatch) {
+          const existingStyle = styleMatch[1];
+          const alreadyApplied = existingStyle.includes(b.style);
+          const newStyle = alreadyApplied
+            ? existingStyle.replace(b.style + ";", "").replace(b.style, "")
+            : existingStyle + ";" + b.style;
+          html = html.replace(bodyTag, `<body${bodyAttrs.replace(styleMatch[0], `style="${newStyle}"`)}>`);
+        } else {
+          html = html.replace(bodyTag, `<body${bodyAttrs} style="${b.style}">`);
+        }
+        return { ...p, html_content: html };
+      });
+    }}
+  >
+    {b.ch}
+  </button>
+))}
+
+              <div className="h-4 w-px bg-gray-300 mx-1" />
+
+              {/* Font family */}
+{/* Font family */}
+<select
+  className="h-6 text-[10px] border border-gray-200 rounded bg-white px-1.5 text-gray-600"
+  onChange={e => {
+    const font = e.target.value;
+    setForm(p => {
+      // Step 1: strip ALL existing font-family declarations (handles quoted/unquoted)
+      let html = p.html_content;
+      // Remove font-family lines from CSS (inside <style> tag)
+      html = html.replace(/font-family\s*:[^;]+;/g, `font-family: '${font}', sans-serif;`);
+      return { ...p, html_content: html };
+    });
+  }}
+>
+  <option value="Inter">Inter</option>
+  <option value="Arial">Arial</option>
+  <option value="Times New Roman">Times New Roman</option>
+  <option value="Courier New">Courier New</option>
+  <option value="Georgia">Georgia</option>
+  <option value="Verdana">Verdana</option>
+</select>
+
+              {/* Font size */}
+              <select className="h-6 w-[52px] text-[10px] border border-gray-200 rounded bg-white px-1 text-gray-600 ml-1">
+                {[8,9,10,11,12,14,16,18,20,24,28,32].map(s => (
+                  <option key={s}>{s} pt</option>
+                ))}
+              </select>
+
+              <div className="h-4 w-px bg-gray-300 mx-1" />
+
+              {/* Alignment */}
+              {[
+                { title: "Align Left",   d: "M3 5h14M3 9h9M3 13h14M3 17h9" },
+                { title: "Align Center", d: "M3 5h14M6 9h8M3 13h14M6 17h8" },
+                { title: "Align Right",  d: "M3 5h14M9 9h9M3 13h14M9 17h9" },
+                { title: "Justify",      d: "M3 5h14M3 9h14M3 13h14M3 17h14" },
+              ].map((b, i) => (
+                <button key={i} title={b.title}
+                  className="p-1 rounded hover:bg-gray-200 text-gray-500 transition-colors">
+                  <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none"
+                    stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                    <path d={b.d} />
+                  </svg>
+                </button>
+              ))}
+
+              <div className="h-4 w-px bg-gray-300 mx-1" />
+
+              {/* Bullet list */}
+              <button title="Bullet List" className="p-1 rounded hover:bg-gray-200 text-gray-500">
+                <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none"
+                  stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                  <circle cx="3" cy="5"  r="1.2" fill="currentColor" stroke="none"/>
+                  <path d="M7 5h10"/>
+                  <circle cx="3" cy="10" r="1.2" fill="currentColor" stroke="none"/>
+                  <path d="M7 10h10"/>
+                  <circle cx="3" cy="15" r="1.2" fill="currentColor" stroke="none"/>
+                  <path d="M7 15h10"/>
+                </svg>
+              </button>
+
+              {/* Numbered list */}
+              <button title="Numbered List" className="p-1 rounded hover:bg-gray-200 text-gray-500">
+                <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                  <text x="0" y="6"  fontSize="5" fontWeight="bold">1.</text>
+                  <rect x="6" y="3"  width="13" height="2" rx="1" fill="currentColor"/>
+                  <text x="0" y="11" fontSize="5" fontWeight="bold">2.</text>
+                  <rect x="6" y="8"  width="13" height="2" rx="1" fill="currentColor"/>
+                  <text x="0" y="16" fontSize="5" fontWeight="bold">3.</text>
+                  <rect x="6" y="13" width="13" height="2" rx="1" fill="currentColor"/>
+                </svg>
+              </button>
+
+              {/* Table */}
+              <button title="Insert Table" className="p-1 rounded hover:bg-gray-200 text-gray-500">
+                <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none"
+                  stroke="currentColor" strokeWidth="1.5">
+                  <rect x="2" y="2" width="16" height="16" rx="1.5"/>
+                  <path d="M2 7h16M2 13h16M8 2v16M14 2v16"/>
+                </svg>
+              </button>
+
+              <div className="h-4 w-px bg-gray-300 mx-1" />
+
+              {/* Undo */}
+              <button title="Undo" className="p-1 rounded hover:bg-gray-200 text-gray-500">
+                <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none"
+                  stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                  <path d="M4 8H13a4 4 0 010 8H8"/>
+                  <path d="M4 8L7 5M4 8L7 11"/>
+                </svg>
+              </button>
+
+              {/* Redo */}
+              <button title="Redo" className="p-1 rounded hover:bg-gray-200 text-gray-500">
+                <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none"
+                  stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                  <path d="M16 8H7a4 4 0 000 8h5"/>
+                  <path d="M16 8L13 5M16 8L13 11"/>
+                </svg>
+              </button>
+            </div>
+
+            {/* ── Toolbar Row 2: print / <> toggle / variable insert ── */}
+         {/* ── Toolbar Row 2: print / <> toggle / variable insert ── */}
+<div className="flex items-center gap-1.5 px-2 py-1 bg-[#f9fafb] border-b border-gray-200">
+
+  {/* Print → opens preview modal */}
+  <button
+    title="Print / Preview"
+    onClick={() => openPreview(editingTpl, form.html_content)}
+    className="p-1 rounded hover:bg-gray-200 text-gray-500 transition-colors"
+  >
+    <Printer className="h-3.5 w-3.5" />
+  </button>
+
+  {/* <> toggle: visual print preview with page breaks ↔ code editor */}
+  <button
+    title={isCodeView ? "Visual Print Preview (with page breaks)" : "Code Editor"}
+    onClick={() => setIsCodeView(v => !v)}
+    className={`p-1 rounded transition-colors ${
+      isCodeView ? "bg-blue-600 text-white" : "hover:bg-gray-200 text-gray-500"
+    }`}
+  >
+    <Code className="h-3.5 w-3.5" />
+  </button>
+
+  <div className="h-4 w-px bg-gray-300 mx-1" />
+
+  {/* Category filter */}
+  <select
+    value={varCategory}
+    onChange={e => setVarCategory(e.target.value)}
+    className="h-6 text-[10px] border border-gray-200 rounded bg-white px-1.5 text-gray-600"
+  >
+    {VARIABLE_CATEGORIES.map(c => <option key={c}>{c}</option>)}
+  </select>
+
+  {/* Insert variable dropdown */}
+  <select
+    className="h-6 text-[10px] border border-gray-200 rounded bg-white px-1.5 text-gray-500 min-w-[140px]"
+    value=""
+    onChange={e => {
+      if (e.target.value) {
+        toggleVariable(e.target.value);
+        e.currentTarget.value = "";
+      }
+    }}
+  >
+    <option value="">Insert variable…</option>
+    {filteredVars.map(v => (
+      <option key={v.name} value={v.name}>
+        {`{{${v.name}}}`} — {v.label}
+      </option>
+    ))}
+  </select>
+
+  {/* Used variables counter */}
+  <select
+    className="h-6 text-[10px] border border-gray-200 rounded bg-white px-1.5 text-gray-500 min-w-[130px]"
+    value=""
+    onChange={() => {}}
+  >
+    <option value="">
+      Used variables ({extractVars(form.html_content).length})
+    </option>
+    {extractVars(form.html_content).map(v => (
+      <option key={v} value={v}>{`{{${v}}}`}</option>
+    ))}
+  </select>
+</div>
+
+{/* ── Editor Area ── */}
+{isCodeView ? (
+  /* Code view — raw HTML textarea */
+  <textarea
+    ref={htmlEditorRef}
+    value={form.html_content}
+    onChange={e => setForm(p => ({ ...p, html_content: e.target.value }))}
+    className="w-full px-3 py-2 bg-[#1e1e2e] text-[#cdd6f4] font-mono text-[11px] resize-none focus:outline-none leading-relaxed"
+    style={{ minHeight: "500px" }}
+    spellCheck={false}
+    placeholder="Enter HTML with {{variables}}…"
+  />
+) : (
+  /* Visual Print Preview — Shows actual page breaks as they appear in print */
+  <div 
+    className="bg-[#e8eaed]" 
+    style={{ height: "500px", overflowY: "auto" }}
+  >
+    <div style={{
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      padding: "24px 16px",
+      gap: "24px",
+    }}>
+      {/* Render each page separately with proper page breaks */}
+      {(() => {
+        // Create a temporary iframe to measure page breaks
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = buildPreview(form.html_content, logoPreview);
+        
+        // Get all pages by splitting at page breaks
+        const fullHtml = buildPreview(form.html_content, logoPreview);
+        
+        // Function to split HTML into pages based on @page break
+        const splitIntoPages = (html: string) => {
+          // Create a temporary container to parse the HTML
+          const container = document.createElement('div');
+          container.innerHTML = html;
+          
+          // This is a simplified approach - in real implementation,
+          // you'd need to calculate actual page breaks
+          // For now, we'll render the full document and let CSS page-break handle it
+          return [html];
+        };
+        
+        const pages = splitIntoPages(fullHtml);
+        
+        return pages.map((pageContent, pageIndex) => (
+          <div 
+  key={pageIndex}
+  style={{
+    width: "210mm",
+    minHeight: "297mm",
+    backgroundColor: "white",
+    boxShadow: "0 8px 32px rgba(0,0,0,0.15)",
+    borderRadius: "4px",
+    overflow: "hidden",
+    position: "relative",
+    marginBottom: "24px",
+  }}
+  className="w-full sm:w-[210mm] max-w-full"
+>
+            {/* Page number indicator */}
+            <div style={{
+  position: "absolute",
+  bottom: "12px",
+  right: "12px",
+  fontSize: "10px",
+  color: "#9ca3af",
+  backgroundColor: "white",
+  padding: "2px 6px",
+  borderRadius: "12px",
+  border: "1px solid #e5e7eb",
+  zIndex: 10,
+}}
+className="text-[8px] sm:text-[10px] bottom-2 sm:bottom-3 right-2 sm:right-3">
+  Page {pageIndex + 1}
+</div>
+            
+            {/* Actual page content */}
+           <div 
+  dangerouslySetInnerHTML={{ __html: pageContent }}
+  style={{
+    width: "100%",
+    height: "100%",
+  }}
+  className="overflow-x-auto"
+/>
+          </div>
+        ));
+      })()}
+    </div>
+  </div>
+)}
+
+           
           </div>
 
           {/* Detected Variables */}

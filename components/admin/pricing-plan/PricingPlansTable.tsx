@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { PricingPlan, PaginationMeta } from "@/lib/pricingPlanApi";
 import { PropertyApiResponse } from "../offers/OffersClientPage";
+import { useAuth } from "@/context/authContext";
 
 interface PricingPlansTableProps {
   plans: PricingPlan[];
@@ -50,6 +51,7 @@ const PricingPlansTable = ({
   const [planToDelete, setPlanToDelete] = useState<PricingPlan | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+const { can } = useAuth();
 
   const getPropertyName = (propertyId: number | null) => {
     if (!propertyId) return null;
@@ -158,7 +160,7 @@ const PricingPlansTable = ({
     <>
       <div className="space-y-3">
         {/* Bulk Actions Bar */}
-        {selectedPlans.length > 0 && (
+{can('delete_pricing_plans') && selectedPlans.length > 0 && (
           <div className="bg-white rounded-lg shadow-sm border border-blue-200 p-3 flex items-center justify-between animate-in slide-in-from-top-2">
             <div className="flex items-center gap-3">
               <Badge variant="secondary" className="bg-blue-100 text-blue-700">
@@ -194,11 +196,14 @@ const PricingPlansTable = ({
               <TableRow className="bg-gray-50/80">
                 {/* Checkbox column */}
                 <TableHead className="text-[11px] font-bold text-gray-600 py-2 pl-4 w-8">
+                    {can('delete_pricing_plans') && (
+
                   <Checkbox 
                     checked={selectAll && plans.length > 0}
                     onCheckedChange={handleSelectAll}
                     className="h-3.5 w-3.5"
                   />
+                    )}
                 </TableHead>
                 <TableHead className="text-[11px] font-bold text-gray-600 py-2 w-8">#</TableHead>
                 <TableHead className="text-[11px] font-bold text-gray-600 py-2">Plan</TableHead>
@@ -218,6 +223,8 @@ const PricingPlansTable = ({
                 return (
                   <TableRow key={plan.id} className="hover:bg-blue-50/30 transition-colors">
                     {/* Checkbox */}
+                      {can('delete_pricing_plans') && (
+
                     <TableCell className="py-2.5 pl-4">
                       <Checkbox 
                         checked={selectedPlans.includes(plan.id)}
@@ -225,6 +232,7 @@ const PricingPlansTable = ({
                         className="h-3.5 w-3.5"
                       />
                     </TableCell>
+                      )}
 
                     {/* Order column */}
                     <TableCell className="py-2.5">
@@ -360,7 +368,7 @@ const PricingPlansTable = ({
 
                     <TableCell className="py-2.5 pr-4 text-right">
                       <div className="flex items-center justify-end gap-1">
-                        {onView && (
+                        {can('view_pricing_plans') && onView && (
                           <Button
                             size="sm"
                             variant="ghost"
@@ -371,6 +379,8 @@ const PricingPlansTable = ({
                             <Eye className="h-3 w-3" />
                           </Button>
                         )}
+                            {can('edit_pricing_plans') && (
+
                         <Button
                           size="sm"
                           variant="ghost"
@@ -380,6 +390,8 @@ const PricingPlansTable = ({
                         >
                           <Edit className="h-3 w-3" />
                         </Button>
+                            )}
+                            {can('delete_pricing_plans') && (
                         <Button
                           size="sm"
                           variant="ghost"
@@ -389,6 +401,7 @@ const PricingPlansTable = ({
                         >
                           <Trash2 className="h-3 w-3" />
                         </Button>
+                            )}
                       </div>
                     </TableCell>
                   </TableRow>

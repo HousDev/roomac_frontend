@@ -290,7 +290,7 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
     { href: '/admin/payments',     label: 'Payments',     icon: CreditCard,    permission: 'view_payments' },
     { href: '/admin/expenses',     label: 'Expenses',     icon: ReceiptIndianRupee, permission: 'view_expenses' },
     { href: '/admin/reports',      label: 'Reports',      icon: BarChart3,     permission: 'view_reports' },
-    { href: '/admin/document-center', label: 'Documents', icon: FileText,      permission: 'view_document_dashboard' },
+    { href: '/admin/document-center', label: 'Documents', icon: FileText,      permission: 'view_documents' },
     { href: '/admin/enquiries',    label: 'Enquiries',    icon: Mail,          permission: 'view_enquiries' },
     { href: '/admin/notifications',label: 'Notifications',icon: Bell,          permission: 'view_notifications' },
     { href: '/admin/requests',     label: 'Requests',     icon: Clock,         permission: 'view_requests' },

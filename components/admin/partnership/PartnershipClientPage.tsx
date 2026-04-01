@@ -406,67 +406,69 @@ const confirmDeleteEnquiry = async () => {
   return (
     <div className="space-y-4">
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-2">
-        <Card className="bg-gradient-to-br from-slate-50 to-slate-100">
-          <CardContent className="p-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-slate-600">Total</p>
-                <p className="text-xl font-bold">{stats?.total || 0}</p>
-              </div>
-              <Building2 className="h-6 w-6 text-slate-500" />
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card className="bg-gradient-to-br from-red-50 to-red-100">
-          <CardContent className="p-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-red-600">New</p>
-                <p className="text-xl font-bold text-red-700">{stats?.new_count || 0}</p>
-              </div>
-              <Clock className="h-6 w-6 text-red-500" />
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card className="bg-gradient-to-br from-blue-50 to-blue-100">
-          <CardContent className="p-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-blue-600">Contacted</p>
-                <p className="text-xl font-bold text-blue-700">{stats?.contacted_count || 0}</p>
-              </div>
-              <MessageSquare className="h-6 w-6 text-blue-500" />
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card className="bg-gradient-to-br from-yellow-50 to-yellow-100">
-          <CardContent className="p-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-yellow-600">In Review</p>
-                <p className="text-xl font-bold text-yellow-700">{stats?.in_review_count || 0}</p>
-              </div>
-              <Loader2 className="h-6 w-6 text-yellow-500" />
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card className="bg-gradient-to-br from-green-50 to-green-100">
-          <CardContent className="p-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-green-600">Approved</p>
-                <p className="text-xl font-bold text-green-700">{stats?.approved_count || 0}</p>
-              </div>
-              <CheckCircle className="h-6 w-6 text-green-500" />
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3 mt-2">
+  
+  <Card className="bg-gradient-to-br from-slate-50 to-slate-100">
+    <CardContent className="p-2 md:p-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-[10px] md:text-xs text-slate-600">Total</p>
+          <p className="text-lg md:text-xl font-bold">{stats?.total || 0}</p>
+        </div>
+        <Building2 className="h-5 w-5 md:h-6 md:w-6 text-slate-500" />
       </div>
+    </CardContent>
+  </Card>
+
+  <Card className="bg-gradient-to-br from-red-50 to-red-100">
+    <CardContent className="p-2 md:p-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-[10px] md:text-xs text-red-600">New</p>
+          <p className="text-lg md:text-xl font-bold text-red-700">{stats?.new_count || 0}</p>
+        </div>
+        <Clock className="h-5 w-5 md:h-6 md:w-6 text-red-500" />
+      </div>
+    </CardContent>
+  </Card>
+
+  <Card className="bg-gradient-to-br from-blue-50 to-blue-100">
+    <CardContent className="p-2 md:p-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-[10px] md:text-xs text-blue-600">Contacted</p>
+          <p className="text-lg md:text-xl font-bold text-blue-700">{stats?.contacted_count || 0}</p>
+        </div>
+        <MessageSquare className="h-5 w-5 md:h-6 md:w-6 text-blue-500" />
+      </div>
+    </CardContent>
+  </Card>
+
+  <Card className="bg-gradient-to-br from-yellow-50 to-yellow-100">
+    <CardContent className="p-2 md:p-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-[10px] md:text-xs text-yellow-600">In Review</p>
+          <p className="text-lg md:text-xl font-bold text-yellow-700">{stats?.in_review_count || 0}</p>
+        </div>
+        <Loader2 className="h-5 w-5 md:h-6 md:w-6 text-yellow-500" />
+      </div>
+    </CardContent>
+  </Card>
+
+  <Card className="bg-gradient-to-br from-green-50 to-green-100">
+    <CardContent className="p-2 md:p-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-[10px] md:text-xs text-green-600">Approved</p>
+          <p className="text-lg md:text-xl font-bold text-green-700">{stats?.approved_count || 0}</p>
+        </div>
+        <CheckCircle className="h-5 w-5 md:h-6 md:w-6 text-green-500" />
+      </div>
+    </CardContent>
+  </Card>
+
+</div>
 
       {/* Filters and Add Button */}
       <div className="flex flex-wrap gap-3 items-center justify-between">
@@ -544,7 +546,7 @@ const confirmDeleteEnquiry = async () => {
               <p className="text-gray-500">Click "Add Enquiry" to create a new partnership enquiry.</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="max-h-[calc(100vh-430px)] md:max-h-[calc(100vh-310px)] overflow-y-auto">
               <Table>
                 <TableHeader className="bg-gray-50">
                   <TableRow>

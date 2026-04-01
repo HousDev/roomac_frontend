@@ -106,6 +106,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { listProperties, Property } from '@/lib/propertyApi';
 import router from 'next/router';
+import { useAuth } from '@/context/authContext';
 
 interface VacateRequest {
   vacate_request_id: number;
@@ -203,6 +204,7 @@ const [bulkActionLoading, setBulkActionLoading] = useState(false);
   });
   const [sortField, setSortField] = useState<keyof VacateRequest>('vacate_request_date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+const { can } = useAuth();
 
   // Column search filters
   const [searchFilters, setSearchFilters] = useState({
@@ -770,7 +772,7 @@ const handleBulkDelete = async () => {
         </Card>
       </div>
       {/* Bulk Actions Bar */}
-{selectedRequests.size > 0 && (
+{can('delete_requests') && selectedRequests.size > 0 && (
   <div className="sticky top-36 z-20 mb-3 bg-white rounded-lg shadow-lg border border-blue-200 p-3 flex items-center justify-between animate-in slide-in-from-top-2">
     <div className="flex items-center gap-3">
       <Badge variant="secondary" className="bg-blue-100 text-blue-700">
@@ -843,6 +845,8 @@ const handleBulkDelete = async () => {
                     <TableRow className="hover:bg-transparent">
                       {/* Checkbox Column */}
 <TableHead className="w-[50px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
+   {can('delete_requests') && (
+
   <div className="py-2 flex justify-center">
     <Checkbox 
       checked={selectedRequests.size === currentItems.length && currentItems.length > 0}
@@ -850,6 +854,7 @@ const handleBulkDelete = async () => {
       aria-label="Select all"
     />
   </div>
+   )}
 </TableHead>
                       {/* ID Column */}
                       <TableHead className="w-[80px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
@@ -1017,6 +1022,8 @@ const handleBulkDelete = async () => {
                         >
                           {/* Checkbox Cell */}
 <TableCell className="w-[50px]">
+    {can('delete_requests') && (
+
   <div className="flex justify-center">
     <Checkbox 
       checked={selectedRequests.has(request.vacate_request_id)}
@@ -1024,6 +1031,7 @@ const handleBulkDelete = async () => {
       aria-label={`Select request ${request.vacate_request_id}`}
     />
   </div>
+    )}
 </TableCell>
                           <TableCell className="font-mono text-xs font-medium text-blue-600 truncate">
                             <div className="flex items-center gap-1">
@@ -1115,6 +1123,8 @@ const handleBulkDelete = async () => {
                               >
                                 <Eye className="h-4 w-4" />
                               </Button>
+                              {can('manage_vacate_requests') && (
+
                               <Button
                                 size="sm"
                                 onClick={() => openStatusUpdate(request)}
@@ -1122,6 +1132,7 @@ const handleBulkDelete = async () => {
                               >
                                 {request.vacate_status === 'pending' ? 'Review' : 'Update'}
                               </Button>
+                              )}
                             </div>
                           </TableCell>
                         </TableRow>
