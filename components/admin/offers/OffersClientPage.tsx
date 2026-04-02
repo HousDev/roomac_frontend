@@ -918,7 +918,7 @@ const { can } = useAuth();
 </CardHeader>
 
 
-          <CardContent className="p-6 ">
+          <CardContent className="p-2 ">
 
 
  

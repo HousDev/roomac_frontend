@@ -923,7 +923,7 @@ export default function Permissions() {
       <div className="p-3 sm:p-6">
 
         {/* Selector row */}
-        <div className=" sticky top-36 z-10 flex flex-col sm:flex-row sm:items-start gap-3 mb-5">
+        <div className=" sticky top-52 sm:top-40 z-10 flex flex-col sm:flex-row sm:items-start gap-3 mb-5 bg-white border border-gray-200 rounded-xl px-4 py-3">
 
           {activeTab === "user" ? (
             <div className="w-full sm:w-auto">

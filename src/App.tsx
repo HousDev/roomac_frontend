@@ -51,6 +51,8 @@ import AdminLeaveRequestsPage from "../app/admin/leave-requests/page";
 import AdminVacateRequestsPage from "../app/admin/vacate-requests/page";
 import AdminChangeBedRequestsPage from "../app/admin/change-bed-requests/page";
 import AdminAccountDeletionPage from "../app/admin/account-deletion-requests/page";
+import AdminSupportTicketsPage from "@/app/admin/support-tickets/page";
+
 import PermissionsPage from "../app/admin/permissions/page";
 
 
@@ -181,6 +183,8 @@ console.log(user)
             <Route path="change-bed-requests" element={<AdminChangeBedRequestsPage />} />
             <Route path="account-deletion-requests" element={<AdminAccountDeletionPage />} />
             <Route path="notice-period-requests" element={<NoticePeriodRequestsPage />} />
+              <Route path="support-tickets" element={<AdminSupportTicketsPage />} />
+
           </Route>
 
         </Route>

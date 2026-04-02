@@ -28,6 +28,7 @@ import {
 } from '@/lib/notificationApi';
 import { getAllRequestCounts, type RequestCounts } from '@/lib/adminRequestCountsApi';
 import { getSupportTicketCounts } from '@/lib/supportTicketsApi';
+import { NotificationRedirectHandler } from './notifications/notification-utils';
 
 interface AdminHeaderProps {
   title: string;
@@ -198,14 +199,20 @@ export function AdminHeader({
   };
 
   // Handle notification click
-  const handleNotificationClick = (notification: Notification) => {
-    if (!notification.is_read) {
-      handleMarkAsRead(notification.id);
-    }
+  // Handle notification click - redirect to specific request page
+// In admin-header.tsx, update the handleNotificationClick function
+const handleNotificationClick = (notification: Notification) => {
+  if (!notification.is_read) {
+    handleMarkAsRead(notification.id);
+  }
 
-    router.push(`/admin/notifications?highlight=${notification.id}`);
-    setDropdownOpen(false);
-  };
+  // Use the same redirect handler logic
+  const redirectHandler = new NotificationRedirectHandler();
+  const redirectUrl = redirectHandler.getRedirectUrl(notification);
+  
+  router.push(redirectUrl);
+  setDropdownOpen(false);
+};
 
   // Get notification icon
   const getNotificationIcon = (notification: Notification) => {
@@ -260,13 +267,15 @@ export function AdminHeader({
   };
 
   // Get request type display name
-  const getRequestTypeDisplay = (type: string) => {
-    return type
-      .replace(/_/g, ' ')
-      .split(' ')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
-  };
+  // Get request type display name
+const getRequestTypeDisplay = (type: string) => {
+  if (!type) return 'Request';
+  return type
+    .replace(/_/g, ' ')
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
 
   // Handle logout
   const handleLogout = () => {

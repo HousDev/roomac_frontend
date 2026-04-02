@@ -831,7 +831,7 @@ function TenantHeader({
         className="lg:hidden hover:bg-blue-700 h-8 w-8 flex-shrink-0"
         onClick={onMenuClick}
       >
-        <Menu className="h-4 w-4" />
+        <Menu className="h-6 w-6" />
       </Button>
 
       <div className="min-w-0">

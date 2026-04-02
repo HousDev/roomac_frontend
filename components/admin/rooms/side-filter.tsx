@@ -44,6 +44,7 @@ import {
   Shield,
   Zap
 } from 'lucide-react';
+import { consumeMasters } from "@/lib/masterApi";
 
 interface SideFilterProps {
   open: boolean;
@@ -67,10 +68,11 @@ interface FilterState {
   min_capacity: number;
   max_capacity: number;
   is_active: boolean;
-}
+availability_status: 'any' | 'available' | 'partial' | 'full';}
 
 interface FilterData {
-  roomTypes: Array<{ value: string; label: string; count: number }>;
+roomTypes: Array<{ value: string; label: string; count: number; totalBeds: number }>;  masterRoomTypes: Array<{ id: number; name: string }>;  // 👈 add this
+
   genderPreferences: Array<{ value: string; label: string; count: number }>;
   properties: Array<{ id: string; name: string; address: string; roomCount: number }>;
   amenities: Array<{ value: string; label: string; count: number; icon?: any }>;
@@ -90,7 +92,8 @@ const DEFAULT_FILTERS: FilterState = {
   max_rent: 100000,
   min_capacity: 1,
   max_capacity: 10,
-  is_active: true
+  is_active: true,
+availability_status: 'any',
 };
 
 // Color scheme
@@ -112,9 +115,11 @@ export default function SideFilter({ open, onOpenChange, onFilterChange, hideTri
     roomTypes: [],
     genderPreferences: [],
     properties: [],
-    amenities: []
+    amenities: [],
+    masterRoomTypes: []  // 👈 initialize this
   });
   const [loading, setLoading] = useState(false);
+  const [masterRoomTypes, setMasterRoomTypes] = useState<Array<{ id: number; name: string }>>([]);
 
   // Fetch filter data
   useEffect(() => {
@@ -129,6 +134,19 @@ export default function SideFilter({ open, onOpenChange, onFilterChange, hideTri
   useEffect(() => {
     setLocalCapacityRange([filters.min_capacity, filters.max_capacity]);
   }, [filters.min_capacity, filters.max_capacity]);
+
+  useEffect(() => {
+  consumeMasters({ tab: 'Rooms' })
+    .then(res => {
+      if (res?.success && res.data) {
+        const roomTypes = res.data
+          .filter((item: any) => item.type_name === 'Room Type')
+          .map((item: any) => ({ id: item.value_id, name: item.value_name }));
+        setMasterRoomTypes(roomTypes);
+      }
+    })
+    .catch(e => console.error('Failed to fetch room type masters:', e));
+}, []);
 
   const fetchFilterData = async () => {
     try {
@@ -244,7 +262,7 @@ export default function SideFilter({ open, onOpenChange, onFilterChange, hideTri
     if (filters.max_rent < 100000) count++;
     if (filters.min_capacity > 1) count++;
     if (filters.max_capacity < 10) count++;
-    
+if (filters.availability_status !== 'any') count++;    
     return count;
   };
 
@@ -391,33 +409,71 @@ export default function SideFilter({ open, onOpenChange, onFilterChange, hideTri
               </div>
 
               {/* Room Types Dropdown */}
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2 text-sm font-medium" style={{ color: colors.primary }}>
-                  <DoorOpen className="h-4 w-4" />
-                  Room Type
-                </Label>
-                <Select
-                  value={filters.room_types[0] || 'all'}
-                  onValueChange={(value) => handleSelectChange('room_types', value)}
-                >
-                  <SelectTrigger className="w-full border-gray-300">
-                    <SelectValue placeholder="All Room Types" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Room Types</SelectItem>
-                    {filterData.roomTypes.map(type => (
-                      <SelectItem key={type.value} value={type.value}>
-                        <div className="flex items-center justify-between w-full">
-                          <span>{type.label}</span>
-                          <Badge variant="outline" className="ml-2 text-xs">
-                            {type.count}
-                          </Badge>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+{/* Room Types Dropdown */}
+{/* Room Types Dropdown */}
+<div className="space-y-2">
+  <Label className="flex items-center gap-2 text-sm font-medium" style={{ color: colors.primary }}>
+    <DoorOpen className="h-4 w-4" />
+    Room Type
+  </Label>
+  <Select
+    value={filters.room_types[0] || 'all'}
+    onValueChange={(value) => handleSelectChange('room_types', value)}
+  >
+    <SelectTrigger className="w-full border-gray-300">
+      <SelectValue placeholder="All Room Types" />
+    </SelectTrigger>
+    <SelectContent>
+      <SelectItem value="all">All Room Types</SelectItem>
+      {masterRoomTypes.length > 0
+        ? masterRoomTypes.map(type => {
+            // match with filterData to get counts
+            const meta = filterData.roomTypes.find(
+              r => r.value.toLowerCase() === type.name.toLowerCase()
+            );
+            return (
+              <SelectItem key={type.id} value={type.name}>
+                <div className="flex items-center justify-between w-full gap-3">
+                  <span>{type.name}</span>
+                  {meta && (
+                    <div className="flex items-center gap-1 ml-auto">
+                      <Badge variant="outline" className="text-[10px] px-1.5">
+                        {meta.count} rooms
+                      </Badge>
+                      <Badge
+                        className="text-[10px] px-1.5"
+                        style={{ backgroundColor: colors.primaryLight, color: colors.primary, border: 'none' }}
+                      >
+                        {meta.totalBeds} beds
+                      </Badge>
+                    </div>
+                  )}
+                </div>
+              </SelectItem>
+            );
+          })
+        : filterData.roomTypes.map(type => (
+            <SelectItem key={type.value} value={type.value}>
+              <div className="flex items-center justify-between w-full gap-3">
+                <span>{type.label}</span>
+                <div className="flex items-center gap-1 ml-auto">
+                  <Badge variant="outline" className="text-[10px] px-1.5">
+                    {type.count} rooms
+                  </Badge>
+                  <Badge
+                    className="text-[10px] px-1.5"
+                    style={{ backgroundColor: colors.primaryLight, color: colors.primary, border: 'none' }}
+                  >
+                    {type.totalBeds} beds
+                  </Badge>
+                </div>
               </div>
+            </SelectItem>
+          ))
+      }
+    </SelectContent>
+  </Select>
+</div>
 
               {/* Gender Preferences Dropdown */}
               <div className="space-y-2">
@@ -509,6 +565,39 @@ export default function SideFilter({ open, onOpenChange, onFilterChange, hideTri
                   </div>
                 </div>
               </div>
+   {/* Availability Status Filter */}
+<div className="space-y-2">
+  <Label className="flex items-center gap-2 text-sm font-medium" style={{ color: colors.primary }}>
+    <DoorOpen className="h-4 w-4" />
+    Room Availability
+  </Label>
+  <Select
+    value={filters.availability_status || 'any'}
+    onValueChange={(value) => handleFilterChange('availability_status', value)}
+  >
+    <SelectTrigger className="w-full border-gray-300">
+      <SelectValue placeholder="Any Availability" />
+    </SelectTrigger>
+    <SelectContent>
+      {[
+        { value: 'any',       label: 'Any Availability',  sub: 'Show all rooms',         dot: '#6b7280' },
+        { value: 'available', label: 'Fully Available',   sub: 'All beds are empty',     dot: '#16a34a' },
+        { value: 'partial',   label: 'Partial Occupied',  sub: 'Some beds are empty',    dot: '#f59e0b' },
+        { value: 'full',      label: 'Fully Occupied',    sub: 'No beds available',      dot: '#ef4444' },
+      ].map(opt => (
+        <SelectItem key={opt.value} value={opt.value}>
+          <div className="flex items-center gap-2">
+            <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: opt.dot }} />
+            <div className="flex flex-col">
+              <span className="text-xs font-medium">{opt.label}</span>
+              <span className="text-[10px] text-gray-400">{opt.sub}</span>
+            </div>
+          </div>
+        </SelectItem>
+      ))}
+    </SelectContent>
+  </Select>
+</div>
 
               {/* Amenities Dropdown */}
               <div className="space-y-2">

@@ -114,7 +114,9 @@ const CANCELLED_STEP = {
 };
 
 // Popup action per step
+// AFTER:
 const STEP_POPUP: Record<string, string> = {
+  "Created":         "view",
   "Shared":          "share",
   "On Hold":         "hold",
   "OTP Verified":    "otp",
@@ -854,7 +856,19 @@ function SharePopup({ doc, onClose, onDone }: { doc: Doc; onClose: () => void; o
 function ChangeStatusPopup({
   doc, targetStatus, onClose, onDone,
 }: { doc: Doc; targetStatus: string; onClose: () => void; onDone: () => void }) {
-  const [reason, setReason] = useState("");
+
+  const previousEntry = useMemo(() => {
+  const logs: any[] = Array.isArray(doc.history_log) ? doc.history_log : [];
+  // notes wali entry dhundho, agar nahi mili toh koi bhi us status ki entry lo
+  return (
+    [...logs].reverse().find(l => l.status === targetStatus && l.notes) ||
+    [...logs].reverse().find(l => l.status === targetStatus)
+  );
+}, [doc.history_log, targetStatus]);
+
+const [reason, setReason] = useState(
+  previousEntry?.notes || previousEntry?.event_description || ""
+);
   const [saving, setSaving] = useState(false);
   const [notifyTenant, setNotifyTenant] = useState(true);
 
@@ -901,8 +915,10 @@ function ChangeStatusPopup({
     }
     setSaving(true);
     try {
-      await updateDocumentStatus(doc.id, targetStatus as DocumentStatus);
-      if (notifyTenant) {
+// AFTER — reason bhi bhejo:
+await updateDocumentStatus(doc.id, targetStatus as DocumentStatus, {
+  notes: reason,  // ← add this
+} as any);      if (notifyTenant) {
         toast.success(`Tenant notified about ${targetStatus} status`);
       }
       toast.success(`Status → ${targetStatus}`);
@@ -964,18 +980,25 @@ function ChangeStatusPopup({
           </div>
 
           {/* Reason */}
-          <div className="space-y-1.5">
-            <label className="text-[10px] sm:text-xs font-semibold text-gray-600 flex items-center gap-1">
-              <AlertTriangle className="h-3 w-3" /> Reason for Change <span className="text-red-400">*</span>
-            </label>
-            <textarea
-              rows={3}
-              value={reason}
-              onChange={e => setReason(e.target.value)}
-              placeholder="Please provide a reason for changing the status..."
-              className="w-full text-[10px] sm:text-xs p-2.5 sm:p-3 border border-gray-200 rounded-xl resize-none bg-gray-50 focus:bg-white focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition-all"
-            />
-          </div>
+          {/* Reason */}
+<div className="space-y-1.5">
+  <label className="text-[10px] sm:text-xs font-semibold text-gray-600 flex items-center gap-1">
+    <AlertTriangle className="h-3 w-3" /> Reason for Change <span className="text-red-400">*</span>
+    {/* ← ADD THIS */}
+    {(previousEntry?.notes || previousEntry?.event_description) && reason && (
+  <span className="ml-auto text-[9px] text-amber-600 font-normal flex items-center gap-0.5">
+    <Clock className="h-2.5 w-2.5" /> Pre-filled from last entry
+  </span>
+)}
+  </label>
+  <textarea
+    rows={3}
+    value={reason}
+    onChange={e => setReason(e.target.value)}
+    placeholder="Please provide a reason for changing the status..."
+    className="w-full text-[10px] sm:text-xs p-2.5 sm:p-3 border border-gray-200 rounded-xl resize-none bg-gray-50 focus:bg-white focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition-all"
+  />
+</div>
 
           {/* Notify Tenant */}
           <label className="flex items-center gap-2 p-2 sm:p-3 bg-gray-50 rounded-xl cursor-pointer hover:bg-gray-100 transition-colors">
@@ -1560,14 +1583,15 @@ function TimelineSteps({
     <div className="flex items-center flex-nowrap gap-0 overflow-x-auto pb-0.5" style={{ scrollbarWidth: "none" }}>
       {MAIN_STEPS.map((step, i) => {
         const state  = getStepState(step.key, status);
-        const isNext = state === "next" && !isCancelled;
+        // AFTER:
+const isNext      = state === "next" && !isCancelled;
+const isClickable = (state === "next" || state === "done" || state === "active") && !isCancelled;
 
-        // Circle styles
-        let circleCls = "flex-shrink-0 flex items-center justify-center rounded-full border-2 transition-all ";
-        const size    = compact ? "w-5 h-5" : "w-6 h-6 sm:w-7 sm:h-7";
-        circleCls    += size + " ";
+let circleCls = "flex-shrink-0 flex items-center justify-center rounded-full border-2 transition-all ";
+const size    = compact ? "w-5 h-5" : "w-6 h-6 sm:w-7 sm:h-7";
+circleCls    += size + " ";
 
-        if (state === "done")   circleCls += "border-green-500 bg-green-500 text-white";
+if (state === "done") circleCls += "border-green-500 bg-green-500 text-white cursor-pointer hover:bg-green-600 hover:scale-110";
         else if (state === "active") circleCls += `border-${step.accentColor}-600 bg-${step.accentColor}-600 text-white ring-2 ring-${step.accentColor}-200 shadow-sm`;
         else if (isNext)        circleCls += `border-${step.accentColor}-400 border-dashed bg-white text-${step.accentColor}-500 cursor-pointer hover:bg-${step.accentColor}-50 hover:scale-110 hover:shadow`;
         else                    circleCls += "border-gray-200 bg-gray-100 text-gray-400";
@@ -1589,12 +1613,12 @@ function TimelineSteps({
         return (
           <div key={step.key} className="flex items-center">
             <div className="flex flex-col items-center">
-              <button
-                disabled={!isNext}
-                onClick={() => isNext && onStepClick(doc, STEP_POPUP[step.key] || "")}
-                title={`${step.label}${isNext ? " — click to proceed" : ""}`}
-                className={circleCls}
-              >
+<button
+  disabled={!isClickable}
+  onClick={() => isClickable && onStepClick(doc, STEP_POPUP[step.key] || "")}
+  title={`${step.label}${isNext ? " — click to proceed" : state === "done" ? " — click to view" : ""}`}
+  className={circleCls}
+>
                 {state === "done"
                   ? <Check className={iconSz} />
                   : <step.Icon className={iconSz} />
@@ -1828,10 +1852,15 @@ export function DocumentList() {
     pw.document.close();
   };
 
-  const handleStepClick = (doc: Doc, action: string) => {
-    if (!action) return;
-    setPopup({ type: action as any, doc });
-  };
+  // AFTER:
+const handleStepClick = (doc: Doc, action: string) => {
+  if (!action) return;
+  if (action === "view") {
+    setPopup({ type: "edit", doc });
+    return;
+  }
+  setPopup({ type: action as any, doc });
+};
 
   const closePopup = () => setPopup({ type: null, doc: null });
   const popupDone  = () => { closePopup(); loadDocs(); };

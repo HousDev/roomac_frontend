@@ -15,7 +15,7 @@ interface AdvancedSettingsProps {
 export default function AdvancedSettings({ settings, updateSetting }: AdvancedSettingsProps) {
   return (
     <TabsContent value="advanced">
-      <Card className="border-0 shadow-md overflow-hidden">
+      <Card className="border-0 shadow-sm overflow-hidden">
         <div className="bg-gradient-to-r from-slate-50 to-gray-50 px-5 py-2 border-b">
           <CardHeader className="p-0">
             <div className="flex items-center gap-2">

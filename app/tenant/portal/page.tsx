@@ -1268,8 +1268,8 @@ const rentAmount = stats.monthlyRent;
  {/* Rent Due Card — Blue */}
 <Card className="border border-blue-200/50 bg-gradient-to-br from-blue-50 to-white shadow-sm hover:shadow-md transition-all">
   <CardContent className="p-2 lg:p-3">
-    <div className="flex items-center justify-between">
-      <div className="flex items-center gap-1.5 lg:gap-2">
+<div className="flex items-start justify-between gap-1 min-w-0">
+  <div className="flex items-center gap-1.5 lg:gap-2 min-w-0 flex-1">
         <div className="h-7 w-7 lg:h-9 lg:w-9 rounded-lg bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center shrink-0">
           <Calendar className="h-3 w-3 lg:h-4 lg:w-4 text-blue-600" />
         </div>
@@ -1287,14 +1287,14 @@ const rentAmount = stats.monthlyRent;
               </span>
             </div>
           ) : (
-            <p className="text-xs text-amber-600 font-medium">No accommodation</p>
+<p className="text-[8px] text-amber-600 font-medium truncate max-w-[90px]">No Accomondation</p>
           )}
         </div>
       </div>
-      <div className="text-right">
-        <p className="text-[9px] lg:text-xs text-slate-500 mb-0.5">
-          Amount
-        </p>
+    <div className="text-right shrink-0 pt-3">
+  <p className="text-[9px] lg:text-xs text-slate-500 mb-0.5">
+    Amount
+  </p>
         {tenant?.room_number && tenant?.bed_number ? (
           <p className="text-xs lg:text-base font-bold text-blue-700">
             ₹{stats.monthlyRent.toLocaleString("en-IN")}
