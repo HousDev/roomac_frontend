@@ -14,7 +14,7 @@ interface NotificationSettingsProps {
 export default function NotificationSettings({ settings, updateSetting }: NotificationSettingsProps) {
   return (
     <TabsContent value="notifications">
-      <Card className="border-0 shadow-md overflow-hidden">
+      <Card className="border-0 shadow-sm overflow-hidden">
         <div className="bg-gradient-to-r from-orange-50 to-amber-50 px-5 py-2 border-b">
           <CardHeader className="p-0">
             <div className="flex items-center gap-2">

@@ -913,10 +913,18 @@ function PropertiesSection({
 
   {/* LEFT : Property Title */}
   <div className="flex-1 min-w-0">
-    <h3 className="font-bold text-base sm:text-lg text-slate-800 group-hover:text-[#0249a8] transition-colors duration-300 line-clamp-1">
-      {propertyName}
-    </h3>
-
+   <h3 className="
+  font-bold 
+  text-[13px] sm:text-lg 
+  text-slate-800 
+  group-hover:text-[#0249a8] 
+  transition-colors duration-300 
+  leading-tight
+  break-words
+  sm:line-clamp-1
+">
+  {propertyName}
+</h3>
     <div className="flex items-center gap-2 mt-1">
       <div className="h-0.5 w-8 bg-[#0249a8] rounded-full" />
       <div className="h-0.5 w-2 bg-yellow-400 rounded-full" />

@@ -221,6 +221,8 @@ const handleImportFile = async (file: File) => {
       city: "",
       state: "",
       preferred_sharing: "",
+        vacate_status: activeTab === 'vacated' ? 'vacated' : 'active',
+
     };
     filtersRef.current = emptyFilters;
     setFiltersState(emptyFilters);
@@ -247,7 +249,7 @@ const handleImportFile = async (file: File) => {
       city: "",
       state: "",
       preferred_sharing: "",
-      vacate_status: "active",
+  vacate_status: activeTab === 'vacated' ? 'vacated' : 'active',
     };
     filtersRef.current = emptyFilters;
     setFiltersState(emptyFilters);
@@ -1046,7 +1048,7 @@ const columns: Column<Tenant>[] = useMemo(() => [    {
 <div className="space-y-0 flex flex-col ">  {/* Tabs */}
 <div className="flex overflow-hidden border border-gray-200 bg-white rounded-xl mb-3 shadow-sm sticky top-20 z-10">
   <button
-    onClick={() => { setActiveTab('all'); handleFilterChange({ ...filters, vacate_status: undefined }); }}
+onClick={() => { setActiveTab('all'); handleFilterChange({ ...filters, vacate_status: 'active' }); }}
     className={`flex-1 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold border-b-2 transition-all text-center flex items-center justify-center gap-1.5 sm:gap-2
       ${activeTab === 'all'
         ? 'border-blue-600 text-blue-700 bg-white'
@@ -1058,7 +1060,7 @@ const columns: Column<Tenant>[] = useMemo(() => [    {
   </button>
   <div className="w-px bg-gray-200 my-2" />
   <button
-    onClick={() => { setActiveTab('vacated'); handleFilterChange({ ...filters, vacate_status: 'vacated' }); }}
+onClick={() => { setActiveTab('vacated'); handleFilterChange({ ...filters, vacate_status: 'vacated' }); }}
     className={`flex-1 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold border-b-2 transition-all text-center flex items-center justify-center gap-1.5 sm:gap-2
       ${activeTab === 'vacated'
         ? 'border-purple-600 text-purple-700 bg-white'
