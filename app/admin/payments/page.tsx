@@ -370,6 +370,10 @@ const handleTenantSelect = async (tenantId: string) => {
   setBookingLoading(true);
   try {
     const formResponse = await paymentApi.getTenantPaymentFormData(parseInt(tenantId));
+
+     console.log('🔍 API Response:', formResponse);
+    console.log('🔍 offer_info:', formResponse.data?.offer_info);
+    
     
     if (formResponse.success) {
       setPaymentFormData(formResponse.data);
@@ -973,18 +977,14 @@ const sortedPayments = [...columnFilteredPayments].sort((a, b) => {
   };
 
   // Rent Summary Table Component
-
 const RentSummaryTable = ({ formData }: { formData: any }) => {
   if (!formData) return null;
+  console.log('Rendering RentSummaryTable with formData:', formData);
 
   const months = formData.month_wise_history || [];
-  const hasOffer = formData.offer_info !== null;
+  const originalMonthlyRent = formData.monthly_rent;
+  const offerInfo = formData.offer_info;
   const discountedFirstMonthRent = formData.discounted_first_month_rent;
-  const originalRent = formData.monthly_rent;
-  
-  const totalPaid = months.reduce((sum, month) => sum + (month.paid || 0), 0);
-  const totalExpected = months.reduce((sum, month) => sum + (month.rent || 0), 0);
-  const totalPending = totalExpected - totalPaid;
 
   return (
     <div className="bg-white rounded-lg border border-slate-200 mb-4 overflow-hidden">
@@ -1001,26 +1001,6 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
         </p>
       </div>
       
-      {/* Offer Banner */}
-      {hasOffer && discountedFirstMonthRent !== originalRent && (
-        <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-3 border-b border-green-200">
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-green-600" />
-            <div className="flex-1">
-              <p className="text-xs font-semibold text-green-800">
-                🎉 Offer Applied: {formData.offer_info.code}
-              </p>
-              <p className="text-[10px] text-green-700">
-                First month rent: ₹{discountedFirstMonthRent?.toLocaleString()} (was ₹{originalRent?.toLocaleString()})
-              </p>
-              <p className="text-[10px] text-green-600">
-                You save ₹{(originalRent - discountedFirstMonthRent).toLocaleString()} on the first month
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-      
       <div className="p-4 max-h-[300px] overflow-y-auto">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 sticky top-0">
@@ -1028,76 +1008,108 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
               <th className="text-left p-2 text-xs font-medium text-slate-600">Month</th>
               <th className="text-right p-2 text-xs font-medium text-slate-600">Rent</th>
               <th className="text-right p-2 text-xs font-medium text-slate-600">Paid</th>
+              <th className="text-right p-2 text-xs font-medium text-slate-600">Discount</th>
               <th className="text-right p-2 text-xs font-medium text-slate-600">Pending</th>
               <th className="text-center p-2 text-xs font-medium text-slate-600">Status</th>
             </tr>
           </thead>
           <tbody>
-            {months.map((month, index) => (
-              <tr key={index} className={`border-t border-slate-200 ${
-                month.isCurrentMonth ? 'bg-blue-50' : ''
-              }`}>
-                <td className="p-2 text-sm">
-                  {month.month} {month.year}
-                  {month.isCurrentMonth && (
-                    <span className="ml-2 text-xs text-blue-600 font-medium">(Current)</span>
-                  )}
-                  {month.has_discount && (
-                    <span className="ml-2 text-[10px] text-green-600 font-medium">(Discounted)</span>
-                  )}
-                </td>
-                <td className="p-2 text-right">
-                  {month.has_discount ? (
-                    <div className="text-right">
-                      <span className="text-xs line-through text-gray-400 mr-1">
-                        ₹{month.original_rent?.toLocaleString()}
+            {months.map((month, index) => {
+              let discountAmount = 0;
+              let displayRent = month.rent;
+              
+              // For first month with offer, show original rent with discount
+              if (month.has_discount && offerInfo) {
+                displayRent = originalMonthlyRent;
+                discountAmount = originalMonthlyRent - month.rent;
+              }
+              
+              return (
+                <tr key={index} className={`border-t border-slate-200 ${
+                  month.isCurrentMonth ? 'bg-blue-50' : ''
+                }`}>
+                  <td className="p-2 text-sm">
+                    {month.month} {month.year}
+                    {month.isCurrentMonth && (
+                      <span className="ml-2 text-xs text-blue-600 font-medium">(Current)</span>
+                    )}
+                    {month.has_discount && (
+                      <span className="ml-2 text-[10px] text-green-600 font-medium">(Discounted)</span>
+                    )}
+                  </td>
+                  
+                  <td className="p-2 text-right">
+                    {discountAmount > 0 ? (
+                      <div className="text-right">
+                        <span className="text-xs line-through text-gray-400 mr-1">
+                          ₹{displayRent?.toLocaleString()}
+                        </span>
+                        <span className="text-xs font-bold text-green-600">
+                          ₹{month.rent.toLocaleString()}
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-xs">₹{month.rent.toLocaleString()}</span>
+                    )}
+                  </td>
+                  
+                  <td className="p-2 text-right text-green-600 font-medium">
+                    ₹{month.paid.toLocaleString()}
+                  </td>
+                  
+                  <td className="p-2 text-right">
+                    {discountAmount > 0 ? (
+                      <span className="text-xs text-green-600 font-medium">
+                        -₹{discountAmount.toLocaleString()}
                       </span>
-                      <span className="text-xs font-bold text-green-600">
-                        ₹{month.rent.toLocaleString()}
-                      </span>
-                    </div>
-                  ) : (
-                    <span className="text-xs">₹{month.rent.toLocaleString()}</span>
-                  )}
-                </td>
-                <td className="p-2 text-right text-green-600">₹{month.paid.toLocaleString()}</td>
-                <td className="p-2 text-right font-medium">
-                  {month.pending > 0 ? (
-                    <span className="text-amber-600">₹{month.pending.toLocaleString()}</span>
-                  ) : (
-                    <span className="text-green-600">Paid</span>
-                  )}
-                </td>
-                <td className="p-2 text-center">
-                  {month.status === 'paid' ? (
-                    <Badge className="bg-green-100 text-green-800 text-xs">✅ Paid</Badge>
-                  ) : month.status === 'partial' ? (
-                    <Badge className="bg-blue-100 text-blue-800 text-xs">🟡 Partial</Badge>
-                  ) : month.status === 'overdue' ? (
-                    <Badge className="bg-red-100 text-red-800 text-xs">⚠️ Overdue</Badge>
-                  ) : (
-                    <Badge variant="outline" className="bg-slate-100 text-xs">⏰ Pending</Badge>
-                  )}
-                </td>
-              </tr>
-            ))}
+                    ) : (
+                      <span className="text-xs text-gray-400">-</span>
+                    )}
+                  </td>
+                  
+                  <td className="p-2 text-right font-medium">
+                    {month.pending > 0 ? (
+                      <span className="text-amber-600">₹{month.pending.toLocaleString()}</span>
+                    ) : (
+                      <span className="text-green-600">₹0</span>
+                    )}
+                  </td>
+                  
+                  <td className="p-2 text-center">
+                    {month.status === 'paid' ? (
+                      <Badge className="bg-green-100 text-green-800 text-xs">✅ Paid</Badge>
+                    ) : month.status === 'partial' ? (
+                      <Badge className="bg-blue-100 text-blue-800 text-xs">🟡 Partial</Badge>
+                    ) : month.status === 'overdue' ? (
+                      <Badge className="bg-red-100 text-red-800 text-xs">⚠️ Overdue</Badge>
+                    ) : (
+                      <Badge variant="outline" className="bg-slate-100 text-xs">⏰ Pending</Badge>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
       
       {/* Summary Cards */}
-      <div className="grid grid-cols-3 gap-2 p-4 bg-slate-50 border-t border-slate-200">
+      <div className="grid grid-cols-4 gap-2 p-4 bg-slate-50 border-t border-slate-200">
         <div className="bg-white p-2 rounded border border-slate-200">
           <p className="text-xs text-slate-500">Months Since Joining</p>
           <p className="text-lg font-bold text-slate-700">{months.length}</p>
         </div>
         <div className="bg-white p-2 rounded border border-slate-200">
           <p className="text-xs text-slate-500">Monthly Rent</p>
-          <p className="text-lg font-bold text-green-600">₹{originalRent?.toLocaleString()}</p>
+          <p className="text-lg font-bold text-green-600">₹{originalMonthlyRent?.toLocaleString()}</p>
         </div>
         <div className="bg-white p-2 rounded border border-slate-200">
-          <p className="text-xs text-slate-500">Suggested Payment</p>
-          <p className="text-lg font-bold text-purple-600">₹{formData.suggested_amount?.toLocaleString()}</p>
+          <p className="text-xs text-slate-500">Total Paid</p>
+          <p className="text-lg font-bold text-blue-600">₹{formData.total_paid?.toLocaleString()}</p>
+        </div>
+        <div className="bg-white p-2 rounded border border-slate-200">
+          <p className="text-xs text-slate-500">Total Pending</p>
+          <p className="text-lg font-bold text-amber-600">₹{formData.total_pending?.toLocaleString()}</p>
         </div>
       </div>
     </div>
@@ -1659,7 +1671,7 @@ const handleUpdateDemandStatus = async (demandId: number, newStatus: string) => 
               🎉 Offer Applied: {paymentFormData.offer_info.code}
             </p>
             <p className="text-[10px] text-green-700">
-              First month (April 2026): ₹{paymentFormData.discounted_first_month_rent?.toLocaleString()} (was ₹{paymentFormData.monthly_rent?.toLocaleString()})
+              First month rent: ₹{paymentFormData.discounted_first_month_rent?.toLocaleString()} (was ₹{paymentFormData.monthly_rent?.toLocaleString()})
             </p>
             <p className="text-[10px] text-green-600">
               Subsequent months: ₹{paymentFormData.monthly_rent?.toLocaleString()}/month

@@ -155,7 +155,6 @@ export type TenantRentSummary = {
   payments: Payment[];
 };
 
-// In lib/paymentRecordApi.ts - Update the PaymentFormData type
 
 export type PaymentFormData = {
   tenant: {
@@ -173,52 +172,50 @@ export type PaymentFormData = {
     property_name: string;
   };
   monthly_rent: number;
+  discounted_first_month_rent: number;
+  discount_amount: number;
+  has_offer: boolean;
+  offer_info: {
+    code: string;
+    title: string;
+    discount_type: string;
+    discount_amount: number;
+    discount_percentage: string | null;
+    original_rent: number;
+    discounted_rent: number;
+    valid_only_for_first_month: boolean;
+  } | null;
   check_in_date?: string;
   joining_date: string;
-  joining_month: number;
-  joining_year: number;
   total_months_since_joining: number;
-  
-  previous_month: {
-    month: string;
-    year: number;
-    paid: number;
-    pending: number;
-    status?: string;
-  };
-  
-  current_month: {
-    month: string;
-    year: number;
-    paid: number;
-    pending: number;
-    status?: string;
-  };
-  
   month_wise_history: Array<{
     month: string;
     month_num: number;
     year: number;
     month_key: string;
     rent: number;
+    original_rent: number;
+    isFirstMonth: boolean;
+    has_discount: boolean;
+    discount_applied: number;
     paid: number;
     pending: number;
     isCurrentMonth: boolean;
     isPastMonth: boolean;
     status: string;
-    payments?: Array<any>;
+    payments: any[];
   }>;
-  
-    // Add this field - list of months with pending amounts
   unpaid_months: Array<{
     month: string;
     month_num: number;
     year: number;
     month_key: string;
     pending: number;
-    display: string; // e.g., "January 2026 (₹2,000 pending)"
+    rent: number;
+    original_rent: number;
+    has_discount: boolean;
+    display: string;
   }>;
-
   recent_months: Array<any>;
   total_paid: number;
   total_expected: number;
@@ -227,6 +224,14 @@ export type PaymentFormData = {
   payment_count: number;
   last_payment_date?: string;
   note?: string;
+  security_deposit: {
+    total: number;
+    paid: number;
+    pending: number;
+    is_fully_paid: boolean;
+    payments: any[];
+    last_payment_date?: string;
+  };
 };
 
 // Create a new payment
