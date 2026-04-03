@@ -282,6 +282,17 @@ export async function getPaymentsByTenant(tenantId: number): Promise<any> {
   }
 }
 
+// Get latest rent payment for tenant
+export async function getLatestRentPayment(tenantId: number): Promise<any> {
+  try {
+    const response = await request(`/api/payments/tenant/${tenantId}/latest-rent`);
+    return response;
+  } catch (error) {
+    console.error('Error fetching latest rent payment:', error);
+    throw error;
+  }
+}
+
 // Get tenant rent summary
 export async function getTenantRentSummary(tenantId: number): Promise<any> {
   try {
