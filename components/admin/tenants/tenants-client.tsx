@@ -53,7 +53,7 @@ const [activeTab, setActiveTab] = useState<'all' | 'vacated'>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
 
-const filtersRef = useRef<TenantFilters>({});
+const filtersRef = useRef<TenantFilters>({ vacate_status: 'non_vacated' });
 
 const [showImportModal, setShowImportModal] = useState(false);
 const [importing, setImporting] = useState(false);
@@ -62,7 +62,7 @@ const { can } = useAuth();
 
 // const [filters, setFiltersState] = useState<TenantFilters>({});
 const [filters, setFiltersState] = useState<TenantFilters>({
-  vacate_status: 'active' // Default to active tenants
+  vacate_status: 'non_vacated'
 });
   // Column search for the header
   const [columnSearch, setColumnSearch] = useState({
@@ -118,12 +118,15 @@ const [filters, setFiltersState] = useState<TenantFilters>({
 
   // Initialize
   useEffect(() => {
-    loadTenants();
-  }, [loadTenants]);
+  loadTenants({ vacate_status: 'non_vacated' });
+}, []);
 
   // Handle column search
  const handleColumnSearch = useCallback(() => {
-    const newFilters: TenantFilters = {};
+const newFilters: TenantFilters = {
+    // preserve current vacate_status
+    vacate_status: filtersRef.current.vacate_status || 'non_vacated',
+  };
     if (columnSearch.name) {
       newFilters.search = columnSearch.name;
     } else if (columnSearch.contact) {
@@ -209,33 +212,32 @@ const handleImportFile = async (file: File) => {
     loadTenants(newFilters);
   }, [loadTenants]);
 
-  // Clear all filters
-  const clearAllFilters = useCallback(() => {
-    const emptyFilters = {
-      search: "",
-      is_active: "",
-      portal_access_enabled: "",
-      has_credentials: "",
-      gender: "",
-      occupation_category: "",
-      city: "",
-      state: "",
-      preferred_sharing: "",
-        vacate_status: activeTab === 'vacated' ? 'vacated' : 'active',
-
-    };
-    filtersRef.current = emptyFilters;
-    setFiltersState(emptyFilters);
-    setColumnSearch({
-      name: "",
-      contact: "",
-      occupation: "",
-      property: "",
-      payments: "",
-      status: "",
-    });
-    loadTenants(emptyFilters);
-  }, [loadTenants]);
+// Clear all filters
+const clearAllFilters = useCallback(() => {
+  const emptyFilters = {
+    search: "",
+    is_active: "",
+    portal_access_enabled: "",
+    has_credentials: "",
+    gender: "",
+    occupation_category: "",
+    city: "",
+    state: "",
+    preferred_sharing: "",
+    vacate_status: 'active' as 'active',
+  };
+  filtersRef.current = emptyFilters;
+  setFiltersState(emptyFilters);
+  setColumnSearch({
+    name: "",
+    contact: "",
+    occupation: "",
+    property: "",
+    payments: "",
+    status: "",
+  });
+  loadTenants(emptyFilters);
+}, [loadTenants]);
 
   // Clear sidebar filters only
   const clearSidebarFilters = useCallback(() => {
@@ -249,8 +251,7 @@ const handleImportFile = async (file: File) => {
       city: "",
       state: "",
       preferred_sharing: "",
-  vacate_status: activeTab === 'vacated' ? 'vacated' : 'active',
-    };
+vacate_status: filters.vacate_status,    };
     filtersRef.current = emptyFilters;
     setFiltersState(emptyFilters);
     loadTenants(emptyFilters);
@@ -1048,8 +1049,9 @@ const columns: Column<Tenant>[] = useMemo(() => [    {
 <div className="space-y-0 flex flex-col ">  {/* Tabs */}
 <div className="flex overflow-hidden border border-gray-200 bg-white rounded-xl mb-3 shadow-sm sticky top-20 z-10">
   <button
-onClick={() => { setActiveTab('all'); handleFilterChange({ ...filters, vacate_status: 'active' }); }}
-    className={`flex-1 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold border-b-2 transition-all text-center flex items-center justify-center gap-1.5 sm:gap-2
+onClick={() => { setActiveTab('all'); handleFilterChange({ ...filters, vacate_status: 'non_vacated' }); }}
+ 
+  className={`flex-1 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold border-b-2 transition-all text-center flex items-center justify-center gap-1.5 sm:gap-2
       ${activeTab === 'all'
         ? 'border-blue-600 text-blue-700 bg-white'
         : 'border-transparent text-gray-500 bg-gray-50 hover:text-gray-700 hover:bg-gray-100'}`}
@@ -1060,8 +1062,12 @@ onClick={() => { setActiveTab('all'); handleFilterChange({ ...filters, vacate_st
   </button>
   <div className="w-px bg-gray-200 my-2" />
   <button
-onClick={() => { setActiveTab('vacated'); handleFilterChange({ ...filters, vacate_status: 'vacated' }); }}
-    className={`flex-1 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold border-b-2 transition-all text-center flex items-center justify-center gap-1.5 sm:gap-2
+onClick={() => {
+  setActiveTab('vacated');
+  const newFilters = { ...filters, vacate_status: 'vacated' as const };
+  setFiltersState(newFilters);
+  handleFilterChange(newFilters);
+}}    className={`flex-1 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold border-b-2 transition-all text-center flex items-center justify-center gap-1.5 sm:gap-2
       ${activeTab === 'vacated'
         ? 'border-purple-600 text-purple-700 bg-white'
         : 'border-transparent text-gray-500 bg-gray-50 hover:text-gray-700 hover:bg-gray-100'}`}

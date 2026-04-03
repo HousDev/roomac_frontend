@@ -171,8 +171,7 @@ export function TenantForm({ tenant, onSuccess, onCancel }: TenantFormProps) {
   const [additionalDocuments, setAdditionalDocuments] = useState<
     Array<{ filename: string; url: string; uploaded_at?: string }>
   >(tenant?.additional_documents || []);
-  const [createCredentials, setCreateCredentials] = useState(false);
-  const [password, setPassword] = useState("");
+const [createCredentials, setCreateCredentials] = useState(tenant?.portal_access_enabled === true && tenant?.has_credentials === true);  const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordStrength, setPasswordStrength] = useState(0);
   const [existingPassword, setExistingPassword] = useState("••••••••");
@@ -294,18 +293,26 @@ export function TenantForm({ tenant, onSuccess, onCancel }: TenantFormProps) {
     fetchProperties();
   }, []);
   useEffect(() => {
-    loadOptions();
-    if (tenant?.id) {
-      loadExistingDocuments();
-      if (tenant.additional_documents)
-        setAdditionalDocuments(tenant.additional_documents);
-      setCreateCredentials(tenant?.has_credentials || false);
+  loadOptions();
+  if (tenant?.id) {
+    loadExistingDocuments();
+    if (tenant.additional_documents)
+      setAdditionalDocuments(tenant.additional_documents);
+    
+    // ✅ FIX: Sync createCredentials with portal_access_enabled
+    // If portal_access_enabled is true AND has_credentials is true, enable the toggle
+    // If portal_access_enabled is false, disable the toggle regardless
+    setCreateCredentials(tenant?.portal_access_enabled === true && tenant?.has_credentials === true);
+    
+    // Alternative: If you want the toggle to be ON whenever portal_access_enabled is true
+    // setCreateCredentials(tenant?.portal_access_enabled === true);
 
-      // Set Aadhar and PAN numbers from tenant data
-      if (tenant.aadhar_number) setAadharNumber(tenant.aadhar_number);
-      if (tenant.pan_number) setPanNumber(tenant.pan_number);
-    }
-  }, [tenant]);
+    // Set Aadhar and PAN numbers from tenant data
+    if (tenant.aadhar_number) setAadharNumber(tenant.aadhar_number);
+    if (tenant.pan_number) setPanNumber(tenant.pan_number);
+  }
+}, [tenant]);
+
   useEffect(() => {
     if (formData.gender && formData.preferred_property_id) loadAvailableRooms();
   }, [formData.gender, formData.preferred_property_id]);
@@ -371,12 +378,13 @@ export function TenantForm({ tenant, onSuccess, onCancel }: TenantFormProps) {
         handleInputChange("exact_occupation", "");
     } else setAvailableSubCategories([]);
   }, [formData.occupation_category]);
-  useEffect(() => {
-    setFormData((p: any) => ({
-      ...p,
-      portal_access_enabled: createCredentials,
-    }));
-  }, [createCredentials]);
+
+ useEffect(() => {
+  setFormData((p: any) => ({
+    ...p,
+    portal_access_enabled: createCredentials,
+  }));
+}, [createCredentials]);
   useEffect(() => {
     if (tenant?.id && cities.length > 0 && states.length > 0) {
       if (tenant.city && !tenant.city_id) {
@@ -625,41 +633,41 @@ export function TenantForm({ tenant, onSuccess, onCancel }: TenantFormProps) {
       setActiveTab("basic");
       return false;
     }
-    if (!formData.occupation_category) {
-      toast.error("Occupation category is required");
-      setActiveTab("occupation");
-      return false;
-    }
-    if (!formData.address) {
-      toast.error("Address is required");
-      setActiveTab("address");
-      return false;
-    }
-    if (!formData.city_id && !formData.city) {
-      toast.error("City is required");
-      setActiveTab("address");
-      return false;
-    }
-    if (!formData.state_id && !formData.state) {
-      toast.error("State is required");
-      setActiveTab("address");
-      return false;
-    }
-    if (!idProofFile && !existingFiles.id_proof_url) {
-      toast.error("ID Proof is required");
-      setActiveTab("documents");
-      return false;
-    }
-    if (!addressProofFile && !existingFiles.address_proof_url) {
-      toast.error("Address Proof is required");
-      setActiveTab("documents");
-      return false;
-    }
-    if (!photoFile && !existingFiles.photo_url) {
-      toast.error("Photo is required");
-      setActiveTab("documents");
-      return false;
-    }
+    // if (!formData.occupation_category) {
+    //   toast.error("Occupation category is required");
+    //   setActiveTab("occupation");
+    //   return false;
+    // }
+    // if (!formData.address) {
+    //   toast.error("Address is required");
+    //   setActiveTab("address");
+    //   return false;
+    // }
+    // if (!formData.city_id && !formData.city) {
+    //   toast.error("City is required");
+    //   setActiveTab("address");
+    //   return false;
+    // }
+    // if (!formData.state_id && !formData.state) {
+    //   toast.error("State is required");
+    //   setActiveTab("address");
+    //   return false;
+    // }
+    // if (!idProofFile && !existingFiles.id_proof_url) {
+    //   toast.error("ID Proof is required");
+    //   setActiveTab("documents");
+    //   return false;
+    // }
+    // if (!addressProofFile && !existingFiles.address_proof_url) {
+    //   toast.error("Address Proof is required");
+    //   setActiveTab("documents");
+    //   return false;
+    // }
+    // if (!photoFile && !existingFiles.photo_url) {
+    //   toast.error("Photo is required");
+    //   setActiveTab("documents");
+    //   return false;
+    // }
     if (!tenant?.id) {
       if (createCredentials) {
         if (password.length < 6) {
@@ -1670,7 +1678,7 @@ export function TenantForm({ tenant, onSuccess, onCancel }: TenantFormProps) {
 
                   <div>
                     <label className={L}>
-                      <span className="text-red-400">*</span> Occupation
+                      <span className="text-red-400"></span> Occupation
                       Category
                     </label>
                     <Select
@@ -1972,7 +1980,7 @@ export function TenantForm({ tenant, onSuccess, onCancel }: TenantFormProps) {
               />
               <div>
                 <label className={L}>
-                  <span className="text-red-400">*</span> Complete Address
+                  <span className="text-red-400"></span> Complete Address
                 </label>
                 <Textarea
                   value={formData.address}
@@ -1986,7 +1994,7 @@ export function TenantForm({ tenant, onSuccess, onCancel }: TenantFormProps) {
               <div className={g3}>
                 <div>
                   <label className={L}>
-                    <span className="text-red-400">*</span> City
+                    <span className="text-red-400"></span> City
                   </label>
                   <Select
                     value={formData.city_id ? String(formData.city_id) : ""}
@@ -2028,7 +2036,7 @@ export function TenantForm({ tenant, onSuccess, onCancel }: TenantFormProps) {
                 </div>
                 <div>
                   <label className={L}>
-                    <span className="text-red-400">*</span> State
+                    <span className="text-red-400"></span> State
                   </label>
                   <Select
                     value={formData.state_id ? String(formData.state_id) : ""}
@@ -2463,7 +2471,7 @@ export function TenantForm({ tenant, onSuccess, onCancel }: TenantFormProps) {
                   <label className={L}>
                     <span className="flex items-center gap-1">
                       <FileText className="h-3 w-3" /> ID Proof Type{" "}
-                      <span className="text-red-400">*</span>
+                      <span className="text-red-400"></span>
                     </span>
                   </label>
                   <Select value={idProofType} onValueChange={setIdProofType}>
@@ -2504,7 +2512,7 @@ export function TenantForm({ tenant, onSuccess, onCancel }: TenantFormProps) {
                                 : idProofType === "Voter ID"
                                   ? "Voter ID Number"
                                   : "Document Number"}
-                        <span className="text-red-400">*</span>
+                        <span className="text-red-400"></span>
                       </label>
                       <Input
                         value={idProofNumber}
@@ -2588,7 +2596,7 @@ export function TenantForm({ tenant, onSuccess, onCancel }: TenantFormProps) {
                   <label className={L}>
                     <span className="flex items-center gap-1">
                       <FileText className="h-3 w-3" /> Address Proof Type{" "}
-                      <span className="text-red-400">*</span>
+                      <span className="text-red-400"></span>
                     </span>
                   </label>
                   <Select

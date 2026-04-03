@@ -121,6 +121,16 @@ export const tenantDetailsApi = {
       throw error;
     }
   },
+  async uploadDocuments(formData: FormData) {
+  const token = getTenantToken();
+  const res = await fetch(`${API_BASE_URL}${API_BASE_PATH}/upload-documents`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}` },
+    body: formData,
+  });
+  const data = await res.json();
+  return data;
+},
 async getDocuments() {
   try {
     return await tenantRequest(`${API_BASE_PATH}/additional-documents`); // ✅ match the route
@@ -341,6 +351,31 @@ export interface TenantProfile {
   property_rating: number | null;
   manager_name?: string;
   manager_phone?: string;
+
+
+  id_proof_type?: string;
+  id_proof_number?: string;
+  address_proof_type?: string;
+  address_proof_number?: string;
+
+     partner_full_name?: string;
+  partner_phone?: string;
+  partner_email?: string;
+  partner_gender?: string;
+  partner_date_of_birth?: string;
+  partner_address?: string;
+  partner_occupation?: string;
+  partner_organization?: string;
+  partner_relationship?: string;
+  partner_id_proof_type?: string;
+  partner_id_proof_number?: string;
+  partner_id_proof_url?: string;
+  partner_address_proof_type?: string;
+  partner_address_proof_number?: string;
+  partner_address_proof_url?: string;
+  partner_photo_url?: string;
+  is_couple_booking?: boolean;
+  couple_id?: string;
   deletion_request?: {
     status: 'none' | 'pending' | 'approved' | 'rejected' | 'cancelled';
     reason?: string;
@@ -348,6 +383,9 @@ export interface TenantProfile {
     reviewed_at?: string;
     reviewed_by?: string;
     review_notes?: string;
+ 
+
+  
   };
 }
 
@@ -370,6 +408,8 @@ export interface TenantFormData {
   emergency_contact_phone?: string;
   emergency_contact_relation?: string;
   email: string;
+  city_id?: string;
+  state_id?: string;
 }
 
 export interface ApiResponse<T = any> {
