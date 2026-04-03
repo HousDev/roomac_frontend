@@ -56,14 +56,14 @@ import * as paymentApi from '@/lib/paymentRecordApi';
 // Main component - handles all authentication and data loading
 export default function TenantRequestsClient() {
   const router = useRouter();
-
+  
   // Refs to prevent infinite loops
   const isMounted = useRef(true);
   const isDataLoaded = useRef(false);
   const isLoadingRef = useRef(false);
   const retryCount = useRef(0);
   const MAX_RETRIES = 2;
-
+  
   // State management
   const [requests, setRequests] = useState<TenantRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -71,7 +71,7 @@ export default function TenantRequestsClient() {
   const [submitting, setSubmitting] = useState(false);
   const [activeFilter, setActiveFilter] = useState('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-
+  
   // Form state
   const [formData, setFormData] = useState<RequestFormData>({
     request_type: 'general',
@@ -79,7 +79,7 @@ export default function TenantRequestsClient() {
     description: '',
     priority: 'medium'
   });
-
+  
   // Change bed form state
   const [step, setStep] = useState<number>(1);
   const [currentRoom, setCurrentRoom] = useState<CurrentRoomInfo | null>(null);
@@ -90,7 +90,7 @@ export default function TenantRequestsClient() {
   const [selectedRoomId, setSelectedRoomId] = useState<number | null>(null);
   const [availableBeds, setAvailableBeds] = useState<number[]>([]);
   const [selectedBedNumber, setSelectedBedNumber] = useState<number | null>(null);
-
+  
   // Complaint state
   const [complaintCategories, setComplaintCategories] = useState<ComplaintCategory[]>([]);
   const [complaintReasons, setComplaintReasons] = useState<ComplaintReason[]>([]);
@@ -101,7 +101,7 @@ export default function TenantRequestsClient() {
   const [maintenanceLocations, setMaintenanceLocations] = useState<any[]>([]);
   const [visitTimes, setVisitTimes] = useState<any[]>([]);
   const [showCustomReason, setShowCustomReason] = useState(false);
-
+  
   // Other data
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
   const [vacateReasons, setVacateReasons] = useState<any[]>([]);
@@ -558,7 +558,7 @@ export default function TenantRequestsClient() {
     setSelectedComplaintCategory(categoryId);
     setComplaintReasons([]);
     setShowCustomReason(false);
-
+    
     setFormData(prev => ({
       ...prev,
       complaintData: {
@@ -568,7 +568,7 @@ export default function TenantRequestsClient() {
         custom_reason: undefined
       }
     }));
-
+    
     try {
       const reasons = await getComplaintReasons(categoryId);
       if (isMounted.current) {
@@ -586,7 +586,7 @@ export default function TenantRequestsClient() {
   const handleComplaintReasonChange = useCallback((reasonId: number, reasonValue: string) => {
     const isOthers = reasonValue.toLowerCase() === 'others';
     setShowCustomReason(isOthers);
-
+    
     setFormData(prev => ({
       ...prev,
       complaintData: {
@@ -670,7 +670,7 @@ export default function TenantRequestsClient() {
           toast.error('Please select a primary reason for vacating');
           return;
         }
-
+        
         if (!formData.vacateData?.expected_vacate_date) {
           toast.error('Please select an expected vacate date');
           return;
@@ -682,27 +682,27 @@ export default function TenantRequestsClient() {
           toast.error('Please select a leave start date');
           return;
         }
-
+        
         if (!formData.leaveData?.leave_end_date) {
           toast.error('Please select a leave end date');
           return;
         }
-
+        
         if (!formData.leaveData?.leave_type) {
           toast.error('Please select a leave type');
           return;
         }
-
+        
         const totalDays = calculateTotalDays(
           formData.leaveData.leave_start_date,
           formData.leaveData.leave_end_date
         );
-
+        
         if (totalDays < 1) {
           toast.error('Leave end date must be after start date');
           return;
         }
-
+        
         setFormData(prev => ({
           ...prev,
           leaveData: {
@@ -710,7 +710,7 @@ export default function TenantRequestsClient() {
             total_days: totalDays
           }
         }));
-
+        
         formData.leaveData!.total_days = totalDays;
       }
 
@@ -719,7 +719,7 @@ export default function TenantRequestsClient() {
           toast.error('Please select an issue category');
           return;
         }
-
+        
         if (!formData.maintenanceData?.location) {
           toast.error('Please select a location');
           return;
@@ -731,7 +731,7 @@ export default function TenantRequestsClient() {
           toast.error('Please select a complaint category');
           return;
         }
-
+        
         if (!formData.complaintData?.reason_master_value_id && !formData.complaintData?.custom_reason) {
           toast.error('Please select a reason or provide a custom reason');
           return;
@@ -835,7 +835,7 @@ export default function TenantRequestsClient() {
       if (result && result.success && isMounted.current) {
         toast.success('Request created successfully!');
         setIsDialogOpen(false);
-
+        
         // Reset form
         setFormData({
           request_type: 'general',
@@ -853,7 +853,7 @@ export default function TenantRequestsClient() {
         setSelectedComplaintCategory(null);
         setComplaintReasons([]);
         setShowCustomReason(false);
-
+        
         // Refresh data
         await refreshData();
       } else {
@@ -919,8 +919,8 @@ export default function TenantRequestsClient() {
             </CardHeader>
             <CardContent>
               <Tabs value={activeFilter} onValueChange={setActiveFilter}>
-                <RequestFilters
-                  filter={activeFilter}
+                <RequestFilters 
+                  filter={activeFilter} 
                   onFilterChange={setActiveFilter}
                   counts={requestCounts}
                 />
@@ -931,11 +931,11 @@ export default function TenantRequestsClient() {
                       <FileText className="h-16 w-16 mx-auto mb-4 text-gray-400" />
                       <h3 className="text-lg font-medium text-gray-900 mb-2">No requests found</h3>
                       <p className="text-gray-600 mb-6">
-                        {activeFilter === 'all'
-                          ? "You haven't created any requests yet."
+                        {activeFilter === 'all' 
+                          ? "You haven't created any requests yet." 
                           : `You have no ${activeFilter.replace('_', ' ')} requests.`}
                       </p>
-                      <Button
+                      <Button 
                         onClick={() => setIsDialogOpen(true)}
                         className="bg-blue-600 hover:bg-blue-700"
                       >
@@ -1129,7 +1129,7 @@ export default function TenantRequestsClient() {
               {formData.request_type === 'vacate_bed' && (
                 <div className="border-t border-gray-200 pt-3 space-y-3">
                   <h3 className="font-semibold text-base">Vacate Bed Details</h3>
-
+                  
                   {/* Lock-in Period Information */}
                   {lockinInfo && (
                     <div className={`rounded-lg p-2 ${lockinInfo.isInLockinPeriod ? 'bg-yellow-50 border border-yellow-200' : 'bg-green-50 border border-green-200'}`}>
@@ -1151,13 +1151,13 @@ export default function TenantRequestsClient() {
                               <p className="font-bold">Payable: ₹{lockinInfo.penalty.calculatedAmount.toFixed(2)}</p>
                             )}
                           </div>
-
+                          
                           {lockinInfo.isInLockinPeriod && (
                             <div className="flex items-center space-x-2 mt-1">
                               <Checkbox
                                 id="agree_lockin_penalty"
                                 checked={formData.vacateData?.agree_lockin_penalty || false}
-                                onCheckedChange={(checked) =>
+                                onCheckedChange={(checked) => 
                                   handleVacateDataChange('agree_lockin_penalty', checked)
                                 }
                               />
@@ -1184,13 +1184,13 @@ export default function TenantRequestsClient() {
                               <p className="font-bold">Payable: ₹{noticeInfo.penalty.calculatedAmount.toFixed(2)}</p>
                             )}
                           </div>
-
+                          
                           {noticeInfo.requiresAgreement && (
                             <div className="flex items-center space-x-2 mt-1">
                               <Checkbox
                                 id="agree_notice_penalty"
                                 checked={formData.vacateData?.agree_notice_penalty || false}
-                                onCheckedChange={(checked) =>
+                                onCheckedChange={(checked) => 
                                   handleVacateDataChange('agree_notice_penalty', checked)
                                 }
                               />
@@ -1361,7 +1361,7 @@ export default function TenantRequestsClient() {
               {formData.request_type === 'leave' && (
                 <div className="border-t border-gray-200 pt-3 space-y-3">
                   <h3 className="font-semibold text-base">Leave Application Details</h3>
-
+                  
                   <div className="grid grid-cols-4 gap-3">
                     <div className="col-span-2 space-y-1">
                       <Label htmlFor="leave_type" className="text-sm font-medium">Leave Type *</Label>
@@ -1381,7 +1381,7 @@ export default function TenantRequestsClient() {
                         </SelectContent>
                       </Select>
                     </div>
-
+                    
                     <div className="space-y-1">
                       <Label htmlFor="total_days" className="text-sm font-medium">Days *</Label>
                       <Input
@@ -1428,7 +1428,7 @@ export default function TenantRequestsClient() {
                         className="h-10"
                       />
                     </div>
-
+                    
                     <div className="space-y-1">
                       <Label htmlFor="leave_end_date" className="text-sm font-medium">End Date *</Label>
                       <Input
@@ -1464,7 +1464,7 @@ export default function TenantRequestsClient() {
                       />
                       <Label htmlFor="room_locked" className="text-sm cursor-pointer">Room will be locked during leave</Label>
                     </div>
-
+                    
                     <div className="flex items-center space-x-2">
                       <Checkbox
                         id="keys_submitted"
@@ -1711,7 +1711,7 @@ export default function TenantRequestsClient() {
               {formData.request_type === 'complaint' && (
                 <div className="border-t border-red-200 pt-3 space-y-3">
                   <h3 className="font-semibold text-base text-red-800">Complaint Details</h3>
-
+                  
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <Label htmlFor="complaint_category" className="text-sm font-medium">Category *</Label>
