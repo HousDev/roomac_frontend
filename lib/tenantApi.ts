@@ -765,7 +765,7 @@ export type TenantFilters = {
   city?: string;
   state?: string;
   preferred_sharing?: string;
-  vacate_status?: 'active' | 'vacated' | 'all'; // NEW FILTER
+vacate_status?: 'active' | 'vacated' | 'non_vacated' | 'all';
 };
 
 // Type for export filters
