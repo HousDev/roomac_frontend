@@ -587,6 +587,8 @@ export default function PaymentsPage() {
     }
   };
 
+  
+
   // Update the handleAddPayment function
   const handleAddPayment = async () => {
     if (!newPayment.tenant_id || !newPayment.amount) {
@@ -600,17 +602,28 @@ export default function PaymentsPage() {
         parseInt(newPayment.tenant_id),
       );
 
+      const isCurrentMonth = (() => {
+  const today = new Date();
+
+  const currentMonth = today.toLocaleString("default", { month: "long" });
+  const currentYear = today.getFullYear();
+
+  return (
+    latestPaymentRes?.data.month === currentMonth &&
+    Number(latestPaymentRes?.data.year) === currentYear
+  );
+})();
       console.log("latest payment api", latestPaymentRes);
 
       const latestPayment = latestPaymentRes?.data;
-
       // ✅ STEP 3: Calculate new balance
-      const totalAmount =
+      const totalAmount = isCurrentMonth ? Number(latestPaymentRes.data.total_amount)  : 
         Number(latestPaymentRes.data.tenant_rent) +
           Number(latestPaymentRes.data.new_balance) || 0;
       const amount = parseFloat(newPayment.amount);
-      const newBalance = Number(totalAmount) - Number(amount);
+      const newBalance = isCurrentMonth ? Number(latestPayment.new_balance) - Number(amount) : Number(latestPayment.tenant_rent) + Number(latestPayment.new_balance) - Number(amount); 
       const previousBalance = Number(latestPaymentRes.data.new_balance) || 0;
+      console.log("Calculated balances:", {totalAmount, previousBalance, newBalance});
       // Prepare payment data
       const paymentData: any = {
         tenant_id: parseInt(newPayment.tenant_id),
@@ -1226,7 +1239,6 @@ export default function PaymentsPage() {
             </thead>
             <tbody>
               {groupedPayments.map((month, index) => {
-                
                 return (
                   <tr
                     key={`${index}-${index}`}
@@ -3496,10 +3508,15 @@ const PaymentsTable = ({
     if (columnFilters?.status && columnFilters.status !== "all") {
       if (columnFilters.status === "approved" && group.approved_count === 0)
         return false;
+      if( columnFilters.status === "paid" && group.payment_count === 0)
+        return false;
+      if (columnFilters.status === "partially" && group.approved_count === 0)
+        return false;
       if (columnFilters.status === "pending" && group.pending_count === 0)
         return false;
       if (columnFilters.status === "rejected" && group.rejected_count === 0)
         return false;
+
     }
 
     // Filter by last payment date
@@ -3950,7 +3967,7 @@ const PaymentsTable = ({
                                                       <ReceiptIndianRupee className="h-3 w-3" />
                                                     </Button>
                                                   )}
-                                                {payment.status === "pending" &&
+                                                {(payment.status === "pending" || payment.status === "paid" || payment.status === "partial") && 
                                                   canApprove && (
                                                     <Button
                                                       size="sm"
@@ -3964,7 +3981,7 @@ const PaymentsTable = ({
                                                       <CheckCircle2 className="h-3 w-3" />
                                                     </Button>
                                                   )}
-                                                {payment.status === "pending" &&
+                                                {(payment.status === "pending" || payment.status === "paid" || payment.status === "partial") &&
                                                   canReject && (
                                                     <Button
                                                       size="sm"
