@@ -1073,7 +1073,6 @@ const [createCredentials, setCreateCredentials] = useState(tenant?.portal_access
         <span className="flex items-center gap-1">
           <FileText className="h-3 w-3" />
           {label}
-          {required && <span className="text-red-400">*</span>}
         </span>
       </label>
       <Input
@@ -2512,7 +2511,6 @@ const [createCredentials, setCreateCredentials] = useState(tenant?.portal_access
                                 : idProofType === "Voter ID"
                                   ? "Voter ID Number"
                                   : "Document Number"}
-                        <span className="text-red-400"></span>
                       </label>
                       <Input
                         value={idProofNumber}
@@ -2596,7 +2594,6 @@ const [createCredentials, setCreateCredentials] = useState(tenant?.portal_access
                   <label className={L}>
                     <span className="flex items-center gap-1">
                       <FileText className="h-3 w-3" /> Address Proof Type{" "}
-                      <span className="text-red-400"></span>
                     </span>
                   </label>
                   <Select
@@ -2645,7 +2642,6 @@ const [createCredentials, setCreateCredentials] = useState(tenant?.portal_access
                                   : addressProofType === "Voter ID"
                                     ? "Voter ID Number"
                                     : "Document Number"}
-                        <span className="text-red-400">*</span>
                       </label>
                       <Input
                         value={addressProofNumber}
