@@ -8,6 +8,10 @@ import {
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import Editor from "react-simple-code-editor";
+import Prism from "prismjs";
+import "prismjs/themes/prism-tomorrow.css";
+import "prismjs/components/prism-markup";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -2002,69 +2006,7 @@ const handleExport = () => {
     </div>
   )}
 </div>
-
-          {/* Logo Upload */}
-          {/* <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-4 rounded-xl border border-purple-100">
-            <SH icon={<ImageIcon className="h-3 w-3" />} title="Company Logo" color="text-purple-700" />
-            <div className="flex items-center gap-4">
-              <div className="relative">
-                {logoPreview ? (
-                  <>
-                    <img
-                      src={logoPreview}
-                      alt="Logo Preview"
-                      className="h-16 w-24 object-contain border-2 border-purple-200 rounded-lg bg-white p-1 shadow-sm"
-                    />
-                    <button
-                      onClick={removeLogo}
-                      className="absolute -top-2 -right-2 h-5 w-5 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 shadow-md"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </>
-                ) : (
-                  <div className="h-16 w-24 border-2 border-dashed border-purple-200 rounded-lg flex items-center justify-center bg-purple-50/50">
-                    <ImageIcon className="h-6 w-6 text-purple-300" />
-                  </div>
-                )}
-              </div>
-              <div>
-                <label className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-white border border-purple-200 text-xs font-medium text-purple-600 hover:bg-purple-50 cursor-pointer shadow-sm">
-                  <Upload className="h-3.5 w-3.5" />
-                  Upload Logo
-                  <input
-                    ref={logoInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={onLogoChange}
-                    className="hidden"
-                  />
-                </label>
-                <p className="text-[10px] text-gray-400 mt-1">PNG, JPG, SVG up to 2 MB</p>
-              </div>
-            </div>
-          </div> */}
-
-          {/* HTML Editor */}
-          {/* <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-4 rounded-xl border border-green-100">
-            <div className="flex items-center justify-between mb-2">
-              <SH icon={<Code className="h-3 w-3" />} title="HTML Content (A4 Size)" color="text-green-700" />
-              <Badge className="bg-green-100 text-green-700 border-green-200 text-[10px] px-2 py-0.5">
-                {extractVars(form.html_content).length} variables
-              </Badge>
-            </div>
-            <textarea
-              ref={htmlEditorRef}
-              name="html_content"
-              value={form.html_content}
-              onChange={e => setForm(p => ({ ...p, html_content: e.target.value }))}
-              className="w-full px-3 py-2 border border-green-200 rounded-lg focus:border-green-400 focus:ring-1 focus:ring-green-200 bg-white font-mono text-[11px] resize-none transition-all"
-              rows={12}
-              placeholder="Enter HTML with {{variables}}... Click variables from right panel to insert them"
-            />
-          </div> */}
-
-          {/* TinyMCE-style Editor */}
+        {/* TinyMCE-style Editor */}
           <div className="rounded-xl border border-gray-200 overflow-hidden shadow-sm">
 
             {/* ── Toolbar Row 1: formatting tools ── */}
@@ -2310,15 +2252,24 @@ const handleExport = () => {
 {/* ── Editor Area ── */}
 {isCodeView ? (
   /* Code view — raw HTML textarea */
-  <textarea
-    ref={htmlEditorRef}
-    value={form.html_content}
-    onChange={e => setForm(p => ({ ...p, html_content: e.target.value }))}
-    className="w-full px-3 py-2 bg-[#1e1e2e] text-[#cdd6f4] font-mono text-[11px] resize-none focus:outline-none leading-relaxed"
-    style={{ minHeight: "500px" }}
-    spellCheck={false}
-    placeholder="Enter HTML with {{variables}}…"
-  />
+                    <Editor
+                      value={form.html_content}
+                      onValueChange={(code) =>
+                        setForm({ ...form, html_content: code })
+                      }
+                      highlight={(code) =>
+                        Prism.highlight(code, Prism.languages.html, "html")
+                      }
+                      padding={12}
+                      style={{
+                        background: "#1e1e2e",
+                        color: "#cdd6f4",
+                        fontFamily: "Fira Code, monospace",
+                        fontSize: 13,
+                        minHeight: "400px",
+                        borderRadius: "8px",
+                      }}
+                    />
 ) : (
   /* Visual Print Preview — Shows actual page breaks as they appear in print */
   <div 

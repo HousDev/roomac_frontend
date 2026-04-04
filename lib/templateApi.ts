@@ -183,23 +183,3 @@ export async function getCategoryVariables(category: string): Promise<string[]> 
     return [];
   }
 }
-
-// ── Generate with AI — calls backend proxy (NOT Anthropic directly, to avoid CORS)
-export async function generateWithAI(params: {
-  category: string;
-  channel: string;
-  subject_hint?: string;
-  tone?: string;
-}): Promise<string> {
-  // ✅ FIX: Call your own backend proxy instead of Anthropic directly.
-  // The backend calls Anthropic server-side, avoiding CORS entirely.
-  const response = await request<{ success: boolean; data: { generated_content: string } }>(
-    `/api/admin/templates/ai-generate`,
-    {
-      method: "POST",
-      headers: authHeaders(),
-      body: JSON.stringify(params),
-    }
-  );
-  return response.data?.generated_content?.trim() || "";
-}
