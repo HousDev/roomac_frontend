@@ -89,7 +89,7 @@ import { DocumentCreate } from "@/modules/documents/DocumentCreate";
 import { DocumentList } from "@/modules/documents/DocumentList";
 import RequestsPage from "@/app/admin/requests/page";
 import NoticePeriodRequestsPage from "@/app/admin/notice-period-requests/page";
-
+import TemplateCenterPage from "@/app/admin/templates/page";  // Add this li
 
 function App() {
   const {setUser} =useAuth()
@@ -134,6 +134,7 @@ console.log(user)
             <Route path="dashboard" element={<AdminDashboardPage />} />
             <Route path="properties" element={<AdminPropertiesPage />} />
             <Route path="properties/:id" element={<AdminPropertyIdPage />} />
+  <Route path="templates" element={<TemplateCenterPage />} />  {/* ← ADD THIS LINE */}
 
             <Route path="rooms" element={<AdminRoomsPage />} />
             <Route path="tenants" element={<AdminTenantsPage />} />

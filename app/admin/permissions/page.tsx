@@ -246,6 +246,8 @@ const PERMISSIONS_LIST = [
   { action: "manage_permissions", label: "Manage Permissions", module: "Administration" },
   { action: "view_users_list", label: "View Users List", module: "Administration" },
   { action: "create_users", label: "Create Users", module: "Administration" },
+    { action: "manage_templates", label: "manage templates", module: "Profile" },
+
   { action: "edit_users", label: "Edit Users", module: "Administration" },
   { action: "delete_users", label: "Delete Users", module: "Administration" },
   { action: "view_profile", label: "View Profile", module: "Profile" },
