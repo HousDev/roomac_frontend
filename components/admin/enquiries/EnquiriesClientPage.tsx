@@ -40,6 +40,7 @@ import MySwal from "@/app/utils/swal";
 import ScheduleVisitDialog from "./ScheduleVisitDialog";
 import ConvertToTenantDialog from "./ConvertToTenantDialog";
 import { useAuth } from "@/context/authContext";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 
 // Types for initial props
 interface EnquiriesClientPageProps {
@@ -49,12 +50,22 @@ interface EnquiriesClientPageProps {
     status?: string;
     search?: string;
   };
+  onRegisterRefresh?: (fn: () => void) => void;
+  onRegisterOpenAdd?: (fn: () => void) => void;
+  onRegisterStats?: (stats: any) => void;
+  onRegisterBulkDelete?: (fn: () => void) => void;
+  onRegisterSelectedCount?: (count: number) => void;
 }
 
 export default function EnquiriesClientPage({
   initialEnquiries,
   initialStats,
   searchParams: initialSearchParams,
+  onRegisterRefresh,
+  onRegisterOpenAdd,
+  onRegisterStats,
+  onRegisterBulkDelete,
+  onRegisterSelectedCount,
 }: EnquiriesClientPageProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -90,6 +101,15 @@ const [selectAll, setSelectAll] = useState(false);
     status: "",
     created: ""
   });
+  const [dateFilters, setDateFilters] = useState({
+  moveInFrom: "",
+  moveInTo: "",
+  createdFrom: "",
+  createdTo: "",
+  ignoreDateFilters: false,
+});
+
+  const [showFilterSidebar, setShowFilterSidebar] = useState(false);
 
   const hasFetchedOnMount = useRef(false);
 
@@ -188,6 +208,24 @@ const [selectAll, setSelectAll] = useState(false);
     }
   }, []);
 
+
+  useEffect(() => {
+  onRegisterRefresh?.(() => loadData(true));
+}, [loadData]);
+
+useEffect(() => {
+  onRegisterOpenAdd?.(() => setShowAddDialog(true));
+}, []);
+
+useEffect(() => {
+  onRegisterStats?.(stats);
+}, [stats]);
+
+
+useEffect(() => {
+  onRegisterSelectedCount?.(selectedRows.length);
+}, [selectedRows.length]);
+
   // Load properties once on mount
   useEffect(() => {
     if (hasFetchedOnMount.current) return;
@@ -243,8 +281,22 @@ const [selectAll, setSelectAll] = useState(false);
       const statusMatch = (enquiry.status || "")?.toLowerCase().includes(columnFilters.status.toLowerCase()) ?? true;
       const createdMatch = (enquiry.created_at || "")?.toLowerCase().includes(columnFilters.created.toLowerCase()) ?? true;
 
-      return nameMatch && contactMatch && propertyMatch && moveInDateMatch && statusMatch && createdMatch;
-    });
+// Date range filters
+      let moveInRangeMatch = true;
+      if (!dateFilters.ignoreDateFilters) {
+        const moveIn = enquiry.preferred_move_in_date ? new Date(enquiry.preferred_move_in_date) : null;
+        if (dateFilters.moveInFrom && moveIn) moveInRangeMatch = moveIn >= new Date(dateFilters.moveInFrom);
+        if (dateFilters.moveInTo && moveIn) moveInRangeMatch = moveInRangeMatch && moveIn <= new Date(dateFilters.moveInTo);
+
+        let createdRangeMatch = true;
+        const created = enquiry.created_at ? new Date(enquiry.created_at) : null;
+        if (dateFilters.createdFrom && created) createdRangeMatch = created >= new Date(dateFilters.createdFrom);
+        if (dateFilters.createdTo && created) createdRangeMatch = createdRangeMatch && created <= new Date(dateFilters.createdTo);
+
+        return nameMatch && contactMatch && propertyMatch && moveInDateMatch && statusMatch && createdMatch && moveInRangeMatch && createdRangeMatch;
+      }
+
+      return nameMatch && contactMatch && propertyMatch && moveInDateMatch && statusMatch && createdMatch;    });
   }, [enquiries, columnFilters]);
 
   // Function to open view dialog with fresh data
@@ -546,6 +598,9 @@ const handleBulkDelete = async () => {
     toast.error("Please select at least one enquiry to delete");
     return;
   }
+  useEffect(() => {
+  onRegisterBulkDelete?.(() => handleBulkDelete);
+}, [handleBulkDelete]);
 
   const result = await MySwal.fire({
     title: 'Delete Enquiries',
@@ -575,10 +630,10 @@ const handleBulkDelete = async () => {
   const hasActiveColumnFilters = Object.values(columnFilters).some(value => value !== "");
 
   return (
-    <div className="w-full bg-gray-50">
-      <div className="p-0 sm:p-0 md:p-0 lg:p-0">
+  <div className="w-full bg-gray-50 flex flex-col h-[calc(100vh-160px)]">
+    <div className="p-0 sm:p-0 md:p-0 lg:p-0 flex flex-col flex-1 min-h-0">
         {/* Header */}
-        <div className="flex flex-col gap-4 mb-4  sticky top-24 z-10">
+<div className="flex flex-col gap-4 mb-4 sticky top-24 z-10 lg:hidden">
           <div className="flex flex-col sm:flex-row justify-end items-end sm:items-end gap-4">
             <div className="flex flex-wrap items-end gap-2 w-full sm:w-auto">
               {/* Refresh Button */}
@@ -687,76 +742,159 @@ const handleBulkDelete = async () => {
         </div>
 
         {/* Enquiries Table */}
-        <Card className="border rounded-lg md:-mt-12 sticky top-80 z-10">
-          <CardHeader className="bg-white border-b p-2 sm:p-4">
-            <div className="flex flex-row justify-between items-center gap-2">
-              <CardTitle className="text-base sm:text-lg font-semibold whitespace-nowrap">
-                All Enquiries ({filteredEnquiries.length})
-              </CardTitle>
-              <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-500 whitespace-nowrap">
-                <span>Showing {filteredEnquiries.length} of {enquiries.length}</span>
-                {hasActiveColumnFilters && (
-                  <Button variant="ghost" size="sm" onClick={clearColumnFilters} className="h-6 sm:h-7 px-2 text-xs">
-                    Clear
-                  </Button>
-                )}
-              </div>
-            </div>
-          </CardHeader>
+<Card className="border rounded-lg flex flex-col flex-1 min-h-0  -mt-10 md:-mt-16 overflow-hidden">
+          <CardHeader className="sticky top-0 z-20 p-0 bg-gradient-to-r from-blue-800 via-blue-700 to-blue-600 shadow-md flex-shrink-0">
+  {/* Desktop header row */}
+  <div className="hidden sm:flex items-center gap-2 px-4 py-2.5">
+    <div className="flex items-center gap-2 flex-1 min-w-0">
+      <CardTitle className="text-sm font-semibold text-white whitespace-nowrap">
+        All Enquiries ({filteredEnquiries.length})
+      </CardTitle>
+      <span className="text-xs text-blue-200">
+        Showing {filteredEnquiries.length} of {enquiries.length}
+      </span>
+    </div>
+    <div className="flex items-center gap-2 flex-shrink-0">
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-blue-200 pointer-events-none" />
+        <input
+          type="text"
+          placeholder="Search enquiries..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="pl-8 pr-3 py-1.5 text-xs rounded-lg bg-white/20 text-white placeholder-blue-200 border border-white/30 focus:outline-none focus:ring-1 focus:ring-white/50 w-48"
+        />
+      </div>
+      {/* Status Filter */}
+      <select
+        value={statusFilter}
+        onChange={(e) => setStatusFilter(e.target.value)}
+        className="h-7 text-xs rounded-lg bg-white/20 text-white border border-white/30 px-2 focus:outline-none focus:ring-1 focus:ring-white/50"
+      >
+        <option value="" className="text-gray-800">All Status</option>
+        {["new","contacted","interested","not_interested","converted","closed"].map(s => (
+          <option key={s} value={s} className="text-gray-800">{s.replace("_"," ")}</option>
+        ))}
+      </select>
+      {/* Filter button */}
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => setShowFilterSidebar(true)}
+        className="h-7 px-2.5 text-white/80 hover:text-white hover:bg-white/20 rounded-lg text-xs relative"
+      >
+        <Filter className="w-3.5 h-3.5 mr-1" />
+        Filters
+        {hasActiveColumnFilters && (
+          <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-orange-400 text-white text-[8px] font-bold rounded-full flex items-center justify-center">
+            !
+          </span>
+        )}
+      </Button>
+      {hasActiveColumnFilters && (
+        <Button variant="ghost" size="sm" onClick={clearColumnFilters}
+          className="h-7 px-2 text-xs text-orange-300 hover:text-orange-200 hover:bg-white/10">
+          Clear
+        </Button>
+      )}
+    </div>
+  </div>
 
-          <CardContent className="p-0">
-            <div className="max-h-[calc(100vh-490px)] md:max-h-[calc(100vh-420px)] overflow-y-auto overflow-x-auto">
-              <div className="min-w-[1200px] lg:min-w-full">
-                <Table>
-                  <TableHeader className="bg-gray-50 sticky top-0 z-10">
-  <TableRow>
-    <TableHead className="py-1.5 sm:py-1 px-2 sm:px-4 w-10">
+  {/* Mobile header row */}
+  <div className="flex sm:hidden items-center gap-1.5 px-3 py-2">
+    <CardTitle className="text-xs font-semibold text-white flex-1">
+      Enquiries ({filteredEnquiries.length})
+    </CardTitle>
+    <div className="relative">
+      <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-blue-200 pointer-events-none" />
+      <input
+        type="text"
+        placeholder="Search..."
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+        className="pl-6 pr-2 py-1 text-[10px] rounded-md bg-white/20 text-white placeholder-blue-200 border border-white/30 focus:outline-none w-28"
+      />
+    </div>
+    <Button
+      variant="ghost" size="sm"
+      onClick={() => setShowFilterSidebar(true)}
+      className="h-6 w-6 p-0 text-white/80 hover:bg-white/20 rounded-lg relative"
+    >
+      <Filter className="w-3 h-3" />
+      {hasActiveColumnFilters && (
+        <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-orange-400 text-white text-[7px] font-bold rounded-full flex items-center justify-center">!</span>
+      )}
+    </Button>
+  </div>
+</CardHeader>
+
+         <CardContent className="p-0 flex-1 min-h-0 overflow-hidden">
+  {/* Single overflow-x wrapper for BOTH header + body */}
+  <div className="overflow-x-auto h-full flex flex-col">
+    <div className="min-w-[1200px] lg:min-w-full flex flex-col h-full">
+
+      {/* STICKY HEADER TABLE - flex-shrink-0 so it never scrolls away */}
+      <table className="w-full border-collapse table-fixed flex-shrink-0">
+     <TableHeader className="bg-gray-50">
+  <TableRow className="h-8">
+    <TableHead className="py-0 px-2 sm:px-4 w-10">
       <input
         type="checkbox"
         checked={selectAll}
         onChange={handleSelectAll}
-        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+        className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
       />
     </TableHead>
-    <TableHead className="py-1.5 sm:py-1 px-2 sm:px-4 text-xs sm:text-sm">Name</TableHead>
-    <TableHead className="py-1.5 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm">Contact</TableHead>
-    <TableHead className="py-1.5 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm">Property</TableHead>
-    <TableHead className="py-1.5 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm">Move-in Date</TableHead>
-    <TableHead className="py-1.5 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm">Status</TableHead>
-    <TableHead className="py-1.5 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm">Created</TableHead>
-    <TableHead className="py-1.5 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm text-right">Actions</TableHead>
+    <TableHead className="py-0 px-2 sm:px-4 text-xs w-[130px]">Name</TableHead>
+    <TableHead className="py-0 px-2 sm:px-4 text-xs w-[180px]">Contact</TableHead>
+    <TableHead className="py-0 px-2 sm:px-4 text-xs w-[160px]">Property</TableHead>
+    <TableHead className="py-0 px-2 sm:px-4 text-xs w-[110px]">Move-in Date</TableHead>
+    <TableHead className="py-0 px-2 sm:px-4 text-xs w-[100px]">Status</TableHead>
+    <TableHead className="py-0 px-2 sm:px-4 text-xs w-[110px]">Created</TableHead>
+    <TableHead className="py-0 px-2 sm:px-4 text-xs text-right">Actions</TableHead>
   </TableRow>
 
   {/* Filter Row */}
-  <TableRow className="bg-gray-50/50">
-    <TableCell className="px-2 sm:px-4 py-1.5 sm:py-2">
-      {/* Empty cell for checkbox column */}
-    </TableCell>
+  <TableRow className="h-8 bg-gray-50/50">
+    <TableCell className="px-2 sm:px-4 py-0 w-10" />
     {[
-      { key: "name", placeholder: "Filter name..." },
-      { key: "contact", placeholder: "Filter contact..." },
-      { key: "property", placeholder: "Filter property..." },
-      { key: "moveInDate", placeholder: "Filter date..." },
-      { key: "status", placeholder: "Filter status..." },
-      { key: "created", placeholder: "Filter created..." },
+      { key: "name",       placeholder: "Filter name...",     width: "w-[130px]" },
+      { key: "contact",    placeholder: "Filter contact...",  width: "w-[180px]" },
+      { key: "property",   placeholder: "Filter property...", width: "w-[160px]" },
+      { key: "moveInDate", placeholder: "Filter date...",     width: "w-[110px]" },
+      { key: "status",     placeholder: "Filter status...",   width: "w-[100px]" },
+      { key: "created",    placeholder: "Filter created...",  width: "w-[110px]" },
     ].map((field) => (
-      <TableCell key={field.key} className="px-2 sm:px-4 py-1.5 sm:py-2">
+      <TableCell key={field.key} className={`px-2 sm:px-4 py-0 ${field.width}`}>
         <Input
           placeholder={field.placeholder}
           value={columnFilters[field.key]}
           onChange={(e) =>
-            setColumnFilters((prev) => ({
-              ...prev,
-              [field.key]: e.target.value,
-            }))
+            setColumnFilters((prev) => ({ ...prev, [field.key]: e.target.value }))
           }
-          className="h-7 sm:h-8 text-xs sm:text-sm"
+          className="h-6 text-xs px-2"
         />
       </TableCell>
     ))}
-    <TableCell className="px-2 sm:px-4 py-1.5 sm:py-2" />
+    <TableCell className="px-2 sm:px-4 py-0" />
   </TableRow>
 </TableHeader>
+</table>
+
+
+<div className="overflow-y-auto" style={{ maxHeight: "calc(100vh - 410px)" }}>
+  <table className="w-full border-collapse table-fixed">
+    <colgroup>
+      <col className="w-10" />
+      <col className="w-[130px]" />
+      <col className="w-[180px]" />
+      <col className="w-[160px]" />
+      <col className="w-[110px]" />
+      <col className="w-[100px]" />
+      <col className="w-[110px]" />
+      <col />
+    </colgroup>
 
                   <TableBody>
                     {filteredEnquiries.length === 0 ? (
@@ -930,11 +1068,16 @@ const handleBulkDelete = async () => {
   </TableRow>
 ))
                     )}
-                  </TableBody>
-                </Table>
+                 </TableBody>
+                </table>
               </div>
+              {/* end scrollable body */}
+
             </div>
-          </CardContent>
+            {/* end min-w wrapper */}
+          </div>
+          {/* end overflow-x wrapper */}
+        </CardContent>
         </Card>
       </div>
 
@@ -1055,6 +1198,202 @@ const handleBulkDelete = async () => {
     toast.success("Enquiry converted to tenant successfully");
   }}
 />
+{/* Filter Sidebar */}
+{/* Filter Sidebar */}
+<Sheet open={showFilterSidebar} onOpenChange={setShowFilterSidebar}>
+  <SheetContent
+    side="right"
+    className="p-0 w-[85vw] min-w-[280px] sm:w-[360px]"
+  >
+    <div className="h-full flex flex-col">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-blue-800 via-blue-700 to-blue-600 px-4 py-3 flex items-center justify-between flex-shrink-0">
+        <div className="flex items-center gap-2">
+          <Filter className="w-4 h-4 text-white" />
+          <span className="text-sm font-semibold text-white">Filter Enquiries</span>
+          {(hasActiveColumnFilters || dateFilters.moveInFrom || dateFilters.moveInTo || dateFilters.createdFrom || dateFilters.createdTo) && (
+            <Badge className="text-[9px] px-1.5 py-0 h-4 bg-orange-400 text-white border-0">
+              Active
+            </Badge>
+          )}
+        </div>
+        <button onClick={() => setShowFilterSidebar(false)} className="text-white/70 hover:text-white">
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+
+      {/* Body */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+
+        {/* Search */}
+        <div className="space-y-1">
+          <Label className="text-xs font-semibold text-blue-700 flex items-center gap-1.5">
+            <Search className="w-3 h-3" /> Search
+          </Label>
+          <Input
+            placeholder="Search by name, phone, email..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="h-8 text-xs"
+          />
+        </div>
+
+        {/* Status Dropdown */}
+        <div className="space-y-1">
+          <Label className="text-xs font-semibold text-blue-700">Status</Label>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="w-full h-8 text-xs rounded-lg border border-gray-200 px-2 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white text-gray-700"
+          >
+            <option value="">All Status</option>
+            {["new", "contacted", "interested", "not_interested", "converted", "closed"].map((s) => (
+              <option key={s} value={s}>
+                {s.replace("_", " ").replace(/\b\w/g, l => l.toUpperCase())}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Property Dropdown */}
+        <div className="space-y-1">
+          <Label className="text-xs font-semibold text-blue-700">Property</Label>
+          <select
+            value={columnFilters.property}
+            onChange={(e) => setColumnFilters((prev) => ({ ...prev, property: e.target.value }))}
+            className="w-full h-8 text-xs rounded-lg border border-gray-200 px-2 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white text-gray-700"
+          >
+            <option value="">All Properties</option>
+            {properties.map((p) => (
+              <option key={p.id} value={p.name}>{p.name}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Name + Contact inline */}
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1">
+            <Label className="text-[10px] font-semibold text-gray-500">Name</Label>
+            <Input
+              placeholder="Filter name..."
+              value={columnFilters.name}
+              onChange={(e) => setColumnFilters((prev) => ({ ...prev, name: e.target.value }))}
+              className="h-7 text-xs"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-[10px] font-semibold text-gray-500">Contact</Label>
+            <Input
+              placeholder="Filter contact..."
+              value={columnFilters.contact}
+              onChange={(e) => setColumnFilters((prev) => ({ ...prev, contact: e.target.value }))}
+              className="h-7 text-xs"
+            />
+          </div>
+        </div>
+
+        {/* Divider */}
+        <div className="border-t border-dashed border-gray-200 pt-2">
+          <Label className="text-xs font-semibold text-blue-700 flex items-center gap-1.5 mb-2">
+            <Calendar className="w-3 h-3" /> Date Range Filters
+          </Label>
+
+          {/* Ignore toggle */}
+          <label className="flex items-center gap-2 p-2 rounded-lg border border-gray-200 bg-gray-50 cursor-pointer mb-3">
+            <input
+              type="checkbox"
+              checked={dateFilters.ignoreDateFilters}
+              onChange={(e) => setDateFilters(prev => ({ ...prev, ignoreDateFilters: e.target.checked }))}
+              className="h-4 w-4 rounded border-gray-300 text-blue-600 flex-shrink-0"
+            />
+            <div>
+              <p className="text-xs font-medium text-gray-700">Ignore Date Filters</p>
+              <p className="text-[10px] text-gray-400">Show all data regardless of date</p>
+            </div>
+          </label>
+
+          {/* Move-in Date Range */}
+          <div className={`space-y-1 mb-3 ${dateFilters.ignoreDateFilters ? 'opacity-40 pointer-events-none' : ''}`}>
+            <Label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Move-in Date</Label>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-0.5">
+                <Label className="text-[10px] text-gray-400">From</Label>
+                <Input
+                  type="date"
+                  value={dateFilters.moveInFrom}
+                  onChange={(e) => setDateFilters(prev => ({ ...prev, moveInFrom: e.target.value }))}
+                  className="h-7 text-xs px-2 w-full"
+                />
+              </div>
+              <div className="space-y-0.5">
+                <Label className="text-[10px] text-gray-400">To</Label>
+                <Input
+                  type="date"
+                  value={dateFilters.moveInTo}
+                  onChange={(e) => setDateFilters(prev => ({ ...prev, moveInTo: e.target.value }))}
+                  className="h-7 text-xs px-2 w-full"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Created Date Range */}
+          <div className={`space-y-1 ${dateFilters.ignoreDateFilters ? 'opacity-40 pointer-events-none' : ''}`}>
+            <Label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Created Date</Label>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-0.5">
+                <Label className="text-[10px] text-gray-400">From</Label>
+                <Input
+                  type="date"
+                  value={dateFilters.createdFrom}
+                  onChange={(e) => setDateFilters(prev => ({ ...prev, createdFrom: e.target.value }))}
+                  className="h-7 text-xs px-2 w-full"
+                />
+              </div>
+              <div className="space-y-0.5">
+                <Label className="text-[10px] text-gray-400">To</Label>
+                <Input
+                  type="date"
+                  value={dateFilters.createdTo}
+                  onChange={(e) => setDateFilters(prev => ({ ...prev, createdTo: e.target.value }))}
+                  className="h-7 text-xs px-2 w-full"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      {/* Footer */}
+      <div className="border-t p-3 flex gap-2 bg-gray-50 flex-shrink-0">
+        <Button
+          variant="outline" size="sm"
+          className="flex-1 text-xs h-8"
+          onClick={() => {
+            clearColumnFilters();
+            setStatusFilter("");
+            setSearchTerm("");
+            setDateFilters({
+              moveInFrom: "", moveInTo: "",
+              createdFrom: "", createdTo: "",
+              ignoreDateFilters: false,
+            });
+          }}
+        >
+          <RefreshCw className="w-3 h-3 mr-1" /> Reset All
+        </Button>
+        <Button
+          size="sm"
+          className="flex-1 text-xs h-8 bg-blue-600 hover:bg-blue-700"
+          onClick={() => setShowFilterSidebar(false)}
+        >
+          Apply Filters
+        </Button>
+      </div>
+    </div>
+  </SheetContent>
+</Sheet>
 
       <style>{`
         /* First direct grid child = the 6 status cards grid */
