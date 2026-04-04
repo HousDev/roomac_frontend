@@ -33,6 +33,7 @@ export default function LoginClient({
   const [propertyImages] = useState<string[]>(initialPropertyImages);
   const [exitAnimation, setExitAnimation] = useState(false);
   const [slideDirection, setSlideDirection] = useState("");
+  
 
   const [credentials, setCredentials] = useState({
     email: "",
@@ -124,7 +125,7 @@ export default function LoginClient({
         if (result.success) {
           setOtpSent(true);
           setGeneratedOtp(result.otp || "123456");
-          toast.success(`OTP sent! For testing: ${result.otp}`); // Keep test OTP display
+          toast.success(`OTP sent successfully!`); // Keep test OTP display
         } else {
           toast.error(result.error || result.message || "Failed to send OTP");
         }

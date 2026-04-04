@@ -175,6 +175,7 @@ const OTPModal = ({
   onVerify,
   loading,
   generatedOtp,
+  handleSendOTP,
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -185,12 +186,16 @@ const OTPModal = ({
   onVerify: () => void;
   loading: boolean;
   generatedOtp: string;
+  handleSendOTP: () => void;
 }) => {
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [error, setError] = useState("");
+  const [isResendOtpSent, setIsResendOtpSent] = useState(true);
+   const [timeLeft, setTimeLeft] = useState(60); // 60 seconds = 1 minute
   console.log("generated otp", generatedOtp);
 
   useEffect(() => {
+    setIsResendOtpSent(true);
     if (isOpen) {
       setOtp(["", "", "", "", "", ""]);
       setError("");
@@ -199,6 +204,24 @@ const OTPModal = ({
       }, 100);
     }
   }, [isOpen]);
+
+   useEffect(() => {
+  if (!isOpen) return;
+
+  setTimeLeft(60); // reset when modal opens
+
+  const timer = setInterval(() => {
+    setTimeLeft((prev) => {
+      if (prev <= 1) {
+        clearInterval(timer);
+        return 0;
+      }
+      return prev - 1;
+    });
+  }, 1000);
+
+  return () => clearInterval(timer);
+}, [isOpen]);
 
   const handleChange = (index: number, value: string) => {
     if (!/^\d*$/.test(value)) return;
@@ -228,9 +251,12 @@ const OTPModal = ({
   };
 
   const handleResend = () => {
+    if (timeLeft > 0) return; // prevent resend before timer ends
+    handleSendOTP();
     setOtp(["", "", "", "", "", ""]);
     setError("");
-    alert("OTP resent successfully!");
+    setIsResendOtpSent(false);
+    toast.info("OTP resent successfully!");
   };
 
   if (!isOpen) return null;
@@ -318,17 +344,18 @@ const OTPModal = ({
             )}
           </button>
 
-          <div className="mt-2.5 flex flex-col sm:flex-row items-center justify-between gap-1.5">
+          {isResendOtpSent && timeLeft === 0 ? <div className="mt-2.5 flex flex-col sm:flex-row items-center justify-between gap-1.5">
             <button
               onClick={handleResend}
               className="text-xs sm:text-sm text-blue-600 hover:text-blue-800 font-medium"
             >
               Resend OTP
             </button>
+          </div>: timeLeft > 0 && <div className="mt-2.5 flex flex-col sm:flex-row items-center justify-between gap-1.5">
             <span className="text-[10px] sm:text-xs text-gray-500">
-              Use 123456 for demo
+              Resend OTP in {timeLeft} seconds
             </span>
-          </div>
+          </div>}
         </div>
       </div>
     </div>
@@ -754,7 +781,7 @@ const BookingModal = memo(function BookingModal({
   // ✅ UPDATED - removed test OTP display
   const handleSendOTP = useCallback(
     async (e: React.FormEvent) => {
-      e.preventDefault();
+      if(e){e.preventDefault();}
       console.log("otp : ", otpData);
       if (!otpData.email) {
         toast.error("Please enter your email");
@@ -767,7 +794,7 @@ const BookingModal = memo(function BookingModal({
         if (result.success) {
           setOtpSent(true);
           setGeneratedOtp(result.otp || "123456");
-          toast.success(`OTP sent! For testing: ${result.otp}`); // Keep test OTP display
+          toast.success(`OTP sent successfully!`); 
         } else {
           toast.error(result.error || result.message || "Failed to send OTP");
         }
@@ -4642,6 +4669,7 @@ handleSendOTP(e); // Trigger OTP flow on first
         onVerify={handleOTPVerify}
         loading={loading}
         generatedOtp={generatedOtp}
+        handleSendOTP={handleSendOTP}
       />
 
       <ConfirmationModal

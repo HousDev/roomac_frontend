@@ -1,8 +1,19 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useState, FormEvent, useEffect } from "react";
 import { AppRouterInstance } from "@/src/compat/next-navigation";
-import { Mail, Lock, Home, ArrowRight, ChevronDown, User, CheckCircle, Sparkles, Eye, EyeOff } from "lucide-react";
+import {
+  Mail,
+  Lock,
+  Home,
+  ArrowRight,
+  ChevronDown,
+  User,
+  CheckCircle,
+  Sparkles,
+  Eye,
+  EyeOff,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -42,12 +53,42 @@ export default function LoginForm({
   onSendOTP,
   onVerifyOTP,
   onShowAccounts,
-  router
+  router,
 }: LoginFormProps) {
   const [showPassword, setShowPassword] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(60); // 60 seconds
+  const [isResendOtpSent, setIsResendOtpSent] = useState(true);
+
+  useEffect(() => {
+    setIsResendOtpSent(true);
+    if (!otpSent) return;
+
+    setTimeLeft(60); // reset when modal opens
+
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [otpSent]);
+
+  function handleResend(e) {
+    if (timeLeft > 0) return; // prevent resend before timer ends
+    e.preventDefault();
+    onSendOTP(e);
+    setIsResendOtpSent(false);
+    toast.info("OTP resent successfully!");
+  }
 
   return (
-    <div className={`relative bg-white
+    <div
+      className={`relative bg-white
       rounded-[30px] rounded-tr-[100px] rounded-bl-[100px]
       p-7 border border-blue-200
      
@@ -56,8 +97,10 @@ export default function LoginForm({
       overflow-hidden ${exitAnimation ? "animate-out fade-out-50 slide-out-to-bottom" : ""}`}
     >
       {/* inner depth */}
-      <div className="absolute inset-0 rounded-[30px] pointer-events-none
-        shadow-[inset_0_1px_2px_rgba(255,255,255,0.9)]" />
+      <div
+        className="absolute inset-0 rounded-[30px] pointer-events-none
+        shadow-[inset_0_1px_2px_rgba(255,255,255,0.9)]"
+      />
 
       <form onSubmit={onPasswordLogin} className="space-y-4 relative z-10">
         {/* Email */}
@@ -80,37 +123,37 @@ export default function LoginForm({
         </div>
 
         {/* Password */}
-       {/* Password */}
-<div>
-  <Label className="text-sm font-semibold text-black">Password</Label>
-  <div className="relative mt-1">
-    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-blue-800" />
+        {/* Password */}
+        <div>
+          <Label className="text-sm font-semibold text-black">Password</Label>
+          <div className="relative mt-1">
+            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-blue-800" />
 
-    <Input
-      type={showPassword ? "text" : "password"}
-      placeholder="Enter your password"
-      value={credentials.password}
-      onChange={(e) => onCredentialsChange("password", e.target.value)}
-      className="h-11 rounded-full text-sm
+            <Input
+              type={showPassword ? "text" : "password"}
+              placeholder="Enter your password"
+              value={credentials.password}
+              onChange={(e) => onCredentialsChange("password", e.target.value)}
+              className="h-11 rounded-full text-sm
         bg-blue-50 border border-gray-300
         focus:border-blue-500 focus:ring-4 focus:ring-blue-100
         pl-10 pr-10 transition"
-      required
-    />
+              required
+            />
 
-    <button
-      type="button"
-      onClick={() => setShowPassword(!showPassword)}
-      className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-blue-600"
-    >
-      {showPassword ? (
-        <EyeOff className="h-4 w-4" />
-      ) : (
-        <Eye className="h-4 w-4" />
-      )}
-    </button>
-  </div>
-</div>
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-blue-600"
+            >
+              {showPassword ? (
+                <EyeOff className="h-4 w-4" />
+              ) : (
+                <Eye className="h-4 w-4" />
+              )}
+            </button>
+          </div>
+        </div>
 
         {/* Remember + Forgot */}
         <div className="flex justify-between items-center text-xs">
@@ -189,6 +232,25 @@ export default function LoginForm({
             >
               Verify OTP
             </Button>
+
+            {isResendOtpSent && timeLeft === 0 ? (
+              <div className="mt-2.5 flex flex-col sm:flex-row items-center justify-between gap-1.5">
+                <button
+                  onClick={handleResend}
+                  className="text-xs sm:text-sm text-blue-600 hover:text-blue-800 font-medium"
+                >
+                  Resend OTP
+                </button>
+              </div>
+            ) : (
+              timeLeft > 0 && (
+                <div className="mt-2.5 flex flex-col sm:flex-row items-center justify-between gap-1.5">
+                  <span className="text-[10px] sm:text-xs text-gray-500">
+                    Resend OTP in {timeLeft} seconds
+                  </span>
+                </div>
+              )
+            )}
           </form>
         )}
       </div>
