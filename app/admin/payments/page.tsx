@@ -77,6 +77,7 @@ import {
   ArrowUpDown,
   MoreVertical,
   Sparkles,
+  RefreshCw,
 } from "lucide-react";
 import {
   Table,
@@ -90,7 +91,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 // Import APIs
 import { listTenants, type Tenant } from "@/lib/tenantApi";
 import * as paymentApi from "@/lib/paymentRecordApi";
@@ -202,6 +203,9 @@ export default function PaymentsPage() {
   const [rejectionReasons, setRejectionReasons] = useState<any[]>([]);
   const [selectedRejectionCategory, setSelectedRejectionCategory] =
     useState<string>("");
+    const [showPaymentFilterSidebar, setShowPaymentFilterSidebar] = useState(false);
+  const [showReceiptFilterSidebar, setShowReceiptFilterSidebar] = useState(false);
+  const [showDemandFilterSidebar, setShowDemandFilterSidebar] = useState(false);
   const [columnFilters, setColumnFilters] = useState({
     payment_date: "",
     tenant_name: "",
@@ -1441,17 +1445,46 @@ export default function PaymentsPage() {
       demandFilters.status === "all" ||
       !demandFilters.status ||
       demand.status === demandFilters.status;
+
     const matchesTenant =
       !demandFilters.tenant ||
       tenantName.includes(demandFilters.tenant.toLowerCase());
+
+    // Date filter (created_at)
+    const matchesDate =
+      !demandFilters.date ||
+      format(new Date(demand.created_at), "dd/MM/yy").includes(demandFilters.date);
+
+    // Due date range filters
     const matchesFromDate =
       !demandFilters.from_date ||
-      new Date(demand.created_at) >= new Date(demandFilters.from_date);
+      new Date(demand.due_date) >= new Date(demandFilters.from_date);
     const matchesToDate =
       !demandFilters.to_date ||
-      new Date(demand.created_at) <= new Date(demandFilters.to_date);
+      new Date(demand.due_date) <= new Date(demandFilters.to_date);
 
-    return matchesStatus && matchesTenant && matchesFromDate && matchesToDate;
+    // Amount filter
+    const matchesAmount =
+      !demandFilters.amount ||
+      Number(demand.amount).toString().includes(demandFilters.amount.toString());
+
+    // Room/Bed filter
+    const matchesRoom =
+      !demandFilters.room ||
+      (demand.room_number &&
+        demand.room_number.toString().toLowerCase().includes(demandFilters.room.toLowerCase())) ||
+      (demand.bed_number &&
+        demand.bed_number.toString().includes(demandFilters.room));
+
+    return (
+      matchesStatus &&
+      matchesTenant &&
+      matchesDate &&
+      matchesFromDate &&
+      matchesToDate &&
+      matchesAmount &&
+      matchesRoom
+    );
   });
 
   const handleUpdateDemandStatus = async (
@@ -1615,21 +1648,26 @@ export default function PaymentsPage() {
               canReject={can("reject_payments")}
               canEdit={can("edit_payments")}
               canDelete={can("delete_payments")}
-              canViewReceipts={can("view_receipts")} // ← ADD THIS
+                           canViewReceipts={can("view_receipts")}
+              showFilterSidebar={showPaymentFilterSidebar}
+              setShowFilterSidebar={setShowPaymentFilterSidebar}
             />
+
           </TabsContent>
 
           {/* Demands Tab Content */}
           {/* Demands Tab Content */}
           {/* Demands Tab Content */}
-          <TabsContent value="demands" className="mt-0">
-            <Card className="border-0 shadow-sm overflow-hidden">
-              <CardContent className="p-0">
-                <div className="relative">
-                  <div className="overflow-auto max-h-[calc(100vh-420px)]">
-                    <Table>
+         <TabsContent value="demands" className="mt-0">
+            <Card className="border-0 shadow-sm overflow-hidden flex flex-col" style={{height:'calc(100vh - 280px)'}}>
+              <CardContent className="p-0 flex flex-col flex-1 min-h-0 overflow-hidden">
+                <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+                 <div className="overflow-x-auto flex-1 min-h-0 flex flex-col min-w-0">
+  <div className="min-w-[780px] flex flex-col flex-1 min-h-0">
+    <div className="flex-shrink-0">
+    <Table>
                       {/* COMPACT HEADER WITH SEARCH BARS */}
-                      <TableHeader className="sticky top-0 z-20 bg-gray-200 border-b border-gray-300">
+                      <TableHeader className="bg-gray-200 border-b border-gray-300">
                         <TableRow className="hover:bg-transparent">
                           {/* Date Column */}
                           <TableHead className="w-[100px] py-2 px-2 bg-gray-200">
@@ -1787,15 +1825,37 @@ export default function PaymentsPage() {
                           </TableHead>
 
                           {/* Actions Column */}
+                          {/* Actions Column */}
                           <TableHead className="w-[80px] py-2 px-2 bg-gray-200 text-center">
-                            <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
-                              Actions
-                            </span>
+                            <div className="flex flex-col gap-1 items-center">
+                              <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
+                                Actions
+                              </span>
+                              <Button
+                                variant="ghost" size="sm"
+                                onClick={() => setShowDemandFilterSidebar(true)}
+                                className="h-5 px-1.5 text-[9px] bg-blue-600 text-white hover:bg-blue-700 rounded w-full"
+                              >
+                                <Filter className="w-2.5 h-2.5 mr-0.5" />
+                                Filter
+                              </Button>
+                            </div>
                           </TableHead>
                         </TableRow>
-                      </TableHeader>
-
-                      {/* TABLE BODY - Updated with salutation and country code */}
+                     </TableHeader>
+                    </Table>
+                    </div>
+                    <div className="overflow-y-auto flex-1 min-h-0">
+                    <Table>
+                      <colgroup>
+                        <col style={{width:'140px'}} />
+                        <col style={{width:'300px'}} />
+                        <col style={{width:'170px'}} />
+                        <col style={{width:'130px'}} />
+                        <col style={{width:'22px'}} />
+                        <col style={{width:'100px'}} />
+                        <col style={{width:'100px'}} />
+                      </colgroup>
                       <TableBody>
                         {loading ? (
                           <TableRow>
@@ -1919,12 +1979,75 @@ export default function PaymentsPage() {
                             );
                           })
                         )}
-                      </TableBody>
+                     </TableBody>
                     </Table>
+                     </div>
                   </div>
+                  {/* end min-w wrapper */}
                 </div>
-              </CardContent>
-            </Card>
+                {/* end overflow-x wrapper */}
+              </div>
+            </CardContent>
+          </Card>
+            {/* Demands Filter Sidebar */}
+<Sheet open={showDemandFilterSidebar} onOpenChange={setShowDemandFilterSidebar}>
+  <SheetContent side="right" className="p-0 w-[85vw] min-w-[280px] sm:w-[360px]">
+    <div className="h-full flex flex-col">
+      <div className="bg-gradient-to-r from-orange-600 to-red-600 px-4 py-3 flex items-center justify-between flex-shrink-0">
+        <div className="flex items-center gap-2">
+          <Filter className="w-4 h-4 text-white" />
+          <span className="text-sm font-semibold text-white">Filter Demands</span>
+        </div>
+        <button onClick={() => setShowDemandFilterSidebar(false)} className="text-white/70 hover:text-white">
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        <div className="space-y-1">
+          <Label className="text-xs font-semibold text-orange-700">Date</Label>
+          <Input placeholder="dd/mm/yy" value={demandFilters.date || ""} onChange={(e) => setDemandFilters({...demandFilters, date: e.target.value})} className="h-8 text-xs" />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs font-semibold text-orange-700">Tenant</Label>
+          <Input placeholder="Search tenant..." value={demandFilters.tenant || ""} onChange={(e) => setDemandFilters({...demandFilters, tenant: e.target.value})} className="h-8 text-xs" />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs font-semibold text-orange-700">Amount</Label>
+          <Input type="number" placeholder="Search amount..." value={demandFilters.amount || ""} onChange={(e) => setDemandFilters({...demandFilters, amount: e.target.value})} className="h-8 text-xs" />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs font-semibold text-orange-700">Due Date From</Label>
+          <Input type="date" value={demandFilters.from_date || ""} onChange={(e) => setDemandFilters({...demandFilters, from_date: e.target.value})} className="h-8 text-xs" />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs font-semibold text-orange-700">Due Date To</Label>
+          <Input type="date" value={demandFilters.to_date || ""} onChange={(e) => setDemandFilters({...demandFilters, to_date: e.target.value})} className="h-8 text-xs" />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs font-semibold text-orange-700">Status</Label>
+          <select value={demandFilters.status || "all"} onChange={(e) => setDemandFilters({...demandFilters, status: e.target.value})} className="w-full h-8 text-xs rounded-lg border border-gray-200 px-2 bg-white text-gray-700">
+            <option value="all">All Status</option>
+            {["pending","paid","partial","overdue","cancelled"].map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs font-semibold text-orange-700">Room/Bed</Label>
+          <Input placeholder="Search room..." value={demandFilters.room || ""} onChange={(e) => setDemandFilters({...demandFilters, room: e.target.value})} className="h-8 text-xs" />
+        </div>
+      </div>
+      <div className="border-t p-3 flex gap-2 bg-gray-50 flex-shrink-0">
+        <Button variant="outline" size="sm" className="flex-1 text-xs h-8"
+          onClick={() => setDemandFilters({ status: "", tenant: "", from_date: "", to_date: "", date: "", amount: "", room: "" })}>
+          <RefreshCw className="w-3 h-3 mr-1" /> Reset
+        </Button>
+        <Button size="sm" className="flex-1 text-xs h-8 bg-orange-600 hover:bg-orange-700"
+          onClick={() => setShowDemandFilterSidebar(false)}>
+          Apply
+        </Button>
+      </div>
+    </div>
+  </SheetContent>
+</Sheet>
           </TabsContent>
 
           {/* Receipts Tab Content */}
@@ -1940,6 +2063,8 @@ export default function PaymentsPage() {
               highlightedReceipt={highlightedReceipt}
               onPreviewReceipt={handlePreviewReceipt}
               onDownloadReceipt={paymentApi.downloadReceipt}
+              showFilterSidebar={showReceiptFilterSidebar}
+              setShowFilterSidebar={setShowReceiptFilterSidebar}
             />
           </TabsContent>
         </Tabs>
@@ -3466,7 +3591,9 @@ const PaymentsTable = ({
   canReject,
   canEdit,
   canDelete,
-  canViewReceipts, // ← ADD THIS
+  canViewReceipts,
+  showFilterSidebar,
+  setShowFilterSidebar,
 }: any) => {
   // Group payments by tenant using the passed function
   const tenantGroups = groupPaymentsByTenant(payments).map((group: any) => ({
@@ -3532,11 +3659,14 @@ const PaymentsTable = ({
   });
 
   return (
-    <Card className="border-0 overflow-hidden">
-      <div className="relative">
-        <div className="overflow-auto max-h-[calc(100vh-250px)] md:max-h-[calc(100vh-380px)]">
-          <Table>
-            <TableHeader className="sticky top-0 z-20 bg-gray-200 border-b border-gray-300">
+   <Card className="border-0 overflow-hidden flex flex-col" style={{height:'calc(100vh - 280px)'}}>
+  <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+    {/* Single overflow-x for both header + body */}
+    <div className="overflow-x-auto flex-1 min-h-0 flex flex-col min-w-0">
+      <div className="min-w-[900px] flex flex-col flex-1 min-h-0">
+        <div className="flex-shrink-0">
+        <Table>
+            <TableHeader className="bg-gray-200 border-b border-gray-300">
               <TableRow className="hover:bg-transparent">
                 {/* Expand Column */}
                 <TableHead className="w-6 py-2 px-1 bg-gray-200"></TableHead>
@@ -3676,15 +3806,37 @@ const PaymentsTable = ({
                 </TableHead>
 
                 {/* Actions Column */}
-                <TableHead className="w-[50px] py-2 px-2 bg-gray-200 text-center">
-                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
-                    Actions
-                  </span>
+                {/* Actions Column */}
+                <TableHead className="w-[80px] py-2 px-2 bg-gray-200 text-center">
+                  <div className="flex flex-col gap-1 items-center">
+                    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
+                      Actions
+                    </span>
+                    <Button
+                      variant="ghost" size="sm"
+                      onClick={() => setShowFilterSidebar?.(true)}
+                      className="h-5 px-1.5 text-[9px] bg-blue-600 text-white hover:bg-blue-700 rounded w-full"
+                    >
+                      <Filter className="w-2.5 h-2.5 mr-0.5" />
+                      Filter
+                    </Button>
+                  </div>
                 </TableHead>
               </TableRow>
-            </TableHeader>
-
-            {/* Table Body */}
+           </TableHeader>
+          </Table>
+          </div>
+          <div className="overflow-y-auto flex-1 min-h-0">
+          <Table>
+            <colgroup>
+              <col style={{width:'24px'}} />
+              <col style={{width:'200px'}} />
+              <col style={{width:'55px'}} />
+              <col style={{width:'110px'}} />
+              <col style={{width:'100px'}} />
+              <col style={{width:'100px'}} />
+              <col style={{width:'80px'}} />
+            </colgroup>
             <TableBody>
               {loading ? (
                 <TableRow>
@@ -4043,13 +4195,69 @@ const PaymentsTable = ({
                   );
                 })
               )}
-            </TableBody>
+                       </TableBody>
           </Table>
+          </div>
         </div>
       </div>
+      </div>
+      {/* Payments Filter Sidebar */}
+<Sheet open={showFilterSidebar} onOpenChange={setShowFilterSidebar}>
+  <SheetContent side="right" className="p-0 w-[85vw] min-w-[280px] sm:w-[360px]">
+    <div className="h-full flex flex-col">
+      <div className="bg-gradient-to-r from-blue-800 via-blue-700 to-blue-600 px-4 py-3 flex items-center justify-between flex-shrink-0">
+        <div className="flex items-center gap-2">
+          <Filter className="w-4 h-4 text-white" />
+          <span className="text-sm font-semibold text-white">Filter Payments</span>
+        </div>
+        <button onClick={() => setShowFilterSidebar?.(false)} className="text-white/70 hover:text-white">
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        <div className="space-y-1">
+          <Label className="text-xs font-semibold text-blue-700">Tenant Name</Label>
+          <Input placeholder="Search tenant..." value={columnFilters?.tenant_name || ""} onChange={(e) => setColumnFilters?.({...columnFilters, tenant_name: e.target.value})} className="h-8 text-xs" />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs font-semibold text-blue-700">Status</Label>
+          <select value={columnFilters?.status || "all"} onChange={(e) => setColumnFilters?.({...columnFilters, status: e.target.value})} className="w-full h-8 text-xs rounded-lg border border-gray-200 px-2 bg-white text-gray-700">
+            <option value="all">All Status</option>
+            <option value="approved">Approved</option>
+            <option value="pending">Pending</option>
+            <option value="rejected">Rejected</option>
+          </select>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs font-semibold text-blue-700">Amount</Label>
+          <Input type="number" placeholder="Search amount..." value={columnFilters?.amount || ""} onChange={(e) => setColumnFilters?.({...columnFilters, amount: e.target.value})} className="h-8 text-xs" />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs font-semibold text-blue-700">Last Payment Date</Label>
+          <Input placeholder="dd/mm/yy" value={columnFilters?.payment_date || ""} onChange={(e) => setColumnFilters?.({...columnFilters, payment_date: e.target.value})} className="h-8 text-xs" />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs font-semibold text-blue-700">Payment Count</Label>
+          <Input type="number" placeholder="Exact count..." value={columnFilters?.payment_count || ""} onChange={(e) => setColumnFilters?.({...columnFilters, payment_count: e.target.value})} className="h-8 text-xs" />
+        </div>
+      </div>
+      <div className="border-t p-3 flex gap-2 bg-gray-50 flex-shrink-0">
+        <Button variant="outline" size="sm" className="flex-1 text-xs h-8"
+          onClick={() => setColumnFilters?.({ payment_date:"", tenant_name:"", amount:"", min_amount:"", max_amount:"", payment_mode:"all", transaction_id:"", month:"", status:"all", remark:"", payment_count:"" })}>
+          <RefreshCw className="w-3 h-3 mr-1" /> Reset
+        </Button>
+        <Button size="sm" className="flex-1 text-xs h-8 bg-blue-600 hover:bg-blue-700"
+          onClick={() => setShowFilterSidebar?.(false)}>
+          Apply
+        </Button>
+      </div>
+    </div>
+  </SheetContent>
+</Sheet>
     </Card>
   );
 };
+
 // ===== END OF REPLACEMENT =====
 
 // Receipts Table Component
@@ -4065,6 +4273,8 @@ const ReceiptsTable = ({
   highlightedReceipt,
   onPreviewReceipt,
   onDownloadReceipt,
+  showFilterSidebar,
+  setShowFilterSidebar,
 }: any) => {
   // Add state for receipts column filters
   const [receiptFilters, setReceiptFilters] = useState({
@@ -4151,12 +4361,14 @@ const ReceiptsTable = ({
   });
 
   return (
-    <Card className="border-0 overflow-hidden">
-      <div className="relative">
-        <div className="overflow-auto max-h-[calc(100vh-380px)]">
+    <Card className="border-0 overflow-hidden flex flex-col" style={{height:'calc(100vh - 280px)'}}>
+  <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+    <div className="overflow-x-auto flex-1 min-h-0 flex flex-col min-w-0">
+      <div className="min-w-[700px] flex flex-col flex-1 min-h-0">
+        <div className="flex-shrink-0">
           <Table>
             {/* COMPACT HEADER WITH SEARCH BARS */}
-            <TableHeader className="sticky top-0 z-20 bg-gray-200 border-b border-gray-300">
+            <TableHeader className="bg-gray-200 border-b border-gray-300">
               <TableRow className="hover:bg-transparent">
                 {/* Date Column */}
                 <TableHead className="w-[90px] py-2 px-2 bg-gray-200">
@@ -4260,15 +4472,36 @@ const ReceiptsTable = ({
                 </TableHead>
 
                 {/* Actions Column */}
-                <TableHead className="w-[60px] py-2 px-2 bg-gray-200 text-center">
-                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
-                    Actions
-                  </span>
+               {/* Actions Column */}
+                <TableHead className="w-[80px] py-2 px-2 bg-gray-200 text-center">
+                  <div className="flex flex-col gap-1 items-center">
+                    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
+                      Actions
+                    </span>
+                    <Button
+                      variant="ghost" size="sm"
+                      onClick={() => setShowFilterSidebar?.(true)}
+                      className="h-5 px-1.5 text-[9px] bg-blue-600 text-white hover:bg-blue-700 rounded w-full"
+                    >
+                      <Filter className="w-2.5 h-2.5 mr-0.5" />
+                      Filter
+                    </Button>
+                  </div>
                 </TableHead>
               </TableRow>
             </TableHeader>
-
-            {/* TABLE BODY */}
+          </Table>
+          </div>
+          <div className="overflow-y-auto flex-1 min-h-0">
+          <Table>
+            <colgroup>
+              <col style={{width:'90px'}} />
+              <col style={{width:'200px'}} />
+              <col style={{width:'90px'}} />
+              <col style={{width:'120px'}} />
+              <col style={{width:'100px'}} />
+              <col style={{width:'60px'}} />
+            </colgroup>
             <TableBody>
               {loading ? (
                 <TableRow>
@@ -4368,10 +4601,52 @@ const ReceiptsTable = ({
                   );
                 })
               )}
-            </TableBody>
+           </TableBody>
           </Table>
+          </div>
         </div>
       </div>
+      </div>
+      {/* Receipts Filter Sidebar */}
+<Sheet open={showFilterSidebar} onOpenChange={setShowFilterSidebar}>
+  <SheetContent side="right" className="p-0 w-[85vw] min-w-[280px] sm:w-[360px]">
+    <div className="h-full flex flex-col">
+      <div className="bg-gradient-to-r from-blue-800 via-blue-700 to-blue-600 px-4 py-3 flex items-center justify-between flex-shrink-0">
+        <div className="flex items-center gap-2">
+          <Filter className="w-4 h-4 text-white" />
+          <span className="text-sm font-semibold text-white">Filter Receipts</span>
+        </div>
+        <button onClick={() => setShowFilterSidebar?.(false)} className="text-white/70 hover:text-white">
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        {[
+          { key: "date",   label: "Date",       placeholder: "dd/mm/yy" },
+          { key: "tenant", label: "Tenant",      placeholder: "Search tenant..." },
+          { key: "amount", label: "Amount",      placeholder: "Search amount..." },
+          { key: "method", label: "Method/Bank", placeholder: "Search method..." },
+          { key: "room",   label: "Room/Bed",    placeholder: "Search room..." },
+        ].map(f => (
+          <div key={f.key} className="space-y-1">
+            <Label className="text-xs font-semibold text-blue-700">{f.label}</Label>
+            <Input placeholder={f.placeholder} value={receiptFilters[f.key] || ""} onChange={(e) => setReceiptFilters(prev => ({...prev, [f.key]: e.target.value}))} className="h-8 text-xs" />
+          </div>
+        ))}
+      </div>
+      <div className="border-t p-3 flex gap-2 bg-gray-50 flex-shrink-0">
+        <Button variant="outline" size="sm" className="flex-1 text-xs h-8"
+          onClick={() => setReceiptFilters({ date:"", tenant:"", amount:"", method:"", room:"" })}>
+          <RefreshCw className="w-3 h-3 mr-1" /> Reset
+        </Button>
+        <Button size="sm" className="flex-1 text-xs h-8 bg-blue-600 hover:bg-blue-700"
+          onClick={() => setShowFilterSidebar?.(false)}>
+          Apply
+        </Button>
+      </div>
+    </div>
+  </SheetContent>
+</Sheet>
     </Card>
   );
 };

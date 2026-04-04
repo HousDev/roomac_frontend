@@ -587,24 +587,73 @@ export default function ExpensesManagement() {
 
   /* ── Delete ────────────────────────────────────────────────────────────── */
   async function handleDelete(id: number, desc: string) {
-    const result = await Swal.fire({
-      title: "Delete Expense?",
-      text: `"${desc}" will be permanently deleted.`,
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonColor: "#E53E3E",
-      cancelButtonColor: "#3085d6",
-      confirmButtonText: "Yes, delete",
+  const result = await Swal.fire({
+    title: 'Are you sure?',
+    text: `You are about to delete expense "${desc}". This action cannot be undone!`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#d33',
+    cancelButtonColor: '#3085d6',
+    confirmButtonText: 'Yes, delete it!',
+    cancelButtonText: 'Cancel',
+    background: '#fff',
+    backdrop: `rgba(0,0,0,0.4)`,
+    width: '400px',
+    padding: '1.5rem',
+    customClass: {
+      popup: 'rounded-xl shadow-2xl',
+      title: 'text-lg font-bold text-gray-800',
+      htmlContainer: 'text-sm text-gray-600 my-2',
+      confirmButton: 'px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors mx-1',
+      cancelButton: 'px-4 py-2 bg-gray-500 text-white text-sm font-medium rounded-lg hover:bg-gray-600 transition-colors mx-1',
+      actions: 'flex justify-center gap-2 mt-4'
+    },
+    buttonsStyling: false,
+  });
+
+  if (!result.isConfirmed) return;
+
+  try {
+    await deleteExpense(id);
+    
+    Swal.fire({
+      title: 'Deleted!',
+      text: 'Expense has been deleted successfully.',
+      icon: 'success',
+      timer: 1500,
+      showConfirmButton: false,
+      width: '350px',
+      padding: '1rem',
+      customClass: {
+        popup: 'rounded-xl shadow-2xl',
+        title: 'text-base font-bold text-green-600',
+        htmlContainer: 'text-xs text-gray-600'
+      }
     });
-    if (!result.isConfirmed) return;
-    try {
-      await deleteExpense(id);
-      toast.success("Expense deleted");
-      await loadExpenses();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to delete");
-    }
+    
+    toast.success("Expense deleted");
+    await loadExpenses();
+  } catch (err: any) {
+    console.error('Error deleting expense:', err);
+    Swal.fire({
+      title: 'Error!',
+      text: err.message || 'Failed to delete expense',
+      icon: 'error',
+      confirmButtonColor: '#3085d6',
+      confirmButtonText: 'OK',
+      width: '350px',
+      padding: '1rem',
+      customClass: {
+        popup: 'rounded-xl shadow-2xl',
+        title: 'text-base font-bold text-red-600',
+        htmlContainer: 'text-xs text-gray-600',
+        confirmButton: 'px-4 py-2 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition-colors'
+      },
+      buttonsStyling: false
+    });
+    toast.error(err.message || "Failed to delete");
   }
+}
 
   /* ── File handler ──────────────────────────────────────────────────────── */
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {

@@ -129,7 +129,7 @@ export default function AdminLayout() {
         <div className={`flex-1 transition-all duration-300 ${
           sidebarOpen ? 'md:ml-48' : 'md:ml-[60px]'
         }`}>
-          <div className="px-3 pt-24 pb-6 -z-20">
+          <div className="px-3 pt-24  -z-20">
             <Outlet />
           </div>
         </div>

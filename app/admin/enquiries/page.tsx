@@ -8,7 +8,7 @@ import { Enquiry, getEnquiries, getEnquiryStats } from '@/lib/enquiryApi';
 import { getPartnershipEnquiries, getPartnershipStats, PartnershipEnquiry, PartnershipStats, createPartnershipEnquiry } from '@/lib/partnershipApi';
 import { getNewsletterSubscribers, getNewsletterStats, NewsletterSubscriber, NewsletterStats, deleteNewsletterSubscriber, bulkDeleteNewsletterSubscribers } from '@/lib/newsletterApi';
 import { Button } from "@/components/ui/button";
-import { Plus, X, Mail, Download, Upload } from "lucide-react";
+import { Plus, X, Mail, Download, Upload, BarChart, RefreshCw, Trash2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -19,7 +19,8 @@ import PartnershipForm from '@/components/admin/partnership/PartnershipForm';
 import { toast } from "sonner";
 import * as XLSX from 'xlsx';
 import { useAuth } from '@/context/authContext';
-
+import EnquiriesStats from '@/components/admin/enquiries/EnquiriesStats';
+import { DialogHeader, DialogTitle } from "@/components/ui/dialog";
 export default function EnquiriesPage() {
   const [searchParams] = useSearchParams();
   
@@ -52,7 +53,11 @@ export default function EnquiriesPage() {
   const [newPartnershipData, setNewPartnershipData] = useState<Partial<PartnershipEnquiry>>({
     status: 'new'
   });
-
+  const [enquiriesRefresh, setEnquiriesRefresh] = useState<(() => void) | null>(null);
+const [enquiriesOpenAdd, setEnquiriesOpenAdd] = useState<(() => void) | null>(null);
+const [enquiriesStats, setEnquiriesStats] = useState<any>(null);
+const [enquiriesBulkDelete, setEnquiriesBulkDelete] = useState<(() => void) | null>(null);
+const [enquiriesSelectedCount, setEnquiriesSelectedCount] = useState<number>(0);
   // Get initial tab from URL hash
   useEffect(() => {
     const getInitialTab = () => {
@@ -291,6 +296,56 @@ export default function EnquiriesPage() {
           </Dialog>
         )}
 
+        {activeTab === "enquiries" && (
+  <div className="hidden lg:flex items-center gap-2 mx-2 flex-shrink-0">
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={() => enquiriesRefresh?.()}
+      className="text-sm"
+    >
+      <RefreshCw className="h-4 w-4 mr-2" />
+      Refresh
+    </Button>
+    {enquiriesSelectedCount > 0 && can('delete_enquiries') && (
+      <Button
+        variant="destructive"
+        size="sm"
+        onClick={() => enquiriesBulkDelete?.()}
+        className="text-sm"
+      >
+        <Trash2 className="h-4 w-4 mr-2" />
+        Delete Selected ({enquiriesSelectedCount})
+      </Button>
+    )}
+
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm" className="text-sm">
+          <BarChart className="h-4 w-4 mr-2" />
+          Detailed Stats
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Enquiry Statistics</DialogTitle>
+        </DialogHeader>
+        {enquiriesStats && <EnquiriesStats stats={enquiriesStats} />}
+      </DialogContent>
+    </Dialog>
+
+    {can('create_enquiries') && (
+      <Button
+        className="bg-blue-600 hover:bg-blue-700 text-sm"
+        onClick={() => enquiriesOpenAdd?.()}
+      >
+        <Plus className="mr-2 h-4 w-4" />
+        Add Enquiry
+      </Button>
+    )}
+  </div>
+)}
+
         {activeTab === "newsletter" && (
           <div className="flex gap-2 mx-2">
             <Button
@@ -317,6 +372,11 @@ export default function EnquiriesPage() {
               initialEnquiries={initialEnquiries}
               initialStats={initialStats}
               searchParams={{ status, search }}
+              onRegisterRefresh={(fn) => setEnquiriesRefresh(() => fn)}
+  onRegisterOpenAdd={(fn) => setEnquiriesOpenAdd(() => fn)}
+  onRegisterStats={(s) => setEnquiriesStats(s)}
+  onRegisterBulkDelete={(fn) => setEnquiriesBulkDelete(() => fn)}
+  onRegisterSelectedCount={(count) => setEnquiriesSelectedCount(count)}
             />
           )
         )}
