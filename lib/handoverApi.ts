@@ -104,7 +104,7 @@ export const createHandover = async (data: HandoverPayload): Promise<HandoverSin
     body: JSON.stringify(data),
   });
 
-export const updateHandover = async (id: string, data: Partial<HandoverPayload>): Promise<HandoverSingleResponse> =>
+export const updateHandover = async (id: string, data: any): Promise<HandoverSingleResponse> =>
   request<HandoverSingleResponse>(`/api/handovers/${id}`, {
     method: "PUT",
     body: JSON.stringify(data),

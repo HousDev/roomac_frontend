@@ -47,6 +47,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { useAuth } from '@/context/authContext';
+import { sendTenantOTP, verifyTenantOTP } from '@/lib/tenantAuthApi';
 
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -205,6 +206,15 @@ const [purchasedItemSearchTerm, setPurchasedItemSearchTerm] = useState('');
   const [selectAll, setSelectAll] = useState(false);
   const { can } = useAuth(); // ← ADD THIS
 
+  const [generatedOtp, setGeneratedOtp] = useState("");
+  const [timeLeft, setTimeLeft] = useState(20); // 60 seconds
+  const [currentOTP, setCurrentOTP] = useState('');
+  const [isResendOtpSent, setIsResendOtpSent] = useState(true);
+  const [otpData, setOtpData] = useState({
+    email: localStorage.getItem("auth_email") || "",
+    otp: "",
+  });
+
   const [stats, setStats] = useState({
     total: 0, active: 0, confirmed: 0, pending: 0, completed: 0,
   });
@@ -266,6 +276,88 @@ const [purchasedItemSearchTerm, setPurchasedItemSearchTerm] = useState('');
       ]);
     }
   }, []);
+
+  const onVerifyOTP = useCallback(
+      async (e: React.FormEvent) => {
+        e.preventDefault();
+  
+        try {
+          const result: any = await verifyTenantOTP(otpData.email, otpData.otp);
+  
+          if (result.success) {
+            setShowOTPMadal(false);
+          setGeneratedOtp(result.otp || "123456");
+          toast.success(`OTP sent successfully!`); 
+          } else {
+            toast.error(result.message || "OTP verification failed");
+          }
+        } catch (error: any) {
+          toast.error(error.message || "OTP verification failed");
+        }
+      },
+      [otpData]
+    ); // ✅ ADDED login dependency
+  
+    const handleSendOTP = useCallback(
+      async (e: React.FormEvent) => {
+        e.preventDefault();
+        console.log("otp : ", otpData)
+        if (!otpData.email) {
+          toast.error("Please enter your email");
+          return;
+        }
+  
+        try {
+          const result = await sendTenantOTP(otpData.email);
+          console.log("otp response from reset", result)
+          if (result.success) {
+            setGeneratedOtp(result.otp || "123456");
+            toast.success(`OTP sent successfully!`); // Keep test OTP display
+          } else {
+            toast.error(result.error || result.message || "Failed to send OTP");
+          }
+        } catch (error: any) {
+          toast.error(error.message || "Failed to send OTP");
+        }
+      },
+      [otpData.email],
+    );
+  
+    
+      // Timer effect for resend
+useEffect(() => {
+  if (!showOTPModal) return;
+  
+  if (timeLeft > 0) {
+    const timer = setTimeout(() => {
+      setTimeLeft(timeLeft - 1);
+    }, 1000);
+    return () => clearTimeout(timer);
+  } else if (timeLeft === 0 && !isResendOtpSent) {
+    setIsResendOtpSent(true);
+  }
+}, [timeLeft, showOTPModal, isResendOtpSent]);
+    
+      // Handle resend OTP
+const handleResendOTP = async () => {
+  if (!viewItem) return;
+  
+  try {
+    const result = await sendTenantOTP(viewItem.tenant_email || viewItem.tenant_phone);
+    
+    if (result.success) {
+      setCurrentOTP(result.otp || "123456");
+      setTimeLeft(60);
+      setIsResendOtpSent(false);
+      toast.success('OTP resent successfully!');
+    } else {
+      toast.error(result.message || "Failed to resend OTP");
+    }
+  } catch (error: any) {
+    toast.error(error.message || "Failed to resend OTP");
+  }
+};
+  
 
   // ── Load purchased items from material purchases ───────────────────────────
   const loadPurchasedItems = useCallback(async () => {
@@ -1167,29 +1259,73 @@ const handlePrint = () => {
   setTimeout(() => { printWindow.print(); printWindow.close(); }, 800);
 };
   // ── OTP ───────────────────────────────────────────────────────────────────
-  const handleInitiateOTP = () => {
-    if (!viewItem) return;
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    setGeneratedOTP(otp);
-    setOtpCode('');
-    setShowOTPModal(true);
-    toast.info(`OTP: ${otp} (demo mode)`);
-  };
-
-  const handleVerifyOTP = async () => {
-    if (otpCode !== generatedOTP) { toast.error('Invalid OTP'); return; }
-    try {
-      if (viewItem) {
-        await updateHandover(viewItem.id, { ...viewItem, status: 'Confirmed' });
-        await loadAll();
-        toast.success('Handover confirmed via OTP!');
-        setShowOTPModal(false);
-        setViewItem(null);
-      }
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to update status');
+  const handleInitiateOTP = async () => {
+  if (!viewItem) return;
+  
+  try {
+    // Send OTP to tenant's email/phone
+    const result = await sendTenantOTP(viewItem.tenant_email || viewItem.tenant_phone);
+    
+    if (result.success) {
+      setCurrentOTP(result.otp || "123456"); // Store for verification (in production, verify on backend)
+      setOtpCode('');
+      setShowOTPModal(true);
+      setIsResendOtpSent(false);
+      setTimeLeft(60); // 60 seconds timer
+      toast.success(`OTP sent to ${viewItem.tenant_email || viewItem.tenant_phone}`);
+    } else {
+      toast.error(result.message || "Failed to send OTP");
     }
-  };
+  } catch (error: any) {
+    console.error('OTP send error:', error);
+    toast.error(error.message || "Failed to send OTP");
+  }
+};
+
+  // Fix handleVerifyOTP - This is called when clicking "Verify & Confirm"
+const handleVerifyOTP = async () => {
+  if (!viewItem) {
+    toast.error('No handover record found');
+    return;
+  }
+  
+  if (!otpCode || otpCode.length !== 6) {
+    toast.error('Please enter a valid 6-digit OTP');
+    return;
+  }
+  
+  try {
+    console.log(viewItem)
+    // Verify OTP with backend
+    const result = await verifyTenantOTP(
+      viewItem.tenant_email || viewItem.tenant_phone, 
+      otpCode
+    );
+    console.log(result)
+    
+    if (result.success) {
+      // Update handover status to 'Confirmed'
+      const updatedHandover = { 
+        ...viewItem, 
+        status: 'Confirmed' 
+      };
+      
+      console.log("updated handover",updatedHandover)
+      await updateHandover(viewItem.id, updatedHandover);
+      await loadAll(); // Refresh the list
+      
+      toast.success('Handover confirmed successfully!');
+      setShowOTPModal(false);
+      setOtpCode('');
+      setViewItem(null); // Close view dialog
+    } else {
+      toast.error(result.message || 'Invalid OTP. Please try again.');
+    }
+  } catch (error: any) {
+    console.error('OTP verification error:', error);
+    toast.error(error.message || 'Failed to verify OTP');
+  }
+};
 
   // ── Handover Items helpers ────────────────────────────────────────────────
   const addHandoverItem = () => setHandoverItems(p => [...p, emptyHandoverItem()]);
@@ -2239,16 +2375,13 @@ const handlePrint = () => {
       {/* ══ OTP Modal ════════════════════════════════════════════════════════ */}
       {showOTPModal && viewItem && (
         <Dialog open={showOTPModal} onOpenChange={setShowOTPModal}>
-          <DialogContent className="max-w-md">
-            <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-3 rounded-t-lg -mt-4 -mx-4 mb-4">
+          <DialogContent className="max-w-md px-0 py-0">
+            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-4 py-3 rounded-t-lg ">
               <h2 className="text-base font-semibold">Verify OTP</h2>
               <p className="text-xs text-purple-100">Confirm handover with tenant</p>
             </div>
-            <div className="space-y-4">
-              <div className="bg-purple-50 p-3 rounded-lg">
-                <p className="text-xs text-purple-800">OTP sent to {viewItem.tenant_phone}</p>
-                <p className="text-[10px] text-purple-600 mt-1">Demo OTP: {generatedOTP}</p>
-              </div>
+            <div className="space-y-4 px-4 pb-3">
+          
               <div>
                 <label className={L}>Enter OTP</label>
                 <Input
@@ -2261,11 +2394,30 @@ const handlePrint = () => {
               </div>
               <div className="flex gap-2">
                 <Button onClick={handleVerifyOTP} disabled={otpCode.length !== 6}
-                  className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600">
+                  className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600">
                   Verify & Confirm
                 </Button>
                 <Button variant="outline" onClick={() => setShowOTPModal(false)}>Cancel</Button>
+                
               </div>
+              {isResendOtpSent && timeLeft === 0 ? (
+              <div className="mt-2.5 flex flex-col sm:flex-row items-center justify-between gap-1.5">
+                <button
+                  onClick={handleResendOTP}
+                  className="text-xs sm:text-sm text-blue-600 hover:text-blue-800 font-medium"
+                >
+                  Resend OTP
+                </button>
+              </div>
+            ) : (
+              timeLeft > 0 && (
+                <div className="mt-2.5 flex flex-col sm:flex-row items-center justify-between gap-1.5">
+                  <span className="text-[10px] sm:text-xs text-gray-500">
+                    Resend OTP in {timeLeft} seconds
+                  </span>
+                </div>
+              )
+            )}
             </div>
           </DialogContent>
         </Dialog>

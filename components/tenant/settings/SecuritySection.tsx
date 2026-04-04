@@ -21,7 +21,7 @@ import {
   Globe,
   Monitor
 } from "lucide-react";
-import { FormEvent, useCallback, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { sendTenantOTP, verifyTenantOTP } from "@/lib/tenantAuthApi";
 
@@ -152,6 +152,8 @@ export default function SecuritySection({
 
   const [showOTPModal, setShowOTPMadal] = useState(false);
   const [generatedOtp, setGeneratedOtp] = useState("");
+  const [timeLeft, setTimeLeft] = useState(20); // 60 seconds
+  const [isResendOtpSent, setIsResendOtpSent] = useState(true);
 
   // Password strength checker
   const getPasswordStrength = (password: string) => {
@@ -231,7 +233,7 @@ export default function SecuritySection({
         console.log("otp response from reset", result)
         if (result.success) {
           setGeneratedOtp(result.otp || "123456");
-          toast.success(`OTP sent! For testing: ${result.otp}`); // Keep test OTP display
+          toast.success(`OTP sent successfully!`); // Keep test OTP display
         } else {
           toast.error(result.error || result.message || "Failed to send OTP");
         }
@@ -241,6 +243,34 @@ export default function SecuritySection({
     },
     [otpData.email],
   );
+
+  
+    useEffect(() => {
+      setIsResendOtpSent(true);
+      if (!showOTPModal) return;
+  
+      setTimeLeft(20); // reset when modal opens
+  
+      const timer = setInterval(() => {
+        setTimeLeft((prev) => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+  
+      return () => clearInterval(timer);
+    }, [showOTPModal]);
+  
+    function handleResend(e) {
+      if (timeLeft > 0) return; // prevent resend before timer ends
+      e.preventDefault();
+      handleSendOTP(e);
+      setIsResendOtpSent(false);
+      toast.info("OTP resent successfully!");
+    }
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -365,6 +395,24 @@ export default function SecuritySection({
                   >
                     Verify OTP
                   </Button>
+                  {isResendOtpSent && timeLeft === 0 ? (
+              <div className="mt-2.5 flex flex-col sm:flex-row items-center justify-between gap-1.5">
+                <button
+                  onClick={handleResend}
+                  className="text-xs sm:text-sm text-blue-600 hover:text-blue-800 font-medium"
+                >
+                  Resend OTP
+                </button>
+              </div>
+            ) : (
+              timeLeft > 0 && (
+                <div className="mt-2.5 flex flex-col sm:flex-row items-center justify-between gap-1.5">
+                  <span className="text-[10px] sm:text-xs text-gray-500">
+                    Resend OTP in {timeLeft} seconds
+                  </span>
+                </div>
+              )
+            )}
                 </form>}
               </div>
 
