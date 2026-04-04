@@ -185,6 +185,26 @@ export async function sendTenantOTP(
   }
 }
 
+export async function sendRegisterOTP(
+  email: string
+): Promise<TenantLoginResponse> {
+  try {
+    
+    const res = await request<TenantLoginResponse>("/api/tenant-auth/send-register-otp", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    });
+
+    return res;
+  } catch (error: any) {
+    console.error('❌ Send Register OTP error:', error);
+    return {
+      success: false,
+      error: error.message || "Failed to send register OTP. Please try again.",
+    };
+  }
+}
+
 /**
  * Verify OTP for tenant login
  * POST /api/tenant-auth/verify-otp
