@@ -22,7 +22,8 @@ import {
   Files,
   ReceiptIndianRupee,
   Clock,
-  ShieldCheck
+  ShieldCheck,
+  FileCode
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -300,6 +301,7 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
     { href: '/admin/inventory',    label: 'Inventory',    icon: Package,       permission: 'view_inventory_dashboard' },
     { href: '/admin/visitors',     label: 'Visitors',     icon: VisitorsIcon,  permission: 'view_visitors_dashboard' },
     { href: '/admin/masters',      label: 'Masters',      icon: LayoutGrid,    permission: 'view_masters' },
+    { href: '/admin/templates',    label: 'Templates',    icon: FileCode,      permission: 'manage_templates' },
     { href: '/admin/settings',     label: 'Settings',     icon: Settings,      permission: 'view_general_settings' },
     { href: '/admin/permissions',  label: 'Permissions',  icon: ShieldCheck,   permission: 'manage_permissions' },
     { href: '/admin/profile',      label: 'Profile',      icon: UserCircle,    permission: 'view_profile' },
