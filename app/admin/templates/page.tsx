@@ -1524,49 +1524,49 @@ type Priority = TemplatePriority;
 // CONSTANTS
 // ─────────────────────────────────────────────────────────────────────────────
 
-const SAMPLE_DATA: Record<string, string> = {
-  tenant_name: "Amit Sharma",
-  tenant_phone: "+91 98765 43210",
-  tenant_email: "amit.sharma@email.com",
-  room_number: "A-204",
-  bed_number: "2",
-  move_in_date: "15 Mar 2024",
-  rent_amount: "12,500",
-  security_deposit: "25,000",
-  company_address: "Wakad, Pune - 411057",
-  aadhaar_number: "XXXX-XXXX-1234",
-  pan_number: "ABCDE1234F",
-  emergency_contact_name: "Priya Sharma",
-  emergency_phone: "+91 98765 43211",
-  payment_mode: "UPI (Auto-debit)",
-  date: new Date().toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  }),
-  document_number: `DOC-${Date.now().toString().slice(-6)}`,
-  otp: "482931",
-  expiry_minutes: "10",
-  verify_link: "https://roomac.in/verify/abc123",
-  expiry_hours: "24",
-  amount: "12,500",
-  receipt_id: "RCT-2024-1892",
-  payment_date: "15 Mar 2024",
-  due_date: "1 Apr 2024",
-  name: "Amit",
-  location: "Wakad, Pune",
-  price: "12,500/mo",
-  cta_url: "https://roomac.in",
-  discount: "10%",
-  request_id: "REQ-4821",
-  status: "Completed",
-  staff_name: "Ravi Kumar",
-  checkin_date: "15 Mar 2024",
-  notice_message: "Water supply maintenance on Sunday 8am–12pm",
-  effective_date: "20 Mar 2024",
-  late_fee: "500",
-  invoice_no: "INV-2025-042",
-};
+// const SAMPLE_DATA: Record<string, string> = {
+//   tenant_name: "Amit Sharma",
+//   tenant_phone: "+91 98765 43210",
+//   tenant_email: "amit.sharma@email.com",
+//   room_number: "A-204",
+//   bed_number: "2",
+//   move_in_date: "15 Mar 2024",
+//   rent_amount: "12,500",
+//   security_deposit: "25,000",
+//   company_address: "Wakad, Pune - 411057",
+//   aadhaar_number: "XXXX-XXXX-1234",
+//   pan_number: "ABCDE1234F",
+//   emergency_contact_name: "Priya Sharma",
+//   emergency_phone: "+91 98765 43211",
+//   payment_mode: "UPI (Auto-debit)",
+//   date: new Date().toLocaleDateString("en-IN", {
+//     day: "2-digit",
+//     month: "long",
+//     year: "numeric",
+//   }),
+//   document_number: `DOC-${Date.now().toString().slice(-6)}`,
+//   otp: "482931",
+//   expiry_minutes: "10",
+//   verify_link: "https://roomac.in/verify/abc123",
+//   expiry_hours: "24",
+//   amount: "12,500",
+//   receipt_id: "RCT-2024-1892",
+//   payment_date: "15 Mar 2024",
+//   due_date: "1 Apr 2024",
+//   name: "Amit",
+//   location: "Wakad, Pune",
+//   price: "12,500/mo",
+//   cta_url: "https://roomac.in",
+//   discount: "10%",
+//   request_id: "REQ-4821",
+//   status: "Completed",
+//   staff_name: "Ravi Kumar",
+//   checkin_date: "15 Mar 2024",
+//   notice_message: "Water supply maintenance on Sunday 8am–12pm",
+//   effective_date: "20 Mar 2024",
+//   late_fee: "500",
+//   invoice_no: "INV-2025-042",
+// };
 
 const CHANNEL_VARIABLES: Record<string, string[]> = {
   otp: ["otp", "tenant_name", "expiry_minutes"],
@@ -1579,8 +1579,16 @@ const CHANNEL_VARIABLES: Record<string, string[]> = {
   notice: ["tenant_name", "notice_message", "effective_date", "property_name"],
 };
 
-const ALL_EMAIL_VARS = Object.keys(SAMPLE_DATA);
-
+const ALL_EMAIL_VARS = [
+  "tenant_name", "tenant_phone", "tenant_email", "room_number", "bed_number",
+  "move_in_date", "rent_amount", "security_deposit", "company_address",
+  "aadhaar_number", "pan_number", "emergency_contact_name", "emergency_phone",
+  "payment_mode", "date", "document_number", "otp", "expiry_minutes",
+  "verify_link", "expiry_hours", "amount", "receipt_id", "payment_date",
+  "due_date", "name", "location", "price", "cta_url", "discount", "request_id",
+  "status", "staff_name", "checkin_date", "notice_message", "effective_date",
+  "late_fee", "invoice_no", "property_name"
+];
 const CATEGORIES: { key: Category; label: string }[] = [
   { key: "otp", label: "OTP" },
   { key: "payment", label: "Payment" },
@@ -1606,12 +1614,7 @@ const VAR_CHIP_COLORS = [
 // ─────────────────────────────────────────────────────────────────────────────
 
 function renderWithSample(html: string): string {
-  let r = html;
-  Object.entries(SAMPLE_DATA).forEach(([k, v]) => {
-    r = r.replace(new RegExp(`\\{${k}\\}`, "g"), v);
-    r = r.replace(new RegExp(`\\{\\{${k}\\}\\}`, "g"), v);
-  });
-  return r;
+  return html;
 }
 
 function extractVars(content: string): string[] {
@@ -1634,10 +1637,9 @@ function getCategoryLabel(cat: string): string {
 function renderContentPreview(content: string, vars: string[]): string {
   let rendered = stripHtml(content);
   vars.forEach((v) => {
-    const val = SAMPLE_DATA[v] ?? v;
     rendered = rendered.replace(
       new RegExp(`\\{${v}\\}`, "g"),
-      `<mark style="background:#dbeafe;color:#1e40af;padding:1px 5px;border-radius:4px;font-weight:600;font-style:normal;">${val}</mark>`
+      `<mark style="background:#dbeafe;color:#1e40af;padding:1px 5px;border-radius:4px;font-weight:600;font-style:normal;">{${v}}</mark>`
     );
   });
   return rendered;
@@ -2017,7 +2019,7 @@ const TemplateCard: FC<CardProps> = ({
   return (
     <div
       onClick={onView}
-      className={`relative flex flex-col bg-white border rounded-2xl p-[18px] cursor-pointer transition-all duration-200 overflow-hidden max-h-[340px] hover:-translate-y-0.5 hover:shadow-xl ${selected ? "border-blue-200 bg-blue-50 shadow-[0_0_0_3px_rgba(26,86,219,0.1)]" : "border-slate-200 hover:border-slate-300"}`}
+      className={`relative flex flex-col bg-white border rounded-2xl p-[18px] cursor-pointer transition-all duration-200 overflow-hidden h-full min-h-[280px] hover:-translate-y-0.5 hover:shadow-sm ${selected ? "border-blue-200 bg-blue-50 shadow-[0_0_0_3px_rgba(26,86,219,0.1)]" : "border-slate-200 hover:border-slate-300"}`}
     >
       {/* channel top accent bar */}
       {accentGrad && (
@@ -2223,45 +2225,47 @@ const handleContentChange = useCallback(
         {/* ── section 1: meta fields ── */}
         <div className="px-6 py-5 border-b border-slate-100">
           {/* row 1: name + category */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 mb-3.5">
-            <div className="flex flex-col gap-1">
-              <label className={fieldLabelClass}>Template Name</label>
-              <input className={fieldInputClass} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Welcome Email" />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className={fieldLabelClass}>Category</label>
-              <select className={fieldInputClass} value={category} onChange={(e) => setCategory(e.target.value as Category)}>
-{(masterCategories.length > 0 ? masterCategories : CATEGORIES).map((c) => (
-  <option key={c.key} value={c.key}>{c.label}</option>
-))}              </select>
-            </div>
-          </div>
+         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 mb-3.5">
+  <div className="flex flex-col gap-1">
+    <label className={fieldLabelClass}>Template Name</label>
+    <input className={fieldInputClass} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Welcome Email" />
+  </div>
+  <div className="flex flex-col gap-1">
+    <label className={fieldLabelClass}>Category</label>
+    <select className={fieldInputClass} value={category} onChange={(e) => setCategory(e.target.value as Category)}>
+      {(masterCategories.length > 0 ? masterCategories : CATEGORIES).map((c) => (
+        <option key={c.key} value={c.key}>{c.label}</option>
+      ))}
+    </select>
+  </div>
+  <div className="flex flex-col gap-1">
+    <label className={fieldLabelClass}>Priority</label>
+    <select className={fieldInputClass} value={priority} onChange={(e) => setPriority(e.target.value as Priority)}>
+      <option value="normal">Normal</option>
+      <option value="high">High</option>
+      <option value="urgent">Urgent</option>
+    </select>
+  </div>
+</div>
 
-          {/* row 2: channel + priority + optional subject */}
-          <div className={`grid grid-cols-1 gap-3.5 ${channel === "email" ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
-            <div className="flex flex-col gap-1">
-              <label className={fieldLabelClass}>Channel</label>
-              <select className={fieldInputClass} value={channel} onChange={(e) => setChannel(e.target.value as Channel)}>
-                <option value="sms">📱 SMS</option>
-                <option value="whatsapp">💬 WhatsApp</option>
-                <option value="email">📧 Email</option>
-              </select>
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className={fieldLabelClass}>Priority</label>
-              <select className={fieldInputClass} value={priority} onChange={(e) => setPriority(e.target.value as Priority)}>
-                <option value="normal">Normal</option>
-                <option value="high">High</option>
-                <option value="urgent">Urgent</option>
-              </select>
-            </div>
-            {channel === "email" && (
-              <div className="flex flex-col gap-1">
-                <label className={fieldLabelClass}>Email Subject</label>
-                <input className={fieldInputClass} value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="e.g. Welcome to Roomac!" />
-              </div>
-            )}
-          </div>
+{/* Row 2: channel + email subject (wider) */}
+<div className={`grid grid-cols-1 gap-3.5 ${channel === "email" ? "sm:grid-cols-[1fr_2fr]" : "sm:grid-cols-1"}`}>
+  <div className="flex flex-col gap-1">
+    <label className={fieldLabelClass}>Channel</label>
+    <select className={fieldInputClass} value={channel} onChange={(e) => setChannel(e.target.value as Channel)}>
+      <option value="sms">📱 SMS</option>
+      <option value="whatsapp">💬 WhatsApp</option>
+      <option value="email">📧 Email</option>
+    </select>
+  </div>
+  {channel === "email" && (
+    <div className="flex flex-col gap-1">
+      <label className={fieldLabelClass}>Email Subject</label>
+      <input className={fieldInputClass} value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="e.g. Welcome to Roomac!" />
+    </div>
+  )}
+</div>
+
 
           {/* ── LIVE VARIABLE PREVIEW — shows when name is typed & content has vars ── */}
           {name.trim() && detectedVars.length > 0 && (
@@ -2275,8 +2279,7 @@ const handleContentChange = useCallback(
               <div className="flex flex-wrap gap-1.5 mb-3">
                 {detectedVars.map((v, i) => {
                   const c = VAR_CHIP_COLORS[i % VAR_CHIP_COLORS.length];
-                  const val = SAMPLE_DATA[v];
-                  return (
+const val = `{${v}}`;                  return (
                     <div key={v} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-medium ${c.bg} ${c.border} ${c.text}`}>
                       <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${c.dot}`} />
                       <span className="font-mono font-semibold">{`{${v}}`}</span>
@@ -2498,6 +2501,55 @@ const CHANNELS_CONFIG = [
   { key: "whatsapp", label: "WhatsApp", icon: "💬" },
   { key: "email", label: "Email", icon: "📧" },
 ];
+// Add this component before TemplateCenterPage function
+// Isko SearchInput ke ANDAR dalo, ya alag se wrapper banao
+const SearchInput: FC<{ onSearch: (val: string) => void }> = React.memo(({ onSearch }) => {
+  const [localVal, setLocalVal] = useState("");
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const onSearchRef = useRef(onSearch);
+  const inputRef = useRef<HTMLInputElement>(null);
+  
+  useEffect(() => { onSearchRef.current = onSearch; }, [onSearch]);
+
+  // Focus preserve karo
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (inputRef.current && document.activeElement !== inputRef.current) {
+        // Focus only if not already focused
+      }
+    }, 100);
+    return () => clearTimeout(timeout);
+  }, [localVal]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setLocalVal(val);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      const oldVal = onSearchRef.current;
+      onSearchRef.current(val);
+      // Focus immediately restore
+      requestAnimationFrame(() => {
+        inputRef.current?.focus();
+      });
+    }, 400);
+  };
+
+  return (
+    <div className="relative flex-shrink-0">
+      <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
+        <circle cx="9" cy="9" r="7"/><path d="M16 16l-3.5-3.5"/>
+      </svg>
+      <input
+        ref={inputRef}
+        value={localVal}
+        onChange={handleChange}
+        placeholder="Search templates…"
+        className="pl-8 pr-3 py-1.5 border border-slate-200 rounded-full text-xs text-slate-800 outline-none w-44 sm:w-52 bg-slate-50 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100 transition-all"
+      />
+    </div>
+  );
+});
 
 export default function TemplateCenterPage() {
   const { can } = useAuth();
@@ -2509,7 +2561,9 @@ export default function TemplateCenterPage() {
   const [activeChannel, setActiveChannel] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
-  const [search, setSearch] = useState("");
+const [search, setSearch] = useState("");
+
+  
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [showCreate, setShowCreate] = useState(false);
   const [editTemplate, setEditTemplate] = useState<MessageTemplate | null>(null);
@@ -2521,10 +2575,11 @@ export default function TemplateCenterPage() {
   const [bulkLoading, setBulkLoading] = useState(false);
 const [masterCategories, setMasterCategories] = useState<{ key: string; label: string }[]>([]);
 
-  const loadTemplates = useCallback(async () => {
+  const loadTemplates = useCallback(async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const channelParam = activeChannel === "all" ? undefined : activeChannel;
+
       const { templates: data } = await getTemplates({
         channel: channelParam,
         status: statusFilter !== "all" ? statusFilter : undefined,
@@ -2539,8 +2594,15 @@ const [masterCategories, setMasterCategories] = useState<{ key: string; label: s
     }
   }, [activeChannel, statusFilter, categoryFilter, search]);
 
-  useEffect(() => { loadTemplates(); }, [loadTemplates]);
-
+const isFirstLoad = useRef(true);
+useEffect(() => {
+  if (isFirstLoad.current) {
+    isFirstLoad.current = false;
+    loadTemplates(false);
+  } else {
+    loadTemplates(true);
+  }
+}, [loadTemplates]);
   const handleRefresh = async () => { setRefreshing(true); await loadTemplates(); setRefreshing(false); toast.success("Refreshed"); };
 
   const filtered = useMemo(() => templates, [templates]);
@@ -2621,38 +2683,44 @@ const [masterCategories, setMasterCategories] = useState<{ key: string; label: s
         <div className="sticky top-24 z-10 bg-white border-b border-slate-200">
 
           {/* channel tabs row */}
-          <div className="flex items-end gap-0 px-5 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
-            {CHANNELS_CONFIG.map((ch) => (
-              <button
-                key={ch.key}
-                onClick={() => { setActiveChannel(ch.key); setSelected(new Set()); }}
-                className={`flex items-center gap-1.5 px-4 py-3 border-b-[2.5px] bg-transparent text-[13px] font-medium cursor-pointer whitespace-nowrap transition-colors border-none outline-none ${
-                  activeChannel === ch.key ? "text-blue-600 border-b-blue-600 font-semibold" : "text-slate-400 border-b-transparent hover:text-slate-700"
-                }`}
-                style={{ borderBottomWidth: "2.5px", borderBottomStyle: "solid", borderBottomColor: activeChannel === ch.key ? "#1a56db" : "transparent" }}
-              >
-                <span>{ch.icon}</span>
-                <span className="hidden sm:inline">{ch.label}</span>
-                <span className="sm:hidden">{ch.label.split(" ")[0]}</span>
-                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${activeChannel === ch.key ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-400"}`}>
-                  {channelCounts[ch.key] ?? 0}
-                </span>
-              </button>
-            ))}
-            {/* actions pinned to right */}
-            <div className="ml-auto flex items-center gap-2 pb-2 pl-4 flex-shrink-0">
-              <button onClick={handleRefresh} disabled={refreshing} title="Refresh"
-                className="w-[34px] h-[34px] border border-slate-200 rounded-full bg-white cursor-pointer flex items-center justify-center text-slate-400 text-base hover:bg-slate-50 transition-colors">
-                {refreshing ? "⟳" : "↻"}
-              </button>
-              {canManage && (
-                <button onClick={() => { setEditTemplate(null); setShowCreate(true); }}
-                  className="flex items-center gap-1.5 bg-gradient-to-r from-blue-600 to-cyan-500 text-white border-none rounded-full px-4 py-[7px] text-xs font-semibold cursor-pointer shadow-sm hover:shadow-md hover:-translate-y-px transition-all whitespace-nowrap">
-                  + Create Template
-                </button>
-              )}
-            </div>
-          </div>
+          <div className="flex items-center" style={{ scrollbarWidth: "none" }}>
+  {/* scrollable tabs — takes remaining space */}
+  <div className="flex items-end gap-0 overflow-x-auto flex-1 px-5" style={{ scrollbarWidth: "none" }}>
+    {CHANNELS_CONFIG.map((ch) => (
+      <button
+        key={ch.key}
+        onClick={() => { setActiveChannel(ch.key); setSelected(new Set()); }}
+        className={`flex items-center gap-1.5 px-4 py-3 bg-transparent text-[13px] font-medium cursor-pointer whitespace-nowrap transition-colors border-none outline-none ${
+          activeChannel === ch.key ? "text-blue-600 font-semibold" : "text-slate-400 hover:text-slate-700"
+        }`}
+        style={{ borderBottomWidth: "2.5px", borderBottomStyle: "solid", borderBottomColor: activeChannel === ch.key ? "#1a56db" : "transparent" }}
+      >
+        <span>{ch.icon}</span>
+        <span className="hidden sm:inline">{ch.label}</span>
+        <span className="sm:hidden">{ch.label.split(" ")[0]}</span>
+        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${activeChannel === ch.key ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-400"}`}>
+          {channelCounts[ch.key] ?? 0}
+        </span>
+      </button>
+    ))}
+  </div>
+
+  {/* fixed right side — NEVER scrolls */}
+  <div className="flex items-center gap-2 px-3 pb-1 flex-shrink-0 border-l border-slate-100">
+    <button onClick={handleRefresh} disabled={refreshing} title="Refresh"
+      className="w-[34px] h-[34px] border border-slate-200 rounded-full bg-white cursor-pointer flex items-center justify-center text-slate-400 text-base hover:bg-slate-50 transition-colors flex-shrink-0">
+      {refreshing ? "⟳" : "↻"}
+    </button>
+    {canManage && (
+      <button onClick={() => { setEditTemplate(null); setShowCreate(true); }}
+        className="flex items-center gap-1.5 bg-gradient-to-r from-blue-600 to-cyan-500 text-white border-none rounded-full px-3 py-[7px] text-xs font-semibold cursor-pointer shadow-sm hover:shadow-md transition-all whitespace-nowrap flex-shrink-0">
+        <span className="hidden sm:inline">+ Create Template</span>
+        <span className="sm:hidden">+ Create</span>
+      </button>
+    )}
+  </div>
+</div>
+
 
           {/* filters row */}
           <div className="px-5 py-2.5 flex items-center gap-2 flex-wrap border-t border-slate-100">
@@ -2676,15 +2744,8 @@ const [masterCategories, setMasterCategories] = useState<{ key: string; label: s
             </div>
             {/* search + category — push right */}
             <div className="ml-auto flex items-center gap-2 flex-wrap">
-              <div className="relative">
-                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-[13px] pointer-events-none">🔍</span>
-                <input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search templates…"
-                  className="pl-8 pr-3 py-1.5 border border-slate-200 rounded-full text-xs text-slate-800 outline-none w-44 sm:w-52 bg-slate-50 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100 transition-all"
-                />
-              </div>
+<SearchInput onSearch={setSearch} />
+
               <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}
                 className="h-[34px] px-2.5 border border-slate-200 rounded-full text-xs text-slate-600 bg-slate-50 outline-none cursor-pointer focus:border-blue-500">
                 <option value="all">All Categories</option>
@@ -2729,7 +2790,7 @@ const [masterCategories, setMasterCategories] = useState<{ key: string; label: s
               )}
             </div>
           ) : (
-            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 items-start">
+<div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 items-stretch">
               {filtered.map((tmpl) => (
                 <TemplateCard
                   key={tmpl.id}
