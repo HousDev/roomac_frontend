@@ -70,6 +70,7 @@ import {
   type PreferredOptions,
   type OptionType,
   getPreferredOptions,
+  sendCredentialsEmail,
 } from "@/lib/tenantApi";
 import { consumeMasters } from "@/lib/masterApi";
 import {
@@ -3303,15 +3304,41 @@ const [createCredentials, setCreateCredentials] = useState(tenant?.portal_access
                         variant="outline"
                         size="sm"
                         className="h-7 text-[10px] px-2.5"
-                        onClick={() => {
-                          if (!password && !tenant?.has_credentials) {
-                            toast.error("Set a password first");
-                            return;
-                          }
-                          toast.success(
-                            `Credentials will be sent to ${tenant.email}`,
-                          );
-                        }}
+                        onClick={async () => {
+        // Validate password fields
+        if (!password || password.length < 6) {
+          toast.error("Please set a password (minimum 6 characters) before sending");
+          return;
+        }
+        
+        if (password !== confirmPassword) {
+          toast.error("Passwords do not match");
+          return;
+        }
+        
+        const emailToSend = tenant?.email || formData.email;
+        if (!emailToSend) {
+          toast.error("No email address found for this tenant");
+          return;
+        }
+        
+        // Show loading toast
+        toast.loading("Saving credentials and Sending credentials email...", { id: "send-email" });
+        
+        try {
+          // Call API to send email
+          const result = await sendCredentialsEmail(tenant!.id, password);
+          
+          if (result.success) {
+            toast.success(`Credentials sent to ${emailToSend}`, { id: "send-email" });
+          } else {
+            toast.error(result.message || "Failed to send email", { id: "send-email" });
+          }
+        } catch (error: any) {
+          console.error("Failed to send credentials:", error);
+          toast.error(error.message || "Failed to send email", { id: "send-email" });
+        }
+      }}
                       >
                         <Mail className="h-3 w-3 mr-1" /> Send to Email
                       </Button>
