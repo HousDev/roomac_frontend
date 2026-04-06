@@ -388,7 +388,7 @@ const MultiSelect = ({
             </div>
           ) : options.length > 0 ? (
             options.map((option) => {
-              const isSelected = selected.includes(option.name);
+              const isSelected = (selected || []).includes(option.name);
               return (
                 <div
                   key={option.id}
@@ -584,8 +584,9 @@ export default function PropertyForm({
 
       let parsedTags = [];
       if (selectedProperty.tags) {
-        try { parsedTags = JSON.parse(selectedProperty.tags); }
-        catch { parsedTags = Array.isArray(selectedProperty.tags) ? selectedProperty.tags : selectedProperty.tags ? [selectedProperty.tags] : []; }
+        parsedTags = Array.isArray(selectedProperty.tags) ? selectedProperty.tags : JSON.parse(selectedProperty.tags);
+        // try { parsedTags = JSON.parse(selectedProperty.tags); }
+        // catch { parsedTags = Array.isArray(selectedProperty.tags) ? selectedProperty.tags : selectedProperty.tags ? [selectedProperty.tags] : []; }
       }
 
       const initialFormData = {
@@ -769,8 +770,9 @@ export default function PropertyForm({
 
     let parsedTags = [];
     if (selectedProperty.tags) {
-      try { parsedTags = JSON.parse(selectedProperty.tags); }
-      catch { parsedTags = Array.isArray(selectedProperty.tags) ? selectedProperty.tags : selectedProperty.tags ? [selectedProperty.tags] : []; }
+      parsedTags = Array.isArray(selectedProperty.tags) ? selectedProperty.tags : JSON.parse(selectedProperty.tags);
+      // try { parsedTags = JSON.parse(selectedProperty.tags); }
+      // catch { parsedTags = Array.isArray(selectedProperty.tags) ? selectedProperty.tags : selectedProperty.tags ? [selectedProperty.tags] : []; }
     }
 
     let stateValue = "";

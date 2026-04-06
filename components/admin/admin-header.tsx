@@ -595,7 +595,7 @@ const getRequestTypeDisplay = (type: string) => {
                     </AvatarFallback>
                   </Avatar>
                   <div className="hidden md:block text-left">
-                    <p className="text-sm font-medium leading-none">{localStorage.getItem('auth_role') === "admin" ? adminEmail.split('@')[0].charAt(0).toUpperCase() + adminEmail.split('@')[0].slice(1) : user?.name}</p>
+                    <p className="text-sm font-medium leading-none">{localStorage.getItem('auth_role') === "admin" ? user?.name ? user?.name : adminEmail.split('@')[0].charAt(0).toUpperCase() + adminEmail.split('@')[0].slice(1) : user?.name}</p>
                     <p className="text-xs text-slate-500">{localStorage.getItem('auth_role') ? localStorage.getItem('auth_role') : '--'}</p>
                   </div>
                 </Button>
