@@ -1,3 +1,4 @@
+
 // components/properties/PropertyDetailView.tsx
 "use client";
 
@@ -57,7 +58,7 @@ import {
   Moon,
   Battery,
   Radio,
-  Router,
+  Router as RouterIcon,
   Bath,
   Car,
   Building,
@@ -81,7 +82,7 @@ import {
   Wrench,
   Loader2,
 } from "lucide-react";
-import { useSearchParams } from "react-router-dom"; 
+import { useSearchParams } from "react-router-dom";
 import BookingModal from "./BookingModal";
 import {
   incrementPropertyView,
@@ -121,7 +122,7 @@ const Icons = {
   Moon,
   Battery,
   Radio,
-  Router,
+  Router: RouterIcon,
   tag: Tag,
   percent: Percent,
   clock: Clock,
@@ -310,7 +311,7 @@ const PropertyDetailView = memo(function PropertyDetailView({
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [showCopyMessage, setShowCopyMessage] = useState(false);
   const [preselectedRoomId, setPreselectedRoomId] = useState<number | undefined>(undefined);
-  
+
   // Analytics states
   const [viewCount, setViewCount] = useState(0);
   const [shortlistCount, setShortlistCount] = useState(0);
@@ -321,15 +322,15 @@ const PropertyDetailView = memo(function PropertyDetailView({
   const [lightboxIndex, setLightboxIndex] = useState(0);
 
   const [pricingPlans, setPricingPlans] = useState<any[]>([]);
-const [shortStayBanner, setShortStayBanner] = useState<any>(null);
-const [loadingPlans, setLoadingPlans] = useState(false);
+  const [shortStayBanner, setShortStayBanner] = useState<any>(null);
+  const [loadingPlans, setLoadingPlans] = useState(false);
 
   // Masters data for filters
   const [floorsMasters, setFloorsMasters] = useState<MasterValue[]>([]);
   const [sharingTypesMasters, setSharingTypesMasters] = useState<MasterValue[]>([]);
   const [loadingMasters, setLoadingMasters] = useState(false);
 
-   // Add new state for automatic modal opening
+  // Add new state for automatic modal opening
   const [autoOpenModal, setAutoOpenModal] = useState(false);
   const [offerRoomId, setOfferRoomId] = useState<number | undefined>(undefined);
 
@@ -341,82 +342,82 @@ const [loadingPlans, setLoadingPlans] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
-    
+
     ;
-    
+
     // Specifically log rooms and their bed_assignments
     if (propertyData?.rooms) {
       propertyData.rooms.forEach((room: any, index: number) => {
-        
+
       });
     }
   }, [propertyData]);
 
   // Fetch masters data for filters
-useEffect(() => {
-  const fetchMastersForFilters = async () => {
-    if (!propertyData?.id) return;
-    
-    setLoadingMasters(true);
-    try {
-      // Fetch from Properties tab for Floors
-      const propertiesRes = await consumeMasters({ tab: "Properties" });
-      // Fetch from Rooms tab for Sharing Type
-      const roomsRes = await consumeMasters({ tab: "Rooms" });
-      
-      const floors: MasterValue[] = [];
-      const sharingTypes: MasterValue[] = [];
-      
-      // Process Properties tab data for Floors
-      if (propertiesRes?.success && propertiesRes.data) {
-        propertiesRes.data.forEach((item: any) => {
-          if (item.type_name === "Floors") {
-            floors.push({
-              id: item.value_id,
-              name: item.value_name,
-              isactive: 1
-            });
-          }
-        });
-      }
-      
-      // Process Rooms tab data for Sharing Type
-      if (roomsRes?.success && roomsRes.data) {
-        roomsRes.data.forEach((item: any) => {
-          if (item.type_name === "Sharing Type") {
-            sharingTypes.push({
-              id: item.value_id,
-              name: item.value_name,
-              isactive: 1
-            });
-          }
-        });
-      }
-      
-     
-      
-      setFloorsMasters(floors);
-      setSharingTypesMasters(sharingTypes);
-    } catch (error) {
-      console.error("Error fetching masters for filters:", error);
-    } finally {
-      setLoadingMasters(false);
-    }
-  };
+  useEffect(() => {
+    const fetchMastersForFilters = async () => {
+      if (!propertyData?.id) return;
 
-  fetchMastersForFilters();
-}, [propertyData?.id]);
+      setLoadingMasters(true);
+      try {
+        // Fetch from Properties tab for Floors
+        const propertiesRes = await consumeMasters({ tab: "Properties" });
+        // Fetch from Rooms tab for Sharing Type
+        const roomsRes = await consumeMasters({ tab: "Rooms" });
 
-// Handle offer code from URL and auto-open booking modal
+        const floors: MasterValue[] = [];
+        const sharingTypes: MasterValue[] = [];
+
+        // Process Properties tab data for Floors
+        if (propertiesRes?.success && propertiesRes.data) {
+          propertiesRes.data.forEach((item: any) => {
+            if (item.type_name === "Floors") {
+              floors.push({
+                id: item.value_id,
+                name: item.value_name,
+                isactive: 1
+              });
+            }
+          });
+        }
+
+        // Process Rooms tab data for Sharing Type
+        if (roomsRes?.success && roomsRes.data) {
+          roomsRes.data.forEach((item: any) => {
+            if (item.type_name === "Sharing Type") {
+              sharingTypes.push({
+                id: item.value_id,
+                name: item.value_name,
+                isactive: 1
+              });
+            }
+          });
+        }
+
+
+
+        setFloorsMasters(floors);
+        setSharingTypesMasters(sharingTypes);
+      } catch (error) {
+        console.error("Error fetching masters for filters:", error);
+      } finally {
+        setLoadingMasters(false);
+      }
+    };
+
+    fetchMastersForFilters();
+  }, [propertyData?.id]);
+
+  // Handle offer code from URL and auto-open booking modal
   useEffect(() => {
     // Check URL parameters for offer code
     const offerCodeFromUrl = searchParams.get('offer');
     const openBookingParam = searchParams.get('openBooking');
-    
+
     if (offerCodeFromUrl) {
       // Store in localStorage for the booking modal
       localStorage.setItem('pendingOfferCode', offerCodeFromUrl);
-      
+
       // Also check if we have offer data in localStorage (from the offer slider)
       const savedOfferData = localStorage.getItem('pendingOfferData');
       // if (savedOfferData) {
@@ -428,25 +429,25 @@ useEffect(() => {
       // } else {
       //   toast.success(`🎉 Offer code ${offerCodeFromUrl} is available! Booking form will open automatically.`);
       // }
-      
+
       // Set flag to auto-open the booking modal
       setAutoOpenModal(true);
     } else {
       // Also check localStorage for pending offer (from previous navigation)
       const savedOfferCode = localStorage.getItem('pendingOfferCode');
       const savedOfferData = localStorage.getItem('pendingOfferData');
-      
+
       if (savedOfferCode && savedOfferData) {
         try {
           const offerData = JSON.parse(savedOfferData);
           // Check if this offer is for this property or is general
           if (!offerData.propertyId || offerData.propertyId === propertyData?.id) {
-             // Set the room ID if present
-          if (offerData.roomId) {
-            setOfferRoomId(offerData.roomId);
-            console.log('🎯 Offer has specific room ID from localStorage:', offerData.roomId);
-          }
-          
+            // Set the room ID if present
+            if (offerData.roomId) {
+              setOfferRoomId(offerData.roomId);
+              console.log('🎯 Offer has specific room ID from localStorage:', offerData.roomId);
+            }
+
             setAutoOpenModal(true);
           } else {
             // Clear the stored offer if it's for a different property
@@ -458,7 +459,7 @@ useEffect(() => {
         }
       }
     }
-    
+
     // Check for explicit openBooking parameter
     if (openBookingParam === 'true') {
       setAutoOpenModal(true);
@@ -474,11 +475,11 @@ useEffect(() => {
         setIsBookingModalOpen(true);
         setAutoOpenModal(false); // Reset flag after opening
       }, 500);
-      
+
       return () => clearTimeout(timer);
     }
   }, [autoOpenModal, propertyData?.id, isBookingModalOpen]);
-  
+
 
   // Load analytics
   useEffect(() => {
@@ -518,74 +519,74 @@ useEffect(() => {
 
 
   // Fetch pricing plans for this property
-useEffect(() => {
-  const fetchPricingPlans = async () => {
-    if (!propertyData?.id) return;
+  useEffect(() => {
+    const fetchPricingPlans = async () => {
+      if (!propertyData?.id) return;
 
-    setLoadingPlans(true);
-    try {
-      // Fetch general plans (visible on ALL properties)
-      const generalRes = await pricingPlanApi.getPaginated({
-        property_id: "general",
-        type: "regular",
-        is_active: true,
-        limit: 20,
-      });
-
-      // Fetch property-specific plans
-      const propertyRes = await pricingPlanApi.getPaginated({
-        property_id: propertyData.id.toString(),
-        type: "regular",
-        is_active: true,
-        limit: 20,
-      });
-
-      const propertyPlans = (propertyRes.success ? propertyRes.data : [])
-        .sort((a: any, b: any) => a.display_order - b.display_order);
-
-      const generalPlans = (generalRes.success ? generalRes.data : [])
-        .sort((a: any, b: any) => a.display_order - b.display_order);
-
-      // Property-specific first, then general
-      setPricingPlans([...propertyPlans, ...generalPlans]);
-
-      // Short stay: prefer property-specific, fall back to general
+      setLoadingPlans(true);
       try {
-        // Replace the entire short stay fetch block inside fetchPricingPlans
-// Try property-specific first
-const propertyBanner = await pricingPlanApi.getShortStayBanner(
-  propertyData.id.toString()
-);
-if (propertyBanner?.is_active) {
-  setShortStayBanner(propertyBanner);
-} else {
-  // Fall back to general (null property_id)
-  const generalBanner = await pricingPlanApi.getShortStayBanner(undefined);
-  if (generalBanner?.is_active) {
-    setShortStayBanner(generalBanner);
-  }
-}
-      } catch {
+        // Fetch general plans (visible on ALL properties)
+        const generalRes = await pricingPlanApi.getPaginated({
+          property_id: "general",
+          type: "regular",
+          is_active: true,
+          limit: 20,
+        });
+
+        // Fetch property-specific plans
+        const propertyRes = await pricingPlanApi.getPaginated({
+          property_id: propertyData.id.toString(),
+          type: "regular",
+          is_active: true,
+          limit: 20,
+        });
+
+        const propertyPlans = (propertyRes.success ? propertyRes.data : [])
+          .sort((a: any, b: any) => a.display_order - b.display_order);
+
+        const generalPlans = (generalRes.success ? generalRes.data : [])
+          .sort((a: any, b: any) => a.display_order - b.display_order);
+
+        // Property-specific first, then general
+        setPricingPlans([...propertyPlans, ...generalPlans]);
+
+        // Short stay: prefer property-specific, fall back to general
         try {
-          const generalBanner = await pricingPlanApi.getShortStayBanner(undefined);
-          if (generalBanner && generalBanner.is_active) {
-            setShortStayBanner(generalBanner);
+          // Replace the entire short stay fetch block inside fetchPricingPlans
+          // Try property-specific first
+          const propertyBanner = await pricingPlanApi.getShortStayBanner(
+            propertyData.id.toString()
+          );
+          if (propertyBanner?.is_active) {
+            setShortStayBanner(propertyBanner);
+          } else {
+            // Fall back to general (null property_id)
+            const generalBanner = await pricingPlanApi.getShortStayBanner(undefined);
+            if (generalBanner?.is_active) {
+              setShortStayBanner(generalBanner);
+            }
           }
         } catch {
-          // No short stay banner available
+          try {
+            const generalBanner = await pricingPlanApi.getShortStayBanner(undefined);
+            if (generalBanner && generalBanner.is_active) {
+              setShortStayBanner(generalBanner);
+            }
+          } catch {
+            // No short stay banner available
+          }
         }
+      } catch (error) {
+        console.error("Error fetching pricing plans:", error);
+      } finally {
+        setLoadingPlans(false);
       }
-    } catch (error) {
-      console.error("Error fetching pricing plans:", error);
-    } finally {
-      setLoadingPlans(false);
-    }
-  };
+    };
 
-  fetchPricingPlans();
-}, [propertyData?.id]);
+    fetchPricingPlans();
+  }, [propertyData?.id]);
 
-  
+
   const handleShortlistClick = async () => {
     if (isLoadingShortlist || !propertyData?.id) return;
 
@@ -669,82 +670,82 @@ if (propertyBanner?.is_active) {
   }, [propertyData?.images, nextImage]);
 
   // CRITICAL FUNCTION: Get minimum tenant rent from bed_assignments
-// In PropertyDetailView.tsx - update getMinTenantRent function
+  // In PropertyDetailView.tsx - update getMinTenantRent function
 
-const getMinTenantRent = (room: any): number => {
-  
-  // Method 1: Check bed_assignments array (from API)
-  if (room.bed_assignments && Array.isArray(room.bed_assignments) && room.bed_assignments.length > 0) {
-    
-    const rents = room.bed_assignments
-      .map((bed: any) => {
-        // tenant_rent is the field from bed_assignments table
-        let rent = null;
-        
-        if (bed.tenant_rent) {
-          rent = parseFloat(bed.tenant_rent);
-        }
-        
-        return rent && !isNaN(rent) && rent > 0 ? rent : null;
-      })
-      .filter((rent: number | null) => rent !== null);
-    
-    
-    if (rents.length > 0) {
-      const minRent = Math.min(...rents);
-      return minRent;
+  const getMinTenantRent = (room: any): number => {
+
+    // Method 1: Check bed_assignments array (from API)
+    if (room.bed_assignments && Array.isArray(room.bed_assignments) && room.bed_assignments.length > 0) {
+
+      const rents = room.bed_assignments
+        .map((bed: any) => {
+          // tenant_rent is the field from bed_assignments table
+          let rent = null;
+
+          if (bed.tenant_rent) {
+            rent = parseFloat(bed.tenant_rent);
+          }
+
+          return rent && !isNaN(rent) && rent > 0 ? rent : null;
+        })
+        .filter((rent: number | null) => rent !== null);
+
+
+      if (rents.length > 0) {
+        const minRent = Math.min(...rents);
+        return minRent;
+      }
     }
-  }
-  
-  // Method 2: Check beds array (alternative format)
-  if (room.beds && Array.isArray(room.beds) && room.beds.length > 0) {
-    
-    const rents = room.beds
-      .map((bed: any) => {
-        let rent = null;
-        
-        if (bed.bed_rent) {
-          rent = parseFloat(bed.bed_rent);
-        } else if (bed.tenant_rent) {
-          rent = parseFloat(bed.tenant_rent);
-        }
-        
-        return rent && !isNaN(rent) && rent > 0 ? rent : null;
-      })
-      .filter((rent: number | null) => rent !== null);
-    
-    if (rents.length > 0) {
-      const minRent = Math.min(...rents);
-      return minRent;
+
+    // Method 2: Check beds array (alternative format)
+    if (room.beds && Array.isArray(room.beds) && room.beds.length > 0) {
+
+      const rents = room.beds
+        .map((bed: any) => {
+          let rent = null;
+
+          if (bed.bed_rent) {
+            rent = parseFloat(bed.bed_rent);
+          } else if (bed.tenant_rent) {
+            rent = parseFloat(bed.tenant_rent);
+          }
+
+          return rent && !isNaN(rent) && rent > 0 ? rent : null;
+        })
+        .filter((rent: number | null) => rent !== null);
+
+      if (rents.length > 0) {
+        const minRent = Math.min(...rents);
+        return minRent;
+      }
     }
-  }
-  
-  // Method 3: Use room.price (fallback)
-  if (room.price) {
-    const price = parseFloat(room.price);
-    if (!isNaN(price) && price > 0) {
-      return price;
+
+    // Method 3: Use room.price (fallback)
+    if (room.price) {
+      const price = parseFloat(room.price);
+      if (!isNaN(price) && price > 0) {
+        return price;
+      }
     }
-  }
-  
-  // Method 4: Use room.rent_per_bed (fallback)
-  if (room.rent_per_bed) {
-    const rent = parseFloat(room.rent_per_bed);
-    if (!isNaN(rent) && rent > 0) {
-      return rent;
+
+    // Method 4: Use room.rent_per_bed (fallback)
+    if (room.rent_per_bed) {
+      const rent = parseFloat(room.rent_per_bed);
+      if (!isNaN(rent) && rent > 0) {
+        return rent;
+      }
     }
-  }
-  
-  // Method 5: Default fallback
-  return 5000;
-};
+
+    // Method 5: Default fallback
+    return 5000;
+  };
 
   const filteredRooms = useMemo(() => {
     if (!propertyData?.rooms) return [];
 
-    
+
     return propertyData.rooms.filter((room: any) => {
-      
+
 
       // Floor filter using masters
       if (selectedFloor !== "all") {
@@ -786,7 +787,7 @@ const getMinTenantRent = (room: any): number => {
 
       // Price range filter using min tenant rent
       const minRent = getMinTenantRent(room);
-      
+
       if (priceRange === "low" && minRent > 5000) return false;
       if (priceRange === "mid" && (minRent <= 5000 || minRent > 7000)) return false;
       if (priceRange === "high" && minRent <= 7000) return false;
@@ -969,6 +970,9 @@ const getMinTenantRent = (room: any): number => {
     return "bg-gradient-to-r from-slate-600 to-slate-800 text-white";
   };
 
+  const hasImages = propertyData.images && propertyData.images.length > 0;
+  const currentImageUrl = hasImages ? propertyData.images[currentImageIndex] : null;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-violet-50 via-purple-50 to-pink-50">
       {/* Floating Action Buttons */}
@@ -1129,15 +1133,15 @@ const getMinTenantRent = (room: any): number => {
       {/* Main Container */}
       <div className="max-w-[1800px] mx-auto px-3 py-0 md:px-4 md:py-1">
         {/* Sticky Back Button */}
- <div className="sticky top-20 md:top-[60px] z-10 md:bg-white backdrop-blur-sm px-1.5 py-[2px] mb-1">
-  <a
-    href="/properties"
-    className="inline-flex items-center gap-[3px] text-black text-[10px] md:text-[11px] leading-none group"
-  >
-    <ChevronLeft className="w-2.5 h-2.5 md:w-3 md:h-3 group-hover:-translate-x-0.5 transition-transform" />
-    <span className="leading-none">Back to Properties</span>
-  </a>
-</div>
+        <div className="sticky top-20 md:top-[60px] z-10 md:bg-white backdrop-blur-sm px-1.5 py-[2px] mb-1">
+          <a
+            href="/properties"
+            className="inline-flex items-center gap-[3px] text-black text-[10px] md:text-[11px] leading-none group"
+          >
+            <ChevronLeft className="w-2.5 h-2.5 md:w-3 md:h-3 group-hover:-translate-x-0.5 transition-transform" />
+            <span className="leading-none">Back to Properties</span>
+          </a>
+        </div>
 
         {/* Header */}
         <div className="mb-3 md:mb-2">
@@ -1170,29 +1174,29 @@ const getMinTenantRent = (room: any): number => {
 
                 <div className="flex flex-col md:flex-row md:items-center gap-1 md:gap-3">
 
-  {/* Location */}
-  <div className="flex items-center gap-1 md:gap-2 text-gray-600">
-    <MapPin className="w-3 h-3 md:w-4 md:h-4 text-blue-600 flex-shrink-0" />
-    <span className="font-semibold text-xs md:text-sm whitespace-nowrap">
-      {propertyData.location || propertyData.area || "Location not specified"}
-    </span>
-  </div>
+                  {/* Location */}
+                  <div className="flex items-center gap-1 md:gap-2 text-gray-600">
+                    <MapPin className="w-3 h-3 md:w-4 md:h-4 text-blue-600 flex-shrink-0" />
+                    <span className="font-semibold text-xs md:text-sm whitespace-nowrap">
+                      {propertyData.location || propertyData.area || "Location not specified"}
+                    </span>
+                  </div>
 
-  {/* Address */}
-  <p className="text-[10px] md:text-xs text-gray-500 truncate">
-    {propertyData.address || "Address not available"}
-  </p>
+                  {/* Address */}
+                  <p className="text-[10px] md:text-xs text-gray-500 truncate">
+                    {propertyData.address || "Address not available"}
+                  </p>
 
-</div>
+                </div>
               </div>
 
               {/* Stats */}
               <div className="grid grid-cols-3 md:flex md:items-center gap-1 md:gap-3 text-xs">
                 <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg px-2 py-1.5 md:px-3 md:py-2 border border-green-200">
                   <p className="font-bold text-green-500 text-[10px] md:text-xs">
-availability                  </p>
+                    availability                  </p>
                   <div className="flex items-baseline gap-0.5 md:gap-1">
-                    
+
                     <Bed className="w-3 h-3 md:w-4 md:h-4 text-green-600" />
                     <span className="font-black text-green-700 text-sm md:text-base">
                       {propertyData.totalBeds - propertyData.occupiedBeds}
@@ -1243,12 +1247,19 @@ availability                  </p>
           <div className="space-y-4 lg:space-y-6">
             {/* Image Gallery */}
             <div className="relative group">
-              <div className="relative w-full h-[250px] md:h-[400px] lg:h-[500px] xl:h-[600px] rounded-xl md:rounded-2xl lg:rounded-3xl overflow-hidden shadow-xl md:shadow-2xl">
-                <img
-                  src={propertyData.images?.[currentImageIndex] || "/placeholder-property.jpg"}
-                  alt="Property"
-                  className="w-full h-full object-cover transition-all duration-700 group-hover:scale-105"
-                />
+              <div className="relative w-full h-[250px] md:h-[400px] lg:h-[500px] xl:h-[600px] rounded-xl md:rounded-2xl lg:rounded-3xl overflow-hidden shadow-xl md:shadow-2xl bg-gray-200">
+                {hasImages ? (
+                  <img
+                    src={currentImageUrl!}
+                    alt="Property"
+                    className="w-full h-full object-cover transition-all duration-700 group-hover:scale-105"
+                  />
+                ) : (
+                  <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200">
+                    <ImageIcon className="w-16 h-16 text-slate-400 mb-3" />
+                    <span className="text-sm text-slate-500 font-medium">Image Not Available</span>
+                  </div>
+                )}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
 
                 {/* Top left: Views + Heart */}
@@ -1263,15 +1274,13 @@ availability                  </p>
                   <button
                     onClick={handleShortlistClick}
                     disabled={isLoadingShortlist}
-                    className={`glass-dark px-2 py-1.5 md:px-4 md:py-3 rounded-lg md:rounded-xl backdrop-blur-md flex items-center gap-1 md:gap-2 shadow-lg transition-all transform hover:scale-105 ${
-                      isShortlisted ? "bg-rose-500/20" : ""
-                    } ${isLoadingShortlist ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                    className={`glass-dark px-2 py-1.5 md:px-4 md:py-3 rounded-lg md:rounded-xl backdrop-blur-md flex items-center gap-1 md:gap-2 shadow-lg transition-all transform hover:scale-105 ${isShortlisted ? "bg-rose-500/20" : ""
+                      } ${isLoadingShortlist ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
                     title={isShortlisted ? "Remove from shortlist" : "Add to shortlist"}
                   >
                     <Heart
-                      className={`w-3 h-3 md:w-5 md:h-5 transition-all ${
-                        isShortlisted ? "text-rose-500 fill-rose-500 animate-pulse" : "text-rose-400 hover:text-rose-500"
-                      }`}
+                      className={`w-3 h-3 md:w-5 md:h-5 transition-all ${isShortlisted ? "text-rose-500 fill-rose-500 animate-pulse" : "text-rose-400 hover:text-rose-500"
+                        }`}
                     />
                     <span className="font-black text-xs md:text-base text-white">
                       {shortlistCount.toLocaleString()}
@@ -1294,23 +1303,26 @@ availability                  </p>
                   <span className="hidden sm:inline">View</span>
                 </button>
 
-                <button
-                  onClick={prevImage}
-                  className="absolute left-2 md:left-6 top-1/2 -translate-y-1/2 glass-dark p-2 md:p-4 rounded-lg md:rounded-2xl text-white transition-all hover:scale-105 md:hover:scale-110"
-                >
-                  <ChevronLeft className="w-4 h-4 md:w-6 md:h-6" />
-                </button>
-                <button
-                  onClick={nextImage}
-                  className="absolute right-2 md:right-6 top-1/2 -translate-y-1/2 glass-dark p-2 md:p-4 rounded-lg md:rounded-2xl text-white transition-all hover:scale-105 md:hover:scale-110"
-                >
-                  <ChevronRight className="w-4 h-4 md:w-6 md:h-6" />
-                </button>
-
-                <div className="absolute bottom-3 md:bottom-6 left-3 md:left-6 glass-dark px-2 py-1.5 md:px-5 md:py-3 rounded-lg md:rounded-2xl text-white font-bold flex items-center gap-1 md:gap-2 text-xs md:text-base">
-                  <ImageIcon className="w-3 h-3 md:w-5 md:h-5" />
-                  {currentImageIndex + 1} / {propertyData.images?.length || 0}
-                </div>
+                {hasImages && (
+                  <>
+                    <button
+                      onClick={prevImage}
+                      className="absolute left-2 md:left-6 top-1/2 -translate-y-1/2 glass-dark p-2 md:p-4 rounded-lg md:rounded-2xl text-white transition-all hover:scale-105 md:hover:scale-110"
+                    >
+                      <ChevronLeft className="w-4 h-4 md:w-6 md:h-6" />
+                    </button>
+                    <button
+                      onClick={nextImage}
+                      className="absolute right-2 md:right-6 top-1/2 -translate-y-1/2 glass-dark p-2 md:p-4 rounded-lg md:rounded-2xl text-white transition-all hover:scale-105 md:hover:scale-110"
+                    >
+                      <ChevronRight className="w-4 h-4 md:w-6 md:h-6" />
+                    </button>
+                    <div className="absolute bottom-3 md:bottom-6 left-3 md:left-6 glass-dark px-2 py-1.5 md:px-5 md:py-3 rounded-lg md:rounded-2xl text-white font-bold flex items-center gap-1 md:gap-2 text-xs md:text-base">
+                      <ImageIcon className="w-3 h-3 md:w-5 md:h-5" />
+                      {currentImageIndex + 1} / {propertyData.images?.length || 0}
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 
@@ -1341,7 +1353,7 @@ availability                  </p>
                       {propertyData.highlights.map((highlight: string, i: number) => {
                         const getServiceIcon = (text: string) => {
                           const lower = text.toLowerCase();
-                          
+
                           if (lower.includes('food')) return <Utensils className="w-4 h-4 text-orange-600" />;
                           if (lower.includes('cleaning') || lower.includes('housekeeping')) return <Sparkles className="w-4 h-4 text-blue-600" />;
                           if (lower.includes('laundry')) return <Droplets className="w-4 h-4 text-indigo-600" />;
@@ -1350,7 +1362,7 @@ availability                  </p>
                           if (lower.includes('transportation')) return <Bus className="w-4 h-4 text-green-600" />;
                           if (lower.includes('package') || lower.includes('handling')) return <Package className="w-4 h-4 text-purple-600" />;
                           if (lower.includes('concierge')) return <Headset className="w-4 h-4 text-teal-600" />;
-                          
+
                           return <CheckCircle2 className="w-4 h-4 text-blue-600" />;
                         };
 
@@ -1426,145 +1438,145 @@ availability                  </p>
               ) : (
                 <>
                   {/* Filters Modal */}
-{showFilters && (
-  <div
-    className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm px-3"
-    onClick={(e) => {
-      if (e.target === e.currentTarget) setShowFilters(false);
-    }}
-  >
-    <div className="w-full max-w-md md:max-w-2xl bg-white rounded-xl md:rounded-2xl shadow-2xl p-4 md:p-6 relative animate-fadeIn">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="font-bold text-gray-900 text-sm md:text-lg">
-          Filter Rooms
-        </h3>
-        <button
-          onClick={() => setShowFilters(false)}
-          className="text-gray-400 hover:text-gray-600 text-lg font-bold"
-        >
-          ✕
-        </button>
-      </div>
+                  {showFilters && (
+                    <div
+                      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm px-3"
+                      onClick={(e) => {
+                        if (e.target === e.currentTarget) setShowFilters(false);
+                      }}
+                    >
+                      <div className="w-full max-w-md md:max-w-2xl bg-white rounded-xl md:rounded-2xl shadow-2xl p-4 md:p-6 relative animate-fadeIn">
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="font-bold text-gray-900 text-sm md:text-lg">
+                            Filter Rooms
+                          </h3>
+                          <button
+                            onClick={() => setShowFilters(false)}
+                            className="text-gray-400 hover:text-gray-600 text-lg font-bold"
+                          >
+                            ✕
+                          </button>
+                        </div>
 
-      {hasActiveFilters && (
-        <div className="flex justify-end mb-3">
-          <button
-            onClick={clearFilters}
-            className="text-xs text-blue-600 font-semibold hover:text-blue-700"
-          >
-            Clear All
-          </button>
-        </div>
-      )}
+                        {hasActiveFilters && (
+                          <div className="flex justify-end mb-3">
+                            <button
+                              onClick={clearFilters}
+                              className="text-xs text-blue-600 font-semibold hover:text-blue-700"
+                            >
+                              Clear All
+                            </button>
+                          </div>
+                        )}
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div>
-          <label className="block text-xs font-semibold text-gray-700 mb-1">
-            Floor
-          </label>
-          <select
-            value={selectedFloor}
-            onChange={(e) => setSelectedFloor(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-          >
-            <option value="all">All Floors</option>
-            {loadingMasters ? (
-              <option disabled>Loading floors...</option>
-            ) : (
-              floorsMasters.map((floor) => (
-                <option key={floor.id} value={floor.name}>
-                  {floor.name}
-                </option>
-              ))
-            )}
-          </select>
-        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-700 mb-1">
+                              Floor
+                            </label>
+                            <select
+                              value={selectedFloor}
+                              onChange={(e) => setSelectedFloor(e.target.value)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                            >
+                              <option value="all">All Floors</option>
+                              {loadingMasters ? (
+                                <option disabled>Loading floors...</option>
+                              ) : (
+                                floorsMasters.map((floor) => (
+                                  <option key={floor.id} value={floor.name}>
+                                    {floor.name}
+                                  </option>
+                                ))
+                              )}
+                            </select>
+                          </div>
 
-        <div>
-          <label className="block text-xs font-semibold text-gray-700 mb-1">
-            Gender
-          </label>
-          <select
-            value={selectedGender}
-            onChange={(e) => setSelectedGender(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-          >
-            <option value="all">All Genders</option>
-            <option value="male">Male Only</option>
-            <option value="female">Female Only</option>
-            <option value="couples">Couples</option>
-          </select>
-        </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-700 mb-1">
+                              Gender
+                            </label>
+                            <select
+                              value={selectedGender}
+                              onChange={(e) => setSelectedGender(e.target.value)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                            >
+                              <option value="all">All Genders</option>
+                              <option value="male">Male Only</option>
+                              <option value="female">Female Only</option>
+                              <option value="couples">Couples</option>
+                            </select>
+                          </div>
 
-        <div>
-  <label className="block text-xs font-semibold text-gray-700 mb-1">
-    Sharing
-  </label>
-  <select
-    value={selectedSharing}
-    onChange={(e) => setSelectedSharing(e.target.value)}
-    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-  >
-    <option value="all">All Types</option>
-    {loadingMasters ? (
-      <option disabled>Loading sharing types...</option>
-    ) : (
-      sharingTypesMasters.map((type) => {
-        // Use the master value directly
-        const typeValue = type.name.toLowerCase();
-        
-        return (
-          <option key={type.id} value={typeValue}>
-            {type.name}
-          </option>
-        );
-      })
-    )}
-  </select>
-</div>
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-700 mb-1">
+                              Sharing
+                            </label>
+                            <select
+                              value={selectedSharing}
+                              onChange={(e) => setSelectedSharing(e.target.value)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                            >
+                              <option value="all">All Types</option>
+                              {loadingMasters ? (
+                                <option disabled>Loading sharing types...</option>
+                              ) : (
+                                sharingTypesMasters.map((type) => {
+                                  // Use the master value directly
+                                  const typeValue = type.name.toLowerCase();
 
-        <div>
-          <label className="block text-xs font-semibold text-gray-700 mb-1">
-            Price
-          </label>
-          <select
-            value={priceRange}
-            onChange={(e) => setPriceRange(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-          >
-            <option value="all">All Prices</option>
-            <option value="low">Under ₹5000</option>
-            <option value="mid">₹5000-₹7000</option>
-            <option value="high">Above ₹7000</option>
-          </select>
-        </div>
-      </div>
+                                  return (
+                                    <option key={type.id} value={typeValue}>
+                                      {type.name}
+                                    </option>
+                                  );
+                                })
+                              )}
+                            </select>
+                          </div>
 
-      {/* Live filter count preview */}
-      <div className="mt-4 p-2 bg-blue-50 rounded-lg border border-blue-100">
-        <p className="text-xs text-blue-700 font-semibold text-center">
-          {filteredRooms.length} room
-          {filteredRooms.length !== 1 ? "s" : ""} match your filters
-        </p>
-      </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-700 mb-1">
+                              Price
+                            </label>
+                            <select
+                              value={priceRange}
+                              onChange={(e) => setPriceRange(e.target.value)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                            >
+                              <option value="all">All Prices</option>
+                              <option value="low">Under ₹5000</option>
+                              <option value="mid">₹5000-₹7000</option>
+                              <option value="high">Above ₹7000</option>
+                            </select>
+                          </div>
+                        </div>
 
-      <div className="mt-4 flex justify-end gap-3">
-        <button
-          onClick={clearFilters}
-          className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-semibold hover:bg-gray-100"
-        >
-          Reset
-        </button>
-        <button
-          onClick={() => setShowFilters(false)}
-          className="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-600 to-cyan-600 text-white text-sm font-bold hover:shadow-lg transition-all"
-        >
-          Done ({filteredRooms.length})
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+                        {/* Live filter count preview */}
+                        <div className="mt-4 p-2 bg-blue-50 rounded-lg border border-blue-100">
+                          <p className="text-xs text-blue-700 font-semibold text-center">
+                            {filteredRooms.length} room
+                            {filteredRooms.length !== 1 ? "s" : ""} match your filters
+                          </p>
+                        </div>
+
+                        <div className="mt-4 flex justify-end gap-3">
+                          <button
+                            onClick={clearFilters}
+                            className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-semibold hover:bg-gray-100"
+                          >
+                            Reset
+                          </button>
+                          <button
+                            onClick={() => setShowFilters(false)}
+                            className="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-600 to-cyan-600 text-white text-sm font-bold hover:shadow-lg transition-all"
+                          >
+                            Done ({filteredRooms.length})
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-2 md:gap-4 mb-3 md:mb-6">
                     {filteredRooms.slice(0, 4).map((room: any) => {
@@ -1575,7 +1587,7 @@ availability                  </p>
                       const hasAC = room.ac === true || room.ac === "true";
                       const hasWiFi = room.wifi === true || room.wifi === "true";
                       const genderLabel = formatGenderPreference(room.room_gender_preference || []);
-                      
+
                       // CRITICAL: Get the minimum tenant rent for this room
                       const minRent = getMinTenantRent(room);
 
@@ -1603,15 +1615,14 @@ availability                  </p>
                           {room.room_gender_preference && room.room_gender_preference.length > 0 && (
                             <div className="mb-2">
                               <span
-                                className={`text-[9px] px-2 py-0.5 rounded-full ${
-                                  genderLabel.includes("Male")
+                                className={`text-[9px] px-2 py-0.5 rounded-full ${genderLabel.includes("Male")
                                     ? "bg-blue-100 text-blue-700"
                                     : genderLabel.includes("Female")
                                       ? "bg-pink-100 text-pink-700"
                                       : genderLabel.includes("Couples")
                                         ? "bg-red-100 text-red-700"
                                         : "bg-purple-100 text-purple-700"
-                                }`}
+                                  }`}
                               >
                                 {genderLabel}
                               </span>
@@ -1681,13 +1692,12 @@ availability                  </p>
                     <button
                       key={cat}
                       onClick={() => setSelectedCategory(cat)}
-                      className={`px-3 md:px-4 py-1.5 md:py-2 rounded-full font-medium text-[10px] md:text-xs whitespace-nowrap capitalize transition-all duration-200 ${
-                        isActive
+                      className={`px-3 md:px-4 py-1.5 md:py-2 rounded-full font-medium text-[10px] md:text-xs whitespace-nowrap capitalize transition-all duration-200 ${isActive
                           ? isAll
                             ? "bg-blue-600 text-white"
                             : "bg-blue-600 text-white"
                           : "bg-gray-50 text-gray-600 hover:bg-gray-100"
-                      }`}
+                        }`}
                     >
                       {isAll ? "All" : cat}
                     </button>
@@ -1699,7 +1709,7 @@ availability                  </p>
               <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 md:gap-3">
                 {filteredAmenities.map((amenity: any, i: number) => {
                   const IconComponent = (Icons as any)[amenity.icon] || Home;
-                  
+
                   const bgColors = [
                     "bg-blue-50 text-blue-600",
                     "bg-purple-50 text-purple-600",
@@ -1713,7 +1723,7 @@ availability                  </p>
                     "bg-rose-50 text-rose-600",
                   ];
                   const bgColor = bgColors[i % bgColors.length];
-                  
+
                   return (
                     <div
                       key={amenity.id || i}
@@ -1831,11 +1841,10 @@ availability                  </p>
                       {[1, 2, 3, 4, 5].map((s) => (
                         <Star
                           key={s}
-                          className={`w-4 h-4 md:w-6 md:h-6 ${
-                            s <= (propertyData.averageRating || 4.5)
+                          className={`w-4 h-4 md:w-6 md:h-6 ${s <= (propertyData.averageRating || 4.5)
                               ? "text-yellow-500 fill-yellow-500"
                               : "text-gray-300"
-                          }`}
+                            }`}
                         />
                       ))}
                     </div>
@@ -1936,94 +1945,94 @@ availability                  </p>
           {/* Sidebar */}
           <div className="lg:sticky lg:top-6 lg:self-start space-y-4">
             {/* Property Manager Card */}
-           <div className="bg-white rounded-xl md:rounded-2xl overflow-hidden shadow-lg md:shadow-2xl border border-blue-100 md:border-2">
-  <div className="bg-gradient-to-r from-blue-600 to-cyan-600 px-3 md:px-4 py-2 md:py-3 flex items-center justify-between">
-    <div className="flex items-center gap-1.5 md:gap-2">
-      <div className="w-8 h-8 md:w-10 md:h-10 bg-white/20 rounded-lg md:rounded-xl flex items-center justify-center">
-        <User className="w-4 h-4 md:w-5 md:h-5 text-white" />
-      </div>
-      <h3 className="text-xs md:text-sm font-black text-white">
-        Property Manager
-      </h3>
-    </div>
-    <div className="flex items-center gap-0.5 md:gap-1 bg-white/20 px-1.5 py-0.5 md:px-2 md:py-1 rounded-full">
-      <Star className="w-3 h-3 md:w-4 md:h-4 text-yellow-300 fill-yellow-300" />
-      <span className="text-xs font-black text-white">
-        {propertyData.manager?.rating || "4.8"}
-      </span>
-    </div>
-  </div>
-  <div className="p-3 md:p-4">
-    <div className="flex items-center gap-2 md:gap-3 mb-3 md:mb-4">
-      <img
-        src={propertyData.manager?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(propertyData.manager?.name || "Manager")}&background=3b82f6&color=fff&size=128`}
-        alt={propertyData.manager?.name || "Manager"}
-        className="w-14 h-14 md:w-20 md:h-20 rounded-lg md:rounded-xl object-cover ring-1 md:ring-2 ring-blue-200"
-        onError={(e) => {
-          const target = e.target as HTMLImageElement;
-          const name = propertyData.manager?.name || "Manager";
-          target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=3b82f6&color=fff&size=128`;
-        }}
-      />
-      <div>
-        <p className="font-black text-gray-900 text-sm md:text-lg">
-          {propertyData.manager?.name || propertyData.property_manager_name || "Property Manager"}
-        </p>
-        <p className="text-[10px] md:text-xs text-gray-600 font-semibold flex items-center gap-0.5 md:gap-1">
-          <ShieldCheck className="w-2.5 h-2.5 md:w-3 md:h-3 text-green-600" />
-          {propertyData.manager?.role_name || "Manager"}
-        </p>
-      </div>
-    </div>
+            <div className="bg-white rounded-xl md:rounded-2xl overflow-hidden shadow-lg md:shadow-2xl border border-blue-100 md:border-2">
+              <div className="bg-gradient-to-r from-blue-600 to-cyan-600 px-3 md:px-4 py-2 md:py-3 flex items-center justify-between">
+                <div className="flex items-center gap-1.5 md:gap-2">
+                  <div className="w-8 h-8 md:w-10 md:h-10 bg-white/20 rounded-lg md:rounded-xl flex items-center justify-center">
+                    <User className="w-4 h-4 md:w-5 md:h-5 text-white" />
+                  </div>
+                  <h3 className="text-xs md:text-sm font-black text-white">
+                    Property Manager
+                  </h3>
+                </div>
+                <div className="flex items-center gap-0.5 md:gap-1 bg-white/20 px-1.5 py-0.5 md:px-2 md:py-1 rounded-full">
+                  <Star className="w-3 h-3 md:w-4 md:h-4 text-yellow-300 fill-yellow-300" />
+                  <span className="text-xs font-black text-white">
+                    {propertyData.manager?.rating || "4.8"}
+                  </span>
+                </div>
+              </div>
+              <div className="p-3 md:p-4">
+                <div className="flex items-center gap-2 md:gap-3 mb-3 md:mb-4">
+                  <img
+                    src={propertyData.manager?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(propertyData.manager?.name || "Manager")}&background=3b82f6&color=fff&size=128`}
+                    alt={propertyData.manager?.name || "Manager"}
+                    className="w-14 h-14 md:w-20 md:h-20 rounded-lg md:rounded-xl object-cover ring-1 md:ring-2 ring-blue-200"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      const name = propertyData.manager?.name || "Manager";
+                      target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=3b82f6&color=fff&size=128`;
+                    }}
+                  />
+                  <div>
+                    <p className="font-black text-gray-900 text-sm md:text-lg">
+                      {propertyData.manager?.name || propertyData.property_manager_name || "Property Manager"}
+                    </p>
+                    <p className="text-[10px] md:text-xs text-gray-600 font-semibold flex items-center gap-0.5 md:gap-1">
+                      <ShieldCheck className="w-2.5 h-2.5 md:w-3 md:h-3 text-green-600" />
+                      {propertyData.manager?.role_name || "Manager"}
+                    </p>
+                  </div>
+                </div>
 
-    <div className="space-y-1.5 md:space-y-2 mb-3 md:mb-4">
-      {/* Phone number with country code */}
-     {/* Phone number with country code */}
-<a
-  href={`tel:${(propertyData.manager?.phone_country_code || propertyData.property_manager_phone_country_code || "")}${propertyData.manager?.phone || propertyData.property_manager_phone}`}
-  className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm text-gray-700 hover:text-blue-600"
->
-  <Phone className="w-3 h-3 md:w-4 md:h-4" />
-  {(() => {
-    const phoneNumber = propertyData.manager?.phone || propertyData.property_manager_phone;
-    const countryCode = propertyData.manager?.phone_country_code || propertyData.property_manager_phone_country_code || "";
-    return phoneNumber ? `${countryCode}${phoneNumber}` : "Not available";
-  })()}
-</a>
-      <a
-        href={`mailto:${propertyData.manager?.email || propertyData.property_manager_email}`}
-        className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm text-gray-700 hover:text-blue-600"
-      >
-        <Mail className="w-3 h-3 md:w-4 md:h-4" />
-        {propertyData.manager?.email || propertyData.property_manager_email || "Not available"}
-      </a>
-    </div>
+                <div className="space-y-1.5 md:space-y-2 mb-3 md:mb-4">
+                  {/* Phone number with country code */}
+                  {/* Phone number with country code */}
+                  <a
+                    href={`tel:${(propertyData.manager?.phone_country_code || propertyData.property_manager_phone_country_code || "")}${propertyData.manager?.phone || propertyData.property_manager_phone}`}
+                    className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm text-gray-700 hover:text-blue-600"
+                  >
+                    <Phone className="w-3 h-3 md:w-4 md:h-4" />
+                    {(() => {
+                      const phoneNumber = propertyData.manager?.phone || propertyData.property_manager_phone;
+                      const countryCode = propertyData.manager?.phone_country_code || propertyData.property_manager_phone_country_code || "";
+                      return phoneNumber ? `${countryCode}${phoneNumber}` : "Not available";
+                    })()}
+                  </a>
+                  <a
+                    href={`mailto:${propertyData.manager?.email || propertyData.property_manager_email}`}
+                    className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm text-gray-700 hover:text-blue-600"
+                  >
+                    <Mail className="w-3 h-3 md:w-4 md:h-4" />
+                    {propertyData.manager?.email || propertyData.property_manager_email || "Not available"}
+                  </a>
+                </div>
 
-    <div className="grid grid-cols-2 gap-1.5 md:gap-2">
-      {/* Call button with country code in href */}
-      <a
-        href={`tel:${(propertyData.manager?.phone_country_code || propertyData.property_manager_phone_country_code || ""
-)}${propertyData.manager?.phone || propertyData.property_manager_phone}`}
-        className="flex items-center justify-center gap-1 md:gap-1.5 px-2 py-1.5 md:px-3 md:py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg md:rounded-xl font-bold text-xs md:text-sm hover:shadow-lg transition-all"
-      >
-        <Phone className="w-3 h-3 md:w-4 md:h-4" />
-        Call Now
-      </a>
-      
-      {/* WhatsApp button with country code handling */}
-      <a
-        href={`https://wa.me/${(propertyData.manager?.phone_country_code || propertyData.property_manager_phone_country_code || ""
-).replace(/[^0-9]/g, "")}${(propertyData.manager?.phone || propertyData.property_manager_phone || "").replace(/[^0-9]/g, "")}?text=Hi, I'm interested in ${encodeURIComponent(propertyData.name)}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex items-center justify-center gap-1 md:gap-1.5 px-2 py-1.5 md:px-3 md:py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-lg md:rounded-xl font-bold text-xs md:text-sm hover:shadow-lg transition-all"
-      >
-        <MessageSquare className="w-3 h-3 md:w-4 md:h-4" />
-        WhatsApp
-      </a>
-    </div>
-  </div>
-</div>
+                <div className="grid grid-cols-2 gap-1.5 md:gap-2">
+                  {/* Call button with country code in href */}
+                  <a
+                    href={`tel:${(propertyData.manager?.phone_country_code || propertyData.property_manager_phone_country_code || ""
+                    )}${propertyData.manager?.phone || propertyData.property_manager_phone}`}
+                    className="flex items-center justify-center gap-1 md:gap-1.5 px-2 py-1.5 md:px-3 md:py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg md:rounded-xl font-bold text-xs md:text-sm hover:shadow-lg transition-all"
+                  >
+                    <Phone className="w-3 h-3 md:w-4 md:h-4" />
+                    Call Now
+                  </a>
+
+                  {/* WhatsApp button with country code handling */}
+                  <a
+                    href={`https://wa.me/${(propertyData.manager?.phone_country_code || propertyData.property_manager_phone_country_code || ""
+                    ).replace(/[^0-9]/g, "")}${(propertyData.manager?.phone || propertyData.property_manager_phone || "").replace(/[^0-9]/g, "")}?text=Hi, I'm interested in ${encodeURIComponent(propertyData.name)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-1 md:gap-1.5 px-2 py-1.5 md:px-3 md:py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-lg md:rounded-xl font-bold text-xs md:text-sm hover:shadow-lg transition-all"
+                  >
+                    <MessageSquare className="w-3 h-3 md:w-4 md:h-4" />
+                    WhatsApp
+                  </a>
+                </div>
+              </div>
+            </div>
 
             {/* Offers */}
             <div className="bg-white rounded-xl md:rounded-2xl p-3 md:p-5 shadow-lg md:shadow-2xl">
@@ -2092,222 +2101,220 @@ availability                  </p>
             </div>
 
             {/* Pricing Plans */}
-                      {/* Pricing Plans */}
-<div className="bg-white rounded-xl md:rounded-2xl p-3 md:p-6 shadow-lg md:shadow-2xl">
-  <h2 className="text-base md:text-xl font-black gradient-text flex items-center mb-3 md:mb-5">
-    <Sparkles className="w-4 h-4 md:w-5 md:h-5 mr-1 md:mr-2" />
-    Pricing Plans
-  </h2>
-  
-  {loadingPlans ? (
-    <div className="space-y-3">
-      {[1, 2, 3].map((i) => (
-        <div key={i} className="animate-pulse bg-gray-100 rounded-lg p-4">
-          <div className="h-6 bg-gray-200 rounded w-1/3 mb-2"></div>
-          <div className="h-4 bg-gray-200 rounded w-1/4 mb-3"></div>
-          <div className="space-y-2">
-            <div className="h-3 bg-gray-200 rounded w-full"></div>
-            <div className="h-3 bg-gray-200 rounded w-5/6"></div>
-          </div>
-        </div>
-      ))}
-    </div>
-  ) : pricingPlans.length === 0 ? (
-    <div className="text-center py-6 md:py-8">
-      <p className="text-xs md:text-sm text-gray-500">No pricing plans available</p>
-    </div>
-  ) : (
-    <div className="space-y-2 md:space-y-4">
-      {pricingPlans.map((plan: any) => (
-        <div
-          key={plan.id}
-className={`relative bg-white rounded-lg md:rounded-xl p-3 md:p-5 border ${
-  !!plan.is_popular
-    ? "border-violet-400 shadow-md md:shadow-xl"
-    : "border-gray-200 md:border-white/20 hover:border-gray-300"
-}`}
-        >
-         {!!plan.is_popular && (
-  <div className="absolute -top-1.5 -right-1.5 md:-top-3 md:-right-3">
-    <span className="bg-gradient-to-r from-amber-400 to-orange-500 text-white px-2 md:px-4 py-0.5 md:py-1.5 rounded-full text-[10px] md:text-xs font-black shadow md:shadow-lg">
-      <Crown className="w-2.5 h-2.5 md:w-3 md:h-3 inline mr-0.5" />
-      <span className="hidden md:inline">Most Popular</span>
-      <span className="md:hidden">Popular</span>
-    </span>
-  </div>
-)}
-          <div className="flex items-start justify-between mb-2 md:mb-4">
-            <div>
-              <h3 className="text-sm md:text-lg font-black text-gray-900">
-                {plan.name}
-              </h3>
-              <p className="text-[10px] md:text-sm text-gray-500 font-medium mt-0.5">
-                {plan.subtitle || "All-inclusive"}
-              </p>
+            {/* Pricing Plans */}
+            <div className="bg-white rounded-xl md:rounded-2xl p-3 md:p-6 shadow-lg md:shadow-2xl">
+              <h2 className="text-base md:text-xl font-black gradient-text flex items-center mb-3 md:mb-5">
+                <Sparkles className="w-4 h-4 md:w-5 md:h-5 mr-1 md:mr-2" />
+                Pricing Plans
+              </h2>
+
+              {loadingPlans ? (
+                <div className="space-y-3">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="animate-pulse bg-gray-100 rounded-lg p-4">
+                      <div className="h-6 bg-gray-200 rounded w-1/3 mb-2"></div>
+                      <div className="h-4 bg-gray-200 rounded w-1/4 mb-3"></div>
+                      <div className="space-y-2">
+                        <div className="h-3 bg-gray-200 rounded w-full"></div>
+                        <div className="h-3 bg-gray-200 rounded w-5/6"></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : pricingPlans.length === 0 ? (
+                <div className="text-center py-6 md:py-8">
+                  <p className="text-xs md:text-sm text-gray-500">No pricing plans available</p>
+                </div>
+              ) : (
+                <div className="space-y-2 md:space-y-4">
+                  {pricingPlans.map((plan: any) => (
+                    <div
+                      key={plan.id}
+                      className={`relative bg-white rounded-lg md:rounded-xl p-3 md:p-5 border ${!!plan.is_popular
+                          ? "border-violet-400 shadow-md md:shadow-xl"
+                          : "border-gray-200 md:border-white/20 hover:border-gray-300"
+                        }`}
+                    >
+                      {!!plan.is_popular && (
+                        <div className="absolute -top-1.5 -right-1.5 md:-top-3 md:-right-3">
+                          <span className="bg-gradient-to-r from-amber-400 to-orange-500 text-white px-2 md:px-4 py-0.5 md:py-1.5 rounded-full text-[10px] md:text-xs font-black shadow md:shadow-lg">
+                            <Crown className="w-2.5 h-2.5 md:w-3 md:h-3 inline mr-0.5" />
+                            <span className="hidden md:inline">Most Popular</span>
+                            <span className="md:hidden">Popular</span>
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex items-start justify-between mb-2 md:mb-4">
+                        <div>
+                          <h3 className="text-sm md:text-lg font-black text-gray-900">
+                            {plan.name}
+                          </h3>
+                          <p className="text-[10px] md:text-sm text-gray-500 font-medium mt-0.5">
+                            {plan.subtitle || "All-inclusive"}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xl md:text-3xl font-black gradient-text">
+                            ₹{plan.total_price.toLocaleString()}
+                          </p>
+                          <p className="text-[10px] md:text-xs text-gray-600 font-semibold">
+                            ~₹{plan.per_day_price}/day
+                          </p>
+                        </div>
+                      </div>
+                      <ul className="space-y-1 md:space-y-2 mb-2 md:mb-5">
+                        {plan.features?.map((feature: string, i: number) => (
+                          <li key={i} className="flex items-start gap-1.5 md:gap-2">
+                            <Check className="w-3 h-3 md:w-4 md:h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
+                            <span className="text-xs md:text-sm text-gray-700 font-semibold">
+                              {feature}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                      <button
+                        onClick={() => {
+                          setPreselectedRoomId(undefined);
+                          setIsBookingModalOpen(true);
+                          setBookingType("long");
+                        }}
+                        className={`w-full py-2 md:py-3 rounded-lg md:rounded-xl font-bold text-xs md:text-sm transition-all hover:shadow ${!!plan.is_popular
+                            ? "bg-gradient-to-r from-blue-600 to-cyan-600 text-white"
+                            : "bg-gradient-to-r from-gray-700 to-gray-800 text-white"
+                          }`}
+
+                      >
+                        Select Plan
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Short Stay Section */}
+              {shortStayBanner && shortStayBanner.is_active && (
+                <div className="mt-3 md:mt-6 pt-3 md:pt-6 border-t border-gray-200">
+                  <div className="text-center">
+                    <p className="text-xs md:text-sm text-gray-600 font-semibold mb-1.5 md:mb-2">
+                      {shortStayBanner.label || "Looking for short stay?"}
+                    </p>
+                    <button
+                      onClick={() => {
+                        setPreselectedRoomId(undefined);
+                        setIsBookingModalOpen(true);
+                        setBookingType("short");
+                      }}
+                      className="w-full py-2 md:py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-lg md:rounded-xl font-bold hover:shadow-lg transition-all text-xs md:text-sm"
+                    >
+                      Book Short Stay @ ₹{shortStayBanner.rate_per_day}/day
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
-            <div className="text-right">
-              <p className="text-xl md:text-3xl font-black gradient-text">
-                ₹{plan.total_price.toLocaleString()}
-              </p>
-              <p className="text-[10px] md:text-xs text-gray-600 font-semibold">
-                ~₹{plan.per_day_price}/day
-              </p>
-            </div>
-          </div>
-          <ul className="space-y-1 md:space-y-2 mb-2 md:mb-5">
-            {plan.features?.map((feature: string, i: number) => (
-              <li key={i} className="flex items-start gap-1.5 md:gap-2">
-                <Check className="w-3 h-3 md:w-4 md:h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
-                <span className="text-xs md:text-sm text-gray-700 font-semibold">
-                  {feature}
-                </span>
-              </li>
-            ))}
-          </ul>
-          <button
-            onClick={() => {
-              setPreselectedRoomId(undefined);
-              setIsBookingModalOpen(true);
-              setBookingType("long");
-            }}
-            className={`w-full py-2 md:py-3 rounded-lg md:rounded-xl font-bold text-xs md:text-sm transition-all hover:shadow ${
-             !!plan.is_popular
-    ? "bg-gradient-to-r from-blue-600 to-cyan-600 text-white"
-    : "bg-gradient-to-r from-gray-700 to-gray-800 text-white"
-}`}
-
-          >
-            Select Plan
-          </button>
-        </div>
-      ))}
-    </div>
-  )}
-
-  {/* Short Stay Section */}
-  {shortStayBanner && shortStayBanner.is_active && (
-    <div className="mt-3 md:mt-6 pt-3 md:pt-6 border-t border-gray-200">
-      <div className="text-center">
-        <p className="text-xs md:text-sm text-gray-600 font-semibold mb-1.5 md:mb-2">
-          {shortStayBanner.label || "Looking for short stay?"}
-        </p>
-        <button
-          onClick={() => {
-            setPreselectedRoomId(undefined);
-            setIsBookingModalOpen(true);
-            setBookingType("short");
-          }}
-          className="w-full py-2 md:py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-lg md:rounded-xl font-bold hover:shadow-lg transition-all text-xs md:text-sm"
-        >
-          Book Short Stay @ ₹{shortStayBanner.rate_per_day}/day
-        </button>
-      </div>
-    </div>
-  )}
-</div>
 
 
-           {/* Terms & Conditions */}
-<div className="bg-white rounded-xl md:rounded-2xl p-3 md:p-5 shadow-lg md:shadow-2xl">
-  <h2 className="text-sm md:text-base font-black gradient-text mb-2 md:mb-3 flex items-center">
-    <FileCheck className="w-4 h-4 md:w-5 md:h-5 mr-1 md:mr-2" />Terms & Conditions
-  </h2>
-  <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1 md:pr-2">
+            {/* Terms & Conditions */}
+            <div className="bg-white rounded-xl md:rounded-2xl p-3 md:p-5 shadow-lg md:shadow-2xl">
+              <h2 className="text-sm md:text-base font-black gradient-text mb-2 md:mb-3 flex items-center">
+                <FileCheck className="w-4 h-4 md:w-5 md:h-5 mr-1 md:mr-2" />Terms & Conditions
+              </h2>
+              <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1 md:pr-2">
 
-    {/* General Terms */}
-    {((Array.isArray(propertyData.termsAndConditions) && propertyData.termsAndConditions.length > 0) ||
-      (Array.isArray(propertyData.customTerms) && propertyData.customTerms.length > 0)) && (
-      <div>
-        <p className="text-xs font-bold text-gray-500 uppercase mb-1.5">General Terms</p>
-        <div className="space-y-1.5">
-          {propertyData.termsAndConditions?.map((term: string, i: number) => {
-            // Clean up the term - remove the "📅 Notice Period" header if present
-            let cleanTerm = term;
-            
-            // Remove the specific pattern: ",📅 Notice Period" or just "📅 Notice Period"
-            cleanTerm = cleanTerm.replace(/,?\s*📅\s*Notice Period\s*/g, '');
-            cleanTerm = cleanTerm.replace(/,?\s*Notice Period\s*/g, '');
-            
-            // Also remove any trailing commas or spaces
-            cleanTerm = cleanTerm.replace(/,\s*$/, '');
-            cleanTerm = cleanTerm.trim();
-            
-            if (!cleanTerm) return null;
-            
-            return (
-              <div key={`gen-${i}`} className="flex items-start gap-1.5 md:gap-2 p-2 md:p-3 bg-white/50 rounded md:rounded-lg border border-gray-200">
-                <div className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 flex-shrink-0" />
-                <p className="text-xs text-gray-700 font-medium leading-relaxed">{cleanTerm}</p>
+                {/* General Terms */}
+                {((Array.isArray(propertyData.termsAndConditions) && propertyData.termsAndConditions.length > 0) ||
+                  (Array.isArray(propertyData.customTerms) && propertyData.customTerms.length > 0)) && (
+                    <div>
+                      <p className="text-xs font-bold text-gray-500 uppercase mb-1.5">General Terms</p>
+                      <div className="space-y-1.5">
+                        {propertyData.termsAndConditions?.map((term: string, i: number) => {
+                          // Clean up the term - remove the "📅 Notice Period" header if present
+                          let cleanTerm = term;
+
+                          // Remove the specific pattern: ",📅 Notice Period" or just "📅 Notice Period"
+                          cleanTerm = cleanTerm.replace(/,?\s*📅\s*Notice Period\s*/g, '');
+                          cleanTerm = cleanTerm.replace(/,?\s*Notice Period\s*/g, '');
+
+                          // Also remove any trailing commas or spaces
+                          cleanTerm = cleanTerm.replace(/,\s*$/, '');
+                          cleanTerm = cleanTerm.trim();
+
+                          if (!cleanTerm) return null;
+
+                          return (
+                            <div key={`gen-${i}`} className="flex items-start gap-1.5 md:gap-2 p-2 md:p-3 bg-white/50 rounded md:rounded-lg border border-gray-200">
+                              <div className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 flex-shrink-0" />
+                              <p className="text-xs text-gray-700 font-medium leading-relaxed">{cleanTerm}</p>
+                            </div>
+                          );
+                        })}
+
+                        {propertyData.customTerms?.map((term: string, i: number) => {
+                          // Clean custom terms as well
+                          let cleanTerm = term;
+                          cleanTerm = cleanTerm.replace(/,?\s*📅\s*Notice Period\s*/g, '');
+                          cleanTerm = cleanTerm.replace(/,?\s*Notice Period\s*/g, '');
+                          cleanTerm = cleanTerm.replace(/,\s*$/, '');
+                          cleanTerm = cleanTerm.trim();
+
+                          if (!cleanTerm) return null;
+
+                          return (
+                            <div key={`cust-${i}`} className="flex items-start gap-1.5 md:gap-2 p-2 md:p-3 bg-white/50 rounded md:rounded-lg border border-gray-200">
+                              <div className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 flex-shrink-0" />
+                              <p className="text-xs text-gray-700 font-medium leading-relaxed">{cleanTerm}</p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                {/* Property Rules */}
+                {Array.isArray(propertyData.propertyRules) && propertyData.propertyRules.length > 0 && (
+                  <div>
+                    <p className="text-xs font-bold text-gray-500 uppercase mb-1.5">Property Rules</p>
+                    <div className="space-y-1.5">
+                      {propertyData.propertyRules.map((rule: string, i: number) => (
+                        <div key={i} className="flex items-start gap-1.5 md:gap-2 p-2 md:p-3 bg-amber-50/30 rounded md:rounded-lg border border-amber-200">
+                          <Shield className="w-3 h-3 md:w-4 md:h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                          <p className="text-xs text-gray-700 font-medium leading-relaxed">{rule}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Additional Terms */}
+                {Array.isArray(propertyData.additionalTerms) && propertyData.additionalTerms.length > 0 && (
+                  <div>
+                    <p className="text-xs font-bold text-gray-500 uppercase mb-1.5">Additional Terms</p>
+                    <div className="space-y-1.5">
+                      {propertyData.additionalTerms.map((term: string, i: number) => (
+                        <div key={i} className="flex items-start gap-1.5 md:gap-2 p-2 md:p-3 bg-purple-50/30 rounded md:rounded-lg border border-purple-200">
+                          <AlertCircle className="w-3 h-3 md:w-4 md:h-4 text-purple-600 flex-shrink-0 mt-0.5" />
+                          <p className="text-xs text-gray-700 font-medium leading-relaxed">{term}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* If no terms at all */}
+                {(!propertyData.termsAndConditions?.length &&
+                  !propertyData.customTerms?.length &&
+                  !propertyData.propertyRules?.length &&
+                  !propertyData.additionalTerms?.length) && (
+                    <p className="text-xs text-gray-400 text-center py-2">No terms available</p>
+                  )}
+
               </div>
-            );
-          })}
-          
-          {propertyData.customTerms?.map((term: string, i: number) => {
-            // Clean custom terms as well
-            let cleanTerm = term;
-            cleanTerm = cleanTerm.replace(/,?\s*📅\s*Notice Period\s*/g, '');
-            cleanTerm = cleanTerm.replace(/,?\s*Notice Period\s*/g, '');
-            cleanTerm = cleanTerm.replace(/,\s*$/, '');
-            cleanTerm = cleanTerm.trim();
-            
-            if (!cleanTerm) return null;
-            
-            return (
-              <div key={`cust-${i}`} className="flex items-start gap-1.5 md:gap-2 p-2 md:p-3 bg-white/50 rounded md:rounded-lg border border-gray-200">
-                <div className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 flex-shrink-0" />
-                <p className="text-xs text-gray-700 font-medium leading-relaxed">{cleanTerm}</p>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    )}
-
-    {/* Property Rules */}
-    {Array.isArray(propertyData.propertyRules) && propertyData.propertyRules.length > 0 && (
-      <div>
-        <p className="text-xs font-bold text-gray-500 uppercase mb-1.5">Property Rules</p>
-        <div className="space-y-1.5">
-          {propertyData.propertyRules.map((rule: string, i: number) => (
-            <div key={i} className="flex items-start gap-1.5 md:gap-2 p-2 md:p-3 bg-amber-50/30 rounded md:rounded-lg border border-amber-200">
-              <Shield className="w-3 h-3 md:w-4 md:h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-              <p className="text-xs text-gray-700 font-medium leading-relaxed">{rule}</p>
             </div>
-          ))}
-        </div>
-      </div>
-    )}
-
-    {/* Additional Terms */}
-    {Array.isArray(propertyData.additionalTerms) && propertyData.additionalTerms.length > 0 && (
-      <div>
-        <p className="text-xs font-bold text-gray-500 uppercase mb-1.5">Additional Terms</p>
-        <div className="space-y-1.5">
-          {propertyData.additionalTerms.map((term: string, i: number) => (
-            <div key={i} className="flex items-start gap-1.5 md:gap-2 p-2 md:p-3 bg-purple-50/30 rounded md:rounded-lg border border-purple-200">
-              <AlertCircle className="w-3 h-3 md:w-4 md:h-4 text-purple-600 flex-shrink-0 mt-0.5" />
-              <p className="text-xs text-gray-700 font-medium leading-relaxed">{term}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-    )}
-
-    {/* If no terms at all */}
-    {(!propertyData.termsAndConditions?.length && 
-      !propertyData.customTerms?.length &&
-      !propertyData.propertyRules?.length && 
-      !propertyData.additionalTerms?.length) && (
-      <p className="text-xs text-gray-400 text-center py-2">No terms available</p>
-    )}
-
-  </div>
-</div>
           </div>
         </div>
       </div>
 
-      {/* Lightbox Modal */}
+      {/* Lightbox Modal - with placeholder when no images */}
       {isLightboxOpen && (
         <div className="fixed inset-0 z-[100] bg-black/95 flex flex-col">
           <div className="flex items-center justify-between px-4 py-3 md:px-6 md:py-4 flex-shrink-0">
@@ -2326,12 +2333,19 @@ className={`relative bg-white rounded-lg md:rounded-xl p-3 md:p-5 border ${
           </div>
 
           <div className="flex-1 flex items-center justify-center relative px-2 md:px-16 min-h-0">
-            <img
-              src={propertyData.images?.[lightboxIndex] || "/placeholder-property.jpg"}
-              alt={`Property image ${lightboxIndex + 1}`}
-              className="max-w-full max-h-full object-contain rounded-lg select-none"
-              style={{ maxHeight: "calc(100vh - 180px)" }}
-            />
+            {propertyData.images && propertyData.images.length > 0 ? (
+              <img
+                src={propertyData.images[lightboxIndex]}
+                alt={`Property image ${lightboxIndex + 1}`}
+                className="max-w-full max-h-full object-contain rounded-lg select-none"
+                style={{ maxHeight: "calc(100vh - 180px)" }}
+              />
+            ) : (
+              <div className="flex flex-col items-center justify-center text-white">
+                <ImageIcon className="w-20 h-20 text-white/50 mb-4" />
+                <p className="text-white/70 text-sm">Image Not Available</p>
+              </div>
+            )}
 
             {propertyData.images?.length > 1 && (
               <button
@@ -2359,9 +2373,8 @@ className={`relative bg-white rounded-lg md:rounded-xl p-3 md:p-5 border ${
                   <button
                     key={idx}
                     onClick={() => setLightboxIndex(idx)}
-                    className={`flex-shrink-0 w-12 h-9 md:w-16 md:h-12 rounded-md overflow-hidden border-2 transition-all ${
-                      idx === lightboxIndex ? "border-blue-400 opacity-100 scale-105" : "border-transparent opacity-40 hover:opacity-70"
-                    }`}
+                    className={`flex-shrink-0 w-12 h-9 md:w-16 md:h-12 rounded-md overflow-hidden border-2 transition-all ${idx === lightboxIndex ? "border-blue-400 opacity-100 scale-105" : "border-transparent opacity-40 hover:opacity-70"
+                      }`}
                   >
                     <img src={img} alt={`thumb-${idx}`} className="w-full h-full object-cover" />
                   </button>
@@ -2373,268 +2386,265 @@ className={`relative bg-white rounded-lg md:rounded-xl p-3 md:p-5 border ${
       )}
 
       {/* Room View Modal */}
-{showAllRooms && (
-  <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-2 md:p-4">
-    <div className="bg-white rounded-xl md:rounded-2xl w-full max-w-4xl md:max-w-7xl max-h-[90vh] overflow-hidden shadow-xl md:shadow-2xl flex flex-col">
-      <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-cyan-600 px-3 md:px-6 py-2 md:py-4 flex items-center justify-between z-10">
-        <div className="flex items-center gap-2 md:gap-3">
-          <div className="w-9 h-9 md:w-12 md:h-12 bg-white/20 rounded-lg md:rounded-xl flex items-center justify-center">
-            <Home className="w-4 h-4 md:w-6 md:h-6 text-white" />
-          </div>
-          <div>
-            <h2 className="text-sm md:text-xl font-black text-white">
-              All Available Rooms
-            </h2>
-            <p className="text-[10px] md:text-xs text-white/80 font-semibold">
-              {filteredRooms.length} rooms found • {hasActiveFilters && "Filters applied"}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-1.5 md:gap-3">
-          {hasActiveFilters && (
-            <button
-              onClick={clearFilters}
-              className="px-2 py-1 md:px-4 md:py-2 bg-white/20 text-white rounded md:rounded-lg text-xs md:text-sm font-semibold hover:bg-white/30 transition-all"
-            >
-              Clear Filters
-            </button>
-          )}
-          <button
-            onClick={() => setShowAllRooms(false)}
-            className="p-1 md:p-2 hover:bg-white/20 rounded md:rounded-lg transition-all"
-          >
-            <X className="w-4 h-4 md:w-6 md:h-6 text-white" />
-          </button>
-        </div>
-      </div>
-      <div className="p-3 md:p-6 overflow-y-auto flex-1">
-        {filteredRooms.length === 0 ? (
-          <div className="text-center py-6 md:py-12">
-            <div className="w-14 h-14 md:w-24 md:h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3 md:mb-4">
-              <Search className="w-6 h-6 md:w-12 md:h-12 text-gray-400" />
-            </div>
-            <h3 className="text-sm md:text-xl font-bold text-gray-700 mb-1 md:mb-2">
-              No rooms found
-            </h3>
-            <p className="text-gray-500 mb-3 md:mb-4 text-xs md:text-base">
-              Try adjusting your filters to find more rooms
-            </p>
-            <button
-              onClick={clearFilters}
-              className="px-4 py-1.5 md:px-6 md:py-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg md:rounded-xl font-bold text-xs md:text-sm"
-            >
-              Clear All Filters
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-3 md:space-y-6">
-            {Object.entries(groupedRooms).map(([sharingType, sharingRooms]) => (
-              <div
-                key={sharingType}
-                className="bg-white rounded-lg md:rounded-xl p-3 md:p-6 border border-blue-100 md:border-2"
-              >
-              
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-4">
-                  {(sharingRooms as any[]).map((room) => {
-                    // Get minimum tenant rent for this room
-                    const minRent = getMinTenantRent(room);
-                    
-                    return (
-                      <div
-                        key={room.id}
-                        className={`bg-white rounded-lg md:rounded-xl p-2.5 md:p-4 border transition-all hover:shadow ${
-                          room.status === "available" ||
-                          room.status === "partially-available"
-                            ? "border-emerald-200 hover:border-emerald-400"
-                            : "border-orange-200 hover:border-orange-400"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between mb-2 md:mb-3">
-                          <div>
-                            <span className="text-xs md:text-sm font-black text-gray-900">
-                              {room.name}
-                            </span>
-                            <p className="text-[10px] md:text-xs text-gray-500">
-                              Floor {room.floor}
-                            </p>
-                          </div>
-
-                          {/* Gender Preference Badges */}
-                          <div className="flex gap-1">
-                            {room.room_gender_preference &&
-                              room.room_gender_preference.map((pref: string) => {
-                                const prefLower = pref.toLowerCase();
-                                if (prefLower === "male_only" || prefLower === "male") {
-                                  return (
-                                    <span
-                                      key={pref}
-                                      className="text-[8px] md:text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700"
-                                    >
-                                      {room.room_gender_preference.length > 1 ? "♂ Male" : "♂ Male Only"}
-                                    </span>
-                                  );
-                                }
-                                if (prefLower === "female_only" || prefLower === "female") {
-                                  return (
-                                    <span
-                                      key={pref}
-                                      className="text-[8px] md:text-[10px] px-1.5 py-0.5 rounded-full bg-pink-100 text-pink-700"
-                                    >
-                                      {room.room_gender_preference.length > 1 ? "♀ Female" : "♀ Female Only"}
-                                    </span>
-                                  );
-                                }
-                                if (prefLower === "couples") {
-                                  return (
-                                    <span
-                                      key={pref}
-                                      className="text-[8px] md:text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-700"
-                                    >
-                                      💑 Couples
-                                    </span>
-                                  );
-                                }
-                                if (prefLower === "both" || prefLower === "any" || prefLower === "mixed") {
-                                  return (
-                                    <span
-                                      key={pref}
-                                      className="text-[8px] md:text-[10px] px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700"
-                                    >
-                                      👥 Mixed
-                                    </span>
-                                  );
-                                }
-                                return null;
-                              })}
-                          </div>
-                        </div>
-
-                        {/* Bed Details - Show individual beds if available */}
-                        {room.bed_assignments && room.bed_assignments.length > 0 && (
-                          <div className="mb-3">
-                            <div className="flex items-center justify-between text-[9px] md:text-[10px] text-gray-600 mb-1.5">
-                              <span>Bed Configuration</span>
-                              <span className="font-medium">
-                                {room.occupiedBeds || 0}/{room.totalBeds || 0} occupied
-                              </span>
-                            </div>
-                            <div className="space-y-1.5">
-                              {room.bed_assignments.slice(0, 3).map((bed: any) => {
-                                const isBedOccupied = bed.tenant_id && !bed.is_available;
-                                const bedRent = bed.tenant_rent ? parseFloat(bed.tenant_rent) : 0;
-                                
-                                return (
-                                  <div
-                                    key={bed.bed_number}
-                                    className={`flex items-center justify-between p-1.5 rounded text-[9px] md:text-[10px] ${
-                                      isBedOccupied ? 'bg-orange-50' : 'bg-green-50'
-                                    }`}
-                                  >
-                                    <div className="flex items-center gap-1.5">
-                                      <Bed className={`w-3 h-3 ${isBedOccupied ? 'text-orange-600' : 'text-green-600'}`} />
-                                      <span className="font-medium">Bed {bed.bed_number}</span>
-                                      {bed.bed_type && (
-                                        <span className="text-gray-500">({bed.bed_type})</span>
-                                      )}
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                      <span className="font-bold text-green-700">
-                                        ₹{bedRent.toLocaleString()}
-                                      </span>
-                                      {isBedOccupied ? (
-                                        <span className="w-1.5 h-1.5 bg-orange-500 rounded-full" />
-                                      ) : (
-                                        <span className="text-[8px] text-emerald-600 font-medium">
-                                          Available
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                              {room.bed_assignments.length > 3 && (
-                                <div className="text-[8px] text-gray-500 text-center">
-                                  +{room.bed_assignments.length - 3} more beds
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        )}
-
-                        <div className="flex items-center gap-1.5 md:gap-2 mb-2 md:mb-4">
-
-<div className="flex items-center gap-0.5 md:gap-1 text-xs md:text-sm text-gray-600">
-  <Users className="w-3 h-3 md:w-4 md:h-4" />
-  <span className="font-semibold">
-    {room.occupiedBeds || 0}/{room.totalBeds || 2}
-    {(!room.room_gender_preference ||
-      room.room_gender_preference.length !== 1) && (
-      <span className="text-[12px] ml-1">
-        ({room.occupancy?.male || 0}♂ {room.occupancy?.female || 0}♀)
-      </span>
-    )}
-  </span>
-</div>
-                          <div className="flex items-center gap-1 ml-auto">
-                            {room.ac && (
-                              <Wind className="w-3 h-3 md:w-4 md:h-4 text-blue-600" />
-                            )}
-                            {room.wifi && (
-                              <Wifi className="w-3 h-3 md:w-4 md:h-4 text-blue-600" />
-                            )}
-                            {room.hasAttachedBathroom && (
-                              <Bath className="w-3 h-3 md:w-4 md:h-4 text-blue-600" />
-                            )}
-                            {room.hasBalcony && (
-                              <Home className="w-3 h-3 md:w-4 md:h-4 text-blue-600" />
-                            )}
-                            {room.available > 0 && (
-  <div className="text-[10px] md:text-xs font-bold text-emerald-600">
-    {room.available} bed{room.available > 1 ? "s" : ""} available
-  </div>
-)}
-                          </div>
-                        </div>
-
-                        <div className="flex items-center justify-between pt-2 md:pt-4 border-t border-gray-200">
-                          <div className="flex flex-col">
-                            <span className="text-xs text-gray-500">Starting from</span>
-                            <span className="text-sm md:text-base font-black text-emerald-600">
-                              ₹{minRent.toLocaleString()}
-                            </span>
-                          </div>
-                          <button
-                            onClick={() => {
-                              setPreselectedRoomId(room.id);
-                              setIsBookingModalOpen(true);
-                              setShowAllRooms(false);
-                            }}
-                            className={`px-2.5 md:px-4 py-1 md:py-2 rounded md:rounded-lg text-xs md:text-sm font-bold ${
-                              room.status === "available" ||
-                              room.status === "partially-available"
-                                ? "bg-gradient-to-r from-emerald-600 to-teal-900 text-white hover:shadow md:hover:shadow-lg"
-                                : "bg-gradient-to-r from-gray-600 to-gray-800 text-white hover:shadow md:hover:shadow-lg"
-                            }`}
-                            disabled={room.status === "occupied"}
-                          >
-                            {room.status === "available" ||
-                            room.status === "partially-available"
-                              ? "Book Now"
-                              : "Occupied"}
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
+      {showAllRooms && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-2 md:p-4">
+          <div className="bg-white rounded-xl md:rounded-2xl w-full max-w-4xl md:max-w-7xl max-h-[90vh] overflow-hidden shadow-xl md:shadow-2xl flex flex-col">
+            <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-cyan-600 px-3 md:px-6 py-2 md:py-4 flex items-center justify-between z-10">
+              <div className="flex items-center gap-2 md:gap-3">
+                <div className="w-9 h-9 md:w-12 md:h-12 bg-white/20 rounded-lg md:rounded-xl flex items-center justify-center">
+                  <Home className="w-4 h-4 md:w-6 md:h-6 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-sm md:text-xl font-black text-white">
+                    All Available Rooms
+                  </h2>
+                  <p className="text-[10px] md:text-xs text-white/80 font-semibold">
+                    {filteredRooms.length} rooms found • {hasActiveFilters && "Filters applied"}
+                  </p>
                 </div>
               </div>
-            ))}
+              <div className="flex items-center gap-1.5 md:gap-3">
+                {hasActiveFilters && (
+                  <button
+                    onClick={clearFilters}
+                    className="px-2 py-1 md:px-4 md:py-2 bg-white/20 text-white rounded md:rounded-lg text-xs md:text-sm font-semibold hover:bg-white/30 transition-all"
+                  >
+                    Clear Filters
+                  </button>
+                )}
+                <button
+                  onClick={() => setShowAllRooms(false)}
+                  className="p-1 md:p-2 hover:bg-white/20 rounded md:rounded-lg transition-all"
+                >
+                  <X className="w-4 h-4 md:w-6 md:h-6 text-white" />
+                </button>
+              </div>
+            </div>
+            <div className="p-3 md:p-6 overflow-y-auto flex-1">
+              {filteredRooms.length === 0 ? (
+                <div className="text-center py-6 md:py-12">
+                  <div className="w-14 h-14 md:w-24 md:h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3 md:mb-4">
+                    <Search className="w-6 h-6 md:w-12 md:h-12 text-gray-400" />
+                  </div>
+                  <h3 className="text-sm md:text-xl font-bold text-gray-700 mb-1 md:mb-2">
+                    No rooms found
+                  </h3>
+                  <p className="text-gray-500 mb-3 md:mb-4 text-xs md:text-base">
+                    Try adjusting your filters to find more rooms
+                  </p>
+                  <button
+                    onClick={clearFilters}
+                    className="px-4 py-1.5 md:px-6 md:py-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg md:rounded-xl font-bold text-xs md:text-sm"
+                  >
+                    Clear All Filters
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3 md:space-y-6">
+                  {Object.entries(groupedRooms).map(([sharingType, sharingRooms]) => (
+                    <div
+                      key={sharingType}
+                      className="bg-white rounded-lg md:rounded-xl p-3 md:p-6 border border-blue-100 md:border-2"
+                    >
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-4">
+                        {(sharingRooms as any[]).map((room) => {
+                          // Get minimum tenant rent for this room
+                          const minRent = getMinTenantRent(room);
+
+                          return (
+                            <div
+                              key={room.id}
+                              className={`bg-white rounded-lg md:rounded-xl p-2.5 md:p-4 border transition-all hover:shadow ${room.status === "available" ||
+                                  room.status === "partially-available"
+                                  ? "border-emerald-200 hover:border-emerald-400"
+                                  : "border-orange-200 hover:border-orange-400"
+                                }`}
+                            >
+                              <div className="flex items-center justify-between mb-2 md:mb-3">
+                                <div>
+                                  <span className="text-xs md:text-sm font-black text-gray-900">
+                                    {room.name}
+                                  </span>
+                                  <p className="text-[10px] md:text-xs text-gray-500">
+                                    Floor {room.floor}
+                                  </p>
+                                </div>
+
+                                {/* Gender Preference Badges */}
+                                <div className="flex gap-1">
+                                  {room.room_gender_preference &&
+                                    room.room_gender_preference.map((pref: string) => {
+                                      const prefLower = pref.toLowerCase();
+                                      if (prefLower === "male_only" || prefLower === "male") {
+                                        return (
+                                          <span
+                                            key={pref}
+                                            className="text-[8px] md:text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700"
+                                          >
+                                            {room.room_gender_preference.length > 1 ? "♂ Male" : "♂ Male Only"}
+                                          </span>
+                                        );
+                                      }
+                                      if (prefLower === "female_only" || prefLower === "female") {
+                                        return (
+                                          <span
+                                            key={pref}
+                                            className="text-[8px] md:text-[10px] px-1.5 py-0.5 rounded-full bg-pink-100 text-pink-700"
+                                          >
+                                            {room.room_gender_preference.length > 1 ? "♀ Female" : "♀ Female Only"}
+                                          </span>
+                                        );
+                                      }
+                                      if (prefLower === "couples") {
+                                        return (
+                                          <span
+                                            key={pref}
+                                            className="text-[8px] md:text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-700"
+                                          >
+                                            💑 Couples
+                                          </span>
+                                        );
+                                      }
+                                      if (prefLower === "both" || prefLower === "any" || prefLower === "mixed") {
+                                        return (
+                                          <span
+                                            key={pref}
+                                            className="text-[8px] md:text-[10px] px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700"
+                                          >
+                                            👥 Mixed
+                                          </span>
+                                        );
+                                      }
+                                      return null;
+                                    })}
+                                </div>
+                              </div>
+
+                              {/* Bed Details - Show individual beds if available */}
+                              {room.bed_assignments && room.bed_assignments.length > 0 && (
+                                <div className="mb-3">
+                                  <div className="flex items-center justify-between text-[9px] md:text-[10px] text-gray-600 mb-1.5">
+                                    <span>Bed Configuration</span>
+                                    <span className="font-medium">
+                                      {room.occupiedBeds || 0}/{room.totalBeds || 0} occupied
+                                    </span>
+                                  </div>
+                                  <div className="space-y-1.5">
+                                    {room.bed_assignments.slice(0, 3).map((bed: any) => {
+                                      const isBedOccupied = bed.tenant_id && !bed.is_available;
+                                      const bedRent = bed.tenant_rent ? parseFloat(bed.tenant_rent) : 0;
+
+                                      return (
+                                        <div
+                                          key={bed.bed_number}
+                                          className={`flex items-center justify-between p-1.5 rounded text-[9px] md:text-[10px] ${isBedOccupied ? 'bg-orange-50' : 'bg-green-50'
+                                            }`}
+                                        >
+                                          <div className="flex items-center gap-1.5">
+                                            <Bed className={`w-3 h-3 ${isBedOccupied ? 'text-orange-600' : 'text-green-600'}`} />
+                                            <span className="font-medium">Bed {bed.bed_number}</span>
+                                            {bed.bed_type && (
+                                              <span className="text-gray-500">({bed.bed_type})</span>
+                                            )}
+                                          </div>
+                                          <div className="flex items-center gap-2">
+                                            <span className="font-bold text-green-700">
+                                              ₹{bedRent.toLocaleString()}
+                                            </span>
+                                            {isBedOccupied ? (
+                                              <span className="w-1.5 h-1.5 bg-orange-500 rounded-full" />
+                                            ) : (
+                                              <span className="text-[8px] text-emerald-600 font-medium">
+                                                Available
+                                              </span>
+                                            )}
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                    {room.bed_assignments.length > 3 && (
+                                      <div className="text-[8px] text-gray-500 text-center">
+                                        +{room.bed_assignments.length - 3} more beds
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+
+                              <div className="flex items-center gap-1.5 md:gap-2 mb-2 md:mb-4">
+
+                                <div className="flex items-center gap-0.5 md:gap-1 text-xs md:text-sm text-gray-600">
+                                  <Users className="w-3 h-3 md:w-4 md:h-4" />
+                                  <span className="font-semibold">
+                                    {room.occupiedBeds || 0}/{room.totalBeds || 2}
+                                    {(!room.room_gender_preference ||
+                                      room.room_gender_preference.length !== 1) && (
+                                        <span className="text-[12px] ml-1">
+                                          ({room.occupancy?.male || 0}♂ {room.occupancy?.female || 0}♀)
+                                        </span>
+                                      )}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-1 ml-auto">
+                                  {room.ac && (
+                                    <Wind className="w-3 h-3 md:w-4 md:h-4 text-blue-600" />
+                                  )}
+                                  {room.wifi && (
+                                    <Wifi className="w-3 h-3 md:w-4 md:h-4 text-blue-600" />
+                                  )}
+                                  {room.hasAttachedBathroom && (
+                                    <Bath className="w-3 h-3 md:w-4 md:h-4 text-blue-600" />
+                                  )}
+                                  {room.hasBalcony && (
+                                    <Home className="w-3 h-3 md:w-4 md:h-4 text-blue-600" />
+                                  )}
+                                  {room.available > 0 && (
+                                    <div className="text-[10px] md:text-xs font-bold text-emerald-600">
+                                      {room.available} bed{room.available > 1 ? "s" : ""} available
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="flex items-center justify-between pt-2 md:pt-4 border-t border-gray-200">
+                                <div className="flex flex-col">
+                                  <span className="text-xs text-gray-500">Starting from</span>
+                                  <span className="text-sm md:text-base font-black text-emerald-600">
+                                    ₹{minRent.toLocaleString()}
+                                  </span>
+                                </div>
+                                <button
+                                  onClick={() => {
+                                    setPreselectedRoomId(room.id);
+                                    setIsBookingModalOpen(true);
+                                    setShowAllRooms(false);
+                                  }}
+                                  className={`px-2.5 md:px-4 py-1 md:py-2 rounded md:rounded-lg text-xs md:text-sm font-bold ${room.status === "available" ||
+                                      room.status === "partially-available"
+                                      ? "bg-gradient-to-r from-emerald-600 to-teal-900 text-white hover:shadow md:hover:shadow-lg"
+                                      : "bg-gradient-to-r from-gray-600 to-gray-800 text-white hover:shadow md:hover:shadow-lg"
+                                    }`}
+                                  disabled={room.status === "occupied"}
+                                >
+                                  {room.status === "available" ||
+                                    room.status === "partially-available"
+                                    ? "Book Now"
+                                    : "Occupied"}
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
-        )}
-      </div>
-    </div>
-  </div>
-)}
+        </div>
+      )}
 
       <BookingModal
         isOpen={isBookingModalOpen}
@@ -2642,7 +2652,7 @@ className={`relative bg-white rounded-lg md:rounded-xl p-3 md:p-5 border ${
           setIsBookingModalOpen(false);
           setBookingType("long");
           setPreselectedRoomId(undefined);
-          setOfferRoomId(undefined); 
+          setOfferRoomId(undefined);
           setAutoOpenModal(false);
         }}
         bookingType={bookingType}

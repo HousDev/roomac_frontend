@@ -39,22 +39,13 @@ import { getOrCreateTrackingId, generatePropertySlug } from '@/lib/slugUtils';
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
-// Fallback images array
-const FALLBACK_IMAGES = [
-  "https://images.pexels.com/photos/1643383/pexels-photo-1643383.jpeg?auto=compress&cs=tinysrgb&w=600",
-  "https://images.pexels.com/photos/1457842/pexels-photo-1457842.jpeg?auto=compress&cs=tinysrgb&w=600",
-  "https://images.pexels.com/photos/1571460/pexels-photo-1571460.jpeg?auto=compress&cs=tinysrgb&w=600",
-  "https://images.pexels.com/photos/1350789/pexels-photo-1350789.jpeg?auto=compress&cs=tinysrgb&w=600",
-  "https://images.pexels.com/photos/1428348/pexels-photo-1428348.jpeg?auto=compress&cs=tinysrgb&w=600"
-];
-
 // Brand colors
 const BRAND_BLUE = "#0249a8";
 const BRAND_YELLOW = "#fdbc0a";
 
 interface PropertyCardProps {
   property: any;
-  index?: number; // 👈 ADD THIS
+  index?: number;
   likedProperties?: Set<number>;
   onWhatsAppClick?: (phone: string, name: string, location: string) => void;
   onCallClick?: (phone: string) => void;
@@ -63,7 +54,7 @@ interface PropertyCardProps {
 
 const PropertyCard = memo(function PropertyCard({
   property,
-  index = 0,   // 👈 ADD THIS
+  index = 0,
   likedProperties = new Set(),
   onWhatsAppClick,
   onCallClick,
@@ -72,7 +63,6 @@ const PropertyCard = memo(function PropertyCard({
   const router = useRouter();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [imageError, setImageError] = useState(false);
-  const [fallbackIndex] = useState(() => Math.floor(Math.random() * FALLBACK_IMAGES.length));
   const [sharePopup, setSharePopup] = useState<{
     isOpen: boolean;
     property: any | null;
@@ -94,7 +84,7 @@ const PropertyCard = memo(function PropertyCard({
   const rating = property.rating || 4.5;
   const reviewCount = property.review_count || 24;
 
-  // Extract images with fallback
+  // Extract images – NO DEFAULT FALLBACK ANYMORE
   const propertyImages = (() => {
     if (property.photo_urls && Array.isArray(property.photo_urls)) return property.photo_urls;
     if (property.images && Array.isArray(property.images)) return property.images;
@@ -104,9 +94,8 @@ const PropertyCard = memo(function PropertyCard({
   })();
 
   const totalImages = propertyImages.length;
-  const currentImage = !imageError && totalImages > 0
-    ? `${API_URL}${propertyImages[currentImageIndex]}`
-    : FALLBACK_IMAGES[fallbackIndex];
+  const hasImages = totalImages > 0 && !imageError;
+  const currentImageUrl = hasImages ? `${API_URL}${propertyImages[currentImageIndex]}` : null;
 
   // Extract tags
   const propertyTags = (() => {
@@ -213,7 +202,7 @@ const PropertyCard = memo(function PropertyCard({
     router.push(`/properties/${slug}?tf=${trackingId}&sn=${index + 1}`);
   }, [router, property, propertyName]);
 
-  // Image navigation handlers - with stopPropagation to prevent card click
+  // Image navigation handlers - only if images exist
   const nextImage = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -349,7 +338,7 @@ const PropertyCard = memo(function PropertyCard({
     setCopied(false);
   }, []);
 
-  // Handle copy link - Updated to use the shareUrl from state
+  // Handle copy link
   const handleCopyLink = useCallback(() => {
     if (sharePopup.shareUrl) {
       navigator.clipboard.writeText(sharePopup.shareUrl);
@@ -358,7 +347,7 @@ const PropertyCard = memo(function PropertyCard({
     }
   }, [sharePopup.shareUrl]);
 
-  // Handle social share - Updated to use the shareUrl from state
+  // Handle social share
   const handleSocialShare = useCallback((platform: string) => {
     if (!sharePopup.shareUrl || !sharePopup.property) return;
 
@@ -409,14 +398,23 @@ const PropertyCard = memo(function PropertyCard({
         <div className="relative overflow-hidden rounded-2xl bg-[#f0f5f5] shadow-md hover:shadow-2xl transition-all duration-500 group-hover:-translate-y-2 h-[515px] flex flex-col">
 
           {/* Image area */}
-          <div className="relative h-52 sm:h-56 md:h-60 overflow-hidden rounded-t-2xl flex-shrink-0">
-            <img
-              src={currentImage}
-              alt={propertyName}
-              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-              style={{ transform: 'scale(1.03)' }}
-              onError={handleImageError}
-            />
+          <div className="relative h-52 sm:h-56 md:h-60 overflow-hidden rounded-t-2xl flex-shrink-0 bg-slate-200">
+            {hasImages ? (
+              <img
+                src={currentImageUrl!}
+                alt={propertyName}
+                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                style={{ transform: 'scale(1.03)' }}
+                onError={handleImageError}
+              />
+            ) : (
+              <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200">
+                <svg className="w-12 h-12 text-slate-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <span className="text-xs text-slate-500 font-medium">Image Not Available</span>
+              </div>
+            )}
 
             {/* Watermark - Center */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[5] pointer-events-none">
@@ -432,8 +430,8 @@ const PropertyCard = memo(function PropertyCard({
               </div>
             </div>
 
-            {/* Image navigation arrows */}
-            {totalImages > 1 && !imageError && (
+            {/* Image navigation arrows - only if images exist */}
+            {hasImages && totalImages > 1 && (
               <>
                 <button
                   onClick={prevImage}
@@ -484,29 +482,21 @@ const PropertyCard = memo(function PropertyCard({
                   {propertyType}
                 </span>
               )}
-
             </div>
 
-            {/* Image dots indicator */}
-            {totalImages > 1 && !imageError && (
+            {/* Image dots indicator - only if images exist */}
+            {hasImages && totalImages > 1 && (
               <div className="absolute bottom-3 left-1/2 transform -translate-x-1/2 flex gap-1 z-10">
-                {propertyImages.map((_: any, index: number) => (
+                {propertyImages.map((_: any, idx: number) => (
                   <button
-                    key={index}
-                    onClick={(e) => setImageIndex(index, e)}
-                    className={`w-1.5 h-1.5 rounded-full transition-all ${index === currentImageIndex
-                        ? 'bg-white w-3'
-                        : 'bg-white/50 hover:bg-white/80'
+                    key={idx}
+                    onClick={(e) => setImageIndex(idx, e)}
+                    className={`w-1.5 h-1.5 rounded-full transition-all ${idx === currentImageIndex
+                      ? 'bg-white w-3'
+                      : 'bg-white/50 hover:bg-white/80'
                       }`}
                   />
                 ))}
-              </div>
-            )}
-
-            {/* Fallback indicator */}
-            {imageError && (
-              <div className="absolute inset-0 flex items-center justify-center bg-slate-200">
-                <Building2 className="h-12 w-12 text-slate-400" />
               </div>
             )}
           </div>
@@ -514,7 +504,6 @@ const PropertyCard = memo(function PropertyCard({
           {/* Card body */}
           <div className="p-4 sm:p-5 flex flex-col flex-grow">
 
-            {/* Title + Price in Header Row */}
             {/* Title + Code + Price Row */}
             <div className="flex items-start justify-between mb-2 gap-2">
 
@@ -617,18 +606,16 @@ const PropertyCard = memo(function PropertyCard({
                   <ArrowRight className="h-3 w-3" />
                 </button>
 
-                {/* WhatsApp Button - Using property manager's WhatsApp/phone */}
+                {/* WhatsApp Button */}
                 <button
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    // Get WhatsApp number from property data - check all possible fields
                     const whatsappNumber = property?.property_manager_phone ||
                       property?.manager_phone ||
                       property?.whatsapp ||
                       property?.contact_number ||
                       '9923953933';
-                    window.open(`https://wa.me/91${whatsappNumber.replace(/[^0-9]/g, '')}?text=...`)
                     const message = `Hi, I'm interested in ${property?.name || 'this property'} at ${property?.location || property?.area || ''}. Can you share more details?`;
                     window.open(`https://wa.me/${whatsappNumber.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(message)}`, '_blank');
                   }}
@@ -639,12 +626,11 @@ const PropertyCard = memo(function PropertyCard({
                   <span className="hidden sm:inline">WhatsApp</span>
                 </button>
 
-                {/* Call Button - Using property manager's phone */}
+                {/* Call Button */}
                 <button
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    // Get phone number from property data - check all possible fields
                     const phoneNumber = property?.property_manager_phone ||
                       property?.manager_phone ||
                       property?.contact_number ||
@@ -664,7 +650,7 @@ const PropertyCard = memo(function PropertyCard({
         </div>
       </div>
 
-      {/* Share Popup Modal */}
+      {/* Share Popup Modal - with image placeholder */}
       {sharePopup.isOpen && sharePopup.property && (() => {
         const prop = sharePopup.property;
         let propImages: string[] = [];
@@ -672,8 +658,8 @@ const PropertyCard = memo(function PropertyCard({
         else if (prop.images && Array.isArray(prop.images)) propImages = prop.images;
         else if (prop.photos && Array.isArray(prop.photos)) propImages = prop.photos;
         else if (prop.image_urls && Array.isArray(prop.image_urls)) propImages = prop.image_urls;
-
-        const propImage = propImages.length > 0 ? propImages[0] : 'https://images.pexels.com/photos/1643383/pexels-photo-1643383.jpeg?auto=compress&cs=tinysrgb&w=600';
+        const hasPropImage = propImages.length > 0;
+        const propImage = hasPropImage ? `${API_URL}${propImages[0]}` : null;
         const propName = prop.name || prop.property_name || 'Premium Property';
         const propPrice = prop.starting_price || prop.price || prop.monthly_rent || prop.rent || 15000;
         const propBeds = prop.total_beds || prop.beds_available || prop.beds || 10;
@@ -690,7 +676,15 @@ const PropertyCard = memo(function PropertyCard({
             >
               {/* Header with Property Image */}
               <div className="relative h-40 bg-gradient-to-br from-[#0249a8] to-[#023a88]">
-                <img src={propImage} alt={propName} className="w-full h-full object-cover opacity-30" />
+                {hasPropImage ? (
+                  <img src={propImage!} alt={propName} className="w-full h-full object-cover opacity-30" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-slate-300 opacity-30">
+                    <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                )}
 
                 <button
                   onClick={closeSharePopup}
@@ -713,8 +707,16 @@ const PropertyCard = memo(function PropertyCard({
               {/* Property Info Card */}
               <div className="px-4 py-3 bg-slate-50 border-b border-slate-200">
                 <div className="flex items-start gap-3">
-                  <div className="h-16 w-16 rounded-lg overflow-hidden flex-shrink-0">
-                    <img src={propImage} alt={propName} className="w-full h-full object-cover" />
+                  <div className="h-16 w-16 rounded-lg overflow-hidden flex-shrink-0 bg-slate-200">
+                    {hasPropImage ? (
+                      <img src={propImage!} alt={propName} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-slate-300">
+                        <svg className="w-6 h-6 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                      </div>
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <h4 className="font-bold text-sm text-slate-800 truncate">{propName}</h4>
@@ -829,7 +831,7 @@ const PropertyCard = memo(function PropertyCard({
   );
 });
 
-// Loading Skeleton Component
+// Loading Skeleton Component (unchanged)
 export const PropertyCardSkeleton = memo(function PropertyCardSkeleton() {
   return (
     <div className="h-[500px] rounded-2xl bg-[#f0f5f5] shadow-md overflow-hidden animate-pulse">
@@ -864,7 +866,7 @@ export const PropertyCardSkeleton = memo(function PropertyCardSkeleton() {
   );
 });
 
-// Error State Component
+// Error State Component (unchanged)
 export const PropertyCardError = memo(function PropertyCardError({
   onRetry
 }: {
@@ -892,7 +894,7 @@ export const PropertyCardError = memo(function PropertyCardError({
   );
 });
 
-// Empty State Component
+// Empty State Component (unchanged)
 export const PropertyCardEmpty = memo(function PropertyCardEmpty({
   hasFilters = false,
   onClearFilters

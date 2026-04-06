@@ -218,8 +218,6 @@ interface HeroSectionProps {
   setSelectedPriceKey: (v: string) => void;
 }
 
-// In your HomePageClient.tsx, update the HeroSection component
-
 function HeroSection({
   isMounted,
   cities,
@@ -235,7 +233,7 @@ function HeroSection({
   const [current, setCurrent] = useState(0);
   const [direction, setDirection] = useState<1 | -1>(1);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const router = useRouter(); // Add this
+  const router = useRouter();
 
   const next = useCallback(() => {
     setDirection(1);
@@ -247,38 +245,25 @@ function HeroSection({
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [next]);
 
-  // Add search handler
-  // HomePageClient.tsx mein HeroSection component mein handleSearch function update karein
-
   const handleSearch = () => {
-    // Build query params
     const params = new URLSearchParams();
-
-    // Sirf non-empty values ko add karein
     if (selectedCity && selectedCity !== 'all' && selectedCity !== 'pune') {
       params.append('city', selectedCity);
     }
-
     if (searchArea && searchArea.trim() !== '') {
       params.append('search', searchArea.trim());
     }
-
     if (selectedAmenity && selectedAmenity.trim() !== '') {
       params.append('amenity', selectedAmenity);
     }
-
     if (selectedPriceKey && selectedPriceKey !== 'Any Price') {
       params.append('price', selectedPriceKey);
     }
-
-
     const queryString = params.toString();
     const url = queryString ? `/properties?${queryString}` : '/properties';
-
     router.push(url);
   };
 
-  // Handle Enter key in search input
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       handleSearch();
@@ -291,13 +276,10 @@ function HeroSection({
     exit: (dir: number) => ({ x: dir > 0 ? '-8%' : '8%', opacity: 0, scale: 1, transition: { duration: 0.8, ease: "easeIn" } }),
   };
 
-  // Get current slide data
   const currentSlide = heroSlides[current];
 
   return (
     <section className="relative w-full h-screen min-h-[600px] max-h-[400px] md:max-h-[660px] overflow-hidden">
-
-      {/* Background image slider */}
       <AnimatePresence custom={direction} initial={false}>
         <motion.div
           key={current}
@@ -312,19 +294,15 @@ function HeroSection({
         </motion.div>
       </AnimatePresence>
 
-      {/* Wave bottom */}
       <div className="absolute bottom-0 left-0 right-0 z-10 pointer-events-none -mb-1">
         <svg viewBox="0 0 1440 90" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full block" preserveAspectRatio="none" style={{ display: 'block' }}>
           <path d="M0,65 C240,5 480,85 720,45 C960,5 1200,75 1440,35 L1440,90 L0,90 Z" fill="white" />
         </svg>
       </div>
 
-      {/* FIXED CONTENT CONTAINER */}
       <div className="absolute inset-0 z-10 flex items-start justify-center px-4 pt-8">
         <div className="w-full max-w-4xl mx-auto text-center">
           <div className="flex flex-col items-center">
-
-            {/* Badge */}
             <motion.div
               key={`badge-${current}`}
               initial={{ opacity: 0, y: 20 }}
@@ -338,7 +316,6 @@ function HeroSection({
               </span>
             </motion.div>
 
-            {/* Heading */}
             <motion.h1
               key={`heading-${current}`}
               initial={{ opacity: 0, y: 20 }}
@@ -362,7 +339,6 @@ function HeroSection({
               )}
             </motion.h1>
 
-            {/* Subtext */}
             <motion.p
               key={`subtext-${current}`}
               initial={{ opacity: 0, y: 20 }}
@@ -373,7 +349,6 @@ function HeroSection({
               {currentSlide.subtext}
             </motion.p>
 
-            {/* CTAs */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -383,41 +358,22 @@ function HeroSection({
               <Link href="/properties">
                 <Button
                   size="lg"
-                  className="
-                  bg-[#0249a8] text-white border-0
-                  px-4 sm:px-7
-                  text-sm sm:text-base
-                  font-semibold
-                  shadow-lg shadow-blue-900/40
-                  transition-all duration-300 hover:scale-105
-                  gap-2
-                  h-10 sm:h-12
-                  whitespace-nowrap
-                  ">
+                  className="bg-[#0249a8] text-white border-0 px-4 sm:px-7 text-sm sm:text-base font-semibold shadow-lg shadow-blue-900/40 transition-all duration-300 hover:scale-105 gap-2 h-10 sm:h-12 whitespace-nowrap"
+                >
                   <Search className="h-4 w-4 sm:h-5 sm:w-5" /> Explore Properties
                 </Button>
               </Link>
-
               <Link href="/contact">
                 <Button
                   size="lg"
                   variant="outline"
-                  className="
-                  bg-white/10 hover:bg-white/20 backdrop-blur-sm
-                  text-white border border-white/40 hover:border-white/70
-                  px-4 sm:px-7
-                  text-sm sm:text-base
-                  font-semibold
-                  transition-all duration-300 hover:scale-105
-                  h-10 sm:h-12
-                  whitespace-nowrap
-                  ">
+                  className="bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white border border-white/40 hover:border-white/70 px-4 sm:px-7 text-sm sm:text-base font-semibold transition-all duration-300 hover:scale-105 h-10 sm:h-12 whitespace-nowrap"
+                >
                   Talk to Expert
                 </Button>
               </Link>
             </motion.div>
 
-            {/* SEARCH FILTER - WITH SEARCH BUTTON AND ENTER KEY HANDLER */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -435,12 +391,11 @@ function HeroSection({
                 setSelectedAmenity={setSelectedAmenity}
                 selectedPriceKey={selectedPriceKey}
                 setSelectedPriceKey={setSelectedPriceKey}
-                onSearch={handleSearch} // Add this prop
-                onKeyDown={handleKeyDown} // Add this prop
+                onSearch={handleSearch}
+                onKeyDown={handleKeyDown}
               />
             </motion.div>
 
-            {/* Stats */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -466,16 +421,31 @@ function HeroSection({
                 </div>
               </div>
             </motion.div>
-
           </div>
         </div>
       </div>
     </section>
   );
 }
+
 // ═════════════════════════════════════════════════════════════════════════════
 // FILTERS SECTION
 // ═════════════════════════════════════════════════════════════════════════════
+interface FiltersSectionProps {
+  isMounted: boolean;
+  cities: any[];
+  selectedCity: string;
+  setSelectedCity: (v: string) => void;
+  searchArea: string;
+  setSearchArea: (v: string) => void;
+  selectedAmenity: string;
+  setSelectedAmenity: (v: string) => void;
+  selectedPriceKey: string;
+  setSelectedPriceKey: (v: string) => void;
+  onSearch?: () => void;
+  onKeyDown?: (e: React.KeyboardEvent) => void;
+}
+
 function FiltersSection({
   isMounted,
   cities,
@@ -493,21 +463,13 @@ function FiltersSection({
   return (
     <div className="w-full">
       <div className="bg-white/15 backdrop-blur-xl border border-white/25 rounded-lg shadow-2xl shadow-black/30 px-2 py-2 sm:px-2.5 sm:py-2.5">
-
         <div className="flex items-center gap-1.5 mb-1.5">
           <SlidersHorizontal className="h-3 w-3 text-white/80" />
-          <span className="text-white/80 text-[11px] font-semibold uppercase tracking-wide">
-            Find Your Space
-          </span>
+          <span className="text-white/80 text-[11px] font-semibold uppercase tracking-wide">Find Your Space</span>
         </div>
 
-        {/* ✅ FLEX WRAPPER (Important Change) */}
         <div className="flex flex-col lg:flex-row gap-1.5">
-
-          {/* Filters Section */}
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-1.5 flex-1">
-
-            {/* City */}
             <div className="relative">
               <Select value={selectedCity} onValueChange={setSelectedCity}>
                 <SelectTrigger className="h-8 pl-7 rounded-md bg-white/15 backdrop-blur-sm border border-white/30 text-white text-[11px] font-medium w-full">
@@ -515,11 +477,7 @@ function FiltersSection({
                 </SelectTrigger>
                 <SelectContent className="rounded-lg shadow-2xl border border-blue-100 bg-white">
                   {cities.map((city: any) => (
-                    <SelectItem
-                      key={city.id}
-                      value={city.name.toLowerCase()}
-                      className="cursor-pointer hover:bg-blue-50 text-[11px]"
-                    >
+                    <SelectItem key={city.id} value={city.name.toLowerCase()} className="cursor-pointer hover:bg-blue-50 text-[11px]">
                       <div className="flex items-center gap-2">
                         <MapPin className="h-3 w-3 text-blue-500" />
                         {city.name}
@@ -530,48 +488,35 @@ function FiltersSection({
               </Select>
             </div>
 
-            {/* Locality */}
             <div className="relative">
               <div className="absolute left-2 top-1/2 -translate-y-1/2 z-10 pointer-events-none">
                 <Search className="h-3 w-3 text-blue-300" />
               </div>
-
               <Input
                 placeholder="Locality..."
                 value={searchArea}
                 onChange={(e) => setSearchArea(e.target.value)}
                 onKeyDown={onKeyDown}
-                className="h-8 pl-7 rounded-md bg-white/10 backdrop-blur-sm border border-white/30 
-                   text-white placeholder:text-white text-[11px] font-medium w-full"
+                className="h-8 pl-7 rounded-md bg-white/10 backdrop-blur-sm border border-white/30 text-white placeholder:text-white text-[11px] font-medium w-full"
               />
-
               {searchArea && (
-                <button
-                  onClick={() => setSearchArea("")}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-white hover:text-white"
-                >
+                <button onClick={() => setSearchArea("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-white hover:text-white">
                   <X className="h-2.5 w-2.5" />
                 </button>
               )}
             </div>
 
-            {/* Price */}
             <div className="relative">
               <div className="absolute left-2 top-1/2 -translate-y-1/2 z-10 pointer-events-none">
                 <IndianRupee className="h-3 w-3 text-blue-300" />
               </div>
-
               <Select value={selectedPriceKey} onValueChange={setSelectedPriceKey}>
                 <SelectTrigger className="h-8 pl-7 rounded-md bg-white/15 backdrop-blur-sm border border-white/30 text-white text-[11px] font-medium w-full">
                   <SelectValue placeholder="Any Price" />
                 </SelectTrigger>
                 <SelectContent className="rounded-lg shadow-2xl border border-blue-100 bg-white">
                   {PRICE_OPTIONS.map((p) => (
-                    <SelectItem
-                      key={p.label}
-                      value={p.label}
-                      className="hover:bg-blue-50 text-[11px] text-slate-700"
-                    >
+                    <SelectItem key={p.label} value={p.label} className="hover:bg-blue-50 text-[11px] text-slate-700">
                       {p.label}
                     </SelectItem>
                   ))}
@@ -579,73 +524,49 @@ function FiltersSection({
               </Select>
             </div>
 
-            {/* ✅ Mobile Search Button (ONLY visible below lg) */}
             {onSearch && (
               <div className="block lg:hidden">
-                <Button
-                  onClick={onSearch}
-                  className="w-full h-8 bg-blue-600 hover:bg-blue-700 text-white text-[11px]"
-                >
-                  <Search className="h-3 w-3 mr-1" />
-                  Search
+                <Button onClick={onSearch} className="w-full h-8 bg-blue-600 hover:bg-blue-700 text-white text-[11px]">
+                  <Search className="h-3 w-3 mr-1" /> Search
                 </Button>
               </div>
             )}
           </div>
 
-          {/* ✅ Desktop Search Button (ONLY lg and above) */}
           {onSearch && (
             <div className="hidden lg:block lg:w-52">
-              <Button
-                onClick={onSearch}
-                className="w-full h-8 bg-blue-600 hover:bg-blue-700 text-white text-[11px]"
-              >
-                <Search className="h-3 w-3 mr-1" />
-                Search Properties
+              <Button onClick={onSearch} className="w-full h-8 bg-blue-600 hover:bg-blue-700 text-white text-[11px]">
+                <Search className="h-3 w-3 mr-1" /> Search Properties
               </Button>
             </div>
           )}
-
         </div>
 
-
-        {/* Active Filters */}
         {(searchArea || selectedAmenity || selectedPriceKey !== "Any Price") && (
           <div className="flex flex-wrap gap-1 mt-1.5 pt-1.5 border-t border-white/20">
             <span className="text-white/60 text-[10px] self-center">Active:</span>
-
             {searchArea && (
               <span className="inline-flex items-center gap-1 bg-blue-500/30 border border-blue-400/40 text-white text-[10px] px-1.5 py-0.5 rounded-full">
                 "{searchArea}"
-                <button onClick={() => setSearchArea("")}>
-                  <X className="h-2 w-2" />
-                </button>
+                <button onClick={() => setSearchArea("")}><X className="h-2 w-2" /></button>
               </span>
             )}
-
             {selectedPriceKey !== "Any Price" && (
               <span className="inline-flex items-center gap-1 bg-amber-500/30 border border-amber-400/40 text-white text-[10px] px-1.5 py-0.5 rounded-full">
                 {selectedPriceKey}
-                <button onClick={() => setSelectedPriceKey("Any Price")}>
-                  <X className="h-2 w-2" />
-                </button>
+                <button onClick={() => setSelectedPriceKey("Any Price")}><X className="h-2 w-2" /></button>
               </span>
             )}
           </div>
         )}
-
       </div>
     </div>
   );
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-// PROPERTIES SECTION — Cards styled like Image 2 (Lucxorio-style)
+// PROPERTIES SECTION — No default images, only placeholder when missing
 // ═════════════════════════════════════════════════════════════════════════════
-// Component to add in HomePageClient.tsx
-
-// Updated PropertiesSection Component with Watermark and Enhanced Share Popup
-
 interface PropertiesSectionProps {
   properties: any[];
   allCount: number;
@@ -695,39 +616,21 @@ function PropertiesSection({
     const shareUrl = `${window.location.origin}/properties/${sharePopup.property?.slug || sharePopup.property?.id}`;
     const propertyName = sharePopup.property?.name || sharePopup.property?.property_name || 'Premium Property';
     const shareText = `Check out this property: ${propertyName}`;
-
     let url = '';
     switch (platform) {
-      case 'whatsapp':
-        url = `https://wa.me/?text=${encodeURIComponent(shareText + ' ' + shareUrl)}`;
-        break;
-      case 'facebook':
-        url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`;
-        break;
-      case 'twitter':
-        url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`;
-        break;
-      case 'linkedin':
-        url = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`;
-        break;
-      case 'telegram':
-        url = `https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareText)}`;
-        break;
-      case 'email':
-        url = `mailto:?subject=${encodeURIComponent(propertyName)}&body=${encodeURIComponent(shareText + '\n\n' + shareUrl)}`;
-        break;
+      case 'whatsapp': url = `https://wa.me/?text=${encodeURIComponent(shareText + ' ' + shareUrl)}`; break;
+      case 'facebook': url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`; break;
+      case 'twitter': url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`; break;
+      case 'linkedin': url = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`; break;
+      case 'telegram': url = `https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareText)}`; break;
+      case 'email': url = `mailto:?subject=${encodeURIComponent(propertyName)}&body=${encodeURIComponent(shareText + '\n\n' + shareUrl)}`; break;
     }
-
-    if (url) {
-      window.open(url, '_blank', 'width=600,height=400');
-    }
+    if (url) window.open(url, '_blank', 'width=600,height=400');
   };
 
   return (
     <div className="py-12 sm:py-16 bg-gradient-to-b from-slate-50 to-white px-2 sm:px-4">
       <div className="container mx-auto px-3 sm:px-4">
-
-        {/* Header */}
         <ScrollAnimation>
           <div className="text-center mb-8 sm:mb-12">
             <div className="inline-flex items-center justify-center mb-3 sm:mb-4">
@@ -747,20 +650,18 @@ function PropertiesSection({
           </div>
         </ScrollAnimation>
 
-        {/* Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8 mt-8 sm:mt-10">
           {properties.length > 0 ? (
             properties.map((property, index) => {
-              // ── All data extraction logic ──────────────────────
+              // Extract images
               let propertyImages: string[] = [];
               if (property.photo_urls && Array.isArray(property.photo_urls)) propertyImages = property.photo_urls;
               else if (property.images && Array.isArray(property.images)) propertyImages = property.images;
               else if (property.photos && Array.isArray(property.photos)) propertyImages = property.photos;
               else if (property.image_urls && Array.isArray(property.image_urls)) propertyImages = property.image_urls;
 
-              const propertyImage = propertyImages.length > 0
-                ? propertyImages[0]
-                : 'https://images.pexels.com/photos/1643383/pexels-photo-1643383.jpeg?auto=compress&cs=tinysrgb&w=600';
+              const hasImage = propertyImages.length > 0;
+              const propertyImage = hasImage ? propertyImages[0] : null;
 
               const propertyName = property.name || property.property_name || 'Premium Property';
               const propertyAddress = property.address || property.location || property.area || 'Location details available';
@@ -768,9 +669,7 @@ function PropertiesSection({
               const fullLocation = cityName ? `${propertyAddress}, ${cityName}` : propertyAddress;
               const propertyPrice = property.starting_price || property.price || property.monthly_rent || property.rent || 15000;
 
-              const propertyTags: string[] = property.tags_mapped
-                || property.property_tags || property.category_tags || property.labels || [];
-
+              const propertyTags: string[] = property.tags_mapped || property.property_tags || property.category_tags || property.labels || [];
               const getTagColor = (tag: string) => {
                 const t = tag.toLowerCase();
                 if (t.includes('male') || t.includes('boys') || t.includes('men')) return 'bg-gradient-to-r from-blue-600 to-blue-800 text-white';
@@ -796,76 +695,57 @@ function PropertiesSection({
                 if (property.power_backup) amenities.push("Power Backup");
                 if (property.housekeeping) amenities.push("Housekeeping");
               }
-
               const displayAmenities = amenities.slice(0, 5);
               const totalBeds = property.total_beds || property.beds_available || property.beds || 10;
               const propertyType = property.property_type || property.type || '';
               const totalRooms = property.total_rooms || property.rooms || property.room_count || '';
               const rating = property.rating || 4.5;
-              // ─────────────────────────────────────────────────────────────
 
               return (
                 <CardScrollAnimation key={property.id || index} index={index}>
                   <Link href={`/properties/${property.slug || property.id}`} className="group block h-full">
-                    {/* ── CARD ── */}
                     <div className="relative overflow-hidden rounded-2xl bg-[#f0f5f5] shadow-md hover:shadow-2xl transition-all duration-500 group-hover:-translate-y-2 h-[520px] flex flex-col">
-
                       {/* Image area */}
-                      <div className="relative h-52 sm:h-56 md:h-60 overflow-hidden rounded-t-2xl flex-shrink-0">
-                        <img
-                          src={propertyImage}
-                          alt={propertyName}
-                          className="w-full h-full object-cover group-hover:scale-108 transition-transform duration-700"
-                          style={{ transform: 'scale(1.03)' }}
-                          onMouseOver={e => (e.currentTarget.style.transform = 'scale(1.08)')}
-                          onMouseOut={e => (e.currentTarget.style.transform = 'scale(1.03)')}
-                        />
+                      <div className="relative h-52 sm:h-56 md:h-60 overflow-hidden rounded-t-2xl flex-shrink-0 bg-slate-200">
+                        {hasImage ? (
+                          <img
+                            src={propertyImage!}
+                            alt={propertyName}
+                            className="w-full h-full object-cover group-hover:scale-108 transition-transform duration-700"
+                            style={{ transform: 'scale(1.03)' }}
+                            onMouseOver={e => (e.currentTarget.style.transform = 'scale(1.08)')}
+                            onMouseOut={e => (e.currentTarget.style.transform = 'scale(1.03)')}
+                          />
+                        ) : (
+                          <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200">
+                            <svg className="w-12 h-12 text-slate-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            <span className="text-xs text-slate-500 font-medium">Image Not Available</span>
+                          </div>
+                        )}
 
-                        {/* Watermark - Center Top (Like RealEstateVin) */}
+                        {/* Watermark */}
                         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[5] pointer-events-none">
-                          <div
-                            className="
-    text-white/40
-    text-sm sm:text-base md:text-lg lg:text-3xl
-    font-semibold
-    tracking-wide
-    select-none
-    whitespace-nowrap
-    "
-                            style={{
-                              textShadow: '2px 2px 8px rgba(0,0,0,0.3)',
-                              fontFamily: 'Poppins, sans-serif',
-                              letterSpacing: '0.05em'
-                            }}
-                          >
+                          <div className="text-white/40 text-sm sm:text-base md:text-lg lg:text-3xl font-semibold tracking-wide select-none whitespace-nowrap" style={{ textShadow: '2px 2px 8px rgba(0,0,0,0.3)', fontFamily: 'Poppins, sans-serif', letterSpacing: '0.05em' }}>
                             Roomac.in
                           </div>
                         </div>
 
-
-                        {/* Rating pill — top left */}
                         <div className="absolute top-3 left-3 z-10 flex items-center gap-1.5 bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-full shadow-lg">
                           <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
                           <span className="text-xs font-bold text-slate-800">{rating}</span>
                         </div>
 
-                        {/* Share & Heart — top right */}
                         <div className="absolute top-3 right-3 z-10 flex gap-2">
-                          <button
-                            onClick={(e) => handleShareClick(e, property)}
-                            className="h-8 w-8 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-lg hover:scale-110 transition-all"
-                          >
+                          <button onClick={(e) => handleShareClick(e, property)} className="h-8 w-8 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-lg hover:scale-110 transition-all">
                             <Share2 className="h-4 w-4 text-slate-600" />
                           </button>
-                          <button
-                            onClick={(e) => onHeartClick(property.id || index, e)}
-                            className="h-8 w-8 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-lg hover:scale-110 transition-all"
-                          >
+                          <button onClick={(e) => onHeartClick(property.id || index, e)} className="h-8 w-8 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-lg hover:scale-110 transition-all">
                             <Heart className={`h-4 w-4 ${likedProperties.has(property.id || index) ? 'fill-red-500 text-red-500' : 'text-slate-400'}`} />
                           </button>
                         </div>
 
-                        {/* Tags */}
                         <div className="absolute bottom-3 left-3 flex flex-wrap gap-1.5 z-10">
                           {propertyTags.slice(0, 2).map((tag: string, ti: number) => (
                             <span key={ti} className={`px-2 py-0.5 bg rounded-full text-xs font-semibold shadow-md ${getTagColor(tag)}`}>
@@ -878,24 +758,10 @@ function PropertiesSection({
                         </div>
                       </div>
 
-                      {/* Card body */}
                       <div className="p-4 sm:p-5 flex flex-col flex-grow">
-
-                        {/* Title + Code + Price Row */}
                         <div className="flex items-start justify-between mb-2 gap-2">
-
-                          {/* LEFT : Property Title */}
                           <div className="flex-1 min-w-0">
-                            <h3 className="
-  font-bold 
-  text-[13px] sm:text-lg 
-  text-slate-800 
-  group-hover:text-[#0249a8] 
-  transition-colors duration-300 
-  leading-tight
-  break-words
-  sm:line-clamp-1
-">
+                            <h3 className="font-bold text-[13px] sm:text-lg text-slate-800 group-hover:text-[#0249a8] transition-colors duration-300 leading-tight break-words sm:line-clamp-1">
                               {propertyName}
                             </h3>
                             <div className="flex items-center gap-2 mt-1">
@@ -903,30 +769,18 @@ function PropertiesSection({
                               <div className="h-0.5 w-2 bg-yellow-400 rounded-full" />
                             </div>
                           </div>
-
-                          {/* CENTER : RMCX Code */}
                           <div className="flex items-center justify-center">
-                            <span
-                              className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm bg-slate-200 text-black whitespace-nowrap"
-                            >
-
+                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm bg-slate-200 text-black whitespace-nowrap">
                               RMCX-00{index + 1}
-
                             </span>
                           </div>
-
-                          {/* RIGHT : Pricing */}
                           <div className="text-right ml-2">
-                            <p className="text-xs text-slate-400 font-medium whitespace-nowrap">
-                              Starting from
-                            </p>
-
+                            <p className="text-xs text-slate-400 font-medium whitespace-nowrap">Starting from</p>
                             <p className="text-lg font-bold text-[#0249a8] whitespace-nowrap">
                               ₹{Number(propertyPrice).toLocaleString()}
                               <span className="text-sm text-slate-400 font-normal">/mo</span>
                             </p>
                           </div>
-
                         </div>
 
                         <div className="flex items-start gap-1.5 mb-3">
@@ -979,31 +833,16 @@ function PropertiesSection({
                                 <ArrowRight className="h-3 w-3" />
                               </button>
                             </Link>
-
-                            {/* Extract manager phone for WhatsApp */}
                             {(() => {
-                              // Get phone number from various possible fields
-                              const managerPhone = property.manager_phone ||
-                                property.property_manager_phone ||
-                                property.contact_number ||
-                                property.whatsapp;
-
-                              // Get manager name for display (optional)
-                              const managerName = property.manager_name ||
-                                property.property_manager_name ||
-                                'Manager';
-
+                              const managerPhone = property.manager_phone || property.property_manager_phone || property.contact_number || property.whatsapp;
+                              const managerName = property.manager_name || property.property_manager_name || 'Manager';
                               return (
                                 <>
                                   <button
                                     onClick={(e) => {
                                       e.preventDefault();
                                       e.stopPropagation();
-                                      onWhatsAppClick(
-                                        managerPhone || '9923953933',
-                                        propertyName,
-                                        fullLocation
-                                      );
+                                      onWhatsAppClick(managerPhone || '9923953933', propertyName, fullLocation);
                                     }}
                                     className="flex-1 flex items-center justify-center gap-1 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 rounded-lg text-xs font-medium transition-all hover:scale-105"
                                     title={`WhatsApp ${managerName}`}
@@ -1011,7 +850,6 @@ function PropertiesSection({
                                     <BsWhatsapp className="h-4 w-4" />
                                     <span className="hidden sm:inline">WhatsApp</span>
                                   </button>
-
                                   <button
                                     onClick={(e) => {
                                       e.preventDefault();
@@ -1041,17 +879,12 @@ function PropertiesSection({
                 <div className="flex justify-center items-center text-center py-16 w-full">
                   <div className="max-w-md mx-auto flex flex-col items-center">
                     <Building2 className="h-16 w-16 text-slate-300 mb-4" />
-
                     <h3 className="text-lg font-semibold text-slate-700 mb-2">
                       {hasActiveFilters ? 'No properties match your filters' : 'No Properties Found'}
                     </h3>
-
                     <p className="text-slate-500 mb-4">
-                      {hasActiveFilters
-                        ? 'Try adjusting or clearing your search filters.'
-                        : "We couldn't find any properties at the moment."}
+                      {hasActiveFilters ? 'Try adjusting or clearing your search filters.' : "We couldn't find any properties at the moment."}
                     </p>
-
                     <Link href="/properties">
                       <button className="px-6 py-3 bg-[#0249a8] text-white font-semibold rounded-full hover:shadow-md transition-all duration-300">
                         Browse All Properties
@@ -1061,12 +894,9 @@ function PropertiesSection({
                 </div>
               </ScrollAnimation>
             </div>
-
-
           )}
         </div>
 
-        {/* View All */}
         <ScrollAnimation delay={0.3}>
           <div className="text-center mt-7 mb-2">
             <Link href="/properties">
@@ -1078,7 +908,7 @@ function PropertiesSection({
         </ScrollAnimation>
       </div>
 
-      {/* Share Popup Modal - COMPACT WITH PROPERTY INFO */}
+      {/* Share Popup Modal - with image placeholder */}
       {sharePopup.isOpen && sharePopup.property && (() => {
         const prop = sharePopup.property;
         let propImages: string[] = [];
@@ -1086,34 +916,29 @@ function PropertiesSection({
         else if (prop.images && Array.isArray(prop.images)) propImages = prop.images;
         else if (prop.photos && Array.isArray(prop.photos)) propImages = prop.photos;
         else if (prop.image_urls && Array.isArray(prop.image_urls)) propImages = prop.image_urls;
-
-        const propImage = propImages.length > 0 ? propImages[0] : 'https://images.pexels.com/photos/1643383/pexels-photo-1643383.jpeg?auto=compress&cs=tinysrgb&w=600';
+        const hasPropImage = propImages.length > 0;
+        const propImage = hasPropImage ? propImages[0] : null;
         const propName = prop.name || prop.property_name || 'Premium Property';
         const propPrice = prop.starting_price || prop.price || prop.monthly_rent || prop.rent || 15000;
         const propBeds = prop.total_beds || prop.beds_available || prop.beds || 10;
         const propLocation = prop.address || prop.location || prop.area || 'Location';
 
         return (
-          <div
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-            onClick={closeSharePopup}
-          >
-            <div
-              className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* Header with Property Image */}
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={closeSharePopup}>
+            <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden" onClick={(e) => e.stopPropagation()}>
               <div className="relative h-40 bg-gradient-to-br from-[#0249a8] to-[#023a88]">
-                <img src={propImage} alt={propName} className="w-full h-full object-cover opacity-30" />
-                {/* <div className="absolute inset-0 bg-gradient-to-t from-[#0249a8] to-transparent" /> */}
-
-                <button
-                  onClick={closeSharePopup}
-                  className="absolute top-3 right-3 h-8 w-8 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-sm flex items-center justify-center transition-all z-10"
-                >
+                {hasPropImage ? (
+                  <img src={propImage!} alt={propName} className="w-full h-full object-cover opacity-30" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-slate-300 opacity-30">
+                    <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                )}
+                <button onClick={closeSharePopup} className="absolute top-3 right-3 h-8 w-8 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-sm flex items-center justify-center transition-all z-10">
                   <X className="h-4 w-4 text-white" />
                 </button>
-
                 <div className="absolute bottom-3 left-4 right-4">
                   <div className="flex items-center justify-center mb-2">
                     <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-white/20 backdrop-blur-sm">
@@ -1125,11 +950,18 @@ function PropertiesSection({
                 </div>
               </div>
 
-              {/* Property Info Card */}
               <div className="px-4 py-3 bg-slate-50 border-b border-slate-200">
                 <div className="flex items-start gap-3">
-                  <div className="h-16 w-16 rounded-lg overflow-hidden flex-shrink-0">
-                    <img src={propImage} alt={propName} className="w-full h-full object-cover" />
+                  <div className="h-16 w-16 rounded-lg overflow-hidden flex-shrink-0 bg-slate-200">
+                    {hasPropImage ? (
+                      <img src={propImage!} alt={propName} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-slate-300">
+                        <svg className="w-6 h-6 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                      </div>
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <h4 className="font-bold text-sm text-slate-800 truncate">{propName}</h4>
@@ -1143,95 +975,38 @@ function PropertiesSection({
                 </div>
               </div>
 
-              {/* Content */}
               <div className="p-4">
-                {/* Copy Link */}
                 <div className="mb-4">
                   <div className="flex items-center gap-2 bg-slate-50 rounded-lg p-2.5 border border-slate-200">
-                    <input
-                      type="text"
-                      readOnly
-                      value={`${typeof window !== 'undefined' ? window.location.origin : ''}/properties/${prop.slug || prop.id}`}
-                      className="flex-1 bg-transparent text-xs text-slate-600 outline-none truncate"
-                    />
-                    <button
-                      onClick={handleCopyLink}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0249a8] hover:bg-[#023a88] text-white rounded-md text-xs font-medium transition-all hover:scale-105 flex-shrink-0"
-                    >
-                      {copied ? (
-                        <>
-                          <Check className="h-3.5 w-3.5" />
-                          <span>Copied!</span>
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="h-3.5 w-3.5" />
-                          <span>Copy</span>
-                        </>
-                      )}
+                    <input type="text" readOnly value={`${typeof window !== 'undefined' ? window.location.origin : ''}/properties/${prop.slug || prop.id}`} className="flex-1 bg-transparent text-xs text-slate-600 outline-none truncate" />
+                    <button onClick={handleCopyLink} className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0249a8] hover:bg-[#023a88] text-white rounded-md text-xs font-medium transition-all hover:scale-105 flex-shrink-0">
+                      {copied ? <><Check className="h-3.5 w-3.5" /><span>Copied!</span></> : <><Copy className="h-3.5 w-3.5" /><span>Copy</span></>}
                     </button>
                   </div>
                 </div>
-
-                {/* Social Share Buttons - 3 columns */}
                 <div className="grid grid-cols-3 gap-2.5">
-                  <button
-                    onClick={() => handleSocialShare('whatsapp')}
-                    className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-gradient-to-br from-emerald-50 to-green-50 hover:from-emerald-100 hover:to-green-100 border border-emerald-200 transition-all hover:scale-105 group"
-                  >
-                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow">
-                      <BsWhatsapp className="h-5 w-5 text-white" />
-                    </div>
+                  <button onClick={() => handleSocialShare('whatsapp')} className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-gradient-to-br from-emerald-50 to-green-50 hover:from-emerald-100 hover:to-green-100 border border-emerald-200 transition-all hover:scale-105 group">
+                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow"><BsWhatsapp className="h-5 w-5 text-white" /></div>
                     <span className="text-[10px] font-medium text-slate-700">WhatsApp</span>
                   </button>
-
-                  <button
-                    onClick={() => handleSocialShare('facebook')}
-                    className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 border border-blue-200 transition-all hover:scale-105 group"
-                  >
-                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow">
-                      <FaFacebookF className="h-5 w-5 text-white" />
-                    </div>
+                  <button onClick={() => handleSocialShare('facebook')} className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 border border-blue-200 transition-all hover:scale-105 group">
+                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow"><FaFacebookF className="h-5 w-5 text-white" /></div>
                     <span className="text-[10px] font-medium text-slate-700">Facebook</span>
                   </button>
-
-                  <button
-                    onClick={() => handleSocialShare('twitter')}
-                    className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-gradient-to-br from-sky-50 to-blue-50 hover:from-sky-100 hover:to-blue-100 border border-sky-200 transition-all hover:scale-105 group"
-                  >
-                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-sky-500 to-blue-500 flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow">
-                      <FaTwitter className="h-5 w-5 text-white" />
-                    </div>
+                  <button onClick={() => handleSocialShare('twitter')} className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-gradient-to-br from-sky-50 to-blue-50 hover:from-sky-100 hover:to-blue-100 border border-sky-200 transition-all hover:scale-105 group">
+                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-sky-500 to-blue-500 flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow"><FaTwitter className="h-5 w-5 text-white" /></div>
                     <span className="text-[10px] font-medium text-slate-700">Twitter</span>
                   </button>
-
-                  <button
-                    onClick={() => handleSocialShare('linkedin')}
-                    className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-gradient-to-br from-blue-50 to-cyan-50 hover:from-blue-100 hover:to-cyan-100 border border-blue-300 transition-all hover:scale-105 group"
-                  >
-                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-700 to-cyan-700 flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow">
-                      <FaLinkedinIn className="h-5 w-5 text-white" />
-                    </div>
+                  <button onClick={() => handleSocialShare('linkedin')} className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-gradient-to-br from-blue-50 to-cyan-50 hover:from-blue-100 hover:to-cyan-100 border border-blue-300 transition-all hover:scale-105 group">
+                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-700 to-cyan-700 flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow"><FaLinkedinIn className="h-5 w-5 text-white" /></div>
                     <span className="text-[10px] font-medium text-slate-700">LinkedIn</span>
                   </button>
-
-                  <button
-                    onClick={() => handleSocialShare('telegram')}
-                    className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-gradient-to-br from-cyan-50 to-blue-50 hover:from-cyan-100 hover:to-blue-100 border border-cyan-200 transition-all hover:scale-105 group"
-                  >
-                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow">
-                      <FaTelegramPlane className="h-5 w-5 text-white" />
-                    </div>
+                  <button onClick={() => handleSocialShare('telegram')} className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-gradient-to-br from-cyan-50 to-blue-50 hover:from-cyan-100 hover:to-blue-100 border border-cyan-200 transition-all hover:scale-105 group">
+                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow"><FaTelegramPlane className="h-5 w-5 text-white" /></div>
                     <span className="text-[10px] font-medium text-slate-700">Telegram</span>
                   </button>
-
-                  <button
-                    onClick={() => handleSocialShare('email')}
-                    className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-gradient-to-br from-slate-50 to-gray-50 hover:from-slate-100 hover:to-gray-100 border border-slate-200 transition-all hover:scale-105 group"
-                  >
-                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-slate-600 to-gray-700 flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow">
-                      <MdEmail className="h-5 w-5 text-white" />
-                    </div>
+                  <button onClick={() => handleSocialShare('email')} className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-gradient-to-br from-slate-50 to-gray-50 hover:from-slate-100 hover:to-gray-100 border border-slate-200 transition-all hover:scale-105 group">
+                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-slate-600 to-gray-700 flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow"><MdEmail className="h-5 w-5 text-white" /></div>
                     <span className="text-[10px] font-medium text-slate-700">Email</span>
                   </button>
                 </div>
@@ -1243,8 +1018,9 @@ function PropertiesSection({
     </div>
   );
 }
+
 // ═════════════════════════════════════════════════════════════════════════════
-// ABOUT US SECTION - LUXURY STYLE WITH TABS
+// ABOUT US SECTION (unchanged)
 // ═════════════════════════════════════════════════════════════════════════════
 function AboutUsSection() {
   const [activeTab, setActiveTab] = useState<'mission' | 'vision' | 'history'>('mission');
@@ -1253,62 +1029,25 @@ function AboutUsSection() {
     mission: {
       title: "Our Mission",
       description: "We believe in creating spaces that feel like home. Our properties are designed with modern amenities, safety features, and a vibrant community atmosphere that makes every resident feel welcome and valued.",
-      features: [
-        "Healthy Meals for Everyone",
-        "The Best Parking Space",
-        "Premium WiFi & Security",
-        "Community Events",
-        "Quality Room Service",
-        "24/7 Services"
-      ]
+      features: ["Healthy Meals for Everyone", "The Best Parking Space", "Premium WiFi & Security", "Community Events", "Quality Room Service", "24/7 Services"]
     },
     vision: {
       title: "Our Vision",
       description: "To become India's most trusted co-living platform, setting new standards in comfort, community, and convenience. We envision a future where finding the perfect home is seamless, and every resident experiences premium living at affordable prices.",
-      features: [
-        "Expand Across 50+ Cities",
-        "Smart Home Integration",
-        "Sustainable Living Spaces",
-        "Enhanced Digital Experience",
-        "Premium Lifestyle Services",
-        "Community-First Approach"
-      ]
+      features: ["Expand Across 50+ Cities", "Smart Home Integration", "Sustainable Living Spaces", "Enhanced Digital Experience", "Premium Lifestyle Services", "Community-First Approach"]
     },
     history: {
       title: "Our History",
       description: "Founded in 2020, Roomac started with a simple vision: to revolutionize co-living in India. From our first property in Pune to now serving 500+ happy residents across multiple cities, we've grown by staying true to our core values of quality, community, and trust.",
-      features: [
-        "2020 - Founded in Pune",
-        "2021 - 100+ Residents",
-        "2022 - Multi-City Expansion",
-        "2023 - 500+ Happy Residents",
-        "2024 - Premium Properties",
-        "2025 - Award-Winning Service"
-      ]
+      features: ["2020 - Founded in Pune", "2021 - 100+ Residents", "2022 - Multi-City Expansion", "2023 - 500+ Happy Residents", "2024 - Premium Properties", "2025 - Award-Winning Service"]
     }
   };
 
   const categories = [
-    {
-      title: "Students",
-      description: "Affordable PGs near colleges with food, WiFi & a safe environment.",
-      image: "https://images.pexels.com/photos/1595391/pexels-photo-1595391.jpeg?auto=compress&cs=tinysrgb&w=900",
-    },
-    {
-      title: "Working Professionals",
-      description: "Premium stays near IT parks with power backup & housekeeping.",
-      image: "https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=900",
-    },
-    {
-      title: "Couples",
-      description: "Private & comfortable couple-friendly rooms with full privacy.",
-      image: "https://images.unsplash.com/photo-1600585154526-990dced4db0d?auto=format&fit=crop&w=900&q=80",
-    },
-    {
-      title: "Corporate Stays",
-      description: "Short & long-term stays for teams with complete support.",
-      image: "https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=900&q=80",
-    },
+    { title: "Students", description: "Affordable PGs near colleges with food, WiFi & a safe environment.", image: "https://images.pexels.com/photos/1595391/pexels-photo-1595391.jpeg?auto=compress&cs=tinysrgb&w=900" },
+    { title: "Working Professionals", description: "Premium stays near IT parks with power backup & housekeeping.", image: "https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=900" },
+    { title: "Couples", description: "Private & comfortable couple-friendly rooms with full privacy.", image: "https://images.unsplash.com/photo-1600585154526-990dced4db0d?auto=format&fit=crop&w=900&q=80" },
+    { title: "Corporate Stays", description: "Short & long-term stays for teams with complete support.", image: "https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=900&q=80" },
   ];
 
   const currentContent = tabContent[activeTab];
@@ -1317,73 +1056,20 @@ function AboutUsSection() {
     <ScrollAnimation>
       <section className="bg-gradient-to-br from-slate-50 to-white py-6 sm:py-6 lg:py-5 px-4 sm:px-6">
         <div className="max-w-6xl mx-auto">
-
-          {/* DESKTOP VIEW - Side by Side */}
+          {/* DESKTOP VIEW */}
           <div className="hidden lg:grid lg:grid-cols-2 gap-12 xl:gap-16 items-center mb-16">
-
-            {/* LEFT SIDE - Content */}
             <div>
-              <div className="mb-3">
-                <span className="text-xs font-semibold text-[#0249a8] tracking-widest uppercase">
-                  About Roomac
-                </span>
-              </div>
-
-              <h2 className="text-3xl xl:text-4xl 2xl:text-5xl font-bold mb-6 leading-tight text-slate-900">
-                We Provide Premium Living Spaces To All Visitors
-              </h2>
-
-              <p className="text-slate-600 text-sm xl:text-base leading-relaxed mb-8">
-                At Roomac, luxury is more than just a word — it's a tradition. From exquisite
-                design to personalized service, every detail is thoughtfully curated to
-                create unforgettable living experiences.
-              </p>
-
-              {/* Tabs */}
+              <div className="mb-3"><span className="text-xs font-semibold text-[#0249a8] tracking-widest uppercase">About Roomac</span></div>
+              <h2 className="text-3xl xl:text-4xl 2xl:text-5xl font-bold mb-6 leading-tight text-slate-900">We Provide Premium Living Spaces To All Visitors</h2>
+              <p className="text-slate-600 text-sm xl:text-base leading-relaxed mb-8">At Roomac, luxury is more than just a word — it's a tradition. From exquisite design to personalized service, every detail is thoughtfully curated to create unforgettable living experiences.</p>
               <div className="flex flex-wrap gap-3 mb-6">
-                <button
-                  onClick={() => setActiveTab('mission')}
-                  className={`px-6 py-2.5 text-sm font-semibold rounded-full transition-all duration-300 shadow-md ${activeTab === 'mission'
-                    ? 'bg-[#0249a8] text-white'
-                    : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50'
-                    }`}
-                >
-                  Our Mission
-                </button>
-                <button
-                  onClick={() => setActiveTab('vision')}
-                  className={`px-6 py-2.5 text-sm font-semibold rounded-full transition-all duration-300 shadow-md ${activeTab === 'vision'
-                    ? 'bg-[#0249a8] text-white'
-                    : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50'
-                    }`}
-                >
-                  Our Vision
-                </button>
-                <button
-                  onClick={() => setActiveTab('history')}
-                  className={`px-6 py-2.5 text-sm font-semibold rounded-full transition-all duration-300 shadow-md ${activeTab === 'history'
-                    ? 'bg-[#0249a8] text-white'
-                    : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50'
-                    }`}
-                >
-                  Our History
-                </button>
+                <button onClick={() => setActiveTab('mission')} className={`px-6 py-2.5 text-sm font-semibold rounded-full transition-all duration-300 shadow-md ${activeTab === 'mission' ? 'bg-[#0249a8] text-white' : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50'}`}>Our Mission</button>
+                <button onClick={() => setActiveTab('vision')} className={`px-6 py-2.5 text-sm font-semibold rounded-full transition-all duration-300 shadow-md ${activeTab === 'vision' ? 'bg-[#0249a8] text-white' : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50'}`}>Our Vision</button>
+                <button onClick={() => setActiveTab('history')} className={`px-6 py-2.5 text-sm font-semibold rounded-full transition-all duration-300 shadow-md ${activeTab === 'history' ? 'bg-[#0249a8] text-white' : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50'}`}>Our History</button>
               </div>
-
-              {/* Tab Content */}
               <AnimatePresence mode="wait">
-                <motion.div
-                  key={activeTab}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <p className="text-slate-600 text-sm leading-relaxed mb-6">
-                    {currentContent.description}
-                  </p>
-
-                  {/* Features Grid */}
+                <motion.div key={activeTab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3 }}>
+                  <p className="text-slate-600 text-sm leading-relaxed mb-6">{currentContent.description}</p>
                   <div className="grid grid-cols-2 gap-x-8 gap-y-3 mb-8">
                     {currentContent.features.map((feature, index) => (
                       <div key={index} className="flex items-start gap-2.5">
@@ -1394,111 +1080,32 @@ function AboutUsSection() {
                   </div>
                 </motion.div>
               </AnimatePresence>
-
-              {/* CTA Button */}
-              <Link href="/about">
-                <button className="px-8 py-3.5 bg-[#0249a8] hover:bg-[#023a88] text-white text-sm font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5 inline-flex items-center gap-2">
-                  More About Us
-                  <ArrowRight className="h-4 w-4" />
-                </button>
-              </Link>
+              <Link href="/about"><button className="px-8 py-3.5 bg-[#0249a8] hover:bg-[#023a88] text-white text-sm font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5 inline-flex items-center gap-2">More About Us <ArrowRight className="h-4 w-4" /></button></Link>
             </div>
-
-            {/* RIGHT SIDE - Two Images */}
             <div className="relative">
               <div className="relative h-[600px] xl:h-[650px]">
-
-                {/* Top Right Image - Larger, Landscape */}
-                <div className="absolute top-0 right-0 w-[90%] h-[48%] rounded-3xl overflow-hidden shadow-2xl z-10">
-                  <img
-                    src="https://images.unsplash.com/photo-1600585154526-990dced4db0d?auto=format&fit=crop&w=900&q=80"
-                    alt="Luxury Living Space"
-                    className="w-full h-full object-cover hover:scale-105 transition-transform duration-700"
-                  />
-                </div>
-
-                {/* Bottom Left Image - Smaller */}
-                <div className="absolute bottom-0 left-0 w-[75%] h-[58%] rounded-3xl overflow-hidden shadow-2xl">
-                  <img
-                    src="https://images.pexels.com/photos/1595391/pexels-photo-1595391.jpeg?auto=compress&cs=tinysrgb&w=900"
-                    alt="Premium Amenities"
-                    className="w-full h-full object-cover hover:scale-105 transition-transform duration-700"
-                  />
-                </div>
-
-                {/* Decorative Elements */}
+                <div className="absolute top-0 right-0 w-[90%] h-[48%] rounded-3xl overflow-hidden shadow-2xl z-10"><img src="https://images.unsplash.com/photo-1600585154526-990dced4db0d?auto=format&fit=crop&w=900&q=80" alt="Luxury Living Space" className="w-full h-full object-cover hover:scale-105 transition-transform duration-700" /></div>
+                <div className="absolute bottom-0 left-0 w-[75%] h-[58%] rounded-3xl overflow-hidden shadow-2xl"><img src="https://images.pexels.com/photos/1595391/pexels-photo-1595391.jpeg?auto=compress&cs=tinysrgb&w=900" alt="Premium Amenities" className="w-full h-full object-cover hover:scale-105 transition-transform duration-700" /></div>
                 <div className="absolute top-1/3 right-1/4 w-40 h-40 bg-[#0249a8]/5 rounded-full blur-3xl -z-10" />
                 <div className="absolute bottom-1/4 left-1/3 w-32 h-32 bg-blue-400/5 rounded-full blur-2xl -z-10" />
               </div>
             </div>
-
           </div>
 
-          {/* MOBILE/TABLET VIEW - Stacked */}
+          {/* MOBILE/TABLET VIEW */}
           <div className="lg:hidden mb-10">
-            {/* Content First */}
             <div className="mb-8">
-              <div className="mb-3">
-                <span className="text-xs font-semibold text-[#0249a8] tracking-widest uppercase">
-                  About Roomac
-                </span>
-              </div>
-
-              <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-4 leading-tight text-slate-900">
-                We Provide Premium Living Spaces To All Visitors
-              </h2>
-
-              <p className="text-slate-600 text-sm sm:text-base leading-relaxed mb-6">
-                At Roomac, luxury is more than just a word — it's a tradition. From exquisite
-                design to personalized service, every detail is thoughtfully curated to
-                create unforgettable living experiences.
-              </p>
-
-              {/* Tabs */}
+              <div className="mb-3"><span className="text-xs font-semibold text-[#0249a8] tracking-widest uppercase">About Roomac</span></div>
+              <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-4 leading-tight text-slate-900">We Provide Premium Living Spaces To All Visitors</h2>
+              <p className="text-slate-600 text-sm sm:text-base leading-relaxed mb-6">At Roomac, luxury is more than just a word — it's a tradition. From exquisite design to personalized service, every detail is thoughtfully curated to create unforgettable living experiences.</p>
               <div className="flex flex-wrap gap-2 sm:gap-3 mb-6">
-                <button
-                  onClick={() => setActiveTab('mission')}
-                  className={`px-4 sm:px-6 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold rounded-full transition-all duration-300 shadow-md ${activeTab === 'mission'
-                    ? 'bg-[#0249a8] text-white'
-                    : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50'
-                    }`}
-                >
-                  Our Mission
-                </button>
-                <button
-                  onClick={() => setActiveTab('vision')}
-                  className={`px-4 sm:px-6 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold rounded-full transition-all duration-300 shadow-md ${activeTab === 'vision'
-                    ? 'bg-[#0249a8] text-white'
-                    : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50'
-                    }`}
-                >
-                  Our Vision
-                </button>
-                <button
-                  onClick={() => setActiveTab('history')}
-                  className={`px-4 sm:px-6 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold rounded-full transition-all duration-300 shadow-md ${activeTab === 'history'
-                    ? 'bg-[#0249a8] text-white'
-                    : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50'
-                    }`}
-                >
-                  Our History
-                </button>
+                <button onClick={() => setActiveTab('mission')} className={`px-4 sm:px-6 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold rounded-full transition-all duration-300 shadow-md ${activeTab === 'mission' ? 'bg-[#0249a8] text-white' : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50'}`}>Our Mission</button>
+                <button onClick={() => setActiveTab('vision')} className={`px-4 sm:px-6 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold rounded-full transition-all duration-300 shadow-md ${activeTab === 'vision' ? 'bg-[#0249a8] text-white' : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50'}`}>Our Vision</button>
+                <button onClick={() => setActiveTab('history')} className={`px-4 sm:px-6 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold rounded-full transition-all duration-300 shadow-md ${activeTab === 'history' ? 'bg-[#0249a8] text-white' : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50'}`}>Our History</button>
               </div>
-
-              {/* Tab Content */}
               <AnimatePresence mode="wait">
-                <motion.div
-                  key={activeTab}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <p className="text-slate-600 text-sm leading-relaxed mb-6">
-                    {currentContent.description}
-                  </p>
-
-                  {/* Features Grid */}
+                <motion.div key={activeTab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3 }}>
+                  <p className="text-slate-600 text-sm leading-relaxed mb-6">{currentContent.description}</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
                     {currentContent.features.map((feature, index) => (
                       <div key={index} className="flex items-start gap-2.5">
@@ -1509,35 +1116,11 @@ function AboutUsSection() {
                   </div>
                 </motion.div>
               </AnimatePresence>
-
-              {/* CTA Button */}
-              <Link href="/about">
-                <button className="px-6 sm:px-8 py-3 sm:py-3.5 bg-[#0249a8] hover:bg-[#023a88] text-white text-sm font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5 inline-flex items-center gap-2 w-full sm:w-auto justify-center">
-                  More About Us
-                  <ArrowRight className="h-4 w-4" />
-                </button>
-              </Link>
+              <Link href="/about"><button className="px-6 sm:px-8 py-3 sm:py-3.5 bg-[#0249a8] hover:bg-[#023a88] text-white text-sm font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5 inline-flex items-center gap-2 w-full sm:w-auto justify-center">More About Us <ArrowRight className="h-4 w-4" /></button></Link>
             </div>
-
-            {/* Images Below on Mobile */}
             <div className="relative h-[350px] sm:h-[450px] md:h-[500px]">
-              {/* Top Right Image */}
-              <div className="absolute top-0 right-0 w-[85%] sm:w-[90%] h-[48%] rounded-2xl sm:rounded-3xl overflow-hidden shadow-xl sm:shadow-2xl z-10">
-                <img
-                  src="https://images.unsplash.com/photo-1600585154526-990dced4db0d?auto=format&fit=crop&w=900&q=80"
-                  alt="Luxury Living Space"
-                  className="w-full h-full object-cover"
-                />
-              </div>
-
-              {/* Bottom Left Image */}
-              <div className="absolute bottom-0 left-0 w-[75%] sm:w-[75%] h-[58%] rounded-2xl sm:rounded-3xl overflow-hidden shadow-xl sm:shadow-2xl">
-                <img
-                  src="https://images.pexels.com/photos/1595391/pexels-photo-1595391.jpeg?auto=compress&cs=tinysrgb&w=900"
-                  alt="Premium Amenities"
-                  className="w-full h-full object-cover"
-                />
-              </div>
+              <div className="absolute top-0 right-0 w-[85%] sm:w-[90%] h-[48%] rounded-2xl sm:rounded-3xl overflow-hidden shadow-xl sm:shadow-2xl z-10"><img src="https://images.unsplash.com/photo-1600585154526-990dced4db0d?auto=format&fit=crop&w=900&q=80" alt="Luxury Living Space" className="w-full h-full object-cover" /></div>
+              <div className="absolute bottom-0 left-0 w-[75%] sm:w-[75%] h-[58%] rounded-2xl sm:rounded-3xl overflow-hidden shadow-xl sm:shadow-2xl"><img src="https://images.pexels.com/photos/1595391/pexels-photo-1595391.jpeg?auto=compress&cs=tinysrgb&w=900" alt="Premium Amenities" className="w-full h-full object-cover" /></div>
             </div>
           </div>
 
@@ -1546,86 +1129,31 @@ function AboutUsSection() {
             <div className="text-center mb-10 sm:mb-14">
               <div className="inline-flex items-center justify-center mb-4">
                 <div className="h-1.5 w-8 sm:h-2 sm:w-10 bg-gradient-to-r from-[#0249a8] to-blue-400 rounded-full" />
-                <span className="mx-3 sm:mx-4 text-xs sm:text-sm font-bold text-[#0249a8] tracking-widest uppercase">
-                  Perfect For Everyone
-                </span>
+                <span className="mx-3 sm:mx-4 text-xs sm:text-sm font-bold text-[#0249a8] tracking-widest uppercase">Perfect For Everyone</span>
                 <div className="h-1.5 w-8 sm:h-2 sm:w-10 bg-gradient-to-l from-[#0249a8] to-blue-400 rounded-full" />
               </div>
-
-              <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-4 leading-tight">
-                <span className="text-slate-900">Find Your </span>
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#0249a8] to-blue-500">Perfect Space</span>
-              </h2>
-
-              <p className="text-slate-600 text-base sm:text-lg max-w-3xl mx-auto leading-relaxed">
-                Whether you're a student, professional, or looking for a couple-friendly stay,
-                we have the perfect home waiting for you
-              </p>
+              <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-4 leading-tight"><span className="text-slate-900">Find Your </span><span className="text-transparent bg-clip-text bg-gradient-to-r from-[#0249a8] to-blue-500">Perfect Space</span></h2>
+              <p className="text-slate-600 text-base sm:text-lg max-w-3xl mx-auto leading-relaxed">Whether you're a student, professional, or looking for a couple-friendly stay, we have the perfect home waiting for you</p>
             </div>
-
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-6 lg:gap-7">
               {categories.map((category, index) => (
                 <ScrollAnimation key={index} delay={index * 0.1}>
                   <div className="group relative overflow-hidden rounded-2xl sm:rounded-3xl h-[280px] sm:h-[320px] lg:h-[360px] cursor-pointer transform transition-all duration-500 hover:-translate-y-2 hover:shadow-2xl">
-                    {/* Image with Ken Burns Effect */}
-                    <div className="absolute inset-0 overflow-hidden">
-                      <img
-                        src={category.image}
-                        alt={category.title}
-                        className="w-full h-full object-cover transition-all duration-700 group-hover:scale-110"
-                      />
-                    </div>
-
-                    {/* Gradient Overlays */}
+                    <div className="absolute inset-0 overflow-hidden"><img src={category.image} alt={category.title} className="w-full h-full object-cover transition-all duration-700 group-hover:scale-110" /></div>
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent opacity-90 group-hover:opacity-95 transition-opacity duration-300" />
                     <div className="absolute inset-0 bg-gradient-to-br from-[#0249a8]/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-
-                    {/* Icon Circle - Appears on Hover */}
-                    <div className="absolute top-6 right-6 transform translate-x-12 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all duration-500">
-                      <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center">
-                        {index === 0 && <Building2 className="w-7 h-7 text-white" />}
-                        {index === 1 && <Zap className="w-7 h-7 text-white" />}
-                        {index === 2 && <Heart className="w-7 h-7 text-white" />}
-                        {index === 3 && <Home className="w-7 h-7 text-white" />}
-                      </div>
-                    </div>
-
-                    {/* Content */}
+                    <div className="absolute top-6 right-6 transform translate-x-12 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all duration-500"><div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center">{index === 0 && <Building2 className="w-7 h-7 text-white" />}{index === 1 && <Zap className="w-7 h-7 text-white" />}{index === 2 && <Heart className="w-7 h-7 text-white" />}{index === 3 && <Home className="w-7 h-7 text-white" />}</div></div>
                     <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-6 transform transition-all duration-500 group-hover:translate-y-0">
-
-                      {/* Number Badge */}
-                      <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm border border-white/40 mb-4 transform transition-all duration-500 group-hover:scale-110">
-                        <span className="text-white font-bold text-lg">{index + 1}</span>
-                      </div>
-
-                      {/* Title */}
-                      <h3 className="text-xl sm:text-2xl font-bold text-white mb-3 transform transition-all duration-500 group-hover:translate-x-1">
-                        {category.title}
-                      </h3>
-
-                      {/* Description */}
-                      <p className="text-white/90 text-sm sm:text-base leading-relaxed mb-4 line-clamp-2 transform transition-all duration-500 group-hover:line-clamp-none">
-                        {category.description}
-                      </p>
-
-                      {/* Learn More Link - Slides in on Hover */}
-                      <div className="flex items-center gap-2 text-white font-semibold text-sm transform translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500 delay-100">
-                        <span>Explore Options</span>
-                        <ArrowRight className="w-4 h-4 transform group-hover:translate-x-1 transition-transform duration-300" />
-                      </div>
+                      <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm border border-white/40 mb-4 transform transition-all duration-500 group-hover:scale-110"><span className="text-white font-bold text-lg">{index + 1}</span></div>
+                      <h3 className="text-xl sm:text-2xl font-bold text-white mb-3 transform transition-all duration-500 group-hover:translate-x-1">{category.title}</h3>
+                      <p className="text-white/90 text-sm sm:text-base leading-relaxed mb-4 line-clamp-2 transform transition-all duration-500 group-hover:line-clamp-none">{category.description}</p>
+                      <div className="flex items-center gap-2 text-white font-semibold text-sm transform translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500 delay-100"><span>Explore Options</span><ArrowRight className="w-4 h-4 transform group-hover:translate-x-1 transition-transform duration-300" /></div>
                     </div>
-
-                    {/* Decorative Border on Hover */}
                     <div className="absolute inset-0 border-2 border-white/0 group-hover:border-white/20 rounded-2xl sm:rounded-3xl transition-all duration-500" />
                   </div>
                 </ScrollAnimation>
               ))}
             </div>
-
-
-
-
-
           </div>
         </div>
       </section>
@@ -1633,54 +1161,21 @@ function AboutUsSection() {
   );
 }
 
+// ═════════════════════════════════════════════════════════════════════════════
+// FEATURES SECTION (unchanged)
+// ═════════════════════════════════════════════════════════════════════════════
 function FeaturesSection({ features }: { features: any[] }) {
-  // Light pastel color classes for different features
   const getFeatureColor = (index: number, title: string) => {
     const lower = title.toLowerCase();
-
-    // WiFi - Blue shades
-    if (lower.includes('wifi') || lower.includes('internet'))
-      return "bg-blue-50 text-blue-600";
-
-    // Food/Meals - Orange/Amber shades
-    if (lower.includes('meal') || lower.includes('food'))
-      return "bg-orange-50 text-orange-600";
-
-    // Security - Red shades
-    if (lower.includes('security') || lower.includes('safety'))
-      return "bg-red-50 text-red-600";
-
-    // Housekeeping/Cleaning - Purple shades
-    if (lower.includes('housekeeping') || lower.includes('cleaning'))
-      return "bg-purple-50 text-purple-600";
-
-    // Parking - Green shades
-    if (lower.includes('parking') || lower.includes('car'))
-      return "bg-green-50 text-green-600";
-
-    // Power Backup - Amber shades
-    if (lower.includes('power') || lower.includes('backup') || lower.includes('electricity'))
-      return "bg-amber-50 text-amber-600";
-
-    // Furnished - Pink shades
-    if (lower.includes('furnished') || lower.includes('furniture'))
-      return "bg-pink-50 text-pink-600";
-
-    // Community/Events - Indigo shades
-    if (lower.includes('community') || lower.includes('event'))
-      return "bg-indigo-50 text-indigo-600";
-
-    // Default - Cycle through colors based on index
-    const colors = [
-      "bg-blue-50 text-blue-600",
-      "bg-purple-50 text-purple-600",
-      "bg-green-50 text-green-600",
-      "bg-amber-50 text-amber-600",
-      "bg-pink-50 text-pink-600",
-      "bg-indigo-50 text-indigo-600",
-      "bg-cyan-50 text-cyan-600",
-      "bg-orange-50 text-orange-600",
-    ];
+    if (lower.includes('wifi') || lower.includes('internet')) return "bg-blue-50 text-blue-600";
+    if (lower.includes('meal') || lower.includes('food')) return "bg-orange-50 text-orange-600";
+    if (lower.includes('security') || lower.includes('safety')) return "bg-red-50 text-red-600";
+    if (lower.includes('housekeeping') || lower.includes('cleaning')) return "bg-purple-50 text-purple-600";
+    if (lower.includes('parking') || lower.includes('car')) return "bg-green-50 text-green-600";
+    if (lower.includes('power') || lower.includes('backup') || lower.includes('electricity')) return "bg-amber-50 text-amber-600";
+    if (lower.includes('furnished') || lower.includes('furniture')) return "bg-pink-50 text-pink-600";
+    if (lower.includes('community') || lower.includes('event')) return "bg-indigo-50 text-indigo-600";
+    const colors = ["bg-blue-50 text-blue-600", "bg-purple-50 text-purple-600", "bg-green-50 text-green-600", "bg-amber-50 text-amber-600", "bg-pink-50 text-pink-600", "bg-indigo-50 text-indigo-600", "bg-cyan-50 text-cyan-600", "bg-orange-50 text-orange-600"];
     return colors[index % colors.length];
   };
 
@@ -1688,43 +1183,17 @@ function FeaturesSection({ features }: { features: any[] }) {
     <ScrollAnimation>
       <section className="relative sm:py-10 mt-4 mb-0 bg-white px-4 sm:px-6">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">
-
-          {/* Header Section - Minimal with brand colors */}
           <div className="flex flex-col items-center text-center max-w-2xl mx-auto mb-12 sm:mb-16">
-            {/* Yellow accent line */}
             <div className="w-12 h-0.5 bg-[#fdbc0a] rounded-full mb-4" />
-
-            {/* Main Heading */}
-            <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-4 leading-tight">
-              <span className="text-slate-900">Everything you need,</span>
-              <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#0249a8] to-blue-500">
-                all in one place
-              </span>
-            </h2>
-
-
-            {/* Description */}
-            <p className="text-sm sm:text-base text-slate-500 font-light max-w-md">
-              Premium amenities and services designed for your comfort
-            </p>
+            <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-4 leading-tight"><span className="text-slate-900">Everything you need,</span><br /><span className="text-transparent bg-clip-text bg-gradient-to-r from-[#0249a8] to-blue-500">all in one place</span></h2>
+            <p className="text-sm sm:text-base text-slate-500 font-light max-w-md">Premium amenities and services designed for your comfort</p>
           </div>
-
-          {/* Features Grid - Clean Cards */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 md:gap-6">
-            {features.map((item, i) => {
-              const colorClass = getFeatureColor(i, item.title);
-
-              return (
-                <ScrollAnimation key={i} delay={i * 0.05}>
-                  <FeatureCardMinimal
-                    {...item}
-                    index={i}
-                    colorClass={colorClass}
-                  />
-                </ScrollAnimation>
-              );
-            })}
+            {features.map((item, i) => (
+              <ScrollAnimation key={i} delay={i * 0.05}>
+                <FeatureCardMinimal {...item} index={i} colorClass={getFeatureColor(i, item.title)} />
+              </ScrollAnimation>
+            ))}
           </div>
         </div>
       </section>
@@ -1732,35 +1201,13 @@ function FeaturesSection({ features }: { features: any[] }) {
   );
 }
 
-// Update FeatureCardMinimal component to accept colorClass prop
 function FeatureCardMinimal({ icon: Icon, title, desc, index, colorClass }: any) {
   return (
     <div className="group h-full">
       <div className="flex flex-col items-center text-center p-5 sm:p-6 md:p-7 bg-white hover:bg-slate-50 rounded-xl transition-all duration-300 h-full">
-
-        {/* Icon - Clean circle with dynamic color */}
-        <div className="relative mb-4">
-          <div className={`w-14 h-14 sm:w-16 sm:h-16 md:w-18 md:h-18 rounded-full flex items-center justify-center transition-all duration-300 ${colorClass} group-hover:scale-105`}>
-            <Icon className="h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8" strokeWidth={1.5} />
-          </div>
-
-          {/* Small yellow dot accent - appears on every 3rd card */}
-          {index % 3 === 0 && (
-            <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-[#fdbc0a] rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-          )}
-        </div>
-
-        {/* Title */}
-        <h3 className="text-sm sm:text-base md:text-lg font-medium text-slate-800 mb-2 group-hover:text-[#0049b0] transition-colors duration-300">
-          {title}
-        </h3>
-
-        {/* Description */}
-        <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
-          {desc}
-        </p>
-
-        {/* Minimal hover indicator - yellow line */}
+        <div className="relative mb-4"><div className={`w-14 h-14 sm:w-16 sm:h-16 md:w-18 md:h-18 rounded-full flex items-center justify-center transition-all duration-300 ${colorClass} group-hover:scale-105`}><Icon className="h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8" strokeWidth={1.5} /></div>{index % 3 === 0 && <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-[#fdbc0a] rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300" />}</div>
+        <h3 className="text-sm sm:text-base md:text-lg font-medium text-slate-800 mb-2 group-hover:text-[#0049b0] transition-colors duration-300">{title}</h3>
+        <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">{desc}</p>
         <div className="w-8 h-0.5 bg-[#fdbc0a]/0 group-hover:bg-[#fdbc0a] rounded-full mt-4 transition-all duration-300" />
       </div>
     </div>
