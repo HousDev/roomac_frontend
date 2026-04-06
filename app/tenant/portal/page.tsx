@@ -350,7 +350,7 @@ export default function TenantPortalPage() {
   const [newPayment, setNewPayment] = useState({
     payment_type: "rent",
     amount: "",
-    payment_mode: "cash",
+    payment_mode: "online",
     bank_name: "",
     transaction_id: "",
     payment_date: new Date().toISOString().split("T")[0],
@@ -631,7 +631,7 @@ export default function TenantPortalPage() {
         setNewPayment({
           payment_type: "rent",
           amount: "",
-          payment_mode: "cash",
+          payment_mode: "online",
           bank_name: "",
           transaction_id: "",
           payment_date: new Date().toISOString().split("T")[0],
@@ -2723,13 +2723,9 @@ const rentAmount = stats.monthlyRent;
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="cash">💵 Cash</SelectItem>
+            
               <SelectItem value="online">🌐 Online</SelectItem>
-              <SelectItem value="bank_transfer">
-                🏦 Bank Transfer
-              </SelectItem>
-              <SelectItem value="cheque">📝 Cheque</SelectItem>
-              <SelectItem value="card">💳 Card</SelectItem>
+              
             </SelectContent>
           </Select>
         </div>

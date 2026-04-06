@@ -2153,7 +2153,7 @@ const BookingModal = memo(function BookingModal({
 
       const scriptLoaded = await loadRazorpayScript();
       if (!scriptLoaded) {
-        alert("Failed to load payment gateway");
+        toast.info("Failed to load payment gateway");
         setLoading(false);
         return;
       }
@@ -2177,7 +2177,7 @@ const BookingModal = memo(function BookingModal({
           try {
             await submitFinalBooking("paid");
           } catch (error) {
-            alert("Payment successful but booking failed. Contact support.");
+            toast.error("Payment successful but booking failed. Contact support.");
           }
         },
         prefill: {
@@ -2205,7 +2205,7 @@ const BookingModal = memo(function BookingModal({
       const razorpay = new (window as any).Razorpay(options);
       razorpay.open();
     } catch (error) {
-      alert("Unable to start payment");
+      toast.error("Unable to start payment");
       setLoading(false);
     }
   };
@@ -2218,23 +2218,23 @@ const BookingModal = memo(function BookingModal({
       if (bookingStep === 1) {
         // Check first name and last name instead of fullName
         if (!formData.firstName.trim() || !formData.lastName.trim()) {
-          alert("Please enter both first name and last name");
+          toast.error("Please enter both first name and last name");
           return;
         }
         if (!formData.email.trim()) {
-          alert("Please enter email");
+          toast.error("Please enter email");
           return;
         }
         if (!formData.phone.trim()) {
-          alert("Please enter phone number");
+          toast.error("Please enter phone number");
           return;
         }
         if (!formData.gender) {
-          alert("Please select gender");
+          toast.error("Please select gender");
           return;
         }
         if (!validatePhone(formData.phone)) {
-          alert("Please enter a valid 10-digit phone number");
+          toast.error("Please enter a valid 10-digit phone number");
           return;
         }
         // Add this validation - Check if tenant exists with active assignment
@@ -2248,14 +2248,14 @@ Do you want to continue? This will create a new booking but the existing assignm
           }
         }
         if (bookingType === "long" && !formData.moveInDate) {
-          alert("Please select move-in date");
+          toast.error("Please select move-in date");
           return;
         }
         if (
           bookingType === "short" &&
           (!formData.checkInDate || !formData.checkOutDate)
         ) {
-          alert("Please select check-in and check-out dates");
+          toast.error("Please select check-in and check-out dates");
           return;
         }
 
@@ -2291,7 +2291,7 @@ handleSendOTP(e); // Trigger OTP flow on first
 
       if (bookingStep === 2) {
         if (!selectedRoom) {
-          alert("Please select a room to continue");
+          toast.error("Please select a room to continue");
           return;
         }
         setBookingStep(3);
@@ -2344,7 +2344,7 @@ handleSendOTP(e); // Trigger OTP flow on first
 
       if (bookingStep === 4) {
         if (!formData.agreeToTerms) {
-          alert("Please agree to terms and conditions");
+          toast.error("Please agree to terms and conditions");
           return;
         }
 
