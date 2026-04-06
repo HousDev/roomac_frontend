@@ -214,9 +214,13 @@ export default function PropertiesPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-            {filteredProperties.map((property) => (
-              <PropertyCard key={property.id} property={property} />
-            ))}
+                {filteredProperties.map((property, index) => (
+                  <PropertyCard
+                    key={property.id}
+                    property={property}
+                    index={index}   // 👈 IMPORTANT
+                  />
+                ))}
           </div>
         )}
       </div>

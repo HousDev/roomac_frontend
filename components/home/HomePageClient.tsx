@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from '@/src/compat/next-link';
-import { 
+import {
   Phone, BedDouble, ChevronLeft, ChevronRight,
   Wifi, Utensils, Shield, Clock, Car, Zap, Building2, MapPin, Star, Search,
   ArrowRight, CheckCircle2, Heart, Sparkles, Home, Bath, SlidersHorizontal,
@@ -55,14 +55,14 @@ interface HomePageClientProps {
 }
 
 export default function HomePageClient({ initialCities, initialProperties, initialOffers }: HomePageClientProps) {
-  const [isMounted, setIsMounted]       = useState(false);
-  const [properties]                    = useState(initialProperties);
-  const [offers]                        = useState(initialOffers);
+  const [isMounted, setIsMounted] = useState(false);
+  const [properties] = useState(initialProperties);
+  const [offers] = useState(initialOffers);
   const [likedProperties, setLikedProperties] = useState<Set<number>>(new Set());
 
   // ── Filter state ──────────────────────────────────────────────────────────
-  const [searchArea, setSearchArea]         = useState('');
-  const [selectedCity, setSelectedCity]     = useState('pune');
+  const [searchArea, setSearchArea] = useState('');
+  const [selectedCity, setSelectedCity] = useState('pune');
   const [selectedAmenity, setSelectedAmenity] = useState('');
   const [selectedPriceKey, setSelectedPriceKey] = useState('Any Price');
 
@@ -133,19 +133,19 @@ export default function HomePageClient({ initialCities, initialProperties, initi
   }, [properties, searchArea, selectedCity, selectedAmenity, selectedPriceKey]);
 
   const features = [
-    { icon: Wifi,    title: 'High-Speed WiFi',  desc: 'Blazing fast internet for work & entertainment' },
-    { icon: Utensils,title: 'Healthy Meals',     desc: 'Nutritious breakfast, lunch & dinner' },
-    { icon: Shield,  title: '24/7 Security',     desc: 'CCTV surveillance & biometric access' },
-    { icon: Clock,   title: 'Housekeeping',      desc: 'Daily cleaning & laundry services' },
-    { icon: Car,     title: 'Free Parking',      desc: 'Secure parking for bikes & cars' },
-    { icon: Zap,     title: 'Power Backup',      desc: 'Uninterrupted electricity with DG' },
-    { icon: Home,    title: 'Fully Furnished',   desc: 'Move-in ready with all amenities' },
-    { icon: Heart,   title: 'Community',         desc: 'Events, networking & fun activities' },
+    { icon: Wifi, title: 'High-Speed WiFi', desc: 'Blazing fast internet for work & entertainment' },
+    { icon: Utensils, title: 'Healthy Meals', desc: 'Nutritious breakfast, lunch & dinner' },
+    { icon: Shield, title: '24/7 Security', desc: 'CCTV surveillance & biometric access' },
+    { icon: Clock, title: 'Housekeeping', desc: 'Daily cleaning & laundry services' },
+    { icon: Car, title: 'Free Parking', desc: 'Secure parking for bikes & cars' },
+    { icon: Zap, title: 'Power Backup', desc: 'Uninterrupted electricity with DG' },
+    { icon: Home, title: 'Fully Furnished', desc: 'Move-in ready with all amenities' },
+    { icon: Heart, title: 'Community', desc: 'Events, networking & fun activities' },
   ];
 
   return (
     <div className="flex flex-col overflow-hidden">
-      <HeroSection 
+      <HeroSection
         isMounted={isMounted}
         cities={cities}
         selectedCity={selectedCity}
@@ -220,7 +220,7 @@ interface HeroSectionProps {
 
 // In your HomePageClient.tsx, update the HeroSection component
 
-function HeroSection({ 
+function HeroSection({
   isMounted,
   cities,
   selectedCity,
@@ -250,33 +250,33 @@ function HeroSection({
   // Add search handler
   // HomePageClient.tsx mein HeroSection component mein handleSearch function update karein
 
-const handleSearch = () => {
-  // Build query params
-  const params = new URLSearchParams();
-  
-  // Sirf non-empty values ko add karein
-  if (selectedCity && selectedCity !== 'all' && selectedCity !== 'pune') {
-    params.append('city', selectedCity);
-  }
-  
-  if (searchArea && searchArea.trim() !== '') {
-    params.append('search', searchArea.trim());
-  }
-  
-  if (selectedAmenity && selectedAmenity.trim() !== '') {
-    params.append('amenity', selectedAmenity);
-  }
-  
-  if (selectedPriceKey && selectedPriceKey !== 'Any Price') {
-    params.append('price', selectedPriceKey);
-  }
-  
-  
-  const queryString = params.toString();
-  const url = queryString ? `/properties?${queryString}` : '/properties';
-  
-  router.push(url);
-};
+  const handleSearch = () => {
+    // Build query params
+    const params = new URLSearchParams();
+
+    // Sirf non-empty values ko add karein
+    if (selectedCity && selectedCity !== 'all' && selectedCity !== 'pune') {
+      params.append('city', selectedCity);
+    }
+
+    if (searchArea && searchArea.trim() !== '') {
+      params.append('search', searchArea.trim());
+    }
+
+    if (selectedAmenity && selectedAmenity.trim() !== '') {
+      params.append('amenity', selectedAmenity);
+    }
+
+    if (selectedPriceKey && selectedPriceKey !== 'Any Price') {
+      params.append('price', selectedPriceKey);
+    }
+
+
+    const queryString = params.toString();
+    const url = queryString ? `/properties?${queryString}` : '/properties';
+
+    router.push(url);
+  };
 
   // Handle Enter key in search input
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -288,7 +288,7 @@ const handleSearch = () => {
   const imageVariants = {
     enter: (dir: number) => ({ x: dir > 0 ? '8%' : '-8%', opacity: 0, scale: 1.08 }),
     center: { x: '0%', opacity: 1, scale: 1.05, transition: { duration: 1.2, ease: [0.25, 0.46, 0.45, 0.94] as any } },
-    exit:   (dir: number) => ({ x: dir > 0 ? '-8%' : '8%', opacity: 0, scale: 1, transition: { duration: 0.8, ease: "easeIn" } }),
+    exit: (dir: number) => ({ x: dir > 0 ? '-8%' : '8%', opacity: 0, scale: 1, transition: { duration: 0.8, ease: "easeIn" } }),
   };
 
   // Get current slide data
@@ -314,8 +314,8 @@ const handleSearch = () => {
 
       {/* Wave bottom */}
       <div className="absolute bottom-0 left-0 right-0 z-10 pointer-events-none -mb-1">
-        <svg viewBox="0 0 1440 90" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full block" preserveAspectRatio="none" style={{display: 'block'}}>
-          <path d="M0,65 C240,5 480,85 720,45 C960,5 1200,75 1440,35 L1440,90 L0,90 Z" fill="white"/>
+        <svg viewBox="0 0 1440 90" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full block" preserveAspectRatio="none" style={{ display: 'block' }}>
+          <path d="M0,65 C240,5 480,85 720,45 C960,5 1200,75 1440,35 L1440,90 L0,90 Z" fill="white" />
         </svg>
       </div>
 
@@ -323,13 +323,13 @@ const handleSearch = () => {
       <div className="absolute inset-0 z-10 flex items-start justify-center px-4 pt-8">
         <div className="w-full max-w-4xl mx-auto text-center">
           <div className="flex flex-col items-center">
-            
+
             {/* Badge */}
-            <motion.div 
+            <motion.div
               key={`badge-${current}`}
-              initial={{ opacity: 0, y: 20 }} 
-              animate={{ opacity: 1, y: 0 }} 
-              transition={{ delay: 0.2, duration: 0.6 }} 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2, duration: 0.6 }}
               className="mb-4 mt-0"
             >
               <span className="inline-flex items-center gap-2 bg-white/15 backdrop-blur-md border border-white/30 text-white text-sm font-medium px-4 py-1 rounded-full">
@@ -341,20 +341,20 @@ const handleSearch = () => {
             {/* Heading */}
             <motion.h1
               key={`heading-${current}`}
-              initial={{ opacity: 0, y: 20 }} 
-              animate={{ opacity: 1, y: 0 }} 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.35, duration: 0.7 }}
               className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-white leading-tight mb-4"
               style={{ fontFamily: "'Poppins', 'Sans Serif', serif" }}
             >
               <span className="text-white">{currentSlide.heading1} </span>
               {currentSlide.heading2 && (
-                <span 
-                  style={{ 
-                    background: 'linear-gradient(90deg, #60a5fa, #93c5fd, #bfdbfe)', 
-                    WebkitBackgroundClip: 'text', 
-                    WebkitTextFillColor: 'transparent', 
-                    backgroundClip: 'text' 
+                <span
+                  style={{
+                    background: 'linear-gradient(90deg, #60a5fa, #93c5fd, #bfdbfe)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundClip: 'text'
                   }}
                 >
                   {currentSlide.heading2}
@@ -363,10 +363,10 @@ const handleSearch = () => {
             </motion.h1>
 
             {/* Subtext */}
-            <motion.p 
+            <motion.p
               key={`subtext-${current}`}
-              initial={{ opacity: 0, y: 20 }} 
-              animate={{ opacity: 1, y: 0 }} 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.5, duration: 0.6 }}
               className="text-white/90 text-base sm:text-lg md:text-xl leading-relaxed mb-5 max-w-2xl mx-auto"
             >
@@ -374,14 +374,14 @@ const handleSearch = () => {
             </motion.p>
 
             {/* CTAs */}
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }} 
-              animate={{ opacity: 1, y: 0 }} 
-              transition={{ delay: 0.7, duration: 0.6 }} 
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.7, duration: 0.6 }}
               className="flex flex-row sm:flex-row gap-2 sm:gap-3 justify-center mb-6"
             >
               <Link href="/properties">
-                <Button 
+                <Button
                   size="lg"
                   className="
                   bg-[#0249a8] text-white border-0
@@ -399,7 +399,7 @@ const handleSearch = () => {
               </Link>
 
               <Link href="/contact">
-                <Button 
+                <Button
                   size="lg"
                   variant="outline"
                   className="
@@ -439,12 +439,12 @@ const handleSearch = () => {
                 onKeyDown={handleKeyDown} // Add this prop
               />
             </motion.div>
-            
+
             {/* Stats */}
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }} 
-              animate={{ opacity: 1, y: 0 }} 
-              transition={{ delay: 0.6, duration: 0.6 }} 
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.6, duration: 0.6 }}
               className="flex flex-wrap justify-center gap-6 mb-5 mt-6"
             >
               <div className="flex items-center gap-2.5">
@@ -493,7 +493,7 @@ function FiltersSection({
   return (
     <div className="w-full">
       <div className="bg-white/15 backdrop-blur-xl border border-white/25 rounded-lg shadow-2xl shadow-black/30 px-2 py-2 sm:px-2.5 sm:py-2.5">
-        
+
         <div className="flex items-center gap-1.5 mb-1.5">
           <SlidersHorizontal className="h-3 w-3 text-white/80" />
           <span className="text-white/80 text-[11px] font-semibold uppercase tracking-wide">
@@ -504,109 +504,109 @@ function FiltersSection({
         {/* ✅ FLEX WRAPPER (Important Change) */}
         <div className="flex flex-col lg:flex-row gap-1.5">
 
-  {/* Filters Section */}
-  <div className="grid grid-cols-2 lg:grid-cols-3 gap-1.5 flex-1">
+          {/* Filters Section */}
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-1.5 flex-1">
 
-    {/* City */}
-    <div className="relative">
-      <Select value={selectedCity} onValueChange={setSelectedCity}>
-        <SelectTrigger className="h-8 pl-7 rounded-md bg-white/15 backdrop-blur-sm border border-white/30 text-white text-[11px] font-medium w-full">
-          <SelectValue placeholder="City" />
-        </SelectTrigger>
-        <SelectContent className="rounded-lg shadow-2xl border border-blue-100 bg-white">
-          {cities.map((city: any) => (
-            <SelectItem
-              key={city.id}
-              value={city.name.toLowerCase()}
-              className="cursor-pointer hover:bg-blue-50 text-[11px]"
-            >
-              <div className="flex items-center gap-2">
-                <MapPin className="h-3 w-3 text-blue-500" />
-                {city.name}
+            {/* City */}
+            <div className="relative">
+              <Select value={selectedCity} onValueChange={setSelectedCity}>
+                <SelectTrigger className="h-8 pl-7 rounded-md bg-white/15 backdrop-blur-sm border border-white/30 text-white text-[11px] font-medium w-full">
+                  <SelectValue placeholder="City" />
+                </SelectTrigger>
+                <SelectContent className="rounded-lg shadow-2xl border border-blue-100 bg-white">
+                  {cities.map((city: any) => (
+                    <SelectItem
+                      key={city.id}
+                      value={city.name.toLowerCase()}
+                      className="cursor-pointer hover:bg-blue-50 text-[11px]"
+                    >
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-3 w-3 text-blue-500" />
+                        {city.name}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Locality */}
+            <div className="relative">
+              <div className="absolute left-2 top-1/2 -translate-y-1/2 z-10 pointer-events-none">
+                <Search className="h-3 w-3 text-blue-300" />
               </div>
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
 
-    {/* Locality */}
-    <div className="relative">
-      <div className="absolute left-2 top-1/2 -translate-y-1/2 z-10 pointer-events-none">
-        <Search className="h-3 w-3 text-blue-300" />
-      </div>
-
-      <Input
-        placeholder="Locality..."
-        value={searchArea}
-        onChange={(e) => setSearchArea(e.target.value)}
-        onKeyDown={onKeyDown}
-        className="h-8 pl-7 rounded-md bg-white/10 backdrop-blur-sm border border-white/30 
+              <Input
+                placeholder="Locality..."
+                value={searchArea}
+                onChange={(e) => setSearchArea(e.target.value)}
+                onKeyDown={onKeyDown}
+                className="h-8 pl-7 rounded-md bg-white/10 backdrop-blur-sm border border-white/30 
                    text-white placeholder:text-white text-[11px] font-medium w-full"
-      />
+              />
 
-      {searchArea && (
-        <button
-          onClick={() => setSearchArea("")}
-          className="absolute right-2 top-1/2 -translate-y-1/2 text-white hover:text-white"
-        >
-          <X className="h-2.5 w-2.5" />
-        </button>
-      )}
-    </div>
+              {searchArea && (
+                <button
+                  onClick={() => setSearchArea("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-white hover:text-white"
+                >
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              )}
+            </div>
 
-    {/* Price */}
-    <div className="relative">
-      <div className="absolute left-2 top-1/2 -translate-y-1/2 z-10 pointer-events-none">
-        <IndianRupee className="h-3 w-3 text-blue-300" />
-      </div>
+            {/* Price */}
+            <div className="relative">
+              <div className="absolute left-2 top-1/2 -translate-y-1/2 z-10 pointer-events-none">
+                <IndianRupee className="h-3 w-3 text-blue-300" />
+              </div>
 
-      <Select value={selectedPriceKey} onValueChange={setSelectedPriceKey}>
-        <SelectTrigger className="h-8 pl-7 rounded-md bg-white/15 backdrop-blur-sm border border-white/30 text-white text-[11px] font-medium w-full">
-          <SelectValue placeholder="Any Price" />
-        </SelectTrigger>
-        <SelectContent className="rounded-lg shadow-2xl border border-blue-100 bg-white">
-          {PRICE_OPTIONS.map((p) => (
-            <SelectItem
-              key={p.label}
-              value={p.label}
-              className="hover:bg-blue-50 text-[11px] text-slate-700"
-            >
-              {p.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
+              <Select value={selectedPriceKey} onValueChange={setSelectedPriceKey}>
+                <SelectTrigger className="h-8 pl-7 rounded-md bg-white/15 backdrop-blur-sm border border-white/30 text-white text-[11px] font-medium w-full">
+                  <SelectValue placeholder="Any Price" />
+                </SelectTrigger>
+                <SelectContent className="rounded-lg shadow-2xl border border-blue-100 bg-white">
+                  {PRICE_OPTIONS.map((p) => (
+                    <SelectItem
+                      key={p.label}
+                      value={p.label}
+                      className="hover:bg-blue-50 text-[11px] text-slate-700"
+                    >
+                      {p.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-    {/* ✅ Mobile Search Button (ONLY visible below lg) */}
-    {onSearch && (
-      <div className="block lg:hidden">
-        <Button
-          onClick={onSearch}
-          className="w-full h-8 bg-blue-600 hover:bg-blue-700 text-white text-[11px]"
-        >
-          <Search className="h-3 w-3 mr-1" />
-          Search
-        </Button>
-      </div>
-    )}
-  </div>
+            {/* ✅ Mobile Search Button (ONLY visible below lg) */}
+            {onSearch && (
+              <div className="block lg:hidden">
+                <Button
+                  onClick={onSearch}
+                  className="w-full h-8 bg-blue-600 hover:bg-blue-700 text-white text-[11px]"
+                >
+                  <Search className="h-3 w-3 mr-1" />
+                  Search
+                </Button>
+              </div>
+            )}
+          </div>
 
-  {/* ✅ Desktop Search Button (ONLY lg and above) */}
-  {onSearch && (
-    <div className="hidden lg:block lg:w-52">
-      <Button
-        onClick={onSearch}
-        className="w-full h-8 bg-blue-600 hover:bg-blue-700 text-white text-[11px]"
-      >
-        <Search className="h-3 w-3 mr-1" />
-        Search Properties
-      </Button>
-    </div>
-  )}
+          {/* ✅ Desktop Search Button (ONLY lg and above) */}
+          {onSearch && (
+            <div className="hidden lg:block lg:w-52">
+              <Button
+                onClick={onSearch}
+                className="w-full h-8 bg-blue-600 hover:bg-blue-700 text-white text-[11px]"
+              >
+                <Search className="h-3 w-3 mr-1" />
+                Search Properties
+              </Button>
+            </div>
+          )}
 
-</div>
+        </div>
 
 
         {/* Active Filters */}
@@ -657,19 +657,19 @@ interface PropertiesSectionProps {
   onHeartClick: (propertyId: number, event: React.MouseEvent) => void;
 }
 
-function PropertiesSection({ 
-  properties, 
-  allCount, 
-  loading, 
-  likedProperties, 
-  hasActiveFilters, 
-  onWhatsAppClick, 
-  onCallClick, 
-  onHeartClick 
+function PropertiesSection({
+  properties,
+  allCount,
+  loading,
+  likedProperties,
+  hasActiveFilters,
+  onWhatsAppClick,
+  onCallClick,
+  onHeartClick
 }: PropertiesSectionProps) {
-  const [sharePopup, setSharePopup] = useState<{ isOpen: boolean; property: any | null }>({ 
-    isOpen: false, 
-    property: null 
+  const [sharePopup, setSharePopup] = useState<{ isOpen: boolean; property: any | null }>({
+    isOpen: false,
+    property: null
   });
   const [copied, setCopied] = useState(false);
 
@@ -717,7 +717,7 @@ function PropertiesSection({
         url = `mailto:?subject=${encodeURIComponent(propertyName)}&body=${encodeURIComponent(shareText + '\n\n' + shareUrl)}`;
         break;
     }
-    
+
     if (url) {
       window.open(url, '_blank', 'width=600,height=400');
     }
@@ -762,14 +762,14 @@ function PropertiesSection({
                 ? propertyImages[0]
                 : 'https://images.pexels.com/photos/1643383/pexels-photo-1643383.jpeg?auto=compress&cs=tinysrgb&w=600';
 
-              const propertyName    = property.name || property.property_name || 'Premium Property';
+              const propertyName = property.name || property.property_name || 'Premium Property';
               const propertyAddress = property.address || property.location || property.area || 'Location details available';
-              const cityName        = property.city?.name || property.city_name || '';
-              const fullLocation    = cityName ? `${propertyAddress}, ${cityName}` : propertyAddress;
-              const propertyPrice   = property.starting_price || property.price || property.monthly_rent || property.rent || 15000;
+              const cityName = property.city?.name || property.city_name || '';
+              const fullLocation = cityName ? `${propertyAddress}, ${cityName}` : propertyAddress;
+              const propertyPrice = property.starting_price || property.price || property.monthly_rent || property.rent || 15000;
 
               const propertyTags: string[] = property.tags_mapped
- || property.property_tags || property.category_tags || property.labels || [];
+                || property.property_tags || property.category_tags || property.labels || [];
 
               const getTagColor = (tag: string) => {
                 const t = tag.toLowerCase();
@@ -798,10 +798,10 @@ function PropertiesSection({
               }
 
               const displayAmenities = amenities.slice(0, 5);
-              const totalBeds    = property.total_beds || property.beds_available || property.beds || 10;
+              const totalBeds = property.total_beds || property.beds_available || property.beds || 10;
               const propertyType = property.property_type || property.type || '';
-              const totalRooms   = property.total_rooms || property.rooms || property.room_count || '';
-              const rating       = property.rating || 4.5;
+              const totalRooms = property.total_rooms || property.rooms || property.room_count || '';
+              const rating = property.rating || 4.5;
               // ─────────────────────────────────────────────────────────────
 
               return (
@@ -823,8 +823,8 @@ function PropertiesSection({
 
                         {/* Watermark - Center Top (Like RealEstateVin) */}
                         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[5] pointer-events-none">
-  <div
-    className="
+                          <div
+                            className="
     text-white/40
     text-sm sm:text-base md:text-lg lg:text-3xl
     font-semibold
@@ -832,15 +832,15 @@ function PropertiesSection({
     select-none
     whitespace-nowrap
     "
-    style={{
-      textShadow: '2px 2px 8px rgba(0,0,0,0.3)',
-      fontFamily: 'Poppins, sans-serif',
-      letterSpacing: '0.05em'
-    }}
-  >
-    Roomac.in
-  </div>
-</div>
+                            style={{
+                              textShadow: '2px 2px 8px rgba(0,0,0,0.3)',
+                              fontFamily: 'Poppins, sans-serif',
+                              letterSpacing: '0.05em'
+                            }}
+                          >
+                            Roomac.in
+                          </div>
+                        </div>
 
 
                         {/* Rating pill — top left */}
@@ -876,44 +876,17 @@ function PropertiesSection({
                             <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-700 text-white shadow-md capitalize">{propertyType}</span>
                           )}
                         </div>
-
-                        {/* Amenity icons row — shown on hover */}
-                        {/* {displayAmenities.length > 0 && (
-                          <div className="absolute inset-x-0 bottom-0 translate-y-full group-hover:translate-y-0 transition-transform duration-300 pb-10 flex justify-center gap-2 z-10">
-                            {displayAmenities.map((a: any, ai: number) => {
-                              const getIcon = (amenity: string) => {
-                                const am = String(amenity).toLowerCase();
-                                if (am.includes('wifi')) return <Wifi className="h-4 w-4" />;
-                                if (am.includes('meal')) return <Utensils className="h-4 w-4" />;
-                                if (am.includes('security')) return <Shield className="h-4 w-4" />;
-                                if (am.includes('parking')) return <Car className="h-4 w-4" />;
-                                if (am.includes('ac')) return <Zap className="h-4 w-4" />;
-                                if (am.includes('bath')) return <Bath className="h-4 w-4" />;
-                                if (am.includes('power')) return <Zap className="h-4 w-4" />;
-                                if (am.includes('housekeeping')) return <Clock className="h-4 w-4" />;
-                                return <CheckCircle2 className="h-4 w-4" />;
-                              };
-                              
-                              return (
-                                <div key={ai} title={String(a)} className="h-9 w-9 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-md text-slate-700">
-                                  {getIcon(a)}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )} */}
                       </div>
 
                       {/* Card body */}
-<div className="p-4 sm:p-5 flex flex-col flex-grow">
-  
-  {/* Title + Price in Header Row */}
- {/* Title + Code + Price Row */}
-<div className="flex items-start justify-between mb-2 gap-2">
+                      <div className="p-4 sm:p-5 flex flex-col flex-grow">
 
-  {/* LEFT : Property Title */}
-  <div className="flex-1 min-w-0">
-   <h3 className="
+                        {/* Title + Code + Price Row */}
+                        <div className="flex items-start justify-between mb-2 gap-2">
+
+                          {/* LEFT : Property Title */}
+                          <div className="flex-1 min-w-0">
+                            <h3 className="
   font-bold 
   text-[13px] sm:text-lg 
   text-slate-800 
@@ -923,170 +896,171 @@ function PropertiesSection({
   break-words
   sm:line-clamp-1
 ">
-  {propertyName}
-</h3>
-    <div className="flex items-center gap-2 mt-1">
-      <div className="h-0.5 w-8 bg-[#0249a8] rounded-full" />
-      <div className="h-0.5 w-2 bg-yellow-400 rounded-full" />
-    </div>
-  </div>
+                              {propertyName}
+                            </h3>
+                            <div className="flex items-center gap-2 mt-1">
+                              <div className="h-0.5 w-8 bg-[#0249a8] rounded-full" />
+                              <div className="h-0.5 w-2 bg-yellow-400 rounded-full" />
+                            </div>
+                          </div>
 
-  {/* CENTER : RMCX Code */}
-  <div className="flex items-center justify-center">
-    <span
-      className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm bg-slate-200 text-black whitespace-nowrap"
-    >
-      
-      {"RMCX-" + property.id}
-    </span>
-  </div>
+                          {/* CENTER : RMCX Code */}
+                          <div className="flex items-center justify-center">
+                            <span
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm bg-slate-200 text-black whitespace-nowrap"
+                            >
 
-  {/* RIGHT : Pricing */}
-  <div className="text-right ml-2">
-    <p className="text-xs text-slate-400 font-medium whitespace-nowrap">
-      Starting from
-    </p>
+                              RMCX-00{index + 1}
 
-    <p className="text-lg font-bold text-[#0249a8] whitespace-nowrap">
-      ₹{Number(propertyPrice).toLocaleString()}
-      <span className="text-sm text-slate-400 font-normal">/mo</span>
-    </p>
-  </div>
+                            </span>
+                          </div>
 
-</div>
+                          {/* RIGHT : Pricing */}
+                          <div className="text-right ml-2">
+                            <p className="text-xs text-slate-400 font-medium whitespace-nowrap">
+                              Starting from
+                            </p>
 
-  <div className="flex items-start gap-1.5 mb-3">
-    <MapPin className="h-3.5 w-3.5 text-[#0249a8] flex-shrink-0 mt-0.5" />
-    <span className="text-xs text-slate-500 line-clamp-2 leading-relaxed">{fullLocation}</span>
-  </div>
+                            <p className="text-lg font-bold text-[#0249a8] whitespace-nowrap">
+                              ₹{Number(propertyPrice).toLocaleString()}
+                              <span className="text-sm text-slate-400 font-normal">/mo</span>
+                            </p>
+                          </div>
 
-  <div className="flex items-center gap-4 mb-3 text-slate-600 text-xs">
-    <div className="flex items-center gap-1.5">
-      <BedDouble className="h-3.5 w-3.5 text-blue-500" />
-      <span className="font-semibold text-slate-700">{totalBeds}</span>
-      <span className="text-slate-400">Beds</span>
-    </div>
-    {totalRooms && (
-      <div className="flex items-center gap-1.5">
-        <Home className="h-3.5 w-3.5 text-[#0249a8]" />
-        <span className="font-semibold text-slate-700">{totalRooms}</span>
-        <span className="text-slate-400">Rooms</span>
-      </div>
-    )}
-  </div>
+                        </div>
 
-  {displayAmenities.length > 0 && (
-    <div className="flex flex-wrap gap-1.5 mb-3">
-      {displayAmenities.map((a: any, ai: number) => {
-        const colors = [
-          'bg-blue-50 text-blue-700 border-blue-200',
-          'bg-emerald-50 text-emerald-700 border-emerald-200',
-          'bg-amber-50 text-amber-700 border-amber-200',
-          'bg-purple-50 text-purple-700 border-purple-200',
-          'bg-cyan-50 text-cyan-700 border-cyan-200',
-        ];
-        return (
-          <span key={ai} className={`px-2 py-0.5 rounded-md border text-xs font-medium ${colors[ai % colors.length]}`}>
-            {String(a)}
-          </span>
-        );
-      })}
-      {amenities.length > 5 && (
-        <span className="px-2 py-0.5 rounded-md border border-slate-200 text-xs text-slate-500 bg-slate-50">+{amenities.length - 5}</span>
-      )}
-    </div>
-  )}
+                        <div className="flex items-start gap-1.5 mb-3">
+                          <MapPin className="h-3.5 w-3.5 text-[#0249a8] flex-shrink-0 mt-0.5" />
+                          <span className="text-xs text-slate-500 line-clamp-2 leading-relaxed">{fullLocation}</span>
+                        </div>
 
-  <div className="border-t border-slate-200 mt-auto pt-3">
-    <div className="flex items-center gap-2">
-      <Link href={`/properties/${property.slug || property.id}`} className="flex-1">
-        <button className="w-full px-2 py-2.5 bg-[#0249a8] hover:bg-[#023a88] text-white text-xs font-semibold rounded-lg shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 flex items-center justify-center gap-1">
-          <span>Details</span>
-          <ArrowRight className="h-3 w-3" />
-        </button>
-      </Link>
-      
-      {/* Extract manager phone for WhatsApp */}
-      {(() => {
-        // Get phone number from various possible fields
-        const managerPhone = property.manager_phone || 
-                            property.property_manager_phone || 
-                            property.contact_number || 
-                            property.whatsapp;
-        
-        // Get manager name for display (optional)
-        const managerName = property.manager_name || 
-                           property.property_manager_name || 
-                           'Manager';
-        
-        return (
-          <>
-            <button
-              onClick={(e) => { 
-                e.preventDefault(); 
-                e.stopPropagation(); 
-                onWhatsAppClick(
-                  managerPhone || '9923953933', 
-                  propertyName, 
-                  fullLocation
-                ); 
-              }}
-              className="flex-1 flex items-center justify-center gap-1 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 rounded-lg text-xs font-medium transition-all hover:scale-105"
-              title={`WhatsApp ${managerName}`}
-            >
-              <BsWhatsapp className="h-4 w-4" />
-              <span className="hidden sm:inline">WhatsApp</span>
-            </button>
-            
-            <button
-              onClick={(e) => { 
-                e.preventDefault(); 
-                e.stopPropagation(); 
-                onCallClick(managerPhone || '1234567890'); 
-              }}
-              className="flex-1 flex items-center justify-center gap-1 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-medium transition-all hover:scale-105"
-              title={`Call ${managerName}`}
-            >
-              <Phone className="h-4 w-4" />
-              <span className="hidden sm:inline">Call</span>
-            </button>
-          </>
-        );
-      })()}
-    </div>
-  </div>
-</div>
+                        <div className="flex items-center gap-4 mb-3 text-slate-600 text-xs">
+                          <div className="flex items-center gap-1.5">
+                            <BedDouble className="h-3.5 w-3.5 text-blue-500" />
+                            <span className="font-semibold text-slate-700">{totalBeds}</span>
+                            <span className="text-slate-400">Beds</span>
+                          </div>
+                          {totalRooms && (
+                            <div className="flex items-center gap-1.5">
+                              <Home className="h-3.5 w-3.5 text-[#0249a8]" />
+                              <span className="font-semibold text-slate-700">{totalRooms}</span>
+                              <span className="text-slate-400">Rooms</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {displayAmenities.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 mb-3">
+                            {displayAmenities.map((a: any, ai: number) => {
+                              const colors = [
+                                'bg-blue-50 text-blue-700 border-blue-200',
+                                'bg-emerald-50 text-emerald-700 border-emerald-200',
+                                'bg-amber-50 text-amber-700 border-amber-200',
+                                'bg-purple-50 text-purple-700 border-purple-200',
+                                'bg-cyan-50 text-cyan-700 border-cyan-200',
+                              ];
+                              return (
+                                <span key={ai} className={`px-2 py-0.5 rounded-md border text-xs font-medium ${colors[ai % colors.length]}`}>
+                                  {String(a)}
+                                </span>
+                              );
+                            })}
+                            {amenities.length > 5 && (
+                              <span className="px-2 py-0.5 rounded-md border border-slate-200 text-xs text-slate-500 bg-slate-50">+{amenities.length - 5}</span>
+                            )}
+                          </div>
+                        )}
+
+                        <div className="border-t border-slate-200 mt-auto pt-3">
+                          <div className="flex items-center gap-2">
+                            <Link href={`/properties/${property.slug || property.id}`} className="flex-1">
+                              <button className="w-full px-2 py-2.5 bg-[#0249a8] hover:bg-[#023a88] text-white text-xs font-semibold rounded-lg shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 flex items-center justify-center gap-1">
+                                <span>Details</span>
+                                <ArrowRight className="h-3 w-3" />
+                              </button>
+                            </Link>
+
+                            {/* Extract manager phone for WhatsApp */}
+                            {(() => {
+                              // Get phone number from various possible fields
+                              const managerPhone = property.manager_phone ||
+                                property.property_manager_phone ||
+                                property.contact_number ||
+                                property.whatsapp;
+
+                              // Get manager name for display (optional)
+                              const managerName = property.manager_name ||
+                                property.property_manager_name ||
+                                'Manager';
+
+                              return (
+                                <>
+                                  <button
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      onWhatsAppClick(
+                                        managerPhone || '9923953933',
+                                        propertyName,
+                                        fullLocation
+                                      );
+                                    }}
+                                    className="flex-1 flex items-center justify-center gap-1 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 rounded-lg text-xs font-medium transition-all hover:scale-105"
+                                    title={`WhatsApp ${managerName}`}
+                                  >
+                                    <BsWhatsapp className="h-4 w-4" />
+                                    <span className="hidden sm:inline">WhatsApp</span>
+                                  </button>
+
+                                  <button
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      onCallClick(managerPhone || '1234567890');
+                                    }}
+                                    className="flex-1 flex items-center justify-center gap-1 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-medium transition-all hover:scale-105"
+                                    title={`Call ${managerName}`}
+                                  >
+                                    <Phone className="h-4 w-4" />
+                                    <span className="hidden sm:inline">Call</span>
+                                  </button>
+                                </>
+                              );
+                            })()}
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </Link>
                 </CardScrollAnimation>
               );
             })
           ) : (
-        <div className="col-span-full">
-  <ScrollAnimation>
-    <div className="flex justify-center items-center text-center py-16 w-full">
-      <div className="max-w-md mx-auto flex flex-col items-center">
-        <Building2 className="h-16 w-16 text-slate-300 mb-4" />
+            <div className="col-span-full">
+              <ScrollAnimation>
+                <div className="flex justify-center items-center text-center py-16 w-full">
+                  <div className="max-w-md mx-auto flex flex-col items-center">
+                    <Building2 className="h-16 w-16 text-slate-300 mb-4" />
 
-        <h3 className="text-lg font-semibold text-slate-700 mb-2">
-          {hasActiveFilters ? 'No properties match your filters' : 'No Properties Found'}
-        </h3>
+                    <h3 className="text-lg font-semibold text-slate-700 mb-2">
+                      {hasActiveFilters ? 'No properties match your filters' : 'No Properties Found'}
+                    </h3>
 
-        <p className="text-slate-500 mb-4">
-          {hasActiveFilters
-            ? 'Try adjusting or clearing your search filters.'
-            : "We couldn't find any properties at the moment."}
-        </p>
+                    <p className="text-slate-500 mb-4">
+                      {hasActiveFilters
+                        ? 'Try adjusting or clearing your search filters.'
+                        : "We couldn't find any properties at the moment."}
+                    </p>
 
-        <Link href="/properties">
-          <button className="px-6 py-3 bg-[#0249a8] text-white font-semibold rounded-full hover:shadow-md transition-all duration-300">
-            Browse All Properties
-          </button>
-        </Link>
-      </div>
-    </div>
-  </ScrollAnimation>
-</div>
+                    <Link href="/properties">
+                      <button className="px-6 py-3 bg-[#0249a8] text-white font-semibold rounded-full hover:shadow-md transition-all duration-300">
+                        Browse All Properties
+                      </button>
+                    </Link>
+                  </div>
+                </div>
+              </ScrollAnimation>
+            </div>
 
 
           )}
@@ -1112,19 +1086,19 @@ function PropertiesSection({
         else if (prop.images && Array.isArray(prop.images)) propImages = prop.images;
         else if (prop.photos && Array.isArray(prop.photos)) propImages = prop.photos;
         else if (prop.image_urls && Array.isArray(prop.image_urls)) propImages = prop.image_urls;
-        
+
         const propImage = propImages.length > 0 ? propImages[0] : 'https://images.pexels.com/photos/1643383/pexels-photo-1643383.jpeg?auto=compress&cs=tinysrgb&w=600';
         const propName = prop.name || prop.property_name || 'Premium Property';
         const propPrice = prop.starting_price || prop.price || prop.monthly_rent || prop.rent || 15000;
         const propBeds = prop.total_beds || prop.beds_available || prop.beds || 10;
         const propLocation = prop.address || prop.location || prop.area || 'Location';
-        
+
         return (
-          <div 
+          <div
             className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
             onClick={closeSharePopup}
           >
-            <div 
+            <div
               className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
@@ -1132,14 +1106,14 @@ function PropertiesSection({
               <div className="relative h-40 bg-gradient-to-br from-[#0249a8] to-[#023a88]">
                 <img src={propImage} alt={propName} className="w-full h-full object-cover opacity-30" />
                 {/* <div className="absolute inset-0 bg-gradient-to-t from-[#0249a8] to-transparent" /> */}
-                
+
                 <button
                   onClick={closeSharePopup}
                   className="absolute top-3 right-3 h-8 w-8 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-sm flex items-center justify-center transition-all z-10"
                 >
                   <X className="h-4 w-4 text-white" />
                 </button>
-                
+
                 <div className="absolute bottom-3 left-4 right-4">
                   <div className="flex items-center justify-center mb-2">
                     <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-white/20 backdrop-blur-sm">
@@ -1343,10 +1317,10 @@ function AboutUsSection() {
     <ScrollAnimation>
       <section className="bg-gradient-to-br from-slate-50 to-white py-6 sm:py-6 lg:py-5 px-4 sm:px-6">
         <div className="max-w-6xl mx-auto">
-          
+
           {/* DESKTOP VIEW - Side by Side */}
           <div className="hidden lg:grid lg:grid-cols-2 gap-12 xl:gap-16 items-center mb-16">
-            
+
             {/* LEFT SIDE - Content */}
             <div>
               <div className="mb-3">
@@ -1354,46 +1328,43 @@ function AboutUsSection() {
                   About Roomac
                 </span>
               </div>
-              
+
               <h2 className="text-3xl xl:text-4xl 2xl:text-5xl font-bold mb-6 leading-tight text-slate-900">
                 We Provide Premium Living Spaces To All Visitors
               </h2>
-              
+
               <p className="text-slate-600 text-sm xl:text-base leading-relaxed mb-8">
-                At Roomac, luxury is more than just a word — it's a tradition. From exquisite 
-                design to personalized service, every detail is thoughtfully curated to 
+                At Roomac, luxury is more than just a word — it's a tradition. From exquisite
+                design to personalized service, every detail is thoughtfully curated to
                 create unforgettable living experiences.
               </p>
 
               {/* Tabs */}
               <div className="flex flex-wrap gap-3 mb-6">
-                <button 
+                <button
                   onClick={() => setActiveTab('mission')}
-                  className={`px-6 py-2.5 text-sm font-semibold rounded-full transition-all duration-300 shadow-md ${
-                    activeTab === 'mission' 
-                      ? 'bg-[#0249a8] text-white' 
-                      : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50'
-                  }`}
+                  className={`px-6 py-2.5 text-sm font-semibold rounded-full transition-all duration-300 shadow-md ${activeTab === 'mission'
+                    ? 'bg-[#0249a8] text-white'
+                    : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50'
+                    }`}
                 >
                   Our Mission
                 </button>
-                <button 
+                <button
                   onClick={() => setActiveTab('vision')}
-                  className={`px-6 py-2.5 text-sm font-semibold rounded-full transition-all duration-300 shadow-md ${
-                    activeTab === 'vision' 
-                      ? 'bg-[#0249a8] text-white' 
-                      : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50'
-                  }`}
+                  className={`px-6 py-2.5 text-sm font-semibold rounded-full transition-all duration-300 shadow-md ${activeTab === 'vision'
+                    ? 'bg-[#0249a8] text-white'
+                    : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50'
+                    }`}
                 >
                   Our Vision
                 </button>
-                <button 
+                <button
                   onClick={() => setActiveTab('history')}
-                  className={`px-6 py-2.5 text-sm font-semibold rounded-full transition-all duration-300 shadow-md ${
-                    activeTab === 'history' 
-                      ? 'bg-[#0249a8] text-white' 
-                      : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50'
-                  }`}
+                  className={`px-6 py-2.5 text-sm font-semibold rounded-full transition-all duration-300 shadow-md ${activeTab === 'history'
+                    ? 'bg-[#0249a8] text-white'
+                    : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50'
+                    }`}
                 >
                   Our History
                 </button>
@@ -1436,21 +1407,21 @@ function AboutUsSection() {
             {/* RIGHT SIDE - Two Images */}
             <div className="relative">
               <div className="relative h-[600px] xl:h-[650px]">
-                
+
                 {/* Top Right Image - Larger, Landscape */}
                 <div className="absolute top-0 right-0 w-[90%] h-[48%] rounded-3xl overflow-hidden shadow-2xl z-10">
-                  <img 
-                    src="https://images.unsplash.com/photo-1600585154526-990dced4db0d?auto=format&fit=crop&w=900&q=80" 
-                    alt="Luxury Living Space" 
+                  <img
+                    src="https://images.unsplash.com/photo-1600585154526-990dced4db0d?auto=format&fit=crop&w=900&q=80"
+                    alt="Luxury Living Space"
                     className="w-full h-full object-cover hover:scale-105 transition-transform duration-700"
                   />
                 </div>
 
                 {/* Bottom Left Image - Smaller */}
                 <div className="absolute bottom-0 left-0 w-[75%] h-[58%] rounded-3xl overflow-hidden shadow-2xl">
-                  <img 
-                    src="https://images.pexels.com/photos/1595391/pexels-photo-1595391.jpeg?auto=compress&cs=tinysrgb&w=900" 
-                    alt="Premium Amenities" 
+                  <img
+                    src="https://images.pexels.com/photos/1595391/pexels-photo-1595391.jpeg?auto=compress&cs=tinysrgb&w=900"
+                    alt="Premium Amenities"
                     className="w-full h-full object-cover hover:scale-105 transition-transform duration-700"
                   />
                 </div>
@@ -1472,46 +1443,43 @@ function AboutUsSection() {
                   About Roomac
                 </span>
               </div>
-              
+
               <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-4 leading-tight text-slate-900">
                 We Provide Premium Living Spaces To All Visitors
               </h2>
-              
+
               <p className="text-slate-600 text-sm sm:text-base leading-relaxed mb-6">
-                At Roomac, luxury is more than just a word — it's a tradition. From exquisite 
-                design to personalized service, every detail is thoughtfully curated to 
+                At Roomac, luxury is more than just a word — it's a tradition. From exquisite
+                design to personalized service, every detail is thoughtfully curated to
                 create unforgettable living experiences.
               </p>
 
               {/* Tabs */}
               <div className="flex flex-wrap gap-2 sm:gap-3 mb-6">
-                <button 
+                <button
                   onClick={() => setActiveTab('mission')}
-                  className={`px-4 sm:px-6 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold rounded-full transition-all duration-300 shadow-md ${
-                    activeTab === 'mission' 
-                      ? 'bg-[#0249a8] text-white' 
-                      : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50'
-                  }`}
+                  className={`px-4 sm:px-6 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold rounded-full transition-all duration-300 shadow-md ${activeTab === 'mission'
+                    ? 'bg-[#0249a8] text-white'
+                    : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50'
+                    }`}
                 >
                   Our Mission
                 </button>
-                <button 
+                <button
                   onClick={() => setActiveTab('vision')}
-                  className={`px-4 sm:px-6 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold rounded-full transition-all duration-300 shadow-md ${
-                    activeTab === 'vision' 
-                      ? 'bg-[#0249a8] text-white' 
-                      : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50'
-                  }`}
+                  className={`px-4 sm:px-6 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold rounded-full transition-all duration-300 shadow-md ${activeTab === 'vision'
+                    ? 'bg-[#0249a8] text-white'
+                    : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50'
+                    }`}
                 >
                   Our Vision
                 </button>
-                <button 
+                <button
                   onClick={() => setActiveTab('history')}
-                  className={`px-4 sm:px-6 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold rounded-full transition-all duration-300 shadow-md ${
-                    activeTab === 'history' 
-                      ? 'bg-[#0249a8] text-white' 
-                      : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50'
-                  }`}
+                  className={`px-4 sm:px-6 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold rounded-full transition-all duration-300 shadow-md ${activeTab === 'history'
+                    ? 'bg-[#0249a8] text-white'
+                    : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50'
+                    }`}
                 >
                   Our History
                 </button>
@@ -1555,18 +1523,18 @@ function AboutUsSection() {
             <div className="relative h-[350px] sm:h-[450px] md:h-[500px]">
               {/* Top Right Image */}
               <div className="absolute top-0 right-0 w-[85%] sm:w-[90%] h-[48%] rounded-2xl sm:rounded-3xl overflow-hidden shadow-xl sm:shadow-2xl z-10">
-                <img 
-                  src="https://images.unsplash.com/photo-1600585154526-990dced4db0d?auto=format&fit=crop&w=900&q=80" 
-                  alt="Luxury Living Space" 
+                <img
+                  src="https://images.unsplash.com/photo-1600585154526-990dced4db0d?auto=format&fit=crop&w=900&q=80"
+                  alt="Luxury Living Space"
                   className="w-full h-full object-cover"
                 />
               </div>
 
               {/* Bottom Left Image */}
               <div className="absolute bottom-0 left-0 w-[75%] sm:w-[75%] h-[58%] rounded-2xl sm:rounded-3xl overflow-hidden shadow-xl sm:shadow-2xl">
-                <img 
-                  src="https://images.pexels.com/photos/1595391/pexels-photo-1595391.jpeg?auto=compress&cs=tinysrgb&w=900" 
-                  alt="Premium Amenities" 
+                <img
+                  src="https://images.pexels.com/photos/1595391/pexels-photo-1595391.jpeg?auto=compress&cs=tinysrgb&w=900"
+                  alt="Premium Amenities"
                   className="w-full h-full object-cover"
                 />
               </div>
@@ -1574,91 +1542,91 @@ function AboutUsSection() {
           </div>
 
           {/* WHO IS ROOMAC FOR SECTION */}
-<div className="mt-10 sm:mt-12 lg:mt-2">
-  <div className="text-center mb-10 sm:mb-14">
-    <div className="inline-flex items-center justify-center mb-4">
-      <div className="h-1.5 w-8 sm:h-2 sm:w-10 bg-gradient-to-r from-[#0249a8] to-blue-400 rounded-full" />
-      <span className="mx-3 sm:mx-4 text-xs sm:text-sm font-bold text-[#0249a8] tracking-widest uppercase">
-        Perfect For Everyone
-      </span>
-      <div className="h-1.5 w-8 sm:h-2 sm:w-10 bg-gradient-to-l from-[#0249a8] to-blue-400 rounded-full" />
-    </div>
+          <div className="mt-10 sm:mt-12 lg:mt-2">
+            <div className="text-center mb-10 sm:mb-14">
+              <div className="inline-flex items-center justify-center mb-4">
+                <div className="h-1.5 w-8 sm:h-2 sm:w-10 bg-gradient-to-r from-[#0249a8] to-blue-400 rounded-full" />
+                <span className="mx-3 sm:mx-4 text-xs sm:text-sm font-bold text-[#0249a8] tracking-widest uppercase">
+                  Perfect For Everyone
+                </span>
+                <div className="h-1.5 w-8 sm:h-2 sm:w-10 bg-gradient-to-l from-[#0249a8] to-blue-400 rounded-full" />
+              </div>
 
-    <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-4 leading-tight">
-      <span className="text-slate-900">Find Your </span>
-      <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#0249a8] to-blue-500">Perfect Space</span>
-    </h2>
+              <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-4 leading-tight">
+                <span className="text-slate-900">Find Your </span>
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#0249a8] to-blue-500">Perfect Space</span>
+              </h2>
 
-    <p className="text-slate-600 text-base sm:text-lg max-w-3xl mx-auto leading-relaxed">
-      Whether you're a student, professional, or looking for a couple-friendly stay, 
-      we have the perfect home waiting for you
-    </p>
-  </div>
-
-  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-6 lg:gap-7">
-    {categories.map((category, index) => (
-      <ScrollAnimation key={index} delay={index * 0.1}>
-        <div className="group relative overflow-hidden rounded-2xl sm:rounded-3xl h-[280px] sm:h-[320px] lg:h-[360px] cursor-pointer transform transition-all duration-500 hover:-translate-y-2 hover:shadow-2xl">
-          {/* Image with Ken Burns Effect */}
-          <div className="absolute inset-0 overflow-hidden">
-            <img
-              src={category.image}
-              alt={category.title}
-              className="w-full h-full object-cover transition-all duration-700 group-hover:scale-110"
-            />
-          </div>
-
-          {/* Gradient Overlays */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent opacity-90 group-hover:opacity-95 transition-opacity duration-300" />
-          <div className="absolute inset-0 bg-gradient-to-br from-[#0249a8]/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-
-          {/* Icon Circle - Appears on Hover */}
-          <div className="absolute top-6 right-6 transform translate-x-12 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all duration-500">
-            <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center">
-              {index === 0 && <Building2 className="w-7 h-7 text-white" />}
-              {index === 1 && <Zap className="w-7 h-7 text-white" />}
-              {index === 2 && <Heart className="w-7 h-7 text-white" />}
-              {index === 3 && <Home className="w-7 h-7 text-white" />}
-            </div>
-          </div>
-
-          {/* Content */}
-          <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-6 transform transition-all duration-500 group-hover:translate-y-0">
-            
-            {/* Number Badge */}
-            <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm border border-white/40 mb-4 transform transition-all duration-500 group-hover:scale-110">
-              <span className="text-white font-bold text-lg">{index + 1}</span>
+              <p className="text-slate-600 text-base sm:text-lg max-w-3xl mx-auto leading-relaxed">
+                Whether you're a student, professional, or looking for a couple-friendly stay,
+                we have the perfect home waiting for you
+              </p>
             </div>
 
-            {/* Title */}
-            <h3 className="text-xl sm:text-2xl font-bold text-white mb-3 transform transition-all duration-500 group-hover:translate-x-1">
-              {category.title}
-            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-6 lg:gap-7">
+              {categories.map((category, index) => (
+                <ScrollAnimation key={index} delay={index * 0.1}>
+                  <div className="group relative overflow-hidden rounded-2xl sm:rounded-3xl h-[280px] sm:h-[320px] lg:h-[360px] cursor-pointer transform transition-all duration-500 hover:-translate-y-2 hover:shadow-2xl">
+                    {/* Image with Ken Burns Effect */}
+                    <div className="absolute inset-0 overflow-hidden">
+                      <img
+                        src={category.image}
+                        alt={category.title}
+                        className="w-full h-full object-cover transition-all duration-700 group-hover:scale-110"
+                      />
+                    </div>
 
-            {/* Description */}
-            <p className="text-white/90 text-sm sm:text-base leading-relaxed mb-4 line-clamp-2 transform transition-all duration-500 group-hover:line-clamp-none">
-              {category.description}
-            </p>
+                    {/* Gradient Overlays */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent opacity-90 group-hover:opacity-95 transition-opacity duration-300" />
+                    <div className="absolute inset-0 bg-gradient-to-br from-[#0249a8]/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
-            {/* Learn More Link - Slides in on Hover */}
-            <div className="flex items-center gap-2 text-white font-semibold text-sm transform translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500 delay-100">
-              <span>Explore Options</span>
-              <ArrowRight className="w-4 h-4 transform group-hover:translate-x-1 transition-transform duration-300" />
+                    {/* Icon Circle - Appears on Hover */}
+                    <div className="absolute top-6 right-6 transform translate-x-12 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all duration-500">
+                      <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center">
+                        {index === 0 && <Building2 className="w-7 h-7 text-white" />}
+                        {index === 1 && <Zap className="w-7 h-7 text-white" />}
+                        {index === 2 && <Heart className="w-7 h-7 text-white" />}
+                        {index === 3 && <Home className="w-7 h-7 text-white" />}
+                      </div>
+                    </div>
+
+                    {/* Content */}
+                    <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-6 transform transition-all duration-500 group-hover:translate-y-0">
+
+                      {/* Number Badge */}
+                      <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm border border-white/40 mb-4 transform transition-all duration-500 group-hover:scale-110">
+                        <span className="text-white font-bold text-lg">{index + 1}</span>
+                      </div>
+
+                      {/* Title */}
+                      <h3 className="text-xl sm:text-2xl font-bold text-white mb-3 transform transition-all duration-500 group-hover:translate-x-1">
+                        {category.title}
+                      </h3>
+
+                      {/* Description */}
+                      <p className="text-white/90 text-sm sm:text-base leading-relaxed mb-4 line-clamp-2 transform transition-all duration-500 group-hover:line-clamp-none">
+                        {category.description}
+                      </p>
+
+                      {/* Learn More Link - Slides in on Hover */}
+                      <div className="flex items-center gap-2 text-white font-semibold text-sm transform translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500 delay-100">
+                        <span>Explore Options</span>
+                        <ArrowRight className="w-4 h-4 transform group-hover:translate-x-1 transition-transform duration-300" />
+                      </div>
+                    </div>
+
+                    {/* Decorative Border on Hover */}
+                    <div className="absolute inset-0 border-2 border-white/0 group-hover:border-white/20 rounded-2xl sm:rounded-3xl transition-all duration-500" />
+                  </div>
+                </ScrollAnimation>
+              ))}
             </div>
+
+
+
+
+
           </div>
-
-          {/* Decorative Border on Hover */}
-          <div className="absolute inset-0 border-2 border-white/0 group-hover:border-white/20 rounded-2xl sm:rounded-3xl transition-all duration-500" />
-        </div>
-      </ScrollAnimation>
-    ))}
-  </div>
-
-
-  
-
-  
-</div>
         </div>
       </section>
     </ScrollAnimation>
@@ -1669,39 +1637,39 @@ function FeaturesSection({ features }: { features: any[] }) {
   // Light pastel color classes for different features
   const getFeatureColor = (index: number, title: string) => {
     const lower = title.toLowerCase();
-    
+
     // WiFi - Blue shades
     if (lower.includes('wifi') || lower.includes('internet'))
       return "bg-blue-50 text-blue-600";
-    
+
     // Food/Meals - Orange/Amber shades
     if (lower.includes('meal') || lower.includes('food'))
       return "bg-orange-50 text-orange-600";
-    
+
     // Security - Red shades
     if (lower.includes('security') || lower.includes('safety'))
       return "bg-red-50 text-red-600";
-    
+
     // Housekeeping/Cleaning - Purple shades
     if (lower.includes('housekeeping') || lower.includes('cleaning'))
       return "bg-purple-50 text-purple-600";
-    
+
     // Parking - Green shades
     if (lower.includes('parking') || lower.includes('car'))
       return "bg-green-50 text-green-600";
-    
+
     // Power Backup - Amber shades
     if (lower.includes('power') || lower.includes('backup') || lower.includes('electricity'))
       return "bg-amber-50 text-amber-600";
-    
+
     // Furnished - Pink shades
     if (lower.includes('furnished') || lower.includes('furniture'))
       return "bg-pink-50 text-pink-600";
-    
+
     // Community/Events - Indigo shades
     if (lower.includes('community') || lower.includes('event'))
       return "bg-indigo-50 text-indigo-600";
-    
+
     // Default - Cycle through colors based on index
     const colors = [
       "bg-blue-50 text-blue-600",
@@ -1720,39 +1688,39 @@ function FeaturesSection({ features }: { features: any[] }) {
     <ScrollAnimation>
       <section className="relative sm:py-10 mt-4 mb-0 bg-white px-4 sm:px-6">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">
-          
+
           {/* Header Section - Minimal with brand colors */}
           <div className="flex flex-col items-center text-center max-w-2xl mx-auto mb-12 sm:mb-16">
             {/* Yellow accent line */}
             <div className="w-12 h-0.5 bg-[#fdbc0a] rounded-full mb-4" />
-            
-            {/* Main Heading */}
-           <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-4 leading-tight">
-  <span className="text-slate-900">Everything you need,</span>
-  <br />
-  <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#0249a8] to-blue-500">
-    all in one place
-  </span>
-</h2>
 
-            
+            {/* Main Heading */}
+            <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-4 leading-tight">
+              <span className="text-slate-900">Everything you need,</span>
+              <br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#0249a8] to-blue-500">
+                all in one place
+              </span>
+            </h2>
+
+
             {/* Description */}
             <p className="text-sm sm:text-base text-slate-500 font-light max-w-md">
               Premium amenities and services designed for your comfort
             </p>
           </div>
-          
+
           {/* Features Grid - Clean Cards */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 md:gap-6">
             {features.map((item, i) => {
               const colorClass = getFeatureColor(i, item.title);
-              
+
               return (
                 <ScrollAnimation key={i} delay={i * 0.05}>
-                  <FeatureCardMinimal 
-                    {...item} 
-                    index={i} 
-                    colorClass={colorClass} 
+                  <FeatureCardMinimal
+                    {...item}
+                    index={i}
+                    colorClass={colorClass}
                   />
                 </ScrollAnimation>
               );
@@ -1769,29 +1737,29 @@ function FeatureCardMinimal({ icon: Icon, title, desc, index, colorClass }: any)
   return (
     <div className="group h-full">
       <div className="flex flex-col items-center text-center p-5 sm:p-6 md:p-7 bg-white hover:bg-slate-50 rounded-xl transition-all duration-300 h-full">
-        
+
         {/* Icon - Clean circle with dynamic color */}
         <div className="relative mb-4">
           <div className={`w-14 h-14 sm:w-16 sm:h-16 md:w-18 md:h-18 rounded-full flex items-center justify-center transition-all duration-300 ${colorClass} group-hover:scale-105`}>
             <Icon className="h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8" strokeWidth={1.5} />
           </div>
-          
+
           {/* Small yellow dot accent - appears on every 3rd card */}
           {index % 3 === 0 && (
             <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-[#fdbc0a] rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
           )}
         </div>
-        
+
         {/* Title */}
         <h3 className="text-sm sm:text-base md:text-lg font-medium text-slate-800 mb-2 group-hover:text-[#0049b0] transition-colors duration-300">
           {title}
         </h3>
-        
+
         {/* Description */}
         <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
           {desc}
         </p>
-        
+
         {/* Minimal hover indicator - yellow line */}
         <div className="w-8 h-0.5 bg-[#fdbc0a]/0 group-hover:bg-[#fdbc0a] rounded-full mt-4 transition-all duration-300" />
       </div>

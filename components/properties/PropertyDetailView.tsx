@@ -1,5 +1,4 @@
 // components/properties/PropertyDetailView.tsx
-// components/properties/PropertyDetailView.tsx
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, memo } from "react";
@@ -291,6 +290,7 @@ const PropertyDetailView = memo(function PropertyDetailView({
 }: PropertyDetailViewProps) {
   const router = useRouter();
   const [searchParams] = useSearchParams();
+  const serialNumber = searchParams.get("sn");
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showAllRooms, setShowAllRooms] = useState(false);
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
@@ -1279,10 +1279,9 @@ availability                  </p>
                   </button>
                   <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[14px] font-bold uppercase tracking-wider shadow-sm text-white">
                     <span className="w-1.5 h-1.5 rounded-full" />
-                    {"RMCX-" + propertyData.id}
+                    {"RMCX-00" + (serialNumber || propertyData.id)}
                   </span>
                 </div>
-
                 {/* View All button - top right */}
                 <button
                   onClick={() => {

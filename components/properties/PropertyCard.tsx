@@ -6,10 +6,10 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { 
-  Building2, 
-  MapPin, 
-  Users, 
+import {
+  Building2,
+  MapPin,
+  Users,
   ChevronRight,
   Bed,
   Bath,
@@ -54,14 +54,16 @@ const BRAND_YELLOW = "#fdbc0a";
 
 interface PropertyCardProps {
   property: any;
+  index?: number; // 👈 ADD THIS
   likedProperties?: Set<number>;
   onWhatsAppClick?: (phone: string, name: string, location: string) => void;
   onCallClick?: (phone: string) => void;
   onHeartClick?: (propertyId: number, event: React.MouseEvent) => void;
 }
 
-const PropertyCard = memo(function PropertyCard({ 
-  property, 
+const PropertyCard = memo(function PropertyCard({
+  property,
+  index = 0,   // 👈 ADD THIS
   likedProperties = new Set(),
   onWhatsAppClick,
   onCallClick,
@@ -75,13 +77,13 @@ const PropertyCard = memo(function PropertyCard({
     isOpen: boolean;
     property: any | null;
     shareUrl: string;
-  }>({ 
-    isOpen: false, 
+  }>({
+    isOpen: false,
     property: null,
     shareUrl: ''
   });
   const [copied, setCopied] = useState(false);
-  
+
   // Extract property data with fallbacks
   const propertyId = property.id || Math.random();
   const propertyName = property.name || property.property_name || 'Premium Property';
@@ -91,7 +93,7 @@ const PropertyCard = memo(function PropertyCard({
   const propertyPrice = property.starting_price || property.price || property.monthly_rent || property.rent || 15000;
   const rating = property.rating || 4.5;
   const reviewCount = property.review_count || 24;
-  
+
   // Extract images with fallback
   const propertyImages = (() => {
     if (property.photo_urls && Array.isArray(property.photo_urls)) return property.photo_urls;
@@ -100,10 +102,10 @@ const PropertyCard = memo(function PropertyCard({
     if (property.image_urls && Array.isArray(property.image_urls)) return property.image_urls;
     return [];
   })();
-  
+
   const totalImages = propertyImages.length;
-  const currentImage = !imageError && totalImages > 0 
-    ? `${API_URL}${propertyImages[currentImageIndex]}` 
+  const currentImage = !imageError && totalImages > 0
+    ? `${API_URL}${propertyImages[currentImageIndex]}`
     : FALLBACK_IMAGES[fallbackIndex];
 
   // Extract tags
@@ -116,13 +118,13 @@ const PropertyCard = memo(function PropertyCard({
       property.tag_list,
       property.tags_mapped
     ];
-    
+
     for (const source of possibleTagSources) {
       if (source && Array.isArray(source) && source.length > 0) {
         return source;
       }
     }
-    
+
     if (property.transformedData) {
       const possibleKeys = ['tags', 'propertyTags', 'property_tags', 'categories', 'labels'];
       for (const key of possibleKeys) {
@@ -131,7 +133,7 @@ const PropertyCard = memo(function PropertyCard({
         }
       }
     }
-    
+
     return [];
   })();
 
@@ -155,12 +157,12 @@ const PropertyCard = memo(function PropertyCard({
   })();
 
   const displayAmenities = amenities.slice(0, 5);
-  
+
   // Extract beds and rooms
   const totalBeds = property.total_beds || property.beds_available || property.beds || property.bed_count || 10;
   const totalRooms = property.total_rooms || property.rooms || property.room_count || '';
   const totalBathrooms = property.total_bathrooms || property.bathrooms || property.bathroom_count || '';
-  
+
   // Get property type
   const propertyType = property.property_type || property.type || '';
 
@@ -168,13 +170,13 @@ const PropertyCard = memo(function PropertyCard({
   const handleCardClick = useCallback((e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
     const isInteractive = target.closest('button') || target.closest('a');
-    
+
     if (!isInteractive) {
       window.scrollTo(0, 0);
-      
+
       // Generate or get tracking ID for this property
       const trackingId = getOrCreateTrackingId(property.id);
-      
+
       // Generate SEO-friendly slug
       const seoSlug = generatePropertySlug({
         name: propertyName,
@@ -182,12 +184,12 @@ const PropertyCard = memo(function PropertyCard({
         city: property.city,
         id: property.id
       });
-      
+
       // Use seoSlug if available
       const slug = seoSlug || property.seoSlug || property.slug || property.id;
-      
+
       // Navigate with tracking parameter
-      router.push(`/properties/${slug}?tf=${trackingId}`);
+      router.push(`/properties/${slug}?tf=${trackingId}&sn=${index + 1}`);
     }
   }, [router, property, propertyName]);
 
@@ -196,9 +198,9 @@ const PropertyCard = memo(function PropertyCard({
     e.preventDefault();
     e.stopPropagation();
     window.scrollTo(0, 0);
-    
+
     const trackingId = getOrCreateTrackingId(property.id);
-    
+
     // Generate SEO-friendly slug
     const seoSlug = generatePropertySlug({
       name: propertyName,
@@ -206,10 +208,9 @@ const PropertyCard = memo(function PropertyCard({
       city: property.city,
       id: property.id
     });
-    
+
     const slug = seoSlug || property.seoSlug || property.slug || property.id;
-    
-    router.push(`/properties/${slug}?tf=${trackingId}`);
+    router.push(`/properties/${slug}?tf=${trackingId}&sn=${index + 1}`);
   }, [router, property, propertyName]);
 
   // Image navigation handlers - with stopPropagation to prevent card click
@@ -302,7 +303,7 @@ const PropertyCard = memo(function PropertyCard({
     e?.preventDefault();
     e?.stopPropagation();
 
-    const phone = "9923953933"; 
+    const phone = "9923953933";
     const message = `Hi, I'm interested in ${propertyName} located at ${fullLocation}`;
     const url = `https://wa.me/91${phone}?text=${encodeURIComponent(message)}`;
     window.open(url, "_blank");
@@ -321,9 +322,9 @@ const PropertyCard = memo(function PropertyCard({
   const handleShareClick = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     const trackingId = getOrCreateTrackingId(property.id);
-    
+
     // Generate SEO-friendly slug
     const seoSlug = generatePropertySlug({
       name: propertyName,
@@ -331,14 +332,14 @@ const PropertyCard = memo(function PropertyCard({
       city: property.city,
       id: property.id
     });
-    
+
     const slug = seoSlug || property.seoSlug || property.slug || property.id;
     const shareUrl = `${window.location.origin}/properties/${slug}?tf=${trackingId}`;
-    
-    setSharePopup({ 
-      isOpen: true, 
+
+    setSharePopup({
+      isOpen: true,
       property: property,
-      shareUrl: shareUrl 
+      shareUrl: shareUrl
     });
   }, [property, propertyName]);
 
@@ -360,7 +361,7 @@ const PropertyCard = memo(function PropertyCard({
   // Handle social share - Updated to use the shareUrl from state
   const handleSocialShare = useCallback((platform: string) => {
     if (!sharePopup.shareUrl || !sharePopup.property) return;
-    
+
     const propertyName = sharePopup.property.name || sharePopup.property.property_name || 'Premium Property';
     const shareText = `Check out this property: ${propertyName}`;
 
@@ -385,7 +386,7 @@ const PropertyCard = memo(function PropertyCard({
         url = `mailto:?subject=${encodeURIComponent(propertyName)}&body=${encodeURIComponent(shareText + '\n\n' + sharePopup.shareUrl)}`;
         break;
     }
-    
+
     if (url) {
       window.open(url, '_blank', 'width=600,height=400');
     }
@@ -401,12 +402,12 @@ const PropertyCard = memo(function PropertyCard({
 
   return (
     <>
-      <div 
+      <div
         className="group block h-full cursor-pointer"
         onClick={handleCardClick}
       >
         <div className="relative overflow-hidden rounded-2xl bg-[#f0f5f5] shadow-md hover:shadow-2xl transition-all duration-500 group-hover:-translate-y-2 h-[515px] flex flex-col">
-          
+
           {/* Image area */}
           <div className="relative h-52 sm:h-56 md:h-60 overflow-hidden rounded-t-2xl flex-shrink-0">
             <img
@@ -416,7 +417,7 @@ const PropertyCard = memo(function PropertyCard({
               style={{ transform: 'scale(1.03)' }}
               onError={handleImageError}
             />
-            
+
             {/* Watermark - Center */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[5] pointer-events-none">
               <div
@@ -430,7 +431,7 @@ const PropertyCard = memo(function PropertyCard({
                 Roomac.in
               </div>
             </div>
-            
+
             {/* Image navigation arrows */}
             {totalImages > 1 && !imageError && (
               <>
@@ -453,13 +454,6 @@ const PropertyCard = memo(function PropertyCard({
             <div className="absolute top-3 left-3 z-10 flex items-center gap-1.5 bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-full shadow-lg">
               <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
               <span className="text-xs font-bold text-slate-800">{rating}</span>
-              {/* <span
-            className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm
-             bg-slate-200 text-black "
-          >
-            <span className={`w-1.5 h-1.5 rounded-full `} />
-            {"RMCX-"+property.id }
-          </span> */}
             </div>
 
             {/* Share & Heart */}
@@ -490,7 +484,7 @@ const PropertyCard = memo(function PropertyCard({
                   {propertyType}
                 </span>
               )}
-              
+
             </div>
 
             {/* Image dots indicator */}
@@ -500,11 +494,10 @@ const PropertyCard = memo(function PropertyCard({
                   <button
                     key={index}
                     onClick={(e) => setImageIndex(index, e)}
-                    className={`w-1.5 h-1.5 rounded-full transition-all ${
-                      index === currentImageIndex
+                    className={`w-1.5 h-1.5 rounded-full transition-all ${index === currentImageIndex
                         ? 'bg-white w-3'
                         : 'bg-white/50 hover:bg-white/80'
-                    }`}
+                      }`}
                   />
                 ))}
               </div>
@@ -520,45 +513,45 @@ const PropertyCard = memo(function PropertyCard({
 
           {/* Card body */}
           <div className="p-4 sm:p-5 flex flex-col flex-grow">
-            
+
             {/* Title + Price in Header Row */}
-           {/* Title + Code + Price Row */}
-<div className="flex items-start justify-between mb-2 gap-2">
+            {/* Title + Code + Price Row */}
+            <div className="flex items-start justify-between mb-2 gap-2">
 
-  {/* LEFT : Property Title */}
-  <div className="flex-1 min-w-0">
-    <h3 className="font-bold text-base sm:text-lg text-slate-800 group-hover:text-[#0249a8] transition-colors duration-300 line-clamp-1">
-      {propertyName}
-    </h3>
+              {/* LEFT : Property Title */}
+              <div className="flex-1 min-w-0">
+                <h3 className="font-bold text-base sm:text-lg text-slate-800 group-hover:text-[#0249a8] transition-colors duration-300 line-clamp-1">
+                  {propertyName}
+                </h3>
 
-    <div className="flex items-center gap-2 mt-1">
-      <div className="h-0.5 w-8 bg-[#0249a8] rounded-full" />
-      <div className="h-0.5 w-2 bg-[#fdbc0a] rounded-full" />
-    </div>
-  </div>
+                <div className="flex items-center gap-2 mt-1">
+                  <div className="h-0.5 w-8 bg-[#0249a8] rounded-full" />
+                  <div className="h-0.5 w-2 bg-[#fdbc0a] rounded-full" />
+                </div>
+              </div>
 
-  {/* CENTER : RMCX Code */}
-  <div className="flex items-center justify-center flex-shrink-0">
-    <span
-      className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm bg-slate-200 text-black whitespace-nowrap"
-    >
-      {"RMCX-" + property.id}
-    </span>
-  </div>
+              {/* CENTER : RMCX Code */}
+              <div className="flex items-center justify-center flex-shrink-0">
+                <span
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm bg-slate-200 text-black whitespace-nowrap"
+                >
+                  {"RMCX-00" + (index + 1)}
+                </span>
+              </div>
 
-  {/* RIGHT : Price */}
-  <div className="text-right flex-shrink-0">
-    <p className="text-xs text-slate-400 font-medium whitespace-nowrap">
-      Starting from
-    </p>
+              {/* RIGHT : Price */}
+              <div className="text-right flex-shrink-0">
+                <p className="text-xs text-slate-400 font-medium whitespace-nowrap">
+                  Starting from
+                </p>
 
-    <p className="text-lg font-bold text-[#0249a8] whitespace-nowrap">
-      ₹{Number(propertyPrice).toLocaleString()}
-      <span className="text-sm text-slate-400 font-normal">/mo</span>
-    </p>
-  </div>
+                <p className="text-lg font-bold text-[#0249a8] whitespace-nowrap">
+                  ₹{Number(propertyPrice).toLocaleString()}
+                  <span className="text-sm text-slate-400 font-normal">/mo</span>
+                </p>
+              </div>
 
-</div>
+            </div>
 
             {/* Location */}
             <div className="flex items-start gap-1.5 mb-3">
@@ -575,7 +568,7 @@ const PropertyCard = memo(function PropertyCard({
                 <span className="font-semibold text-slate-700">{totalBeds}</span>
                 <span className="text-slate-400">Beds</span>
               </div>
-              
+
               {totalRooms && (
                 <div className="flex items-center gap-1.5">
                   <Home className="h-3.5 w-3.5 text-[#0249a8]" />
@@ -583,7 +576,7 @@ const PropertyCard = memo(function PropertyCard({
                   <span className="text-slate-400">Rooms</span>
                 </div>
               )}
-              
+
               {totalBathrooms && (
                 <div className="flex items-center gap-1.5">
                   <Bath className="h-3.5 w-3.5 text-purple-500" />
@@ -597,8 +590,8 @@ const PropertyCard = memo(function PropertyCard({
             {displayAmenities.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mb-3">
                 {displayAmenities.map((a: any, ai: number) => (
-                  <span 
-                    key={ai} 
+                  <span
+                    key={ai}
                     className={`px-2 py-0.5 rounded-md border text-xs font-medium ${getAmenityColor(ai)}`}
                   >
                     {String(a)}
@@ -613,60 +606,60 @@ const PropertyCard = memo(function PropertyCard({
             )}
 
             {/* Divider and Actions */}
-<div className="border-t border-slate-200 mt-auto pt-3">
-  {/* WhatsApp, Call, View Details */}
-  <div className="flex items-center gap-2">
-    <button
-      onClick={handleDetailsClick}
-      className="flex-1 px-2 py-2.5 bg-[#0249a8] hover:bg-[#023a88] text-white text-xs font-semibold rounded-lg shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 flex items-center justify-center gap-1"
-    >
-      <span>Details</span>
-      <ArrowRight className="h-3 w-3" />
-    </button>
-    
-    {/* WhatsApp Button - Using property manager's WhatsApp/phone */}
-    <button
-      onClick={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        // Get WhatsApp number from property data - check all possible fields
-        const whatsappNumber = property?.property_manager_phone || 
-                      property?.manager_phone || 
-                      property?.whatsapp || 
-                      property?.contact_number || 
+            <div className="border-t border-slate-200 mt-auto pt-3">
+              {/* WhatsApp, Call, View Details */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleDetailsClick}
+                  className="flex-1 px-2 py-2.5 bg-[#0249a8] hover:bg-[#023a88] text-white text-xs font-semibold rounded-lg shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 flex items-center justify-center gap-1"
+                >
+                  <span>Details</span>
+                  <ArrowRight className="h-3 w-3" />
+                </button>
+
+                {/* WhatsApp Button - Using property manager's WhatsApp/phone */}
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    // Get WhatsApp number from property data - check all possible fields
+                    const whatsappNumber = property?.property_manager_phone ||
+                      property?.manager_phone ||
+                      property?.whatsapp ||
+                      property?.contact_number ||
                       '9923953933';
-window.open(`https://wa.me/91${whatsappNumber.replace(/[^0-9]/g, '')}?text=...`)
-        const message = `Hi, I'm interested in ${property?.name || 'this property'} at ${property?.location || property?.area || ''}. Can you share more details?`;
-        window.open(`https://wa.me/${whatsappNumber.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(message)}`, '_blank');
-      }}
-      className="flex-1 flex items-center justify-center gap-1 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 rounded-lg text-xs font-medium transition-all hover:scale-105"
-      title="WhatsApp"
-    >
-      <BsWhatsapp className="h-4 w-4" />
-      <span className="hidden sm:inline">WhatsApp</span>
-    </button>
-    
-    {/* Call Button - Using property manager's phone */}
-    <button
-      onClick={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        // Get phone number from property data - check all possible fields
-const phoneNumber = property?.property_manager_phone || 
-                   property?.manager_phone || 
-                   property?.contact_number || 
-                   property?.phone || 
-                   '9923953933';
-window.location.href = `tel:+91${phoneNumber.replace(/[^0-9]/g, '')}`;
-      }}
-      className="flex-1 flex items-center justify-center gap-1 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-medium transition-all hover:scale-105"
-      title="Call"
-    >
-      <Phone className="h-4 w-4" />
-      <span className="hidden sm:inline">Call</span>
-    </button>
-  </div>
-</div>
+                    window.open(`https://wa.me/91${whatsappNumber.replace(/[^0-9]/g, '')}?text=...`)
+                    const message = `Hi, I'm interested in ${property?.name || 'this property'} at ${property?.location || property?.area || ''}. Can you share more details?`;
+                    window.open(`https://wa.me/${whatsappNumber.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(message)}`, '_blank');
+                  }}
+                  className="flex-1 flex items-center justify-center gap-1 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 rounded-lg text-xs font-medium transition-all hover:scale-105"
+                  title="WhatsApp"
+                >
+                  <BsWhatsapp className="h-4 w-4" />
+                  <span className="hidden sm:inline">WhatsApp</span>
+                </button>
+
+                {/* Call Button - Using property manager's phone */}
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    // Get phone number from property data - check all possible fields
+                    const phoneNumber = property?.property_manager_phone ||
+                      property?.manager_phone ||
+                      property?.contact_number ||
+                      property?.phone ||
+                      '9923953933';
+                    window.location.href = `tel:+91${phoneNumber.replace(/[^0-9]/g, '')}`;
+                  }}
+                  className="flex-1 flex items-center justify-center gap-1 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-medium transition-all hover:scale-105"
+                  title="Call"
+                >
+                  <Phone className="h-4 w-4" />
+                  <span className="hidden sm:inline">Call</span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -679,33 +672,33 @@ window.location.href = `tel:+91${phoneNumber.replace(/[^0-9]/g, '')}`;
         else if (prop.images && Array.isArray(prop.images)) propImages = prop.images;
         else if (prop.photos && Array.isArray(prop.photos)) propImages = prop.photos;
         else if (prop.image_urls && Array.isArray(prop.image_urls)) propImages = prop.image_urls;
-        
+
         const propImage = propImages.length > 0 ? propImages[0] : 'https://images.pexels.com/photos/1643383/pexels-photo-1643383.jpeg?auto=compress&cs=tinysrgb&w=600';
         const propName = prop.name || prop.property_name || 'Premium Property';
         const propPrice = prop.starting_price || prop.price || prop.monthly_rent || prop.rent || 15000;
         const propBeds = prop.total_beds || prop.beds_available || prop.beds || 10;
         const propLocation = prop.address || prop.location || prop.area || 'Location';
-        
+
         return (
-          <div 
+          <div
             className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
             onClick={closeSharePopup}
           >
-            <div 
+            <div
               className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header with Property Image */}
               <div className="relative h-40 bg-gradient-to-br from-[#0249a8] to-[#023a88]">
                 <img src={propImage} alt={propName} className="w-full h-full object-cover opacity-30" />
-                
+
                 <button
                   onClick={closeSharePopup}
                   className="absolute top-3 right-3 h-8 w-8 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-sm flex items-center justify-center transition-all z-10"
                 >
                   <X className="h-4 w-4 text-white" />
                 </button>
-                
+
                 <div className="absolute bottom-3 left-4 right-4">
                   <div className="flex items-center justify-center mb-2">
                     <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-white/20 backdrop-blur-sm">
@@ -872,10 +865,10 @@ export const PropertyCardSkeleton = memo(function PropertyCardSkeleton() {
 });
 
 // Error State Component
-export const PropertyCardError = memo(function PropertyCardError({ 
-  onRetry 
-}: { 
-  onRetry?: () => void 
+export const PropertyCardError = memo(function PropertyCardError({
+  onRetry
+}: {
+  onRetry?: () => void
 }) {
   return (
     <div className="h-[500px] rounded-2xl bg-white shadow-md flex flex-col items-center justify-center p-6 text-center">
@@ -915,8 +908,8 @@ export const PropertyCardEmpty = memo(function PropertyCardEmpty({
           {hasFilters ? 'No properties match your filters' : 'No Properties Found'}
         </h3>
         <p className="text-sm text-slate-500 mb-4">
-          {hasFilters 
-            ? 'Try adjusting or clearing your search filters.' 
+          {hasFilters
+            ? 'Try adjusting or clearing your search filters.'
             : "We couldn't find any properties at the moment."}
         </p>
         {hasFilters && onClearFilters && (

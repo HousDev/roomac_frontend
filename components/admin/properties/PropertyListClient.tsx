@@ -84,8 +84,8 @@ type Property = {
   floor?: string;
   area: string;
   address: string;
-   map_embed_url?: string;        // ADD THIS
-  map_direction_url?: string; 
+  map_embed_url?: string;        // ADD THIS
+  map_direction_url?: string;
   total_rooms: number;
   total_beds: number;
   occupied_beds: number;
@@ -177,7 +177,7 @@ export default function PropertyListClient({ initialProperties }: PropertyListCl
   const [importing, setImporting] = useState(false);
   const [propertiesMasters, setPropertiesMasters] = useState<Record<string, MasterValue[]>>({});
   const [mastersLoaded, setMastersLoaded] = useState(false);
-  
+
   // Stats state
   const [stats, setStats] = useState({
     totalProperties: 0,
@@ -220,7 +220,7 @@ export default function PropertyListClient({ initialProperties }: PropertyListCl
     setMastersLoading(true);
     try {
       const res = await consumeMasters({ tab: "Properties" });
-   
+
       if (res?.success && res.data) {
         const grouped: Record<string, MasterValue[]> = {};
         res.data.forEach((item: any) => {
@@ -234,7 +234,7 @@ export default function PropertyListClient({ initialProperties }: PropertyListCl
             isactive: 1,
           });
         });
-        
+
         setPropertiesMasters(grouped);
         setMastersLoaded(true);
         return grouped;
@@ -252,8 +252,8 @@ export default function PropertyListClient({ initialProperties }: PropertyListCl
     setLoading(true);
     try {
       const cacheBuster = forceRefresh ? Date.now() : loadTimestamp.current;
-      const res = await listProperties({ 
-        page: 1, 
+      const res = await listProperties({
+        page: 1,
         pageSize: 200,
         _t: cacheBuster
       });
@@ -262,76 +262,76 @@ export default function PropertyListClient({ initialProperties }: PropertyListCl
       if (res && res.success) {
         const propertiesData = Array.isArray(res.data)
           ? await Promise.all(res.data.map(async (p: any) => {
-              // First check if the property already has occupied_beds from the list endpoint
-              let occupiedBeds = p.occupied_beds || 0;
-              
-              // If not, fetch it separately
-              if (occupiedBeds === 0 && p.total_beds > 0) {
-                try {
-                  const statsRes = await getPropertyOccupancyStats(p.id);
-                  if (statsRes.success) {
-                    occupiedBeds = statsRes.data.occupied_beds || 0;
-                  }
-                } catch (error) {
-                  console.error(`Error fetching occupancy for property ${p.id}:`, error);
+            // First check if the property already has occupied_beds from the list endpoint
+            let occupiedBeds = p.occupied_beds || 0;
+
+            // If not, fetch it separately
+            if (occupiedBeds === 0 && p.total_beds > 0) {
+              try {
+                const statsRes = await getPropertyOccupancyStats(p.id);
+                if (statsRes.success) {
+                  occupiedBeds = statsRes.data.occupied_beds || 0;
                 }
+              } catch (error) {
+                console.error(`Error fetching occupancy for property ${p.id}:`, error);
               }
-              
-              // Parse tags - keep them as they come from API (could be IDs or names)
-              let tags: string[] = [];
-              if (Array.isArray(p.tags)) {
-                tags = p.tags.filter((t: any) => t != null && t !== '');
-              } else if (p.tags && typeof p.tags === 'string' && p.tags !== '') {
-                try {
-                  const parsed = JSON.parse(p.tags);
-                  tags = Array.isArray(parsed) ? parsed : [p.tags];
-                } catch {
-                  tags = [p.tags];
-                }
+            }
+
+            // Parse tags - keep them as they come from API (could be IDs or names)
+            let tags: string[] = [];
+            if (Array.isArray(p.tags)) {
+              tags = p.tags.filter((t: any) => t != null && t !== '');
+            } else if (p.tags && typeof p.tags === 'string' && p.tags !== '') {
+              try {
+                const parsed = JSON.parse(p.tags);
+                tags = Array.isArray(parsed) ? parsed : [p.tags];
+              } catch {
+                tags = [p.tags];
               }
-              
-              return {
-                id: String(p.id || ''),
-                name: p.name || '',
-                area: p.area || '',
-                address: p.address || '',
-                map_embed_url: p.map_embed_url || '',        // ADD THIS
-        map_direction_url: p.map_direction_url || '', // ADD THIS
-                state: p.state || '',
-                floor: p.floor || '',
-                city_id: p.city_id || '',
-                total_rooms: Number(p.total_rooms) || 0,
-                total_beds: Number(p.total_beds) || 0,
-                occupied_beds: occupiedBeds,
-                starting_price: Number(p.starting_price) || 0,
-                security_deposit: Number(p.security_deposit) || 0,
-                description: p.description || '',
-                property_manager_name: p.property_manager_name || '',
-                property_manager_phone: p.property_manager_phone || '',
-                amenities: Array.isArray(p.amenities) ? p.amenities : [],
-                services: Array.isArray(p.services) ? p.services : [],
-                photo_urls: Array.isArray(p.photo_urls) ? p.photo_urls : [],
-                property_rules: p.property_rules || '',
-                is_active: Boolean(p.is_active),
-                lockin_period_months: Number(p.lockin_period_months) || 0,
-                lockin_penalty_amount: Number(p.lockin_penalty_amount) || 0,
-                lockin_penalty_type: p.lockin_penalty_type || "fixed",
-                notice_period_days: Number(p.notice_period_days) || 0,
-                notice_penalty_amount: Number(p.notice_penalty_amount) || 0,
-                notice_penalty_type: p.notice_penalty_type || "fixed",
-                terms_conditions: p.terms_conditions || "",
-                additional_terms: p.additional_terms || "",
-                tags: tags,
-                role_name: p.role_name || ""
-              };
-            }))
+            }
+
+            return {
+              id: String(p.id || ''),
+              name: p.name || '',
+              area: p.area || '',
+              address: p.address || '',
+              map_embed_url: p.map_embed_url || '',        // ADD THIS
+              map_direction_url: p.map_direction_url || '', // ADD THIS
+              state: p.state || '',
+              floor: p.floor || '',
+              city_id: p.city_id || '',
+              total_rooms: Number(p.total_rooms) || 0,
+              total_beds: Number(p.total_beds) || 0,
+              occupied_beds: occupiedBeds,
+              starting_price: Number(p.starting_price) || 0,
+              security_deposit: Number(p.security_deposit) || 0,
+              description: p.description || '',
+              property_manager_name: p.property_manager_name || '',
+              property_manager_phone: p.property_manager_phone || '',
+              amenities: Array.isArray(p.amenities) ? p.amenities : [],
+              services: Array.isArray(p.services) ? p.services : [],
+              photo_urls: Array.isArray(p.photo_urls) ? p.photo_urls : [],
+              property_rules: p.property_rules || '',
+              is_active: Boolean(p.is_active),
+              lockin_period_months: Number(p.lockin_period_months) || 0,
+              lockin_penalty_amount: Number(p.lockin_penalty_amount) || 0,
+              lockin_penalty_type: p.lockin_penalty_type || "fixed",
+              notice_period_days: Number(p.notice_period_days) || 0,
+              notice_penalty_amount: Number(p.notice_penalty_amount) || 0,
+              notice_penalty_type: p.notice_penalty_type || "fixed",
+              terms_conditions: p.terms_conditions || "",
+              additional_terms: p.additional_terms || "",
+              tags: tags,
+              role_name: p.role_name || ""
+            };
+          }))
           : [];
-        
-       
-        
+
+
+
         setProperties(propertiesData);
         setFilteredProperties(propertiesData);
-        
+
         loadTimestamp.current = Date.now();
       } else {
         toast.error(res?.message || "Failed to load properties");
@@ -359,7 +359,7 @@ export default function PropertyListClient({ initialProperties }: PropertyListCl
         setLoading(false);
       }
     };
-    
+
     initializeData();
   }, []); // Run once on mount
 
@@ -376,13 +376,13 @@ export default function PropertyListClient({ initialProperties }: PropertyListCl
         const manager = property.property_manager_name?.toLowerCase() || '';
         const description = property.description?.toLowerCase() || '';
         const tags = Array.isArray(property.tags) ? property.tags : [];
-        
+
         return (
           name.includes(query) ||
           area.includes(query) ||
           manager.includes(query) ||
           description.includes(query) ||
-          tags.some(tag => 
+          tags.some(tag =>
             tag && typeof tag === 'string' && tag.toLowerCase().includes(query)
           )
         );
@@ -391,7 +391,7 @@ export default function PropertyListClient({ initialProperties }: PropertyListCl
 
     // Status filter
     if (statusFilter !== "all") {
-      filtered = filtered.filter(property => 
+      filtered = filtered.filter(property =>
         statusFilter === "true" ? property.is_active : !property.is_active
       );
     }
@@ -400,8 +400,8 @@ export default function PropertyListClient({ initialProperties }: PropertyListCl
     if (tagFilter !== "all") {
       filtered = filtered.filter(property => {
         const tags = Array.isArray(property.tags) ? property.tags : [];
-        return tags.some(tag => 
-          tag && typeof tag === 'string' && 
+        return tags.some(tag =>
+          tag && typeof tag === 'string' &&
           tag.toLowerCase() === tagFilter.toLowerCase()
         );
       });
@@ -426,7 +426,7 @@ export default function PropertyListClient({ initialProperties }: PropertyListCl
   ) => {
     try {
       setFormSubmitting(true);
-      
+
       if (!formData.name.trim()) {
         toast.error("Property name is required");
         return;
@@ -488,68 +488,68 @@ export default function PropertyListClient({ initialProperties }: PropertyListCl
   }, []);
 
   const handleDelete = useCallback(async (property: Property) => {
-  const result = await Swal.fire({
-    title: 'Are you sure?',
-    text: `You are about to delete "${property.name}"`,
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonColor: '#d33',
-    cancelButtonColor: '#3085d6',
-    confirmButtonText: 'Yes, delete it!',
-    cancelButtonText: 'Cancel',
-    background: '#fff',
-    backdrop: `rgba(0,0,0,0.4)`,
-    customClass: {
-      title: 'text-lg font-bold',
-      popup: 'rounded-xl',
-      confirmButton: 'bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-lg',
-      cancelButton: 'bg-gray-500 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg'
-    }
-  });
-
-  if (result.isConfirmed) {
-    try {
-      const res = await deleteProperty(property.id);
-      if (!res?.success) {
-        toast.error(res?.message || "Failed to delete property");
-      } else {
-        await Swal.fire({
-          title: 'Deleted!',
-          text: 'Property has been deleted successfully.',
-          icon: 'success',
-          timer: 2000,
-          showConfirmButton: false,
-          background: '#fff',
-          customClass: {
-            popup: 'rounded-xl',
-            title: 'text-lg font-bold text-green-600'
-          }
-        });
-        await loadProperties(true);
+    const result = await Swal.fire({
+      title: 'Are you sure?',
+      text: `You are about to delete "${property.name}"`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Yes, delete it!',
+      cancelButtonText: 'Cancel',
+      background: '#fff',
+      backdrop: `rgba(0,0,0,0.4)`,
+      customClass: {
+        title: 'text-lg font-bold',
+        popup: 'rounded-xl',
+        confirmButton: 'bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-lg',
+        cancelButton: 'bg-gray-500 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg'
       }
-    } catch (err:any) {
-      console.error("handleDelete error:", err.response);
-      toast.error(err.response.message);
+    });
+
+    if (result.isConfirmed) {
+      try {
+        const res = await deleteProperty(property.id);
+        if (!res?.success) {
+          toast.error(res?.message || "Failed to delete property");
+        } else {
+          await Swal.fire({
+            title: 'Deleted!',
+            text: 'Property has been deleted successfully.',
+            icon: 'success',
+            timer: 2000,
+            showConfirmButton: false,
+            background: '#fff',
+            customClass: {
+              popup: 'rounded-xl',
+              title: 'text-lg font-bold text-green-600'
+            }
+          });
+          await loadProperties(true);
+        }
+      } catch (err: any) {
+        console.error("handleDelete error:", err.response);
+        toast.error(err.response.message);
+      }
     }
-  }
-}, [loadProperties]);
+  }, [loadProperties]);
 
-const handleBulkDelete = useCallback(async (ids: string[]) => {
-  if (!ids.length) return;
+  const handleBulkDelete = useCallback(async (ids: string[]) => {
+    if (!ids.length) return;
 
-  // SweetAlert confirmation
-  const result = await Swal.fire({
-    title: 'Delete Multiple Properties?',
-    text: `You are about to delete ${ids.length} selected propert${ids.length > 1 ? 'ies' : 'y'}`,
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonColor: '#d33',
-    cancelButtonColor: '#3085d6',
-    confirmButtonText: 'Yes, delete all!',
-    cancelButtonText: 'Cancel',
-    background: '#fff',
-    backdrop: `rgba(0,0,0,0.4)`,
-    html: `
+    // SweetAlert confirmation
+    const result = await Swal.fire({
+      title: 'Delete Multiple Properties?',
+      text: `You are about to delete ${ids.length} selected propert${ids.length > 1 ? 'ies' : 'y'}`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Yes, delete all!',
+      cancelButtonText: 'Cancel',
+      background: '#fff',
+      backdrop: `rgba(0,0,0,0.4)`,
+      html: `
       <div class="text-left mt-4">
         <p class="text-sm text-gray-600 mb-2">This action cannot be undone.</p>
         <div class="bg-red-50 border border-red-200 rounded-lg p-3">
@@ -559,60 +559,60 @@ const handleBulkDelete = useCallback(async (ids: string[]) => {
         </div>
       </div>
     `,
-    customClass: {
-      title: 'text-lg font-bold',
-      popup: 'rounded-xl',
-      confirmButton: 'bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-lg',
-      cancelButton: 'bg-gray-500 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg'
-    }
-  });
-
-  if (!result.isConfirmed) return;
-
-  try {
-    setLoading(true);
-
-    const numIds = ids.map(id => Number(id));
-    const res = await bulkDeleteProperties(numIds);
-
-    if (!res?.success) {
-      toast.error(res?.message || "Failed to delete properties");
-      return;
-    }
-
-    // Success SweetAlert
-    await Swal.fire({
-      title: 'Deleted!',
-      text: `${ids.length} propert${ids.length > 1 ? 'ies have' : 'y has'} been deleted successfully.`,
-      icon: 'success',
-      timer: 2000,
-      showConfirmButton: false,
-      background: '#fff',
       customClass: {
+        title: 'text-lg font-bold',
         popup: 'rounded-xl',
-        title: 'text-lg font-bold text-green-600'
+        confirmButton: 'bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-lg',
+        cancelButton: 'bg-gray-500 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg'
       }
     });
 
-    setProperties(prev => prev.filter(p => !ids.includes(p.id)));
-    setSelectedCardIds([]);
-    setSelectedTableIds([]);
-    setTableKey(Date.now());
+    if (!result.isConfirmed) return;
 
-  } catch (err: any) {
-    console.error("handleBulkDelete error:", err);
+    try {
+      setLoading(true);
 
-    const message =
-      err?.response?.data?.message ||
-      err?.message ||
-      "Failed to delete properties";
+      const numIds = ids.map(id => Number(id));
+      const res = await bulkDeleteProperties(numIds);
 
-    // Show FK or backend message as toast
-    toast.error(message);
-  } finally {
-    setLoading(false);
-  }
-}, []);
+      if (!res?.success) {
+        toast.error(res?.message || "Failed to delete properties");
+        return;
+      }
+
+      // Success SweetAlert
+      await Swal.fire({
+        title: 'Deleted!',
+        text: `${ids.length} propert${ids.length > 1 ? 'ies have' : 'y has'} been deleted successfully.`,
+        icon: 'success',
+        timer: 2000,
+        showConfirmButton: false,
+        background: '#fff',
+        customClass: {
+          popup: 'rounded-xl',
+          title: 'text-lg font-bold text-green-600'
+        }
+      });
+
+      setProperties(prev => prev.filter(p => !ids.includes(p.id)));
+      setSelectedCardIds([]);
+      setSelectedTableIds([]);
+      setTableKey(Date.now());
+
+    } catch (err: any) {
+      console.error("handleBulkDelete error:", err);
+
+      const message =
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to delete properties";
+
+      // Show FK or backend message as toast
+      toast.error(message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   const handleBulkStatusChange = useCallback(async (ids: string[], isActive: boolean) => {
     if (!ids.length) {
@@ -629,11 +629,11 @@ const handleBulkDelete = useCallback(async (ids: string[]) => {
       }
 
       toast.success(isActive ? "Properties activated" : "Properties deactivated");
-      
-      setProperties(prev => prev.map(p => 
+
+      setProperties(prev => prev.map(p =>
         ids.includes(p.id) ? { ...p, is_active: isActive } : p
       ));
-      
+
       setSelectedCardIds([]);
       setSelectedTableIds([]);
       setTableKey(Date.now());
@@ -645,7 +645,7 @@ const handleBulkDelete = useCallback(async (ids: string[]) => {
 
   const handleBulkTagsUpdate = useCallback(async (tags: string[], operation: 'add' | 'remove' | 'set') => {
     const ids = [...selectedCardIds, ...selectedTableIds].map(id => Number(id));
-    
+
     if (!ids.length) {
       toast.error("Please select properties first");
       return;
@@ -653,7 +653,7 @@ const handleBulkDelete = useCallback(async (ids: string[]) => {
 
     try {
       const res = await bulkUpdateTags(ids, tags, operation);
-      
+
       if (!res?.success) {
         toast.error(res?.message || "Failed to update tags");
         return;
@@ -661,20 +661,20 @@ const handleBulkDelete = useCallback(async (ids: string[]) => {
 
       const actionText = operation === 'add' ? 'added to' : operation === 'remove' ? 'removed from' : 'set for';
       toast.success(`Tags ${actionText} ${ids.length} properties`);
-      
+
       setProperties(prev => prev.map(p => {
         if (!ids.includes(Number(p.id))) return p;
-        
+
         const currentTags = Array.isArray(p.tags) ? p.tags : [];
         let newTags: string[];
-        
+
         switch (operation) {
           case 'add':
             newTags = Array.from(new Set(currentTags.concat(tags)));
             break;
           case 'remove':
             const tagsToRemove = tags.map(t => t.toLowerCase().trim());
-            newTags = currentTags.filter(tag => 
+            newTags = currentTags.filter(tag =>
               tag && typeof tag === 'string' &&
               !tagsToRemove.includes(tag.toLowerCase().trim())
             );
@@ -685,18 +685,18 @@ const handleBulkDelete = useCallback(async (ids: string[]) => {
           default:
             newTags = currentTags;
         }
-        
+
         return { ...p, tags: newTags };
       }));
-      
+
       setSelectedCardIds([]);
       setSelectedTableIds([]);
       setTableKey(Date.now());
-      
+
       setTimeout(() => {
         loadProperties(true);
       }, 500);
-      
+
     } catch (err) {
       console.error("handleBulkTagsUpdate error:", err);
       toast.error("Failed to update tags");
@@ -762,7 +762,7 @@ const handleBulkDelete = useCallback(async (ids: string[]) => {
       } else {
         action.action(selectedIds);
       }
-      
+
       if (action.label !== "Manage Tags") {
         setSelectedCardIds([]);
         setSelectedTableIds([]);
@@ -776,59 +776,59 @@ const handleBulkDelete = useCallback(async (ids: string[]) => {
 
 
 
-// Inside your component, replace the handleExportToExcel function:
+  // Inside your component, replace the handleExportToExcel function:
 
-const handleExportToExcel = useCallback(async () => {
-  try {
-    // Get tag names for export
-    const getTagNamesForExport = (tags: any): string => {
-      if (!tags || !Array.isArray(tags)) return "";
-      
-      if (!mastersLoaded || !propertiesMasters["Tags"]) {
-        return tags.join(", ");
-      }
-      
-      const tagNames = tags.map((id: string | number) => {
-        const numId = Number(id);
-        const matchingTag = propertiesMasters["Tags"].find(
-          tag => tag.id === numId || tag.name === String(id)
-        );
-        return matchingTag ? matchingTag.name : String(id);
-      }).filter(Boolean);
-      
-      return tagNames.join(", ");
-    };
+  const handleExportToExcel = useCallback(async () => {
+    try {
+      // Get tag names for export
+      const getTagNamesForExport = (tags: any): string => {
+        if (!tags || !Array.isArray(tags)) return "";
 
-    // Prepare data for Excel
-    const headers = ["Name", "Area", "Rooms", "Beds", "Occupied Beds", "Starting Price", "Status", "Tags"];
-    const data = filteredProperties.map(property => [
-      property.name,
-      property.area,
-      property.total_rooms,
-      property.total_beds,
-      property.occupied_beds,
-      property.starting_price,
-      property.is_active ? "Active" : "Inactive",
-      getTagNamesForExport(property.tags)
-    ]);
+        if (!mastersLoaded || !propertiesMasters["Tags"]) {
+          return tags.join(", ");
+        }
 
-    // Create worksheet
-    const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
-    
-    // Create workbook
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Properties");
-    
-    // Generate Excel file
-    const fileName = `properties_${new Date().toISOString().split('T')[0]}.xlsx`;
-    XLSX.writeFile(wb, fileName);
-    
-    toast.success('Properties exported successfully');
-  } catch (err: any) {
-    console.error('Export error:', err);
-    toast.error(err.message || 'Failed to export data');
-  }
-}, [filteredProperties, propertiesMasters, mastersLoaded]);
+        const tagNames = tags.map((id: string | number) => {
+          const numId = Number(id);
+          const matchingTag = propertiesMasters["Tags"].find(
+            tag => tag.id === numId || tag.name === String(id)
+          );
+          return matchingTag ? matchingTag.name : String(id);
+        }).filter(Boolean);
+
+        return tagNames.join(", ");
+      };
+
+      // Prepare data for Excel
+      const headers = ["Name", "Area", "Rooms", "Beds", "Occupied Beds", "Starting Price", "Status", "Tags"];
+      const data = filteredProperties.map(property => [
+        property.name,
+        property.area,
+        property.total_rooms,
+        property.total_beds,
+        property.occupied_beds,
+        property.starting_price,
+        property.is_active ? "Active" : "Inactive",
+        getTagNamesForExport(property.tags)
+      ]);
+
+      // Create worksheet
+      const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
+
+      // Create workbook
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Properties");
+
+      // Generate Excel file
+      const fileName = `properties_${new Date().toISOString().split('T')[0]}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+
+      toast.success('Properties exported successfully');
+    } catch (err: any) {
+      console.error('Export error:', err);
+      toast.error(err.message || 'Failed to export data');
+    }
+  }, [filteredProperties, propertiesMasters, mastersLoaded]);
 
   const handleImportClick = () => {
     setShowImportModal(true);
@@ -839,15 +839,15 @@ const handleExportToExcel = useCallback(async () => {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      
+
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
       const response = await fetch(`${apiUrl}/api/properties/import`, {
         method: 'POST',
         body: formData,
       });
-      
+
       const result = await response.json();
-      
+
       if (result.success) {
         toast.success(`Successfully imported ${result.count} properties`);
         setShowImportModal(false);
@@ -874,7 +874,7 @@ const handleExportToExcel = useCallback(async () => {
       properties
         .flatMap(p => {
           if (!p.tags || !Array.isArray(p.tags)) return [];
-          
+
           if (mastersLoaded && propertiesMasters["Tags"]) {
             // Map IDs to names for filter display
             return p.tags.map(id => {
@@ -951,250 +951,253 @@ const handleExportToExcel = useCallback(async () => {
   );
 
   // PropertyCard component
- const PropertyCard = useCallback(({ 
-  property, 
-  propertiesMasters,
-  mastersLoaded 
-}: { 
-  property: Property; 
-  propertiesMasters: Record<string, MasterValue[]>;
-  mastersLoaded: boolean;
-   }) => {
-  const isSelected = selectedCardIds.includes(property.id);
-  
-  // Function to get tag names from IDs
-  const getTagNames = (tags: any): string[] => {
-    if (!tags || !Array.isArray(tags)) return [];
-    
-    // If masters are not loaded yet, return empty array to hide tags
-    if (!mastersLoaded || !propertiesMasters || !propertiesMasters["Tags"]) {
-      return [];
-    }
-    
-    // Map IDs to names
-    const mappedTags = tags.map(id => {
-      const numId = Number(id);
-      const matchingTag = propertiesMasters["Tags"].find(
-        tag => tag.id === numId || tag.name === String(id)
-      );
-      return matchingTag ? matchingTag.name : null;
-    }).filter(Boolean) as string[];
-    
-    return mappedTags;
-  };
+  const PropertyCard = useCallback(({
+    property,
+    index,   // 👈 ADD THIS
+    propertiesMasters,
+    mastersLoaded
+  }: {
+    property: Property;
+    propertiesMasters: Record<string, MasterValue[]>;
+    mastersLoaded: boolean;
+  }) => {
+    const isSelected = selectedCardIds.includes(property.id);
 
-  const tagNames = getTagNames(property.tags);
-  
-  // Handle card click (excluding clicks on buttons and checkbox)
-  const handleCardClick = (e: React.MouseEvent) => {
-    // Don't navigate if clicking on buttons, checkbox, or interactive elements
-    const target = e.target as HTMLElement;
-    if (
-      target.closest('button') || 
-      target.closest('a') ||
-      target.closest('.checkbox-area') ||
-      target.closest('[role="button"]')
-    ) {
-      return;
-    }
-    router.push(`/admin/properties/${property.id}`);
-  };
-  
-  return (
-    <div
-      className={`group relative bg-white rounded-2xl overflow-hidden transition-all duration-300 cursor-pointer
+    // Function to get tag names from IDs
+    const getTagNames = (tags: any): string[] => {
+      if (!tags || !Array.isArray(tags)) return [];
+
+      // If masters are not loaded yet, return empty array to hide tags
+      if (!mastersLoaded || !propertiesMasters || !propertiesMasters["Tags"]) {
+        return [];
+      }
+
+      // Map IDs to names
+      const mappedTags = tags.map(id => {
+        const numId = Number(id);
+        const matchingTag = propertiesMasters["Tags"].find(
+          tag => tag.id === numId || tag.name === String(id)
+        );
+        return matchingTag ? matchingTag.name : null;
+      }).filter(Boolean) as string[];
+
+      return mappedTags;
+    };
+
+    const tagNames = getTagNames(property.tags);
+
+    // Handle card click (excluding clicks on buttons and checkbox)
+    const handleCardClick = (e: React.MouseEvent) => {
+      // Don't navigate if clicking on buttons, checkbox, or interactive elements
+      const target = e.target as HTMLElement;
+      if (
+        target.closest('button') ||
+        target.closest('a') ||
+        target.closest('.checkbox-area') ||
+        target.closest('[role="button"]')
+      ) {
+        return;
+      }
+      router.push(`/admin/properties/${property.id}`);
+    };
+
+    return (
+      <div
+        className={`group relative bg-white rounded-2xl overflow-hidden transition-all duration-300 cursor-pointer
         ${isSelected
-          ? 'ring-2 ring-[#90b6e8] shadow-xl shadow-[#004AAD]/10'
-          : 'ring-1 ring-gray-200 hover:ring-[#004AAD]/40 hover:shadow-xl hover:shadow-[#004AAD]/8 hover:-translate-y-0.5'
-        }`}
-      onClick={handleCardClick}
-    >
-      {/* Selection checkbox */}
-      {viewMode === 'card' && (
-        <div
-          className={`absolute top-3 left-3 z-20 transition-all duration-200 checkbox-area
-            ${isSelected ? 'opacity-100 scale-100' : 'opacity-0 group-hover:opacity-100 scale-90 group-hover:scale-100'}`}
-        >
+            ? 'ring-2 ring-[#90b6e8] shadow-xl shadow-[#004AAD]/10'
+            : 'ring-1 ring-gray-200 hover:ring-[#004AAD]/40 hover:shadow-xl hover:shadow-[#004AAD]/8 hover:-translate-y-0.5'
+          }`}
+        onClick={handleCardClick}
+      >
+        {/* Selection checkbox */}
+        {viewMode === 'card' && (
           <div
-            onClick={(e) => {
-              e.stopPropagation(); // Prevent card click
-              handleCardSelect(property.id);
-            }}
-            className={`h-5 w-5 rounded-md shadow-md flex items-center justify-center cursor-pointer transition-colors duration-200
+            className={`absolute top-3 left-3 z-20 transition-all duration-200 checkbox-area
+            ${isSelected ? 'opacity-100 scale-100' : 'opacity-0 group-hover:opacity-100 scale-90 group-hover:scale-100'}`}
+          >
+            <div
+              onClick={(e) => {
+                e.stopPropagation(); // Prevent card click
+                handleCardSelect(property.id);
+              }}
+              className={`h-5 w-5 rounded-md shadow-md flex items-center justify-center cursor-pointer transition-colors duration-200
               ${isSelected ? 'bg-[#004AAD] border-2 border-[#004AAD]' : 'bg-white border-2 border-white'}`}
-          >
-            {isSelected && <Check className="h-3 w-3 text-white" />}
+            >
+              {isSelected && <Check className="h-3 w-3 text-white" />}
+            </div>
           </div>
-        </div>
-      )}
-
-      {/* Image */}
-      <div className="relative h-44 overflow-hidden bg-gradient-to-br from-blue-50 to-cyan-50">
-        {property.photo_urls && property.photo_urls.length > 0 ? (
-          <img
-            src={`${import.meta.env.VITE_API_URL}${property.photo_urls[0]}`}
-            alt={property.name}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-            onError={(e) => {
-              const target = e.target as HTMLImageElement;
-              target.src = getRandomPropertyFallback();
-            }}
-          />
-        ) : (
-          <img
-            src={getRandomPropertyFallback()}
-            alt={property.name}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-          />
         )}
 
-        {/* Dark gradient overlay at bottom */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
-        
-        
+        {/* Image */}
+        <div className="relative h-44 overflow-hidden bg-gradient-to-br from-blue-50 to-cyan-50">
+          {property.photo_urls && property.photo_urls.length > 0 ? (
+            <img
+              src={`${import.meta.env.VITE_API_URL}${property.photo_urls[0]}`}
+              alt={property.name}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                target.src = getRandomPropertyFallback();
+              }}
+            />
+          ) : (
+            <img
+              src={getRandomPropertyFallback()}
+              alt={property.name}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            />
+          )}
 
-        {/* Status badge */}
-        <div className="absolute top-3 right-3" onClick={(e) => e.stopPropagation()}>
-         
-          <span
-            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm
+          {/* Dark gradient overlay at bottom */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
+
+
+
+          {/* Status badge */}
+          <div className="absolute top-3 right-3" onClick={(e) => e.stopPropagation()}>
+
+            <span
+              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm
               ${property.is_active
-                ? 'bg-emerald-500 text-white'
-                : 'bg-gray-500 text-white'
-              }`}
-          >
-            <span className={`w-1.5 h-1.5 rounded-full ${property.is_active ? 'bg-white' : 'bg-gray-300'}`} />
-            {property.is_active ? 'Active' : 'Inactive'}
-          </span>
+                  ? 'bg-emerald-500 text-white'
+                  : 'bg-gray-500 text-white'
+                }`}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${property.is_active ? 'bg-white' : 'bg-gray-300'}`} />
+              {property.is_active ? 'Active' : 'Inactive'}
+            </span>
+          </div>
+
+          {/* Tags - showing names only when masters are loaded */}
+          {tagNames.length > 0 && (
+            <div className="absolute bottom-2.5 left-2.5 flex flex-wrap gap-1">
+              {tagNames.slice(0, 2).map((tag, index) => (
+                <span
+                  key={index}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-white/90 backdrop-blur-sm text-gray-700 border border-white/60"
+                >
+                  <Tag className="h-2.5 w-2.5" />
+                  {tag}
+                </span>
+              ))}
+              {tagNames.length > 2 && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-white/90 backdrop-blur-sm text-gray-700 border border-white/60">
+                  +{tagNames.length - 2}
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* Tags - showing names only when masters are loaded */}
-        {tagNames.length > 0 && (
-          <div className="absolute bottom-2.5 left-2.5 flex flex-wrap gap-1">
-            {tagNames.slice(0, 2).map((tag, index) => (
-              <span
-                key={index}
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-white/90 backdrop-blur-sm text-gray-700 border border-white/60"
-              >
-                <Tag className="h-2.5 w-2.5" />
-                {tag}
-              </span>
-            ))}
-            {tagNames.length > 2 && (
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-white/90 backdrop-blur-sm text-gray-700 border border-white/60">
-                +{tagNames.length - 2}
-              </span>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Rest of the card */}
-      <div className="px-4 py-2">
-        {/* Name + Location */}
-        {/* Name + Location + RMCX in same row */}
-<div className="mb-3">
-  <div className="flex items-center justify-between">
-    <h3 className="font-black text-gray-900 text-sm leading-snug line-clamp-1 group-hover:text-[#004AAD] transition-colors duration-200">
-      {property.name}
-    </h3>
-     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-mono font-semibold bg-blue-100 text-blue-700 border border-blue-200">
+        {/* Rest of the card */}
+        <div className="px-4 py-2">
+          {/* Name + Location */}
+          <div className="mb-3">
+            <div className="flex items-center justify-between">
+              <h3 className="font-black text-gray-900 text-sm leading-snug line-clamp-1 group-hover:text-[#004AAD] transition-colors duration-200">
+                {property.name}
+              </h3>
+              {/* <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-mono font-semibold bg-blue-100 text-blue-700 border border-blue-200">
     RMCX-{property.id}
-  </span>
-  </div>
-  <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
-    <MapPin className="h-3 w-3 text-[#004AAD] flex-shrink-0" />
-    <span className="line-clamp-1">{property.area}</span>
-  </p>
-</div>
-
-       
-
-        {/* Stats row */}
-        <div className="grid grid-cols-2 gap-2 mb-3">
-          <div className="flex items-center gap-2 bg-blue-50 rounded-xl px-3 py-2">
-            <div className="w-6 h-6 rounded-lg bg-[#004AAD] flex items-center justify-center flex-shrink-0">
-              <Home className="h-3 w-3 text-white" />
+  </span> */}
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-mono font-semibold bg-blue-100 text-blue-700 border border-blue-200">
+                RMCX-00{index + 1}
+              </span>
             </div>
-            <div>
-              <p className="font-black text-gray-900 text-sm leading-none">{property.total_rooms}</p>
-              <p className="text-[10px] text-gray-500 mt-0.5">Rooms</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 bg-amber-50 rounded-xl px-3 py-2">
-            <div className="w-6 h-6 rounded-lg bg-[#FFC107] flex items-center justify-center flex-shrink-0">
-              <Bed className="h-3 w-3 text-white" />
-            </div>
-            <div>
-              <p className="font-black text-gray-900 text-sm leading-none">{property.total_beds}</p>
-              <p className="text-[10px] text-gray-500 mt-0.5">Beds</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Price */}
-        <div className="flex items-end justify-between mb-3 pb-1 border-b border-gray-100">
-          <div>
-            <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">Starting from</p>
-            <p className="font-black text-[#004AAD] text-lg leading-tight">
-              ₹{property.starting_price?.toLocaleString()}
-              <span className="text-xs font-normal text-gray-400 ml-1">/mo</span>
+            <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
+              <MapPin className="h-3 w-3 text-[#004AAD] flex-shrink-0" />
+              <span className="line-clamp-1">{property.area}</span>
             </p>
           </div>
-          <div className="text-right">
-            <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">Deposit</p>
-            <p className="font-semibold text-gray-700 text-sm">₹{property.security_deposit?.toLocaleString()}</p>
-          </div>
-        </div>
 
-        {/* Terms */}
-        <div className="flex items-center gap-3 mb-4">
-          <div className="flex items-center gap-1.5 text-xs text-gray-500">
-            <CalendarDays className="h-3.5 w-3.5 text-[#004AAD]" />
-            <span>{property.lockin_period_months || 0}m lock-in</span>
-          </div>
-          <div className="w-px h-3 bg-gray-200" />
-          <div className="flex items-center gap-1.5 text-xs text-gray-500">
-            <Clock3 className="h-3.5 w-3.5 text-[#FFC107]" />
-            <span>{property.notice_period_days || 0}d notice</span>
-          </div>
-        </div>
 
-        {/* Actions */}
-        <div className="flex items-center justify-between border-t border-gray-100">
-          <button
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#004AAD] hover:bg-[#004AAD]/8 px-2.5 py-1.5 rounded-lg transition-colors duration-200"
-            onClick={(e) => {
-              e.stopPropagation(); // Prevent card click
-              router.push(`/admin/properties/${property.id}`);
-            }}
-          >
-            <Eye className="h-3.5 w-3.5" />
-            View Details
-          </button>
-          <div className="flex items-center gap-1">
-            {can("edit_properties") && (   // ← WRAP WITH THIS
-      <button
-        className="w-8 h-8 rounded-lg..."
-        onClick={(e) => { e.stopPropagation(); handleEdit(property); }}
-      >
-        <Edit className="h-3.5 w-3.5" />
-      </button>
-    )}
-            {can("delete_properties") && (  // ← AND THIS
-      <button
-        className="w-8 h-8 rounded-lg..."
-        onClick={(e) => { e.stopPropagation(); handleDelete(property); }}
-      >
-        <Trash2 className="h-3.5 w-3.5" />
-      </button>
-    )}
+
+          {/* Stats row */}
+          <div className="grid grid-cols-2 gap-2 mb-3">
+            <div className="flex items-center gap-2 bg-blue-50 rounded-xl px-3 py-2">
+              <div className="w-6 h-6 rounded-lg bg-[#004AAD] flex items-center justify-center flex-shrink-0">
+                <Home className="h-3 w-3 text-white" />
+              </div>
+              <div>
+                <p className="font-black text-gray-900 text-sm leading-none">{property.total_rooms}</p>
+                <p className="text-[10px] text-gray-500 mt-0.5">Rooms</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 bg-amber-50 rounded-xl px-3 py-2">
+              <div className="w-6 h-6 rounded-lg bg-[#FFC107] flex items-center justify-center flex-shrink-0">
+                <Bed className="h-3 w-3 text-white" />
+              </div>
+              <div>
+                <p className="font-black text-gray-900 text-sm leading-none">{property.total_beds}</p>
+                <p className="text-[10px] text-gray-500 mt-0.5">Beds</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Price */}
+          <div className="flex items-end justify-between mb-3 pb-1 border-b border-gray-100">
+            <div>
+              <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">Starting from</p>
+              <p className="font-black text-[#004AAD] text-lg leading-tight">
+                ₹{property.starting_price?.toLocaleString()}
+                <span className="text-xs font-normal text-gray-400 ml-1">/mo</span>
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">Deposit</p>
+              <p className="font-semibold text-gray-700 text-sm">₹{property.security_deposit?.toLocaleString()}</p>
+            </div>
+          </div>
+
+          {/* Terms */}
+          <div className="flex items-center gap-3 mb-4">
+            <div className="flex items-center gap-1.5 text-xs text-gray-500">
+              <CalendarDays className="h-3.5 w-3.5 text-[#004AAD]" />
+              <span>{property.lockin_period_months || 0}m lock-in</span>
+            </div>
+            <div className="w-px h-3 bg-gray-200" />
+            <div className="flex items-center gap-1.5 text-xs text-gray-500">
+              <Clock3 className="h-3.5 w-3.5 text-[#FFC107]" />
+              <span>{property.notice_period_days || 0}d notice</span>
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex items-center justify-between border-t border-gray-100">
+            <button
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#004AAD] hover:bg-[#004AAD]/8 px-2.5 py-1.5 rounded-lg transition-colors duration-200"
+              onClick={(e) => {
+                e.stopPropagation(); // Prevent card click
+                router.push(`/admin/properties/${property.id}`);
+              }}
+            >
+              <Eye className="h-3.5 w-3.5" />
+              View Details
+            </button>
+            <div className="flex items-center gap-1">
+              {can("edit_properties") && (   // ← WRAP WITH THIS
+                <button
+                  className="w-8 h-8 rounded-lg..."
+                  onClick={(e) => { e.stopPropagation(); handleEdit(property); }}
+                >
+                  <Edit className="h-3.5 w-3.5" />
+                </button>
+              )}
+              {can("delete_properties") && (  // ← AND THIS
+                <button
+                  className="w-8 h-8 rounded-lg..."
+                  onClick={(e) => { e.stopPropagation(); handleDelete(property); }}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  );
-}, [selectedCardIds, viewMode, handleCardSelect, handleEdit, handleDelete, router]);
+    );
+  }, [selectedCardIds, viewMode, handleCardSelect, handleEdit, handleDelete, router]);
 
   // CardView component
   const CardView = useCallback(() => {
@@ -1236,23 +1239,23 @@ const handleExportToExcel = useCallback(async () => {
           <Building2 className="h-16 w-16 text-gray-300 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-gray-700 mb-2">No Properties Found</h3>
           <p className="text-gray-500 mb-6 max-w-md mx-auto">
-            {searchQuery || statusFilter !== 'all' || tagFilter !== 'all' 
+            {searchQuery || statusFilter !== 'all' || tagFilter !== 'all'
               ? 'Try adjusting your filters or search query'
               : 'Get started by adding your first property'}
           </p>
           {can('create_properties') && (
 
-          <Button
-            onClick={() => {
-              setEditMode(false);
-              setSelectedProperty(null);
-              setDialogOpen(true);
-            }}
-            className="bg-gradient-to-r from-blue-600 to-cyan-600"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add New Property
-          </Button>
+            <Button
+              onClick={() => {
+                setEditMode(false);
+                setSelectedProperty(null);
+                setDialogOpen(true);
+              }}
+              className="bg-gradient-to-r from-blue-600 to-cyan-600"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add New Property
+            </Button>
           )}
         </div>
       );
@@ -1261,7 +1264,7 @@ const handleExportToExcel = useCallback(async () => {
     return (
       <>
         {/* Bulk Actions Bar */}
-{showBulkActions && can('delete_properties') && (
+        {showBulkActions && can('delete_properties') && (
           <>
             {/* Mobile */}
             <div className="md:hidden mb-3 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-md px-2 py-2 shadow-md">
@@ -1404,10 +1407,11 @@ const handleExportToExcel = useCallback(async () => {
 
         {/* Properties Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filteredProperties.map((property) => (
-            <PropertyCard 
-              key={property.id} 
-              property={property} 
+          {filteredProperties.map((property, index) => (
+            <PropertyCard
+              key={property.id}
+              property={property}
+              index={index}   // 👈 ADD THIS
               propertiesMasters={propertiesMasters}
               mastersLoaded={mastersLoaded}
             />
@@ -1416,16 +1420,16 @@ const handleExportToExcel = useCallback(async () => {
       </>
     );
   }, [
-    loading, 
-    properties.length, 
-    filteredProperties, 
-    searchQuery, 
-    statusFilter, 
-    tagFilter, 
-    showBulkActions, 
-    selectedCardIds, 
-    handleSelectAllCards, 
-    handleBulkStatusChange, 
+    loading,
+    properties.length,
+    filteredProperties,
+    searchQuery,
+    statusFilter,
+    tagFilter,
+    showBulkActions,
+    selectedCardIds,
+    handleSelectAllCards,
+    handleBulkStatusChange,
     handleBulkDelete,
     PropertyCard,
     propertiesMasters,
@@ -1437,7 +1441,7 @@ const handleExportToExcel = useCallback(async () => {
     <div>
       {/* Stats Cards */}
       <StatsCards />
-      
+
       <Card className="border-0 shadow-xl bg-gradient-to-br from-white via-blue-50/30 to-purple-50/30 backdrop-blur-xl">
         {/* Header Component */}
         <PropertyHeader
@@ -1446,7 +1450,7 @@ const handleExportToExcel = useCallback(async () => {
           onRefresh={() => loadProperties(true)}
           onFilterClick={() => setSidebarOpen(true)}
           onExport={handleExportToExcel}
-          onImport={handleImportClick} 
+          onImport={handleImportClick}
           onAddProperty={() => {
             handleFormReset();
             setDialogOpen(true);
@@ -1465,9 +1469,9 @@ const handleExportToExcel = useCallback(async () => {
           }}
           setSidebarOpen={setSidebarOpen}
           canCreate={can('create_properties')}
-  canExport={can('export_properties')}
-  canImport={can('export_properties')}   // reuse export perm for import
-  canBulkAction={can('delete_properties') || can('edit_properties')}
+          canExport={can('export_properties')}
+          canImport={can('export_properties')}   // reuse export perm for import
+          canBulkAction={can('delete_properties') || can('edit_properties')}
         />
 
         <PropertyImportModal
@@ -1493,25 +1497,25 @@ const handleExportToExcel = useCallback(async () => {
                   </TabsTrigger>
                 </TabsList>
               </div>
-              
+
               <TabsContent value="table" className="mt-0">
-  <DataTable
-    key={tableKey}
-    data={filteredProperties}
-    columns={getColumns(propertiesMasters, mastersLoaded)}
-    bulkActions={getBulkActions(getIdsFromSelection, handleBulkStatusChange, handleBulkDelete, setTagsModalOpen, toast)}
-    onRefresh={() => loadProperties(true)}
-    filters={filters}
-    actions={getActions(handleEdit, handleDelete, router)}
-    loading={loading}
-    pageSize={10}
-    showSearch={false}
-    showFilters={false}
-    showRefresh={false}
-    showExport={false}
-    onSelectionChange={handleTableSelection}
-  />
-</TabsContent>
+                <DataTable
+                  key={tableKey}
+                  data={filteredProperties}
+                  columns={getColumns(propertiesMasters, mastersLoaded)}
+                  bulkActions={getBulkActions(getIdsFromSelection, handleBulkStatusChange, handleBulkDelete, setTagsModalOpen, toast)}
+                  onRefresh={() => loadProperties(true)}
+                  filters={filters}
+                  actions={getActions(handleEdit, handleDelete, router)}
+                  loading={loading}
+                  pageSize={10}
+                  showSearch={false}
+                  showFilters={false}
+                  showRefresh={false}
+                  showExport={false}
+                  onSelectionChange={handleTableSelection}
+                />
+              </TabsContent>
 
               <TabsContent value="card" className="mt-0">
                 <CardView />
@@ -1534,7 +1538,7 @@ const handleExportToExcel = useCallback(async () => {
         uniqueTags={uniqueTags}
         filteredPropertiesLength={filteredProperties.length}
         propertiesLength={properties.length}
-        onApplyFilters={() => {}}
+        onApplyFilters={() => { }}
         onClearFilters={() => {
           setSearchQuery('');
           setStatusFilter('all');
