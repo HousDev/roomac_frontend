@@ -173,9 +173,9 @@ export const transformPropertyData = (property: any) => {
     nearby_names: nearbyNames,
     tags: propertyTags, // Mapped values from backend
     role_name:property.role_name,
-    images: property.photo_urls && property.photo_urls.length > 0 
-      ? property.photo_urls.map((url: string) => getImageUrl(url))
-      : defaultImages,
+   images: property.photo_urls && property.photo_urls.length > 0 
+  ? property.photo_urls.map((url: string) => getImageUrl(url))
+  : [],
     description: property.description || "Experience premium living in the heart of Koramangala.",
     highlights: property.services || [
       "24/7 Security & CCTV",

@@ -2233,9 +2233,12 @@ const handleContentChange = useCallback(
   <div className="flex flex-col gap-1">
     <label className={fieldLabelClass}>Category</label>
     <select className={fieldInputClass} value={category} onChange={(e) => setCategory(e.target.value as Category)}>
-      {(masterCategories.length > 0 ? masterCategories : CATEGORIES).map((c) => (
-        <option key={c.key} value={c.key}>{c.label}</option>
-      ))}
+{masterCategories.length > 0
+  ? masterCategories.map((c) => (
+      <option key={c.key} value={c.key}>{c.label}</option>
+    ))
+  : <option disabled>No categories available</option>
+}
     </select>
   </div>
   <div className="flex flex-col gap-1">
@@ -2651,13 +2654,13 @@ useEffect(() => {
       if (catItem) {
         const valRes = await getMasterValues(catItem.id);
         const vals = Array.isArray(valRes.data) ? valRes.data : Array.isArray(valRes) ? valRes : [];
-        const fetched = vals
-          .filter((v: any) => v.isactive === 1 || v.is_active === 1)
-          .map((v: any) => ({
-            key: (v.value || v.name || "").toLowerCase().replace(/\s+/g, "_"),
-            label: v.value || v.name || "",
-          }));
-        if (fetched.length > 0) setMasterCategories(fetched);
+const fetched = vals
+  .filter((v: any) => v.isactive === 1 || v.is_active === 1)
+  .map((v: any) => ({
+    key: (v.value || v.name || "").toLowerCase().replace(/\s+/g, "_"),
+    label: v.value || v.name || "",
+  }));
+setMasterCategories(fetched);
       }
     } catch {}
   };
@@ -2749,9 +2752,12 @@ useEffect(() => {
               <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}
                 className="h-[34px] px-2.5 border border-slate-200 rounded-full text-xs text-slate-600 bg-slate-50 outline-none cursor-pointer focus:border-blue-500">
                 <option value="all">All Categories</option>
-{(masterCategories.length > 0 ? masterCategories : CATEGORIES).map((c) => (
-  <option key={c.key} value={c.key}>{c.label}</option>
-))}              </select>
+{masterCategories.length > 0
+  ? masterCategories.map((c) => (
+      <option key={c.key} value={c.key}>{c.label}</option>
+    ))
+  : <option disabled>No categories</option>
+}</select>
             </div>
           </div>
         </div>

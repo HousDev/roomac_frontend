@@ -1030,65 +1030,70 @@ export default function PropertyListClient({ initialProperties }: PropertyListCl
         )}
 
         {/* Image */}
-        <div className="relative h-44 overflow-hidden bg-gradient-to-br from-blue-50 to-cyan-50">
-          {property.photo_urls && property.photo_urls.length > 0 ? (
-            <img
-              src={`${import.meta.env.VITE_API_URL}${property.photo_urls[0]}`}
-              alt={property.name}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-              onError={(e) => {
-                const target = e.target as HTMLImageElement;
-                target.src = getRandomPropertyFallback();
-              }}
-            />
-          ) : (
-            <img
-              src={getRandomPropertyFallback()}
-              alt={property.name}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-            />
-          )}
+        {/* Image - REPLACE THIS SECTION */}
+<div className="relative h-44 overflow-hidden bg-gradient-to-br from-blue-50 to-cyan-50">
+  {property.photo_urls && property.photo_urls.length > 0 ? (
+    <img
+      src={`${import.meta.env.VITE_API_URL}${property.photo_urls[0]}`}
+      alt={property.name}
+      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+      onError={(e) => {
+        const target = e.target as HTMLImageElement;
+        // Hide broken image
+        target.style.display = 'none';
+        // Show placeholder
+        const parent = target.parentElement;
+        if (parent) {
+          const placeholder = parent.querySelector('.no-image-placeholder');
+          if (placeholder) (placeholder as HTMLElement).style.display = 'flex';
+        }
+      }}
+    />
+  ) : null}
+  
+  {/* No Image Placeholder */}
+  <div className="no-image-placeholder w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
+    <Building2 className="h-10 w-10 text-gray-300 mb-1" />
+    <p className="text-[10px] text-gray-400">No Image</p>
+  </div>
 
-          {/* Dark gradient overlay at bottom */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
+  {/* Dark gradient overlay at bottom */}
+  <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
 
+  {/* Status badge */}
+  <div className="absolute top-3 right-3" onClick={(e) => e.stopPropagation()}>
+    <span
+      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm
+      ${property.is_active
+          ? 'bg-emerald-500 text-white'
+          : 'bg-gray-500 text-white'
+        }`}
+    >
+      <span className={`w-1.5 h-1.5 rounded-full ${property.is_active ? 'bg-white' : 'bg-gray-300'}`} />
+      {property.is_active ? 'Active' : 'Inactive'}
+    </span>
+  </div>
 
-
-          {/* Status badge */}
-          <div className="absolute top-3 right-3" onClick={(e) => e.stopPropagation()}>
-
-            <span
-              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm
-              ${property.is_active
-                  ? 'bg-emerald-500 text-white'
-                  : 'bg-gray-500 text-white'
-                }`}
-            >
-              <span className={`w-1.5 h-1.5 rounded-full ${property.is_active ? 'bg-white' : 'bg-gray-300'}`} />
-              {property.is_active ? 'Active' : 'Inactive'}
-            </span>
-          </div>
-
-          {/* Tags - showing names only when masters are loaded */}
-          {tagNames.length > 0 && (
-            <div className="absolute bottom-2.5 left-2.5 flex flex-wrap gap-1">
-              {tagNames.slice(0, 2).map((tag, index) => (
-                <span
-                  key={index}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-white/90 backdrop-blur-sm text-gray-700 border border-white/60"
-                >
-                  <Tag className="h-2.5 w-2.5" />
-                  {tag}
-                </span>
-              ))}
-              {tagNames.length > 2 && (
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-white/90 backdrop-blur-sm text-gray-700 border border-white/60">
-                  +{tagNames.length - 2}
-                </span>
-              )}
-            </div>
-          )}
-        </div>
+  {/* Tags - showing names only when masters are loaded */}
+  {tagNames.length > 0 && (
+    <div className="absolute bottom-2.5 left-2.5 flex flex-wrap gap-1">
+      {tagNames.slice(0, 2).map((tag, index) => (
+        <span
+          key={index}
+          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-white/90 backdrop-blur-sm text-gray-700 border border-white/60"
+        >
+          <Tag className="h-2.5 w-2.5" />
+          {tag}
+        </span>
+      ))}
+      {tagNames.length > 2 && (
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-white/90 backdrop-blur-sm text-gray-700 border border-white/60">
+          +{tagNames.length - 2}
+        </span>
+      )}
+    </div>
+  )}
+</div>
 
         {/* Rest of the card */}
         <div className="px-4 py-2">

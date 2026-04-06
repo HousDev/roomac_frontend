@@ -756,24 +756,29 @@ function PropertiesSection({
                             <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-700 text-white shadow-md capitalize">{propertyType}</span>
                           )}
                         </div>
+                        <div className="absolute bottom-3 right-3 z-10">
+    <span className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider shadow-md bg-black/70 backdrop-blur-sm text-white whitespace-nowrap">
+      RMCX-00{index + 1}
+    </span>
+  </div>
                       </div>
 
                       <div className="p-4 sm:p-5 flex flex-col flex-grow">
                         <div className="flex items-start justify-between mb-2 gap-2">
                           <div className="flex-1 min-w-0">
-                            <h3 className="font-bold text-[13px] sm:text-lg text-slate-800 group-hover:text-[#0249a8] transition-colors duration-300 leading-tight break-words sm:line-clamp-1">
-                              {propertyName}
-                            </h3>
+                            <h3 className="font-bold text-[13px] sm:text-lg text-slate-800 group-hover:text-[#0249a8] transition-colors duration-300 leading-tight break-words">
+  {propertyName}
+</h3>
                             <div className="flex items-center gap-2 mt-1">
                               <div className="h-0.5 w-8 bg-[#0249a8] rounded-full" />
                               <div className="h-0.5 w-2 bg-yellow-400 rounded-full" />
                             </div>
                           </div>
-                          <div className="flex items-center justify-center">
+                          {/* <div className="flex items-center justify-center">
                             <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm bg-slate-200 text-black whitespace-nowrap">
                               RMCX-00{index + 1}
                             </span>
-                          </div>
+                          </div> */}
                           <div className="text-right ml-2">
                             <p className="text-xs text-slate-400 font-medium whitespace-nowrap">Starting from</p>
                             <p className="text-lg font-bold text-[#0249a8] whitespace-nowrap">

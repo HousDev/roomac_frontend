@@ -238,42 +238,53 @@ export default function PropertyCardView({ properties }: PropertyCardViewProps) 
         </div>
 
         {/* Property Image/Placeholder */}
-        <div className="h-40 bg-gradient-to-br from-blue-50 to-cyan-50 flex items-center justify-center relative overflow-hidden flex-shrink-0">
-          {property.photo_urls && property.photo_urls.length > 0 ? (
-            <img
-              src={property.photo_urls[0]}
-              alt={property.name}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-              onError={(e) => {
-                const target = e.target as HTMLImageElement;
-                target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2UyZThmMCIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIiBmaWxsPSIjNjQ3NDhiIj5ObyBJbWFnZTwvdGV4dD48L3N2Zz4=';
-              }}
-            />
-          ) : (
-            <div className="text-center">
-              <Building2 className="h-12 w-12 text-blue-300 mx-auto" />
-              <p className="text-xs text-blue-400 mt-1">No image</p>
-            </div>
-          )}
+     // Property Image/Placeholder - REPLACE THIS SECTION
+<div className="h-40 bg-gradient-to-br from-blue-50 to-cyan-50 flex items-center justify-center relative overflow-hidden flex-shrink-0">
+  {property.photo_urls && property.photo_urls.length > 0 ? (
+    <img
+      src={property.photo_urls[0]}
+      alt={property.name}
+      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+      onError={(e) => {
+        const target = e.target as HTMLImageElement;
+        // DON'T show fallback image - show no image placeholder
+        target.style.display = 'none';
+        // Show the placeholder div
+        const parent = target.parentElement;
+        if (parent) {
+          const placeholder = parent.querySelector('.no-image-placeholder');
+          if (placeholder) (placeholder as HTMLElement).style.display = 'flex';
+        }
+      }}
+    />
+  ) : null}
+  
+  {/* No Image Placeholder - Show when no image exists */}
+  <div className={`no-image-placeholder w-full h-full flex flex-col items-center justify-center ${property.photo_urls && property.photo_urls.length > 0 ? 'hidden' : 'flex'}`}>
+    <Building2 className="h-12 w-12 text-gray-300 mb-2" />
+    <p className="text-xs text-gray-400">No Image Available</p>
+  </div>
 
-          {/* Status Badge */}
-          <div className="absolute top-3 right-3 z-20">
-            <Badge
-              variant={property.is_active ? "default" : "secondary"}
-              className={`${property.is_active
-                ? "bg-gradient-to-r from-green-500 to-emerald-500 text-white"
-                : "bg-gradient-to-r from-gray-500 to-slate-500 text-white"
-                } font-medium px-3 py-1 text-xs shadow-sm`}
-            >
-              {property.is_active ? "Active" : "Inactive"}
-            </Badge>
-          </div>
+  {/* Status Badge */}
+  <div className="absolute top-3 right-3 z-20">
+    <Badge
+      variant={property.is_active ? "default" : "secondary"}
+      className={`${property.is_active
+        ? "bg-gradient-to-r from-green-500 to-emerald-500 text-white"
+        : "bg-gradient-to-r from-gray-500 to-slate-500 text-white"
+        } font-medium px-3 py-1 text-xs shadow-sm`}
+    >
+      {property.is_active ? "Active" : "Inactive"}
+    </Badge>
+  </div>
 
-          {/* Tag count badge */}
-          <div className="absolute bottom-2 left-2 z-20 bg-black/50 text-white text-xs px-2 py-1 rounded-full">
-            Tags: {tags.length}
-          </div>
-        </div>
+  {/* Tag count badge */}
+  {property.tags && property.tags.length > 0 && (
+    <div className="absolute bottom-2 left-2 z-20 bg-black/50 text-white text-xs px-2 py-1 rounded-full">
+      Tags: {property.tags.length}
+    </div>
+  )}
+</div>
 
         {/* Property Details */}
         <CardContent className="p-4 flex-grow flex flex-col">

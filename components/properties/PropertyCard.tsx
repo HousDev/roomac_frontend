@@ -499,6 +499,11 @@ const PropertyCard = memo(function PropertyCard({
                 ))}
               </div>
             )}
+             <div className="absolute bottom-3 right-3 z-10">
+    <span className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider shadow-md bg-black/70 backdrop-blur-sm text-white whitespace-nowrap">
+      {"RMCX-00" + (index + 1)}
+    </span>
+  </div>
           </div>
 
           {/* Card body */}
@@ -509,9 +514,9 @@ const PropertyCard = memo(function PropertyCard({
 
               {/* LEFT : Property Title */}
               <div className="flex-1 min-w-0">
-                <h3 className="font-bold text-base sm:text-lg text-slate-800 group-hover:text-[#0249a8] transition-colors duration-300 line-clamp-1">
-                  {propertyName}
-                </h3>
+               <h3 className="font-bold text-base sm:text-lg text-slate-800 group-hover:text-[#0249a8] transition-colors duration-300 break-words">
+  {propertyName}
+</h3>
 
                 <div className="flex items-center gap-2 mt-1">
                   <div className="h-0.5 w-8 bg-[#0249a8] rounded-full" />
@@ -520,13 +525,13 @@ const PropertyCard = memo(function PropertyCard({
               </div>
 
               {/* CENTER : RMCX Code */}
-              <div className="flex items-center justify-center flex-shrink-0">
+              {/* <div className="flex items-center justify-center flex-shrink-0">
                 <span
                   className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm bg-slate-200 text-black whitespace-nowrap"
                 >
                   {"RMCX-00" + (index + 1)}
                 </span>
-              </div>
+              </div> */}
 
               {/* RIGHT : Price */}
               <div className="text-right flex-shrink-0">
