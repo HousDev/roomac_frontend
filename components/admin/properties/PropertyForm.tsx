@@ -787,6 +787,14 @@ export default function PropertyForm({
       }
     } else stateValue = selectedProperty.state || "";
 
+let areaValue = "";
+if (selectedProperty.area && propertiesMasters["Area"]?.length > 0) {
+  const areaStr = String(selectedProperty.area);
+  const matchingArea = propertiesMasters["Area"].find(a => String(a.id) === areaStr || a.name === areaStr);
+  if (matchingArea) areaValue = matchingArea.name;
+  else areaValue = areaStr;
+} else areaValue = selectedProperty.area || "";
+
     let floorValue = "";
     if (selectedProperty.floor && propertiesMasters["Floors"]?.length > 0) {
       const floorStr = String(selectedProperty.floor);
@@ -843,7 +851,7 @@ export default function PropertyForm({
       name: selectedProperty.name || "",
       city_id: selectedProperty.city_id || "",
       state: stateValue,
-      area: selectedProperty.area || "",
+area: areaValue,
       address: selectedProperty.address || "",
        map_embed_url: selectedProperty.map_embed_url || "", // ADD THIS
     map_direction_url: selectedProperty.map_direction_url || "", // ADD THIS
@@ -1186,9 +1194,15 @@ export default function PropertyForm({
                   </div>
 
                   <F label="Area" required>
-                    <Input value={formData.area} onChange={(e) => setFormData({ ...formData, area: e.target.value })}
-                      placeholder="Downtown" className={inputCls} required />
-                  </F>
+  <Select value={formData.area ? String(formData.area) : ""} onValueChange={(v) => setFormData({ ...formData, area: v })} disabled={loadingMasters}>
+    <SelectTrigger className={inputCls}><SelectValue placeholder={loadingMasters ? "Loading…" : "Select Area"} /></SelectTrigger>
+    <SelectContent>
+      {propertiesMasters["Area"]?.length > 0
+        ? propertiesMasters["Area"].map((area) => <SelectItem key={area.id} value={String(area.name)} className="text-[11px]">{area.name}</SelectItem>)
+        : <div className="px-2 py-1 text-[10px] text-slate-500">{loadingMasters ? "Loading…" : "No areas"}</div>}
+    </SelectContent>
+  </Select>
+</F>
 
                   <F label="Address">
                     <Textarea value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })}
