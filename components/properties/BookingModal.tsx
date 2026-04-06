@@ -661,7 +661,7 @@ const BookingModal = memo(function BookingModal({
   const [roomsError, setRoomsError] = useState("");
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<"online" | "inperson">(
-    "inperson",
+    "online",
   );
   const [phoneError, setPhoneError] = useState("");
   const [verified, setVerified] = useState(false);
@@ -1354,7 +1354,7 @@ const BookingModal = memo(function BookingModal({
       setRooms([]);
       setRoomsError("");
       setVerified(false);
-      setPaymentMethod("inperson");
+      setPaymentMethod("online");
       setShowConfirmation(false);
       setConfirmationData(null);
       setShowOTPModal(false);
@@ -1400,7 +1400,7 @@ const BookingModal = memo(function BookingModal({
       setRooms([]);
       setRoomsError("");
       setVerified(false);
-      setPaymentMethod("inperson");
+      setPaymentMethod("online");
       setShowConfirmation(false);
       setConfirmationData(null);
       setShowOTPModal(false);
@@ -4060,7 +4060,7 @@ handleSendOTP(e); // Trigger OTP flow on first
                       </div>
                     </div>
 
-                    <div>
+                    {/* <div>
                       <label className="block text-xs font-semibold text-gray-700 mb-2">
                         Payment Method
                       </label>
@@ -4131,7 +4131,7 @@ handleSendOTP(e); // Trigger OTP flow on first
                           )}
                         </label>
                       </div>
-                    </div>
+                    </div> */}
 
                     {/* Offer Code Section */}
                     <div>

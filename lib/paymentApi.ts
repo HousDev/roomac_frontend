@@ -1,5 +1,5 @@
 
-
+// lib/paymentApi.ts
 import { request } from "@/lib/api";
 
 /**
@@ -38,5 +38,21 @@ export const verifyRazorpayPayment = async (data: {
   } catch (error) {
     console.error("verifyRazorpayPayment error:", error);
     throw error;
+  }
+};
+
+
+/**
+ * Get Razorpay configuration status
+ */
+export const getRazorpayStatus = async () => {
+  try {
+    const res = await request("/api/payment/status", {
+      method: "GET",
+    });
+    return res;
+  } catch (error: any) {
+    console.error("getRazorpayStatus error:", error);
+    return { success: false, data: { enabled: false, hasKeyId: false, mode: 'unknown' } };
   }
 };

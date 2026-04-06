@@ -1107,3 +1107,15 @@ export function viewDocument(url: string) {
   const fullUrl = url.startsWith('http') ? url : `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}${url}`;
   window.open(fullUrl, '_blank');
 }
+
+// Add to lib/tenantApi.ts
+
+export async function sendCredentialsEmail(tenantId: string | number, password: string): Promise<ApiResult> {
+  return enhancedFetch<ApiResult>(`/api/tenants/${tenantId}/send-credentials`, {
+    method: "POST",
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ password }),
+  });
+}

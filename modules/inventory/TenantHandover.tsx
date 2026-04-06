@@ -207,7 +207,7 @@ const [purchasedItemSearchTerm, setPurchasedItemSearchTerm] = useState('');
   const { can } = useAuth(); // ← ADD THIS
 
   const [generatedOtp, setGeneratedOtp] = useState("");
-  const [timeLeft, setTimeLeft] = useState(20); // 60 seconds
+  const [timeLeft, setTimeLeft] = useState(60); // 60 seconds
   const [currentOTP, setCurrentOTP] = useState('');
   const [isResendOtpSent, setIsResendOtpSent] = useState(true);
   const [otpData, setOtpData] = useState({

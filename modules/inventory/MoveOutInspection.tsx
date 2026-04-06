@@ -45,6 +45,7 @@ import { getHandovers } from "@/lib/handoverApi";
 import { penaltyRulesApi } from "@/lib/penaltyRulesApi";
 import * as XLSX from 'xlsx';
 import { useAuth } from '@/context/authContext';
+import { sendTenantOTP, verifyTenantOTP } from '@/lib/tenantAuthApi';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface InspectionItem {
@@ -218,6 +219,12 @@ const [propertyFilterSearchTerm, setPropertyFilterSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusType>('all');
   const [propertyFilter, setPropertyFilter] = useState('all');
   const [properties, setProperties] = useState<{ id: string; name: string }[]>([]);
+
+  const [generatedOtp, setGeneratedOtp] = useState("");
+    const [timeLeft, setTimeLeft] = useState(60); 
+    const [currentOTP, setCurrentOTP] = useState('');
+    const [isResendOtpSent, setIsResendOtpSent] = useState(true);
+   
 
   const [colSearch, setColSearch] = useState({
     tenant_name: '', property_name: '', room_number: '', inspector_name: '', status: '', inspection_date: ''
@@ -1286,31 +1293,104 @@ const handlePrint = () => {
   printWindow.focus();
   setTimeout(() => { printWindow.print(); printWindow.close(); }, 800);
 };
-  // ── OTP Verification ─────────────────────────────────────────────────────────
-  const handleInitiateOTP = () => {
-    if (!viewItem) return;
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    setGeneratedOTP(otp);
-    setOtpCode('');
-    setShowOTPModal(true);
-    toast.info(`OTP: ${otp} (demo mode)`);
-  };
-
-  const handleVerifyOTP = async () => {
-    if (otpCode !== generatedOTP) { toast.error('Invalid OTP'); return; }
-
-    try {
-      if (viewItem) {
-        await updateInspection(viewItem.id, { ...viewItem, status: 'Approved' });
-        await loadAll();
-        toast.success('Inspection approved via OTP!');
-        setShowOTPModal(false);
-        setViewItem(null);
-      }
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to update status');
+// ── OTP Verification Functions ────────────────────────────────────────────────
+const handleInitiateOTP = async () => {
+  if (!viewItem) return;
+  
+  try {
+    // Send OTP to tenant's email or phone
+    const contact = viewItem.tenant_email || viewItem.tenant_phone;
+    const result = await sendTenantOTP(contact);
+    
+    if (result.success) {
+      setCurrentOTP(result.otp || "123456");
+      setOtpCode('');
+      setShowOTPModal(true);
+      setIsResendOtpSent(false);
+      setTimeLeft(60); // 60 seconds timer
+      toast.success(`OTP sent to ${contact}`);
+    } else {
+      toast.error(result.message || "Failed to send OTP");
     }
-  };
+  } catch (error: any) {
+    console.error('OTP send error:', error);
+    toast.error(error.message || "Failed to send OTP");
+  }
+};
+
+const handleVerifyOTP = async () => {
+  if (!viewItem) {
+    toast.error('No inspection record found');
+    return;
+  }
+  
+  if (!otpCode || otpCode.length !== 6) {
+    toast.error('Please enter a valid 6-digit OTP');
+    return;
+  }
+  
+  try {
+    const contact = viewItem.tenant_email || viewItem.tenant_phone;
+    // Verify OTP with backend
+    const result = await verifyTenantOTP(contact, otpCode);
+    
+    if (result.success) {
+      // Update inspection status to 'Approved'
+      const updatedInspection = { 
+        ...viewItem, 
+        status: 'Approved' 
+      };
+      
+      await updateInspection(viewItem.id, updatedInspection);
+      await loadAll(); // Refresh the list
+      
+      toast.success('Inspection approved successfully!');
+      setShowOTPModal(false);
+      setOtpCode('');
+      setViewItem(null); // Close view dialog
+    } else {
+      toast.error(result.message || 'Invalid OTP. Please try again.');
+    }
+  } catch (error: any) {
+    console.error('OTP verification error:', error);
+    toast.error(error.message || 'Failed to verify OTP');
+  }
+};
+
+// Timer effect for resend
+useEffect(() => {
+  if (!showOTPModal) return;
+  
+  if (timeLeft > 0) {
+    const timer = setTimeout(() => {
+      setTimeLeft(timeLeft - 1);
+    }, 1000);
+    return () => clearTimeout(timer);
+  } else if (timeLeft === 0 && !isResendOtpSent) {
+    setIsResendOtpSent(true);
+  }
+}, [timeLeft, showOTPModal, isResendOtpSent]);
+
+// Handle resend OTP
+const handleResendOTP = async () => {
+  if (!viewItem) return;
+  
+  try {
+    const contact = viewItem.tenant_email || viewItem.tenant_phone;
+    const result = await sendTenantOTP(contact);
+    
+    if (result.success) {
+      setCurrentOTP(result.otp || "123456");
+      setTimeLeft(60);
+      setIsResendOtpSent(false);
+      toast.success('OTP resent successfully!');
+    } else {
+      toast.error(result.message || "Failed to resend OTP");
+    }
+  } catch (error: any) {
+    toast.error(error.message || "Failed to resend OTP");
+  }
+};
 
   const hasFilters = statusFilter !== 'all' || propertyFilter !== 'all';
   const hasColSearch = Object.values(colSearch).some(v => v !== '');
@@ -2239,16 +2319,13 @@ const handlePrint = () => {
       {/* ══ OTP Modal ════════════════════════════════════════════════════════ */}
       {showOTPModal && viewItem && (
         <Dialog open={showOTPModal} onOpenChange={setShowOTPModal}>
-          <DialogContent className="max-w-md">
-            <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-3 rounded-t-lg -mt-4 -mx-4 mb-4">
+          <DialogContent className="max-w-md px-0 py-0">
+            <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-3 rounded-t-lg">
               <h2 className="text-base font-semibold">Verify OTP</h2>
               <p className="text-xs text-purple-100">Confirm inspection with tenant</p>
             </div>
-            <div className="space-y-4">
-              <div className="bg-purple-50 p-3 rounded-lg">
-                <p className="text-xs text-purple-800">OTP sent to {viewItem.tenant_phone}</p>
-                <p className="text-[10px] text-purple-600 mt-1">Demo OTP: {generatedOTP}</p>
-              </div>
+            <div className="space-y-4 px-4 pb-3">
+              
               <div>
                 <label className={L}>Enter OTP</label>
                 <Input
@@ -2257,6 +2334,7 @@ const handlePrint = () => {
                   maxLength={6}
                   placeholder="6-digit OTP"
                   className="text-center text-lg tracking-widest"
+                  autoFocus
                 />
               </div>
               <div className="flex gap-2">
@@ -2264,8 +2342,28 @@ const handlePrint = () => {
                   className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600">
                   Verify & Approve
                 </Button>
-                <Button variant="outline" onClick={() => setShowOTPModal(false)}>Cancel</Button>
+                <Button variant="outline" onClick={() => {
+                  setShowOTPModal(false);
+                  setOtpCode('');
+                }}>
+                  Cancel
+                </Button>
               </div>
+
+          {isResendOtpSent && timeLeft === 0 ? (
+            <button
+              onClick={handleResendOTP}
+              className="text-xs text-purple-600 hover:text-purple-700 font-medium"
+            >
+              Resend OTP
+            </button>
+          ) : (
+            timeLeft > 0 && (
+              <span className="text-xs text-gray-500">
+                Resend available in {timeLeft} seconds
+              </span>
+            )
+          )}
             </div>
           </DialogContent>
         </Dialog>
