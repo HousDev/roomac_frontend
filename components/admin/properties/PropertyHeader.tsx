@@ -21,8 +21,7 @@ import {
   Filter,
   Upload,
 } from "lucide-react";
-import { useState, useEffect } from "react";
-
+import { useState, useEffect, useRef } from "react";
 interface PropertyHeaderProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
@@ -46,6 +45,46 @@ interface PropertyHeaderProps {
   canBulkAction?: boolean;
 }
 
+// SearchInput Component - Add this entire block
+const SearchInput = ({ value, onChange, placeholder, className }: { 
+  value: string; 
+  onChange: (val: string) => void; 
+  placeholder: string; 
+  className: string;
+}) => {
+  const [localVal, setLocalVal] = useState(value);
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const onChangeRef = useRef(onChange);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
+
+  useEffect(() => {
+    setLocalVal(value);
+  }, [value]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setLocalVal(val);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      onChangeRef.current(val);
+    }, 400);
+  };
+
+  return (
+    <input
+      ref={inputRef}
+      type="text"
+      placeholder={placeholder}
+      value={localVal}
+      onChange={handleChange}
+      className={className}
+    />
+  );
+};
 export default function PropertyHeader({
   searchQuery,
   onSearchChange,
@@ -98,16 +137,15 @@ export default function PropertyHeader({
               {/* Search */}
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-blue-200" />
-                <input
-                  type="text"
-                  placeholder="Search property..."
-                  value={searchQuery}
-                  onChange={(e) => onSearchChange(e.target.value)}
-                  className="w-[420px] pl-9 pr-3 py-1.5 text-sm rounded-lg
-                           bg-white/20 text-white placeholder-blue-100
-                           backdrop-blur-md border border-white/30
-                           shadow-sm focus:outline-none focus:ring-1 focus:ring-white/50"
-                />
+               <SearchInput
+  value={searchQuery}
+  onChange={onSearchChange}
+  placeholder="Search property..."
+  className="w-[420px] pl-9 pr-3 py-1.5 text-sm rounded-lg
+           bg-white/20 text-white placeholder-blue-100
+           backdrop-blur-md border border-white/30
+           shadow-sm focus:outline-none focus:ring-1 focus:ring-white/50"
+/>
               </div>
             </div>
 
@@ -356,16 +394,15 @@ export default function PropertyHeader({
         {/* Compact Search Bar */}
         <div className="relative py-2">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-blue-200" />
-          <input
-            type="text"
-            placeholder="Search..."
-            value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
-            className="w-full pl-7 pr-2 py-1.5 text-xs rounded-md
-                     bg-white/20 text-white placeholder-blue-100
-                     backdrop-blur-md border border-white/30
-                     shadow-sm focus:outline-none focus:ring-1 focus:ring-white/50"
-          />
+        <SearchInput
+  value={searchQuery}
+  onChange={onSearchChange}
+  placeholder="Search..."
+  className="w-full pl-7 pr-2 py-1.5 text-xs rounded-md
+           bg-white/20 text-white placeholder-blue-100
+           backdrop-blur-md border border-white/30
+           shadow-sm focus:outline-none focus:ring-1 focus:ring-white/50"
+/>
         </div>
 
         {/* Active Filters Indicator - Only when needed */}

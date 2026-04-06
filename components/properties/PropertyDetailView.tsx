@@ -1246,85 +1246,100 @@ const PropertyDetailView = memo(function PropertyDetailView({
           {/* Main Content */}
           <div className="space-y-4 lg:space-y-6">
             {/* Image Gallery */}
-            <div className="relative group">
-              <div className="relative w-full h-[250px] md:h-[400px] lg:h-[500px] xl:h-[600px] rounded-xl md:rounded-2xl lg:rounded-3xl overflow-hidden shadow-xl md:shadow-2xl bg-gray-200">
-                {hasImages ? (
-                  <img
-                    src={currentImageUrl!}
-                    alt="Property"
-                    className="w-full h-full object-cover transition-all duration-700 group-hover:scale-105"
-                  />
-                ) : (
-                  <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200">
-                    <ImageIcon className="w-16 h-16 text-slate-400 mb-3" />
-                    <span className="text-sm text-slate-500 font-medium">Image Not Available</span>
-                  </div>
-                )}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
+            {/* Image Gallery - REPLACE THIS SECTION */}
+<div className="relative group">
+  <div className="relative w-full h-[250px] md:h-[400px] lg:h-[500px] xl:h-[600px] rounded-xl md:rounded-2xl lg:rounded-3xl overflow-hidden shadow-xl md:shadow-2xl bg-gray-100">
+    {hasImages && currentImageUrl ? (
+      <img
+        src={currentImageUrl}
+        alt="Property"
+        className="w-full h-full object-cover transition-all duration-700 group-hover:scale-105"
+        onError={(e) => {
+          const target = e.target as HTMLImageElement;
+          target.style.display = 'none';
+          const parent = target.parentElement;
+          if (parent) {
+            const placeholder = parent.querySelector('.no-image-placeholder');
+            if (placeholder) (placeholder as HTMLElement).style.display = 'flex';
+          }
+        }}
+      />
+    ) : null}
+    
+    {/* No Image Placeholder */}
+    <div className={`no-image-placeholder w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 ${hasImages && currentImageUrl ? 'hidden' : 'flex'}`}>
+      <ImageIcon className="w-16 h-16 text-gray-400 mb-3" />
+      <span className="text-sm text-gray-500 font-medium">Image Not Available</span>
+    </div>
+    
+    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
 
-                {/* Top left: Views + Heart */}
-                <div className="absolute top-3 md:top-6 left-3 md:left-6 flex gap-1.5 md:gap-3">
-                  <div className="glass-dark px-2 py-1.5 md:px-4 md:py-3 rounded-lg md:rounded-xl backdrop-blur-md flex items-center gap-1 md:gap-2 shadow-lg">
-                    <Eye className="w-3 h-3 md:w-5 md:h-5 text-white" />
-                    <span className="font-black text-xs md:text-base text-white">
-                      {viewCount.toLocaleString()}
-                    </span>
-                  </div>
+    {/* Top left: Views + Heart */}
+    <div className="absolute top-3 md:top-6 left-3 md:left-6 flex gap-1.5 md:gap-3">
+      <div className="glass-dark px-2 py-1.5 md:px-4 md:py-3 rounded-lg md:rounded-xl backdrop-blur-md flex items-center gap-1 md:gap-2 shadow-lg">
+        <Eye className="w-3 h-3 md:w-5 md:h-5 text-white" />
+        <span className="font-black text-xs md:text-base text-white">
+          {viewCount.toLocaleString()}
+        </span>
+      </div>
 
-                  <button
-                    onClick={handleShortlistClick}
-                    disabled={isLoadingShortlist}
-                    className={`glass-dark px-2 py-1.5 md:px-4 md:py-3 rounded-lg md:rounded-xl backdrop-blur-md flex items-center gap-1 md:gap-2 shadow-lg transition-all transform hover:scale-105 ${isShortlisted ? "bg-rose-500/20" : ""
-                      } ${isLoadingShortlist ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
-                    title={isShortlisted ? "Remove from shortlist" : "Add to shortlist"}
-                  >
-                    <Heart
-                      className={`w-3 h-3 md:w-5 md:h-5 transition-all ${isShortlisted ? "text-rose-500 fill-rose-500 animate-pulse" : "text-rose-400 hover:text-rose-500"
-                        }`}
-                    />
-                    <span className="font-black text-xs md:text-base text-white">
-                      {shortlistCount.toLocaleString()}
-                    </span>
-                  </button>
-                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[14px] font-bold uppercase tracking-wider shadow-sm text-white">
-                    <span className="w-1.5 h-1.5 rounded-full" />
-                    {"RMCX-00" + (serialNumber || propertyData.id)}
-                  </span>
-                </div>
-                {/* View All button - top right */}
-                <button
-                  onClick={() => {
-                    setLightboxIndex(currentImageIndex);
-                    setIsLightboxOpen(true);
-                  }}
-                  className="absolute top-3 md:top-6 right-3 md:right-6 glass-dark px-2 py-1.5 md:px-4 md:py-3 rounded-lg md:rounded-xl backdrop-blur-md flex items-center gap-1 md:gap-2 shadow-lg text-white font-bold text-xs md:text-sm hover:scale-105 transition-all"
-                >
-                  <Maximize2 className="w-3 h-3 md:w-4 md:h-4" />
-                  <span className="hidden sm:inline">View</span>
-                </button>
+      <button
+        onClick={handleShortlistClick}
+        disabled={isLoadingShortlist}
+        className={`glass-dark px-2 py-1.5 md:px-4 md:py-3 rounded-lg md:rounded-xl backdrop-blur-md flex items-center gap-1 md:gap-2 shadow-lg transition-all transform hover:scale-105 ${isShortlisted ? "bg-rose-500/20" : ""
+          } ${isLoadingShortlist ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+        title={isShortlisted ? "Remove from shortlist" : "Add to shortlist"}
+      >
+        <Heart
+          className={`w-3 h-3 md:w-5 md:h-5 transition-all ${isShortlisted ? "text-rose-500 fill-rose-500 animate-pulse" : "text-rose-400 hover:text-rose-500"
+            }`}
+        />
+        <span className="font-black text-xs md:text-base text-white">
+          {shortlistCount.toLocaleString()}
+        </span>
+      </button>
+      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[14px] font-bold uppercase tracking-wider shadow-sm text-white">
+        <span className="w-1.5 h-1.5 rounded-full" />
+        {"RMCX-00" + (serialNumber || propertyData.id)}
+      </span>
+    </div>
+    
+    {/* View All button - top right */}
+    {hasImages && propertyData.images?.length > 0 && (
+      <button
+        onClick={() => {
+          setLightboxIndex(currentImageIndex);
+          setIsLightboxOpen(true);
+        }}
+        className="absolute top-3 md:top-6 right-3 md:right-6 glass-dark px-2 py-1.5 md:px-4 md:py-3 rounded-lg md:rounded-xl backdrop-blur-md flex items-center gap-1 md:gap-2 shadow-lg text-white font-bold text-xs md:text-sm hover:scale-105 transition-all"
+      >
+        <Maximize2 className="w-3 h-3 md:w-4 md:h-4" />
+        <span className="hidden sm:inline">View</span>
+      </button>
+    )}
 
-                {hasImages && (
-                  <>
-                    <button
-                      onClick={prevImage}
-                      className="absolute left-2 md:left-6 top-1/2 -translate-y-1/2 glass-dark p-2 md:p-4 rounded-lg md:rounded-2xl text-white transition-all hover:scale-105 md:hover:scale-110"
-                    >
-                      <ChevronLeft className="w-4 h-4 md:w-6 md:h-6" />
-                    </button>
-                    <button
-                      onClick={nextImage}
-                      className="absolute right-2 md:right-6 top-1/2 -translate-y-1/2 glass-dark p-2 md:p-4 rounded-lg md:rounded-2xl text-white transition-all hover:scale-105 md:hover:scale-110"
-                    >
-                      <ChevronRight className="w-4 h-4 md:w-6 md:h-6" />
-                    </button>
-                    <div className="absolute bottom-3 md:bottom-6 left-3 md:left-6 glass-dark px-2 py-1.5 md:px-5 md:py-3 rounded-lg md:rounded-2xl text-white font-bold flex items-center gap-1 md:gap-2 text-xs md:text-base">
-                      <ImageIcon className="w-3 h-3 md:w-5 md:h-5" />
-                      {currentImageIndex + 1} / {propertyData.images?.length || 0}
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
+    {hasImages && propertyData.images?.length > 0 && (
+      <>
+        <button
+          onClick={prevImage}
+          className="absolute left-2 md:left-6 top-1/2 -translate-y-1/2 glass-dark p-2 md:p-4 rounded-lg md:rounded-2xl text-white transition-all hover:scale-105 md:hover:scale-110"
+        >
+          <ChevronLeft className="w-4 h-4 md:w-6 md:h-6" />
+        </button>
+        <button
+          onClick={nextImage}
+          className="absolute right-2 md:right-6 top-1/2 -translate-y-1/2 glass-dark p-2 md:p-4 rounded-lg md:rounded-2xl text-white transition-all hover:scale-105 md:hover:scale-110"
+        >
+          <ChevronRight className="w-4 h-4 md:w-6 md:h-6" />
+        </button>
+        <div className="absolute bottom-3 md:bottom-6 left-3 md:left-6 glass-dark px-2 py-1.5 md:px-5 md:py-3 rounded-lg md:rounded-2xl text-white font-bold flex items-center gap-1 md:gap-2 text-xs md:text-base">
+          <ImageIcon className="w-3 h-3 md:w-5 md:h-5" />
+          {currentImageIndex + 1} / {propertyData.images?.length || 0}
+        </div>
+      </>
+    )}
+  </div>
+</div>
 
             {/* Description Card */}
             <div className="bg-white rounded-lg md:rounded-xl overflow-hidden shadow-md mt-0">
