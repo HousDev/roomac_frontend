@@ -24,7 +24,7 @@ import { Share2, Copy, Check } from 'lucide-react';
 import { FaFacebookF, FaTwitter, FaLinkedinIn, FaTelegramPlane } from 'react-icons/fa';
 import { MdEmail } from 'react-icons/md';
 import { useRouter } from 'next/navigation';
-
+import { generatePropertySlug } from '@/lib/slugUtils';
 // ─── Animation variants ───────────────────────────────────────────────────────
 const fadeInUp = {
   hidden: { opacity: 0, y: 30 },
@@ -700,10 +700,16 @@ function PropertiesSection({
               const propertyType = property.property_type || property.type || '';
               const totalRooms = property.total_rooms || property.rooms || property.room_count || '';
               const rating = property.rating || 4.5;
+const propertyHref = generatePropertySlug({
+  name: propertyName,
+  area: property.area || property.location,
+  city: property.city,
+  id: property.id
+}) || property.slug || property.id;
 
               return (
-                <CardScrollAnimation key={property.id || index} index={index}>
-                  <Link href={`/properties/${property.slug || property.id}`} className="group block h-full">
+<CardScrollAnimation key={property.id || property.slug || `prop-${index}`} index={index}>
+<Link href={`/properties/${propertyHref}`} className="group block h-full">
                     <div className="relative overflow-hidden rounded-2xl bg-[#f0f5f5] shadow-md hover:shadow-2xl transition-all duration-500 group-hover:-translate-y-2 h-[520px] flex flex-col">
                       {/* Image area */}
                       <div className="relative h-52 sm:h-56 md:h-60 overflow-hidden rounded-t-2xl flex-shrink-0 bg-slate-200">
@@ -741,7 +747,8 @@ function PropertiesSection({
                           <button onClick={(e) => handleShareClick(e, property)} className="h-8 w-8 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-lg hover:scale-110 transition-all">
                             <Share2 className="h-4 w-4 text-slate-600" />
                           </button>
-                          <button onClick={(e) => onHeartClick(property.id || index, e)} className="h-8 w-8 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-lg hover:scale-110 transition-all">
+                          <button onClick={(e) => onHeartClick(property.id || property.slug || index, e)
+} className="h-8 w-8 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-lg hover:scale-110 transition-all">
                             <Heart className={`h-4 w-4 ${likedProperties.has(property.id || index) ? 'fill-red-500 text-red-500' : 'text-slate-400'}`} />
                           </button>
                         </div>
@@ -832,7 +839,7 @@ function PropertiesSection({
 
                         <div className="border-t border-slate-200 mt-auto pt-3">
                           <div className="flex items-center gap-2">
-                            <Link href={`/properties/${property.slug || property.id}`} className="flex-1">
+<Link href={`/properties/${propertyHref}`} className="flex-1">
                               <button className="w-full px-2 py-2.5 bg-[#0249a8] hover:bg-[#023a88] text-white text-xs font-semibold rounded-lg shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 flex items-center justify-center gap-1">
                                 <span>Details</span>
                                 <ArrowRight className="h-3 w-3" />

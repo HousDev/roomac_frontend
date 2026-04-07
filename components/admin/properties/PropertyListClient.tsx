@@ -1093,6 +1093,12 @@ export default function PropertyListClient({ initialProperties }: PropertyListCl
       )}
     </div>
   )}
+
+   <div className="absolute bottom-2.5 right-2.5 z-10">
+    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-md bg-black/70 backdrop-blur-sm text-white whitespace-nowrap">
+      RMCX-00{index + 1}
+    </span>
+  </div>
 </div>
 
         {/* Rest of the card */}
@@ -1100,15 +1106,13 @@ export default function PropertyListClient({ initialProperties }: PropertyListCl
           {/* Name + Location */}
           <div className="mb-3">
             <div className="flex items-center justify-between">
-              <h3 className="font-black text-gray-900 text-sm leading-snug line-clamp-1 group-hover:text-[#004AAD] transition-colors duration-200">
-                {property.name}
-              </h3>
+              <h3 className="font-bold text-[11px] text-gray-900 leading-tight break-words group-hover:text-[#004AAD] transition-colors duration-200">
+  {property.name}
+</h3>
               {/* <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-mono font-semibold bg-blue-100 text-blue-700 border border-blue-200">
     RMCX-{property.id}
   </span> */}
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-mono font-semibold bg-blue-100 text-blue-700 border border-blue-200">
-                RMCX-00{index + 1}
-              </span>
+             
             </div>
             <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
               <MapPin className="h-3 w-3 text-[#004AAD] flex-shrink-0" />
