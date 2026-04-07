@@ -915,14 +915,6 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
         tenantsList = response.data;
       }
     
-
-    // SPECIFICALLY LOOK FOR TENANT 1035
-    const tenant1035 = tenantsList.find(t => t.id === 1035);
-    console.log('🎯 Tenant 1035 found:', tenant1035 ? {
-      id: tenant1035.id,
-      name: tenant1035.full_name,
-      partner_name: tenant1035.partner_full_name
-    } : '❌ NOT FOUND IN TENANTS LIST!');
       // Check assignment status for each tenant
       const tenantsWithAssignment = await Promise.all(
         tenantsList.map(async (tenant) => {
