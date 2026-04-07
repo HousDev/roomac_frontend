@@ -68,6 +68,8 @@ import {
 // Add this interface after the existing interfaces
 interface PartnerDetails {
   // fullName: string;
+  salutation: string;  
+  countryCode: string;
   firstName: string;
   lastName: string;
   phone: string;
@@ -723,11 +725,12 @@ const BookingModal = memo(function BookingModal({
 
   const [formData, setFormData] = useState({
     salutation: "Mr.",
-    firstName: "", // Add this
-    lastName: "", // Add thi
+    firstName: "", 
+    lastName: "", 
     fullName: "",
     email: "",
     phone: "",
+    countryCode: "+91",
     gender: "",
     isCouple: false,
     moveInDate: "",
@@ -746,6 +749,8 @@ const BookingModal = memo(function BookingModal({
   });
 
   const [partnerDetails, setPartnerDetails] = useState<PartnerDetails>({
+    salutation: "Mr.",      // ADD THIS
+  countryCode: "",
     firstName: "",
     lastName: "",
     // fullName: '',
@@ -2038,6 +2043,7 @@ const createBookingNotifications = useCallback(async (bookingId: number, booking
       fullName: formData.fullName,
       email: formData.email,
       phone: formData.phone,
+      country_code: formData.countryCode || "+91",
       gender: formData.gender,
       isCouple: formData.isCouple,
       moveInDate: formData.moveInDate,
@@ -2082,8 +2088,11 @@ const createBookingNotifications = useCallback(async (bookingId: number, booking
       address_proof_number: documentDetails.addressProofNumber,
 
       // Partner details
+      partner_salutation: partnerDetails.salutation,      
       partner_full_name: partnerFullName,
       partner_phone: partnerDetails.phone,
+          partner_country_code: partnerDetails.countryCode,   // ADD THIS
+
       partner_email: partnerDetails.email,
       partner_gender: partnerDetails.gender,
       partner_date_of_birth: partnerDetails.dateOfBirth,
@@ -2891,68 +2900,80 @@ handleSendOTP(e); // Trigger OTP flow on first
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      <div>
-                        <label className="block text-[10px] sm:text-xs font-semibold text-gray-700 mb-1">
-                          Phone <span className="text-red-500">*</span>
-                        </label>
-                        <div className="flex">
-                          <span className="inline-flex items-center px-2 py-2 text-[11px] sm:text-xs border-2 border-r-0 border-gray-300 rounded-l-lg bg-gray-50 text-gray-600 font-semibold">
-                            +91
-                          </span>
-                          {/* In the phone input field */}
-                          <input
-                            type="tel"
-                            required
-                            maxLength={10}
-                            value={formData.phone}
-                            onChange={(e) => {
-                              const value = e.target.value.replace(/\D/g, "");
-                              handleInputChange("phone", value);
-                            }}
-                            className={`flex-1 px-2 sm:px-3 py-2 text-[11px] sm:text-xs border-2 ${
-                              phoneError
-                                ? "border-red-500"
-                                : existingTenant &&
-                                    existingTenant.matched_field === "phone"
-                                  ? existingTenant.has_active_assignment
-                                    ? "border-red-500 bg-red-50"
-                                    : "border-yellow-500 bg-yellow-50"
-                                  : "border-gray-300"
-                            } rounded-r-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none`}
-                            placeholder="98765 43210"
-                          />
-                        </div>
-                        {phoneError && (
-                          <p className="text-[9px] sm:text-[10px] text-red-600 mt-0.5 flex items-center gap-0.5">
-                            <AlertCircle className="w-2.5 h-2.5 flex-shrink-0" />
-                            {phoneError}
-                          </p>
-                        )}
-                      </div>
+  {/* Phone with Country Code Dropdown */}
+  <div>
+    <label className="block text-[10px] sm:text-xs font-semibold text-gray-700 mb-1">
+      Phone <span className="text-red-500">*</span>
+    </label>
+    <div className="flex gap-1">
+      {/* Country Code Dropdown - NEW */}
+      <select
+        value={formData.countryCode || "+91"}
+        onChange={(e) => handleInputChange("countryCode", e.target.value)}
+        className="w-[85px] px-2 py-2 text-[11px] sm:text-xs border-2 border-gray-300 rounded-l-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none bg-white"
+      >
+        <option value="+91">+91 (India)</option>
+        <option value="+1">+1 (USA)</option>
+        <option value="+44">+44 (UK)</option>
+        <option value="+61">+61 (Australia)</option>
+        <option value="+65">+65 (Singapore)</option>
+        <option value="+971">+971 (UAE)</option>
+      </select>
+      {/* Phone Input */}
+      <input
+        type="tel"
+        required
+        maxLength={10}
+        value={formData.phone}
+        onChange={(e) => {
+          const value = e.target.value.replace(/\D/g, "");
+          handleInputChange("phone", value);
+        }}
+        className={`flex-1 px-2 sm:px-3 py-2 text-[11px] sm:text-xs border-2 ${
+          phoneError
+            ? "border-red-500"
+            : existingTenant &&
+                existingTenant.matched_field === "phone"
+              ? existingTenant.has_active_assignment
+                ? "border-red-500 bg-red-50"
+                : "border-yellow-500 bg-yellow-50"
+              : "border-gray-300"
+        } rounded-r-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none`}
+        placeholder="98765 43210"
+      />
+    </div>
+    {phoneError && (
+      <p className="text-[9px] sm:text-[10px] text-red-600 mt-0.5 flex items-center gap-0.5">
+        <AlertCircle className="w-2.5 h-2.5 flex-shrink-0" />
+        {phoneError}
+      </p>
+    )}
+  </div>
 
-                      <div>
-                        <label className="block text-[10px] sm:text-xs font-semibold text-gray-700 mb-1">
-                          Email <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="email"
-                          required
-                          value={formData.email}
-                          onChange={(e) =>
-                            handleInputChange("email", e.target.value)
-                          }
-                          className={`w-full px-2 sm:px-3 py-2 text-[11px] sm:text-xs border-2 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none ${
-                            existingTenant &&
-                            existingTenant.matched_field === "email"
-                              ? existingTenant.has_active_assignment
-                                ? "border-red-500 bg-red-50"
-                                : "border-yellow-500 bg-yellow-50"
-                              : "border-gray-300"
-                          }`}
-                          placeholder="your@email.com"
-                        />
-                      </div>
-                    </div>
+  {/* Email Field */}
+  <div>
+    <label className="block text-[10px] sm:text-xs font-semibold text-gray-700 mb-1">
+      Email <span className="text-red-500">*</span>
+    </label>
+    <input
+      type="email"
+      required
+      value={formData.email}
+      onChange={(e) =>
+        handleInputChange("email", e.target.value)
+      }
+      className={`w-full px-2 sm:px-3 py-2 text-[11px] sm:text-xs border-2 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none ${
+        existingTenant &&
+        existingTenant.matched_field === "email"
+          ? existingTenant.has_active_assignment
+            ? "border-red-500 bg-red-50"
+            : "border-yellow-500 bg-yellow-50"
+          : "border-gray-300"
+      }`}
+      placeholder="your@email.com"
+    />
+  </div>
+</div>
 
                     {/* Gender Selection */}
                     <div>
@@ -3014,197 +3035,229 @@ handleSendOTP(e); // Trigger OTP flow on first
                     </div>
 
                     {/* Partner Details Section - Only show when isCouple is true */}
-                    {formData.isCouple && (
-                      <div className="mt-4 p-3 border-2 border-pink-200 rounded-lg bg-pink-50/30">
-                        <div className="flex items-center gap-2 mb-3">
-                          <Heart className="h-4 w-4 text-pink-600" />
-                          <h4 className="text-xs font-bold text-pink-800">
-                            Partner Details
-                          </h4>
-                          <Badge
-                            variant="outline"
-                            className="text-[9px] bg-pink-100 text-pink-700 border-pink-200"
-                          >
-                            Required for couple booking
-                          </Badge>
-                        </div>
+                  {formData.isCouple && (
+  <div className="mt-4 p-3 border-2 border-pink-200 rounded-lg bg-pink-50/30">
+    <div className="flex items-center gap-2 mb-3">
+      <Heart className="h-4 w-4 text-pink-600" />
+      <h4 className="text-xs font-bold text-pink-800">
+        Partner Details
+      </h4>
+      <Badge
+        variant="outline"
+        className="text-[9px] bg-pink-100 text-pink-700 border-pink-200"
+      >
+        Required for couple booking
+      </Badge>
+    </div>
 
-                        <div className="grid grid-cols-2 gap-2">
-                          {/* Partner Full Name */}
-                          <div className="col-span-2">
-                            <Label className="text-[10px] font-semibold text-pink-700">
-                              Partner Full Name *
-                            </Label>
-                            <div className="grid grid-cols-2 gap-2 mt-1">
-                              <div>
-                                <Input
-                                  value={partnerDetails.firstName}
-                                  onChange={(e) =>
-                                    setPartnerDetails((prev) => ({
-                                      ...prev,
-                                      firstName: e.target.value,
-                                    }))
-                                  }
-                                  placeholder="First name"
-                                  className="h-7 text-[10px] border-pink-200 focus:border-pink-500"
-                                  required={formData.isCouple}
-                                />
-                              </div>
-                              <div>
-                                <Input
-                                  value={partnerDetails.lastName}
-                                  onChange={(e) =>
-                                    setPartnerDetails((prev) => ({
-                                      ...prev,
-                                      lastName: e.target.value,
-                                    }))
-                                  }
-                                  placeholder="Last name"
-                                  className="h-7 text-[10px] border-pink-200 focus:border-pink-500"
-                                  required={formData.isCouple}
-                                />
-                              </div>
-                            </div>
-                          </div>
+    <div className="grid grid-cols-2 gap-2">
+      
+      {/* Row 1: Partner Full Name with Salutation - FULL WIDTH */}
+      <div className="col-span-2">
+        <Label className="text-[10px] font-semibold text-pink-700">
+          Partner Full Name *
+        </Label>
+        <div className="flex gap-2 mt-1">
+          <div className="w-[85px] flex-shrink-0">
+            <select
+              value={partnerDetails.salutation}
+              onChange={(e) =>
+                setPartnerDetails((prev) => ({
+                  ...prev,
+                  salutation: e.target.value,
+                }))
+              }
+              className="w-full px-2 py-1.5 text-[10px] border border-pink-200 rounded-lg bg-white focus:border-pink-500 outline-none h-7"
+            >
+              {["Mr.", "Mrs.", "Ms.", "Dr.", "Prof.", "Adv.", "Er."].map((sal) => (
+                <option key={sal} value={sal}>
+                  {sal}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex-1">
+            <Input
+              value={partnerDetails.firstName}
+              onChange={(e) =>
+                setPartnerDetails((prev) => ({
+                  ...prev,
+                  firstName: e.target.value,
+                }))
+              }
+              placeholder="First name"
+              className="h-7 text-[10px] border-pink-200 focus:border-pink-500"
+              required={formData.isCouple}
+            />
+          </div>
+          <div className="flex-1">
+            <Input
+              value={partnerDetails.lastName}
+              onChange={(e) =>
+                setPartnerDetails((prev) => ({
+                  ...prev,
+                  lastName: e.target.value,
+                }))
+              }
+              placeholder="Last name"
+              className="h-7 text-[10px] border-pink-200 focus:border-pink-500"
+              required={formData.isCouple}
+            />
+          </div>
+        </div>
+      </div>
 
-                          {/* Partner Phone with +91 prefix */}
-                          <div>
-                            <Label className="text-[10px] font-semibold text-pink-700">
-                              Partner Phone *
-                            </Label>
-                            <div className="flex mt-1">
-                              <span className="inline-flex items-center px-2 py-1 text-[11px] border-2 border-r-0 border-pink-200 rounded-l-lg bg-pink-50 text-pink-600 font-semibold">
-                                +91
-                              </span>
-                              <Input
-                                type="tel"
-                                value={partnerDetails.phone}
-                                onChange={(e) => {
-                                  const value = e.target.value
-                                    .replace(/\D/g, "")
-                                    .slice(0, 10);
-                                  setPartnerDetails((prev) => ({
-                                    ...prev,
-                                    phone: value,
-                                  }));
-                                }}
-                                placeholder="9876543210"
-                                className="flex-1 h-7 text-[10px] border-pink-200 focus:border-pink-500 rounded-l-none"
-                                maxLength={10}
-                                required={formData.isCouple}
-                              />
-                            </div>
-                          </div>
+      {/* Row 2: Partner Phone (left) + Email (right) - SAME ROW */}
+      <div>
+        <Label className="text-[10px] font-semibold text-pink-700">
+          Partner Phone *
+        </Label>
+        <div className="flex gap-2 mt-1">
+          <div className="w-[100px] flex-shrink-0">
+            <select
+              value={partnerDetails.countryCode}
+              onChange={(e) =>
+                setPartnerDetails((prev) => ({
+                  ...prev,
+                  countryCode: e.target.value,
+                }))
+              }
+              className="w-full px-2 py-1.5 text-[10px] border border-pink-200 rounded-lg bg-white focus:border-pink-500 outline-none h-7"
+            >
+              <option value="">Select</option>
+              <option value="+91">+91 (India)</option>
+              <option value="+1">+1 (USA)</option>
+              <option value="+44">+44 (UK)</option>
+              <option value="+61">+61 (Australia)</option>
+              <option value="+65">+65 (Singapore)</option>
+              <option value="+971">+971 (UAE)</option>
+            </select>
+          </div>
+          <div className="flex-1">
+            <Input
+              type="tel"
+              value={partnerDetails.phone}
+              onChange={(e) => {
+                const value = e.target.value.replace(/\D/g, "").slice(0, 10);
+                setPartnerDetails((prev) => ({
+                  ...prev,
+                  phone: value,
+                }));
+              }}
+              placeholder="9876543210"
+              className="h-7 text-[10px] border-pink-200 focus:border-pink-500"
+              maxLength={10}
+              required={formData.isCouple}
+            />
+          </div>
+        </div>
+      </div>
 
-                          {/* Partner Email */}
-                          <div>
-                            <Label className="text-[10px] font-semibold text-pink-700">
-                              Partner Email
-                            </Label>
-                            <Input
-                              type="email"
-                              value={partnerDetails.email}
-                              onChange={(e) =>
-                                setPartnerDetails((prev) => ({
-                                  ...prev,
-                                  email: e.target.value,
-                                }))
-                              }
-                              placeholder="partner@email.com"
-                              className="h-7 text-[10px] mt-0.5 border-pink-200 focus:border-pink-500"
-                            />
-                          </div>
+      {/* Partner Email - RIGHT SIDE of same row */}
+      <div>
+        <Label className="text-[10px] font-semibold text-pink-700">
+          Partner Email
+        </Label>
+        <Input
+          type="email"
+          value={partnerDetails.email}
+          onChange={(e) =>
+            setPartnerDetails((prev) => ({
+              ...prev,
+              email: e.target.value,
+            }))
+          }
+          placeholder="partner@email.com"
+          className="h-7 text-[10px] mt-1 border-pink-200 focus:border-pink-500"
+        />
+      </div>
 
-                          {/* Partner Gender */}
-                          <div>
-                            <Label className="text-[10px] font-semibold text-pink-700">
-                              Partner Gender *
-                            </Label>
-                            <Select
-                              value={partnerDetails.gender}
-                              onValueChange={(v) =>
-                                setPartnerDetails((prev) => ({
-                                  ...prev,
-                                  gender: v,
-                                }))
-                              }
-                            >
-                              <SelectTrigger className="h-7 text-[10px] mt-0.5 border-pink-200">
-                                <SelectValue placeholder="Select gender" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="Male">Male</SelectItem>
-                                <SelectItem value="Female">Female</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
+      {/* Row 3: Partner Gender (left) + Date of Birth (right) */}
+      <div>
+        <Label className="text-[10px] font-semibold text-pink-700">
+          Partner Gender *
+        </Label>
+        <Select
+          value={partnerDetails.gender}
+          onValueChange={(v) =>
+            setPartnerDetails((prev) => ({
+              ...prev,
+              gender: v,
+            }))
+          }
+        >
+          <SelectTrigger className="h-7 text-[10px] mt-1 border-pink-200">
+            <SelectValue placeholder="Select gender" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Male">Male</SelectItem>
+            <SelectItem value="Female">Female</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
-                          {/* Partner Date of Birth with 18 years age restriction */}
-                          <div>
-                            <Label className="text-[10px] font-semibold text-pink-700">
-                              Partner Date of Birth
-                            </Label>
-                            <div className="relative mt-1">
-                              <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-300" />
-                              <Input
-                                type="date"
-                                value={partnerDetails.dateOfBirth}
-                                onChange={(e) => {
-                                  const selectedDate = new Date(e.target.value);
-                                  const minDate = new Date();
-                                  minDate.setFullYear(
-                                    minDate.getFullYear() - 18,
-                                  );
+      <div>
+        <Label className="text-[10px] font-semibold text-pink-700">
+          Partner Date of Birth
+        </Label>
+        <div className="relative mt-1">
+          <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-300" />
+          <Input
+            type="date"
+            value={partnerDetails.dateOfBirth}
+            onChange={(e) => {
+              const selectedDate = new Date(e.target.value);
+              const minDate = new Date();
+              minDate.setFullYear(minDate.getFullYear() - 18);
 
-                                  if (selectedDate > minDate) {
-                                    toast.error(
-                                      "Partner must be at least 18 years old",
-                                    );
-                                    return;
-                                  }
-                                  setPartnerDetails((prev) => ({
-                                    ...prev,
-                                    dateOfBirth: e.target.value,
-                                  }));
-                                }}
-                                max={(() => {
-                                  const date = new Date();
-                                  date.setFullYear(date.getFullYear() - 18);
-                                  return date.toISOString().split("T")[0];
-                                })()}
-                                className={`pl-8 h-7 text-[10px] border-pink-200 focus:border-pink-500`}
-                              />
-                            </div>
-                          </div>
-                          {/* Partner Relationship - Add this to the partner details section */}
-                          <div>
-                            <Label className="text-[10px] font-semibold text-pink-700">
-                              Relationship
-                            </Label>
-                            <Select
-                              value={partnerDetails.relationship}
-                              onValueChange={(v) =>
-                                setPartnerDetails((prev) => ({
-                                  ...prev,
-                                  relationship: v,
-                                }))
-                              }
-                            >
-                              <SelectTrigger className="h-7 text-[10px] mt-0.5 border-pink-200">
-                                <SelectValue placeholder="Select relationship" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="Spouse">Spouse</SelectItem>
-                                <SelectItem value="Partner">Partner</SelectItem>
-                                <SelectItem value="Fiancé">Fiancé</SelectItem>
-                                <SelectItem value="Fiancée">Fiancée</SelectItem>
-                                <SelectItem value="Other">Other</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                      </div>
-                    )}
+              if (selectedDate > minDate) {
+                toast.error("Partner must be at least 18 years old");
+                return;
+              }
+              setPartnerDetails((prev) => ({
+                ...prev,
+                dateOfBirth: e.target.value,
+              }));
+            }}
+            max={(() => {
+              const date = new Date();
+              date.setFullYear(date.getFullYear() - 18);
+              return date.toISOString().split("T")[0];
+            })()}
+            className={`pl-8 h-7 text-[10px] border-pink-200 focus:border-pink-500`}
+          />
+        </div>
+      </div>
+
+      {/* Row 4: Partner Relationship - FULL WIDTH */}
+      <div className="col-span-2">
+        <Label className="text-[10px] font-semibold text-pink-700">
+          Relationship
+        </Label>
+        <Select
+          value={partnerDetails.relationship}
+          onValueChange={(v) =>
+            setPartnerDetails((prev) => ({
+              ...prev,
+              relationship: v,
+            }))
+          }
+        >
+          <SelectTrigger className="h-7 text-[10px] mt-1 border-pink-200">
+            <SelectValue placeholder="Select relationship" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Spouse">Spouse</SelectItem>
+            <SelectItem value="Partner">Partner</SelectItem>
+            <SelectItem value="Fiancé">Fiancé</SelectItem>
+            <SelectItem value="Fiancée">Fiancée</SelectItem>
+            <SelectItem value="Other">Other</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+  </div>
+)}
 
                     {bookingType === "long" ? (
                       <div>

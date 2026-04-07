@@ -252,62 +252,71 @@ const handleImportFile = async (file: File) => {
 
   // Memoized filtered rooms
   const filteredRooms = useMemo(() => {
-    const safeRooms = Array.isArray(rooms) ? rooms : [];
-    
-    return safeRooms.filter(room => {
-      if (!room) return false;
-      
-      const searchLower = searchQuery.toLowerCase();
-      const roomNumberStr = room.room_number ? room.room_number.toString() : '';
-      const propertyName = (room.property_name || '').toLowerCase();
-      const propertyAddress = (room.property_address || '').toLowerCase();
-      const sharingType = room.sharing_type || '';
-      const totalBeds = room.total_bed || 0;
-      
-      const matchesSearch = 
-        !searchQuery ||
-        roomNumberStr.toLowerCase().includes(searchLower) ||
-        propertyName.includes(searchLower) ||
-        propertyAddress.includes(searchLower) ||
-        sharingType.toLowerCase().includes(searchLower);
-      
-      let matchesRoomType = false;
-      if (selectedRoomType === 'all') {
-        matchesRoomType = true;
-      } else if (selectedRoomType === 'other') {
-        const isExplicitlyOther = sharingType.toLowerCase() === 'other';
-        const isCustomBedCount = ![1, 2, 3].includes(totalBeds);
-        matchesRoomType = isExplicitlyOther || isCustomBedCount;
-      } else {
-        if (selectedRoomType === 'single') {
-          matchesRoomType = (sharingType.toLowerCase() === 'single' && totalBeds === 1) || 
-                           (sharingType.toLowerCase() !== 'other' && totalBeds === 1);
-        } else if (selectedRoomType === 'double') {
-          matchesRoomType = (sharingType.toLowerCase() === 'double' && totalBeds === 2) || 
-                           (sharingType.toLowerCase() !== 'other' && totalBeds === 2);
-        } else if (selectedRoomType === 'triple') {
-          matchesRoomType = (sharingType.toLowerCase() === 'triple' && totalBeds === 3) || 
-                           (sharingType.toLowerCase() !== 'other' && totalBeds === 3);
-        }
+  const safeRooms = Array.isArray(rooms) ? rooms : [];
+
+  return safeRooms.filter(room => {
+    if (!room) return false;
+
+    // ── Advanced filter: property_ids ──────────────────────────────
+    if (advancedFilters?.property_ids && advancedFilters.property_ids.length > 0) {
+      const match = advancedFilters.property_ids.some(
+        id => String(id) === String(room.property_id)
+      );
+      if (!match) return false;
+    }
+
+    // ── Local search ───────────────────────────────────────────────
+    const searchLower = searchQuery.toLowerCase();
+    const roomNumberStr = room.room_number ? room.room_number.toString() : '';
+    const propertyName = (room.property_name || '').toLowerCase();
+    const propertyAddress = (room.property_address || '').toLowerCase();
+    const sharingType = room.sharing_type || '';
+    const totalBeds = room.total_bed || 0;
+
+    const matchesSearch =
+      !searchQuery ||
+      roomNumberStr.toLowerCase().includes(searchLower) ||
+      propertyName.includes(searchLower) ||
+      propertyAddress.includes(searchLower) ||
+      sharingType.toLowerCase().includes(searchLower);
+
+    let matchesRoomType = false;
+    if (selectedRoomType === 'all') {
+      matchesRoomType = true;
+    } else if (selectedRoomType === 'other') {
+      const isExplicitlyOther = sharingType.toLowerCase() === 'other';
+      const isCustomBedCount = ![1, 2, 3].includes(totalBeds);
+      matchesRoomType = isExplicitlyOther || isCustomBedCount;
+    } else {
+      if (selectedRoomType === 'single') {
+        matchesRoomType = (sharingType.toLowerCase() === 'single' && totalBeds === 1) ||
+                         (sharingType.toLowerCase() !== 'other' && totalBeds === 1);
+      } else if (selectedRoomType === 'double') {
+        matchesRoomType = (sharingType.toLowerCase() === 'double' && totalBeds === 2) ||
+                         (sharingType.toLowerCase() !== 'other' && totalBeds === 2);
+      } else if (selectedRoomType === 'triple') {
+        matchesRoomType = (sharingType.toLowerCase() === 'triple' && totalBeds === 3) ||
+                         (sharingType.toLowerCase() !== 'other' && totalBeds === 3);
       }
-      
-      let matchesGenderPref = true;
-      if (selectedGenderPref !== 'all') {
-        const roomPreferences : any  = room.room_gender_preference;
-        if (Array.isArray(roomPreferences)) {
-          matchesGenderPref = roomPreferences.some(pref => 
-            pref.toLowerCase().includes(selectedGenderPref.replace('_only', ''))
-          );
-        } else if (typeof roomPreferences === 'string') {
-          matchesGenderPref = roomPreferences.toLowerCase().includes(
-            selectedGenderPref.replace('_only', '')
-          );
-        }
+    }
+
+    let matchesGenderPref = true;
+    if (selectedGenderPref !== 'all') {
+      const roomPreferences: any = room.room_gender_preference;
+      if (Array.isArray(roomPreferences)) {
+        matchesGenderPref = roomPreferences.some(pref =>
+          pref.toLowerCase().includes(selectedGenderPref.replace('_only', ''))
+        );
+      } else if (typeof roomPreferences === 'string') {
+        matchesGenderPref = roomPreferences.toLowerCase().includes(
+          selectedGenderPref.replace('_only', '')
+        );
       }
-      
-      return matchesSearch && matchesRoomType && matchesGenderPref;
-    });
-  }, [rooms, searchQuery, selectedRoomType, selectedGenderPref]);
+    }
+
+    return matchesSearch && matchesRoomType && matchesGenderPref;
+  });
+}, [rooms, searchQuery, selectedRoomType, selectedGenderPref, advancedFilters]);
 
   // Memoized paginated rooms
   const paginatedRooms = useMemo(() => {
@@ -1082,28 +1091,67 @@ setRooms(roomsData);
               <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
               <p className="mt-4 text-gray-500">Loading rooms...</p>
             </div>
-          ) : paginatedRooms.length === 0 ? (
-            <div className="text-center py-12">
-              <DoorOpen className="h-16 w-16 mx-auto mb-4 text-gray-300" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No rooms found</h3>
-              <p className="text-gray-600 max-w-md mx-auto">
-                {searchQuery || selectedRoomType !== 'all' || selectedGenderPref !== 'all'
-                  ? 'No rooms match your search criteria. Try adjusting your filters.'
-                  : 'Get started by adding your first room.'}
-              </p>
-{!searchQuery && selectedRoomType === 'all' && selectedGenderPref === 'all' && can('create_rooms') && (
-                <Button 
-                  className="mt-4"
-                  onClick={() => {
-                    resetForm();
-                    setRoomDialogOpen(true);
-                  }}
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add First Room
-                </Button>
-              )}
-            </div>
+         ) : paginatedRooms.length === 0 ? (
+  <div className="flex flex-col items-center justify-center py-16 text-center">
+    {/* Ghost icon */}
+    <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-4">
+      <DoorOpen className="h-8 w-8 text-gray-300" />
+    </div>
+
+    <h3 className="text-base font-semibold text-gray-800 mb-1">No Rooms Found</h3>
+    <p className="text-sm text-gray-500 max-w-xs mb-5">
+      {advancedFilters?.property_ids?.length || advancedFilters?.room_types?.length ||
+       advancedFilters?.gender_preferences?.length || advancedFilters?.availability_status !== 'any' ||
+       searchQuery || selectedRoomType !== 'all' || selectedGenderPref !== 'all'
+        ? 'No rooms match your current filters. Try adjusting or clearing them.'
+        : 'Get started by adding your first room.'}
+    </p>
+
+    <div className="flex items-center gap-2">
+      {/* Clear Filters button — only show when filters are active */}
+      {(advancedFilters?.property_ids?.length ||
+        advancedFilters?.room_types?.length ||
+        advancedFilters?.availability_status !== 'any' ||
+        searchQuery || selectedRoomType !== 'all' || selectedGenderPref !== 'all') && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1.5 text-gray-600 border-gray-300"
+          onClick={() => {
+            setSearchQuery('');
+            setSelectedRoomType('all');
+            setSelectedGenderPref('all');
+            // reset advancedFilters by re-opening and resetting, or call handleFilterChange with defaults:
+            const DEFAULT_FILTERS = {
+              search: '', property_ids: [], room_types: [], gender_preferences: [],
+              amenities: [], has_attached_bathroom: undefined, has_balcony: undefined,
+              has_ac: undefined, allow_couples: undefined,
+              min_rent: 0, max_rent: 100000, min_capacity: 1, max_capacity: 10,
+              is_active: true, availability_status: 'any' as const,
+            };
+            handleFilterChange(DEFAULT_FILTERS);
+          }}
+        >
+          <X className="h-3.5 w-3.5" />
+          Clear All Filters
+        </Button>
+      )}
+
+      {/* Add Room button — only when no filters and has permission */}
+      {!searchQuery && selectedRoomType === 'all' && selectedGenderPref === 'all' &&
+       !advancedFilters?.property_ids?.length && can('create_rooms') && (
+        <Button
+          size="sm"
+          style={{ backgroundColor: '#004ab0' }}
+          className="text-white gap-1.5"
+          onClick={() => { resetForm(); setRoomDialogOpen(true); }}
+        >
+          <Plus className="h-3.5 w-3.5" />
+          Add First Room
+        </Button>
+      )}
+    </div>
+  </div>
           ) : (
             <>
               <RoomsGrid

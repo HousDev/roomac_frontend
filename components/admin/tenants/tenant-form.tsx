@@ -105,7 +105,10 @@ interface TenantFormProps {
 }
 // Add this interface for Partner Details
 interface PartnerDetails {
+    salutation: string; 
+
   full_name: string;
+   country_code: string;  
   phone: string;
   email: string;
   gender: string;
@@ -225,6 +228,7 @@ const [createCredentials, setCreateCredentials] = useState(tenant?.portal_access
     emergency_contact_name: tenant?.emergency_contact_name || "",
     emergency_contact_phone: tenant?.emergency_contact_phone || "",
     emergency_contact_relation: tenant?.emergency_contact_relation || "",
+    emergency_contact_email: tenant?.emergency_contact_email || "",
     lockin_period_months:
       tenant?.lockin_period_months !== undefined
         ? tenant.lockin_period_months
@@ -247,8 +251,10 @@ const [createCredentials, setCreateCredentials] = useState(tenant?.portal_access
   // Inside the TenantForm component, add this state after existing states
   const [showPartnerDetails, setShowPartnerDetails] = useState(false);
   const [partnerDetails, setPartnerDetails] = useState<PartnerDetails>({
+salutation: "Mr.",
     full_name: "",
     phone: "",
+  country_code: "+91",         
     email: "",
     gender: "",
     date_of_birth: "",
@@ -550,54 +556,57 @@ const [createCredentials, setCreateCredentials] = useState(tenant?.portal_access
   };
 
   // Add this useEffect after the existing ones
-  useEffect(() => {
-    if (tenant?.id && tenant) {
-      // Load partner details from the tenant data
-      setPartnerDetails({
-        full_name: tenant.partner_full_name || "",
-        phone: tenant.partner_phone || "",
-        email: tenant.partner_email || "",
-        gender: tenant.partner_gender || "",
-        date_of_birth: tenant.partner_date_of_birth || "",
-        address: tenant.partner_address || "",
-        occupation: tenant.partner_occupation || "",
-        organization: tenant.partner_organization || "",
-        relationship: tenant.partner_relationship || "Spouse",
-        id_proof_type: tenant.partner_id_proof_type || "",
-        id_proof_number: tenant.partner_id_proof_number || "",
-        id_proof_url: null,
-        address_proof_type: tenant.partner_address_proof_type || "",
-        address_proof_number: tenant.partner_address_proof_number || "",
-        address_proof_url: null,
-        photo_url: null,
-      });
+  // Add this useEffect after the existing ones
+useEffect(() => {
+  if (tenant?.id && tenant) {
+    // Load partner details from the tenant data
+    setPartnerDetails({
+      salutation: tenant.partner_salutation || "Mr.",
+      full_name: tenant.partner_full_name || "",
+      country_code: tenant.partner_country_code || "",
+      phone: tenant.partner_phone || "",
+      email: tenant.partner_email || "",
+      gender: tenant.partner_gender || "",
+      date_of_birth: tenant.partner_date_of_birth || "",
+      address: tenant.partner_address || "",
+      occupation: tenant.partner_occupation || "",
+      organization: tenant.partner_organization || "",
+      relationship: tenant.partner_relationship || "Spouse",
+      id_proof_type: tenant.partner_id_proof_type || "",
+      id_proof_number: tenant.partner_id_proof_number || "",
+      id_proof_url: null,
+      address_proof_type: tenant.partner_address_proof_type || "",
+      address_proof_number: tenant.partner_address_proof_number || "",
+      address_proof_url: null,
+      photo_url: null,
+    });
 
-      // If there are existing partner document URLs, store them
-      if (tenant.partner_id_proof_url) {
-        setPartnerDetails((prev) => ({
-          ...prev,
-          id_proof_url: tenant.partner_id_proof_url,
-        }));
-      }
-      if (tenant.partner_address_proof_url) {
-        setPartnerDetails((prev) => ({
-          ...prev,
-          address_proof_url: tenant.partner_address_proof_url,
-        }));
-      }
-      if (tenant.partner_photo_url) {
-        setPartnerDetails((prev) => ({
-          ...prev,
-          photo_url: tenant.partner_photo_url,
-        }));
-      }
-
-      // Show partner details section if partner exists
-      if (tenant.partner_full_name) {
-        setShowPartnerDetails(true);
-      }
+    // If there are existing partner document URLs, store them
+    if (tenant.partner_id_proof_url) {
+      setPartnerDetails((prev) => ({
+        ...prev,
+        id_proof_url: tenant.partner_id_proof_url,
+      }));
     }
-  }, [tenant]);
+    if (tenant.partner_address_proof_url) {
+      setPartnerDetails((prev) => ({
+        ...prev,
+        address_proof_url: tenant.partner_address_proof_url,
+      }));
+    }
+    if (tenant.partner_photo_url) {
+      setPartnerDetails((prev) => ({
+        ...prev,
+        photo_url: tenant.partner_photo_url,
+      }));
+    }
+
+    // Show partner details section if partner exists
+    if (tenant.partner_full_name) {
+      setShowPartnerDetails(true);
+    }
+  }
+}, [tenant]);
   const loadAvailableRooms = async () => {
     if (!formData.gender || !formData.preferred_property_id) return;
     try {
@@ -703,244 +712,263 @@ const [createCredentials, setCreateCredentials] = useState(tenant?.portal_access
   // In tenant-form.tsx - Update handleSubmit
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    if (!validateForm()) return;
+  if (!validateForm()) return;
 
-    setLoading(true);
-    setUploadProgress(0);
+  setLoading(true);
+  setUploadProgress(0);
 
-    try {
-      const progressInterval = setInterval(() => {
-        setUploadProgress((prev) => {
-          if (prev >= 90) {
-            clearInterval(progressInterval);
-            return prev;
-          }
-          return prev + 10;
-        });
-      }, 200);
-
-      const formDataToSend = new FormData();
-
-      // Append tenant data (your existing code)
-      Object.keys(formData).forEach((key) => {
-        const value = formData[key as keyof typeof formData];
-        if (value !== undefined && value !== null && value !== "") {
-          if ((key === "check_in_date" || key === "date_of_birth") && value) {
-            const dateValue = new Date(String(value));
-            if (!isNaN(dateValue.getTime())) {
-              formDataToSend.append(key, dateValue.toISOString().split("T")[0]);
-            }
-          } else {
-            formDataToSend.append(key, String(value));
-          }
+  try {
+    const progressInterval = setInterval(() => {
+      setUploadProgress((prev) => {
+        if (prev >= 90) {
+          clearInterval(progressInterval);
+          return prev;
         }
+        return prev + 10;
       });
+    }, 200);
 
-      // Append credential info
-      if (createCredentials) {
-        if (tenant?.id) {
-          if (password && password.trim() !== "") {
-            formDataToSend.append("update_credentials", "true");
-            formDataToSend.append("password", password);
+    const formDataToSend = new FormData();
+
+    // Append tenant data (your existing code)
+    Object.keys(formData).forEach((key) => {
+      const value = formData[key as keyof typeof formData];
+      if (value !== undefined && value !== null && value !== "") {
+        if ((key === "check_in_date" || key === "date_of_birth") && value) {
+          const dateValue = new Date(String(value));
+          if (!isNaN(dateValue.getTime())) {
+            formDataToSend.append(key, dateValue.toISOString().split("T")[0]);
           }
         } else {
-          if (createCredentials) {
-            formDataToSend.append("create_credentials", "true");
-            formDataToSend.append("password", password);
-          }
+          formDataToSend.append(key, String(value));
         }
       }
+    });
 
-      // Append existing additional documents as JSON
-      if (additionalDocuments.length > 0) {
+    // Append credential info
+    if (createCredentials) {
+      if (tenant?.id) {
+        if (password && password.trim() !== "") {
+          formDataToSend.append("update_credentials", "true");
+          formDataToSend.append("password", password);
+        }
+      } else {
+        if (createCredentials) {
+          formDataToSend.append("create_credentials", "true");
+          formDataToSend.append("password", password);
+        }
+      }
+    }
+
+    // Append existing additional documents as JSON
+    if (additionalDocuments.length > 0) {
+      formDataToSend.append(
+        "additional_documents",
+        JSON.stringify(additionalDocuments),
+      );
+    }
+
+    // Append main document files
+    if (idProofFile) formDataToSend.append("id_proof_url", idProofFile);
+    if (addressProofFile)
+      formDataToSend.append("address_proof_url", addressProofFile);
+    if (photoFile) formDataToSend.append("photo_url", photoFile);
+    if (aadharNumber) formDataToSend.append("aadhar_number", aadharNumber);
+    if (panNumber) formDataToSend.append("pan_number", panNumber);
+    if (idProofType) formDataToSend.append("id_proof_type", idProofType);
+    if (addressProofType)
+      formDataToSend.append("address_proof_type", addressProofType);
+    if (idProofNumber)
+      formDataToSend.append("id_proof_number", idProofNumber);
+    if (addressProofNumber)
+      formDataToSend.append("address_proof_number", addressProofNumber);
+      
+    // Append additional files
+    additionalFiles.forEach((file) => {
+      formDataToSend.append("additional_documents[]", file);
+    });
+    
+    // Append Partner Details if they exist
+   if (partnerDetails.full_name) {
+  // Send salutation separately
+  if (partnerDetails.salutation) {
+    formDataToSend.append("partner_salutation", partnerDetails.salutation);
+  }
+  
+  // Send full name WITHOUT salutation
+  formDataToSend.append("partner_full_name", partnerDetails.full_name);
+  
+  // Send phone WITHOUT country code
+  if (partnerDetails.phone) {
+    formDataToSend.append("partner_phone", partnerDetails.phone);
+  }
+  
+  // Send country code separately
+  if (partnerDetails.country_code) {
+    formDataToSend.append("partner_country_code", partnerDetails.country_code);
+  }
+      if (partnerDetails.email)
+        formDataToSend.append("partner_email", partnerDetails.email);
+      if (partnerDetails.gender)
+        formDataToSend.append("partner_gender", partnerDetails.gender);
+      if (partnerDetails.date_of_birth)
         formDataToSend.append(
-          "additional_documents",
-          JSON.stringify(additionalDocuments),
+          "partner_date_of_birth",
+          partnerDetails.date_of_birth,
+        );
+      if (partnerDetails.address)
+        formDataToSend.append("partner_address", partnerDetails.address);
+      if (partnerDetails.occupation)
+        formDataToSend.append(
+          "partner_occupation",
+          partnerDetails.occupation,
+        );
+      if (partnerDetails.organization)
+        formDataToSend.append(
+          "partner_organization",
+          partnerDetails.organization,
+        );
+      if (partnerDetails.relationship)
+        formDataToSend.append(
+          "partner_relationship",
+          partnerDetails.relationship,
+        );
+      if (partnerDetails.id_proof_type)
+        formDataToSend.append(
+          "partner_id_proof_type",
+          partnerDetails.id_proof_type,
+        );
+      if (partnerDetails.id_proof_number)
+        formDataToSend.append(
+          "partner_id_proof_number",
+          partnerDetails.id_proof_number,
+        );
+      if (partnerDetails.address_proof_type)
+        formDataToSend.append(
+          "partner_address_proof_type",
+          partnerDetails.address_proof_type,
+        );
+      if (partnerDetails.address_proof_number)
+        formDataToSend.append(
+          "partner_address_proof_number",
+          partnerDetails.address_proof_number,
+        );
+
+      // Handle partner document files - only append if it's a File (new upload)
+      if (
+        partnerDetails.id_proof_url &&
+        partnerDetails.id_proof_url instanceof File
+      ) {
+        formDataToSend.append(
+          "partner_id_proof_url",
+          partnerDetails.id_proof_url,
+        );
+      } else if (
+        partnerDetails.id_proof_url &&
+        typeof partnerDetails.id_proof_url === "string"
+      ) {
+        // If it's a string (existing URL), send it as a field to keep it
+        formDataToSend.append(
+          "partner_id_proof_url_existing",
+          partnerDetails.id_proof_url,
         );
       }
 
-      // Append main document files
-      if (idProofFile) formDataToSend.append("id_proof_url", idProofFile);
-      if (addressProofFile)
-        formDataToSend.append("address_proof_url", addressProofFile);
-      if (photoFile) formDataToSend.append("photo_url", photoFile);
-      if (aadharNumber) formDataToSend.append("aadhar_number", aadharNumber);
-      if (panNumber) formDataToSend.append("pan_number", panNumber);
-      if (idProofType) formDataToSend.append("id_proof_type", idProofType);
-      if (addressProofType)
-        formDataToSend.append("address_proof_type", addressProofType);
-      if (idProofNumber)
-        formDataToSend.append("id_proof_number", idProofNumber);
-      if (addressProofNumber)
-        formDataToSend.append("address_proof_number", addressProofNumber);
-      // Append additional files
-      additionalFiles.forEach((file) => {
-        formDataToSend.append("additional_documents[]", file);
-      });
-      // Append Partner Details if they exist
-      // In handleSubmit function, when appending partner documents
-      if (partnerDetails.full_name) {
-        formDataToSend.append("partner_full_name", partnerDetails.full_name);
-        if (partnerDetails.phone)
-          formDataToSend.append("partner_phone", partnerDetails.phone);
-        if (partnerDetails.email)
-          formDataToSend.append("partner_email", partnerDetails.email);
-        if (partnerDetails.gender)
-          formDataToSend.append("partner_gender", partnerDetails.gender);
-        if (partnerDetails.date_of_birth)
-          formDataToSend.append(
-            "partner_date_of_birth",
-            partnerDetails.date_of_birth,
-          );
-        if (partnerDetails.address)
-          formDataToSend.append("partner_address", partnerDetails.address);
-        if (partnerDetails.occupation)
-          formDataToSend.append(
-            "partner_occupation",
-            partnerDetails.occupation,
-          );
-        if (partnerDetails.organization)
-          formDataToSend.append(
-            "partner_organization",
-            partnerDetails.organization,
-          );
-        if (partnerDetails.relationship)
-          formDataToSend.append(
-            "partner_relationship",
-            partnerDetails.relationship,
-          );
-        if (partnerDetails.id_proof_type)
-          formDataToSend.append(
-            "partner_id_proof_type",
-            partnerDetails.id_proof_type,
-          );
-        if (partnerDetails.id_proof_number)
-          formDataToSend.append(
-            "partner_id_proof_number",
-            partnerDetails.id_proof_number,
-          );
-        if (partnerDetails.address_proof_type)
-          formDataToSend.append(
-            "partner_address_proof_type",
-            partnerDetails.address_proof_type,
-          );
-        if (partnerDetails.address_proof_number)
-          formDataToSend.append(
-            "partner_address_proof_number",
-            partnerDetails.address_proof_number,
-          );
-
-        // Handle partner document files - only append if it's a File (new upload)
-        if (
-          partnerDetails.id_proof_url &&
-          partnerDetails.id_proof_url instanceof File
-        ) {
-          formDataToSend.append(
-            "partner_id_proof_url",
-            partnerDetails.id_proof_url,
-          );
-        } else if (
-          partnerDetails.id_proof_url &&
-          typeof partnerDetails.id_proof_url === "string"
-        ) {
-          // If it's a string (existing URL), send it as a field to keep it
-          formDataToSend.append(
-            "partner_id_proof_url_existing",
-            partnerDetails.id_proof_url,
-          );
-        }
-
-        if (
-          partnerDetails.address_proof_url &&
-          partnerDetails.address_proof_url instanceof File
-        ) {
-          formDataToSend.append(
-            "partner_address_proof_url",
-            partnerDetails.address_proof_url,
-          );
-        } else if (
-          partnerDetails.address_proof_url &&
-          typeof partnerDetails.address_proof_url === "string"
-        ) {
-          formDataToSend.append(
-            "partner_address_proof_url_existing",
-            partnerDetails.address_proof_url,
-          );
-        }
-
-        if (
-          partnerDetails.photo_url &&
-          partnerDetails.photo_url instanceof File
-        ) {
-          formDataToSend.append("partner_photo_url", partnerDetails.photo_url);
-        } else if (
-          partnerDetails.photo_url &&
-          typeof partnerDetails.photo_url === "string"
-        ) {
-          formDataToSend.append(
-            "partner_photo_url_existing",
-            partnerDetails.photo_url,
-          );
-        }
+      if (
+        partnerDetails.address_proof_url &&
+        partnerDetails.address_proof_url instanceof File
+      ) {
+        formDataToSend.append(
+          "partner_address_proof_url",
+          partnerDetails.address_proof_url,
+        );
+      } else if (
+        partnerDetails.address_proof_url &&
+        typeof partnerDetails.address_proof_url === "string"
+      ) {
+        formDataToSend.append(
+          "partner_address_proof_url_existing",
+          partnerDetails.address_proof_url,
+        );
       }
 
-      let result: any;
-      if (tenant?.id) {
-        result = await updateTenant(tenant.id, formDataToSend);
-      } else {
-        result = await createTenant(formDataToSend);
+      if (
+        partnerDetails.photo_url &&
+        partnerDetails.photo_url instanceof File
+      ) {
+        formDataToSend.append("partner_photo_url", partnerDetails.photo_url);
+      } else if (
+        partnerDetails.photo_url &&
+        typeof partnerDetails.photo_url === "string"
+      ) {
+        formDataToSend.append(
+          "partner_photo_url_existing",
+          partnerDetails.photo_url,
+        );
       }
-
-      clearInterval(progressInterval);
-      setUploadProgress(100);
-
-      if (result.success) {
-        // Check if it was a restored tenant
-        if (result.restored) {
-          toast.success(
-            "Existing deleted tenant restored and updated successfully",
-          );
-        } else {
-          const successMessage = tenant
-            ? "Tenant updated successfully"
-            : "Tenant created successfully";
-          toast.success(successMessage);
-        }
-
-        if (result.additional_documents) {
-          setAdditionalDocuments(result.additional_documents);
-        }
-
-        setIdProofFile(null);
-        setAddressProofFile(null);
-        setPhotoFile(null);
-        setAdditionalFiles([]);
-
-        if (typeof onSuccess === "function") {
-          setTimeout(() => {
-            onSuccess();
-          }, 500);
-        }
-      } else {
-        toast.error(result.message || "Operation failed");
-      }
-    } catch (err: any) {
-      console.error("Failed to save tenant", err);
-      toast.error(
-        err.message || "Operation failed. Check console for details.",
-      );
-    } finally {
-      setLoading(false);
-      setUploadProgress(0);
     }
-  };
+
+    let result: any;
+    if (tenant?.id) {
+      result = await updateTenant(tenant.id, formDataToSend);
+    } else {
+      result = await createTenant(formDataToSend);
+    }
+
+    clearInterval(progressInterval);
+    setUploadProgress(100);
+
+    if (result.success) {
+      // Check if it was a restored tenant
+      if (result.restored) {
+        toast.success(
+          "Existing deleted tenant restored and updated successfully",
+        );
+      } else {
+        const successMessage = tenant
+          ? "Tenant updated successfully"
+          : "Tenant created successfully";
+        toast.success(successMessage);
+      }
+
+      if (result.additional_documents) {
+        setAdditionalDocuments(result.additional_documents);
+      }
+
+      setIdProofFile(null);
+      setAddressProofFile(null);
+      setPhotoFile(null);
+      setAdditionalFiles([]);
+
+      if (typeof onSuccess === "function") {
+        setTimeout(() => {
+          onSuccess();
+        }, 500);
+      }
+    } else {
+      toast.error(result.message || "Operation failed");
+    }
+  } catch (err: any) {
+    console.error("Failed to save tenant", err);
+    toast.error(
+      err.message || "Operation failed. Check console for details.",
+    );
+  } finally {
+    setLoading(false);
+    setUploadProgress(0);
+  }
+};
 
   const resetPartnerDetails = () => {
     setPartnerDetails({
+          salutation: "Mr.",  // ✅ ADD THIS
+
       full_name: "",
       phone: "",
+          country_code: "+91",
+
       email: "",
       gender: "",
       date_of_birth: "",
@@ -1400,52 +1428,50 @@ const [createCredentials, setCreateCredentials] = useState(tenant?.portal_access
                   </div>
 
                   {/* Emergency contact */}
-                  <div>
-                    <label className={L}>Emergency Contact</label>
-                    <div className={`${g2} mb-1.5`}>
-                      <Input
-                        placeholder="Name"
-                        value={formData.emergency_contact_name}
-                        onChange={(e) =>
-                          handleInputChange(
-                            "emergency_contact_name",
-                            e.target.value,
-                          )
-                        }
-                        className={F}
-                      />
-                      <Input
-                        placeholder="Phone"
-                        value={formData.emergency_contact_phone}
-                        onChange={(e) =>
-                          handleInputChange(
-                            "emergency_contact_phone",
-                            e.target.value,
-                          )
-                        }
-                        pattern="[6-9][0-9]{9}"
-                        maxLength={10}
-                        className={F}
-                      />
-                    </div>
-                    <Select
-                      value={formData.emergency_contact_relation}
-                      onValueChange={(v) =>
-                        handleSelectChange("emergency_contact_relation", v)
-                      }
-                    >
-                      <SelectTrigger className={F}>
-                        <SelectValue placeholder="Relationship" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {emergencyRelations.map((r) => (
-                          <SelectItem key={r} value={r} className={SI}>
-                            {r}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                {/* Emergency contact */}
+<div>
+  <label className={L}>Emergency Contact</label>
+  <div className={`${g2} mb-1.5`}>
+    <Input
+      placeholder="Name"
+      value={formData.emergency_contact_name}
+      onChange={(e) => handleInputChange("emergency_contact_name", e.target.value)}
+      className={F}
+    />
+    <Input
+      placeholder="Phone"
+      value={formData.emergency_contact_phone}
+      onChange={(e) => handleInputChange("emergency_contact_phone", e.target.value)}
+      pattern="[6-9][0-9]{9}"
+      maxLength={10}
+      className={F}
+    />
+  </div>
+  <div className={`${g2}`}>
+    <Select
+      value={formData.emergency_contact_relation}
+      onValueChange={(v) => handleSelectChange("emergency_contact_relation", v)}
+    >
+      <SelectTrigger className={F}>
+        <SelectValue placeholder="Relationship" />
+      </SelectTrigger>
+      <SelectContent>
+        {emergencyRelations.map((r) => (
+          <SelectItem key={r} value={r} className={SI}>
+            {r}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+    <Input
+      placeholder="Email (Optional)"
+      type="email"
+      value={formData.emergency_contact_email}
+      onChange={(e) => handleInputChange("emergency_contact_email", e.target.value)}
+      className={F}
+    />
+  </div>
+</div>
 
                   {/* Active toggle */}
                   <div className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg border border-gray-200">
@@ -1484,177 +1510,187 @@ const [createCredentials, setCreateCredentials] = useState(tenant?.portal_access
                   
                 </div>
                 {/* Partner Details Form - Collapsible */}
-                  {showPartnerDetails && (
-                    <div className="mt-3 p-3 col-span-1 sm:col-span-2 bg-gray-50 rounded-lg border border-gray-200">
-                      <div className="flex items-center gap-1.5 mb-3">
-                        <Heart className="h-3.5 w-3.5 text-rose-500" />
-                        <span className="text-[11px] font-semibold text-gray-700">
-                          Partner Details
-                        </span>
-                        <span className="text-[9px] text-gray-400 ml-1">
-                          (Optional)
-                        </span>
-                      </div>
+  {showPartnerDetails && (
+  <div className="mt-3 p-3 col-span-1 sm:col-span-2 bg-gray-50 rounded-lg border border-gray-200">
+    <div className="flex items-center gap-1.5 mb-3">
+      <Heart className="h-3.5 w-3.5 text-rose-500" />
+      <span className="text-[11px] font-semibold text-gray-700">
+        Partner Details
+      </span>
+      <span className="text-[9px] text-gray-400 ml-1">
+        (Optional)
+      </span>
+    </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2">
-                        {/* Partner Full Name */}
-                        <div>
-                          <label className={L}>Full Name</label>
-                          <Input
-                            value={partnerDetails.full_name}
-                            onChange={(e) =>
-                              setPartnerDetails((prev) => ({
-                                ...prev,
-                                full_name: e.target.value,
-                              }))
-                            }
-                            placeholder="Partner's full name"
-                            className={F}
-                          />
-                        </div>
+    {/* SINGLE ROW - Full Name (left) + Phone (right) */}
+    <div className="grid grid-cols-2 gap-4">
+      
+      {/* LEFT SIDE: Full Name with Salutation */}
+     <div>
+        <label className={L}>Full Name</label>
+        <div className="flex gap-2">
+          {/* Salutation Dropdown - RESPONSIVE WIDTH */}
+          <div className="w-[75px] sm:w-[60px] flex-shrink-0">
+            <select
+              value={partnerDetails.salutation}
+              onChange={(e) => setPartnerDetails(prev => ({ ...prev, salutation: e.target.value }))}
+              className="w-full px-1 sm:px-2 py-1.5 text-[11px] border rounded-md border-gray-200 focus:border-blue-400 outline-none bg-white h-8"
+            >
+              {["Mr.", "Mrs.", "Ms.", "Dr.", "Prof.", "Adv.", "Er."].map(sal => (
+                <option key={sal} value={sal}>{sal}</option>
+              ))}
+            </select>
+          </div>
+          {/* Full Name Input */}
+          <div className="flex-1">
+            <Input
+              value={partnerDetails.full_name}
+              onChange={(e) => setPartnerDetails(prev => ({ ...prev, full_name: e.target.value }))}
+              placeholder="Partner's full name"
+              className="h-8 text-[11px] rounded-md border-gray-200"
+            />
+          </div>
+        </div>
+      </div>
 
-                        {/* Partner Phone */}
-                        <div>
-                          <label className={L}>Phone</label>
-                          <Input
-                            value={partnerDetails.phone}
-                            onChange={(e) =>
-                              setPartnerDetails((prev) => ({
-                                ...prev,
-                                phone: e.target.value,
-                              }))
-                            }
-                            placeholder="10-digit mobile number"
-                            maxLength={10}
-                            className={F}
-                          />
-                        </div>
+      {/* RIGHT SIDE: Phone with Country Code */}
+      <div>
+        <label className={L}>Phone Number</label>
+        <div className="flex gap-2">
+          {/* Country Code Dropdown - RESPONSIVE WIDTH */}
+          <div className="w-[85px] sm:w-[100px] flex-shrink-0">
+            <select
+              value={partnerDetails.country_code}
+              onChange={(e) => setPartnerDetails(prev => ({ ...prev, country_code: e.target.value }))}
+              className="w-full px-1 sm:px-2 py-1.5 text-[11px] border rounded-md border-gray-200 bg-white h-8 text-[10px] sm:text-[11px]"
+            >
+              <option value="">Select</option>
+              <option value="+91">+91</option>
+              <option value="+1">+1</option>
+              <option value="+44">+44</option>
+              <option value="+61">+61</option>
+              <option value="+65">+65</option>
+              <option value="+971">+971</option>
+            </select>
+          </div>
+          {/* Phone Input */}
+          <div className="flex-1">
+            <Input
+              value={partnerDetails.phone}
+              onChange={(e) => setPartnerDetails(prev => ({ ...prev, phone: e.target.value }))}
+              placeholder="Mobile number"
+              maxLength={10}
+              className="h-8 text-[11px] rounded-md border-gray-200"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+    {/* REST OF THE FIELDS - 2 columns */}
+    <div className="grid grid-cols-2 gap-4 mt-3">
+      {/* Email */}
+      <div>
+        <label className={L}>Email</label>
+        <div className="relative">
+          <Mail className="absolute left-2.5 top-2 h-3.5 w-3.5 text-gray-300" />
+          <Input
+            type="email"
+            value={partnerDetails.email}
+            onChange={(e) => setPartnerDetails(prev => ({ ...prev, email: e.target.value }))}
+            placeholder="partner@email.com"
+            className={`pl-8 h-8 text-[11px] rounded-md border-gray-200`}
+          />
+        </div>
+      </div>
 
-                        {/* Partner Email */}
-                        <div>
-                          <label className={L}>Email</label>
-                          <div className="relative">
-                            <Mail className="absolute left-2.5 top-2 h-3.5 w-3.5 text-gray-300" />
-                            <Input
-                              type="email"
-                              value={partnerDetails.email}
-                              onChange={(e) =>
-                                setPartnerDetails((prev) => ({
-                                  ...prev,
-                                  email: e.target.value,
-                                }))
-                              }
-                              placeholder="partner@email.com"
-                              className={`pl-8 ${F}`}
-                            />
-                          </div>
-                        </div>
+      {/* Gender */}
+      <div>
+        <label className={L}>Gender</label>
+        <Select
+          value={partnerDetails.gender}
+          onValueChange={(v) => setPartnerDetails(prev => ({ ...prev, gender: v }))}
+        >
+          <SelectTrigger className="h-8 text-[11px] rounded-md border-gray-200">
+            <SelectValue placeholder="Select gender" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Male">Male</SelectItem>
+            <SelectItem value="Female">Female</SelectItem>
+            <SelectItem value="Other">Other</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
-                        {/* Partner Gender */}
-                        <div>
-                          <label className={L}>Gender</label>
-                          <Select
-                            value={partnerDetails.gender}
-                            onValueChange={(v) =>
-                              setPartnerDetails((prev) => ({
-                                ...prev,
-                                gender: v,
-                              }))
-                            }
-                          >
-                            <SelectTrigger className={F}>
-                              <SelectValue placeholder="Select gender" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Male">Male</SelectItem>
-                              <SelectItem value="Female">Female</SelectItem>
-                              <SelectItem value="Other">Other</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
+      {/* Date of Birth */}
+      <div>
+        <label className={L}>Date of Birth</label>
+        <div className="relative">
+          <Calendar className="absolute left-2.5 top-2 h-3.5 w-3.5 text-gray-300" />
+          <Input
+            type="date"
+            value={partnerDetails.date_of_birth}
+            onChange={(e) => setPartnerDetails(prev => ({ ...prev, date_of_birth: e.target.value }))}
+            className={`pl-8 h-8 text-[11px] rounded-md border-gray-200`}
+          />
+        </div>
+      </div>
 
-                        {/* Partner Date of Birth */}
-                        <div>
-                          <label className={L}>Date of Birth</label>
-                          <div className="relative">
-                            <Calendar className="absolute left-2.5 top-2 h-3.5 w-3.5 text-gray-300" />
-                            <Input
-                              type="date"
-                              value={partnerDetails.date_of_birth}
-                              onChange={(e) =>
-                                setPartnerDetails((prev) => ({
-                                  ...prev,
-                                  date_of_birth: e.target.value,
-                                }))
-                              }
-                              className={`pl-8 ${F}`}
-                            />
-                          </div>
-                        </div>
+      {/* Relationship */}
+      <div>
+        <label className={L}> Partner Relationship</label>
+        <Select
+          value={partnerDetails.relationship}
+          onValueChange={(v) => setPartnerDetails(prev => ({ ...prev, relationship: v }))}
+        >
+          <SelectTrigger className="h-8 text-[11px] rounded-md border-gray-200">
+            <SelectValue placeholder="Select relationship" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Spouse">Spouse</SelectItem>
+            <SelectItem value="Partner">Partner</SelectItem>
+            <SelectItem value="Fiancé">Fiancé</SelectItem>
+            <SelectItem value="Fiancée">Fiancée</SelectItem>
+            <SelectItem value="Other">Other</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
-                        {/* Partner Relationship */}
-                        <div>
-                          <label className={L}>Relationship</label>
-                          <Select
-                            value={partnerDetails.relationship}
-                            onValueChange={(v) =>
-                              setPartnerDetails((prev) => ({
-                                ...prev,
-                                relationship: v,
-                              }))
-                            }
-                          >
-                            <SelectTrigger className={F}>
-                              <SelectValue placeholder="Select relationship" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Spouse">Spouse</SelectItem>
-                              <SelectItem value="Partner">Partner</SelectItem>
-                              <SelectItem value="Fiancé">Fiancé</SelectItem>
-                              <SelectItem value="Fiancée">Fiancée</SelectItem>
-                              <SelectItem value="Other">Other</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
+      {/* Occupation */}
+      <div>
+        <label className={L}>Occupation</label>
+        <Input
+          value={partnerDetails.occupation}
+          onChange={(e) => setPartnerDetails(prev => ({ ...prev, occupation: e.target.value }))}
+          placeholder="e.g., Software Engineer, Student"
+          className="h-8 text-[11px] rounded-md border-gray-200"
+        />
+      </div>
 
-                        
+      {/* Organization */}
+      <div>
+        <label className={L}>Organization / Company</label>
+        <Input
+          value={partnerDetails.organization}
+          onChange={(e) => setPartnerDetails(prev => ({ ...prev, organization: e.target.value }))}
+          placeholder="Company or institution name"
+          className="h-8 text-[11px] rounded-md border-gray-200"
+        />
+      </div>
+    </div>
 
-                        {/* Partner Occupation */}
-                        <div>
-                          <label className={L}>Occupation</label>
-                          <Input
-                            value={partnerDetails.occupation}
-                            onChange={(e) =>
-                              setPartnerDetails((prev) => ({
-                                ...prev,
-                                occupation: e.target.value,
-                              }))
-                            }
-                            placeholder="e.g., Software Engineer, Student"
-                            className={F}
-                          />
-                        </div>
-
-                        {/* Partner Organization */}
-                        <div>
-                          <label className={L}>Organization / Company</label>
-                          <Input
-                            value={partnerDetails.organization}
-                            onChange={(e) =>
-                              setPartnerDetails((prev) => ({
-                                ...prev,
-                                organization: e.target.value,
-                              }))
-                            }
-                            placeholder="Company or institution name"
-                            className={F}
-                          />
-                        </div>
-                      </div>
-
-                      
-                    </div>
-                  )}
+    {/* Partner Address - Full width */}
+    <div className="mt-3">
+      <label className={L}>Partner Address</label>
+      <Textarea
+        value={partnerDetails.address}
+        onChange={(e) => setPartnerDetails(prev => ({ ...prev, address: e.target.value }))}
+        placeholder="Partner's address"
+        rows={2}
+        className="text-[11px] resize-none"
+      />
+    </div>
+  </div>
+)}
               </div>
             </div>
           </TabsContent>
