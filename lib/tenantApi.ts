@@ -49,6 +49,7 @@ address_proof_type?: string;
   emergency_contact_name?: string;
   emergency_contact_phone?: string;
   emergency_contact_relation?: string;
+   emergency_contact_email?: string;
   additional_documents?: Array<{
     filename: string;
     url: string;
@@ -65,7 +66,31 @@ address_proof_type?: string;
   notice_period_days?: number;
   notice_penalty_amount?: number;
   notice_penalty_type?: string;
-  property_id?: number; // This should be different from preferred_property_id
+  property_id?: number; 
+
+
+  // ✅ ADD THESE PARTNER FIELDS
+  partner_salutation?: string;
+  partner_full_name?: string;
+  partner_phone?: string;
+  partner_email?: string;
+  partner_gender?: string;
+  partner_date_of_birth?: string;
+  partner_address?: string;
+  partner_occupation?: string;
+  partner_organization?: string;
+  partner_relationship?: string;
+  partner_id_proof_type?: string;
+  partner_id_proof_number?: string;
+  partner_id_proof_url?: string;
+  partner_address_proof_type?: string;
+  partner_address_proof_number?: string;
+  partner_address_proof_url?: string;
+  partner_photo_url?: string;
+  partner_country_code?: string;
+  is_couple_booking?: boolean;
+  couple_id?: string;
+
   bookings?: Array<{ 
     id: number | string; 
     status: string; 
