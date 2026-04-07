@@ -365,7 +365,6 @@ export default function TenantPortalPage() {
     const id = setTimeout(() => {
       if (loading) {
         setLoadingTimeout(true);
-        toast.error("Loading is taking too long. Please refresh.");
       }
     }, 15000);
     return () => clearTimeout(id);
@@ -514,6 +513,33 @@ export default function TenantPortalPage() {
 const handleRazorpayPayment = useCallback(
   async (amount: number, paymentData: any) => {
     try {
+      setLoading(true);
+      
+      // First, ensure Razorpay script is loaded
+      const loadRazorpayScript = () => {
+        return new Promise((resolve) => {
+          if ((window as any).Razorpay) {
+            resolve(true);
+            return;
+          }
+          const script = document.createElement("script");
+          script.src = "https://checkout.razorpay.com/v1/checkout.js";
+          script.onload = () => resolve(true);
+          script.onerror = () => {
+            console.error("Failed to load Razorpay script");
+            resolve(false);
+          };
+          document.body.appendChild(script);
+        });
+      };
+
+      const scriptLoaded = await loadRazorpayScript();
+      if (!scriptLoaded) {
+        toast.error("Failed to load payment gateway. Please refresh and try again.");
+        setLoading(false);
+        return false;
+      }
+
       // Create order from backend
       const orderResponse = await fetch("/api/payment/create-order", {
         method: "POST",
@@ -525,6 +551,7 @@ const handleRazorpayPayment = useCallback(
 
       if (!orderResult.success) {
         toast.error(orderResult.message || "Failed to create payment order");
+        setLoading(false);
         return false;
       }
 
@@ -535,22 +562,9 @@ const handleRazorpayPayment = useCallback(
         name: "ROOMAC",
         description: `Payment for ${paymentData.payment_type === "rent" ? "Rent" : "Security Deposit"}`,
         order_id: orderResult.order.id,
-        // Add this to enable all payment methods
-        method: {
-          netbanking: true,
-          card: true,
-          upi: true,
-          wallet: true,
-        },
-        // Add handler (important)
-        handler: async (response: any) => {
-          // Show loading toast
-          toast.loading("Processing payment...", {
-            id: "payment-processing",
-          });
-
+        handler: async function (response: any) {
           try {
-            // Payment successful - now save the payment record
+            // Payment successful - save the payment record
             const saveResponse = await fetch("/api/payments", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -566,8 +580,6 @@ const handleRazorpayPayment = useCallback(
             });
 
             const saveResult = await saveResponse.json();
-
-            toast.dismiss("payment-processing");
 
             if (saveResult.success) {
               // Create notification for admin
@@ -613,7 +625,6 @@ const handleRazorpayPayment = useCallback(
               } catch (tenantNotifError) {
                 console.error("Error creating tenant notification:", tenantNotifError);
               }
-              
               // Show confirmation popup
               setPaymentConfirmationData({
                 id: saveResult.data?.id || Date.now().toString(),
@@ -641,16 +652,15 @@ const handleRazorpayPayment = useCallback(
               setSecurityDepositInfo(null);
               setPaymentFormData(null);
               
-              return true;
+              toast.success("Payment successful!");
             } else {
               toast.error(saveResult.message || "Payment saved but verification pending");
-              return false;
             }
-          } catch (saveError: any) {
-            toast.dismiss("payment-processing");
-            console.error("Save payment error:", saveError);
-            toast.error(saveError.message || "Failed to save payment record");
-            return false;
+          } catch (error) {
+            console.error("Error saving payment:", error);
+            toast.error("Payment successful but failed to save record");
+          } finally {
+            setLoading(false);
           }
         },
         prefill: {
@@ -661,13 +671,9 @@ const handleRazorpayPayment = useCallback(
         theme: { color: "#0149ab" },
         modal: {
           ondismiss: function() {
+            setLoading(false);
             toast.info("Payment cancelled");
           },
-        },
-        // Add these to ensure all payment methods are shown
-        notes: {
-          payment_type: paymentData.payment_type,
-          tenant_id: tenant?.id,
         },
       };
 
@@ -677,39 +683,13 @@ const handleRazorpayPayment = useCallback(
     } catch (error: any) {
       console.error("Razorpay error:", error);
       toast.error(error.message || "Payment failed");
+      setLoading(false);
       return false;
     }
   },
-  [tenant, fetchTenantPayments],
+  [tenant, fetchTenantPayments]
 );
 
-
-// Add this useEffect to load Razorpay script with proper error handling
-useEffect(() => {
-  const loadRazorpayScript = () => {
-    return new Promise((resolve, reject) => {
-      if ((window as any).Razorpay) {
-        resolve(true);
-        return;
-      }
-      
-      const script = document.createElement("script");
-      script.src = "https://checkout.razorpay.com/v1/checkout.js";
-      script.async = true;
-      script.onload = () => {
-        // Small delay to ensure script is fully initialized
-        setTimeout(() => resolve(true), 500);
-      };
-      script.onerror = () => {
-        reject(false);
-        toast.error("Failed to load payment gateway. Please refresh and try again.");
-      };
-      document.body.appendChild(script);
-    });
-  };
-
-  loadRazorpayScript().catch(console.error);
-}, []);
 
 const handleSubmitPayment = useCallback(async () => {
   if (!newPayment.amount) {
@@ -761,10 +741,8 @@ const handleSubmitPayment = useCallback(async () => {
       }
     }
 
-    // ONLY call Razorpay - it will create the payment record
+    // Call Razorpay payment
     await handleRazorpayPayment(parseFloat(newPayment.amount), paymentData);
-    
-    // REMOVED the duplicate paymentApi.createPayment() call from here
     
   } catch (error: any) {
     console.error("❌ Payment error:", error);

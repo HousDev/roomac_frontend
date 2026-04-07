@@ -24,6 +24,7 @@ import type { RoomResponse, BedAssignment, UpdateBedAssignmentPayload, AssignBed
 import { VacateBedWizard } from '@/components/admin/rooms/VacateBedWizard';
 import { ChangeBedWizard } from '@/components/admin/rooms/ChangeBedWizard';
 
+
 interface BedManagementDialogProps {
   room: any;
   open: boolean;
@@ -41,6 +42,9 @@ interface Tenant {
   portal_access_enabled: boolean;
   couple_id?: number;
   is_assigned?: boolean;
+   check_in_date?: string;  // Add this field
+  property_id?: number;
+  property_name?: string;
   // Partner fields
   partner_full_name?: string;
   partner_phone?: string;
@@ -81,6 +85,53 @@ const GenderIcon = ({ gender, size = "h-4 w-4" }: { gender: string; size?: strin
     default:
       return <UserRound className={`${size} text-gray-600`} />;
   }
+};
+
+// Add this helper function at the top of the component (after the imports)
+const validateTenantForAssignment = (tenant: Tenant, room: RoomResponse, isCoupleBooking: boolean): { valid: boolean; message: string } => {
+  // 1. Check if tenant has check-in date
+  if (!tenant.check_in_date) {
+    return {
+      valid: false,
+      message: `Tenant "${tenant.full_name}" does not have a check-in date.`
+    };
+  }
+
+  // 2. Check if tenant has a property assigned
+  if (!tenant.property_id) {
+    return {
+      valid: false,
+      message: `Tenant "${tenant.full_name}" is not assigned to any property.`
+    };
+  }
+
+  // 3. Check if room belongs to tenant's property
+  if (tenant.property_id !== room.property_id) {
+    return {
+      valid: false,
+      message: `Tenant is assigned to different property, but this room belongs to ${room.property_name}.`
+    };
+  }
+
+  // 4. For couple bookings, validate partner details exist
+  if (isCoupleBooking) {
+    if (!tenant.partner_full_name || !tenant.partner_phone) {
+      return {
+        valid: false,
+        message: `Couple booking requires partner details for "${tenant.full_name}".`
+      };
+    }
+    
+    // Optional: Validate partner gender
+    if (!tenant.partner_gender) {
+      return {
+        valid: false,
+        message: `Couple booking requires partner's gender for "${tenant.full_name}".`
+      };
+    }
+  }
+
+  return { valid: true, message: '' };
 };
 
 // Tenant Selection Dropdown Component
@@ -530,15 +581,6 @@ function BedCard({
   );
   const [isCouple, setIsCouple] = useState<boolean>(assignment?.is_couple || false);
 
-  
-console.log('📊 BedCard data:', {
-  bedNumber,
-  assignment,
-  tenantId: assignment?.tenant_id,
-  tenantDetails: tenantDetails,
-  isOccupied
-});
-
   // Reset form when assigning state changes
   useEffect(() => {
     if (isAssigning) {
@@ -844,7 +886,6 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
     try {
       const response = await getRoomById(room.id.toString());
       if (response) {
-         console.log('📋 Bed assignments from API:', response.bed_assignments);
         setBedAssignments(response.bed_assignments || []);
       }
     } catch (error) {
@@ -873,14 +914,7 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
       } else if (response.data && Array.isArray(response.data)) {
         tenantsList = response.data;
       }
-      
-       // Log to see what tenants are loaded
-    console.log('📋 All tenants loaded:', tenantsList.map(t => ({
-      id: t.id,
-      name: t.full_name,
-      has_partner: !!t.partner_full_name
-    })));
-
+    
 
     // SPECIFICALLY LOOK FOR TENANT 1035
     const tenant1035 = tenantsList.find(t => t.id === 1035);
@@ -912,11 +946,7 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
       );
 
        // Log tenants after assignment check
-    console.log('📋 Tenants after assignment check:', tenantsWithAssignment.map(t => ({
-      id: t.id,
-      name: t.full_name,
-      is_assigned: t.is_assigned
-    })));
+    
       
       setTenants(tenantsWithAssignment);
     } catch (error: any) {
@@ -930,16 +960,7 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
 
   const getBedStatus = (bedNumber: number) => {
     const assignment = bedAssignments.find(b => b.bed_number === bedNumber);
-    console.log(`🔍 getBedStatus for bed ${bedNumber}:`, {
-    bedNumber,
-    assignmentFound: !!assignment,
-    assignment: assignment ? {
-      id: assignment.id,
-      tenant_id: assignment.tenant_id,
-      is_available: assignment.is_available,
-      tenant_rent: assignment.tenant_rent
-    } : null
-  });
+    
     if (!assignment) return { status: 'available', assignment: null };
     
     if (!assignment.is_available && assignment.tenant_id) {
@@ -954,16 +975,7 @@ const findTenantDetails = (tenantId: number) => {
   // Don't filter by is_assigned here - we need to find the tenant regardless
   const tenant = tenants.find(t => t.id === tenantId);
   
-  console.log('🔍 Finding tenant details:', {
-    tenantId,
-    found: !!tenant,
-    tenant: tenant ? {
-      id: tenant.id,
-      name: tenant.full_name,
-      partner_name: tenant.partner_full_name,
-      is_couple_booking: tenant.is_couple_booking
-    } : null
-  });
+  
   
   return tenant;
 };
@@ -1014,6 +1026,7 @@ const findTenantDetails = (tenantId: number) => {
   };
 
   const handleAssignBed = async (bedNumber: number, tenantId: string, customRent?: string, isCouple?: boolean) => {
+
     if (!tenantId.trim()) {
       toast.error("Please select a tenant");
       return;
@@ -1024,8 +1037,15 @@ const findTenantDetails = (tenantId: number) => {
       toast.error("Invalid tenant selected");
       return;
     }
-
     const tenantIdNum = parseInt(tenantId);
+    const isCoupleBooking = isCouple === true;
+
+    // Validate tenant before assignment
+  const validation = validateTenantForAssignment(tenant, room, isCoupleBooking);
+  if (!validation.valid) {
+    toast.error(validation.message);
+    return;
+  }
     
     try {
       setSavingBed(bedNumber);
@@ -1104,6 +1124,28 @@ const findTenantDetails = (tenantId: number) => {
 
     const newTenantId = parseInt(tenantId);
     const currentTenantId = bedAssignment.tenant_id;
+     const isCoupleBooking = isCouple === true;
+
+     // Validate tenant before assignment (skip if same tenant - we're just updating rent/couple status)
+  if (currentTenantId !== newTenantId) {
+    const validation = validateTenantForAssignment(tenant, room, isCoupleBooking);
+    if (!validation.valid) {
+      toast.error(validation.message);
+      return;
+    }
+  } else {
+    // Even for same tenant, if it's a couple booking, validate partner details
+    if (isCoupleBooking) {
+      if (!tenant.partner_full_name || !tenant.partner_phone) {
+        toast.error(`Couple booking requires partner details for "${tenant.full_name}". Please add partner's full name and phone number in tenant profile.`);
+        return;
+      }
+      if (!tenant.partner_gender) {
+        toast.error(`Couple booking requires partner's gender for "${tenant.full_name}". Please update partner details in tenant profile.`);
+        return;
+      }
+    }
+  }
 
     if (currentTenantId === newTenantId) {
       await updateBedAssignmentDirectly(bedAssignment, tenant, customRent, isCouple);
@@ -1155,13 +1197,23 @@ const findTenantDetails = (tenantId: number) => {
       tenant_gender: tenantGender,
       is_available: false,
       tenant_rent: rentValue,
-      is_couple: coupleValue
+      is_couple: coupleValue,
+      // Partner details - only include if it's a couple booking
+    ...(coupleValue && {
+      partner_full_name: tenant.partner_full_name,
+      partner_phone: tenant.partner_phone,
+      partner_email: tenant.partner_email,
+      partner_gender: tenant.partner_gender,
+      partner_date_of_birth: tenant.partner_date_of_birth,
+      partner_relationship: tenant.partner_relationship || 'Spouse'
+      })
     };
     
     const result = await updateBedAssignment(bedAssignment.id.toString(), payload);
     
     if (result.success) {
-      toast.success(`Bed ${bedAssignment.bed_number} updated successfully!`);
+      const coupleMsg = coupleValue ? ` (Couple Booking with ${tenant.partner_full_name})` : '';
+    toast.success(`Bed ${bedAssignment.bed_number} updated successfully! ${tenant.full_name}${coupleMsg}`);
       
       // Refresh the bed assignments
       await refreshRoomData();
@@ -1211,6 +1263,8 @@ const findTenantDetails = (tenantId: number) => {
         const result = await assignBed(payload);
         
         if (result.success) {
+            const coupleMsg = coupleValue ? ` (Couple Booking with ${newTenant.partner_full_name})` : '';
+        toast.success(`Tenant ${newTenant.full_name} assigned successfully!${coupleMsg}`);
           // Refresh bed assignments
           await refreshRoomData();
         } else {
@@ -1222,12 +1276,22 @@ const findTenantDetails = (tenantId: number) => {
           tenant_gender: tenantGender,
           is_available: false,
           tenant_rent: customRent ? parseFloat(customRent) : room.rent_per_bed,
-          is_couple: coupleValue
+          is_couple: coupleValue,
+          ...(coupleValue && {
+          partner_full_name: newTenant.partner_full_name,
+          partner_phone: newTenant.partner_phone,
+          partner_email: newTenant.partner_email,
+          partner_gender: newTenant.partner_gender,
+          partner_date_of_birth: newTenant.partner_date_of_birth,
+          partner_relationship: newTenant.partner_relationship || 'Spouse'
+        })
         };
         
         const result = await updateBedAssignment(bedAssignment.id.toString(), payload);
         
         if (result.success) {
+          const coupleMsg = coupleValue ? ` (Couple Booking with ${newTenant.partner_full_name})` : '';
+        toast.success(`Bed ${bedAssignment.bed_number} updated successfully! ${newTenant.full_name}${coupleMsg}`);
           // Refresh bed assignments
           await refreshRoomData();
         } else {
@@ -1441,18 +1505,6 @@ const findTenantDetails = (tenantId: number) => {
                     const tenantDetails = assignment?.tenant_id ? findTenantDetails(assignment.tenant_id) : null;
                     const isAssigning = assigningBed === bedNumber;
                     const isSaving = savingBed === bedNumber;
-
-                    // ADD THIS LOGGING FOR EACH BED
-  console.log(`🛏️ RENDERING BED ${bedNumber}:`, {
-    bedNumber,
-    status,
-    assignmentExists: !!assignment,
-    tenantIdFromAssignment: assignment?.tenant_id,
-    tenantDetailsFound: !!tenantDetails,
-    tenantDetailsName: tenantDetails?.full_name,
-    tenantDetailsPartner: tenantDetails?.partner_full_name
-  });
-
 
                     return (
                       <BedCard
