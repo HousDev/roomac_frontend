@@ -76,6 +76,7 @@ export async function getTemplates(filters?: {
   category?: string;
   status?: string;
   search?: string;
+  is_active?: string;
 }): Promise<{ templates: MessageTemplate[]; stats: TemplateStats[] }> {
   try {
     const params = new URLSearchParams();
@@ -83,7 +84,8 @@ export async function getTemplates(filters?: {
     if (filters?.category && filters.category !== "all") params.set("category", filters.category);
     if (filters?.status && filters.status !== "all") params.set("status", filters.status);
     if (filters?.search) params.set("search", filters.search);
-
+if (filters?.is_active !== undefined && filters.is_active !== "all") 
+  params.set("is_active", filters.is_active);
     const url = `/api/admin/templates${params.toString() ? "?" + params.toString() : ""}`;
     const response = await request<{ success: boolean; data: MessageTemplate[]; stats: TemplateStats[] }>(
       url,
@@ -182,4 +184,13 @@ export async function getCategoryVariables(category: string): Promise<string[]> 
   } catch {
     return [];
   }
+}
+
+// ── Toggle active/inactive
+export async function toggleTemplateActive(id: number): Promise<{ is_active: 0 | 1 }> {
+  const response = await request<{ success: boolean; is_active: 0 | 1 }>(
+    `/api/admin/templates/${id}/toggle-active`,
+    { method: "POST", headers: authHeaders() }
+  );
+  return response;
 }

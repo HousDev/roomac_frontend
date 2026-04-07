@@ -24,10 +24,10 @@ export const getImageUrl = (imagePath: string | null | undefined) => {
 export const transformPropertyData = (property: any) => {
   
   const defaultImages = [
-    "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800",
-    "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=800",
-    "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=800",
-    "https://images.unsplash.com/photo-1540518614846-7eded433c457?w=800"
+    // "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800",
+    // "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=800",
+    // "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=800",
+    // "https://images.unsplash.com/photo-1540518614846-7eded433c457?w=800"
   ];
   
   // Construct avatar URL

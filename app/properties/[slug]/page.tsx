@@ -237,8 +237,7 @@ function PropertyDetailsContent({ slug }: { slug: string }) {
           address: 'Address not available',
           description: 'Property details temporarily unavailable.',
           photo_urls: [
-            'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800',
-            'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=800'
+            
           ],
           total_beds: 0,
           occupied_beds: 0,
