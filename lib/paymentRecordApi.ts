@@ -190,20 +190,17 @@ export type PaymentFormData = {
   total_months_since_joining: number;
   month_wise_history: Array<{
     month: string;
-    month_num: number;
     year: number;
     month_key: string;
     rent: number;
-    original_rent: number;
-    isFirstMonth: boolean;
-    has_discount: boolean;
-    discount_applied: number;
+    original_rent?: number;
     paid: number;
     pending: number;
-    isCurrentMonth: boolean;
-    isPastMonth: boolean;
+    discount_applied: number;
     status: string;
-    payments: any[];
+    isCurrentMonth?: boolean;
+    isPastMonth?: boolean;
+    payments?: any[];
   }>;
   unpaid_months: Array<{
     month: string;
@@ -233,7 +230,6 @@ export type PaymentFormData = {
     last_payment_date?: string;
   };
 };
-
 // Create a new payment
 export async function createPayment(data: any): Promise<any> {
   try {
@@ -282,14 +278,24 @@ export async function getPaymentsByTenant(tenantId: number): Promise<any> {
   }
 }
 
-// Get latest rent payment for tenant
+// lib/paymentRecordApi.ts - Update getLatestRentPayment
+
 export async function getLatestRentPayment(tenantId: number): Promise<any> {
   try {
     const response = await request(`/api/payments/tenant/${tenantId}/latest-rent`);
-    return response;
+    // Ensure we always return a valid structure even if data is null
+    return {
+      success: response.success,
+      data: response.data || null,
+      message: response.message
+    };
   } catch (error) {
     console.error('Error fetching latest rent payment:', error);
-    throw error;
+    return {
+      success: false,
+      data: null,
+      message: 'Failed to fetch latest payment'
+    };
   }
 }
 

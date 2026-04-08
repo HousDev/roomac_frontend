@@ -413,16 +413,38 @@ export default function PaymentsPage() {
   };
 
   // Add this function to fetch security deposit info
-  const fetchSecurityDepositInfo = async (tenantId: number) => {
-    try {
-      const response = await paymentApi.getSecurityDepositInfo(tenantId);
-      if (response.success) {
-        setSecurityDepositInfo(response.data);
-      }
-    } catch (error) {
-      console.error("Error fetching security deposit info:", error);
+// Update fetchSecurityDepositInfo function
+const fetchSecurityDepositInfo = async (tenantId: number) => {
+  try {
+    const response = await paymentApi.getSecurityDepositInfo(tenantId);
+    if (response.success) {
+      setSecurityDepositInfo(response.data);
+    } else {
+      // If endpoint doesn't exist, set default values
+      setSecurityDepositInfo({
+        property_name: 'N/A',
+        security_deposit: 0,
+        paid_amount: 0,
+        pending_amount: 0,
+        is_fully_paid: true,
+        last_payment_date: null,
+        payments: []
+      });
     }
-  };
+  } catch (error) {
+    console.error("Error fetching security deposit info:", error);
+    // Set default values instead of failing
+    setSecurityDepositInfo({
+      property_name: 'N/A',
+      security_deposit: 0,
+      paid_amount: 0,
+      pending_amount: 0,
+      is_fully_paid: true,
+      last_payment_date: null,
+      payments: []
+    });
+  }
+};
 
   // Update handleTenantSelect to fetch deposit info
   const handleTenantSelect = async (tenantId: string) => {
@@ -593,121 +615,108 @@ export default function PaymentsPage() {
 
   
 
-  // Update the handleAddPayment function
-  const handleAddPayment = async () => {
-    if (!newPayment.tenant_id || !newPayment.amount) {
-      toast.error("Please select a tenant and enter an amount");
+// Update the handleAddPayment function in your PaymentsPage component
+
+const handleAddPayment = async () => {
+  if (!newPayment.tenant_id || !newPayment.amount) {
+    toast.error("Please select a tenant and enter an amount");
+    return;
+  }
+
+  try {
+    // ✅ STEP 1: Fetch latest rent payment
+    const latestPaymentRes = await getLatestRentPayment(
+      parseInt(newPayment.tenant_id),
+    );
+
+    // ✅ FIX: Add null check for latestPaymentRes.data
+    const latestPayment = latestPaymentRes?.data;
+    
+    // Get payment form data to calculate total pending
+    const formResponse = await paymentApi.getTenantPaymentFormData(
+      parseInt(newPayment.tenant_id)
+    );
+    
+    if (!formResponse.success || !formResponse.data) {
+      toast.error("Could not load tenant payment data");
       return;
     }
+    
+    const paymentFormData = formResponse.data;
+    
+    // Calculate total amount (sum of all pending months)
+    const totalAmount = paymentFormData.total_expected || 0;
+    const previousBalance = paymentFormData.total_pending || 0;
+    const amount = parseFloat(newPayment.amount);
+    const newBalance = Math.max(0, previousBalance - amount);
+    
+    // Prepare payment data
+    const paymentData: any = {
+      tenant_id: parseInt(newPayment.tenant_id),
+      booking_id: newPayment.booking_id,
+      payment_type: newPayment.payment_type,
+      amount: amount,
+      total_amount: totalAmount,
+      previous_balance: previousBalance,
+      new_balance: newBalance,
+      discounted_amount: 0,
+      payment_mode: newPayment.payment_mode,
+      bank_name: newPayment.bank_name || null,
+      transaction_id: newPayment.transaction_id || null,
+      payment_date: newPayment.payment_date,
+      remark: newPayment.remark || null,
+    };
+    
+    console.log("Prepared payment data:", paymentData);
 
-    try {
-      // ✅ STEP 1: Fetch latest rent payment
-      const latestPaymentRes = await getLatestRentPayment(
-        parseInt(newPayment.tenant_id),
-      );
-
-      const isCurrentMonth = (() => {
-  const today = new Date();
-
-  const currentMonth = today.toLocaleString("default", { month: "long" });
-  const currentYear = today.getFullYear();
-
-  return (
-    latestPaymentRes?.data.month === currentMonth &&
-    Number(latestPaymentRes?.data.year) === currentYear
-  );
-})();
-      console.log("latest payment api", latestPaymentRes);
-
-      const latestPayment = latestPaymentRes?.data;
-      // ✅ STEP 3: Calculate new balance
-      const totalAmount = isCurrentMonth ? Number(latestPaymentRes.data.total_amount)  : 
-        Number(latestPaymentRes.data.tenant_rent) +
-          Number(latestPaymentRes.data.new_balance) || 0;
-      const amount = parseFloat(newPayment.amount);
-      const newBalance = isCurrentMonth ? Number(latestPayment.new_balance) - Number(amount) : Number(latestPayment.tenant_rent) + Number(latestPayment.new_balance) - Number(amount); 
-      const previousBalance = Number(latestPaymentRes.data.new_balance) || 0;
-      console.log("Calculated balances:", {totalAmount, previousBalance, newBalance});
-      // Prepare payment data
-      const paymentData: any = {
-        tenant_id: parseInt(newPayment.tenant_id),
-        booking_id: newPayment.booking_id,
-        payment_type: newPayment.payment_type,
-        amount: parseFloat(newPayment.amount),
-        total_amount: totalAmount,
-        previous_balance: previousBalance,
-        new_balance: newBalance,
-        discounted_amount: 0,
-        payment_mode: newPayment.payment_mode,
-        bank_name: newPayment.bank_name || null,
-        transaction_id: newPayment.transaction_id || null,
-        payment_date: newPayment.payment_date,
-        remark: newPayment.remark || null,
-      };
-      console.log("Prepared payment data:", paymentData);
-
-      // If a specific month is selected, add month information
-      if (selectedPaymentMonth && selectedPaymentMonth !== "current") {
-        const [year, month] = selectedPaymentMonth.split("-");
-        const monthNames = [
-          "January",
-          "February",
-          "March",
-          "April",
-          "May",
-          "June",
-          "July",
-          "August",
-          "September",
-          "October",
-          "November",
-          "December",
-        ];
-
-        paymentData.month = monthNames[parseInt(month) - 1];
-        paymentData.year = parseInt(year);
-        paymentData.remark =
-          `Payment for ${paymentData.month} ${paymentData.year}` +
-          (newPayment.remark ? ` - ${newPayment.remark}` : "");
-      } else {
-        // Default to current month
-        const currentDate = new Date();
-        paymentData.month = currentDate.toLocaleString("default", {
-          month: "long",
-        });
-        paymentData.year = currentDate.getFullYear();
-        paymentData.remark = newPayment.remark || null;
-      }
-
-      const response = await paymentApi.createPayment(paymentData);
-
-      if (response.success && response.data) {
-        if (proofFile) {
-          await paymentApi.uploadPaymentProof(response.data.id, proofFile);
-        }
-
-        toast.success("Payment added successfully");
-
-        // Refresh the payment form data
-        if (newPayment.tenant_id) {
-          const formResponse = await paymentApi.getTenantPaymentFormData(
-            parseInt(newPayment.tenant_id),
-          );
-          if (formResponse.success) {
-            setPaymentFormData(formResponse.data);
-          }
-        }
-
-        setIsAddPaymentOpen(false);
-        resetPaymentForm();
-        await loadData();
-      } else {
-        toast.error(response.message || "Failed to add payment");
-      }
-    } catch (error: any) {
-      toast.error(error.message || "Failed to add payment");
+    // If a specific month is selected, add month information
+    if (selectedPaymentMonth && selectedPaymentMonth !== "current") {
+      const [year, month] = selectedPaymentMonth.split("-");
+      const monthNames = [
+        "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December"
+      ];
+      
+      paymentData.month = monthNames[parseInt(month) - 1];
+      paymentData.year = parseInt(year);
+      paymentData.remark = `Payment for ${paymentData.month} ${paymentData.year}` +
+        (newPayment.remark ? ` - ${newPayment.remark}` : "");
+    } else {
+      // Default to current month
+      const currentDate = new Date();
+      paymentData.month = currentDate.toLocaleString("default", { month: "long" });
+      paymentData.year = currentDate.getFullYear();
+      paymentData.remark = newPayment.remark || null;
     }
-  };
+
+    const response = await paymentApi.createPayment(paymentData);
+
+    if (response.success && response.data) {
+      if (proofFile) {
+        await paymentApi.uploadPaymentProof(response.data.id, proofFile);
+      }
+
+      toast.success(`Payment of ₹${amount.toLocaleString()} added successfully`);
+
+      // Refresh the payment form data
+      const updatedFormResponse = await paymentApi.getTenantPaymentFormData(
+        parseInt(newPayment.tenant_id)
+      );
+      if (updatedFormResponse.success) {
+        setPaymentFormData(updatedFormResponse.data);
+      }
+
+      setIsAddPaymentOpen(false);
+      resetPaymentForm();
+      await loadData();
+    } else {
+      toast.error(response.message || "Failed to add payment");
+    }
+  } catch (error: any) {
+    console.error("Payment error:", error);
+    toast.error(error.message || "Failed to add payment");
+  }
+};
 
   const handleDemandPayment = async () => {
     if (
@@ -1130,14 +1139,16 @@ export default function PaymentsPage() {
   };
 
   // Bed Assignment Details Component - Table Row Format
-  const BedAssignmentTable = ({
-    formData,
-  }: {
-    formData: PaymentFormData | null;
-  }) => {
-    console.log("bed assigment form data", formData);
-    if (!formData?.room_info) return null;
-
+// Bed Assignment Details Component - Table Row Format (FIXED)
+const BedAssignmentTable = ({
+  formData,
+}: {
+  formData: PaymentFormData | null;
+}) => {
+  console.log("bed assignment form data", formData);
+  
+  // Add null checks and safe navigation
+  if (!formData?.room_info) {
     return (
       <div className="bg-white rounded-lg border border-slate-200 mb-4 overflow-hidden">
         <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
@@ -1146,63 +1157,78 @@ export default function PaymentsPage() {
             Bed Assignment Details
           </h4>
         </div>
-        <div className="p-4">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50">
-              <tr>
-                <th className="text-left p-2 text-xs font-medium text-slate-600">
-                  Property
-                </th>
-                <th className="text-left p-2 text-xs font-medium text-slate-600">
-                  Room
-                </th>
-                <th className="text-left p-2 text-xs font-medium text-slate-600">
-                  Bed #
-                </th>
-                <th className="text-left p-2 text-xs font-medium text-slate-600">
-                  Bed Type
-                </th>
-                <th className="text-left p-2 text-xs font-medium text-slate-600">
-                  Monthly Rent
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr className="border-t border-slate-200">
-                <td className="p-2 text-sm">
-                  {formData.room_info.property_name}
-                </td>
-                <td className="p-2 text-sm">
-                  {formData.room_info.room_number}
-                </td>
-                <td className="p-2 text-sm font-medium">
-                  #{formData.room_info.bed_number}
-                </td>
-                <td className="p-2 text-sm capitalize">
-                  {formData.room_info.bed_type}
-                </td>
-                <td className="p-2 text-sm font-semibold text-green-600">
-                  ₹{formData.monthly_rent.toLocaleString()}
-                </td>
-              </tr>
-            </tbody>
-          </table>
+        <div className="p-4 text-center text-slate-500 text-sm">
+          No bed assignment found for this tenant
         </div>
       </div>
     );
-  };
+  }
+
+  // Safe access with fallback values
+  const propertyName = formData.room_info.property_name || 'N/A';
+  const roomNumber = formData.room_info.room_number || 'N/A';
+  const bedNumber = formData.room_info.bed_number || 'N/A';
+  const bedType = formData.room_info.bed_type || 'N/A';
+  const monthlyRent = formData.monthly_rent || 0;
+
+  return (
+    <div className="bg-white rounded-lg border border-slate-200 mb-4 overflow-hidden">
+      <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
+        <h4 className="text-xs font-semibold text-slate-700 flex items-center gap-2">
+          <Bed className="h-3.5 w-3.5" />
+          Bed Assignment Details
+        </h4>
+      </div>
+      <div className="p-4">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-50">
+            <tr>
+              <th className="text-left p-2 text-xs font-medium text-slate-600">
+                Property
+              </th>
+              <th className="text-left p-2 text-xs font-medium text-slate-600">
+                Room
+              </th>
+              <th className="text-left p-2 text-xs font-medium text-slate-600">
+                Bed #
+              </th>
+              <th className="text-left p-2 text-xs font-medium text-slate-600">
+                Bed Type
+              </th>
+              <th className="text-left p-2 text-xs font-medium text-slate-600">
+                Monthly Rent
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr className="border-t border-slate-200">
+              <td className="p-2 text-sm">
+                {propertyName}
+              </td>
+              <td className="p-2 text-sm">
+                {roomNumber}
+              </td>
+              <td className="p-2 text-sm font-medium">
+                #{bedNumber}
+              </td>
+              <td className="p-2 text-sm capitalize">
+                {bedType}
+              </td>
+              <td className="p-2 text-sm font-semibold text-green-600">
+                ₹{typeof monthlyRent === 'number' ? monthlyRent.toLocaleString() : monthlyRent}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
 
   // Rent Summary Table Component
-  const RentSummaryTable = ({ formData }: { formData: any }) => {
-    if (!formData) return null;
-    console.log("Rendering RentSummaryTable with formData:", formData);
-
-    const months = formData.month_wise_history || [];
-    const groupedPayments = formData.groupedPayments || [];
-    const originalMonthlyRent = formData.monthly_rent;
-    const offerInfo = formData.offer_info;
-    const discountedFirstMonthRent = formData.discounted_first_month_rent;
-
+// Rent Summary Table Component - With null checks
+const RentSummaryTable = ({ formData }: { formData: any }) => {
+  if (!formData) {
     return (
       <div className="bg-white rounded-lg border border-slate-200 mb-4 overflow-hidden">
         <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
@@ -1210,104 +1236,171 @@ export default function PaymentsPage() {
             <IndianRupee className="h-3.5 w-3.5" />
             Rent History Since Joining
           </h4>
-          <p className="text-xs text-slate-500 mt-1">
-            {months.length > 0
-              ? `Showing from ${months[0]?.month} ${months[0]?.year} to ${months[months.length - 1]?.month} ${months[months.length - 1]?.year}`
-              : "No history available"}
-          </p>
         </div>
-
-        <div className="p-4 max-h-[300px] overflow-y-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 sticky top-0">
-              <tr>
-                <th className="text-left p-2 text-xs font-medium text-slate-600">
-                  Month
-                </th>
-                <th className="text-right p-2 text-xs font-medium text-slate-600">
-                  Rent
-                </th>
-                <th className="text-right p-2 text-xs font-medium text-slate-600">
-                  Paid
-                </th>
-                <th className="text-right p-2 text-xs font-medium text-slate-600">
-                  Discount
-                </th>
-                <th className="text-right p-2 text-xs font-medium text-slate-600">
-                  Pending
-                </th>
-                <th className="text-center p-2 text-xs font-medium text-slate-600">
-                  Status
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {groupedPayments.map((month, index) => {
-                return (
-                  <tr
-                    key={`${index}-${index}`}
-                    className={`border-t border-slate-200 ${
-                      month.isCurrentMonth ? "bg-blue-50" : ""
-                    }`}
-                  >
-                    <td className="p-2 text-sm">
-                      {month.month} {month.year}
-                    </td>
-                    <td className="p-2 text-right">₹{month.total_amount}</td>
-                    <td className="p-2 text-right text-green-600 font-medium">
-                      ₹{month.amount}
-                    </td>
-                    <td className="p-2 text-right text-red-500">{month.discount_amount}</td>
-                    <td className="p-2 text-right font-medium">₹{month.new_balance}</td>
-                    <td className="p-2 text-center">
-                      <span
-                        className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                          month.status === "paid"
-                            ? "bg-green-100 text-green-800"
-                            : month.status === "pending"
-                              ? "bg-red-100 text-red-800"
-                              : "bg-yellow-100 text-yellow-800"
-                        }`}
-                      >
-                        {month.status || "pending"}
-                      </span>
-                    </td>
-                  </tr>
-                );
-                // For months with multiple payments, show each payment
-              })}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Summary Cards */}
-        <div className="grid grid-cols-4 gap-2 p-4 bg-slate-50 border-t border-slate-200">
-          <div className="bg-white p-2 rounded border border-slate-200">
-            <p className="text-xs text-slate-500">Months Since Joining</p>
-            <p className="text-lg font-bold text-slate-700">{months.length}</p>
-          </div>
-          <div className="bg-white p-2 rounded border border-slate-200">
-            <p className="text-xs text-slate-500">Monthly Rent</p>
-            <p className="text-lg font-bold text-green-600">
-              ₹{originalMonthlyRent?.toLocaleString()}
-            </p>
-          </div>
-          <div className="bg-white p-2 rounded border border-slate-200">
-            <p className="text-xs text-slate-500">Total Paid</p>
-            <p className="text-lg font-bold text-blue-600">
-              ₹{formData.total_paid?.toLocaleString()}
-            </p>
-          </div>
-          <div className="bg-white p-2 rounded border border-slate-200">
-            <p className="text-xs text-slate-500">Total Pending</p>
-            <p className="text-lg font-bold text-amber-600">
-              ₹{formData.total_pending?.toLocaleString()}
-            </p>
-          </div>
+        <div className="p-4 text-center text-slate-500 text-sm">
+          Loading rent history...
         </div>
       </div>
     );
-  };
+  }
+  
+  // Use month_wise_history or groupedPayments (fallback for backward compatibility)
+  const months = formData.month_wise_history || formData.groupedPayments || [];
+  const originalMonthlyRent = formData.monthly_rent || 0;
+
+  if (months.length === 0) {
+    return (
+      <div className="bg-white rounded-lg border border-slate-200 mb-4 overflow-hidden">
+        <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
+          <h4 className="text-xs font-semibold text-slate-700 flex items-center gap-2">
+            <IndianRupee className="h-3.5 w-3.5" />
+            Rent History Since Joining
+          </h4>
+        </div>
+        <div className="p-4 text-center text-slate-500 text-sm">
+          No rent history available
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white rounded-lg border border-slate-200 mb-4 overflow-hidden">
+      <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
+        <h4 className="text-xs font-semibold text-slate-700 flex items-center gap-2">
+          <IndianRupee className="h-3.5 w-3.5" />
+          Rent History Since Joining
+        </h4>
+        <p className="text-xs text-slate-500 mt-1">
+          Showing from {months[0]?.month} {months[0]?.year} to {months[months.length - 1]?.month} {months[months.length - 1]?.year}
+        </p>
+      </div>
+
+      <div className="p-4 max-h-[300px] overflow-y-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-50 sticky top-0">
+            <tr>
+              <th className="text-left p-2 text-xs font-medium text-slate-600">
+                Month
+              </th>
+              <th className="text-right p-2 text-xs font-medium text-slate-600">
+                Rent
+              </th>
+              <th className="text-right p-2 text-xs font-medium text-slate-600">
+                Paid
+              </th>
+              <th className="text-right p-2 text-xs font-medium text-slate-600">
+                Discount
+              </th>
+              <th className="text-right p-2 text-xs font-medium text-slate-600">
+                Pending
+              </th>
+              <th className="text-center p-2 text-xs font-medium text-slate-600">
+                Status
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {months.map((month: any, index: number) => {
+               // Add safe navigation
+  if (!month) return null;
+  
+  const rent = month?.rent || month?.total_amount || 0;
+  const paid = month?.paid || month?.amount || 0;
+  const pending = month?.pending || month?.new_balance || 0;
+  const discount = month?.discount_applied || month?.discount_amount || 0;
+  const status = month?.status || 'pending';
+  const monthName = month?.month || 'Unknown';
+  const year = month?.year || new Date().getFullYear();
+              
+              const isCurrentMonth = (() => {
+                const now = new Date();
+                const monthNum = new Date(Date.parse(monthName + " 1, " + year)).getMonth() + 1;
+                return monthNum === now.getMonth() + 1 && year === now.getFullYear();
+              })();
+              
+              return (
+                <tr
+                  key={`${index}`}
+                  className={`border-t border-slate-200 ${
+                    isCurrentMonth ? "bg-blue-50" : ""
+                  } ${discount > 0 ? "bg-green-50" : ""}`}
+                >
+                  <td className="p-2 text-sm font-medium">
+                    {monthName} {year}
+                    {discount > 0 && (
+                      <span className="ml-2 text-[10px] text-green-600">
+                        (Discounted)
+                      </span>
+                    )}
+                  </td>
+                  <td className="p-2 text-right">
+                    ₹{typeof rent === 'number' ? rent.toLocaleString() : rent}
+                    {month.original_rent && month.original_rent !== rent && (
+                      <span className="text-[10px] text-slate-400 line-through ml-1">
+                        ₹{month.original_rent?.toLocaleString()}
+                      </span>
+                    )}
+                  </td>
+                  <td className="p-2 text-right text-green-600 font-medium">
+                    ₹{typeof paid === 'number' ? paid.toLocaleString() : paid}
+                  </td>
+                  <td className="p-2 text-right text-red-500">
+                    ₹{typeof discount === 'number' ? discount.toLocaleString() : discount}
+                  </td>
+                  <td className="p-2 text-right font-medium">
+                    <span className={pending > 0 ? "text-amber-600" : "text-green-600"}>
+                      ₹{typeof pending === 'number' ? pending.toLocaleString() : pending}
+                    </span>
+                  </td>
+                  <td className="p-2 text-center">
+                    <span
+                      className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                        status === "paid"
+                          ? "bg-green-100 text-green-800"
+                          : status === "partial"
+                          ? "bg-yellow-100 text-yellow-800"
+                          : "bg-red-100 text-red-800"
+                      }`}
+                    >
+                      {status}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-4 gap-2 p-4 bg-slate-50 border-t border-slate-200">
+        <div className="bg-white p-2 rounded border border-slate-200">
+          <p className="text-xs text-slate-500">Months Since Joining</p>
+          <p className="text-lg font-bold text-slate-700">{months.length}</p>
+        </div>
+        <div className="bg-white p-2 rounded border border-slate-200">
+          <p className="text-xs text-slate-500">Monthly Rent</p>
+          <p className="text-lg font-bold text-green-600">
+            ₹{typeof originalMonthlyRent === 'number' ? originalMonthlyRent.toLocaleString() : originalMonthlyRent}
+          </p>
+        </div>
+        <div className="bg-white p-2 rounded border border-slate-200">
+          <p className="text-xs text-slate-500">Total Paid</p>
+          <p className="text-lg font-bold text-blue-600">
+            ₹{typeof formData.total_paid === 'number' ? formData.total_paid?.toLocaleString() : formData.total_paid || 0}
+          </p>
+        </div>
+        <div className="bg-white p-2 rounded border border-slate-200">
+          <p className="text-xs text-slate-500">Total Pending</p>
+          <p className="text-lg font-bold text-amber-600">
+            ₹{typeof formData.total_pending === 'number' ? formData.total_pending?.toLocaleString() : formData.total_pending || 0}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
 
   {
     /* Security Deposit Info - Show when payment type is security_deposit */
