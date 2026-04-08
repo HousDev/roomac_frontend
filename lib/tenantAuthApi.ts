@@ -186,13 +186,13 @@ export async function sendTenantOTP(
 }
 
 export async function sendRegisterOTP(
-  email: string
+  email: string,fullName?: string
 ): Promise<TenantLoginResponse> {
   try {
     
     const res = await request<TenantLoginResponse>("/api/tenant-auth/send-register-otp", {
       method: "POST",
-      body: JSON.stringify({ email }),
+      body: JSON.stringify({ email, full_name:fullName }),
     });
 
     return res;
