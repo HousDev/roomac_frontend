@@ -357,8 +357,9 @@ export interface TenantProfile {
   id_proof_number?: string;
   address_proof_type?: string;
   address_proof_number?: string;
-
+partner_salutation?: string;
      partner_full_name?: string;
+     partner_country_code?: string;
   partner_phone?: string;
   partner_email?: string;
   partner_gender?: string;

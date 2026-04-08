@@ -23,6 +23,7 @@ import { request } from '@/lib/api';
 import type { RoomResponse, BedAssignment, UpdateBedAssignmentPayload, AssignBedPayload } from '@/lib/roomsApi';
 import { VacateBedWizard } from '@/components/admin/rooms/VacateBedWizard';
 import { ChangeBedWizard } from '@/components/admin/rooms/ChangeBedWizard';
+import { getAdminVacateRequests } from '@/lib/tenantRequestsApi';
 
 
 interface BedManagementDialogProps {
@@ -1313,10 +1314,134 @@ const findTenantDetails = (tenantId: number) => {
     }
   };
 
-  const handleVacateClick = (bedAssignment: BedAssignment) => {
+  // In BedManagementDialog.tsx - Update the handleVacateClick function
+
+// In BedManagementDialog.tsx - REPLACE the handleVacateClick function with this:
+// const handleVacateClick = async (bedAssignment: BedAssignment) => {
+//   const tenantDetails = findTenantDetails(bedAssignment.tenant_id);
+  
+//   if (!tenantDetails) {
+//     toast.error("Tenant details not found");
+//     return;
+//   }
+  
+//   try {
+//     setLoading(true);
+    
+//     const adminToken = localStorage.getItem('auth_token');
+    
+//     const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/vacate-requests`, {
+//       method: 'GET',
+//       headers: {
+//         'Authorization': `Bearer ${adminToken}`,
+//         'Content-Type': 'application/json',
+//       },
+//     });
+    
+//     const result = await response.json();
+    
+//     let vacateRequests = [];
+//     if (result.success && Array.isArray(result.data)) {
+//       vacateRequests = result.data;
+//     }
+    
+//     // Filter for this tenant
+//     const tenantRequests = vacateRequests.filter(
+//       (req: any) => req.tenant_id === tenantDetails.id
+//     );
+    
+//     console.log(`🔍 Found ${tenantRequests.length} vacate requests for tenant ${tenantDetails.id}`);
+    
+//     // TEMPORARY FIX: Since API doesn't return status, 
+//     // if ANY request exists for this tenant, allow vacate
+//     const hasAnyRequest = tenantRequests.length > 0;
+    
+//     if (!hasAnyRequest) {
+//       toast.error(`❌ Cannot vacate bed`, {
+//         description: `${tenantDetails.full_name} has not submitted any vacate request. Please ask them to submit one first.`,
+//         duration: 1500,
+       
+//       });
+//       return;
+//     }
+    
+//     // Open wizard
+//     console.log(`✅ Tenant has vacate request, opening wizard...`);
+//     setSelectedBedForVacate(bedAssignment);
+//     setVacateWizardOpen(true);
+    
+//   } catch (error) {
+//     console.error("Error:", error);
+//     toast.error("Unable to verify vacate request. Please check manually.");
+//   } finally {
+//     setLoading(false);
+//   }
+// };
+
+const handleVacateClick = async (bedAssignment: BedAssignment) => {
+  const tenantDetails = findTenantDetails(bedAssignment.tenant_id);
+  
+  if (!tenantDetails) {
+    toast.error("Tenant details not found");
+    return;
+  }
+  
+  try {
+    setLoading(true);
+    
+    const adminToken = localStorage.getItem('auth_token');
+    
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/vacate-requests`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${adminToken}`,
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    const result = await response.json();
+    
+    let vacateRequests = [];
+    if (result.success && Array.isArray(result.data)) {
+      vacateRequests = result.data;
+    }
+    
+    // Filter for this tenant
+    const tenantRequests = vacateRequests.filter(
+      (req: any) => req.tenant_id === tenantDetails.id
+    );
+    
+    console.log(`🔍 Found ${tenantRequests.length} vacate requests for tenant ${tenantDetails.id}`);
+    
+    // TEMPORARY FIX: Since API doesn't return status, 
+    // if ANY request exists for this tenant, allow vacate
+    const hasAnyRequest = tenantRequests.length > 0;
+    
+    if (!hasAnyRequest) {
+      // ✅ ONLY CHANGE THIS - Toast UI
+      toast.error(`Cannot vacate bed`, {
+        description: `${tenantDetails.full_name} has not submitted any vacate request. Please ask them to submit one first.`,
+        duration: 4000,
+      });
+      return;
+    }
+    
+    // Open wizard
+    console.log(`✅ Tenant has vacate request, opening wizard...`);
     setSelectedBedForVacate(bedAssignment);
     setVacateWizardOpen(true);
-  };
+    
+  } catch (error) {
+    console.error("Error:", error);
+    // ✅ ONLY CHANGE THIS - Toast UI
+    toast.error("Unable to verify vacate request", {
+      description: "Please check manually or try again later.",
+      duration: 4000,
+    });
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleVacateComplete = async () => {
     // Refresh the bed assignments

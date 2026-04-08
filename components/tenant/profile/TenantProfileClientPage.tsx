@@ -792,7 +792,9 @@ employee_id: (res.data as any).employee_id || "",
 
       // ========== CHANGE B (continued): Set partner data from loaded profile ==========
       setPartnerData({
+        salutation: (res.data as any).partner_salutation || '',
         full_name: (res.data as any).partner_full_name || '',
+       country_code: (res.data as any).partner_country_code || '+91',
         phone: (res.data as any).partner_phone || '',
         email: (res.data as any).partner_email || '',
         gender: (res.data as any).partner_gender || '',
@@ -857,6 +859,8 @@ date_of_birth: (res.data as any).partner_date_of_birth
     // Build partner payload - ONLY include fields that have values
     const partnerPayload: any = {};
     if (partnerData) {
+      if (partnerData.salutation) partnerPayload.partner_salutation = partnerData.salutation;
+if (partnerData.country_code) partnerPayload.partner_country_code = partnerData.country_code;
       if (partnerData.full_name) partnerPayload.partner_full_name = partnerData.full_name;
       if (partnerData.phone) partnerPayload.partner_phone = partnerData.phone;
       if (partnerData.email) partnerPayload.partner_email = partnerData.email;
@@ -917,7 +921,9 @@ date_of_birth: profile.date_of_birth
     });
     // Reset partner data to original
     setPartnerData({
+    salutation: (profile as any).partner_salutation || '',
       full_name: (profile as any).partner_full_name || '',
+     country_code: (profile as any).partner_country_code || '+91',
       phone: (profile as any).partner_phone || '',
       email: (profile as any).partner_email || '',
       gender: (profile as any).partner_gender || '',
