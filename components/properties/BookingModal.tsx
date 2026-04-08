@@ -843,7 +843,7 @@ const createBookingNotifications = useCallback(async (bookingId: number, booking
         return;
       }
       try {
-        const result = await sendRegisterOTP(otpData.email);
+        const result = await sendRegisterOTP(otpData.email, formData.firstName+" "+formData.lastName);
         console.log("otp result", result);
 
         if (result.success) {
@@ -882,23 +882,28 @@ const createBookingNotifications = useCallback(async (bookingId: number, booking
   }, [combineFullName]);
 
   // Calculate Rent
-  const calculateRent = useCallback(() => {
-    if (!selectedBed) return 0;
+  // Calculate Rent
+const calculateRent = useCallback(() => {
+  if (!selectedBed) return 0;
 
-    if (bookingType === "short") {
-      const checkIn = new Date(formData.checkInDate);
-      const checkOut = new Date(formData.checkOutDate);
-      if (isNaN(checkIn.getTime()) || isNaN(checkOut.getTime())) return 0;
+  if (bookingType === "short") {
+    const checkIn = new Date(formData.checkInDate);
+    const checkOut = new Date(formData.checkOutDate);
+    if (isNaN(checkIn.getTime()) || isNaN(checkOut.getTime())) return 0;
 
-      const days = Math.ceil(
-        (checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24),
-      );
-      return days * selectedBed.bedRent;
-    } else {
-      // Long stay - monthly rent
-      return selectedBed.bedRent;
-    }
-  }, [bookingType, selectedBed, formData]);
+    const days = Math.ceil(
+      (checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24),
+    );
+    // Calculate daily rate from monthly rent (bedRent is monthly)
+    const dailyRate = Number(selectedBed.bedRent) / 30;
+    const totalRent = days * dailyRate;
+    // Round to nearest integer (Razorpay needs integer)
+    return Math.round(totalRent);
+  } else {
+    // Long stay - monthly rent (already integer)
+    return selectedBed.bedRent;
+  }
+}, [bookingType, selectedBed, formData]);
 
   // Calculate Total (just the rent amount)
   const calculateTotal = useCallback(() => {
@@ -915,30 +920,40 @@ const createBookingNotifications = useCallback(async (bookingId: number, booking
     }
   }, [bookingType, calculateTotal, propertyData]);
 
-  // Calculate Final Amount after discount
-  // const calculateFinalAmount = useCallback(() => {
-  //   const totalPayable = calculateTotalPayable();
-  //   return totalPayable - discountedAmount;
-  // }, [calculateTotalPayable, discountedAmount]);
+  // Add this function to calculate number of days between check-in and check-out
+const calculateNumberOfDays = useCallback(() => {
+  if (bookingType !== "short") return 0;
+  
+  const checkIn = new Date(formData.checkInDate);
+  const checkOut = new Date(formData.checkOutDate);
+  
+  if (isNaN(checkIn.getTime()) || isNaN(checkOut.getTime())) return 0;
+  
+  const diffTime = Math.abs(checkOut.getTime() - checkIn.getTime());
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  
+  return diffDays;
+}, [bookingType, formData.checkInDate, formData.checkOutDate]);
 
   // Calculate Rent Amount (before discount)
   const calculateRentAmount = useCallback(() => {
     if (!selectedBed) return 0;
 
-    if (bookingType === "short") {
-      const checkIn = new Date(formData.checkInDate);
-      const checkOut = new Date(formData.checkOutDate);
-      if (isNaN(checkIn.getTime()) || isNaN(checkOut.getTime())) return 0;
-
-      const days = Math.ceil(
-        (checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24),
-      );
-      return days * selectedBed.bedRent;
-    } else {
-      // Long stay - monthly rent
-      return selectedBed.bedRent;
-    }
-  }, [bookingType, selectedBed, formData]);
+     if (bookingType === "short") {
+    const days = calculateNumberOfDays();
+    if (days === 0) return 0;
+    
+    // Calculate: (Daily Rate / 30) × Number of Days
+    const dailyRate = selectedBed.bedRent; // bedRent is daily rate for short stay
+    const rentPerDay = dailyRate / 30;
+    const totalRent = rentPerDay * days;
+    
+    return Math.round(totalRent); // Round to nearest integer
+  } else {
+    // Long stay - monthly rent
+    return selectedBed.bedRent;
+  }
+}, [bookingType, selectedBed, calculateNumberOfDays]);
 
   // Calculate Final Amount after discount - ONLY apply discount to rent
   const calculateFinalAmount = useCallback(() => {
@@ -3054,11 +3069,10 @@ handleSendOTP(e); // Trigger OTP flow on first
       
       {/* Row 1: Partner Full Name with Salutation - FULL WIDTH */}
       <div className="col-span-2">
-        <Label className="text-[10px] font-semibold text-pink-700">
-          Partner Full Name *
-        </Label>
+        
         <div className="flex gap-2 mt-1">
           <div className="w-[85px] flex-shrink-0">
+            <label className="block text-[10px] font-semibold text-pink-700 mb-1">Title</label>
             <select
               value={partnerDetails.salutation}
               onChange={(e) =>
@@ -3077,6 +3091,9 @@ handleSendOTP(e); // Trigger OTP flow on first
             </select>
           </div>
           <div className="flex-1">
+            <Label className="block text-[10px] font-semibold text-pink-700 mb-1">
+          Partner First Name*
+        </Label>
             <Input
               value={partnerDetails.firstName}
               onChange={(e) =>
@@ -3091,6 +3108,9 @@ handleSendOTP(e); // Trigger OTP flow on first
             />
           </div>
           <div className="flex-1">
+            <Label className="block text-[10px] font-semibold text-pink-700 mb-1">
+          Partner Last Name*
+        </Label>
             <Input
               value={partnerDetails.lastName}
               onChange={(e) =>
