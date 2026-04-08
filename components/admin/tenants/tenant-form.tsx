@@ -335,11 +335,25 @@ salutation: "Mr.",
     if (/[^A-Za-z0-9]/.test(password)) s += 25;
     setPasswordStrength(s);
   }, [password]);
-  useEffect(() => {
-    if (formData.property_id && !useCustomTerms)
-      fetchPropertyDetails(formData.property_id);
-    else setSelectedPropertyDetails(null);
-  }, [formData.property_id, useCustomTerms]);
+
+ useEffect(() => {
+  if (formData.property_id && !useCustomTerms) {
+    fetchPropertyDetails(formData.property_id);
+  } else if (!formData.property_id) {
+    setSelectedPropertyDetails(null);
+    // Reset terms when no property selected
+    if (!useCustomTerms) {
+      setFormData((p: any) => ({
+        ...p,
+        lockin_period_months: 0,
+        lockin_penalty_amount: 0,
+        notice_period_days: 0,
+        notice_penalty_amount: 0,
+      }));
+    }
+  }
+}, [formData.property_id, useCustomTerms]);
+
   useEffect(() => {
     if (tenant?.id) {
       const has =
@@ -473,41 +487,68 @@ salutation: "Mr.",
     }
   };
   const fetchPropertyDetails = async (propertyId: number) => {
-    try {
-      const res: any = await getPropertyDetails(propertyId);
-      if (res.success && res.data) {
-        setSelectedPropertyDetails(res.data);
-        const isEditing = tenant?.id !== undefined;
-        const hasCustom =
-          tenant?.lockin_period_months !== null ||
-          tenant?.notice_period_days !== null ||
-          tenant?.lockin_penalty_amount !== null ||
-          tenant?.notice_penalty_amount !== null;
-        if (!isEditing || (!hasCustom && !useCustomTerms))
-          setFormData((p: any) => ({
-            ...p,
-            lockin_period_months:
-              res.data.lockin_period_months || p.lockin_period_months,
-            lockin_penalty_amount:
-              res.data.lockin_penalty_amount || p.lockin_penalty_amount,
-            lockin_penalty_type:
-              res.data.lockin_penalty_type || p.lockin_penalty_type,
-            notice_period_days:
-              res.data.notice_period_days || p.notice_period_days,
-            notice_penalty_amount:
-              res.data.notice_penalty_amount || p.notice_penalty_amount,
-            notice_penalty_type:
-              res.data.notice_penalty_type || p.notice_penalty_type,
-          }));
+  try {
+    const res: any = await getPropertyDetails(propertyId);
+    if (res.success && res.data) {
+      setSelectedPropertyDetails(res.data);
+      
+      // Check if we're editing an existing tenant
+      const isEditing = tenant?.id !== undefined;
+      
+      // Check if tenant has custom terms stored (only if editing)
+      const hasCustomTerms = isEditing && (
+        (tenant?.lockin_period_months !== undefined && tenant?.lockin_period_months !== null && tenant?.lockin_period_months !== 0) ||
+        (tenant?.notice_period_days !== undefined && tenant?.notice_period_days !== null && tenant?.notice_period_days !== 0) ||
+        (tenant?.lockin_penalty_amount !== undefined && tenant?.lockin_penalty_amount !== null && tenant?.lockin_penalty_amount !== 0) ||
+        (tenant?.notice_penalty_amount !== undefined && tenant?.notice_penalty_amount !== null && tenant?.notice_penalty_amount !== 0)
+      );
+      
+      // Only auto-fill from property if:
+      // 1. Not editing an existing tenant, OR
+      // 2. Editing but no custom terms were set, AND not using custom terms toggle
+      if (!isEditing || (!hasCustomTerms && !useCustomTerms)) {
+        setFormData((p: any) => ({
+          ...p,
+          lockin_period_months: res.data.lockin_period_months || 0,
+          lockin_penalty_amount: res.data.lockin_penalty_amount || 0,
+          lockin_penalty_type: res.data.lockin_penalty_type || "fixed",
+          notice_period_days: res.data.notice_period_days || 0,
+          notice_penalty_amount: res.data.notice_penalty_amount || 0,
+          notice_penalty_type: res.data.notice_penalty_type || "fixed",
+        }));
       }
-    } catch (e) {
-      console.error("Failed to fetch property details", e);
     }
-  };
-  const handlePropertySelect = (pid: number | undefined) => {
-    setFormData((p: any) => ({ ...p, property_id: pid }));
-    if (!tenant) setUseCustomTerms(false);
-  };
+  } catch (e) {
+    console.error("Failed to fetch property details", e);
+  }
+};
+
+const handlePropertySelect = (pid: number | undefined) => {
+  setFormData((p: any) => ({ ...p, property_id: pid }));
+  
+  // Reset custom terms when property changes
+  setUseCustomTerms(false);
+  
+  // Clear selected property details initially
+  setSelectedPropertyDetails(null);
+  
+  // If we have a property ID, fetch its details
+  if (pid) {
+    fetchPropertyDetails(pid);
+  } else {
+    // If no property selected, reset terms to 0
+    setFormData((p: any) => ({
+      ...p,
+      lockin_period_months: 0,
+      lockin_penalty_amount: 0,
+      lockin_penalty_type: "fixed",
+      notice_period_days: 0,
+      notice_penalty_amount: 0,
+      notice_penalty_type: "fixed",
+    }));
+  }
+};
+
   const loadOptions = async () => {
     try {
       const r = await getPreferredOptions();
@@ -1342,7 +1383,6 @@ useEffect(() => {
                           handleInputChange("phone", e.target.value)
                         }
                         placeholder="9876543210"
-                        pattern="[6-9][0-9]{9}"
                         maxLength={10}
                         required
                         className={F}
@@ -1442,7 +1482,7 @@ useEffect(() => {
       placeholder="Phone"
       value={formData.emergency_contact_phone}
       onChange={(e) => handleInputChange("emergency_contact_phone", e.target.value)}
-      pattern="[6-9][0-9]{9}"
+      
       maxLength={10}
       className={F}
     />
@@ -1523,69 +1563,79 @@ useEffect(() => {
     </div>
 
     {/* SINGLE ROW - Full Name (left) + Phone (right) */}
-    <div className="grid grid-cols-2 gap-4">
-      
-      {/* LEFT SIDE: Full Name with Salutation */}
-     <div>
-        <label className={L}>Full Name</label>
-        <div className="flex gap-2">
-          {/* Salutation Dropdown - RESPONSIVE WIDTH */}
-          <div className="w-[75px] sm:w-[60px] flex-shrink-0">
-            <select
-              value={partnerDetails.salutation}
-              onChange={(e) => setPartnerDetails(prev => ({ ...prev, salutation: e.target.value }))}
-              className="w-full px-1 sm:px-2 py-1.5 text-[11px] border rounded-md border-gray-200 focus:border-blue-400 outline-none bg-white h-8"
-            >
-              {["Mr.", "Mrs.", "Ms.", "Dr.", "Prof.", "Adv.", "Er."].map(sal => (
-                <option key={sal} value={sal}>{sal}</option>
-              ))}
-            </select>
-          </div>
-          {/* Full Name Input */}
-          <div className="flex-1">
-            <Input
-              value={partnerDetails.full_name}
-              onChange={(e) => setPartnerDetails(prev => ({ ...prev, full_name: e.target.value }))}
-              placeholder="Partner's full name"
-              className="h-8 text-[11px] rounded-md border-gray-200"
-            />
-          </div>
-        </div>
+ {/* SINGLE ROW - Full Name (left) + Phone (right) */}
+<div className="grid grid-cols-2 gap-4">
+  
+  {/* LEFT SIDE: Full Name with Salutation */}
+  <div>
+    {/* Single label row for both Title and Full Name */}
+    <div className="flex gap-2 mb-1">
+      <div className="w-[75px] sm:w-[60px] flex-shrink-0">
+        <span className="text-[9px] font-medium text-gray-400 uppercase tracking-wider">TITLE</span>
       </div>
-
-      {/* RIGHT SIDE: Phone with Country Code */}
-      <div>
-        <label className={L}>Phone Number</label>
-        <div className="flex gap-2">
-          {/* Country Code Dropdown - RESPONSIVE WIDTH */}
-          <div className="w-[85px] sm:w-[100px] flex-shrink-0">
-            <select
-              value={partnerDetails.country_code}
-              onChange={(e) => setPartnerDetails(prev => ({ ...prev, country_code: e.target.value }))}
-              className="w-full px-1 sm:px-2 py-1.5 text-[11px] border rounded-md border-gray-200 bg-white h-8 text-[10px] sm:text-[11px]"
-            >
-              <option value="">Select</option>
-              <option value="+91">+91</option>
-              <option value="+1">+1</option>
-              <option value="+44">+44</option>
-              <option value="+61">+61</option>
-              <option value="+65">+65</option>
-              <option value="+971">+971</option>
-            </select>
-          </div>
-          {/* Phone Input */}
-          <div className="flex-1">
-            <Input
-              value={partnerDetails.phone}
-              onChange={(e) => setPartnerDetails(prev => ({ ...prev, phone: e.target.value }))}
-              placeholder="Mobile number"
-              maxLength={10}
-              className="h-8 text-[11px] rounded-md border-gray-200"
-            />
-          </div>
-        </div>
+      <div className="flex-1">
+        <span className="text-[9px] font-medium text-gray-400 uppercase tracking-wider">FULL NAME</span>
       </div>
     </div>
+    
+    <div className="flex gap-2">
+      {/* Salutation Dropdown */}
+      <div className="w-[75px] sm:w-[60px] flex-shrink-0">
+        <select
+          value={partnerDetails.salutation}
+          onChange={(e) => setPartnerDetails(prev => ({ ...prev, salutation: e.target.value }))}
+          className="w-full px-1 sm:px-2 py-1.5 text-[11px] border rounded-md border-gray-200 focus:border-blue-400 outline-none bg-white h-7"
+        >
+          {["Mr.", "Mrs.", "Ms.", "Dr.", "Prof.", "Adv.", "Er."].map(sal => (
+            <option key={sal} value={sal}>{sal}</option>
+          ))}
+        </select>
+      </div>
+      {/* Full Name Input */}
+      <div className="flex-1">
+        <Input
+          value={partnerDetails.full_name}
+          onChange={(e) => setPartnerDetails(prev => ({ ...prev, full_name: e.target.value }))}
+          placeholder="Partner's full name"
+          className="h-8 text-[11px] rounded-md border-gray-200"
+        />
+      </div>
+    </div>
+  </div>
+
+  {/* RIGHT SIDE: Phone with Country Code */}
+  <div>
+    <div className="mb-1">
+      <span className="text-[9px] font-medium text-gray-400 uppercase tracking-wider">CONTACT</span>
+    </div>
+    <div className="flex gap-2">
+      <div className="w-[85px] sm:w-[100px] flex-shrink-0">
+        <select
+          value={partnerDetails.country_code}
+          onChange={(e) => setPartnerDetails(prev => ({ ...prev, country_code: e.target.value }))}
+          className="w-full px-1 sm:px-2 py-1.5  border rounded-md border-gray-200 bg-white h-8 text-[10px] sm:text-[11px]"
+        >
+          <option value="">Select</option>
+          <option value="+91">+91</option>
+          <option value="+1">+1</option>
+          <option value="+44">+44</option>
+          <option value="+61">+61</option>
+          <option value="+65">+65</option>
+          <option value="+971">+971</option>
+        </select>
+      </div>
+      <div className="flex-1">
+        <Input
+          value={partnerDetails.phone}
+          onChange={(e) => setPartnerDetails(prev => ({ ...prev, phone: e.target.value }))}
+          placeholder="Mobile number"
+          maxLength={10}
+          className="h-8 text-[11px] rounded-md border-gray-200"
+        />
+      </div>
+    </div>
+  </div>
+</div>
     {/* REST OF THE FIELDS - 2 columns */}
     <div className="grid grid-cols-2 gap-4 mt-3">
       {/* Email */}
@@ -2422,59 +2472,71 @@ useEffect(() => {
                     </div>
                   </div>
                 </div>
-              ) : (
-                <div className="p-3 border border-green-200 bg-green-50 rounded-lg">
-                  <p className="text-[11px] font-bold text-green-700 flex items-center gap-1 mb-1.5">
-                    <Check className="h-3 w-3" /> Using Property's Default Terms
-                  </p>
-                  <div className={g2}>
-                    {[
-                      [
-                        "Lock-in",
-                        `${formData.lockin_period_months} mo · ${formData.lockin_penalty_type === "percentage" ? "%" : "₹"}${formData.lockin_penalty_amount}`,
-                      ],
-                      [
-                        "Notice",
-                        `${formData.notice_period_days} days · ${formData.notice_penalty_type === "percentage" ? "%" : "₹"}${formData.notice_penalty_amount}`,
-                      ],
-                    ].map(([k, v]) => (
-                      <div key={k} className="text-[10px]">
-                        <p className="text-gray-500">{k}</p>
-                        <p className="font-semibold text-gray-700">{v}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+             ) : (
+  <div className="p-3 border border-green-200 bg-green-50 rounded-lg">
+    <p className="text-[11px] font-bold text-green-700 flex items-center gap-1 mb-1.5">
+      <Check className="h-3 w-3" /> Using Property's Default Terms
+    </p>
+    <div className={g2}>
+      <div className="text-[10px]">
+        <p className="text-gray-500">Lock-in</p>
+        <p className="font-semibold text-gray-700">
+          {selectedPropertyDetails?.lockin_period_months || formData.lockin_period_months} mo · 
+          {selectedPropertyDetails?.lockin_penalty_type === "percentage" ? "%" : "₹"}
+          {selectedPropertyDetails?.lockin_penalty_amount || formData.lockin_penalty_amount}
+        </p>
+      </div>
+      <div className="text-[10px]">
+        <p className="text-gray-500">Notice</p>
+        <p className="font-semibold text-gray-700">
+          {selectedPropertyDetails?.notice_period_days || formData.notice_period_days} days · 
+          {selectedPropertyDetails?.notice_penalty_type === "percentage" ? "%" : "₹"}
+          {selectedPropertyDetails?.notice_penalty_amount || formData.notice_penalty_amount}
+        </p>
+      </div>
+    </div>
+  </div>
+)}
 
               {/* Summary */}
               <div className="border rounded-lg p-3 bg-gray-50">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-2">
-                  Summary
-                </p>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[10px]">
-                  {[
-                    [
-                      "Lock-in Period",
-                      `${formData.lockin_period_months} months`,
-                    ],
-                    [
-                      "Lock-in Penalty",
-                      `${formData.lockin_penalty_type === "percentage" ? "%" : "₹"}${formData.lockin_penalty_amount} (${formData.lockin_penalty_type})`,
-                    ],
-                    ["Notice Period", `${formData.notice_period_days} days`],
-                    [
-                      "Notice Penalty",
-                      `${formData.notice_penalty_type === "percentage" ? "%" : "₹"}${formData.notice_penalty_amount} (${formData.notice_penalty_type})`,
-                    ],
-                  ].map(([k, v]) => (
-                    <div key={k}>
-                      <p className="text-gray-400">{k}</p>
-                      <p className="font-semibold text-gray-700">{v}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
+  <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-2">
+    Summary
+  </p>
+  <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[10px]">
+    {[
+      [
+        "Lock-in Period",
+        !useCustomTerms && selectedPropertyDetails 
+          ? `${selectedPropertyDetails.lockin_period_months} months`
+          : `${formData.lockin_period_months} months`,
+      ],
+      [
+        "Lock-in Penalty",
+        !useCustomTerms && selectedPropertyDetails
+          ? `${selectedPropertyDetails.lockin_penalty_type === "percentage" ? "%" : "₹"}${selectedPropertyDetails.lockin_penalty_amount} (${selectedPropertyDetails.lockin_penalty_type})`
+          : `${formData.lockin_penalty_type === "percentage" ? "%" : "₹"}${formData.lockin_penalty_amount} (${formData.lockin_penalty_type})`,
+      ],
+      [
+        "Notice Period",
+        !useCustomTerms && selectedPropertyDetails
+          ? `${selectedPropertyDetails.notice_period_days} days`
+          : `${formData.notice_period_days} days`,
+      ],
+      [
+        "Notice Penalty",
+        !useCustomTerms && selectedPropertyDetails
+          ? `${selectedPropertyDetails.notice_penalty_type === "percentage" ? "%" : "₹"}${selectedPropertyDetails.notice_penalty_amount} (${selectedPropertyDetails.notice_penalty_type})`
+          : `${formData.notice_penalty_type === "percentage" ? "%" : "₹"}${formData.notice_penalty_amount} (${formData.notice_penalty_type})`,
+      ],
+    ].map(([k, v]) => (
+      <div key={k}>
+        <p className="text-gray-400">{k}</p>
+        <p className="font-semibold text-gray-700">{v}</p>
+      </div>
+    ))}
+  </div>
+</div>
             </div>
           </TabsContent>
 

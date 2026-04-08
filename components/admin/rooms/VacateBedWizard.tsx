@@ -184,6 +184,28 @@ const checkTenantAuth = () => {
     }
   }, [initialData, tenantRequestDate, formData.noticeGivenDate, formData.isNoticeGiven, formData.requestedVacateDate]);
 
+  // Add this useEffect to calculate terms agreement based on lock-in completion status
+useEffect(() => {
+  if (lockinStatus !== null) {
+    // Lock-in is considered "accepted" if:
+    // 1. Tenant accepted it, OR
+    // 2. Lock-in period is already completed (no penalty anyway)
+    const isLockinCompleted = lockinStatus.isCompleted || false;
+    const effectiveLockinAccepted = lockinAcceptedByTenant || isLockinCompleted;
+    
+    // Notice is considered "accepted" if tenant accepted it
+    const effectiveNoticeAccepted = noticeGivenByTenant;
+    
+    const termsAgreed = effectiveLockinAccepted && effectiveNoticeAccepted;
+    setTenantAgreedToTerms(termsAgreed);
+    
+    // Update form data
+    setFormData(prev => ({
+      ...prev,
+      tenantAgreedToTerms: termsAgreed
+    }));
+  }
+}, [lockinStatus, lockinAcceptedByTenant, noticeGivenByTenant]);
   // Helper to format date for input field (YYYY-MM-DD)
   const formatDateForInput = (dateString: string) => {
     if (!dateString) return '';
@@ -200,6 +222,99 @@ const checkTenantAuth = () => {
   };
 
   // Function to extract tenant vacate request details
+// const extractTenantVacateData = async (requests: any[]) => {
+//   const vacateRequests = requests.filter(request => {
+//     const isVacateBed = request.request_type === 'vacate_bed';
+//     const isForCurrentTenant = request.tenant_id === tenantDetails?.id;
+//     const isActiveStatus = ['pending', 'in_progress', 'approved'].includes(request.status);
+//     return isVacateBed && isForCurrentTenant && isActiveStatus;
+//   });
+
+//   if (vacateRequests.length > 0) {
+//     const latestRequest = vacateRequests[0];
+    
+//     const vacateData = latestRequest.vacate_data || {};
+    
+//     if (vacateData.expected_vacate_date) {
+//       const tenantDate = vacateData.expected_vacate_date;
+//       setTenantVacateDate(tenantDate);
+//     }
+    
+//     // Set tenant request date
+//     if (latestRequest.created_at) {
+//       const requestDate = latestRequest.created_at.split('T')[0];
+//       setTenantRequestDate(requestDate);
+//     }
+    
+//     // Parse boolean values correctly
+//     const parseBoolean = (value: any): boolean => {
+//       if (value === 1 || value === '1' || value === true || value === 'true') return true;
+//       if (value === 0 || value === '0' || value === false || value === 'false') return false;
+//       return false;
+//     };
+    
+//     // Check if tenant accepted penalties
+//     const lockinAccepted = parseBoolean(
+//       vacateData.lockin_penalty_accepted ?? 
+//       latestRequest.lockin_penalty_accepted
+//     );
+    
+//     const noticeAccepted = parseBoolean(
+//       vacateData.notice_penalty_accepted ?? 
+//       latestRequest.notice_penalty_accepted
+//     );
+    
+//     setLockinAcceptedByTenant(lockinAccepted);
+//     setNoticeGivenByTenant(noticeAccepted);
+    
+//     // Tenant agrees to terms if they accepted BOTH penalties
+//     const termsAgreed = lockinAccepted && noticeAccepted;
+//     setTenantAgreedToTerms(termsAgreed);
+    
+//     // Store reason ID for later lookup
+//     if (vacateData.primary_reason_id || latestRequest.primary_reason_id) {
+//       const reasonId = vacateData.primary_reason_id || latestRequest.primary_reason_id;
+//       setTenantVacateReasonId(reasonId);
+//     }
+    
+//     setTenantVacateData(latestRequest);
+//     return latestRequest;
+//   }
+  
+//   return null;
+// };
+// Add this helper function in VacateBedWizard.tsx
+const checkIfLockinCompleted = async (): Promise<boolean> => {
+  try {
+    if (!initialData?.bedAssignment) return false;
+    
+    const checkInDateStr = initialData.bedAssignment.check_in_date;
+    const lockinMonths = initialData.bedAssignment.lockin_period_months || 0;
+    
+    if (!checkInDateStr || lockinMonths === 0) {
+      return true; // No lock-in period = automatically completed
+    }
+    
+    const checkIn = new Date(checkInDateStr);
+    const currentDate = new Date();
+    
+    // Calculate lock-in end date
+    const lockInEndDate = new Date(checkIn);
+    lockInEndDate.setMonth(checkIn.getMonth() + lockinMonths);
+    
+    // Normalize dates
+    const normalizedLockInEndDate = new Date(lockInEndDate.getFullYear(), lockInEndDate.getMonth(), lockInEndDate.getDate());
+    const normalizedCurrentDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
+    
+    // Completed if current date >= lock-in end date
+    return normalizedCurrentDate >= normalizedLockInEndDate;
+    
+  } catch (error) {
+    console.error('Error checking lock-in completion:', error);
+    return false;
+  }
+};
+
 const extractTenantVacateData = async (requests: any[]) => {
   const vacateRequests = requests.filter(request => {
     const isVacateBed = request.request_type === 'vacate_bed';
@@ -231,22 +346,32 @@ const extractTenantVacateData = async (requests: any[]) => {
       return false;
     };
     
-    // Check if tenant accepted penalties
-    const lockinAccepted = parseBoolean(
+    const lockinAcceptedFromTenant = parseBoolean(
       vacateData.lockin_penalty_accepted ?? 
       latestRequest.lockin_penalty_accepted
     );
     
-    const noticeAccepted = parseBoolean(
+    const noticeAcceptedFromTenant = parseBoolean(
       vacateData.notice_penalty_accepted ?? 
       latestRequest.notice_penalty_accepted
     );
     
-    setLockinAcceptedByTenant(lockinAccepted);
-    setNoticeGivenByTenant(noticeAccepted);
+    setLockinAcceptedByTenant(lockinAcceptedFromTenant);
+    setNoticeGivenByTenant(noticeAcceptedFromTenant);
     
-    // Tenant agrees to terms if they accepted BOTH penalties
-    const termsAgreed = lockinAccepted && noticeAccepted;
+    // 🔥 FIX: Calculate actual agreement status based on lock-in completion
+    // Don't just rely on tenant's acceptance - check if lock-in is actually completed
+    const isLockinCompleted = await checkIfLockinCompleted();
+    
+    // Lock-in is considered "accepted" if:
+    // 1. Tenant accepted it, OR
+    // 2. Lock-in period is already completed (no penalty anyway)
+    const effectiveLockinAccepted = lockinAcceptedFromTenant || isLockinCompleted;
+    
+    // Notice is considered "accepted" if tenant accepted it
+    const effectiveNoticeAccepted = noticeAcceptedFromTenant;
+    
+    const termsAgreed = effectiveLockinAccepted && effectiveNoticeAccepted;
     setTenantAgreedToTerms(termsAgreed);
     
     // Store reason ID for later lookup
@@ -1287,12 +1412,15 @@ className="w-[calc(100%-32px)] max-w-md md:max-w-lg max-h-[75vh] overflow-hidden
                     <div className="text-blue-700">Submitted:</div>
                     <div>{formatDate(existingVacateRequest.created_at)}</div>
                   </div>
-                  <div>
-                    <div className="text-blue-700">Lock-in Accepted:</div>
-                    <div className={`font-medium ${lockinAcceptedByTenant ? 'text-green-600' : 'text-red-600'}`}>
-                      {lockinAcceptedByTenant ? 'Yes' : 'No'}
-                    </div>
-                  </div>
+                 <div>
+  <div className="text-blue-700">Lock-in Accepted:</div>
+  <div className={`font-medium ${(lockinAcceptedByTenant || lockinStatus?.isCompleted) ? 'text-green-600' : 'text-red-600'}`}>
+    {(lockinAcceptedByTenant || lockinStatus?.isCompleted) ? 'Yes' : 'No'}
+    {lockinStatus?.isCompleted && (
+      <span className="text-[10px] text-green-600 ml-1">(Completed)</span>
+    )}
+  </div>
+</div>
                   <div>
                     <div className="text-blue-700">Notice Accepted:</div>
                     <div className={`font-medium ${noticeGivenByTenant ? 'text-green-600' : 'text-red-600'}`}>
@@ -1907,26 +2035,35 @@ className="w-[calc(100%-32px)] max-w-md md:max-w-lg max-h-[75vh] overflow-hidden
                     </div>
                     
                     <div className={`p-2 rounded text-xs ${
-                      tenantAgreedToTerms ? 'bg-green-50 border border-green-200 text-green-800' : 'bg-red-50 border border-red-200 text-red-800'
-                    }`}>
-                      <div className="flex items-center gap-1.5">
-                        {tenantAgreedToTerms ? (
-                          <>
-                            <CheckCircle className="h-3 w-3 text-green-600 flex-shrink-0" />
-                            <span className="font-medium">✓ Tenant Agreement Status:</span>
-                            <span>Tenant has accepted both lock-in and notice penalties</span>
-                          </>
-                        ) : (
-                          <>
-                            <AlertTriangle className="h-3 w-3 text-red-600 flex-shrink-0" />
-                            <span>
-                              <span className="font-medium">⚠️ Tenant Agreement Status:</span>
-                              <span> Tenant has NOT accepted all terms</span>
-                            </span>
-                          </>
-                        )}
-                      </div>
-                    </div>
+  (lockinStatus?.isCompleted || tenantAgreedToTerms) ? 'bg-green-50 border border-green-200 text-green-800' : 'bg-red-50 border border-red-200 text-red-800'
+}`}>
+  <div className="flex items-center gap-1.5">
+    {(lockinStatus?.isCompleted || tenantAgreedToTerms) ? (
+      <>
+        <CheckCircle className="h-3 w-3 text-green-600 flex-shrink-0" />
+        <span className="font-medium">✓ Agreement Status:</span>
+        <span>
+          {lockinStatus?.isCompleted 
+            ? "Lock-in period completed - No penalty applicable"
+            : "Tenant has accepted all terms"}
+        </span>
+      </>
+    ) : (
+      <>
+        <AlertTriangle className="h-3 w-3 text-red-600 flex-shrink-0" />
+        <span>
+          <span className="font-medium">⚠️ Agreement Status:</span>
+          <span> Tenant has NOT accepted all terms</span>
+        </span>
+      </>
+    )}
+  </div>
+  {lockinStatus?.isCompleted && (
+    <div className="mt-1 text-green-700 text-[10px]">
+      ✓ Lock-in period completed on {formatDate(lockinStatus.lockInEndDate)} - No lock-in penalty applies
+    </div>
+  )}
+</div>
                   </div>
                 </CardContent>
               </Card>
