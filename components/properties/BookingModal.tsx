@@ -3065,14 +3065,13 @@ handleSendOTP(e); // Trigger OTP flow on first
       </Badge>
     </div>
 
-    <div className="grid grid-cols-2 gap-2">
+<div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
       
       {/* Row 1: Partner Full Name with Salutation - FULL WIDTH */}
       <div className="col-span-2">
         
         <div className="flex gap-2 mt-1">
-          <div className="w-[85px] flex-shrink-0">
-            <label className="block text-[10px] font-semibold text-pink-700 mb-1">Title</label>
+<div className="w-[65px] flex-shrink-0">            <label className="block text-[10px] font-semibold text-pink-700 mb-1">Title</label>
             <select
               value={partnerDetails.salutation}
               onChange={(e) =>
@@ -3092,7 +3091,7 @@ handleSendOTP(e); // Trigger OTP flow on first
           </div>
           <div className="flex-1">
             <Label className="block text-[10px] font-semibold text-pink-700 mb-1">
-          Partner First Name*
+          First Name*
         </Label>
             <Input
               value={partnerDetails.firstName}
@@ -3109,7 +3108,7 @@ handleSendOTP(e); // Trigger OTP flow on first
           </div>
           <div className="flex-1">
             <Label className="block text-[10px] font-semibold text-pink-700 mb-1">
-          Partner Last Name*
+          Last Name*
         </Label>
             <Input
               value={partnerDetails.lastName}
@@ -3128,12 +3127,12 @@ handleSendOTP(e); // Trigger OTP flow on first
       </div>
 
       {/* Row 2: Partner Phone (left) + Email (right) - SAME ROW */}
-      <div>
-        <Label className="text-[10px] font-semibold text-pink-700">
-          Partner Phone *
+      <div className="col-span-2">
+  <Label className="text-[10px] font-semibold text-pink-700">
+    Phone *
         </Label>
         <div className="flex gap-2 mt-1">
-          <div className="w-[100px] flex-shrink-0">
+<div className="w-[70px] flex-shrink-0">
             <select
               value={partnerDetails.countryCode}
               onChange={(e) =>
@@ -3174,9 +3173,9 @@ handleSendOTP(e); // Trigger OTP flow on first
       </div>
 
       {/* Partner Email - RIGHT SIDE of same row */}
-      <div>
-        <Label className="text-[10px] font-semibold text-pink-700">
-          Partner Email
+      <div className="col-span-1">
+  <Label className="text-[10px] font-semibold text-pink-700">
+     Email
         </Label>
         <Input
           type="email"
@@ -3216,7 +3215,7 @@ handleSendOTP(e); // Trigger OTP flow on first
         </Select>
       </div>
 
-      <div>
+<div >
         <Label className="text-[10px] font-semibold text-pink-700">
           Partner Date of Birth
         </Label>
@@ -3244,15 +3243,15 @@ handleSendOTP(e); // Trigger OTP flow on first
               date.setFullYear(date.getFullYear() - 18);
               return date.toISOString().split("T")[0];
             })()}
-            className={`pl-8 h-7 text-[10px] border-pink-200 focus:border-pink-500`}
+className={`pl-8 h-7 text-[10px] border-pink-200 focus:border-pink-500 w-full max-w-[160px]`}
           />
         </div>
       </div>
 
       {/* Row 4: Partner Relationship - FULL WIDTH */}
-      <div className="col-span-2">
-        <Label className="text-[10px] font-semibold text-pink-700">
-          Relationship
+<div className="col-span-1 w-[160px] ">
+  <Label className=" text-[10px] font-semibold text-pink-700">
+    Relationship
         </Label>
         <Select
           value={partnerDetails.relationship}
