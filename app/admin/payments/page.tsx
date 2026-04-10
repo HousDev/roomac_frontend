@@ -78,6 +78,9 @@ import {
   MoreVertical,
   Sparkles,
   RefreshCw,
+  Globe,
+  Mail,
+  MessageCircle,
 } from "lucide-react";
 import {
   Table,
@@ -97,6 +100,7 @@ import { listTenants, type Tenant } from "@/lib/tenantApi";
 import * as paymentApi from "@/lib/paymentRecordApi";
 import { getSettings, type SettingsData } from "@/lib/settingsApi";
 import { getPaymentRejectionReasons } from "@/lib/masterApi";
+import * as tenantApi from "@/lib/tenantApi";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -157,6 +161,401 @@ interface DemandPayment {
   property_name?: string;
 }
 
+// Ledger Report Component - COMPLETE FIXED VERSION
+const LedgerReportDialog = ({
+  open,
+  onOpenChange,
+  tenant,
+  getTenantName,
+  getTenantPhone,
+  getTenantSalutation,
+  getTenantCountryCode,
+  siteName,
+  siteTagline,
+  contactAddress,
+  contactPhone,
+  contactEmail,
+  companyLogo,
+}: any) => {
+  if (!tenant) return null;
+
+  const tenantPayments = tenant.payments || [];
+  
+  // Extract monthly rent from tenant data
+  let monthlyRent = tenant.monthly_rent || 0;
+
+  // If still 0, try to extract from payments
+  if (monthlyRent === 0 && tenantPayments.length > 0) {
+    const rentPayment = tenantPayments.find(p => p.payment_type === 'rent');
+    if (rentPayment && rentPayment.remark) {
+      const match = rentPayment.remark.match(/Original: ₹([\d,]+)/);
+      if (match) {
+        monthlyRent = parseInt(match[1].replace(/,/g, ''));
+      }
+    }
+  }
+
+  // Calculate total expected rent based on months since check-in
+  let totalExpectedRent = 0;
+  let monthsSinceJoining = 0;
+
+  if (tenant.check_in_date && monthlyRent > 0) {
+    const checkInDate = new Date(tenant.check_in_date);
+    const currentDate = new Date();
+    monthsSinceJoining = (currentDate.getFullYear() - checkInDate.getFullYear()) * 12 + 
+                         (currentDate.getMonth() - checkInDate.getMonth()) + 1;
+    if (monthsSinceJoining < 0) monthsSinceJoining = 0;
+    totalExpectedRent = monthlyRent * monthsSinceJoining;
+  }
+
+  // Calculate totals from payments
+  let totalRentPaid = 0;
+  let totalDepositPaid = 0;
+  let totalSecurityDeposit = tenant.security_deposit || 0;
+
+  tenantPayments.forEach((payment: any) => {
+    const amount = payment.amount || 0;
+    if (payment.payment_type === 'rent') {
+      totalRentPaid += amount;
+    } else if (payment.payment_type === 'security_deposit') {
+      totalDepositPaid += amount;
+      // If security deposit amount not set in tenant, get from payment
+      if (totalSecurityDeposit === 0 && payment.total_amount) {
+        totalSecurityDeposit = payment.total_amount;
+      }
+    }
+  });
+
+  const totalRentPending = Math.max(0, totalExpectedRent - totalRentPaid);
+  const depositPending = Math.max(0, totalSecurityDeposit - totalDepositPaid);
+  const grandTotal = totalRentPaid + totalDepositPaid;
+
+  // Format currency
+  const formatCurrency = (amount: number) => {
+    if (isNaN(amount) || amount === 0) return '₹0';
+    return `₹${amount.toLocaleString('en-IN')}`;
+  };
+
+  // Handle Print
+  const handlePrint = () => {
+    const printContent = document.getElementById("ledger-report-content");
+    if (printContent) {
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        const styles = document.querySelectorAll('link[rel="stylesheet"], style');
+        let stylesHTML = '';
+        styles.forEach((style) => {
+          if (style.tagName === 'LINK') {
+            stylesHTML += `<link rel="stylesheet" href="${(style as HTMLLinkElement).href}">`;
+          } else {
+            stylesHTML += `<style>${(style as HTMLStyleElement).innerHTML}</style>`;
+          }
+        });
+        
+        printWindow.document.write(`
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <title>Ledger Report - ${getTenantName(tenant.id)}</title>
+              <meta charset="UTF-8">
+              <style>
+                body { padding: 20px; font-family: Arial, sans-serif; }
+                table { width: 100%; border-collapse: collapse; }
+                th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                th { background-color: #f3f4f6; }
+                .text-right { text-align: right; }
+                .text-center { text-align: center; }
+                .bg-blue-50 { background-color: #eff6ff; }
+                .bg-green-50 { background-color: #f0fdf4; }
+                .bg-amber-50 { background-color: #fffbeb; }
+                .bg-purple-50 { background-color: #faf5ff; }
+                .rounded-lg { border-radius: 8px; }
+                .p-3 { padding: 12px; }
+                .p-4 { padding: 16px; }
+                .p-6 { padding: 24px; }
+                .mb-6 { margin-bottom: 24px; }
+                .mt-6 { margin-top: 24px; }
+                .border-b { border-bottom: 1px solid #e5e7eb; }
+                .border-t { border-top: 1px solid #e5e7eb; }
+                .pt-4 { padding-top: 16px; }
+                .pb-4 { padding-bottom: 16px; }
+                .grid { display: grid; }
+                .grid-cols-2 { grid-template-columns: repeat(2, 1fr); }
+                .grid-cols-3 { grid-template-columns: repeat(3, 1fr); }
+                .gap-3 { gap: 12px; }
+                .gap-4 { gap: 16px; }
+                .text-sm { font-size: 14px; }
+                .text-xs { font-size: 12px; }
+                .text-lg { font-size: 18px; }
+                .text-2xl { font-size: 24px; }
+                .font-bold { font-weight: bold; }
+                .font-semibold { font-weight: 600; }
+                .text-slate-800 { color: #1e293b; }
+                .text-slate-500 { color: #64748b; }
+                .text-slate-400 { color: #94a3b8; }
+                .text-blue-600 { color: #2563eb; }
+                .text-blue-700 { color: #1d4ed8; }
+                .text-green-600 { color: #16a34a; }
+                .text-green-700 { color: #15803d; }
+                .text-amber-600 { color: #d97706; }
+                .text-amber-700 { color: #b45309; }
+                .text-purple-600 { color: #9333ea; }
+                .text-purple-700 { color: #7e22ce; }
+                .bg-slate-50 { background-color: #f8fafc; }
+                .bg-slate-100 { background-color: #f1f5f9; }
+                @media print {
+                  body { padding: 0; margin: 0; }
+                  .no-print { display: none; }
+                }
+              </style>
+            </head>
+            <body>
+              ${printContent.innerHTML}
+            </body>
+          </html>
+        `);
+        printWindow.document.close();
+        printWindow.focus();
+        printWindow.print();
+      }
+    }
+  };
+
+  // Handle Email
+  const handleEmail = () => {
+    const tenantEmail = tenant.email;
+    if (!tenantEmail) {
+      toast.error("Tenant email not available");
+      return;
+    }
+    
+    const subject = encodeURIComponent(`Ledger Report - ${getTenantName(tenant.id)}`);
+    const body = encodeURIComponent(`Dear ${getTenantSalutation(tenant.id)} ${getTenantName(tenant.id)},\n\nPlease find your ledger report attached.\n\nYou can download the PDF by printing this page and saving as PDF.\n\nThank you,\n${siteName}`);
+    
+    window.open(`mailto:${tenantEmail}?subject=${subject}&body=${body}`);
+    toast.success("Email client opened. Please attach the PDF manually.");
+  };
+
+  // Handle WhatsApp
+  const handleWhatsApp = () => {
+    const phoneNumber = getTenantPhone(tenant.id);
+    const message = encodeURIComponent(`Dear ${getTenantSalutation(tenant.id)} ${getTenantName(tenant.id)},\n\nPlease find your ledger report attached. You can download the PDF by printing this page and saving as PDF.\n\nThank you,\n${siteName}`);
+    
+    window.open(`https://wa.me/${phoneNumber}?text=${message}`, '_blank');
+    toast.info("Please attach the PDF manually after downloading");
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center justify-between">
+            <span className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-blue-600" />
+              Tenant Ledger Report
+            </span>
+            <div className="flex gap-2 no-print">
+              <Button size="sm" variant="outline" onClick={handlePrint}>
+                <Printer className="h-4 w-4 mr-2" />
+                Print / Save PDF
+              </Button>
+              <Button size="sm" variant="outline" onClick={handleEmail}>
+                <Mail className="h-4 w-4 mr-2" />
+                Email
+              </Button>
+              <Button size="sm" variant="outline" onClick={handleWhatsApp}>
+                <MessageCircle className="h-4 w-4 mr-2" />
+                WhatsApp
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => onOpenChange(false)}>
+                Close
+              </Button>
+            </div>
+          </DialogTitle>
+        </DialogHeader>
+
+        <div id="ledger-report-content" className="p-6 bg-white">
+          {/* Header */}
+          <div className="text-center border-b pb-4 mb-6">
+            {companyLogo && (
+              <img src={companyLogo} alt={siteName} className="h-16 mx-auto mb-2 object-contain" />
+            )}
+            <h1 className="text-2xl font-bold text-slate-800">{siteName || 'ROOMAC'}</h1>
+            <p className="text-sm text-slate-500">{siteTagline || 'Premium Living Spaces'}</p>
+            <p className="text-xs text-slate-400 mt-1">{contactAddress}</p>
+            <p className="text-xs text-slate-400">Tel: {contactPhone} | Email: {contactEmail}</p>
+          </div>
+
+          {/* Tenant Information */}
+          <div className="grid grid-cols-2 gap-4 mb-6 p-4 bg-slate-50 rounded-lg">
+            <div>
+              <p className="text-xs text-slate-500">Tenant Name</p>
+              <p className="text-sm font-semibold">
+                {getTenantSalutation(tenant.id)} {getTenantName(tenant.id)}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-500">Phone</p>
+              <p className="text-sm">{getTenantCountryCode(tenant.id)} {getTenantPhone(tenant.id)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-500">Property</p>
+              <p className="text-sm">{tenant.property_name || 'N/A'}</p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-500">Room / Bed</p>
+              <p className="text-sm">
+                Room {tenant.room_number || 'N/A'}
+                {tenant.bed_number && ` • Bed #${tenant.bed_number}`}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-500">Check-in Date</p>
+              <p className="text-sm">
+                {tenant.check_in_date ? format(new Date(tenant.check_in_date), 'dd MMM yyyy') : 'N/A'}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-500">Monthly Rent</p>
+              <p className="text-sm font-medium text-green-600">
+                {formatCurrency(monthlyRent)}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-500">Security Deposit</p>
+              <p className="text-sm font-medium text-purple-600">
+                {formatCurrency(totalSecurityDeposit)}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-500">Months Since Joining</p>
+              <p className="text-sm font-medium">
+                {monthsSinceJoining} month(s)
+              </p>
+            </div>
+          </div>
+
+          {/* Summary Cards */}
+          <div className="grid grid-cols-3 gap-3 mb-6">
+            <div className="bg-blue-50 p-3 rounded-lg text-center">
+              <p className="text-xs text-blue-600">Total Expected Rent</p>
+              <p className="text-lg font-bold text-blue-700">{formatCurrency(totalExpectedRent)}</p>
+            </div>
+            <div className="bg-green-50 p-3 rounded-lg text-center">
+              <p className="text-xs text-green-600">Total Rent Paid</p>
+              <p className="text-lg font-bold text-green-700">{formatCurrency(totalRentPaid)}</p>
+            </div>
+            <div className="bg-amber-50 p-3 rounded-lg text-center">
+              <p className="text-xs text-amber-600">Total Rent Pending</p>
+              <p className="text-lg font-bold text-amber-700">{formatCurrency(totalRentPending)}</p>
+            </div>
+          </div>
+
+          {/* Security Deposit Card */}
+          {/* <div className="mb-6 p-4 bg-purple-50 rounded-lg">
+            <div className="grid grid-cols-3 gap-4 text-center">
+              <div>
+                <p className="text-xs text-purple-600">Security Deposit</p>
+                <p className="text-lg font-bold text-purple-700">{formatCurrency(totalSecurityDeposit)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-purple-600">Deposit Paid</p>
+                <p className="text-lg font-bold text-green-600">{formatCurrency(totalDepositPaid)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-purple-600">Deposit Pending</p>
+                <p className="text-lg font-bold text-amber-600">{formatCurrency(depositPending)}</p>
+              </div>
+            </div>
+          </div> */}
+
+          {/* Payment History Table */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="bg-slate-100">
+                  <th className="border p-2 text-left">Date</th>
+                  <th className="border p-2 text-left">Description</th>
+                  <th className="border p-2 text-left">Payment Mode</th>
+                  <th className="border p-2 text-left">Transaction ID</th>
+                  <th className="border p-2 text-left">Remark</th>
+                  <th className="border p-2 text-right">Amount (₹)</th>
+                  <th className="border p-2 text-left">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tenantPayments.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="border p-4 text-center text-slate-500">
+                      No payment records found
+                    </td>
+                  </tr>
+                ) : (
+                  tenantPayments.map((payment: any, index: number) => (
+                    <tr key={payment.id} className={index % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
+                      <td className="border p-2">{format(new Date(payment.payment_date), 'dd-MMM-yyyy')}</td>
+                      <td className="border p-2">
+                        {payment.payment_type === 'rent' ? 'Rent Payment' : 'Security Deposit'}
+                        {payment.month && payment.year && payment.payment_type === 'rent' && (
+                          <span className="text-xs text-slate-400 block">Period: {payment.month} {payment.year}</span>
+                        )}
+                      </td>
+                      <td className="border p-2 capitalize">
+                        {payment.payment_mode}
+                        {payment.bank_name && <span className="text-xs text-slate-400 block">{payment.bank_name}</span>}
+                      </td>
+                      <td className="border p-2 font-mono text-xs">
+                        {payment.transaction_id || '-'}
+                      </td>
+                      <td className="border p-2 text-xs max-w-[200px] truncate" title={payment.remark || '-'}>
+                        {payment.remark || '-'}
+                      </td>
+                      <td className="border p-2 text-right font-medium">
+                        {formatCurrency(payment.amount)}
+                      </td>
+                      <td className="border p-2">
+                        <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
+                          payment.status === 'approved' ? 'bg-green-100 text-green-800' :
+                          payment.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-red-100 text-red-800'
+                        }`}>
+                          {payment.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+              <tfoot>
+                <tr className="bg-slate-100 font-semibold">
+                  <td colSpan={5} className="border p-2 text-right">Total</td>
+                  <td className="border p-2 text-right font-bold text-lg">{formatCurrency(grandTotal)}</td>
+                  <td className="border p-2"></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          {/* Footer Note */}
+          <div className="mt-6 pt-4 border-t text-center text-xs text-slate-400">
+            <p>This is a computer generated report. No signature required.</p>
+            <p>Generated on: {format(new Date(), 'dd MMM yyyy, hh:mm a')}</p>
+            <p className="mt-1">For any queries, please contact us at {contactPhone}</p>
+          </div>
+        </div>
+
+        <DialogFooter className="no-print">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
+          <Button onClick={handlePrint} className="bg-blue-600 hover:bg-blue-700">
+            <Printer className="h-4 w-4 mr-2" />
+            Save as PDF
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
 export default function PaymentsPage() {
   const [payments, setPayments] = useState<paymentApi.Payment[]>([]);
   const [receipts, setReceipts] = useState<paymentApi.Receipt[]>([]);
@@ -192,6 +591,26 @@ export default function PaymentsPage() {
   const [highlightedReceipt, setHighlightedReceipt] = useState<number | null>(
     null,
   );
+
+  // Add these state variables with your other useState declarations
+  const [properties, setProperties] = useState<any[]>([]);
+  const [rooms, setRooms] = useState<any[]>([]);
+  const [filteredTenants, setFilteredTenants] = useState<Tenant[]>([]);
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string>("");
+  const [selectedRoomId, setSelectedRoomId] = useState<string>("");
+  const [loadingProperties, setLoadingProperties] = useState(false);
+  const [loadingRooms, setLoadingRooms] = useState(false);
+
+  // Add these with your other useState declarations
+  const [propertySearch, setPropertySearch] = useState("");
+  const [roomSearch, setRoomSearch] = useState("");
+  const [filteredProperties, setFilteredProperties] = useState<any[]>([]);
+  const [filteredRooms, setFilteredRooms] = useState<any[]>([]);
+
+  // Add this with your other useState declarations
+  const [isLedgerReportOpen, setIsLedgerReportOpen] = useState(false);
+  const [selectedLedgerTenant, setSelectedLedgerTenant] = useState<any>(null);
+
   // Add this with your other useState declarations
   const [expandedRows, setExpandedRows] = useState<number[]>([]);
   // Add these state variables with your other useState declarations
@@ -203,8 +622,10 @@ export default function PaymentsPage() {
   const [rejectionReasons, setRejectionReasons] = useState<any[]>([]);
   const [selectedRejectionCategory, setSelectedRejectionCategory] =
     useState<string>("");
-    const [showPaymentFilterSidebar, setShowPaymentFilterSidebar] = useState(false);
-  const [showReceiptFilterSidebar, setShowReceiptFilterSidebar] = useState(false);
+  const [showPaymentFilterSidebar, setShowPaymentFilterSidebar] =
+    useState(false);
+  const [showReceiptFilterSidebar, setShowReceiptFilterSidebar] =
+    useState(false);
   const [showDemandFilterSidebar, setShowDemandFilterSidebar] = useState(false);
   const [columnFilters, setColumnFilters] = useState({
     payment_date: "",
@@ -390,6 +811,187 @@ export default function PaymentsPage() {
     }
   };
 
+// Handle ledger report - FIXED to extract monthly rent from current_assignment
+const handleLedgerReport = (tenantId: number, tenantData: any) => {
+  console.log("🔍 Ledger report called for tenant:", tenantId);
+  
+  // Find the complete tenant object from the tenants array
+  const completeTenant = tenants.find(t => t.id === tenantId);
+  
+  // Get all payments for this tenant
+  const tenantPayments = payments.filter((p) => p.tenant_id === tenantId);
+  
+  console.log("Complete tenant data:", completeTenant);
+  
+  // Extract room, property info, and monthly rent from current_assignment
+  let roomNumber = null;
+  let bedNumber = null;
+  let propertyName = null;
+  let monthlyRent = 0;
+  let securityDeposit = 0;
+  
+  if (completeTenant?.current_assignment) {
+    roomNumber = completeTenant.current_assignment.room_number;
+    bedNumber = completeTenant.current_assignment.bed_number;
+    propertyName = completeTenant.current_assignment.property_name;
+    monthlyRent = completeTenant.current_assignment.tenant_rent || 0;
+  }
+  
+  // Also check direct properties as fallback
+  if (!roomNumber && completeTenant?.room_id) {
+    roomNumber = completeTenant.room_number;
+  }
+  if (!propertyName && completeTenant?.property_name) {
+    propertyName = completeTenant.property_name;
+  }
+  
+  // Get security deposit from property or from payments
+  // Look for security deposit payment
+  const securityDepositPayment = tenantPayments.find(p => p.payment_type === 'security_deposit');
+  if (securityDepositPayment && securityDepositPayment.total_amount) {
+    securityDeposit = securityDepositPayment.total_amount;
+  } else if (completeTenant?.security_deposit) {
+    securityDeposit = completeTenant.security_deposit;
+  }
+  
+  setSelectedLedgerTenant({
+    id: tenantId,
+    name: completeTenant?.full_name || getTenantName(tenantId),
+    phone: completeTenant?.phone || getTenantPhone(tenantId),
+    email: completeTenant?.email || '',
+    salutation: completeTenant?.salutation || getTenantSalutation(tenantId),
+    country_code: completeTenant?.country_code || getTenantCountryCode(tenantId),
+    room_number: roomNumber,
+    bed_number: bedNumber,
+    property_name: propertyName,
+    monthly_rent: monthlyRent,
+    check_in_date: completeTenant?.check_in_date,
+    security_deposit: securityDeposit,
+    payments: tenantPayments,
+  });
+  
+  setIsLedgerReportOpen(true);
+};
+
+// Add this helper function
+const formatCurrency = (amount: number) => {
+  if (isNaN(amount) || amount === 0) return '₹0';
+  return `₹${amount.toLocaleString('en-IN')}`;
+};
+
+  // Fetch all properties
+  const fetchProperties = async () => {
+    setLoadingProperties(true);
+    try {
+      const response = await fetch("/api/properties");
+      const data = await response.json();
+      if (data.success) {
+        setProperties(data.data);
+        setFilteredProperties(data.data);
+      }
+    } catch (error) {
+      console.error("Error fetching properties:", error);
+    } finally {
+      setLoadingProperties(false);
+    }
+  };
+
+  // Fetch rooms by property
+  const fetchRoomsByProperty = async (propertyId: string) => {
+    if (!propertyId) {
+      setRooms([]);
+      setFilteredRooms([]);
+      return;
+    }
+
+    setLoadingRooms(true);
+    try {
+      const response = await fetch(`/api/rooms/property/${propertyId}`);
+      const data = await response.json();
+      if (data.success) {
+        setRooms(data.data);
+        // Filter rooms based on roomSearch state
+        const filtered = data.data.filter((room: any) =>
+          room.room_number
+            .toString()
+            .toLowerCase()
+            .includes(roomSearch.toLowerCase()),
+        );
+        setFilteredRooms(filtered);
+      }
+    } catch (error) {
+      console.error("Error fetching rooms:", error);
+    } finally {
+      setLoadingRooms(false);
+    }
+  };
+
+  // Then use it in fetchTenantsByRoom:
+  const fetchTenantsByRoom = async (roomId: string) => {
+    if (!roomId) {
+      setFilteredTenants([]);
+      return;
+    }
+
+    try {
+      const response = await tenantApi.getTenantsByRoom(roomId);
+      if (response.success && response.data) {
+        setFilteredTenants(response.data);
+        console.log(
+          `✅ Found ${response.data.length} tenants for room ${roomId}`,
+        );
+      } else {
+        setFilteredTenants([]);
+      }
+    } catch (error) {
+      console.error("Error fetching tenants by room:", error);
+      setFilteredTenants([]);
+    }
+  };
+
+  // Handle property search
+  const handlePropertySearch = (search: string) => {
+    setPropertySearch(search);
+    const filtered = properties.filter((property) =>
+      property.name.toLowerCase().includes(search.toLowerCase()),
+    );
+    setFilteredProperties(filtered);
+  };
+
+  // Handle room search
+  const handleRoomSearch = (search: string) => {
+    setRoomSearch(search);
+    const filtered = rooms.filter((room) =>
+      room.room_number.toString().toLowerCase().includes(search.toLowerCase()),
+    );
+    setFilteredRooms(filtered);
+  };
+
+  // Handle property change
+  const handlePropertyChange = async (propertyId: string) => {
+    setSelectedPropertyId(propertyId);
+    setSelectedRoomId(""); // Reset room selection
+    setNewPayment((prev) => ({ ...prev, tenant_id: "" })); // Reset tenant selection
+    setFilteredTenants([]); // Clear tenants
+    setRoomSearch(""); // Reset room search
+    setFilteredRooms([]); // Clear filtered rooms
+    await fetchRoomsByProperty(propertyId);
+  };
+
+  // Handle room change
+  // Handle room change
+  const handleRoomChange = async (roomId: string) => {
+    setSelectedRoomId(roomId);
+    setNewPayment((prev) => ({ ...prev, tenant_id: "" })); // Reset tenant selection
+    setFilteredTenants([]); // Clear tenants while loading
+    await fetchTenantsByRoom(roomId);
+  };
+
+  // Add this useEffect
+  useEffect(() => {
+    fetchProperties();
+  }, []);
+
   const loadTenants = async () => {
     try {
       const response = await listTenants({ is_active: true });
@@ -413,38 +1015,38 @@ export default function PaymentsPage() {
   };
 
   // Add this function to fetch security deposit info
-// Update fetchSecurityDepositInfo function
-const fetchSecurityDepositInfo = async (tenantId: number) => {
-  try {
-    const response = await paymentApi.getSecurityDepositInfo(tenantId);
-    if (response.success) {
-      setSecurityDepositInfo(response.data);
-    } else {
-      // If endpoint doesn't exist, set default values
+  // Update fetchSecurityDepositInfo function
+  const fetchSecurityDepositInfo = async (tenantId: number) => {
+    try {
+      const response = await paymentApi.getSecurityDepositInfo(tenantId);
+      if (response.success) {
+        setSecurityDepositInfo(response.data);
+      } else {
+        // If endpoint doesn't exist, set default values
+        setSecurityDepositInfo({
+          property_name: "N/A",
+          security_deposit: 0,
+          paid_amount: 0,
+          pending_amount: 0,
+          is_fully_paid: true,
+          last_payment_date: null,
+          payments: [],
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching security deposit info:", error);
+      // Set default values instead of failing
       setSecurityDepositInfo({
-        property_name: 'N/A',
+        property_name: "N/A",
         security_deposit: 0,
         paid_amount: 0,
         pending_amount: 0,
         is_fully_paid: true,
         last_payment_date: null,
-        payments: []
+        payments: [],
       });
     }
-  } catch (error) {
-    console.error("Error fetching security deposit info:", error);
-    // Set default values instead of failing
-    setSecurityDepositInfo({
-      property_name: 'N/A',
-      security_deposit: 0,
-      paid_amount: 0,
-      pending_amount: 0,
-      is_fully_paid: true,
-      last_payment_date: null,
-      payments: []
-    });
-  }
-};
+  };
 
   // Update handleTenantSelect to fetch deposit info
   const handleTenantSelect = async (tenantId: string) => {
@@ -469,9 +1071,6 @@ const fetchSecurityDepositInfo = async (tenantId: number) => {
       const formResponse = await paymentApi.getTenantPaymentFormData(
         parseInt(tenantId),
       );
-
-      console.log("🔍 API Response:", formResponse);
-      console.log("🔍 offer_info:", formResponse.data?.offer_info);
 
       if (formResponse.success) {
         setPaymentFormData(formResponse.data);
@@ -613,110 +1212,80 @@ const fetchSecurityDepositInfo = async (tenantId: number) => {
     }
   };
 
-  
+  // In your PaymentsPage component - Simplified handleAddPayment
 
-// Update the handleAddPayment function in your PaymentsPage component
-
-const handleAddPayment = async () => {
-  if (!newPayment.tenant_id || !newPayment.amount) {
-    toast.error("Please select a tenant and enter an amount");
-    return;
-  }
-
-  try {
-    // ✅ STEP 1: Fetch latest rent payment
-    const latestPaymentRes = await getLatestRentPayment(
-      parseInt(newPayment.tenant_id),
-    );
-
-    // ✅ FIX: Add null check for latestPaymentRes.data
-    const latestPayment = latestPaymentRes?.data;
-    
-    // Get payment form data to calculate total pending
-    const formResponse = await paymentApi.getTenantPaymentFormData(
-      parseInt(newPayment.tenant_id)
-    );
-    
-    if (!formResponse.success || !formResponse.data) {
-      toast.error("Could not load tenant payment data");
+  const handleAddPayment = async () => {
+    if (!newPayment.tenant_id || !newPayment.amount) {
+      toast.error("Please select a tenant and enter an amount");
       return;
     }
-    
-    const paymentFormData = formResponse.data;
-    
-    // Calculate total amount (sum of all pending months)
-    const totalAmount = paymentFormData.total_expected || 0;
-    const previousBalance = paymentFormData.total_pending || 0;
-    const amount = parseFloat(newPayment.amount);
-    const newBalance = Math.max(0, previousBalance - amount);
-    
-    // Prepare payment data
-    const paymentData: any = {
-      tenant_id: parseInt(newPayment.tenant_id),
-      booking_id: newPayment.booking_id,
-      payment_type: newPayment.payment_type,
-      amount: amount,
-      total_amount: totalAmount,
-      previous_balance: previousBalance,
-      new_balance: newBalance,
-      discounted_amount: 0,
-      payment_mode: newPayment.payment_mode,
-      bank_name: newPayment.bank_name || null,
-      transaction_id: newPayment.transaction_id || null,
-      payment_date: newPayment.payment_date,
-      remark: newPayment.remark || null,
-    };
-    
-    console.log("Prepared payment data:", paymentData);
 
-    // If a specific month is selected, add month information
-    if (selectedPaymentMonth && selectedPaymentMonth !== "current") {
-      const [year, month] = selectedPaymentMonth.split("-");
-      const monthNames = [
-        "January", "February", "March", "April", "May", "June",
-        "July", "August", "September", "October", "November", "December"
-      ];
-      
-      paymentData.month = monthNames[parseInt(month) - 1];
-      paymentData.year = parseInt(year);
-      paymentData.remark = `Payment for ${paymentData.month} ${paymentData.year}` +
-        (newPayment.remark ? ` - ${newPayment.remark}` : "");
-    } else {
-      // Default to current month
+    try {
+      const amount = parseFloat(newPayment.amount);
+
+      // Prepare payment data (let backend handle distribution)
+      const paymentData: any = {
+        tenant_id: parseInt(newPayment.tenant_id),
+        booking_id: newPayment.booking_id,
+        payment_type: newPayment.payment_type,
+        amount: amount,
+        payment_mode: newPayment.payment_mode,
+        bank_name: newPayment.bank_name || null,
+        transaction_id: newPayment.transaction_id || null,
+        payment_date: newPayment.payment_date,
+        remark: newPayment.remark || null,
+      };
+
+      // Add month/year for the payment record itself
       const currentDate = new Date();
-      paymentData.month = currentDate.toLocaleString("default", { month: "long" });
+      paymentData.month = currentDate.toLocaleString("default", {
+        month: "long",
+      });
       paymentData.year = currentDate.getFullYear();
-      paymentData.remark = newPayment.remark || null;
-    }
 
-    const response = await paymentApi.createPayment(paymentData);
+      console.log("Sending payment data:", paymentData);
 
-    if (response.success && response.data) {
-      if (proofFile) {
-        await paymentApi.uploadPaymentProof(response.data.id, proofFile);
+      const response = await paymentApi.createPayment(paymentData);
+
+      if (response.success && response.data) {
+        if (proofFile) {
+          await paymentApi.uploadPaymentProof(response.data.id, proofFile);
+        }
+
+        toast.success(
+          `Payment of ₹${amount.toLocaleString()} added successfully`,
+        );
+
+        // Show distribution details if available
+        if (
+          response.data.distribution &&
+          response.data.distribution.length > 0
+        ) {
+          console.log("Payment Distribution:", response.data.distribution);
+        }
+
+        // Refresh all data
+        setIsAddPaymentOpen(false);
+        resetPaymentForm();
+        await loadData();
+
+        // Refresh the payment form data for the current tenant if still selected
+        if (newPayment.tenant_id) {
+          const formResponse = await paymentApi.getTenantPaymentFormData(
+            parseInt(newPayment.tenant_id),
+          );
+          if (formResponse.success) {
+            setPaymentFormData(formResponse.data);
+          }
+        }
+      } else {
+        toast.error(response.message || "Failed to add payment");
       }
-
-      toast.success(`Payment of ₹${amount.toLocaleString()} added successfully`);
-
-      // Refresh the payment form data
-      const updatedFormResponse = await paymentApi.getTenantPaymentFormData(
-        parseInt(newPayment.tenant_id)
-      );
-      if (updatedFormResponse.success) {
-        setPaymentFormData(updatedFormResponse.data);
-      }
-
-      setIsAddPaymentOpen(false);
-      resetPaymentForm();
-      await loadData();
-    } else {
-      toast.error(response.message || "Failed to add payment");
+    } catch (error: any) {
+      console.error("Payment error:", error);
+      toast.error(error.message || "Failed to add payment");
     }
-  } catch (error: any) {
-    console.error("Payment error:", error);
-    toast.error(error.message || "Failed to add payment");
-  }
-};
+  };
 
   const handleDemandPayment = async () => {
     if (
@@ -912,58 +1481,82 @@ const handleAddPayment = async () => {
     }
   };
 
-  // Add this function in your PaymentsPage component
-  const groupPaymentsByTenant = (payments: any[]) => {
-    const grouped: { [key: string]: any } = {};
+const groupPaymentsByTenant = (payments: any[]) => {
+  const grouped: { [key: string]: any } = {};
 
-    payments.forEach((payment) => {
-      const tenantId = payment.tenant_id;
-      const tenantName = getTenantName(tenantId);
-      const tenantPhone = getTenantPhone(tenantId);
+  payments.forEach((payment) => {
+    const tenantId = payment.tenant_id;
+    const tenantName = getTenantName(tenantId);
+    const tenantPhone = getTenantPhone(tenantId);
+    
+    // Find the complete tenant object
+    const completeTenant = tenants.find(t => t.id === tenantId);
 
-      if (!grouped[tenantId]) {
-        grouped[tenantId] = {
-          tenant_id: tenantId,
-          tenant_name: tenantName,
-          tenant_phone: tenantPhone,
-          total_amount: 0,
-          payment_count: 0,
-          last_payment_date: null,
-          payments: [],
-          approved_count: 0,
-          pending_count: 0,
-          rejected_count: 0,
-        };
-      }
+    if (!grouped[tenantId]) {
+      grouped[tenantId] = {
+        tenant_id: tenantId,
+        tenant_name: tenantName,
+        tenant_phone: tenantPhone,
+        tenant_email: completeTenant?.email || '',
+        tenant_salutation: completeTenant?.salutation || getTenantSalutation(tenantId),
+        tenant_country_code: completeTenant?.country_code || getTenantCountryCode(tenantId),
+        total_amount: 0,
+        payment_count: 0,
+        last_payment_date: null,
+        payments: [],
+        approved_count: 0,
+        pending_count: 0,
+        rejected_count: 0,
+        has_online_booking: false,
+        has_manual_payment: false,
+        // ✅ Add complete tenant details
+        room_number: completeTenant?.room_number || payment.room_number,
+        bed_number: completeTenant?.bed_number || payment.bed_number,
+        property_name: completeTenant?.property_name || payment.property_name,
+        monthly_rent: completeTenant?.monthly_rent || payment.monthly_rent,
+        check_in_date: completeTenant?.check_in_date,
+        security_deposit: completeTenant?.security_deposit || 0,
+        room_info: completeTenant?.room_info,
+        email: completeTenant?.email,
+      };
+    }
 
-      // Add payment to array
-      grouped[tenantId].payments.push(payment);
+    // Add payment to array
+    grouped[tenantId].payments.push(payment);
 
-      // SUM the amount correctly (convert to number)
-      grouped[tenantId].total_amount += Number(payment.amount) || 0;
+    // SUM the amount correctly (convert to number)
+    grouped[tenantId].total_amount += Number(payment.amount) || 0;
 
-      // Increment payment count
-      grouped[tenantId].payment_count += 1;
+    // Increment payment count
+    grouped[tenantId].payment_count += 1;
 
-      // Count by status
-      if (payment.status === "approved") grouped[tenantId].approved_count += 1;
-      else if (payment.status === "pending")
-        grouped[tenantId].pending_count += 1;
-      else if (payment.status === "rejected")
-        grouped[tenantId].rejected_count += 1;
+    // Count by status
+    if (payment.status === "approved") grouped[tenantId].approved_count += 1;
+    else if (payment.status === "pending") grouped[tenantId].pending_count += 1;
+    else if (payment.status === "rejected") grouped[tenantId].rejected_count += 1;
 
-      // Track last payment date
-      const paymentDate = new Date(payment.payment_date);
-      if (
-        !grouped[tenantId].last_payment_date ||
-        paymentDate > new Date(grouped[tenantId].last_payment_date)
-      ) {
-        grouped[tenantId].last_payment_date = payment.payment_date;
-      }
-    });
+    // Check if payment came from online booking
+    if (payment.booking_id && payment.payment_mode === "online") {
+      grouped[tenantId].has_online_booking = true;
+    }
 
-    return Object.values(grouped);
-  };
+    // Check if payment is manual admin payment
+    if (!payment.booking_id || payment.payment_mode !== "online") {
+      grouped[tenantId].has_manual_payment = true;
+    }
+
+    // Track last payment date
+    const paymentDate = new Date(payment.payment_date);
+    if (
+      !grouped[tenantId].last_payment_date ||
+      paymentDate > new Date(grouped[tenantId].last_payment_date)
+    ) {
+      grouped[tenantId].last_payment_date = payment.payment_date;
+    }
+  });
+
+  return Object.values(grouped);
+};
 
   // Add this function to fetch settings
   const fetchSettings = async () => {
@@ -1139,16 +1732,36 @@ const handleAddPayment = async () => {
   };
 
   // Bed Assignment Details Component - Table Row Format
-// Bed Assignment Details Component - Table Row Format (FIXED)
-const BedAssignmentTable = ({
-  formData,
-}: {
-  formData: PaymentFormData | null;
-}) => {
-  console.log("bed assignment form data", formData);
-  
-  // Add null checks and safe navigation
-  if (!formData?.room_info) {
+  // Bed Assignment Details Component - Table Row Format (FIXED)
+  const BedAssignmentTable = ({
+    formData,
+  }: {
+    formData: PaymentFormData | null;
+  }) => {
+    // Add null checks and safe navigation
+    if (!formData?.room_info) {
+      return (
+        <div className="bg-white rounded-lg border border-slate-200 mb-4 overflow-hidden">
+          <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
+            <h4 className="text-xs font-semibold text-slate-700 flex items-center gap-2">
+              <Bed className="h-3.5 w-3.5" />
+              Bed Assignment Details
+            </h4>
+          </div>
+          <div className="p-4 text-center text-slate-500 text-sm">
+            No bed assignment found for this tenant
+          </div>
+        </div>
+      );
+    }
+
+    // Safe access with fallback values
+    const propertyName = formData.room_info.property_name || "N/A";
+    const roomNumber = formData.room_info.room_number || "N/A";
+    const bedNumber = formData.room_info.bed_number || "N/A";
+    const bedType = formData.room_info.bed_type || "N/A";
+    const monthlyRent = formData.monthly_rent || 0;
+
     return (
       <div className="bg-white rounded-lg border border-slate-200 mb-4 overflow-hidden">
         <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
@@ -1157,78 +1770,87 @@ const BedAssignmentTable = ({
             Bed Assignment Details
           </h4>
         </div>
-        <div className="p-4 text-center text-slate-500 text-sm">
-          No bed assignment found for this tenant
+        <div className="p-4">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50">
+              <tr>
+                <th className="text-left p-2 text-xs font-medium text-slate-600">
+                  Property
+                </th>
+                <th className="text-left p-2 text-xs font-medium text-slate-600">
+                  Room
+                </th>
+                <th className="text-left p-2 text-xs font-medium text-slate-600">
+                  Bed #
+                </th>
+                <th className="text-left p-2 text-xs font-medium text-slate-600">
+                  Bed Type
+                </th>
+                <th className="text-left p-2 text-xs font-medium text-slate-600">
+                  Monthly Rent
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="border-t border-slate-200">
+                <td className="p-2 text-sm">{propertyName}</td>
+                <td className="p-2 text-sm">{roomNumber}</td>
+                <td className="p-2 text-sm font-medium">#{bedNumber}</td>
+                <td className="p-2 text-sm capitalize">{bedType}</td>
+                <td className="p-2 text-sm font-semibold text-green-600">
+                  ₹
+                  {typeof monthlyRent === "number"
+                    ? monthlyRent.toLocaleString()
+                    : monthlyRent}
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     );
-  }
-
-  // Safe access with fallback values
-  const propertyName = formData.room_info.property_name || 'N/A';
-  const roomNumber = formData.room_info.room_number || 'N/A';
-  const bedNumber = formData.room_info.bed_number || 'N/A';
-  const bedType = formData.room_info.bed_type || 'N/A';
-  const monthlyRent = formData.monthly_rent || 0;
-
-  return (
-    <div className="bg-white rounded-lg border border-slate-200 mb-4 overflow-hidden">
-      <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
-        <h4 className="text-xs font-semibold text-slate-700 flex items-center gap-2">
-          <Bed className="h-3.5 w-3.5" />
-          Bed Assignment Details
-        </h4>
-      </div>
-      <div className="p-4">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50">
-            <tr>
-              <th className="text-left p-2 text-xs font-medium text-slate-600">
-                Property
-              </th>
-              <th className="text-left p-2 text-xs font-medium text-slate-600">
-                Room
-              </th>
-              <th className="text-left p-2 text-xs font-medium text-slate-600">
-                Bed #
-              </th>
-              <th className="text-left p-2 text-xs font-medium text-slate-600">
-                Bed Type
-              </th>
-              <th className="text-left p-2 text-xs font-medium text-slate-600">
-                Monthly Rent
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr className="border-t border-slate-200">
-              <td className="p-2 text-sm">
-                {propertyName}
-              </td>
-              <td className="p-2 text-sm">
-                {roomNumber}
-              </td>
-              <td className="p-2 text-sm font-medium">
-                #{bedNumber}
-              </td>
-              <td className="p-2 text-sm capitalize">
-                {bedType}
-              </td>
-              <td className="p-2 text-sm font-semibold text-green-600">
-                ₹{typeof monthlyRent === 'number' ? monthlyRent.toLocaleString() : monthlyRent}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-};
+  };
 
   // Rent Summary Table Component
-// Rent Summary Table Component - With null checks
-const RentSummaryTable = ({ formData }: { formData: any }) => {
-  if (!formData) {
+  // Rent Summary Table Component - With null checks
+  const RentSummaryTable = ({ formData }: { formData: any }) => {
+    if (!formData) {
+      return (
+        <div className="bg-white rounded-lg border border-slate-200 mb-4 overflow-hidden">
+          <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
+            <h4 className="text-xs font-semibold text-slate-700 flex items-center gap-2">
+              <IndianRupee className="h-3.5 w-3.5" />
+              Rent History Since Joining
+            </h4>
+          </div>
+          <div className="p-4 text-center text-slate-500 text-sm">
+            Loading rent history...
+          </div>
+        </div>
+      );
+    }
+
+    // Use month_wise_history or groupedPayments (fallback for backward compatibility)
+    const months =
+      formData.month_wise_history || formData.groupedPayments || [];
+    const originalMonthlyRent = formData.monthly_rent || 0;
+
+    if (months.length === 0) {
+      return (
+        <div className="bg-white rounded-lg border border-slate-200 mb-4 overflow-hidden">
+          <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
+            <h4 className="text-xs font-semibold text-slate-700 flex items-center gap-2">
+              <IndianRupee className="h-3.5 w-3.5" />
+              Rent History Since Joining
+            </h4>
+          </div>
+          <div className="p-4 text-center text-slate-500 text-sm">
+            No rent history available
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="bg-white rounded-lg border border-slate-200 mb-4 overflow-hidden">
         <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
@@ -1236,171 +1858,162 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
             <IndianRupee className="h-3.5 w-3.5" />
             Rent History Since Joining
           </h4>
+          <p className="text-xs text-slate-500 mt-1">
+            Showing from {months[0]?.month} {months[0]?.year} to{" "}
+            {months[months.length - 1]?.month} {months[months.length - 1]?.year}
+          </p>
         </div>
-        <div className="p-4 text-center text-slate-500 text-sm">
-          Loading rent history...
+
+        <div className="p-4 max-h-[300px] overflow-y-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 sticky top-0">
+              <tr>
+                <th className="text-left p-2 text-xs font-medium text-slate-600">
+                  Month
+                </th>
+                <th className="text-right p-2 text-xs font-medium text-slate-600">
+                  Rent
+                </th>
+                <th className="text-right p-2 text-xs font-medium text-slate-600">
+                  Paid
+                </th>
+                <th className="text-right p-2 text-xs font-medium text-slate-600">
+                  Discount
+                </th>
+                <th className="text-right p-2 text-xs font-medium text-slate-600">
+                  Pending
+                </th>
+                <th className="text-center p-2 text-xs font-medium text-slate-600">
+                  Status
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {months.map((month: any, index: number) => {
+                // Add safe navigation
+                if (!month) return null;
+
+                const rent = month?.rent || month?.total_amount || 0;
+                const paid = month?.paid || month?.amount || 0;
+                const pending = month?.pending || month?.new_balance || 0;
+                const discount =
+                  month?.discount_applied || month?.discount_amount || 0;
+                const status = month?.status || "pending";
+                const monthName = month?.month || "Unknown";
+                const year = month?.year || new Date().getFullYear();
+
+                const isCurrentMonth = (() => {
+                  const now = new Date();
+                  const monthNum =
+                    new Date(Date.parse(monthName + " 1, " + year)).getMonth() +
+                    1;
+                  return (
+                    monthNum === now.getMonth() + 1 &&
+                    year === now.getFullYear()
+                  );
+                })();
+
+                return (
+                  <tr
+                    key={`${index}`}
+                    className={`border-t border-slate-200 ${
+                      isCurrentMonth ? "bg-blue-50" : ""
+                    } ${discount > 0 ? "bg-green-50" : ""}`}
+                  >
+                    <td className="p-2 text-sm font-medium">
+                      {monthName} {year}
+                      {discount > 0 && (
+                        <span className="ml-2 text-[10px] text-green-600">
+                          (Discounted)
+                        </span>
+                      )}
+                    </td>
+                    <td className="p-2 text-right">
+                      ₹{typeof rent === "number" ? rent.toLocaleString() : rent}
+                      {month.original_rent && month.original_rent !== rent && (
+                        <span className="text-[10px] text-slate-400 line-through ml-1">
+                          ₹{month.original_rent?.toLocaleString()}
+                        </span>
+                      )}
+                    </td>
+                    <td className="p-2 text-right text-green-600 font-medium">
+                      ₹{typeof paid === "number" ? paid.toLocaleString() : paid}
+                    </td>
+                    <td className="p-2 text-right text-red-500">
+                      ₹
+                      {typeof discount === "number"
+                        ? discount.toLocaleString()
+                        : discount}
+                    </td>
+                    <td className="p-2 text-right font-medium">
+                      <span
+                        className={
+                          pending > 0 ? "text-amber-600" : "text-green-600"
+                        }
+                      >
+                        ₹
+                        {typeof pending === "number"
+                          ? pending.toLocaleString()
+                          : pending}
+                      </span>
+                    </td>
+                    <td className="p-2 text-center">
+                      <span
+                        className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                          status === "paid"
+                            ? "bg-green-100 text-green-800"
+                            : status === "partial"
+                              ? "bg-yellow-100 text-yellow-800"
+                              : "bg-red-100 text-red-800"
+                        }`}
+                      >
+                        {status}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Summary Cards */}
+        <div className="grid grid-cols-4 gap-2 p-4 bg-slate-50 border-t border-slate-200">
+          <div className="bg-white p-2 rounded border border-slate-200">
+            <p className="text-xs text-slate-500">Months Since Joining</p>
+            <p className="text-lg font-bold text-slate-700">{months.length}</p>
+          </div>
+          <div className="bg-white p-2 rounded border border-slate-200">
+            <p className="text-xs text-slate-500">Monthly Rent</p>
+            <p className="text-lg font-bold text-green-600">
+              ₹
+              {typeof originalMonthlyRent === "number"
+                ? originalMonthlyRent.toLocaleString()
+                : originalMonthlyRent}
+            </p>
+          </div>
+          <div className="bg-white p-2 rounded border border-slate-200">
+            <p className="text-xs text-slate-500">Total Paid</p>
+            <p className="text-lg font-bold text-blue-600">
+              ₹
+              {typeof formData.total_paid === "number"
+                ? formData.total_paid?.toLocaleString()
+                : formData.total_paid || 0}
+            </p>
+          </div>
+          <div className="bg-white p-2 rounded border border-slate-200">
+            <p className="text-xs text-slate-500">Total Pending</p>
+            <p className="text-lg font-bold text-amber-600">
+              ₹
+              {typeof formData.total_pending === "number"
+                ? formData.total_pending?.toLocaleString()
+                : formData.total_pending || 0}
+            </p>
+          </div>
         </div>
       </div>
     );
-  }
-  
-  // Use month_wise_history or groupedPayments (fallback for backward compatibility)
-  const months = formData.month_wise_history || formData.groupedPayments || [];
-  const originalMonthlyRent = formData.monthly_rent || 0;
-
-  if (months.length === 0) {
-    return (
-      <div className="bg-white rounded-lg border border-slate-200 mb-4 overflow-hidden">
-        <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
-          <h4 className="text-xs font-semibold text-slate-700 flex items-center gap-2">
-            <IndianRupee className="h-3.5 w-3.5" />
-            Rent History Since Joining
-          </h4>
-        </div>
-        <div className="p-4 text-center text-slate-500 text-sm">
-          No rent history available
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="bg-white rounded-lg border border-slate-200 mb-4 overflow-hidden">
-      <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
-        <h4 className="text-xs font-semibold text-slate-700 flex items-center gap-2">
-          <IndianRupee className="h-3.5 w-3.5" />
-          Rent History Since Joining
-        </h4>
-        <p className="text-xs text-slate-500 mt-1">
-          Showing from {months[0]?.month} {months[0]?.year} to {months[months.length - 1]?.month} {months[months.length - 1]?.year}
-        </p>
-      </div>
-
-      <div className="p-4 max-h-[300px] overflow-y-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50 sticky top-0">
-            <tr>
-              <th className="text-left p-2 text-xs font-medium text-slate-600">
-                Month
-              </th>
-              <th className="text-right p-2 text-xs font-medium text-slate-600">
-                Rent
-              </th>
-              <th className="text-right p-2 text-xs font-medium text-slate-600">
-                Paid
-              </th>
-              <th className="text-right p-2 text-xs font-medium text-slate-600">
-                Discount
-              </th>
-              <th className="text-right p-2 text-xs font-medium text-slate-600">
-                Pending
-              </th>
-              <th className="text-center p-2 text-xs font-medium text-slate-600">
-                Status
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {months.map((month: any, index: number) => {
-               // Add safe navigation
-  if (!month) return null;
-  
-  const rent = month?.rent || month?.total_amount || 0;
-  const paid = month?.paid || month?.amount || 0;
-  const pending = month?.pending || month?.new_balance || 0;
-  const discount = month?.discount_applied || month?.discount_amount || 0;
-  const status = month?.status || 'pending';
-  const monthName = month?.month || 'Unknown';
-  const year = month?.year || new Date().getFullYear();
-              
-              const isCurrentMonth = (() => {
-                const now = new Date();
-                const monthNum = new Date(Date.parse(monthName + " 1, " + year)).getMonth() + 1;
-                return monthNum === now.getMonth() + 1 && year === now.getFullYear();
-              })();
-              
-              return (
-                <tr
-                  key={`${index}`}
-                  className={`border-t border-slate-200 ${
-                    isCurrentMonth ? "bg-blue-50" : ""
-                  } ${discount > 0 ? "bg-green-50" : ""}`}
-                >
-                  <td className="p-2 text-sm font-medium">
-                    {monthName} {year}
-                    {discount > 0 && (
-                      <span className="ml-2 text-[10px] text-green-600">
-                        (Discounted)
-                      </span>
-                    )}
-                  </td>
-                  <td className="p-2 text-right">
-                    ₹{typeof rent === 'number' ? rent.toLocaleString() : rent}
-                    {month.original_rent && month.original_rent !== rent && (
-                      <span className="text-[10px] text-slate-400 line-through ml-1">
-                        ₹{month.original_rent?.toLocaleString()}
-                      </span>
-                    )}
-                  </td>
-                  <td className="p-2 text-right text-green-600 font-medium">
-                    ₹{typeof paid === 'number' ? paid.toLocaleString() : paid}
-                  </td>
-                  <td className="p-2 text-right text-red-500">
-                    ₹{typeof discount === 'number' ? discount.toLocaleString() : discount}
-                  </td>
-                  <td className="p-2 text-right font-medium">
-                    <span className={pending > 0 ? "text-amber-600" : "text-green-600"}>
-                      ₹{typeof pending === 'number' ? pending.toLocaleString() : pending}
-                    </span>
-                  </td>
-                  <td className="p-2 text-center">
-                    <span
-                      className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                        status === "paid"
-                          ? "bg-green-100 text-green-800"
-                          : status === "partial"
-                          ? "bg-yellow-100 text-yellow-800"
-                          : "bg-red-100 text-red-800"
-                      }`}
-                    >
-                      {status}
-                    </span>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Summary Cards */}
-      <div className="grid grid-cols-4 gap-2 p-4 bg-slate-50 border-t border-slate-200">
-        <div className="bg-white p-2 rounded border border-slate-200">
-          <p className="text-xs text-slate-500">Months Since Joining</p>
-          <p className="text-lg font-bold text-slate-700">{months.length}</p>
-        </div>
-        <div className="bg-white p-2 rounded border border-slate-200">
-          <p className="text-xs text-slate-500">Monthly Rent</p>
-          <p className="text-lg font-bold text-green-600">
-            ₹{typeof originalMonthlyRent === 'number' ? originalMonthlyRent.toLocaleString() : originalMonthlyRent}
-          </p>
-        </div>
-        <div className="bg-white p-2 rounded border border-slate-200">
-          <p className="text-xs text-slate-500">Total Paid</p>
-          <p className="text-lg font-bold text-blue-600">
-            ₹{typeof formData.total_paid === 'number' ? formData.total_paid?.toLocaleString() : formData.total_paid || 0}
-          </p>
-        </div>
-        <div className="bg-white p-2 rounded border border-slate-200">
-          <p className="text-xs text-slate-500">Total Pending</p>
-          <p className="text-lg font-bold text-amber-600">
-            ₹{typeof formData.total_pending === 'number' ? formData.total_pending?.toLocaleString() : formData.total_pending || 0}
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-};
+  };
 
   {
     /* Security Deposit Info - Show when payment type is security_deposit */
@@ -1546,7 +2159,9 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
     // Date filter (created_at)
     const matchesDate =
       !demandFilters.date ||
-      format(new Date(demand.created_at), "dd/MM/yy").includes(demandFilters.date);
+      format(new Date(demand.created_at), "dd/MM/yy").includes(
+        demandFilters.date,
+      );
 
     // Due date range filters
     const matchesFromDate =
@@ -1559,13 +2174,18 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
     // Amount filter
     const matchesAmount =
       !demandFilters.amount ||
-      Number(demand.amount).toString().includes(demandFilters.amount.toString());
+      Number(demand.amount)
+        .toString()
+        .includes(demandFilters.amount.toString());
 
     // Room/Bed filter
     const matchesRoom =
       !demandFilters.room ||
       (demand.room_number &&
-        demand.room_number.toString().toLowerCase().includes(demandFilters.room.toLowerCase())) ||
+        demand.room_number
+          .toString()
+          .toLowerCase()
+          .includes(demandFilters.room.toLowerCase())) ||
       (demand.bed_number &&
         demand.bed_number.toString().includes(demandFilters.room));
 
@@ -1741,406 +2361,545 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
               canReject={can("reject_payments")}
               canEdit={can("edit_payments")}
               canDelete={can("delete_payments")}
-                           canViewReceipts={can("view_receipts")}
+              canViewReceipts={can("view_receipts")}
               showFilterSidebar={showPaymentFilterSidebar}
               setShowFilterSidebar={setShowPaymentFilterSidebar}
+              onLedgerReport={handleLedgerReport}
             />
-
           </TabsContent>
 
           {/* Demands Tab Content */}
           {/* Demands Tab Content */}
           {/* Demands Tab Content */}
-         <TabsContent value="demands" className="mt-0">
-            <Card className="border-0 shadow-sm overflow-hidden flex flex-col" style={{height:'calc(100vh - 280px)'}}>
+          <TabsContent value="demands" className="mt-0">
+            <Card
+              className="border-0 shadow-sm overflow-hidden flex flex-col"
+              style={{ height: "calc(100vh - 280px)" }}
+            >
               <CardContent className="p-0 flex flex-col flex-1 min-h-0 overflow-hidden">
                 <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-                 <div className="overflow-x-auto flex-1 min-h-0 flex flex-col min-w-0">
-  <div className="min-w-[780px] flex flex-col flex-1 min-h-0">
-    <div className="flex-shrink-0">
-    <Table>
-                      {/* COMPACT HEADER WITH SEARCH BARS */}
-                      <TableHeader className="bg-gray-200 border-b border-gray-300">
-                        <TableRow className="hover:bg-transparent">
-                          {/* Date Column */}
-                          <TableHead className="w-[100px] py-2 px-2 bg-gray-200">
-                            <div className="flex flex-col gap-1">
-                              <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
-                                Date
-                              </span>
-                              <Input
-                                placeholder="dd/mm/yy"
-                                className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
-                                value={demandFilters.date || ""}
-                                onChange={(e) =>
-                                  setDemandFilters({
-                                    ...demandFilters,
-                                    date: e.target.value,
-                                  })
-                                }
-                              />
-                            </div>
-                          </TableHead>
-
-                          {/* Tenant Column - Updated with salutation and phone */}
-                          <TableHead className="w-[200px] py-2 px-2 bg-gray-200">
-                            <div className="flex flex-col gap-1">
-                              <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
-                                Tenant
-                              </span>
-                              <Input
-                                placeholder="Search tenant..."
-                                className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
-                                value={demandFilters.tenant || ""}
-                                onChange={(e) =>
-                                  setDemandFilters({
-                                    ...demandFilters,
-                                    tenant: e.target.value,
-                                  })
-                                }
-                              />
-                            </div>
-                          </TableHead>
-
-                          {/* Amount Column */}
-                          <TableHead className="w-[100px] py-2 px-2 bg-gray-200 text-right">
-                            <div className="flex flex-col gap-1">
-                              <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
-                                Amount
-                              </span>
-                              <Input
-                                placeholder="Search..."
-                                type="number"
-                                className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 text-right font-normal w-full"
-                                value={demandFilters.amount || ""}
-                                onChange={(e) =>
-                                  setDemandFilters({
-                                    ...demandFilters,
-                                    amount: e.target.value,
-                                  })
-                                }
-                              />
-                            </div>
-                          </TableHead>
-
-                          {/* Due Date Column */}
-                          <TableHead className="w-[100px] py-2 px-2 bg-gray-200">
-                            <div className="flex flex-col gap-1">
-                              <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
-                                Due Date
-                              </span>
-                              <Input
-                                type="date"
-                                className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
-                                value={demandFilters.from_date || ""}
-                                onChange={(e) =>
-                                  setDemandFilters({
-                                    ...demandFilters,
-                                    from_date: e.target.value,
-                                  })
-                                }
-                              />
-                            </div>
-                          </TableHead>
-
-                          {/* Status Column */}
-                          <TableHead className="w-[100px] py-2 px-2 bg-gray-200">
-                            <div className="flex flex-col gap-1">
-                              <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
-                                Status
-                              </span>
-                              <Select
-                                value={demandFilters.status || "all"}
-                                onValueChange={(value) =>
-                                  setDemandFilters({
-                                    ...demandFilters,
-                                    status: value,
-                                  })
-                                }
-                              >
-                                <SelectTrigger className="h-6 text-[10px] bg-white border-gray-300 px-2 font-normal w-full">
-                                  <SelectValue placeholder="All" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="all" className="text-xs">
-                                    All
-                                  </SelectItem>
-                                  <SelectItem
-                                    value="pending"
-                                    className="text-xs"
-                                  >
-                                    Pending
-                                  </SelectItem>
-                                  <SelectItem value="paid" className="text-xs">
-                                    Paid
-                                  </SelectItem>
-                                  <SelectItem
-                                    value="partial"
-                                    className="text-xs"
-                                  >
-                                    Partial
-                                  </SelectItem>
-                                  <SelectItem
-                                    value="overdue"
-                                    className="text-xs"
-                                  >
-                                    Overdue
-                                  </SelectItem>
-                                  <SelectItem
-                                    value="cancelled"
-                                    className="text-xs"
-                                  >
-                                    Cancelled
-                                  </SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          </TableHead>
-
-                          {/* Room/Bed Column */}
-                          <TableHead className="w-[100px] py-2 px-2 bg-gray-200">
-                            <div className="flex flex-col gap-1">
-                              <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
-                                Room/Bed
-                              </span>
-                              <Input
-                                placeholder="Search..."
-                                className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
-                                value={demandFilters.room || ""}
-                                onChange={(e) =>
-                                  setDemandFilters({
-                                    ...demandFilters,
-                                    room: e.target.value,
-                                  })
-                                }
-                              />
-                            </div>
-                          </TableHead>
-
-                          {/* Actions Column */}
-                          {/* Actions Column */}
-                          <TableHead className="w-[80px] py-2 px-2 bg-gray-200 text-center">
-                            <div className="flex flex-col gap-1 items-center">
-                              <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
-                                Actions
-                              </span>
-                              <Button
-                                variant="ghost" size="sm"
-                                onClick={() => setShowDemandFilterSidebar(true)}
-                                className="h-5 px-1.5 text-[9px] bg-blue-600 text-white hover:bg-blue-700 rounded w-full"
-                              >
-                                <Filter className="w-2.5 h-2.5 mr-0.5" />
-                                Filter
-                              </Button>
-                            </div>
-                          </TableHead>
-                        </TableRow>
-                     </TableHeader>
-                    </Table>
-                    </div>
-                    <div className="overflow-y-auto flex-1 min-h-0">
-                    <Table>
-                      <colgroup>
-                        <col style={{width:'140px'}} />
-                        <col style={{width:'300px'}} />
-                        <col style={{width:'170px'}} />
-                        <col style={{width:'130px'}} />
-                        <col style={{width:'22px'}} />
-                        <col style={{width:'100px'}} />
-                        <col style={{width:'100px'}} />
-                      </colgroup>
-                      <TableBody>
-                        {loading ? (
-                          <TableRow>
-                            <TableCell
-                              colSpan={8}
-                              className="text-center py-8 text-xs text-slate-500"
-                            >
-                              <div className="flex justify-center items-center">
-                                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-orange-600 mr-2" />
-                                Loading demands...
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ) : filteredDemands.length === 0 ? (
-                          <TableRow>
-                            <TableCell
-                              colSpan={8}
-                              className="text-center py-8 text-xs text-slate-500"
-                            >
-                              <Bell className="h-8 w-8 mx-auto mb-2 text-slate-300" />
-                              No demands found
-                            </TableCell>
-                          </TableRow>
-                        ) : (
-                          filteredDemands.map((demand) => {
-                            // Get salutation and country code for this tenant
-                            const salutation = getTenantSalutation(
-                              demand.tenant_id,
-                            );
-                            const countryCode = getTenantCountryCode(
-                              demand.tenant_id,
-                            );
-                            const phone = getTenantPhone(demand.tenant_id);
-                            const tenantName = getTenantName(demand.tenant_id);
-
-                            return (
-                              <TableRow
-                                key={demand.id}
-                                className="hover:bg-slate-50"
-                              >
-                                <TableCell className="py-2 text-xs whitespace-nowrap">
-                                  {format(
-                                    new Date(demand.created_at),
-                                    "dd/MM/yy",
-                                  )}
-                                </TableCell>
-                                <TableCell className="py-2">
-                                  {/* Show salutation + full name */}
-                                  <p className="text-xs font-medium">
-                                    {salutation ? `${salutation} ` : ""}
-                                    {tenantName}
-                                  </p>
-                                  {/* Show country code + phone number */}
-                                  {phone && (
-                                    <p className="text-[10px] text-slate-500">
-                                      {countryCode || "+91"} {phone}
-                                    </p>
-                                  )}
-                                </TableCell>
-                                <TableCell className="py-2 text-xs font-medium">
-                                  ₹
-                                  {Number(demand.amount).toLocaleString(
-                                    "en-IN",
-                                  )}
-                                </TableCell>
-                                <TableCell className="py-2 text-xs whitespace-nowrap">
-                                  <span
-                                    className={
-                                      new Date(demand.due_date) < new Date() &&
-                                      demand.status === "pending"
-                                        ? "text-red-600 font-medium"
-                                        : ""
-                                    }
-                                  >
-                                    {format(
-                                      new Date(demand.due_date),
-                                      "dd/MM/yy",
-                                    )}
+                  <div className="overflow-x-auto flex-1 min-h-0 flex flex-col min-w-0">
+                    <div className="min-w-[780px] flex flex-col flex-1 min-h-0">
+                      <div className="flex-shrink-0">
+                        <Table>
+                          {/* COMPACT HEADER WITH SEARCH BARS */}
+                          <TableHeader className="bg-gray-200 border-b border-gray-300">
+                            <TableRow className="hover:bg-transparent">
+                              {/* Date Column */}
+                              <TableHead className="w-[100px] py-2 px-2 bg-gray-200">
+                                <div className="flex flex-col gap-1">
+                                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
+                                    Date
                                   </span>
-                                </TableCell>
-                                <TableCell className="py-2">
-                                  {getDemandStatusBadge(demand.status)}
-                                </TableCell>
-                                <TableCell className="py-2 text-xs">
-                                  {demand.room_number || "N/A"}{" "}
-                                  {demand.bed_number
-                                    ? `(B-${demand.bed_number})`
-                                    : ""}
-                                </TableCell>
-                                <TableCell className="py-2">
+                                  <Input
+                                    placeholder="dd/mm/yy"
+                                    className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
+                                    value={demandFilters.date || ""}
+                                    onChange={(e) =>
+                                      setDemandFilters({
+                                        ...demandFilters,
+                                        date: e.target.value,
+                                      })
+                                    }
+                                  />
+                                </div>
+                              </TableHead>
+
+                              {/* Tenant Column - Updated with salutation and phone */}
+                              <TableHead className="w-[200px] py-2 px-2 bg-gray-200">
+                                <div className="flex flex-col gap-1">
+                                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
+                                    Tenant
+                                  </span>
+                                  <Input
+                                    placeholder="Search tenant..."
+                                    className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
+                                    value={demandFilters.tenant || ""}
+                                    onChange={(e) =>
+                                      setDemandFilters({
+                                        ...demandFilters,
+                                        tenant: e.target.value,
+                                      })
+                                    }
+                                  />
+                                </div>
+                              </TableHead>
+
+                              {/* Amount Column */}
+                              <TableHead className="w-[100px] py-2 px-2 bg-gray-200 text-right">
+                                <div className="flex flex-col gap-1">
+                                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
+                                    Amount
+                                  </span>
+                                  <Input
+                                    placeholder="Search..."
+                                    type="number"
+                                    className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 text-right font-normal w-full"
+                                    value={demandFilters.amount || ""}
+                                    onChange={(e) =>
+                                      setDemandFilters({
+                                        ...demandFilters,
+                                        amount: e.target.value,
+                                      })
+                                    }
+                                  />
+                                </div>
+                              </TableHead>
+
+                              {/* Due Date Column */}
+                              <TableHead className="w-[100px] py-2 px-2 bg-gray-200">
+                                <div className="flex flex-col gap-1">
+                                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
+                                    Due Date
+                                  </span>
+                                  <Input
+                                    type="date"
+                                    className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
+                                    value={demandFilters.from_date || ""}
+                                    onChange={(e) =>
+                                      setDemandFilters({
+                                        ...demandFilters,
+                                        from_date: e.target.value,
+                                      })
+                                    }
+                                  />
+                                </div>
+                              </TableHead>
+
+                              {/* Status Column */}
+                              <TableHead className="w-[100px] py-2 px-2 bg-gray-200">
+                                <div className="flex flex-col gap-1">
+                                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
+                                    Status
+                                  </span>
                                   <Select
-                                    value={demand.status}
-                                    onValueChange={(newStatus) =>
-                                      handleUpdateDemandStatus(
-                                        demand.id,
-                                        newStatus,
-                                      )
+                                    value={demandFilters.status || "all"}
+                                    onValueChange={(value) =>
+                                      setDemandFilters({
+                                        ...demandFilters,
+                                        status: value,
+                                      })
                                     }
                                   >
-                                    <SelectTrigger className="h-7 w-24 text-xs">
-                                      <SelectValue />
+                                    <SelectTrigger className="h-6 text-[10px] bg-white border-gray-300 px-2 font-normal w-full">
+                                      <SelectValue placeholder="All" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                      <SelectItem value="pending">
+                                      <SelectItem
+                                        value="all"
+                                        className="text-xs"
+                                      >
+                                        All
+                                      </SelectItem>
+                                      <SelectItem
+                                        value="pending"
+                                        className="text-xs"
+                                      >
                                         Pending
                                       </SelectItem>
-                                      <SelectItem value="paid">Paid</SelectItem>
-                                      <SelectItem value="partial">
+                                      <SelectItem
+                                        value="paid"
+                                        className="text-xs"
+                                      >
+                                        Paid
+                                      </SelectItem>
+                                      <SelectItem
+                                        value="partial"
+                                        className="text-xs"
+                                      >
                                         Partial
                                       </SelectItem>
-                                      <SelectItem value="overdue">
+                                      <SelectItem
+                                        value="overdue"
+                                        className="text-xs"
+                                      >
                                         Overdue
                                       </SelectItem>
-                                      <SelectItem value="cancelled">
+                                      <SelectItem
+                                        value="cancelled"
+                                        className="text-xs"
+                                      >
                                         Cancelled
                                       </SelectItem>
                                     </SelectContent>
                                   </Select>
+                                </div>
+                              </TableHead>
+
+                              {/* Room/Bed Column */}
+                              <TableHead className="w-[100px] py-2 px-2 bg-gray-200">
+                                <div className="flex flex-col gap-1">
+                                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
+                                    Room/Bed
+                                  </span>
+                                  <Input
+                                    placeholder="Search..."
+                                    className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
+                                    value={demandFilters.room || ""}
+                                    onChange={(e) =>
+                                      setDemandFilters({
+                                        ...demandFilters,
+                                        room: e.target.value,
+                                      })
+                                    }
+                                  />
+                                </div>
+                              </TableHead>
+
+                              {/* Actions Column */}
+                              {/* Actions Column */}
+                              <TableHead className="w-[80px] py-2 px-2 bg-gray-200 text-center">
+                                <div className="flex flex-col gap-1 items-center">
+                                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
+                                    Actions
+                                  </span>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() =>
+                                      setShowDemandFilterSidebar(true)
+                                    }
+                                    className="h-5 px-1.5 text-[9px] bg-blue-600 text-white hover:bg-blue-700 rounded w-full"
+                                  >
+                                    <Filter className="w-2.5 h-2.5 mr-0.5" />
+                                    Filter
+                                  </Button>
+                                </div>
+                              </TableHead>
+                            </TableRow>
+                          </TableHeader>
+                        </Table>
+                      </div>
+                      <div className="overflow-y-auto flex-1 min-h-0">
+                        <Table>
+                          <colgroup>
+                            <col style={{ width: "140px" }} />
+                            <col style={{ width: "300px" }} />
+                            <col style={{ width: "170px" }} />
+                            <col style={{ width: "130px" }} />
+                            <col style={{ width: "22px" }} />
+                            <col style={{ width: "100px" }} />
+                            <col style={{ width: "100px" }} />
+                          </colgroup>
+                          <TableBody>
+                            {loading ? (
+                              <TableRow>
+                                <TableCell
+                                  colSpan={8}
+                                  className="text-center py-8 text-xs text-slate-500"
+                                >
+                                  <div className="flex justify-center items-center">
+                                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-orange-600 mr-2" />
+                                    Loading demands...
+                                  </div>
                                 </TableCell>
                               </TableRow>
-                            );
-                          })
-                        )}
-                     </TableBody>
-                    </Table>
-                     </div>
+                            ) : filteredDemands.length === 0 ? (
+                              <TableRow>
+                                <TableCell
+                                  colSpan={8}
+                                  className="text-center py-8 text-xs text-slate-500"
+                                >
+                                  <Bell className="h-8 w-8 mx-auto mb-2 text-slate-300" />
+                                  No demands found
+                                </TableCell>
+                              </TableRow>
+                            ) : (
+                              filteredDemands.map((demand) => {
+                                // Get salutation and country code for this tenant
+                                const salutation = getTenantSalutation(
+                                  demand.tenant_id,
+                                );
+                                const countryCode = getTenantCountryCode(
+                                  demand.tenant_id,
+                                );
+                                const phone = getTenantPhone(demand.tenant_id);
+                                const tenantName = getTenantName(
+                                  demand.tenant_id,
+                                );
+
+                                return (
+                                  <TableRow
+                                    key={demand.id}
+                                    className="hover:bg-slate-50"
+                                  >
+                                    <TableCell className="py-2 text-xs whitespace-nowrap">
+                                      {format(
+                                        new Date(demand.created_at),
+                                        "dd/MM/yy",
+                                      )}
+                                    </TableCell>
+                                    <TableCell className="py-2">
+                                      {/* Show salutation + full name */}
+                                      <p className="text-xs font-medium">
+                                        {salutation ? `${salutation} ` : ""}
+                                        {tenantName}
+                                      </p>
+                                      {/* Show country code + phone number */}
+                                      {phone && (
+                                        <p className="text-[10px] text-slate-500">
+                                          {countryCode || "+91"} {phone}
+                                        </p>
+                                      )}
+                                    </TableCell>
+                                    <TableCell className="py-2 text-xs font-medium">
+                                      ₹
+                                      {Number(demand.amount).toLocaleString(
+                                        "en-IN",
+                                      )}
+                                    </TableCell>
+                                    <TableCell className="py-2 text-xs whitespace-nowrap">
+                                      <span
+                                        className={
+                                          new Date(demand.due_date) <
+                                            new Date() &&
+                                          demand.status === "pending"
+                                            ? "text-red-600 font-medium"
+                                            : ""
+                                        }
+                                      >
+                                        {format(
+                                          new Date(demand.due_date),
+                                          "dd/MM/yy",
+                                        )}
+                                      </span>
+                                    </TableCell>
+                                    <TableCell className="py-2">
+                                      {getDemandStatusBadge(demand.status)}
+                                    </TableCell>
+                                    <TableCell className="py-2 text-xs">
+                                      {demand.room_number || "N/A"}{" "}
+                                      {demand.bed_number
+                                        ? `(B-${demand.bed_number})`
+                                        : ""}
+                                    </TableCell>
+                                    <TableCell className="py-2">
+                                      <Select
+                                        value={demand.status}
+                                        onValueChange={(newStatus) =>
+                                          handleUpdateDemandStatus(
+                                            demand.id,
+                                            newStatus,
+                                          )
+                                        }
+                                      >
+                                        <SelectTrigger className="h-7 w-24 text-xs">
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="pending">
+                                            Pending
+                                          </SelectItem>
+                                          <SelectItem value="paid">
+                                            Paid
+                                          </SelectItem>
+                                          <SelectItem value="partial">
+                                            Partial
+                                          </SelectItem>
+                                          <SelectItem value="overdue">
+                                            Overdue
+                                          </SelectItem>
+                                          <SelectItem value="cancelled">
+                                            Cancelled
+                                          </SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                    </TableCell>
+                                  </TableRow>
+                                );
+                              })
+                            )}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </div>
+                    {/* end min-w wrapper */}
                   </div>
-                  {/* end min-w wrapper */}
+                  {/* end overflow-x wrapper */}
                 </div>
-                {/* end overflow-x wrapper */}
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
             {/* Demands Filter Sidebar */}
-<Sheet open={showDemandFilterSidebar} onOpenChange={setShowDemandFilterSidebar}>
-  <SheetContent side="right" className="p-0 w-[85vw] min-w-[280px] sm:w-[360px]">
-    <div className="h-full flex flex-col">
-      <div className="bg-gradient-to-r from-orange-600 to-red-600 px-4 py-3 flex items-center justify-between flex-shrink-0">
-        <div className="flex items-center gap-2">
-          <Filter className="w-4 h-4 text-white" />
-          <span className="text-sm font-semibold text-white">Filter Demands</span>
-        </div>
-        <button onClick={() => setShowDemandFilterSidebar(false)} className="text-white/70 hover:text-white">
-          <X className="w-4 h-4" />
-        </button>
-      </div>
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        <div className="space-y-1">
-          <Label className="text-xs font-semibold text-orange-700">Date</Label>
-          <Input placeholder="dd/mm/yy" value={demandFilters.date || ""} onChange={(e) => setDemandFilters({...demandFilters, date: e.target.value})} className="h-8 text-xs" />
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs font-semibold text-orange-700">Tenant</Label>
-          <Input placeholder="Search tenant..." value={demandFilters.tenant || ""} onChange={(e) => setDemandFilters({...demandFilters, tenant: e.target.value})} className="h-8 text-xs" />
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs font-semibold text-orange-700">Amount</Label>
-          <Input type="number" placeholder="Search amount..." value={demandFilters.amount || ""} onChange={(e) => setDemandFilters({...demandFilters, amount: e.target.value})} className="h-8 text-xs" />
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs font-semibold text-orange-700">Due Date From</Label>
-          <Input type="date" value={demandFilters.from_date || ""} onChange={(e) => setDemandFilters({...demandFilters, from_date: e.target.value})} className="h-8 text-xs" />
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs font-semibold text-orange-700">Due Date To</Label>
-          <Input type="date" value={demandFilters.to_date || ""} onChange={(e) => setDemandFilters({...demandFilters, to_date: e.target.value})} className="h-8 text-xs" />
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs font-semibold text-orange-700">Status</Label>
-          <select value={demandFilters.status || "all"} onChange={(e) => setDemandFilters({...demandFilters, status: e.target.value})} className="w-full h-8 text-xs rounded-lg border border-gray-200 px-2 bg-white text-gray-700">
-            <option value="all">All Status</option>
-            {["pending","paid","partial","overdue","cancelled"].map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs font-semibold text-orange-700">Room/Bed</Label>
-          <Input placeholder="Search room..." value={demandFilters.room || ""} onChange={(e) => setDemandFilters({...demandFilters, room: e.target.value})} className="h-8 text-xs" />
-        </div>
-      </div>
-      <div className="border-t p-3 flex gap-2 bg-gray-50 flex-shrink-0">
-        <Button variant="outline" size="sm" className="flex-1 text-xs h-8"
-          onClick={() => setDemandFilters({ status: "", tenant: "", from_date: "", to_date: "", date: "", amount: "", room: "" })}>
-          <RefreshCw className="w-3 h-3 mr-1" /> Reset
-        </Button>
-        <Button size="sm" className="flex-1 text-xs h-8 bg-orange-600 hover:bg-orange-700"
-          onClick={() => setShowDemandFilterSidebar(false)}>
-          Apply
-        </Button>
-      </div>
-    </div>
-  </SheetContent>
-</Sheet>
+            <Sheet
+              open={showDemandFilterSidebar}
+              onOpenChange={setShowDemandFilterSidebar}
+            >
+              <SheetContent
+                side="right"
+                className="p-0 w-[85vw] min-w-[280px] sm:w-[360px]"
+              >
+                <div className="h-full flex flex-col">
+                  <div className="bg-gradient-to-r from-orange-600 to-red-600 px-4 py-3 flex items-center justify-between flex-shrink-0">
+                    <div className="flex items-center gap-2">
+                      <Filter className="w-4 h-4 text-white" />
+                      <span className="text-sm font-semibold text-white">
+                        Filter Demands
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => setShowDemandFilterSidebar(false)}
+                      className="text-white/70 hover:text-white"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs font-semibold text-orange-700">
+                        Date
+                      </Label>
+                      <Input
+                        placeholder="dd/mm/yy"
+                        value={demandFilters.date || ""}
+                        onChange={(e) =>
+                          setDemandFilters({
+                            ...demandFilters,
+                            date: e.target.value,
+                          })
+                        }
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs font-semibold text-orange-700">
+                        Tenant
+                      </Label>
+                      <Input
+                        placeholder="Search tenant..."
+                        value={demandFilters.tenant || ""}
+                        onChange={(e) =>
+                          setDemandFilters({
+                            ...demandFilters,
+                            tenant: e.target.value,
+                          })
+                        }
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs font-semibold text-orange-700">
+                        Amount
+                      </Label>
+                      <Input
+                        type="number"
+                        placeholder="Search amount..."
+                        value={demandFilters.amount || ""}
+                        onChange={(e) =>
+                          setDemandFilters({
+                            ...demandFilters,
+                            amount: e.target.value,
+                          })
+                        }
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs font-semibold text-orange-700">
+                        Due Date From
+                      </Label>
+                      <Input
+                        type="date"
+                        value={demandFilters.from_date || ""}
+                        onChange={(e) =>
+                          setDemandFilters({
+                            ...demandFilters,
+                            from_date: e.target.value,
+                          })
+                        }
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs font-semibold text-orange-700">
+                        Due Date To
+                      </Label>
+                      <Input
+                        type="date"
+                        value={demandFilters.to_date || ""}
+                        onChange={(e) =>
+                          setDemandFilters({
+                            ...demandFilters,
+                            to_date: e.target.value,
+                          })
+                        }
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs font-semibold text-orange-700">
+                        Status
+                      </Label>
+                      <select
+                        value={demandFilters.status || "all"}
+                        onChange={(e) =>
+                          setDemandFilters({
+                            ...demandFilters,
+                            status: e.target.value,
+                          })
+                        }
+                        className="w-full h-8 text-xs rounded-lg border border-gray-200 px-2 bg-white text-gray-700"
+                      >
+                        <option value="all">All Status</option>
+                        {[
+                          "pending",
+                          "paid",
+                          "partial",
+                          "overdue",
+                          "cancelled",
+                        ].map((s) => (
+                          <option key={s} value={s}>
+                            {s}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs font-semibold text-orange-700">
+                        Room/Bed
+                      </Label>
+                      <Input
+                        placeholder="Search room..."
+                        value={demandFilters.room || ""}
+                        onChange={(e) =>
+                          setDemandFilters({
+                            ...demandFilters,
+                            room: e.target.value,
+                          })
+                        }
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                  </div>
+                  <div className="border-t p-3 flex gap-2 bg-gray-50 flex-shrink-0">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1 text-xs h-8"
+                      onClick={() =>
+                        setDemandFilters({
+                          status: "",
+                          tenant: "",
+                          from_date: "",
+                          to_date: "",
+                          date: "",
+                          amount: "",
+                          room: "",
+                        })
+                      }
+                    >
+                      <RefreshCw className="w-3 h-3 mr-1" /> Reset
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="flex-1 text-xs h-8 bg-orange-600 hover:bg-orange-700"
+                      onClick={() => setShowDemandFilterSidebar(false)}
+                    >
+                      Apply
+                    </Button>
+                  </div>
+                </div>
+              </SheetContent>
+            </Sheet>
           </TabsContent>
 
           {/* Receipts Tab Content */}
@@ -2194,41 +2953,207 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
 
           {/* Scrollable Body */}
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
-            {/* Row 1: Tenant + Payment Type */}
+            {/* Row 1: Property + Room Selection */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Property Selection */}
               <div className="space-y-1">
                 <Label className="text-[11px] font-medium text-slate-600">
-                  Tenant *
+                  Property <span className="text-red-500">*</span>
+                </Label>
+                <Select
+                  value={selectedPropertyId}
+                  onValueChange={handlePropertyChange}
+                >
+                  <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
+                    <SelectValue placeholder="Select property..." />
+                  </SelectTrigger>
+                  <SelectContent
+                    className="max-h-[300px]"
+                    position="popper"
+                    sideOffset={5}
+                  >
+                    {/* Search Input - prevent dropdown close on click */}
+                    <div
+                      className="sticky top-0 bg-white p-2 border-b z-10"
+                      onPointerDown={(e) => e.stopPropagation()}
+                    >
+                      <Input
+                        placeholder="Search property..."
+                        value={propertySearch}
+                        onChange={(e) => handlePropertySearch(e.target.value)}
+                        className="h-7 text-xs"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+
+                    {/* Properties List */}
+                    <div className="max-h-[250px] overflow-y-auto">
+                      {loadingProperties ? (
+                        <div className="px-2 py-4 text-center text-xs text-slate-500">
+                          <Loader2 className="h-3 w-3 animate-spin inline mr-1" />
+                          Loading properties...
+                        </div>
+                      ) : filteredProperties.length === 0 ? (
+                        <div className="px-2 py-4 text-center text-xs text-slate-500">
+                          {propertySearch
+                            ? "No matching properties found"
+                            : "No properties available"}
+                        </div>
+                      ) : (
+                        filteredProperties.map((property) => (
+                          <SelectItem
+                            key={property.id}
+                            value={property.id.toString()}
+                          >
+                            <div className="flex items-center gap-2">
+                              <Building className="h-3 w-3 text-slate-400" />
+                              <span className="text-xs">{property.name}</span>
+                            </div>
+                          </SelectItem>
+                        ))
+                      )}
+                    </div>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Room Selection with Search */}
+              <div className="space-y-1">
+                <Label className="text-[11px] font-medium text-slate-600">
+                  Room <span className="text-red-500">*</span>
+                </Label>
+                <Select
+                  value={selectedRoomId}
+                  onValueChange={handleRoomChange}
+                  disabled={!selectedPropertyId || loadingRooms}
+                >
+                  <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
+                    <SelectValue
+                      placeholder={
+                        !selectedPropertyId
+                          ? "Select property first"
+                          : "Select room..."
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent
+                    className="max-h-[300px]"
+                    position="popper"
+                    sideOffset={5}
+                  >
+                    {/* Search Input */}
+                    <div
+                      className="sticky top-0 bg-white p-2 border-b z-10"
+                      onPointerDown={(e) => e.stopPropagation()}
+                    >
+                      <Input
+                        placeholder="Search room..."
+                        value={roomSearch}
+                        onChange={(e) => handleRoomSearch(e.target.value)}
+                        className="h-7 text-xs"
+                        disabled={!selectedPropertyId}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+
+                    {/* Rooms List */}
+                    <div className="max-h-[250px] overflow-y-auto">
+                      {loadingRooms ? (
+                        <div className="px-2 py-4 text-center text-xs text-slate-500">
+                          <Loader2 className="h-3 w-3 animate-spin inline mr-1" />
+                          Loading rooms...
+                        </div>
+                      ) : filteredRooms.length === 0 ? (
+                        <div className="px-2 py-4 text-center text-xs text-slate-500">
+                          {roomSearch
+                            ? "No matching rooms found"
+                            : "No rooms available"}
+                        </div>
+                      ) : (
+                        filteredRooms.map((room) => (
+                          <SelectItem key={room.id} value={room.id.toString()}>
+                            <div className="flex items-center gap-2">
+                              <Home className="h-3 w-3 text-slate-400" />
+                              <span className="text-xs">
+                                Room {room.room_number}
+                              </span>
+                              <span className="text-[10px] text-slate-400">
+                                ({room.sharing_type} sharing)
+                              </span>
+                            </div>
+                          </SelectItem>
+                        ))
+                      )}
+                    </div>
+                  </SelectContent>
+                </Select>
+                {loadingRooms && (
+                  <div className="flex items-center gap-1 text-blue-600">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    <span className="text-[10px]">Loading rooms...</span>
+                  </div>
+                )}
+              </div>
+            </div>
+            {/* Row 2: Tenant Selection + Payment Type */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Tenant Selection */}
+              <div className="space-y-1">
+                <Label className="text-[11px] font-medium text-slate-600">
+                  Tenant <span className="text-red-500">*</span>
                 </Label>
                 <Select
                   value={newPayment.tenant_id}
                   onValueChange={handleTenantSelect}
+                  disabled={!selectedRoomId}
                 >
                   <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
-                    <SelectValue placeholder="Choose a tenant..." />
+                    <SelectValue
+                      placeholder={
+                        !selectedRoomId
+                          ? "Select room first"
+                          : "Choose a tenant..."
+                      }
+                    />
                   </SelectTrigger>
-                  <SelectContent>
-                    {tenants.map((tenant) => (
-                      <SelectItem key={tenant.id} value={tenant.id.toString()}>
-                        <div className="flex items-center gap-2">
-                          <User className="h-3 w-3 text-slate-400" />
-                          <span className="text-xs">{tenant.full_name}</span>
-                          <span className="text-[10px] text-slate-400">
-                            ({tenant.phone})
-                          </span>
-                        </div>
-                      </SelectItem>
-                    ))}
+                  <SelectContent className="max-h-[300px]">
+                    {filteredTenants.length === 0 && selectedRoomId ? (
+                      <div className="px-2 py-4 text-center text-xs text-slate-500">
+                        No tenants assigned to this room
+                      </div>
+                    ) : (
+                      filteredTenants.map((tenant) => (
+                        <SelectItem
+                          key={tenant.id}
+                          value={tenant.id.toString()}
+                        >
+                          <div className="flex items-center gap-2">
+                            <User className="h-3 w-3 text-slate-400" />
+                            <div className="flex flex-col">
+                              <span className="text-xs font-medium">
+                                {tenant.full_name}
+                              </span>
+                              <span className="text-[10px] text-slate-400">
+                                {tenant.phone}
+                              </span>
+                            </div>
+                          </div>
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
                 {bookingLoading && (
                   <div className="flex items-center gap-1 text-blue-600">
                     <Loader2 className="h-3 w-3 animate-spin" />
-                    <span className="text-[10px]">Loading...</span>
+                    <span className="text-[10px]">
+                      Loading tenant details...
+                    </span>
                   </div>
                 )}
               </div>
 
+              {/* Payment Type */}
               <div className="space-y-1">
                 <Label className="text-[11px] font-medium text-slate-600">
                   Payment Type
@@ -2253,8 +3178,9 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
                   </SelectContent>
                 </Select>
               </div>
-            </div>
-
+            </div>{" "}
+            {/* ✅ Close the grid div */}
+            {/* Rest of your existing form fields... */}
             {newPayment.payment_type === "rent" ? (
               <div className="space-y-2">
                 {paymentFormData && (
@@ -2403,7 +3329,6 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
                 )}
               </div>
             )}
-
             {/* Payment Details - 3x3 Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {/* Amount */}
@@ -2589,7 +3514,6 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
                 />
               </div>
             </div>
-
             {/* Proof Preview */}
             {proofPreview && (
               <div>
@@ -3005,7 +3929,6 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
       </Dialog>
 
       {/* Reject Payment Dialog */}
-      {/* Reject Payment Dialog - Updated with category selector */}
       <Dialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -3592,6 +4515,24 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Ledger Report Dialog */}
+<LedgerReportDialog
+  open={isLedgerReportOpen}
+  onOpenChange={setIsLedgerReportOpen}
+  tenant={selectedLedgerTenant}
+  payments={payments.filter(p => p.tenant_id === selectedLedgerTenant?.id)}
+  getTenantName={getTenantName}
+  getTenantPhone={getTenantPhone}
+  getTenantSalutation={getTenantSalutation}
+  getTenantCountryCode={getTenantCountryCode}
+  siteName={siteName}
+  siteTagline={siteTagline}
+  contactAddress={contactAddress}
+  contactPhone={contactPhone}
+  contactEmail={contactEmail}
+  companyLogo={companyLogo}
+/>
     </div>
   );
 }
@@ -3617,24 +4558,41 @@ const StatCard = ({ title, value, icon: Icon, color, bgColor }: any) => (
   </Card>
 );
 
-// Add PaymentStatusBadge HERE - outside PaymentsPage
 const PaymentStatusBadge = ({ status }: { status: string }) => {
-  const variants: Record<string, { className: string; icon: any }> = {
+  const variants: Record<
+    string,
+    { className: string; icon: any; label: string }
+  > = {
     approved: {
       className: "bg-green-100 text-green-800 border-green-200",
       icon: CheckCircle2,
+      label: "Approved",
     },
     pending: {
       className: "bg-yellow-100 text-yellow-800 border-yellow-200",
       icon: Clock,
+      label: "Pending",
     },
     rejected: {
       className: "bg-red-100 text-red-800 border-red-200",
       icon: XCircle,
+      label: "Rejected",
+    },
+    paid: {
+      className: "bg-green-100 text-green-800 border-green-200",
+      icon: CheckCircle2,
+      label: "Paid",
+    },
+    partial: {
+      className: "bg-blue-100 text-blue-800 border-blue-200",
+      icon: Clock,
+      label: "Partial",
     },
   };
 
-  const config = variants[status] || variants.pending;
+  // Normalize status to lowercase for matching
+  const normalizedStatus = status?.toLowerCase() || "pending";
+  const config = variants[normalizedStatus] || variants.pending;
   const Icon = config.icon;
 
   return (
@@ -3643,16 +4601,11 @@ const PaymentStatusBadge = ({ status }: { status: string }) => {
       className={`${config.className} flex items-center gap-1 text-xs px-2 py-1`}
     >
       <Icon className="h-3 w-3" />
-      {status}
+      {config.label}
     </Badge>
   );
 };
 
-// Payments Table Component
-// ===== REPLACE THE ENTIRE PaymentsTable COMPONENT WITH THIS (around line 1400-1800) =====
-// Payments Table Component - Compact like maintenance
-// Payments Table Component - Maintenance style header with search bars
-// Update the PaymentsTable component - modify the Tenant column section
 const PaymentsTable = ({
   payments,
   loading,
@@ -3687,6 +4640,7 @@ const PaymentsTable = ({
   canViewReceipts,
   showFilterSidebar,
   setShowFilterSidebar,
+  onLedgerReport,
 }: any) => {
   // Group payments by tenant using the passed function
   const tenantGroups = groupPaymentsByTenant(payments).map((group: any) => ({
@@ -3728,7 +4682,7 @@ const PaymentsTable = ({
     if (columnFilters?.status && columnFilters.status !== "all") {
       if (columnFilters.status === "approved" && group.approved_count === 0)
         return false;
-      if( columnFilters.status === "paid" && group.payment_count === 0)
+      if (columnFilters.status === "paid" && group.payment_count === 0)
         return false;
       if (columnFilters.status === "partially" && group.approved_count === 0)
         return false;
@@ -3736,7 +4690,6 @@ const PaymentsTable = ({
         return false;
       if (columnFilters.status === "rejected" && group.rejected_count === 0)
         return false;
-
     }
 
     // Filter by last payment date
@@ -3752,610 +4705,783 @@ const PaymentsTable = ({
   });
 
   return (
-   <Card className="border-0 overflow-hidden flex flex-col" style={{height:'calc(100vh - 280px)'}}>
-  <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-    {/* Single overflow-x for both header + body */}
-    <div className="overflow-x-auto flex-1 min-h-0 flex flex-col min-w-0">
-      <div className="min-w-[900px] flex flex-col flex-1 min-h-0">
-        <div className="flex-shrink-0">
-        <Table>
-            <TableHeader className="bg-gray-200 border-b border-gray-300">
-              <TableRow className="hover:bg-transparent">
-                {/* Expand Column */}
-                <TableHead className="w-6 py-2 px-1 bg-gray-200"></TableHead>
+    <Card
+      className="border-0 overflow-hidden flex flex-col"
+      style={{ height: "calc(100vh - 280px)" }}
+    >
+      <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+        {/* Single overflow-x for both header + body */}
+        <div className="overflow-x-auto flex-1 min-h-0 flex flex-col min-w-0">
+          <div className="min-w-[900px] flex flex-col flex-1 min-h-0">
+            <div className="flex-shrink-0">
+              <Table>
+                <TableHeader className="bg-gray-200 border-b border-gray-300">
+                  <TableRow className="hover:bg-transparent">
+                    {/* Expand Column */}
+                    <TableHead className="w-6 py-2 px-1 bg-gray-200"></TableHead>
 
-                {/* Tenant Column - Updated with salutation filter */}
-                <TableHead className="w-[200px] py-2 px-2 bg-gray-200">
-                  <div className="flex flex-col gap-1">
-                    <div
-                      className="flex items-center gap-1 cursor-pointer"
-                      onClick={() => handleSort?.("tenant_name")}
-                    >
-                      <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
-                        Tenant
-                      </span>
-                      <ArrowUpDown className="h-2.5 w-2.5 text-gray-500" />
-                    </div>
-                    <Input
-                      placeholder="Search name..."
-                      className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
-                      value={columnFilters?.tenant_name || ""}
-                      onChange={(e) =>
-                        setColumnFilters?.({
-                          ...columnFilters,
-                          tenant_name: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
-                </TableHead>
-
-                {/* CNT Column */}
-                <TableHead className="w-[55px] py-2 px-2 bg-gray-200 text-center">
-                  <div className="flex flex-col gap-1 items-center">
-                    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
-                      CNT
-                    </span>
-                    <Input
-                      placeholder="#"
-                      type="number"
-                      className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1 text-center font-normal w-full"
-                      value={columnFilters?.payment_count || ""}
-                      onChange={(e) =>
-                        setColumnFilters?.({
-                          ...columnFilters,
-                          payment_count: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
-                </TableHead>
-
-                {/* Amount Column */}
-                <TableHead className="w-[110px] py-2 px-2 bg-gray-200 text-right">
-                  <div className="flex flex-col gap-1 items-end">
-                    <div
-                      className="flex items-center gap-1 cursor-pointer"
-                      onClick={() => handleSort?.("total_amount")}
-                    >
-                      <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
-                        Amount
-                      </span>
-                      <ArrowUpDown className="h-2.5 w-2.5 text-gray-500" />
-                    </div>
-                    <Input
-                      placeholder="Search amount..."
-                      type="number"
-                      className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 text-left font-normal w-full"
-                      value={columnFilters?.amount || ""}
-                      onChange={(e) =>
-                        setColumnFilters?.({
-                          ...columnFilters,
-                          amount: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
-                </TableHead>
-
-                {/* Status Column */}
-                <TableHead className="w-[100px] py-2 px-2 bg-gray-200">
-                  <div className="flex flex-col gap-1">
-                    <div
-                      className="flex items-center gap-1 cursor-pointer"
-                      onClick={() => handleSort?.("status")}
-                    >
-                      <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
-                        Status
-                      </span>
-                      <ArrowUpDown className="h-2.5 w-2.5 text-gray-500" />
-                    </div>
-                    <Select
-                      value={columnFilters?.status || "all"}
-                      onValueChange={(value) =>
-                        setColumnFilters?.({ ...columnFilters, status: value })
-                      }
-                    >
-                      <SelectTrigger className="h-6 text-[10px] bg-white border-gray-300 px-2 font-normal w-full">
-                        <SelectValue placeholder="All" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all" className="text-xs">
-                          All
-                        </SelectItem>
-                        <SelectItem value="approved" className="text-xs">
-                          Approved
-                        </SelectItem>
-                        <SelectItem value="pending" className="text-xs">
-                          Pending
-                        </SelectItem>
-                        <SelectItem value="rejected" className="text-xs">
-                          Rejected
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </TableHead>
-
-                {/* Last Pay Column */}
-                <TableHead className="w-[100px] py-2 px-2 bg-gray-200">
-                  <div className="flex flex-col gap-1">
-                    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
-                      Last Pay
-                    </span>
-                    <Input
-                      placeholder="dd/mm/yy"
-                      type="text"
-                      className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
-                      value={columnFilters?.payment_date || ""}
-                      onChange={(e) =>
-                        setColumnFilters?.({
-                          ...columnFilters,
-                          payment_date: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
-                </TableHead>
-
-                {/* Actions Column */}
-                {/* Actions Column */}
-                <TableHead className="w-[80px] py-2 px-2 bg-gray-200 text-center">
-                  <div className="flex flex-col gap-1 items-center">
-                    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
-                      Actions
-                    </span>
-                    <Button
-                      variant="ghost" size="sm"
-                      onClick={() => setShowFilterSidebar?.(true)}
-                      className="h-5 px-1.5 text-[9px] bg-blue-600 text-white hover:bg-blue-700 rounded w-full"
-                    >
-                      <Filter className="w-2.5 h-2.5 mr-0.5" />
-                      Filter
-                    </Button>
-                  </div>
-                </TableHead>
-              </TableRow>
-           </TableHeader>
-          </Table>
-          </div>
-          <div className="overflow-y-auto flex-1 min-h-0">
-          <Table>
-            <colgroup>
-              <col style={{width:'24px'}} />
-              <col style={{width:'200px'}} />
-              <col style={{width:'55px'}} />
-              <col style={{width:'110px'}} />
-              <col style={{width:'100px'}} />
-              <col style={{width:'100px'}} />
-              <col style={{width:'80px'}} />
-            </colgroup>
-            <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center py-12">
-                    <div className="flex flex-col items-center justify-center">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-700 mb-3" />
-                      <p className="text-sm text-slate-500">
-                        Loading payment data...
-                      </p>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ) : filteredGroups.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center py-12">
-                    <div className="flex flex-col items-center justify-center">
-                      <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mb-3">
-                        <CreditCard className="h-8 w-8 text-slate-400" />
-                      </div>
-                      <h3 className="text-sm font-medium text-slate-700 mb-1">
-                        No payments found
-                      </h3>
-                      <p className="text-xs text-slate-500">
-                        Try adjusting your filters or add a new payment
-                      </p>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredGroups.map((group: any) => {
-                  const isExpanded = expandedRows.includes(group.tenant_id);
-
-                  return (
-                    <Fragment key={group.tenant_id}>
-                      {/* Parent Row - Tenant Card with Salutation and Country Code */}
-                      <TableRow
-                        className={`
-                          group cursor-pointer transition-all duration-200
-                          ${isExpanded ? "bg-blue-50/50 shadow-inner" : "hover:bg-slate-50/80"}
-                        `}
-                        onClick={() => onToggleExpand(group.tenant_id)}
-                      >
-                        <TableCell className="py-3">
-                          <div
-                            className={`
-                            w-6 h-6 rounded-full flex items-center justify-center transition-all duration-200
-                            ${isExpanded ? "bg-blue-600 text-white" : "bg-slate-200 text-slate-600 group-hover:bg-blue-100"}
-                          `}
-                          >
-                            <ChevronDown
-                              className={`h-4 w-4 transition-transform duration-200 ${
-                                isExpanded ? "rotate-180" : ""
-                              }`}
-                            />
-                          </div>
-                        </TableCell>
-
-                        <TableCell className="py-3">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-800 to-blue-600 flex items-center justify-center text-white font-semibold text-xs shadow-md">
-                              {group.tenant_name?.charAt(0).toUpperCase()}
-                            </div>
-                            <div>
-                              {/* Show salutation + full name */}
-                              <p className="text-sm font-medium text-slate-800">
-                                {group.salutation ? `${group.salutation} ` : ""}
-                                {group.tenant_name}
-                              </p>
-                              {/* Show country code + phone number */}
-                              <p className="text-xs text-slate-500">
-                                {group.country_code || "+91"}{" "}
-                                {group.tenant_phone}
-                              </p>
-                            </div>
-                          </div>
-                        </TableCell>
-
-                        <TableCell className="py-3 text-center">
-                          <Badge
-                            variant="outline"
-                            className="bg-blue-50 text-blue-700 border-blue-200 text-xs px-2 py-0.5"
-                          >
-                            {group.payment_count}
-                          </Badge>
-                        </TableCell>
-
-                        <TableCell className="py-3 text-right">
-                          <span className="text-sm font-bold text-green-600">
-                            ₹{group.total_amount.toLocaleString()}
-                          </span>
-                        </TableCell>
-
-                        <TableCell className="py-3">
-                          <div className="flex items-center justify-center gap-1">
-                            {group.approved_count > 0 && (
-                              <Badge className="bg-green-100 text-green-700 border-green-200 text-xs px-1.5 py-0.5">
-                                {group.approved_count} A
-                              </Badge>
-                            )}
-                            {group.pending_count > 0 && (
-                              <Badge className="bg-yellow-100 text-yellow-700 border-yellow-200 text-xs px-1.5 py-0.5">
-                                {group.pending_count} P
-                              </Badge>
-                            )}
-                            {group.rejected_count > 0 && (
-                              <Badge className="bg-red-100 text-red-700 border-red-200 text-xs px-1.5 py-0.5">
-                                {group.rejected_count} R
-                              </Badge>
-                            )}
-                          </div>
-                        </TableCell>
-
-                        <TableCell className="py-3 text-center">
-                          <span className="text-xs text-slate-600">
-                            {group.last_payment_date
-                              ? format(
-                                  new Date(group.last_payment_date),
-                                  "dd MMM yy",
-                                )
-                              : "No payments"}
-                          </span>
-                        </TableCell>
-
-                        <TableCell
-                          className="py-3 text-center"
-                          onClick={(e) => e.stopPropagation()}
+                    {/* Tenant Column - Updated with salutation filter */}
+                    <TableHead className="w-[200px] py-2 px-2 bg-gray-200">
+                      <div className="flex flex-col gap-1">
+                        <div
+                          className="flex items-center gap-1 cursor-pointer"
+                          onClick={() => handleSort?.("tenant_name")}
                         >
-                          <div className="flex items-center justify-center gap-1">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-7 w-7 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-full"
-                              onClick={() => onToggleExpand(group.tenant_id)}
-                              title="View Details"
-                            >
-                              <Eye className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-7 w-7 p-0 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-full"
-                              onClick={() => setIsAddPaymentOpen(true)}
-                              title="Add Payment"
-                            >
-                              <Plus className="h-3.5 w-3.5" />
-                            </Button>
+                          <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
+                            Tenant
+                          </span>
+                          <ArrowUpDown className="h-2.5 w-2.5 text-gray-500" />
+                        </div>
+                        <Input
+                          placeholder="Search name..."
+                          className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
+                          value={columnFilters?.tenant_name || ""}
+                          onChange={(e) =>
+                            setColumnFilters?.({
+                              ...columnFilters,
+                              tenant_name: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                    </TableHead>
+
+                    {/* CNT Column */}
+                    <TableHead className="w-[55px] py-2 px-2 bg-gray-200 text-center">
+                      <div className="flex flex-col gap-1 items-center">
+                        <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
+                          CNT
+                        </span>
+                        <Input
+                          placeholder="#"
+                          type="number"
+                          className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-1 text-center font-normal w-full"
+                          value={columnFilters?.payment_count || ""}
+                          onChange={(e) =>
+                            setColumnFilters?.({
+                              ...columnFilters,
+                              payment_count: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                    </TableHead>
+
+                    {/* Amount Column */}
+                    <TableHead className="w-[110px] py-2 px-2 bg-gray-200 text-right">
+                      <div className="flex flex-col gap-1 items-end">
+                        <div
+                          className="flex items-center gap-1 cursor-pointer"
+                          onClick={() => handleSort?.("total_amount")}
+                        >
+                          <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
+                            Amount
+                          </span>
+                          <ArrowUpDown className="h-2.5 w-2.5 text-gray-500" />
+                        </div>
+                        <Input
+                          placeholder="Search amount..."
+                          type="number"
+                          className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 text-left font-normal w-full"
+                          value={columnFilters?.amount || ""}
+                          onChange={(e) =>
+                            setColumnFilters?.({
+                              ...columnFilters,
+                              amount: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                    </TableHead>
+
+                    {/* Status Column */}
+                    <TableHead className="w-[100px] py-2 px-2 bg-gray-200">
+                      <div className="flex flex-col gap-1">
+                        <div
+                          className="flex items-center gap-1 cursor-pointer"
+                          onClick={() => handleSort?.("status")}
+                        >
+                          <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
+                            Status
+                          </span>
+                          <ArrowUpDown className="h-2.5 w-2.5 text-gray-500" />
+                        </div>
+                        <Select
+                          value={columnFilters?.status || "all"}
+                          onValueChange={(value) =>
+                            setColumnFilters?.({
+                              ...columnFilters,
+                              status: value,
+                            })
+                          }
+                        >
+                          <SelectTrigger className="h-6 text-[10px] bg-white border-gray-300 px-2 font-normal w-full">
+                            <SelectValue placeholder="All" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all" className="text-xs">
+                              All
+                            </SelectItem>
+                            <SelectItem value="approved" className="text-xs">
+                              Approved
+                            </SelectItem>
+                            <SelectItem value="pending" className="text-xs">
+                              Pending
+                            </SelectItem>
+                            <SelectItem value="rejected" className="text-xs">
+                              Rejected
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </TableHead>
+
+                    {/* Last Pay Column */}
+                    <TableHead className="w-[100px] py-2 px-2 bg-gray-200">
+                      <div className="flex flex-col gap-1">
+                        <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
+                          Last Pay
+                        </span>
+                        <Input
+                          placeholder="dd/mm/yy"
+                          type="text"
+                          className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
+                          value={columnFilters?.payment_date || ""}
+                          onChange={(e) =>
+                            setColumnFilters?.({
+                              ...columnFilters,
+                              payment_date: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                    </TableHead>
+
+                    {/* Actions Column */}
+                    {/* Actions Column */}
+                    <TableHead className="w-[80px] py-2 px-2 bg-gray-200 text-center">
+                      <div className="flex flex-col gap-1 items-center">
+                        <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
+                          Actions
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setShowFilterSidebar?.(true)}
+                          className="h-5 px-1.5 text-[9px] bg-blue-600 text-white hover:bg-blue-700 rounded w-full"
+                        >
+                          <Filter className="w-2.5 h-2.5 mr-0.5" />
+                          Filter
+                        </Button>
+                      </div>
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+              </Table>
+            </div>
+            <div className="overflow-y-auto flex-1 min-h-0">
+              <Table>
+                <colgroup>
+                  <col style={{ width: "24px" }} />
+                  <col style={{ width: "200px" }} />
+                  <col style={{ width: "55px" }} />
+                  <col style={{ width: "110px" }} />
+                  <col style={{ width: "100px" }} />
+                  <col style={{ width: "100px" }} />
+                  <col style={{ width: "80px" }} />
+                </colgroup>
+                <TableBody>
+                  {loading ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-12">
+                        <div className="flex flex-col items-center justify-center">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-700 mb-3" />
+                          <p className="text-sm text-slate-500">
+                            Loading payment data...
+                          </p>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ) : filteredGroups.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-12">
+                        <div className="flex flex-col items-center justify-center">
+                          <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mb-3">
+                            <CreditCard className="h-8 w-8 text-slate-400" />
                           </div>
-                        </TableCell>
-                      </TableRow>
+                          <h3 className="text-sm font-medium text-slate-700 mb-1">
+                            No payments found
+                          </h3>
+                          <p className="text-xs text-slate-500">
+                            Try adjusting your filters or add a new payment
+                          </p>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredGroups.map((group: any) => {
+                      const isExpanded = expandedRows.includes(group.tenant_id);
 
-                      {/* Expanded Child Row - Payment Details (unchanged) */}
-                      {isExpanded && (
-                        <TableRow className="bg-blue-50/30">
-                          <TableCell colSpan={7} className="p-0 border-t-0">
-                            <div className="animate-in slide-in-from-top-1 duration-200">
-                              <div className="p-4">
-                                <div className="flex items-center justify-between mb-3">
-                                  <h4 className="text-xs font-semibold text-slate-700 flex items-center gap-2">
-                                    <CreditCard className="h-3.5 w-3.5 text-blue-600" />
-                                    Payment History • {group.payments.length}{" "}
-                                    transactions
-                                  </h4>
+                      return (
+                        <Fragment key={group.tenant_id}>
+                          {/* Parent Row - Tenant Card with Salutation and Country Code */}
+                          <TableRow
+                            className={`
+    group cursor-pointer transition-all duration-200
+    ${isExpanded ? "bg-blue-50/50 shadow-inner" : "hover:bg-slate-50/80"}
+  `}
+                            onClick={() => onToggleExpand(group.tenant_id)}
+                          >
+                            <TableCell className="py-3">
+                              <div
+                                className={`
+        w-6 h-6 rounded-full flex items-center justify-center transition-all duration-200
+        ${isExpanded ? "bg-blue-600 text-white" : "bg-slate-200 text-slate-600 group-hover:bg-blue-100"}
+      `}
+                              >
+                                <ChevronDown
+                                  className={`h-4 w-4 transition-transform duration-200 ${
+                                    isExpanded ? "rotate-180" : ""
+                                  }`}
+                                />
+                              </div>
+                            </TableCell>
+
+                            <TableCell className="py-3">
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-800 to-blue-600 flex items-center justify-center text-white font-semibold text-xs shadow-md">
+                                  {group.tenant_name?.charAt(0).toUpperCase()}
                                 </div>
+                                <div>
+                                  {/* Show salutation + full name */}
+                                  <div className="flex items-center gap-2">
+                                    <p className="text-sm font-medium text-slate-800">
+                                      {group.salutation
+                                        ? `${group.salutation} `
+                                        : ""}
+                                      {group.tenant_name}
+                                    </p>
 
-                                <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
-                                  <Table>
-                                    <TableHeader className="bg-slate-50">
-                                      <TableRow>
-                                        <TableHead className="text-[12px] py-2">
-                                          Date
-                                        </TableHead>
-                                        <TableHead className="text-[12px] py-2">
-                                          Amount
-                                        </TableHead>
-                                        <TableHead className="text-[12px] py-2">
-                                          Mode
-                                        </TableHead>
-                                        <TableHead className="text-[12px] py-2">
-                                          Transaction ID
-                                        </TableHead>
-                                        <TableHead className="text-[12px] py-2">
-                                          Month/Year
-                                        </TableHead>
-                                        <TableHead className="text-[12px] py-2">
-                                          Remark
-                                        </TableHead>
-                                        <TableHead className="text-[12px] py-2">
-                                          Status
-                                        </TableHead>
-                                        <TableHead className="text-[12px] py-2 text-center">
-                                          Actions
-                                        </TableHead>
-                                      </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                      {group.payments.map(
-                                        (payment: any, index: number) => (
-                                          <TableRow
-                                            key={payment.id}
-                                            className={
-                                              index % 2 === 0
-                                                ? "bg-white"
-                                                : "bg-slate-50/50"
-                                            }
-                                          >
-                                            <TableCell className="py-2 text-[12px] whitespace-nowrap">
-                                              {format(
-                                                new Date(payment.payment_date),
-                                                "dd/MM/yy",
-                                              )}
-                                            </TableCell>
-                                            <TableCell className="py-2 text-[12px] font-medium">
-                                              ₹
-                                              {Number(
-                                                payment.amount,
-                                              ).toLocaleString()}
-                                            </TableCell>
-                                            <TableCell className="py-2">
-                                              <div className="flex items-center gap-1">
-                                                <span className="text-[12px] capitalize">
-                                                  {payment.payment_mode}
-                                                </span>
-                                              </div>
-                                              {payment.bank_name && (
-                                                <p className="text-[10px] text-slate-500">
-                                                  {payment.bank_name}
-                                                </p>
-                                              )}
-                                            </TableCell>
-                                            <TableCell className="py-2 text-[12px] font-mono">
-                                              {payment.transaction_id
-                                                ? payment.transaction_id.substring(
-                                                    0,
-                                                    8,
-                                                  ) + "..."
-                                                : "-"}
-                                            </TableCell>
-                                            <TableCell className="py-2 text-[12px]">
-                                              {payment.month} {payment.year}
-                                            </TableCell>
-                                            <TableCell className="py-2 text-xs max-w-[120px] truncate group relative">
-                                              <span
-                                                className="cursor-help"
-                                                title={payment.remark || "-"}
-                                              >
-                                                {payment.remark || "-"}
-                                              </span>
-                                            </TableCell>
-                                            <TableCell className="py-2">
-                                              <PaymentStatusBadge
-                                                status={
-                                                  payment.status || "pending"
-                                                }
-                                              />
-                                            </TableCell>
-                                            <TableCell className="py-2">
-                                              {/* Inside the inner table actions column: */}
-                                              <div className="flex items-center gap-0.5 justify-end">
-                                                {payment.status ===
-                                                  "approved" &&
-                                                  canViewReceipts && (
-                                                    <Button
-                                                      size="sm"
-                                                      variant="ghost"
-                                                      className="h-6 w-6 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-full"
-                                                      onClick={() => {
-                                                        setActiveTab(
-                                                          "receipts",
-                                                        );
-                                                        setTimeout(
-                                                          () =>
-                                                            onViewReceipt(
-                                                              payment.id,
-                                                            ),
-                                                          100,
-                                                        );
-                                                      }}
-                                                      title="View Receipt"
-                                                    >
-                                                      <ReceiptIndianRupee className="h-3 w-3" />
-                                                    </Button>
-                                                  )}
-                                                {(payment.status === "pending" || payment.status === "paid" || payment.status === "partial") && 
-                                                  canApprove && (
-                                                    <Button
-                                                      size="sm"
-                                                      variant="ghost"
-                                                      className="h-6 w-6 p-0 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-full"
-                                                      onClick={() =>
-                                                        onApprove(payment)
-                                                      }
-                                                      title="Approve"
-                                                    >
-                                                      <CheckCircle2 className="h-3 w-3" />
-                                                    </Button>
-                                                  )}
-                                                {(payment.status === "pending" || payment.status === "paid" || payment.status === "partial") &&
-                                                  canReject && (
-                                                    <Button
-                                                      size="sm"
-                                                      variant="ghost"
-                                                      className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-full"
-                                                      onClick={() =>
-                                                        onReject(payment)
-                                                      }
-                                                      title="Reject"
-                                                    >
-                                                      <XCircle className="h-3 w-3" />
-                                                    </Button>
-                                                  )}
-                                                {(payment.status ===
-                                                  "pending" ||
-                                                  payment.status ===
-                                                    "rejected") &&
-                                                  canEdit && (
-                                                    <Button
-                                                      size="sm"
-                                                      variant="ghost"
-                                                      className="h-6 w-6 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-full"
-                                                      onClick={() =>
-                                                        onEdit(payment)
-                                                      }
-                                                      title="Edit"
-                                                    >
-                                                      <Pencil className="h-3 w-3" />
-                                                    </Button>
-                                                  )}
-                                                {payment.status === "pending" &&
-                                                  canDelete && (
-                                                    <Button
-                                                      size="sm"
-                                                      variant="ghost"
-                                                      className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-full"
-                                                      onClick={() =>
-                                                        onDelete(payment)
-                                                      }
-                                                      title="Delete"
-                                                    >
-                                                      <Trash2 className="h-3 w-3" />
-                                                    </Button>
-                                                  )}
-                                              </div>
-                                            </TableCell>
-                                          </TableRow>
-                                        ),
+                                    {/* ✅ Add Booking/Online Tag */}
+                                    {group.has_online_booking && (
+                                      <Badge className="bg-purple-100 text-purple-700 border-purple-200 text-[10px] px-1.5 py-0">
+                                        <Globe className="h-2.5 w-2.5 mr-0.5" />
+                                        Online
+                                      </Badge>
+                                    )}
+
+                                    {group.has_manual_payment &&
+                                      !group.has_online_booking && (
+                                        <Badge className="bg-orange-100 text-orange-700 border-orange-200 text-[10px] px-1.5 py-0">
+                                          <User className="h-2.5 w-2.5 mr-0.5" />
+                                          Manual
+                                        </Badge>
                                       )}
-                                    </TableBody>
-                                  </Table>
+                                  </div>
+
+                                  {/* Show country code + phone number */}
+                                  <p className="text-xs text-slate-500">
+                                    {group.country_code || "+91"}{" "}
+                                    {group.tenant_phone}
+                                  </p>
                                 </div>
                               </div>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </Fragment>
-                  );
-                })
-              )}
-                       </TableBody>
-          </Table>
+                            </TableCell>
+
+                            <TableCell className="py-3 text-center">
+                              <Badge
+                                variant="outline"
+                                className="bg-blue-50 text-blue-700 border-blue-200 text-xs px-2 py-0.5"
+                              >
+                                {group.payment_count}
+                              </Badge>
+                            </TableCell>
+
+                            <TableCell className="py-3 text-right">
+                              <span className="text-sm font-bold text-green-600">
+                                ₹{group.total_amount.toLocaleString()}
+                              </span>
+                            </TableCell>
+
+                            <TableCell className="py-3">
+                              <div className="flex items-center justify-center gap-1">
+                                {group.approved_count > 0 && (
+                                  <Badge className="bg-green-100 text-green-700 border-green-200 text-xs px-1.5 py-0.5">
+                                    {group.approved_count} A
+                                  </Badge>
+                                )}
+                                {group.pending_count > 0 && (
+                                  <Badge className="bg-yellow-100 text-yellow-700 border-yellow-200 text-xs px-1.5 py-0.5">
+                                    {group.pending_count} P
+                                  </Badge>
+                                )}
+                                {group.rejected_count > 0 && (
+                                  <Badge className="bg-red-100 text-red-700 border-red-200 text-xs px-1.5 py-0.5">
+                                    {group.rejected_count} R
+                                  </Badge>
+                                )}
+                              </div>
+                            </TableCell>
+
+                            <TableCell className="py-3 text-center">
+                              <span className="text-xs text-slate-600">
+                                {group.last_payment_date
+                                  ? format(
+                                      new Date(group.last_payment_date),
+                                      "dd MMM yy",
+                                    )
+                                  : "No payments"}
+                              </span>
+                            </TableCell>
+
+                            <TableCell
+                              className="py-3 text-center"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <div className="flex items-center justify-center gap-1">
+                                {/* Print/Ledger Button */}
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 w-7 p-0 text-gray-600 hover:text-gray-700 hover:bg-gray-50 rounded-full"
+                                  onClick={() => {
+                                    const tenantData = {
+                                      room_number: group.room_number,
+                                      bed_number: group.bed_number,
+                                      property_name: group.property_name,
+                                      monthly_rent: group.monthly_rent,
+                                      check_in_date: group.check_in_date,
+                                    };
+                                    // You'll need to pass this function down or access it via props
+                                    onLedgerReport?.(
+                                      group.tenant_id,
+                                      tenantData,
+                                    );
+                                  }}
+                                  title="View Ledger Report"
+                                >
+                                  <FileText className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 w-7 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-full"
+                                  onClick={() =>
+                                    onToggleExpand(group.tenant_id)
+                                  }
+                                  title="View Details"
+                                >
+                                  <Eye className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 w-7 p-0 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-full"
+                                  onClick={() => setIsAddPaymentOpen(true)}
+                                  title="Add Payment"
+                                >
+                                  <Plus className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+
+                          {/* Expanded Child Row - Payment Details (unchanged) */}
+                          {isExpanded && (
+                            <TableRow className="bg-blue-50/30">
+                              <TableCell colSpan={7} className="p-0 border-t-0">
+                                <div className="animate-in slide-in-from-top-1 duration-200">
+                                  <div className="p-4">
+                                    <div className="flex items-center justify-between mb-3">
+                                      <h4 className="text-xs font-semibold text-slate-700 flex items-center gap-2">
+                                        <CreditCard className="h-3.5 w-3.5 text-blue-600" />
+                                        Payment History •{" "}
+                                        {group.payments.length} transactions
+                                      </h4>
+                                    </div>
+
+                                    <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+                                      <Table>
+                                        <TableHeader className="bg-slate-50">
+                                          <TableRow>
+                                            <TableHead className="text-[12px] py-2">
+                                              Date
+                                            </TableHead>
+                                            <TableHead className="text-[12px] py-2">
+                                              Amount
+                                            </TableHead>
+                                            <TableHead className="text-[12px] py-2">
+                                              Mode
+                                            </TableHead>
+                                            <TableHead className="text-[12px] py-2">
+                                              Source
+                                            </TableHead>
+                                            <TableHead className="text-[12px] py-2">
+                                              Transaction ID
+                                            </TableHead>
+                                            <TableHead className="text-[12px] py-2">
+                                              Month/Year
+                                            </TableHead>
+                                            <TableHead className="text-[12px] py-2">
+                                              Remark
+                                            </TableHead>
+                                            <TableHead className="text-[12px] py-2">
+                                              Status
+                                            </TableHead>
+                                            <TableHead className="text-[12px] py-2 text-center">
+                                              Actions
+                                            </TableHead>
+                                          </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                          {group.payments.map(
+                                            (payment: any, index: number) => (
+                                              <TableRow
+                                                key={payment.id}
+                                                className={
+                                                  index % 2 === 0
+                                                    ? "bg-white"
+                                                    : "bg-slate-50/50"
+                                                }
+                                              >
+                                                <TableCell className="py-2 text-[12px] whitespace-nowrap">
+                                                  {format(
+                                                    new Date(
+                                                      payment.payment_date,
+                                                    ),
+                                                    "dd/MM/yy",
+                                                  )}
+                                                </TableCell>
+                                                <TableCell className="py-2 text-[12px] font-medium">
+                                                  ₹
+                                                  {Number(
+                                                    payment.amount,
+                                                  ).toLocaleString()}
+                                                </TableCell>
+                                                <TableCell className="py-2">
+                                                  <div className="flex items-center gap-1">
+                                                    <span className="text-[12px] capitalize">
+                                                      {payment.payment_mode}
+                                                    </span>
+                                                  </div>
+                                                  {payment.bank_name && (
+                                                    <p className="text-[10px] text-slate-500">
+                                                      {payment.bank_name}
+                                                    </p>
+                                                  )}
+                                                </TableCell>
+                                                <TableCell className="py-2">
+                                                  {payment.booking_id &&
+                                                  payment.payment_mode ===
+                                                    "online" ? (
+                                                    <Badge className="bg-purple-100 text-purple-700 border-purple-200 text-[10px] px-1.5 py-0">
+                                                      <Globe className="h-2.5 w-2.5 mr-0.5 inline" />
+                                                      Online Booking
+                                                    </Badge>
+                                                  ) : (
+                                                    <Badge className="bg-orange-100 text-orange-700 border-orange-200 text-[10px] px-1.5 py-0">
+                                                      <User className="h-2.5 w-2.5 mr-0.5 inline" />
+                                                      Manual Entry
+                                                    </Badge>
+                                                  )}
+                                                </TableCell>
+                                                <TableCell className="py-2 text-[12px] font-mono">
+                                                  {payment.transaction_id
+                                                    ? payment.transaction_id.substring(
+                                                        0,
+                                                        8,
+                                                      ) + "..."
+                                                    : "-"}
+                                                </TableCell>
+                                                <TableCell className="py-2 text-[12px]">
+                                                  {payment.month} {payment.year}
+                                                </TableCell>
+                                                <TableCell className="py-2 text-xs max-w-[120px] truncate group relative">
+                                                  <span
+                                                    className="cursor-help"
+                                                    title={
+                                                      payment.remark || "-"
+                                                    }
+                                                  >
+                                                    {payment.remark || "-"}
+                                                  </span>
+                                                </TableCell>
+                                                <TableCell className="py-2">
+                                                  <PaymentStatusBadge
+                                                    status={
+                                                      payment.status ||
+                                                      "pending"
+                                                    }
+                                                  />
+                                                </TableCell>
+                                                <TableCell className="py-2">
+                                                  {/* Inside the inner table actions column: */}
+                                                  <div className="flex items-center gap-0.5 justify-end">
+                                                    {payment.status ===
+                                                      "approved" &&
+                                                      canViewReceipts && (
+                                                        <Button
+                                                          size="sm"
+                                                          variant="ghost"
+                                                          className="h-6 w-6 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-full"
+                                                          onClick={() => {
+                                                            setActiveTab(
+                                                              "receipts",
+                                                            );
+                                                            setTimeout(
+                                                              () =>
+                                                                onViewReceipt(
+                                                                  payment.id,
+                                                                ),
+                                                              100,
+                                                            );
+                                                          }}
+                                                          title="View Receipt"
+                                                        >
+                                                          <ReceiptIndianRupee className="h-3 w-3" />
+                                                        </Button>
+                                                      )}
+                                                    {(payment.status ===
+                                                      "pending" ||
+                                                      payment.status ===
+                                                        "paid" ||
+                                                      payment.status ===
+                                                        "partial") &&
+                                                      canApprove && (
+                                                        <Button
+                                                          size="sm"
+                                                          variant="ghost"
+                                                          className="h-6 w-6 p-0 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-full"
+                                                          onClick={() =>
+                                                            onApprove(payment)
+                                                          }
+                                                          title="Approve"
+                                                        >
+                                                          <CheckCircle2 className="h-3 w-3" />
+                                                        </Button>
+                                                      )}
+                                                    {(payment.status ===
+                                                      "pending" ||
+                                                      payment.status ===
+                                                        "paid" ||
+                                                      payment.status ===
+                                                        "partial") &&
+                                                      canReject && (
+                                                        <Button
+                                                          size="sm"
+                                                          variant="ghost"
+                                                          className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-full"
+                                                          onClick={() =>
+                                                            onReject(payment)
+                                                          }
+                                                          title="Reject"
+                                                        >
+                                                          <XCircle className="h-3 w-3" />
+                                                        </Button>
+                                                      )}
+                                                    {(payment.status ===
+                                                      "pending" ||
+                                                      payment.status ===
+                                                        "rejected") &&
+                                                      canEdit && (
+                                                        <Button
+                                                          size="sm"
+                                                          variant="ghost"
+                                                          className="h-6 w-6 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-full"
+                                                          onClick={() =>
+                                                            onEdit(payment)
+                                                          }
+                                                          title="Edit"
+                                                        >
+                                                          <Pencil className="h-3 w-3" />
+                                                        </Button>
+                                                      )}
+                                                    {payment.status ===
+                                                      "pending" &&
+                                                      canDelete && (
+                                                        <Button
+                                                          size="sm"
+                                                          variant="ghost"
+                                                          className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-full"
+                                                          onClick={() =>
+                                                            onDelete(payment)
+                                                          }
+                                                          title="Delete"
+                                                        >
+                                                          <Trash2 className="h-3 w-3" />
+                                                        </Button>
+                                                      )}
+                                                  </div>
+                                                </TableCell>
+                                              </TableRow>
+                                            ),
+                                          )}
+                                        </TableBody>
+                                      </Table>
+                                    </div>
+                                  </div>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </Fragment>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </div>
         </div>
       </div>
-      </div>
       {/* Payments Filter Sidebar */}
-<Sheet open={showFilterSidebar} onOpenChange={setShowFilterSidebar}>
-  <SheetContent side="right" className="p-0 w-[85vw] min-w-[280px] sm:w-[360px]">
-    <div className="h-full flex flex-col">
-      <div className="bg-gradient-to-r from-blue-800 via-blue-700 to-blue-600 px-4 py-3 flex items-center justify-between flex-shrink-0">
-        <div className="flex items-center gap-2">
-          <Filter className="w-4 h-4 text-white" />
-          <span className="text-sm font-semibold text-white">Filter Payments</span>
-        </div>
-        <button onClick={() => setShowFilterSidebar?.(false)} className="text-white/70 hover:text-white">
-          <X className="w-4 h-4" />
-        </button>
-      </div>
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        <div className="space-y-1">
-          <Label className="text-xs font-semibold text-blue-700">Tenant Name</Label>
-          <Input placeholder="Search tenant..." value={columnFilters?.tenant_name || ""} onChange={(e) => setColumnFilters?.({...columnFilters, tenant_name: e.target.value})} className="h-8 text-xs" />
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs font-semibold text-blue-700">Status</Label>
-          <select value={columnFilters?.status || "all"} onChange={(e) => setColumnFilters?.({...columnFilters, status: e.target.value})} className="w-full h-8 text-xs rounded-lg border border-gray-200 px-2 bg-white text-gray-700">
-            <option value="all">All Status</option>
-            <option value="approved">Approved</option>
-            <option value="pending">Pending</option>
-            <option value="rejected">Rejected</option>
-          </select>
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs font-semibold text-blue-700">Amount</Label>
-          <Input type="number" placeholder="Search amount..." value={columnFilters?.amount || ""} onChange={(e) => setColumnFilters?.({...columnFilters, amount: e.target.value})} className="h-8 text-xs" />
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs font-semibold text-blue-700">Last Payment Date</Label>
-          <Input placeholder="dd/mm/yy" value={columnFilters?.payment_date || ""} onChange={(e) => setColumnFilters?.({...columnFilters, payment_date: e.target.value})} className="h-8 text-xs" />
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs font-semibold text-blue-700">Payment Count</Label>
-          <Input type="number" placeholder="Exact count..." value={columnFilters?.payment_count || ""} onChange={(e) => setColumnFilters?.({...columnFilters, payment_count: e.target.value})} className="h-8 text-xs" />
-        </div>
-      </div>
-      <div className="border-t p-3 flex gap-2 bg-gray-50 flex-shrink-0">
-        <Button variant="outline" size="sm" className="flex-1 text-xs h-8"
-          onClick={() => setColumnFilters?.({ payment_date:"", tenant_name:"", amount:"", min_amount:"", max_amount:"", payment_mode:"all", transaction_id:"", month:"", status:"all", remark:"", payment_count:"" })}>
-          <RefreshCw className="w-3 h-3 mr-1" /> Reset
-        </Button>
-        <Button size="sm" className="flex-1 text-xs h-8 bg-blue-600 hover:bg-blue-700"
-          onClick={() => setShowFilterSidebar?.(false)}>
-          Apply
-        </Button>
-      </div>
-    </div>
-  </SheetContent>
-</Sheet>
+      <Sheet open={showFilterSidebar} onOpenChange={setShowFilterSidebar}>
+        <SheetContent
+          side="right"
+          className="p-0 w-[85vw] min-w-[280px] sm:w-[360px]"
+        >
+          <div className="h-full flex flex-col">
+            <div className="bg-gradient-to-r from-blue-800 via-blue-700 to-blue-600 px-4 py-3 flex items-center justify-between flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <Filter className="w-4 h-4 text-white" />
+                <span className="text-sm font-semibold text-white">
+                  Filter Payments
+                </span>
+              </div>
+              <button
+                onClick={() => setShowFilterSidebar?.(false)}
+                className="text-white/70 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold text-blue-700">
+                  Tenant Name
+                </Label>
+                <Input
+                  placeholder="Search tenant..."
+                  value={columnFilters?.tenant_name || ""}
+                  onChange={(e) =>
+                    setColumnFilters?.({
+                      ...columnFilters,
+                      tenant_name: e.target.value,
+                    })
+                  }
+                  className="h-8 text-xs"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold text-blue-700">
+                  Status
+                </Label>
+                <select
+                  value={columnFilters?.status || "all"}
+                  onChange={(e) =>
+                    setColumnFilters?.({
+                      ...columnFilters,
+                      status: e.target.value,
+                    })
+                  }
+                  className="w-full h-8 text-xs rounded-lg border border-gray-200 px-2 bg-white text-gray-700"
+                >
+                  <option value="all">All Status</option>
+                  <option value="approved">Approved</option>
+                  <option value="pending">Pending</option>
+                  <option value="rejected">Rejected</option>
+                </select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold text-blue-700">
+                  Amount
+                </Label>
+                <Input
+                  type="number"
+                  placeholder="Search amount..."
+                  value={columnFilters?.amount || ""}
+                  onChange={(e) =>
+                    setColumnFilters?.({
+                      ...columnFilters,
+                      amount: e.target.value,
+                    })
+                  }
+                  className="h-8 text-xs"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold text-blue-700">
+                  Last Payment Date
+                </Label>
+                <Input
+                  placeholder="dd/mm/yy"
+                  value={columnFilters?.payment_date || ""}
+                  onChange={(e) =>
+                    setColumnFilters?.({
+                      ...columnFilters,
+                      payment_date: e.target.value,
+                    })
+                  }
+                  className="h-8 text-xs"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold text-blue-700">
+                  Payment Count
+                </Label>
+                <Input
+                  type="number"
+                  placeholder="Exact count..."
+                  value={columnFilters?.payment_count || ""}
+                  onChange={(e) =>
+                    setColumnFilters?.({
+                      ...columnFilters,
+                      payment_count: e.target.value,
+                    })
+                  }
+                  className="h-8 text-xs"
+                />
+              </div>
+            </div>
+            <div className="border-t p-3 flex gap-2 bg-gray-50 flex-shrink-0">
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1 text-xs h-8"
+                onClick={() =>
+                  setColumnFilters?.({
+                    payment_date: "",
+                    tenant_name: "",
+                    amount: "",
+                    min_amount: "",
+                    max_amount: "",
+                    payment_mode: "all",
+                    transaction_id: "",
+                    month: "",
+                    status: "all",
+                    remark: "",
+                    payment_count: "",
+                  })
+                }
+              >
+                <RefreshCw className="w-3 h-3 mr-1" /> Reset
+              </Button>
+              <Button
+                size="sm"
+                className="flex-1 text-xs h-8 bg-blue-600 hover:bg-blue-700"
+                onClick={() => setShowFilterSidebar?.(false)}
+              >
+                Apply
+              </Button>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
     </Card>
   );
 };
 
-// ===== END OF REPLACEMENT =====
-
 // Receipts Table Component
-// Receipts Table Component - Compact like payments table with search bars
-// Receipts Table Component - Updated to work with receipt data
 const ReceiptsTable = ({
   receipts,
   loading,
@@ -4454,292 +5580,349 @@ const ReceiptsTable = ({
   });
 
   return (
-    <Card className="border-0 overflow-hidden flex flex-col" style={{height:'calc(100vh - 280px)'}}>
-  <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-    <div className="overflow-x-auto flex-1 min-h-0 flex flex-col min-w-0">
-      <div className="min-w-[700px] flex flex-col flex-1 min-h-0">
-        <div className="flex-shrink-0">
-          <Table>
-            {/* COMPACT HEADER WITH SEARCH BARS */}
-            <TableHeader className="bg-gray-200 border-b border-gray-300">
-              <TableRow className="hover:bg-transparent">
-                {/* Date Column */}
-                <TableHead className="w-[90px] py-2 px-2 bg-gray-200">
-                  <div className="flex flex-col gap-1">
-                    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
-                      Date
-                    </span>
-                    <Input
-                      placeholder="dd/mm/yy"
-                      className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
-                      value={receiptFilters.date}
-                      onChange={(e) =>
-                        setReceiptFilters({
-                          ...receiptFilters,
-                          date: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
-                </TableHead>
+    <Card
+      className="border-0 overflow-hidden flex flex-col"
+      style={{ height: "calc(100vh - 280px)" }}
+    >
+      <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+        <div className="overflow-x-auto flex-1 min-h-0 flex flex-col min-w-0">
+          <div className="min-w-[700px] flex flex-col flex-1 min-h-0">
+            <div className="flex-shrink-0">
+              <Table>
+                {/* COMPACT HEADER WITH SEARCH BARS */}
+                <TableHeader className="bg-gray-200 border-b border-gray-300">
+                  <TableRow className="hover:bg-transparent">
+                    {/* Date Column */}
+                    <TableHead className="w-[90px] py-2 px-2 bg-gray-200">
+                      <div className="flex flex-col gap-1">
+                        <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
+                          Date
+                        </span>
+                        <Input
+                          placeholder="dd/mm/yy"
+                          className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
+                          value={receiptFilters.date}
+                          onChange={(e) =>
+                            setReceiptFilters({
+                              ...receiptFilters,
+                              date: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                    </TableHead>
 
-                {/* Tenant Column - Updated with salutation and phone */}
-                <TableHead className="w-[200px] py-2 px-2 bg-gray-200">
-                  <div className="flex flex-col gap-1">
-                    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
-                      Tenant
-                    </span>
-                    <Input
-                      placeholder="Search tenant..."
-                      className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
-                      value={receiptFilters.tenant}
-                      onChange={(e) =>
-                        setReceiptFilters({
-                          ...receiptFilters,
-                          tenant: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
-                </TableHead>
+                    {/* Tenant Column - Updated with salutation and phone */}
+                    <TableHead className="w-[200px] py-2 px-2 bg-gray-200">
+                      <div className="flex flex-col gap-1">
+                        <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
+                          Tenant
+                        </span>
+                        <Input
+                          placeholder="Search tenant..."
+                          className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
+                          value={receiptFilters.tenant}
+                          onChange={(e) =>
+                            setReceiptFilters({
+                              ...receiptFilters,
+                              tenant: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                    </TableHead>
 
-                {/* Amount Column */}
-                <TableHead className="w-[90px] py-2 px-2 bg-gray-200 text-right">
-                  <div className="flex flex-col gap-1">
-                    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
-                      Amount
-                    </span>
-                    <Input
-                      placeholder="Search..."
-                      type="number"
-                      className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 text-right font-normal w-full"
-                      value={receiptFilters.amount}
-                      onChange={(e) =>
-                        setReceiptFilters({
-                          ...receiptFilters,
-                          amount: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
-                </TableHead>
+                    {/* Amount Column */}
+                    <TableHead className="w-[90px] py-2 px-2 bg-gray-200 text-right">
+                      <div className="flex flex-col gap-1">
+                        <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
+                          Amount
+                        </span>
+                        <Input
+                          placeholder="Search..."
+                          type="number"
+                          className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 text-right font-normal w-full"
+                          value={receiptFilters.amount}
+                          onChange={(e) =>
+                            setReceiptFilters({
+                              ...receiptFilters,
+                              amount: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                    </TableHead>
 
-                {/* Method/Bank Column */}
-                <TableHead className="w-[120px] py-2 px-2 bg-gray-200">
-                  <div className="flex flex-col gap-1">
-                    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
-                      Method/Bank
-                    </span>
-                    <Input
-                      placeholder="Search..."
-                      className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
-                      value={receiptFilters.method}
-                      onChange={(e) =>
-                        setReceiptFilters({
-                          ...receiptFilters,
-                          method: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
-                </TableHead>
+                    {/* Method/Bank Column */}
+                    <TableHead className="w-[120px] py-2 px-2 bg-gray-200">
+                      <div className="flex flex-col gap-1">
+                        <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
+                          Method/Bank
+                        </span>
+                        <Input
+                          placeholder="Search..."
+                          className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
+                          value={receiptFilters.method}
+                          onChange={(e) =>
+                            setReceiptFilters({
+                              ...receiptFilters,
+                              method: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                    </TableHead>
 
-                {/* Room/Bed Column */}
-                <TableHead className="w-[100px] py-2 px-2 bg-gray-200">
-                  <div className="flex flex-col gap-1">
-                    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
-                      Room/Bed
-                    </span>
-                    <Input
-                      placeholder="Search..."
-                      className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
-                      value={receiptFilters.room}
-                      onChange={(e) =>
-                        setReceiptFilters({
-                          ...receiptFilters,
-                          room: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
-                </TableHead>
+                    {/* Room/Bed Column */}
+                    <TableHead className="w-[100px] py-2 px-2 bg-gray-200">
+                      <div className="flex flex-col gap-1">
+                        <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
+                          Room/Bed
+                        </span>
+                        <Input
+                          placeholder="Search..."
+                          className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
+                          value={receiptFilters.room}
+                          onChange={(e) =>
+                            setReceiptFilters({
+                              ...receiptFilters,
+                              room: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                    </TableHead>
 
-                {/* Actions Column */}
-               {/* Actions Column */}
-                <TableHead className="w-[80px] py-2 px-2 bg-gray-200 text-center">
-                  <div className="flex flex-col gap-1 items-center">
-                    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
-                      Actions
-                    </span>
-                    <Button
-                      variant="ghost" size="sm"
-                      onClick={() => setShowFilterSidebar?.(true)}
-                      className="h-5 px-1.5 text-[9px] bg-blue-600 text-white hover:bg-blue-700 rounded w-full"
-                    >
-                      <Filter className="w-2.5 h-2.5 mr-0.5" />
-                      Filter
-                    </Button>
-                  </div>
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-          </Table>
-          </div>
-          <div className="overflow-y-auto flex-1 min-h-0">
-          <Table>
-            <colgroup>
-              <col style={{width:'90px'}} />
-              <col style={{width:'200px'}} />
-              <col style={{width:'90px'}} />
-              <col style={{width:'120px'}} />
-              <col style={{width:'100px'}} />
-              <col style={{width:'60px'}} />
-            </colgroup>
-            <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={6}
-                    className="text-center py-8 text-xs text-slate-500"
-                  >
-                    <div className="flex justify-center items-center">
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mr-2" />
-                      Loading receipts...
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ) : filteredReceipts.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={6}
-                    className="text-center py-8 text-xs text-slate-500"
-                  >
-                    <Receipt className="h-8 w-8 mx-auto mb-2 text-slate-300" />
-                    No receipts found
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredReceipts.map((receipt: any) => {
-                  return (
-                    <TableRow
-                      key={receipt.id}
-                      className={`hover:bg-slate-50 ${
-                        receipt.id === highlightedReceipt
-                          ? "bg-green-50 animate-pulse"
-                          : ""
-                      }`}
-                    >
-                      <TableCell className="py-2 text-xs whitespace-nowrap">
-                        {format(new Date(receipt.payment_date), "dd/MM/yy")}
-                      </TableCell>
-                      <TableCell className="py-2">
-                        {/* Show salutation + full name */}
-                        <p className="text-xs font-medium whitespace-nowrap">
-                          {receipt.salutation ? `${receipt.salutation} ` : ""}
-                          {receipt.tenant_name}
-                        </p>
-                        {/* Show country code + phone number */}
-                        {receipt.phone && (
-                          <p className="text-[10px] text-slate-500 whitespace-nowrap">
-                            {receipt.country_code || "+91"} {receipt.phone}
-                          </p>
-                        )}
-                      </TableCell>
-                      <TableCell className="py-2 text-xs font-medium whitespace-nowrap">
-                        ₹{receipt.amount.toLocaleString()}
-                      </TableCell>
-                      <TableCell className="py-2">
-                        <p className="text-xs capitalize whitespace-nowrap">
-                          {receipt.payment_mode}
-                        </p>
-                        {receipt.bank_name && (
-                          <p className="text-[10px] text-slate-500 whitespace-nowrap">
-                            {receipt.bank_name}
-                          </p>
-                        )}
-                      </TableCell>
-                      <TableCell className="py-2">
-                        <p className="text-xs whitespace-nowrap">
-                          {receipt.room_number || "N/A"}
-                        </p>
-                        {receipt.bed_number && (
-                          <p className="text-[10px] text-slate-500">
-                            Bed #{receipt.bed_number}
-                          </p>
-                        )}
-                      </TableCell>
-                      <TableCell className="py-2">
-                        <div className="flex items-center gap-1 justify-center">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-7 w-7 p-0"
-                            onClick={() => onPreviewReceipt(receipt.id)}
-                            title="Preview Receipt"
-                          >
-                            <Eye className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-7 w-7 p-0"
-                            onClick={() => onDownloadReceipt(receipt.id)}
-                            title="Download Receipt"
-                          >
-                            <Download className="h-3.5 w-3.5" />
-                          </Button>
+                    {/* Actions Column */}
+                    {/* Actions Column */}
+                    <TableHead className="w-[80px] py-2 px-2 bg-gray-200 text-center">
+                      <div className="flex flex-col gap-1 items-center">
+                        <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
+                          Actions
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setShowFilterSidebar?.(true)}
+                          className="h-5 px-1.5 text-[9px] bg-blue-600 text-white hover:bg-blue-700 rounded w-full"
+                        >
+                          <Filter className="w-2.5 h-2.5 mr-0.5" />
+                          Filter
+                        </Button>
+                      </div>
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+              </Table>
+            </div>
+            <div className="overflow-y-auto flex-1 min-h-0">
+              <Table>
+                <colgroup>
+                  <col style={{ width: "90px" }} />
+                  <col style={{ width: "200px" }} />
+                  <col style={{ width: "90px" }} />
+                  <col style={{ width: "120px" }} />
+                  <col style={{ width: "100px" }} />
+                  <col style={{ width: "60px" }} />
+                </colgroup>
+                <TableBody>
+                  {loading ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={6}
+                        className="text-center py-8 text-xs text-slate-500"
+                      >
+                        <div className="flex justify-center items-center">
+                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mr-2" />
+                          Loading receipts...
                         </div>
                       </TableCell>
                     </TableRow>
-                  );
-                })
-              )}
-           </TableBody>
-          </Table>
+                  ) : filteredReceipts.length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={6}
+                        className="text-center py-8 text-xs text-slate-500"
+                      >
+                        <Receipt className="h-8 w-8 mx-auto mb-2 text-slate-300" />
+                        No receipts found
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredReceipts.map((receipt: any) => {
+                      return (
+                        <TableRow
+                          key={receipt.id}
+                          className={`hover:bg-slate-50 ${
+                            receipt.id === highlightedReceipt
+                              ? "bg-green-50 animate-pulse"
+                              : ""
+                          }`}
+                        >
+                          <TableCell className="py-2 text-xs whitespace-nowrap">
+                            {format(new Date(receipt.payment_date), "dd/MM/yy")}
+                          </TableCell>
+                          <TableCell className="py-2">
+                            {/* Show salutation + full name */}
+                            <p className="text-xs font-medium whitespace-nowrap">
+                              {receipt.salutation
+                                ? `${receipt.salutation} `
+                                : ""}
+                              {receipt.tenant_name}
+                            </p>
+                            {/* Show country code + phone number */}
+                            {receipt.phone && (
+                              <p className="text-[10px] text-slate-500 whitespace-nowrap">
+                                {receipt.country_code || "+91"} {receipt.phone}
+                              </p>
+                            )}
+                          </TableCell>
+                          <TableCell className="py-2 text-xs font-medium whitespace-nowrap">
+                            ₹{receipt.amount.toLocaleString()}
+                          </TableCell>
+                          <TableCell className="py-2">
+                            <p className="text-xs capitalize whitespace-nowrap">
+                              {receipt.payment_mode}
+                            </p>
+                            {receipt.bank_name && (
+                              <p className="text-[10px] text-slate-500 whitespace-nowrap">
+                                {receipt.bank_name}
+                              </p>
+                            )}
+                          </TableCell>
+                          <TableCell className="py-2">
+                            <p className="text-xs whitespace-nowrap">
+                              {receipt.room_number || "N/A"}
+                            </p>
+                            {receipt.bed_number && (
+                              <p className="text-[10px] text-slate-500">
+                                Bed #{receipt.bed_number}
+                              </p>
+                            )}
+                          </TableCell>
+                          <TableCell className="py-2">
+                            <div className="flex items-center gap-1 justify-center">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 w-7 p-0"
+                                onClick={() => onPreviewReceipt(receipt.id)}
+                                title="Preview Receipt"
+                              >
+                                <Eye className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 w-7 p-0"
+                                onClick={() => onDownloadReceipt(receipt.id)}
+                                title="Download Receipt"
+                              >
+                                <Download className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </div>
         </div>
-      </div>
       </div>
       {/* Receipts Filter Sidebar */}
-<Sheet open={showFilterSidebar} onOpenChange={setShowFilterSidebar}>
-  <SheetContent side="right" className="p-0 w-[85vw] min-w-[280px] sm:w-[360px]">
-    <div className="h-full flex flex-col">
-      <div className="bg-gradient-to-r from-blue-800 via-blue-700 to-blue-600 px-4 py-3 flex items-center justify-between flex-shrink-0">
-        <div className="flex items-center gap-2">
-          <Filter className="w-4 h-4 text-white" />
-          <span className="text-sm font-semibold text-white">Filter Receipts</span>
-        </div>
-        <button onClick={() => setShowFilterSidebar?.(false)} className="text-white/70 hover:text-white">
-          <X className="w-4 h-4" />
-        </button>
-      </div>
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        {[
-          { key: "date",   label: "Date",       placeholder: "dd/mm/yy" },
-          { key: "tenant", label: "Tenant",      placeholder: "Search tenant..." },
-          { key: "amount", label: "Amount",      placeholder: "Search amount..." },
-          { key: "method", label: "Method/Bank", placeholder: "Search method..." },
-          { key: "room",   label: "Room/Bed",    placeholder: "Search room..." },
-        ].map(f => (
-          <div key={f.key} className="space-y-1">
-            <Label className="text-xs font-semibold text-blue-700">{f.label}</Label>
-            <Input placeholder={f.placeholder} value={receiptFilters[f.key] || ""} onChange={(e) => setReceiptFilters(prev => ({...prev, [f.key]: e.target.value}))} className="h-8 text-xs" />
+      <Sheet open={showFilterSidebar} onOpenChange={setShowFilterSidebar}>
+        <SheetContent
+          side="right"
+          className="p-0 w-[85vw] min-w-[280px] sm:w-[360px]"
+        >
+          <div className="h-full flex flex-col">
+            <div className="bg-gradient-to-r from-blue-800 via-blue-700 to-blue-600 px-4 py-3 flex items-center justify-between flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <Filter className="w-4 h-4 text-white" />
+                <span className="text-sm font-semibold text-white">
+                  Filter Receipts
+                </span>
+              </div>
+              <button
+                onClick={() => setShowFilterSidebar?.(false)}
+                className="text-white/70 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {[
+                { key: "date", label: "Date", placeholder: "dd/mm/yy" },
+                {
+                  key: "tenant",
+                  label: "Tenant",
+                  placeholder: "Search tenant...",
+                },
+                {
+                  key: "amount",
+                  label: "Amount",
+                  placeholder: "Search amount...",
+                },
+                {
+                  key: "method",
+                  label: "Method/Bank",
+                  placeholder: "Search method...",
+                },
+                {
+                  key: "room",
+                  label: "Room/Bed",
+                  placeholder: "Search room...",
+                },
+              ].map((f) => (
+                <div key={f.key} className="space-y-1">
+                  <Label className="text-xs font-semibold text-blue-700">
+                    {f.label}
+                  </Label>
+                  <Input
+                    placeholder={f.placeholder}
+                    value={receiptFilters[f.key] || ""}
+                    onChange={(e) =>
+                      setReceiptFilters((prev) => ({
+                        ...prev,
+                        [f.key]: e.target.value,
+                      }))
+                    }
+                    className="h-8 text-xs"
+                  />
+                </div>
+              ))}
+            </div>
+            <div className="border-t p-3 flex gap-2 bg-gray-50 flex-shrink-0">
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1 text-xs h-8"
+                onClick={() =>
+                  setReceiptFilters({
+                    date: "",
+                    tenant: "",
+                    amount: "",
+                    method: "",
+                    room: "",
+                  })
+                }
+              >
+                <RefreshCw className="w-3 h-3 mr-1" /> Reset
+              </Button>
+              <Button
+                size="sm"
+                className="flex-1 text-xs h-8 bg-blue-600 hover:bg-blue-700"
+                onClick={() => setShowFilterSidebar?.(false)}
+              >
+                Apply
+              </Button>
+            </div>
           </div>
-        ))}
-      </div>
-      <div className="border-t p-3 flex gap-2 bg-gray-50 flex-shrink-0">
-        <Button variant="outline" size="sm" className="flex-1 text-xs h-8"
-          onClick={() => setReceiptFilters({ date:"", tenant:"", amount:"", method:"", room:"" })}>
-          <RefreshCw className="w-3 h-3 mr-1" /> Reset
-        </Button>
-        <Button size="sm" className="flex-1 text-xs h-8 bg-blue-600 hover:bg-blue-700"
-          onClick={() => setShowFilterSidebar?.(false)}>
-          Apply
-        </Button>
-      </div>
-    </div>
-  </SheetContent>
-</Sheet>
+        </SheetContent>
+      </Sheet>
     </Card>
   );
 };

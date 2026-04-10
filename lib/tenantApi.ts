@@ -1144,3 +1144,21 @@ export async function sendCredentialsEmail(tenantId: string | number, password: 
     body: JSON.stringify({ password }),
   });
 }
+
+// lib/tenantApi.ts - Add this function
+
+export async function getTenantsByRoom(roomId: string | number): Promise<ApiResult<Tenant[]>> {
+  try {
+    const response = await request<ApiResult<Tenant[]>>(`/api/tenants/room/${roomId}`, {
+      method: "GET",
+    });
+    return response;
+  } catch (error) {
+    console.error("Error fetching tenants by room:", error);
+    return {
+      success: false,
+      message: "Failed to fetch tenants for this room",
+      data: [],
+    };
+  }
+}

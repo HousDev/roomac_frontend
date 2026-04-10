@@ -2137,7 +2137,7 @@ const calculateNumberOfDays = useCallback(() => {
     appliedOffer,
   ]);
 
-  const submitFinalBooking = async (paymentStatus: string) => {
+  const submitFinalBooking = async (paymentStatus: string, razorpayDetails?: any) => {
     setLoading(true);
 
     try {
@@ -2157,6 +2157,15 @@ const calculateNumberOfDays = useCallback(() => {
           }
         }
       });
+
+      // ✅ ADD RAZORPAY DETAILS IF AVAILABLE
+    if (razorpayDetails) {
+      formDataToSend.append("razorpay_payment_id", razorpayDetails.razorpay_payment_id);
+      formDataToSend.append("razorpay_order_id", razorpayDetails.razorpay_order_id);
+      formDataToSend.append("razorpay_signature", razorpayDetails.razorpay_signature);
+      formDataToSend.append("transaction_id", razorpayDetails.razorpay_payment_id); // Use payment ID as transaction ID
+      formDataToSend.append("payment_status", "completed");
+    }
 
       // Append files
       if (documentDetails.idProofFile) {
@@ -2275,7 +2284,12 @@ const calculateNumberOfDays = useCallback(() => {
         order_id: orderData.order.id,
         handler: async function (response: any) {
           try {
-            await submitFinalBooking("paid");
+            // ✅ Pass Razorpay details to submitFinalBooking
+          await submitFinalBooking("paid", {
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_order_id: response.razorpay_order_id,
+            razorpay_signature: response.razorpay_signature,
+          });
           } catch (error) {
             toast.error("Payment successful but booking failed. Contact support.");
           }
