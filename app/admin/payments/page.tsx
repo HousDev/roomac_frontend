@@ -1,7 +1,7 @@
 // app/admin/payments/page.tsx
 "use client";
 
-import { useState, useEffect, Fragment } from "react";
+import { useState, useEffect, Fragment, useRef } from "react";
 import {
   Card,
   CardContent,
@@ -610,6 +610,9 @@ export default function PaymentsPage() {
   // Add this with your other useState declarations
   const [isLedgerReportOpen, setIsLedgerReportOpen] = useState(false);
   const [selectedLedgerTenant, setSelectedLedgerTenant] = useState<any>(null);
+
+  const propertySearchInputRef = useRef<HTMLInputElement>(null);
+const roomSearchInputRef = useRef<HTMLInputElement>(null);
 
   // Add this with your other useState declarations
   const [expandedRows, setExpandedRows] = useState<number[]>([]);
@@ -2895,6 +2898,16 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
                 <Select
                   value={selectedPropertyId}
                   onValueChange={handlePropertyChange}
+                   onOpenChange={(open) => {
+      if (open) {
+        // Focus the property search input when dropdown opens
+        setTimeout(() => {
+          if (propertySearchInputRef.current) {
+            propertySearchInputRef.current.focus();
+          }
+        }, 50);
+      }
+    }}
                 >
                   <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
                     <SelectValue placeholder="Select property..." />
@@ -2910,6 +2923,8 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
                       onPointerDown={(e) => e.stopPropagation()}
                     >
                       <Input
+                      ref={propertySearchInputRef}  
+                       onKeyDown={(e) => e.stopPropagation()}
                         placeholder="Search property..."
                         value={propertySearch}
                         onChange={(e) => handlePropertySearch(e.target.value)}
@@ -2958,6 +2973,16 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
                   value={selectedRoomId}
                   onValueChange={handleRoomChange}
                   disabled={!selectedPropertyId || loadingRooms}
+                     onOpenChange={(open) => {
+      if (open && selectedPropertyId) {
+        // Focus the room search input when dropdown opens
+        setTimeout(() => {
+          if (roomSearchInputRef.current) {
+            roomSearchInputRef.current.focus();
+          }
+        }, 50);
+      }
+    }}
                 >
                   <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
                     <SelectValue
@@ -2979,7 +3004,9 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
                       onPointerDown={(e) => e.stopPropagation()}
                     >
                       <Input
+                       ref={roomSearchInputRef}
                         placeholder="Search room..."
+                        onKeyDown={(e) => e.stopPropagation()}
                         value={roomSearch}
                         onChange={(e) => handleRoomSearch(e.target.value)}
                         className="h-7 text-xs"
