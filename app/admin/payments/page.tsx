@@ -1812,208 +1812,140 @@ const groupPaymentsByTenant = (payments: any[]) => {
   };
 
   // Rent Summary Table Component
-  // Rent Summary Table Component - With null checks
-  const RentSummaryTable = ({ formData }: { formData: any }) => {
-    if (!formData) {
-      return (
-        <div className="bg-white rounded-lg border border-slate-200 mb-4 overflow-hidden">
-          <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
-            <h4 className="text-xs font-semibold text-slate-700 flex items-center gap-2">
-              <IndianRupee className="h-3.5 w-3.5" />
-              Rent History Since Joining
-            </h4>
-          </div>
-          <div className="p-4 text-center text-slate-500 text-sm">
-            Loading rent history...
-          </div>
-        </div>
-      );
-    }
 
-    // Use month_wise_history or groupedPayments (fallback for backward compatibility)
-    const months =
-      formData.month_wise_history || formData.groupedPayments || [];
-    const originalMonthlyRent = formData.monthly_rent || 0;
+const RentSummaryTable = ({ formData }: { formData: any }) => {
+  if (!formData) return null;
+  
+  const months = formData.month_wise_history || [];
+  const originalMonthlyRent = formData.monthly_rent || 0;
+  const firstMonthProrated = formData.first_month_prorated;
 
-    if (months.length === 0) {
-      return (
-        <div className="bg-white rounded-lg border border-slate-200 mb-4 overflow-hidden">
-          <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
-            <h4 className="text-xs font-semibold text-slate-700 flex items-center gap-2">
-              <IndianRupee className="h-3.5 w-3.5" />
-              Rent History Since Joining
-            </h4>
-          </div>
-          <div className="p-4 text-center text-slate-500 text-sm">
-            No rent history available
-          </div>
-        </div>
-      );
-    }
-
-    return (
-      <div className="bg-white rounded-lg border border-slate-200 mb-4 overflow-hidden">
-        <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
+  return (
+    <div className="bg-white rounded-lg border border-slate-200 mb-4 overflow-hidden">
+      <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
+        <div className="flex items-center justify-between">
           <h4 className="text-xs font-semibold text-slate-700 flex items-center gap-2">
             <IndianRupee className="h-3.5 w-3.5" />
             Rent History Since Joining
           </h4>
-          <p className="text-xs text-slate-500 mt-1">
-            Showing from {months[0]?.month} {months[0]?.year} to{" "}
-            {months[months.length - 1]?.month} {months[months.length - 1]?.year}
+          {firstMonthProrated && (
+            <Badge variant="outline" className="text-[9px] bg-amber-50 text-amber-700 border-amber-200">
+              <Clock className="h-2.5 w-2.5 mr-1" />
+              Prorated: {firstMonthProrated.days} days @ ₹{firstMonthProrated.daily_rate}/day
+            </Badge>
+          )}
+        </div>
+        <p className="text-xs text-slate-500 mt-1">
+          {months.length > 0
+            ? `Showing from ${months[0]?.month} ${months[0]?.year} to ${months[months.length - 1]?.month} ${months[months.length - 1]?.year}`
+            : "No history available"}
+        </p>
+      </div>
+
+      <div className="p-4 max-h-[300px] overflow-y-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-50 sticky top-0">
+            <tr>
+              <th className="text-left p-2 text-xs font-medium text-slate-600">Month</th>
+              <th className="text-right p-2 text-xs font-medium text-slate-600">Rent</th>
+              <th className="text-right p-2 text-xs font-medium text-slate-600">Paid</th>
+              <th className="text-right p-2 text-xs font-medium text-slate-600">Discount</th>
+              <th className="text-right p-2 text-xs font-medium text-slate-600">Pending</th>
+              <th className="text-center p-2 text-xs font-medium text-slate-600">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {months.map((month: any, index: number) => {
+              const isCurrentMonth = (() => {
+                const now = new Date();
+                return month.month_num === now.getMonth() + 1 && month.year === now.getFullYear();
+              })();
+              
+              return (
+                <tr
+                  key={`${month.month_key || index}-${index}`}
+                  className={`border-t border-slate-200 ${
+                    isCurrentMonth ? "bg-blue-50" : ""
+                  } ${month.has_discount ? "bg-green-50" : ""} ${month.is_prorated ? "bg-amber-50/30" : ""}`}
+                >
+                  <td className="p-2 text-sm font-medium">
+                    {month.month} {month.year}
+                    {month.has_discount && (
+                      <span className="ml-2 text-[10px] text-green-600">
+                        (Discounted)
+                      </span>
+                    )}
+                    {month.is_prorated && !month.has_discount && (
+                      <span className="ml-2 text-[10px] text-amber-600">
+                        (Prorated - {month.prorated_days} days)
+                      </span>
+                    )}
+                  </td>
+                  <td className="p-2 text-right">
+                    ₹{month.rent?.toLocaleString()}
+                    {month.original_rent > month.rent && (
+                      <span className="text-[10px] text-slate-400 line-through ml-1">
+                        ₹{month.original_rent?.toLocaleString()}
+                      </span>
+                    )}
+                  </td>
+                  <td className="p-2 text-right text-green-600 font-medium">
+                    ₹{month.paid?.toLocaleString()}
+                  </td>
+                  <td className="p-2 text-right text-red-500">
+                    ₹{month.discount_applied?.toLocaleString() || 0}
+                  </td>
+                  <td className="p-2 text-right font-medium">
+                    <span className={month.pending > 0 ? "text-amber-600" : "text-green-600"}>
+                      ₹{month.pending?.toLocaleString()}
+                    </span>
+                  </td>
+                  <td className="p-2 text-center">
+                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                      month.status === "paid"
+                        ? "bg-green-100 text-green-800"
+                        : month.status === "partial"
+                        ? "bg-yellow-100 text-yellow-800"
+                        : "bg-red-100 text-red-800"
+                    }`}>
+                      {month.status}
+                    </span>
+                  </td>
+                 </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-4 gap-2 p-4 bg-slate-50 border-t border-slate-200">
+        <div className="bg-white p-2 rounded border border-slate-200">
+          <p className="text-xs text-slate-500">Months Since Joining</p>
+          <p className="text-lg font-bold text-slate-700">{months.length}</p>
+        </div>
+        <div className="bg-white p-2 rounded border border-slate-200">
+          <p className="text-xs text-slate-500">Monthly Rent</p>
+          <p className="text-lg font-bold text-green-600">
+            ₹{originalMonthlyRent?.toLocaleString()}
           </p>
         </div>
-
-        <div className="p-4 max-h-[300px] overflow-y-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 sticky top-0">
-              <tr>
-                <th className="text-left p-2 text-xs font-medium text-slate-600">
-                  Month
-                </th>
-                <th className="text-right p-2 text-xs font-medium text-slate-600">
-                  Rent
-                </th>
-                <th className="text-right p-2 text-xs font-medium text-slate-600">
-                  Paid
-                </th>
-                <th className="text-right p-2 text-xs font-medium text-slate-600">
-                  Discount
-                </th>
-                <th className="text-right p-2 text-xs font-medium text-slate-600">
-                  Pending
-                </th>
-                <th className="text-center p-2 text-xs font-medium text-slate-600">
-                  Status
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {months.map((month: any, index: number) => {
-                // Add safe navigation
-                if (!month) return null;
-
-                const rent = month?.rent || month?.total_amount || 0;
-                const paid = month?.paid || month?.amount || 0;
-                const pending = month?.pending || month?.new_balance || 0;
-                const discount =
-                  month?.discount_applied || month?.discount_amount || 0;
-                const status = month?.status || "pending";
-                const monthName = month?.month || "Unknown";
-                const year = month?.year || new Date().getFullYear();
-
-                const isCurrentMonth = (() => {
-                  const now = new Date();
-                  const monthNum =
-                    new Date(Date.parse(monthName + " 1, " + year)).getMonth() +
-                    1;
-                  return (
-                    monthNum === now.getMonth() + 1 &&
-                    year === now.getFullYear()
-                  );
-                })();
-
-                return (
-                  <tr
-                    key={`${index}`}
-                    className={`border-t border-slate-200 ${
-                      isCurrentMonth ? "bg-blue-50" : ""
-                    } ${discount > 0 ? "bg-green-50" : ""}`}
-                  >
-                    <td className="p-2 text-sm font-medium">
-                      {monthName} {year}
-                      {discount > 0 && (
-                        <span className="ml-2 text-[10px] text-green-600">
-                          (Discounted)
-                        </span>
-                      )}
-                    </td>
-                    <td className="p-2 text-right">
-                      ₹{typeof rent === "number" ? rent.toLocaleString() : rent}
-                      {month.original_rent && month.original_rent !== rent && (
-                        <span className="text-[10px] text-slate-400 line-through ml-1">
-                          ₹{month.original_rent?.toLocaleString()}
-                        </span>
-                      )}
-                    </td>
-                    <td className="p-2 text-right text-green-600 font-medium">
-                      ₹{typeof paid === "number" ? paid.toLocaleString() : paid}
-                    </td>
-                    <td className="p-2 text-right text-red-500">
-                      ₹
-                      {typeof discount === "number"
-                        ? discount.toLocaleString()
-                        : discount}
-                    </td>
-                    <td className="p-2 text-right font-medium">
-                      <span
-                        className={
-                          pending > 0 ? "text-amber-600" : "text-green-600"
-                        }
-                      >
-                        ₹
-                        {typeof pending === "number"
-                          ? pending.toLocaleString()
-                          : pending}
-                      </span>
-                    </td>
-                    <td className="p-2 text-center">
-                      <span
-                        className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                          status === "paid"
-                            ? "bg-green-100 text-green-800"
-                            : status === "partial"
-                              ? "bg-yellow-100 text-yellow-800"
-                              : "bg-red-100 text-red-800"
-                        }`}
-                      >
-                        {status}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        <div className="bg-white p-2 rounded border border-slate-200">
+          <p className="text-xs text-slate-500">Total Paid</p>
+          <p className="text-lg font-bold text-blue-600">
+            ₹{formData.total_paid?.toLocaleString()}
+          </p>
         </div>
-
-        {/* Summary Cards */}
-        <div className="grid grid-cols-4 gap-2 p-4 bg-slate-50 border-t border-slate-200">
-          <div className="bg-white p-2 rounded border border-slate-200">
-            <p className="text-xs text-slate-500">Months Since Joining</p>
-            <p className="text-lg font-bold text-slate-700">{months.length}</p>
-          </div>
-          <div className="bg-white p-2 rounded border border-slate-200">
-            <p className="text-xs text-slate-500">Monthly Rent</p>
-            <p className="text-lg font-bold text-green-600">
-              ₹
-              {typeof originalMonthlyRent === "number"
-                ? originalMonthlyRent.toLocaleString()
-                : originalMonthlyRent}
-            </p>
-          </div>
-          <div className="bg-white p-2 rounded border border-slate-200">
-            <p className="text-xs text-slate-500">Total Paid</p>
-            <p className="text-lg font-bold text-blue-600">
-              ₹
-              {typeof formData.total_paid === "number"
-                ? formData.total_paid?.toLocaleString()
-                : formData.total_paid || 0}
-            </p>
-          </div>
-          <div className="bg-white p-2 rounded border border-slate-200">
-            <p className="text-xs text-slate-500">Total Pending</p>
-            <p className="text-lg font-bold text-amber-600">
-              ₹
-              {typeof formData.total_pending === "number"
-                ? formData.total_pending?.toLocaleString()
-                : formData.total_pending || 0}
-            </p>
-          </div>
+        <div className="bg-white p-2 rounded border border-slate-200">
+          <p className="text-xs text-slate-500">Total Pending</p>
+          <p className="text-lg font-bold text-amber-600">
+            ₹{formData.total_pending?.toLocaleString()}
+          </p>
         </div>
       </div>
-    );
-  };
+    </div>
+  );
+};
 
   {
     /* Security Deposit Info - Show when payment type is security_deposit */
