@@ -935,11 +935,54 @@ const calculateNumberOfDays = useCallback(() => {
   return diffDays;
 }, [bookingType, formData.checkInDate, formData.checkOutDate]);
 
-  // Calculate Rent Amount (before discount)
-  const calculateRentAmount = useCallback(() => {
-    if (!selectedBed) return 0;
 
-     if (bookingType === "short") {
+// Add this helper function before calculateRentAmount
+
+// Helper function to calculate prorated rent for first month
+const calculateProratedRent = useCallback((moveInDate: string, monthlyRent: number) => {
+  if (!moveInDate) return { amount: monthlyRent, isProrated: false, days: 0, dailyRate: 0 };
+  
+  const checkIn = new Date(moveInDate);
+  const year = checkIn.getFullYear();
+  const month = checkIn.getMonth();
+  
+  // Get last day of the month
+  const lastDayOfMonth = new Date(year, month + 1, 0).getDate();
+  const checkInDay = checkIn.getDate();
+  
+  // If check-in is on 1st, no proration needed
+  if (checkInDay === 1) {
+    return {
+      amount: monthlyRent,
+      isProrated: false,
+      days: lastDayOfMonth,
+      dailyRate: monthlyRent / lastDayOfMonth,
+      checkInDay: checkInDay
+    };
+  }
+  
+  // Calculate days from check-in to end of month (inclusive)
+  const daysCount = lastDayOfMonth - checkInDay + 1;
+  const dailyRate = monthlyRent / lastDayOfMonth;
+  const proratedRent = Math.round(dailyRate * daysCount);
+  
+  return {
+    amount: proratedRent,
+    isProrated: true,
+    days: daysCount,
+    dailyRate: Math.round(dailyRate * 100) / 100,
+    checkInDay: checkInDay,
+    totalDays: lastDayOfMonth,
+    monthName: checkIn.toLocaleString('default', { month: 'long' }),
+    year: year
+  };
+}, []);
+
+// Update calculateRentAmount
+const calculateRentAmount = useCallback(() => {
+  if (!selectedBed) return 0;
+
+  if (bookingType === "short") {
     const days = calculateNumberOfDays();
     if (days === 0) return 0;
     
@@ -948,206 +991,212 @@ const calculateNumberOfDays = useCallback(() => {
     const rentPerDay = dailyRate / 30;
     const totalRent = rentPerDay * days;
     
-    return Math.round(totalRent); // Round to nearest integer
+    return Math.round(totalRent);
   } else {
     // Long stay - monthly rent
+    // Check if this is the first month and move-in date is not 1st
+    if (formData.moveInDate) {
+      const prorated = calculateProratedRent(formData.moveInDate, selectedBed.bedRent);
+      return prorated.amount;
+    }
     return selectedBed.bedRent;
   }
-}, [bookingType, selectedBed, calculateNumberOfDays]);
+}, [bookingType, selectedBed, calculateNumberOfDays, formData.moveInDate, calculateProratedRent]);
 
-  // Calculate Final Amount after discount - ONLY apply discount to rent
-  const calculateFinalAmount = useCallback(() => {
-    const rentAmount = calculateRentAmount();
-    const securityDeposit =
-      bookingType === "long" ? propertyData?.securityDeposit || 0 : 0;
 
-    // Ensure discountedAmount is a valid number
-    const validDiscount = isNaN(discountedAmount) ? 0 : discountedAmount;
+  // ✅ CORRECTED - Apply discount ONLY to rent, not security deposit
+const calculateFinalAmount = useCallback(() => {
+  const rentAmount = calculateRentAmount();
+  const securityDeposit =
+    bookingType === "long" ? propertyData?.securityDeposit || 0 : 0;
 
-    // Apply discount only to rent, not to security deposit
-    const discountedRent = Math.max(0, rentAmount - validDiscount);
-    const finalTotal = discountedRent + securityDeposit;
+  // Ensure discountedAmount is a valid number
+  const validDiscount = isNaN(discountedAmount) ? 0 : discountedAmount;
 
-    return finalTotal;
-  }, [calculateRentAmount, discountedAmount, bookingType, propertyData]);
+  // ✅ Apply discount ONLY to rent, security deposit remains unchanged
+  const discountedRent = Math.max(0, rentAmount - validDiscount);
+  const finalTotal = discountedRent + securityDeposit;
 
-  // Validate and Apply Offer - Handle both percentage and fixed discounts
-  const validateAndApplyOffer = useCallback(
-    async (code: string) => {
-      if (!code || code.trim() === "") {
-        setOfferError("");
+  return finalTotal;
+}, [calculateRentAmount, discountedAmount, bookingType, propertyData]);
+
+// ✅ CORRECTED - Calculate discount based on RENT ONLY (not including security deposit)
+const validateAndApplyOffer = useCallback(
+  async (code: string) => {
+    if (!code || code.trim() === "") {
+      setOfferError("");
+      setAppliedOffer(null);
+      setDiscountedAmount(0);
+      return;
+    }
+
+    setOfferLoading(true);
+    setOfferError("");
+    setOfferSuccess("");
+
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/offers`,
+      );
+      const offers = await response.json();
+
+      const cleanInputCode = code.trim().toUpperCase();
+
+      const offer = offers.find((o: any) => {
+        const cleanOfferCode = o.code?.toString().trim().toUpperCase();
+        const isActive =
+          o.is_active === true ||
+          o.is_active === 1 ||
+          o.is_active === "true" ||
+          o.is_active === "1";
+        return cleanOfferCode === cleanInputCode && isActive;
+      });
+
+      if (!offer) {
+        setOfferError("Invalid offer code");
+        setAppliedOffer(null);
+        setDiscountedAmount(0);
+        setOfferSuccess("");
+        return;
+      }
+
+      // Check if offer is for a specific room
+      if (
+        offer.room_id &&
+        selectedRoom &&
+        selectedRoom.id !== offer.room_id
+      ) {
+        setOfferError(
+          `This offer is only valid for Room ${offer.room_number || offer.room_id}. Please select the correct room.`,
+        );
         setAppliedOffer(null);
         setDiscountedAmount(0);
         return;
       }
 
-      setOfferLoading(true);
-      setOfferError("");
-      setOfferSuccess("");
+      // Check if offer is active
+      const isActive =
+        offer.is_active === true ||
+        offer.is_active === 1 ||
+        offer.is_active === "true" ||
+        offer.is_active === "1";
 
-      try {
-        const response = await fetch(
-          `${import.meta.env.VITE_API_URL}/api/offers`,
-        );
-        const offers = await response.json();
+      if (!isActive) {
+        setOfferError("This offer is no longer active");
+        setAppliedOffer(null);
+        return;
+      }
 
-        const cleanInputCode = code.trim().toUpperCase();
+      // Validate offer end date
+      if (offer.end_date) {
+        const endDate = new Date(offer.end_date);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
 
-        const offer = offers.find((o: any) => {
-          const cleanOfferCode = o.code?.toString().trim().toUpperCase();
-          const isActive =
-            o.is_active === true ||
-            o.is_active === 1 ||
-            o.is_active === "true" ||
-            o.is_active === "1";
-          return cleanOfferCode === cleanInputCode && isActive;
-        });
-
-        if (!offer) {
-          setOfferError("Invalid offer code");
+        if (endDate < today) {
+          setOfferError(`Offer expired on ${endDate.toLocaleDateString()}`);
           setAppliedOffer(null);
-          setDiscountedAmount(0);
-          setOfferSuccess("");
           return;
         }
+      }
 
-        // Check if offer is for a specific room
+      // Validate offer start date
+      if (offer.start_date) {
+        const startDate = new Date(offer.start_date);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        if (startDate > today) {
+          setOfferError(`Offer starts on ${startDate.toLocaleDateString()}`);
+          setAppliedOffer(null);
+          return;
+        }
+      }
+
+      // Property-specific check
+      if (offer.property_id && offer.property_id !== propertyData?.id) {
+        setOfferError(`This offer is for a different property`);
+        setAppliedOffer(null);
+        return;
+      }
+
+      // ✅ FIXED: Calculate discount based on RENT AMOUNT only (not including security deposit)
+      const rentAmount = calculateRentAmount(); // This already handles prorated amount
+      let discountAmount = 0;
+      let discountDisplay = "";
+
+      // Calculate discount based on type - applied to rent only
+      if (offer.discount_type === "percentage" && offer.discount_percent) {
+        const percentage = parseFloat(offer.discount_percent);
+        discountAmount = rentAmount * (percentage / 100);
+        discountDisplay = `${percentage}%`;
+      } else if (offer.discount_type === "fixed" && offer.discount_value) {
+        const fixedAmount = parseFloat(offer.discount_value);
+        discountAmount = Math.min(fixedAmount, rentAmount);
+        discountDisplay = `₹${fixedAmount.toLocaleString()}`;
+      } else {
+        // Fallback - try to determine from available fields
         if (
-          offer.room_id &&
-          selectedRoom &&
-          selectedRoom.id !== offer.room_id
+          offer.discount_percent &&
+          parseFloat(offer.discount_percent) > 0
         ) {
-          setOfferError(
-            `This offer is only valid for Room ${offer.room_number || offer.room_id}. Please select the correct room.`,
-          );
-          setAppliedOffer(null);
-          setDiscountedAmount(0);
-          return;
-        }
-
-        // Check if offer is active
-        const isActive =
-          offer.is_active === true ||
-          offer.is_active === 1 ||
-          offer.is_active === "true" ||
-          offer.is_active === "1";
-
-        if (!isActive) {
-          setOfferError("This offer is no longer active");
-          setAppliedOffer(null);
-          return;
-        }
-
-        // Validate offer end date
-        if (offer.end_date) {
-          const endDate = new Date(offer.end_date);
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
-
-          if (endDate < today) {
-            setOfferError(`Offer expired on ${endDate.toLocaleDateString()}`);
-            setAppliedOffer(null);
-            return;
-          }
-        }
-
-        // Validate offer start date
-        if (offer.start_date) {
-          const startDate = new Date(offer.start_date);
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
-
-          if (startDate > today) {
-            setOfferError(`Offer starts on ${startDate.toLocaleDateString()}`);
-            setAppliedOffer(null);
-            return;
-          }
-        }
-
-        // Property-specific check
-        if (offer.property_id && offer.property_id !== propertyData?.id) {
-          setOfferError(`This offer is for a different property`);
-          setAppliedOffer(null);
-          return;
-        }
-
-        // Calculate discount - ONLY on RENT
-        const rentAmount = calculateRentAmount();
-        let discountAmount = 0;
-        let discountDisplay = "";
-
-        // Calculate discount based on type
-        if (offer.discount_type === "percentage" && offer.discount_percent) {
           const percentage = parseFloat(offer.discount_percent);
           discountAmount = rentAmount * (percentage / 100);
           discountDisplay = `${percentage}%`;
-        } else if (offer.discount_type === "fixed" && offer.discount_value) {
+        } else if (
+          offer.discount_value &&
+          parseFloat(offer.discount_value) > 0
+        ) {
           const fixedAmount = parseFloat(offer.discount_value);
           discountAmount = Math.min(fixedAmount, rentAmount);
           discountDisplay = `₹${fixedAmount.toLocaleString()}`;
         } else {
-          // Fallback - try to determine from available fields
-          if (
-            offer.discount_percent &&
-            parseFloat(offer.discount_percent) > 0
-          ) {
-            const percentage = parseFloat(offer.discount_percent);
-            discountAmount = rentAmount * (percentage / 100);
-            discountDisplay = `${percentage}%`;
-          } else if (
-            offer.discount_value &&
-            parseFloat(offer.discount_value) > 0
-          ) {
-            const fixedAmount = parseFloat(offer.discount_value);
-            discountAmount = Math.min(fixedAmount, rentAmount);
-            discountDisplay = `₹${fixedAmount.toLocaleString()}`;
-          } else {
-            setOfferError("Invalid discount configuration");
-            setAppliedOffer(null);
-            return;
-          }
+          setOfferError("Invalid discount configuration");
+          setAppliedOffer(null);
+          return;
         }
-
-        // Ensure discount doesn't exceed rent
-        discountAmount = Math.min(discountAmount, rentAmount);
-
-        // Round to 2 decimal places
-        discountAmount = Math.round(discountAmount * 100) / 100;
-
-        setAppliedOffer({
-          ...offer,
-          discount_amount: discountAmount,
-          discount_display: discountDisplay,
-        });
-        setDiscountedAmount(discountAmount);
-
-        // Success message
-        const securityDeposit =
-          bookingType === "long" ? propertyData?.securityDeposit || 0 : 0;
-        const discountedRent = rentAmount - discountAmount;
-        const finalTotal = discountedRent + securityDeposit;
-
-        let successMessage = `Offer applied! Rent reduced from ₹${rentAmount.toLocaleString()} to ₹${discountedRent.toLocaleString()}. You save ₹${discountAmount.toLocaleString()}`;
-
-        if (offer.min_months && offer.min_months > 0) {
-          successMessage += ` (Valid for ${offer.min_months} month${offer.min_months !== 1 ? "s" : ""})`;
-        }
-
-        if (offer.bonus_title) {
-          successMessage += ` 🎁 Bonus: ${offer.bonus_title}`;
-        }
-
-        setOfferSuccess(successMessage);
-        setOfferError("");
-      } catch (error) {
-        console.error("Error validating offer:", error);
-        setOfferError("Failed to validate offer");
-      } finally {
-        setOfferLoading(false);
       }
-    },
-    [bookingType, propertyData?.id, calculateRentAmount, selectedRoom],
-  );
+
+      // Ensure discount doesn't exceed rent
+      discountAmount = Math.min(discountAmount, rentAmount);
+
+      // Round to nearest integer
+      discountAmount = Math.round(discountAmount);
+
+      setAppliedOffer({
+        ...offer,
+        discount_amount: discountAmount,
+        discount_display: discountDisplay,
+      });
+      setDiscountedAmount(discountAmount);
+
+      // ✅ Success message with correct calculation
+      const securityDeposit =
+        bookingType === "long" ? propertyData?.securityDeposit || 0 : 0;
+      const discountedRent = rentAmount - discountAmount;
+      const finalTotal = discountedRent + securityDeposit;
+
+      let successMessage = `Offer applied! Rent reduced from ₹${rentAmount.toLocaleString()} to ₹${discountedRent.toLocaleString()}. You save ₹${discountAmount.toLocaleString()} on rent`;
+
+      if (offer.min_months && offer.min_months > 0) {
+        successMessage += ` (Valid for ${offer.min_months} month${offer.min_months !== 1 ? "s" : ""})`;
+      }
+
+      if (offer.bonus_title) {
+        successMessage += ` 🎁 Bonus: ${offer.bonus_title}`;
+      }
+
+      setOfferSuccess(successMessage);
+      setOfferError("");
+    } catch (error) {
+      console.error("Error validating offer:", error);
+      setOfferError("Failed to validate offer");
+    } finally {
+      setOfferLoading(false);
+    }
+  },
+  [bookingType, propertyData?.id, propertyData?.securityDeposit, calculateRentAmount, selectedRoom],
+);
 
   useEffect(() => {
     // If there's an applied offer that has a specific room_id
@@ -2043,99 +2092,124 @@ const calculateNumberOfDays = useCallback(() => {
     return () => clearTimeout(timer);
   }, [formData.email, formData.phone, checkExistingTenant]);
 
-  const prepareBookingData = useCallback((): any => {
-    const partnerFullName =
-      `${partnerDetails.firstName} ${partnerDetails.lastName}`.trim();
-    const rentAmount = calculateRentAmount();
-    const securityDeposit =
-      bookingType === "long" ? propertyData?.securityDeposit || 0 : 0;
-    const discountedRent = Math.max(0, rentAmount - discountedAmount);
-    const totalAmount = discountedRent + securityDeposit;
-    const discountValue = rentAmount - discountedRent;
+// ✅ CORRECTED - prepareBookingData with proper rent and discount separation
+const prepareBookingData = useCallback((): any => {
+  const partnerFullName =
+    `${partnerDetails.firstName} ${partnerDetails.lastName}`.trim();
+  
+  // Calculate prorated rent for first month if applicable
+  let rentAmount = calculateRentAmount();
+  let originalRentAmount = selectedBed?.bedRent || 0;
+  let isFirstMonthProrated = false;
+  let proratedDays = 0;
+  let proratedDailyRate = 0;
+  
+  if (bookingType === "long" && formData.moveInDate) {
+    const prorated = calculateProratedRent(formData.moveInDate, originalRentAmount);
+    if (prorated.isProrated) {
+      rentAmount = prorated.amount;
+      isFirstMonthProrated = true;
+      proratedDays = prorated.days;
+      proratedDailyRate = prorated.dailyRate;
+    }
+  }
+  
+  const securityDeposit =
+    bookingType === "long" ? propertyData?.securityDeposit || 0 : 0;
+  
+  // ✅ Apply discount ONLY to rent, not to security deposit
+  const discountedRent = Math.max(0, rentAmount - discountedAmount);
+  const totalAmount = discountedRent + securityDeposit;
+  const discountValue = rentAmount - discountedRent;
 
-    return {
-      salutation: formData.salutation,
-      fullName: formData.fullName,
-      email: formData.email,
-      phone: formData.phone,
-      country_code: formData.countryCode || "+91",
-      gender: formData.gender,
-      isCouple: formData.isCouple,
-      moveInDate: formData.moveInDate,
-      checkInDate: formData.checkInDate,
-      checkOutDate: formData.checkOutDate,
-      roomId: selectedRoom?.id.toString() || "",
-      roomNumber: selectedRoom?.room_number || "",
-      bedNumber: selectedBed?.bedNumber?.toString() || "",
-      sharingType: selectedRoom?.sharing_type || "",
-      monthlyRent: discountedRent, // ✅ FIXED: Use discounted rent here
-      dailyRate: selectedRoom?.daily_rate || 0,
-      floor: selectedRoom?.floor || "Ground",
-      bookingType: bookingType === "long" ? "monthly" : "daily",
-      propertyId: propertyData?.id,
-      propertyName: propertyData?.name || "",
-      paymentMethod: paymentMethod,
-      couponCode: formData.couponCode,
+  return {
+    salutation: formData.salutation,
+    fullName: formData.fullName,
+    email: formData.email,
+    phone: formData.phone,
+    country_code: formData.countryCode || "+91",
+    gender: formData.gender,
+    isCouple: formData.isCouple,
+    moveInDate: formData.moveInDate,
+    checkInDate: formData.checkInDate,
+    checkOutDate: formData.checkOutDate,
+    roomId: selectedRoom?.id.toString() || "",
+    roomNumber: selectedRoom?.room_number || "",
+    bedNumber: selectedBed?.bedNumber?.toString() || "",
+    sharingType: selectedRoom?.sharing_type || "",
+    monthlyRent: discountedRent, // ✅ Discounted rent
+    originalMonthlyRent: originalRentAmount, // ✅ Original rent
+    dailyRate: selectedRoom?.daily_rate || 0,
+    floor: selectedRoom?.floor || "Ground",
+    bookingType: bookingType === "long" ? "monthly" : "daily",
+    propertyId: propertyData?.id,
+    propertyName: propertyData?.name || "",
+    paymentMethod: paymentMethod,
+    couponCode: formData.couponCode,
 
-      // Amount fields
-      rentAmount: rentAmount, // Original rent amount
-      discountedRent: discountedRent, // Rent after discount
-      securityDeposit: securityDeposit, // Security deposit (unchanged)
-      totalAmount: totalAmount, // Final total after discount
-      originalAmount: rentAmount + securityDeposit, // Original total
-      discountAmount: discountValue, // Discount applied to rent only
+    // ✅ Amount fields - clearly separated
+    originalRentAmount: originalRentAmount, // Original rent before discount
+    calculatedRentAmount: rentAmount, // Calculated rent (may be prorated)
+    discountedRentAmount: discountedRent, // Rent after discount
+    discountAmount: discountValue, // Discount applied to rent only
+    securityDeposit: securityDeposit, // Security deposit (unchanged)
+    totalAmount: totalAmount, // Final total = discounted rent + security deposit
+    
+    // Proration details
+    is_first_month_prorated: isFirstMonthProrated,
+    prorated_days: proratedDays,
+    prorated_daily_rate: proratedDailyRate,
 
-      // Offer details
-      offerCode: appliedOffer?.code || null,
-      offerId: appliedOffer?.id || null,
-      offerTitle: appliedOffer?.title || null,
-      discountType: appliedOffer?.discount_type || null,
-      discountPercent: appliedOffer?.discount_percent || null,
+    // Offer details
+    offerCode: appliedOffer?.code || null,
+    offerId: appliedOffer?.id || null,
+    offerTitle: appliedOffer?.title || null,
+    discountType: appliedOffer?.discount_type || null,
+    discountPercent: appliedOffer?.discount_percent || null,
 
-      verificationStatus: verified,
-      bookingStatus: paymentMethod === "online" ? "confirmed" : "pending",
-      paymentStatus: paymentMethod === "online" ? "paid" : "pending",
+    verificationStatus: verified,
+    bookingStatus: paymentMethod === "online" ? "confirmed" : "pending",
+    paymentStatus: paymentMethod === "online" ? "paid" : "pending",
 
-      // Documents
-      id_proof_type: documentDetails.idProofType,
-      id_proof_number: documentDetails.idProofNumber,
-      address_proof_type: documentDetails.addressProofType,
-      address_proof_number: documentDetails.addressProofNumber,
+    // Documents
+    id_proof_type: documentDetails.idProofType,
+    id_proof_number: documentDetails.idProofNumber,
+    address_proof_type: documentDetails.addressProofType,
+    address_proof_number: documentDetails.addressProofNumber,
 
-      // Partner details
-      partner_salutation: partnerDetails.salutation,      
-      partner_full_name: partnerFullName,
-      partner_phone: partnerDetails.phone,
-          partner_country_code: partnerDetails.countryCode,   // ADD THIS
+    // Partner details
+    partner_salutation: partnerDetails.salutation,      
+    partner_full_name: partnerFullName,
+    partner_phone: partnerDetails.phone,
+    partner_country_code: partnerDetails.countryCode,
+    partner_email: partnerDetails.email,
+    partner_gender: partnerDetails.gender,
+    partner_date_of_birth: partnerDetails.dateOfBirth,
+    partner_relationship: partnerDetails.relationship || "Spouse",
 
-      partner_email: partnerDetails.email,
-      partner_gender: partnerDetails.gender,
-      partner_date_of_birth: partnerDetails.dateOfBirth,
-      partner_relationship: partnerDetails.relationship || "Spouse",
+    // Partner ID Proof
+    partner_id_proof_type: documentDetails.partnerIdProofType,
+    partner_id_proof_number: documentDetails.partnerIdProofNumber,
 
-      // Partner ID Proof
-      partner_id_proof_type: documentDetails.partnerIdProofType,
-      partner_id_proof_number: documentDetails.partnerIdProofNumber,
-
-      // Partner ADDRESS Proof
-      partner_address_proof_type: documentDetails.partnerAddressProofType,
-      partner_address_proof_number: documentDetails.partnerAddressProofNumber,
-    };
-  }, [
-    formData,
-    selectedRoom,
-    selectedBed,
-    bookingType,
-    propertyData,
-    paymentMethod,
-    calculateFinalAmount,
-    calculateRent,
-    calculateTotalPayable,
-    verified,
-    partnerDetails,
-    documentDetails,
-    appliedOffer,
-  ]);
+    // Partner ADDRESS Proof
+    partner_address_proof_type: documentDetails.partnerAddressProofType,
+    partner_address_proof_number: documentDetails.partnerAddressProofNumber,
+  };
+}, [
+  formData,
+  selectedRoom,
+  selectedBed,
+  bookingType,
+  propertyData,
+  paymentMethod,
+  verified,
+  partnerDetails,
+  documentDetails,
+  appliedOffer,
+  discountedAmount,
+  calculateRentAmount,
+  calculateProratedRent,
+]);
 
   const submitFinalBooking = async (paymentStatus: string, razorpayDetails?: any) => {
     setLoading(true);
@@ -2255,74 +2329,85 @@ const calculateNumberOfDays = useCallback(() => {
       setLoading(false);
     }
   };
+  
+const openRazorpay = async () => {
+  try {
+    setLoading(true);
 
-  const openRazorpay = async () => {
-    try {
-      setLoading(true);
+    const scriptLoaded = await loadRazorpayScript();
+    if (!scriptLoaded) {
+      toast.info("Failed to load payment gateway");
+      setLoading(false);
+      return;
+    }
 
-      const scriptLoaded = await loadRazorpayScript();
-      if (!scriptLoaded) {
-        toast.info("Failed to load payment gateway");
-        setLoading(false);
-        return;
-      }
+    // ✅ FIXED: Use calculateFinalAmount() which already has discount applied
+    const finalAmount = calculateFinalAmount();
+    
+    console.log("💰 Payment amount details:", {
+      rentAmount: calculateRentAmount(),
+      discountedAmount: discountedAmount,
+      securityDeposit: bookingType === "long" ? propertyData?.securityDeposit || 0 : 0,
+      finalAmount: finalAmount
+    });
 
-      const orderData = await createRazorpayOrder(
-        calculateTotalPayable() - discountedAmount,
-      );
+    const orderData = await createRazorpayOrder(finalAmount);
 
-      if (!orderData || !orderData.order) {
-        throw new Error("Failed to create payment order");
-      }
+    if (!orderData || !orderData.order) {
+      throw new Error("Failed to create payment order");
+    }
 
-      const options = {
-        key: orderData.key,
-        amount: orderData.order.amount,
-        currency: "INR",
-        name: "Room Booking",
-        description: `Booking for ${selectedRoom?.room_number || "Room"} at ${propertyData?.name || "Property"}`,
-        order_id: orderData.order.id,
-        handler: async function (response: any) {
-          try {
-            // ✅ Pass Razorpay details to submitFinalBooking
+    const options = {
+      key: orderData.key,
+      amount: orderData.order.amount, // This should be in paise (multiply by 100 if needed)
+      currency: "INR",
+      name: "Room Booking",
+      description: `Booking for ${selectedRoom?.room_number || "Room"} at ${propertyData?.name || "Property"}`,
+      order_id: orderData.order.id,
+      handler: async function (response: any) {
+        try {
           await submitFinalBooking("paid", {
             razorpay_payment_id: response.razorpay_payment_id,
             razorpay_order_id: response.razorpay_order_id,
             razorpay_signature: response.razorpay_signature,
           });
-          } catch (error) {
-            toast.error("Payment successful but booking failed. Contact support.");
-          }
+        } catch (error) {
+          toast.error("Payment successful but booking failed. Contact support.");
+        }
+      },
+      prefill: {
+        name: `${formData.salutation} ${formData.fullName}`,
+        email: formData.email,
+        contact: `${formData.countryCode} ${formData.phone}`,
+      },
+      notes: {
+        property_id: propertyData?.id,
+        room_id: selectedRoom?.id,
+        booking_type: bookingType,
+        is_couple: formData.isCouple,
+        gender: formData.gender,
+        offer_code: appliedOffer?.code || null,
+        discount_amount: discountedAmount,
+        original_rent: calculateRentAmount(),
+        discounted_rent: calculateRentAmount() - discountedAmount,
+        security_deposit: bookingType === "long" ? propertyData?.securityDeposit || 0 : 0,
+      },
+      theme: { color: "#2563eb" },
+      modal: {
+        ondismiss: function () {
+          setLoading(false);
         },
-        prefill: {
-          name: `${formData.salutation} ${formData.fullName}`,
-          email: formData.email,
-          contact: formData.phone,
-        },
-        notes: {
-          property_id: propertyData?.id,
-          room_id: selectedRoom?.id,
-          booking_type: bookingType,
-          is_couple: formData.isCouple,
-          gender: formData.gender,
-          offer_code: appliedOffer?.code || null,
-          discount_amount: discountedAmount,
-        },
-        theme: { color: "#2563eb" },
-        modal: {
-          ondismiss: function () {
-            setLoading(false);
-          },
-        },
-      };
+      },
+    };
 
-      const razorpay = new (window as any).Razorpay(options);
-      razorpay.open();
-    } catch (error) {
-      toast.error("Unable to start payment");
-      setLoading(false);
-    }
-  };
+    const razorpay = new (window as any).Razorpay(options);
+    razorpay.open();
+  } catch (error) {
+    console.error("Razorpay error:", error);
+    toast.error("Unable to start payment");
+    setLoading(false);
+  }
+};
 
   const handleBookingSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -3300,11 +3385,18 @@ className={`pl-8 h-7 text-[10px] border-pink-200 focus:border-pink-500 w-full ma
                         <input
                           type="date"
                           required
-                          value={formData.moveInDate}
+                          
+                          value={formData.moveInDate} 
                           onChange={(e) =>
                             handleInputChange("moveInDate", e.target.value)
                           }
                           min={new Date().toISOString().split("T")[0]}
+
+    max={(() => {
+      const today = new Date();
+      today.setDate(today.getDate() + 3); // next 3 days
+      return today.toISOString().split("T")[0];
+    })()}
                           className="w-full px-2 sm:px-3 py-2 text-[11px] sm:text-xs border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none"
                         />
                       </div>
@@ -4370,108 +4462,142 @@ className={`pl-8 h-7 text-[10px] border-pink-200 focus:border-pink-500 w-full ma
                       )}
                     </div>
 
-                    {/* Booking Summary */}
-                    <div className="bg-gradient-to-br from-blue-50 to-cyan-50 border border-blue-200 rounded-lg p-3">
-                      <h4 className="text-xs font-bold text-gray-900 mb-2.5 flex items-center gap-1">
-                        <Sparkles className="w-3 h-3 text-blue-600" />
-                        Booking Summary
-                      </h4>
+{/* Booking Summary */}
+<div className="bg-gradient-to-br from-blue-50 to-cyan-50 border border-blue-200 rounded-lg p-3">
+  <h4 className="text-xs font-bold text-gray-900 mb-2.5 flex items-center gap-1">
+    <Sparkles className="w-3 h-3 text-blue-600" />
+    Booking Summary
+  </h4>
 
-                      <div className="space-y-2">
-                        {/* Room & Bed Details */}
-                        <div className="flex justify-between items-center">
-                          <span className="text-[10px] sm:text-xs text-gray-700">
-                            Room {selectedRoom?.room_number} • Bed{" "}
-                            {selectedBed?.bedNumber}
-                          </span>
-                          <span className="text-xs font-bold text-gray-900">
-                            ₹{selectedBed?.bedRent.toLocaleString()}
-                            {bookingType === "long" && (
-                              <span className="text-[9px] text-gray-500 ml-0.5">
-                                /month
-                              </span>
-                            )}
-                            {bookingType === "short" && (
-                              <span className="text-[9px] text-gray-500 ml-0.5">
-                                /day
-                              </span>
-                            )}
-                          </span>
-                        </div>
+  <div className="space-y-2">
+    {/* Room & Bed Details */}
+    <div className="flex justify-between items-center">
+      <span className="text-[10px] sm:text-xs text-gray-700">
+        Room {selectedRoom?.room_number} • Bed {selectedBed?.bedNumber}
+      </span>
+      <span className="text-xs font-bold text-gray-900">
+        ₹{selectedBed?.bedRent.toLocaleString()}
+        {bookingType === "long" && (
+          <span className="text-[9px] text-gray-500 ml-0.5">/month</span>
+        )}
+      </span>
+    </div>
 
-                        {/* Rent Amount */}
-                        <div className="flex justify-between items-center">
-                          <span className="text-[10px] sm:text-xs text-gray-700">
-                            Rent Amount
-                          </span>
-                          <div className="text-right">
-                            {appliedOffer && discountedAmount > 0 ? (
-                              <>
-                                <span className="text-xs line-through text-gray-400 mr-2">
-                                  ₹{calculateRentAmount().toLocaleString()}
-                                </span>
-                                <span className="text-xs font-bold text-green-600">
-                                  ₹
-                                  {(
-                                    calculateRentAmount() - discountedAmount
-                                  ).toLocaleString()}
-                                </span>
-                              </>
-                            ) : (
-                              <span className="text-xs font-bold text-gray-900">
-                                ₹{calculateRentAmount().toLocaleString()}
-                              </span>
-                            )}
-                          </div>
-                        </div>
+    {/* Prorated Information for First Month */}
+    {bookingType === "long" && formData.moveInDate && (() => {
+      const prorated = calculateProratedRent(formData.moveInDate, selectedBed?.bedRent || 0);
+      if (prorated.isProrated) {
+        return (
+          <div className="flex justify-between items-center pt-1 border-t border-blue-100">
+            <div className="flex flex-col">
+              <span className="text-[10px] sm:text-xs text-amber-700">
+                First Month Prorated Rent
+              </span>
+              <span className="text-[8px] text-amber-600">
+                {prorated.days} days × ₹{prorated.dailyRate}/day
+              </span>
+            </div>
+            <div className="text-right">
+              <span className="text-xs line-through text-gray-400 mr-2">
+                ₹{selectedBed?.bedRent.toLocaleString()}
+              </span>
+              <span className="text-xs font-bold text-amber-700">
+                ₹{prorated.amount.toLocaleString()}
+              </span>
+            </div>
+          </div>
+        );
+      }
+      return null;
+    })()}
 
-                        {/* Security Deposit */}
-                        {bookingType === "long" && (
-                          <div className="flex justify-between items-center pt-1 border-t border-blue-200">
-                            <span className="text-[10px] sm:text-xs text-gray-700">
-                              Security Deposit
-                            </span>
-                            <span className="text-xs font-bold text-gray-900">
-                              ₹
-                              {(
-                                propertyData?.securityDeposit || 0
-                              ).toLocaleString()}
-                            </span>
-                          </div>
-                        )}
+    {/* Rent Amount */}
+    <div className="flex justify-between items-center">
+      <span className="text-[10px] sm:text-xs text-gray-700">
+        {bookingType === "long" && formData.moveInDate && (() => {
+          const prorated = calculateProratedRent(formData.moveInDate, selectedBed?.bedRent || 0);
+          return prorated.isProrated ? "Rent Amount (Prorated)" : "Rent Amount";
+        })() || "Rent Amount"}
+      </span>
+      <div className="text-right">
+        {appliedOffer && discountedAmount > 0 ? (
+          <>
+            <span className="text-xs line-through text-gray-400 mr-2">
+              ₹{calculateRentAmount().toLocaleString()}
+            </span>
+            <span className="text-xs font-bold text-green-600">
+              ₹{(calculateRentAmount() - discountedAmount).toLocaleString()}
+            </span>
+          </>
+        ) : (
+          <span className="text-xs font-bold text-gray-900">
+            ₹{calculateRentAmount().toLocaleString()}
+          </span>
+        )}
+      </div>
+    </div>
 
-                        {/* Discount Row - Show applied offer details */}
-                        {appliedOffer && discountedAmount > 0 && (
-                          <div className="flex justify-between items-center pt-1">
-                            <div className="flex items-center gap-1">
-                              <span className="text-[10px] sm:text-xs text-green-600">
-                                Discount Applied
-                              </span>
-                              <Badge className="bg-green-100 text-green-800 text-[8px] px-1.5">
-                                {appliedOffer.discount_type === "percentage"
-                                  ? `${appliedOffer.discount_percent}% OFF`
-                                  : `₹${parseFloat(appliedOffer.discount_value).toLocaleString()} OFF`}
-                              </Badge>
-                            </div>
-                            <span className="text-xs font-bold text-green-600">
-                              - ₹{discountedAmount.toLocaleString()}
-                            </span>
-                          </div>
-                        )}
+    {/* Discount Row */}
+    {appliedOffer && discountedAmount > 0 && (
+      <div className="flex justify-between items-center pt-1">
+        <div className="flex items-center gap-1">
+          <span className="text-[10px] sm:text-xs text-green-600">
+            Discount Applied
+          </span>
+          <Badge className="bg-green-100 text-green-800 text-[8px] px-1.5">
+            {appliedOffer.discount_type === "percentage"
+              ? `${appliedOffer.discount_percent}% OFF`
+              : `₹${parseFloat(appliedOffer.discount_value).toLocaleString()} OFF`}
+          </Badge>
+        </div>
+        <span className="text-xs font-bold text-green-600">
+          - ₹{discountedAmount.toLocaleString()}
+        </span>
+      </div>
+    )}
 
-                        {/* Total Payable */}
-                        <div className="border-t-2 border-blue-300 pt-2.5 mt-2">
-                          <div className="flex justify-between items-center">
-                            <span className="text-xs sm:text-sm font-bold text-gray-900">
-                              Total Payable
-                            </span>
-                            <span className="text-lg sm:text-xl font-bold text-blue-600">
-                              ₹{calculateFinalAmount().toLocaleString()}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+    {/* Next Months Note */}
+    {bookingType === "long" && formData.moveInDate && (() => {
+      const prorated = calculateProratedRent(formData.moveInDate, selectedBed?.bedRent || 0);
+      if (prorated.isProrated) {
+        return (
+          <div className="bg-amber-50 rounded-lg p-1.5 mt-1">
+            <p className="text-[8px] text-amber-700 text-center">
+              📅 From next month onwards, you'll pay the full rent of ₹{selectedBed?.bedRent.toLocaleString()}/month
+            </p>
+          </div>
+        );
+      }
+      return null;
+    })()}
+
+    {/* Security Deposit */}
+    {bookingType === "long" && (
+      <div className="flex justify-between items-center pt-1 border-t border-blue-200">
+        <span className="text-[10px] sm:text-xs text-gray-700">
+          Security Deposit
+        </span>
+        <span className="text-xs font-bold text-gray-900">
+          ₹{(propertyData?.securityDeposit || 0).toLocaleString()}
+        </span>
+      </div>
+    )}
+
+    
+
+    {/* Total Payable */}
+    <div className="border-t-2 border-blue-300 pt-2.5 mt-2">
+      <div className="flex justify-between items-center">
+        <span className="text-xs sm:text-sm font-bold text-gray-900">
+          Total Payable
+        </span>
+        <span className="text-lg sm:text-xl font-bold text-blue-600">
+          ₹{calculateFinalAmount().toLocaleString()}
+        </span>
+      </div>
+    </div>
+  </div>
+</div>
 
                     <label className="flex items-start gap-2 p-2.5 bg-gray-50 border-2 border-gray-200 rounded-lg cursor-pointer hover:bg-gray-100">
                       <input
@@ -4679,63 +4805,57 @@ className={`pl-8 h-7 text-[10px] border-pink-200 focus:border-pink-500 w-full ma
                                       Remove
                                     </button>
                                   ) : (
-                                    <button
-                                      onClick={() => {
-                                        if (isRoomBooked) {
-                                          toast.error(
-                                            "This offer is no longer available as the room is already booked",
-                                          );
-                                          return;
-                                        }
-                                        if (isPropertyFull) {
-                                          toast.error(
-                                            "This property is fully booked, no rooms available",
-                                          );
-                                          return;
-                                        }
-                                        // Apply the offer logic...
-                                        setAppliedOffer(offer);
-                                        setOfferCode(offer.code);
+<button
+  onClick={() => {
+    if (isRoomBooked) {
+      toast.error(
+        "This offer is no longer available as the room is already booked",
+      );
+      return;
+    }
+    if (isPropertyFull) {
+      toast.error(
+        "This property is fully booked, no rooms available",
+      );
+      return;
+    }
+    
+    // ✅ FIXED: Calculate discount based on rent amount only
+    setAppliedOffer(offer);
+    setOfferCode(offer.code);
 
-                                        const baseAmount =
-                                          calculateTotalPayable();
-                                        let discountAmount = 0;
-                                        if (
-                                          offer.discount_type ===
-                                            "percentage" &&
-                                          offer.discount_percent
-                                        ) {
-                                          discountAmount =
-                                            baseAmount *
-                                            (offer.discount_percent / 100);
-                                        } else if (
-                                          offer.discount_type === "fixed" &&
-                                          offer.discount_value
-                                        ) {
-                                          discountAmount = offer.discount_value;
-                                        }
-                                        setDiscountedAmount(
-                                          Math.min(discountAmount, baseAmount),
-                                        );
-                                        setOfferSuccess(
-                                          `Offer applied! You save ₹${discountAmount.toLocaleString()}`,
-                                        );
-                                        setOfferError("");
-                                        toast.success(
-                                          `Offer "${offer.title}" applied!`,
-                                        );
-                                      }}
-                                      disabled={isRoomBooked || isPropertyFull}
-                                      className={`ml-2 px-2 py-0.5 rounded text-[9px] font-medium transition-colors whitespace-nowrap ${
-                                        isRoomBooked || isPropertyFull
-                                          ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                                          : "bg-blue-600 text-white hover:bg-blue-700"
-                                      }`}
-                                    >
-                                      {isRoomBooked || isPropertyFull
-                                        ? "Unavailable"
-                                        : "Apply"}
-                                    </button>
+    // ✅ Get rent amount (already prorated if applicable)
+    const rentAmount = calculateRentAmount();
+    let discountAmount = 0;
+    
+    if (offer.discount_type === "percentage" && offer.discount_percent) {
+      discountAmount = rentAmount * (offer.discount_percent / 100);
+    } else if (offer.discount_type === "fixed" && offer.discount_value) {
+      discountAmount = Math.min(offer.discount_value, rentAmount);
+    }
+    
+    discountAmount = Math.round(discountAmount);
+    setDiscountedAmount(discountAmount);
+    
+    const discountedRent = rentAmount - discountAmount;
+    const securityDeposit = bookingType === "long" ? propertyData?.securityDeposit || 0 : 0;
+    const finalTotal = discountedRent + securityDeposit;
+    
+    setOfferSuccess(
+      `Offer applied! You save ₹${discountAmount.toLocaleString()} on rent`,
+    );
+    setOfferError("");
+    toast.success(`Offer "${offer.title}" applied!`);
+  }}
+  disabled={isRoomBooked || isPropertyFull}
+  className={`ml-2 px-2 py-0.5 rounded text-[9px] font-medium transition-colors whitespace-nowrap ${
+    isRoomBooked || isPropertyFull
+      ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+      : "bg-blue-600 text-white hover:bg-blue-700"
+  }`}
+>
+  {isRoomBooked || isPropertyFull ? "Unavailable" : "Apply"}
+</button>
                                   )}
                                 </div>
                               </div>
