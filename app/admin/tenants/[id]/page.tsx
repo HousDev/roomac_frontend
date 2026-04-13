@@ -17,6 +17,8 @@ import {
   FileWarning, CalendarDays, RotateCcw, ChevronDown, ChevronUp,
   ReceiptIndianRupee, TrendingUp, Building, CheckCircle, Sparkles,
   IdCard, GraduationCap, Wallet, ExternalLink, Copy, Check,
+  Store, Laptop, Rocket, Landmark, Users, BriefcaseBusiness, Key, Lock,
+  EyeOff, Upload, X, AlertTriangle, GraduationCap as GraduationIcon
 } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -25,8 +27,31 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { getSettings, type SettingsData } from "@/lib/settingsApi";
 import * as paymentApi from "@/lib/paymentRecordApi";
-import { Card, CardContent } from "@/components/ui/card";  // <-- ADD THIS LINE
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 
+// Add this interface for Partner Details
+interface PartnerDetails {
+  salutation: string;
+  full_name: string;
+  country_code: string;
+  phone: string;
+  email: string;
+  gender: string;
+  date_of_birth: string;
+  address: string;
+  occupation: string;
+  organization: string;
+  relationship: string;
+  id_proof_type: string;
+  id_proof_number: string;
+  id_proof_url: string | null;
+  address_proof_type: string;
+  address_proof_number: string;
+  address_proof_url: string | null;
+  photo_url: string | null;
+}
 
 export default function TenantDetailPage() {
   const params = useParams();
@@ -45,6 +70,8 @@ export default function TenantDetailPage() {
   const [receiptId, setReceiptId] = useState<number | null>(null);
   const [copiedEmail, setCopiedEmail] = useState(false);
   const [copiedPhone, setCopiedPhone] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [partnerDetails, setPartnerDetails] = useState<PartnerDetails | null>(null);
 
   const tid = params.id as string;
 
@@ -55,13 +82,42 @@ export default function TenantDetailPage() {
     try {
       setLoading(true);
       const r = await getTenantById(tid);
-      r?.success && r.data ? setTenant(r.data) : setError("Failed to load tenant details");
+      if (r?.success && r.data) {
+        setTenant(r.data);
+        // Load partner details if they exist
+        if (r.data.partner_full_name) {
+          setPartnerDetails({
+            salutation: r.data.partner_salutation || "Mr.",
+            full_name: r.data.partner_full_name || "",
+            country_code: r.data.partner_country_code || "",
+            phone: r.data.partner_phone || "",
+            email: r.data.partner_email || "",
+            gender: r.data.partner_gender || "",
+            date_of_birth: r.data.partner_date_of_birth || "",
+            address: r.data.partner_address || "",
+            occupation: r.data.partner_occupation || "",
+            organization: r.data.partner_organization || "",
+            relationship: r.data.partner_relationship || "Spouse",
+            id_proof_type: r.data.partner_id_proof_type || "",
+            id_proof_number: r.data.partner_id_proof_number || "",
+            id_proof_url: r.data.partner_id_proof_url || null,
+            address_proof_type: r.data.partner_address_proof_type || "",
+            address_proof_number: r.data.partner_address_proof_number || "",
+            address_proof_url: r.data.partner_address_proof_url || null,
+            photo_url: r.data.partner_photo_url || null,
+          });
+        }
+      } else {
+        setError("Failed to load tenant details");
+      }
     } catch { setError("An error occurred while fetching tenant details"); }
     finally { setLoading(false); }
   };
+  
   const loadAssignment = async () => {
     try { const r = await getTenantAssignment(tid); r.success && r.data && setAssignment(r.data); } catch { }
   };
+  
   const loadPayments = async () => {
     setLoadingPayments(true);
     try {
@@ -114,12 +170,17 @@ export default function TenantDetailPage() {
     ? `₹${Number(assignment.tenant_rent).toLocaleString()}`
     : tenant.payments?.[0]?.amount ? `₹${tenant.payments[0].amount.toLocaleString()}` : "N/A";
 
-  const stats = [
-    { icon: <CalendarDays className="w-4 h-4" />, label: "Member Since", value: tenant.created_at ? new Date(tenant.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "N/A", gradient: "from-blue-500 to-blue-600", bg: "bg-blue-50", text: "text-blue-600" },
-    { icon: <Building className="w-4 h-4" />, label: "Property", value: assignment?.property?.name || tenant.assigned_property_name || "Not Assigned", gradient: "from-purple-500 to-purple-600", bg: "bg-purple-50", text: "text-purple-600" },
-    { icon: <Bed className="w-4 h-4" />, label: "Room / Bed", value: roomVal, gradient: "from-emerald-500 to-emerald-600", bg: "bg-emerald-50", text: "text-emerald-600" },
-    { icon: <IndianRupee className="w-4 h-4" />, label: "Monthly Rent", value: rentVal, gradient: "from-orange-500 to-orange-600", bg: "bg-orange-50", text: "text-orange-600" },
-  ];
+  // Helper function to get occupation icon
+  const getOccupationIcon = (category: string) => {
+    switch (category) {
+      case "Working Professional": return <BriefcaseBusiness className="w-4 h-4" />;
+      case "Student": return <GraduationIcon className="w-4 h-4" />;
+      case "Business Owner": return <Store className="w-4 h-4" />;
+      case "Freelancer / Self-Employed": return <Laptop className="w-4 h-4" />;
+      case "Government Employee": return <Landmark className="w-4 h-4" />;
+      default: return <Briefcase className="w-4 h-4" />;
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 font-inter">
@@ -145,7 +206,7 @@ export default function TenantDetailPage() {
                 <span className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white ${tenant.is_active ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
               </div>
               <div>
-                <h1 className="font-lexend font-bold text-lg text-slate-900">{tenant.full_name}</h1>
+                <h1 className="font-lexend font-bold text-lg text-slate-900">{tenant.salutation ? `${tenant.salutation} ` : ""}{tenant.full_name}</h1>
                 <div className="flex items-center gap-2">
                   <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${tenant.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
                     {tenant.is_active ? "Active" : "Inactive"}
@@ -165,40 +226,39 @@ export default function TenantDetailPage() {
       {/* Main Content */}
       <main className="max-w-9xl mx-auto px-0 md:px-0 py-6 space-y-6">
         {/* Enhanced Stat Cards */}
-        {/* Enhanced Stat Cards - Payments Page Style */}
-<div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 sticky top-16 z-10">
-  <StatCard 
-    title="Member Since" 
-    value={tenant.created_at ? new Date(tenant.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "N/A"} 
-    icon={CalendarDays} 
-    color="bg-blue-600" 
-    bgColor="bg-gradient-to-br from-blue-50 to-blue-100" 
-  />
-  <StatCard 
-    title="Monthly Rent" 
-    value={rentVal} 
-    icon={IndianRupee} 
-    color="bg-green-600" 
-    bgColor="bg-gradient-to-br from-green-50 to-green-100" 
-  />
-  <StatCard 
-    title="Room / Bed" 
-    value={roomVal} 
-    icon={Bed} 
-    color="bg-purple-600" 
-    bgColor="bg-gradient-to-br from-purple-50 to-purple-100" 
-  />
-  <StatCard 
-    title="Property" 
-    value={assignment?.property?.name || tenant.assigned_property_name || "Not Assigned"} 
-    icon={Building} 
-    color="bg-amber-600" 
-    bgColor="bg-gradient-to-br from-amber-50 to-amber-100" 
-  />
-</div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 sticky top-16 z-10">
+          <StatCard 
+            title="Member Since" 
+            value={tenant.created_at ? new Date(tenant.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "N/A"} 
+            icon={CalendarDays} 
+            color="bg-blue-600" 
+            bgColor="bg-gradient-to-br from-blue-50 to-blue-100" 
+          />
+          <StatCard 
+            title="Monthly Rent" 
+            value={rentVal} 
+            icon={IndianRupee} 
+            color="bg-green-600" 
+            bgColor="bg-gradient-to-br from-green-50 to-green-100" 
+          />
+          <StatCard 
+            title="Room / Bed" 
+            value={roomVal} 
+            icon={Bed} 
+            color="bg-purple-600" 
+            bgColor="bg-gradient-to-br from-purple-50 to-purple-100" 
+          />
+          <StatCard 
+            title="Property" 
+            value={assignment?.property?.name || tenant.assigned_property_name || "Not Assigned"} 
+            icon={Building} 
+            color="bg-amber-600" 
+            bgColor="bg-gradient-to-br from-amber-50 to-amber-100" 
+          />
+        </div>
 
         {/* Main Card with Modern Tabs */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden ">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             {/* Enhanced Tab Navigation */}
             <div className="border-b border-slate-200 px-4 md:px-6 overflow-x-auto scrollbar-hide">
@@ -208,6 +268,8 @@ export default function TenantDetailPage() {
                   { v: "occupation", icon: <Briefcase className="w-4 h-4" />, label: "Occupation" },
                   { v: "documents", icon: <FileText className="w-4 h-4" />, label: "Documents" },
                   { v: "payments", icon: <CreditCard className="w-4 h-4" />, label: "Payments" },
+                  { v: "terms", icon: <FileCheck className="w-4 h-4" />, label: "Terms" },
+                  { v: "partner", icon: <Heart className="w-4 h-4" />, label: "Partner" },
                 ].map(t => (
                   <TabsTrigger
                     key={t.v}
@@ -249,15 +311,21 @@ export default function TenantDetailPage() {
                         <p className="text-sm font-medium text-slate-900">{tenant.gender || "—"}</p>
                       </div>
                       <div>
-  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-    Date of Birth
-  </p>
-  <p className="text-sm font-medium text-slate-900">
-    {tenant.date_of_birth
-      ? `${new Date(tenant.date_of_birth).toLocaleDateString("en-GB")} · ${calcAge(tenant.date_of_birth)} yrs`
-      : "—"}
-  </p>
-</div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Date of Birth</p>
+                        <p className="text-sm font-medium text-slate-900">
+                          {tenant.date_of_birth
+                            ? `${new Date(tenant.date_of_birth).toLocaleDateString("en-GB")} · ${calcAge(tenant.date_of_birth)} yrs`
+                            : "—"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Aadhar Number</p>
+                        <p className="text-sm font-medium text-slate-900">{tenant.aadhar_number || "—"}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">PAN Number</p>
+                        <p className="text-sm font-medium text-slate-900">{tenant.pan_number || "—"}</p>
+                      </div>
                     </div>
                   </div>
 
@@ -288,6 +356,12 @@ export default function TenantDetailPage() {
                           {tenant.has_credentials ? "Configured" : "Not Configured"}
                         </span>
                       </div>
+                      {tenant.credential_email && (
+                        <div className="flex items-center justify-between py-2 border-t border-slate-200">
+                          <span className="text-sm text-slate-600">Credential Email</span>
+                          <span className="text-sm font-medium text-slate-900">{tenant.credential_email}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -371,21 +445,51 @@ export default function TenantDetailPage() {
                           <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Relation</p>
                           <p className="text-sm font-medium text-slate-900">{tenant.emergency_contact_relation || "—"}</p>
                         </div>
+                        {tenant.emergency_contact_email && (
+                          <div>
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Email</p>
+                            <p className="text-sm font-medium text-slate-900">{tenant.emergency_contact_email}</p>
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <p className="text-sm text-slate-400 italic">No emergency contact provided</p>
                     )}
                   </div>
                 </div>
+
+                {/* Check-in Date & Preferred Options */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Check-in Information */}
+                  <div className="bg-gradient-to-br from-white to-slate-50/50 rounded-xl border border-slate-200 p-5">
+                    <div className="flex items-center gap-3 mb-4 pb-3 border-b border-slate-200">
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-teal-500 to-teal-600 text-white flex items-center justify-center shadow-sm">
+                        <Calendar className="w-4 h-4" />
+                      </div>
+                      <h3 className="font-lexend font-semibold text-slate-900">Move-in Information</h3>
+                    </div>
+                    <div className="space-y-3">
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Check-in Date</p>
+                        <p className="text-sm font-medium text-slate-900">
+                          {tenant.check_in_date ? new Date(tenant.check_in_date).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" }) : "Not specified"}
+                        </p>
+                      </div>
+                     
+                    </div>
+                  </div>
+
+                  
+                </div>
               </TabsContent>
 
-              {/* Occupation Tab - Enhanced */}
+              {/* Occupation Tab - Enhanced with all fields */}
               <TabsContent value="occupation" className="mt-0">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <div className="bg-gradient-to-br from-white to-slate-50/50 rounded-xl border border-slate-200 p-5">
                     <div className="flex items-center gap-3 mb-4 pb-3 border-b border-slate-200">
                       <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-purple-600 text-white flex items-center justify-center shadow-sm">
-                        <Briefcase className="w-4 h-4" />
+                        {getOccupationIcon(tenant.occupation_category)}
                       </div>
                       <h3 className="font-lexend font-semibold text-slate-900">Employment Details</h3>
                     </div>
@@ -397,16 +501,20 @@ export default function TenantDetailPage() {
                         </span>
                       </div>
                       <div>
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Occupation</p>
-                        <p className="text-sm font-medium text-slate-900">{tenant.exact_occupation || tenant.occupation || "—"}</p>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Exact Occupation</p>
+                        <p className="text-sm font-medium text-slate-900">{tenant.exact_occupation || "—"}</p>
                       </div>
                       <div>
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Organization</p>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Occupation</p>
+                        <p className="text-sm font-medium text-slate-900">{tenant.occupation || "—"}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Organization / Company</p>
                         <p className="text-sm font-medium text-slate-900">{tenant.organization || "—"}</p>
                       </div>
                       {tenant.years_of_experience && (
                         <div>
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Experience</p>
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Years of Experience</p>
                           <p className="text-sm font-medium text-slate-900">{tenant.years_of_experience} years</p>
                         </div>
                       )}
@@ -416,27 +524,12 @@ export default function TenantDetailPage() {
                           <p className="text-sm font-medium text-slate-900">₹{Number(tenant.monthly_income).toLocaleString()}</p>
                         </div>
                       )}
-                    </div>
-                  </div>
-
-                  <div className="bg-gradient-to-br from-white to-slate-50/50 rounded-xl border border-slate-200 p-5">
-                    <div className="flex items-center gap-3 mb-4 pb-3 border-b border-slate-200">
-                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 text-white flex items-center justify-center shadow-sm">
-                        <Award className="w-4 h-4" />
-                      </div>
-                      <h3 className="font-lexend font-semibold text-slate-900">Work Preferences</h3>
-                    </div>
-                    <div className="space-y-4">
-                      <div>
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Work Mode</p>
-                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
-                          {tenant.work_mode || "Not specified"}
-                        </span>
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Shift Timing</p>
-                        <p className="text-sm font-medium text-slate-900">{tenant.shift_timing || "—"}</p>
-                      </div>
+                      {tenant.course_duration && (
+                        <div>
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Course Duration</p>
+                          <p className="text-sm font-medium text-slate-900">{tenant.course_duration.replace('_', ' ')}</p>
+                        </div>
+                      )}
                       {tenant.student_id && (
                         <div>
                           <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Student ID</p>
@@ -451,7 +544,7 @@ export default function TenantDetailPage() {
                       )}
                       {tenant.portfolio_url && (
                         <div>
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Portfolio</p>
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Portfolio URL</p>
                           <a href={tenant.portfolio_url} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:underline inline-flex items-center gap-1">
                             View Portfolio <ExternalLink className="w-3 h-3" />
                           </a>
@@ -459,30 +552,80 @@ export default function TenantDetailPage() {
                       )}
                     </div>
                   </div>
+
+                  <div className="bg-gradient-to-br from-white to-slate-50/50 rounded-xl border border-slate-200 p-5">
+                    <div className="flex items-center gap-3 mb-4 pb-3 border-b border-slate-200">
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 text-white flex items-center justify-center shadow-sm">
+                        <Clock className="w-4 h-4" />
+                      </div>
+                      <h3 className="font-lexend font-semibold text-slate-900">Work Preferences & Schedule</h3>
+                    </div>
+                    <div className="space-y-4">
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Work Mode</p>
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                          {tenant.work_mode ? tenant.work_mode.charAt(0).toUpperCase() + tenant.work_mode.slice(1) : "Not specified"}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Shift Timing</p>
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
+                          {tenant.shift_timing ? tenant.shift_timing.charAt(0).toUpperCase() + tenant.shift_timing.slice(1) : "Not specified"}
+                        </span>
+                      </div>
+                      
+                    </div>
+                  </div>
                 </div>
               </TabsContent>
 
-              {/* Documents Tab - Enhanced Grid */}
+              {/* Documents Tab - Enhanced Grid with ID/Address proof types */}
               <TabsContent value="documents" className="mt-0">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <DocCard 
-                    title="ID Proof" 
-                    icon={<IdCard className="w-4 h-4" />} 
-                    url={tenant.id_proof_url} 
-                    filename="ID Proof Document" 
-                    onView={viewDoc} 
-                    gradient="from-blue-500 to-blue-600"
-                    bg="bg-blue-50"
-                  />
-                  <DocCard 
-                    title="Address Proof" 
-                    icon={<Home className="w-4 h-4" />} 
-                    url={tenant.address_proof_url} 
-                    filename="Address Proof Document" 
-                    onView={viewDoc} 
-                    gradient="from-purple-500 to-purple-600"
-                    bg="bg-purple-50"
-                  />
+                  <div className="space-y-2">
+                    <DocCard 
+                      title="ID Proof" 
+                      icon={<IdCard className="w-4 h-4" />} 
+                      url={tenant.id_proof_url} 
+                      filename="ID Proof Document" 
+                      onView={viewDoc} 
+                      gradient="from-blue-500 to-blue-600"
+                      bg="bg-blue-50"
+                    />
+                    {tenant.id_proof_type && (
+                      <div className="text-center">
+                        <Badge variant="outline" className="text-[10px]">
+                          Type: {tenant.id_proof_type}
+                        </Badge>
+                        {tenant.id_proof_number && (
+                          <p className="text-[10px] text-slate-400 mt-1">#{tenant.id_proof_number}</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <DocCard 
+                      title="Address Proof" 
+                      icon={<Home className="w-4 h-4" />} 
+                      url={tenant.address_proof_url} 
+                      filename="Address Proof Document" 
+                      onView={viewDoc} 
+                      gradient="from-purple-500 to-purple-600"
+                      bg="bg-purple-50"
+                    />
+                    {tenant.address_proof_type && (
+                      <div className="text-center">
+                        <Badge variant="outline" className="text-[10px]">
+                          Type: {tenant.address_proof_type}
+                        </Badge>
+                        {tenant.address_proof_number && (
+                          <p className="text-[10px] text-slate-400 mt-1">#{tenant.address_proof_number}</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  
                   <DocCard 
                     title="Photograph" 
                     icon={<Camera className="w-4 h-4" />} 
@@ -732,6 +875,215 @@ export default function TenantDetailPage() {
                   </div>
                 )}
               </TabsContent>
+
+              {/* Terms Tab - NEW */}
+              <TabsContent value="terms" className="mt-0">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Lock-in Period Card */}
+                  <div className="bg-gradient-to-br from-white to-slate-50/50 rounded-xl border border-slate-200 p-5">
+                    <div className="flex items-center gap-3 mb-4 pb-3 border-b border-slate-200">
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 text-white flex items-center justify-center shadow-sm">
+                        <Calendar className="w-4 h-4" />
+                      </div>
+                      <h3 className="font-lexend font-semibold text-slate-900">Lock-in Period</h3>
+                    </div>
+                    <div className="space-y-4">
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Duration</p>
+                        <p className="text-lg font-semibold text-slate-900">
+                          {tenant.lockin_period_months ? `${tenant.lockin_period_months} months` : "Not specified"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Penalty</p>
+                        <p className="text-lg font-semibold text-slate-900">
+                          {tenant.lockin_penalty_amount ? (
+                            tenant.lockin_penalty_type === "percentage" 
+                              ? `${tenant.lockin_penalty_amount}% of rent`
+                              : `₹${tenant.lockin_penalty_amount.toLocaleString()}`
+                          ) : "No penalty specified"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Notice Period Card */}
+                  <div className="bg-gradient-to-br from-white to-slate-50/50 rounded-xl border border-slate-200 p-5">
+                    <div className="flex items-center gap-3 mb-4 pb-3 border-b border-slate-200">
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 text-white flex items-center justify-center shadow-sm">
+                        <Clock className="w-4 h-4" />
+                      </div>
+                      <h3 className="font-lexend font-semibold text-slate-900">Notice Period</h3>
+                    </div>
+                    <div className="space-y-4">
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Duration</p>
+                        <p className="text-lg font-semibold text-slate-900">
+                          {tenant.notice_period_days ? `${tenant.notice_period_days} days` : "Not specified"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Penalty</p>
+                        <p className="text-lg font-semibold text-slate-900">
+                          {tenant.notice_penalty_amount ? (
+                            tenant.notice_penalty_type === "percentage" 
+                              ? `${tenant.notice_penalty_amount}% of rent`
+                              : `₹${tenant.notice_penalty_amount.toLocaleString()}`
+                          ) : "No penalty specified"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Terms Summary */}
+                <div className="mt-6 bg-gradient-to-br from-slate-50 to-slate-100/50 rounded-xl border border-slate-200 p-5">
+                  <div className="flex items-center gap-3 mb-4 pb-3 border-b border-slate-200">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-purple-600 text-white flex items-center justify-center shadow-sm">
+                      <FileCheck className="w-4 h-4" />
+                    </div>
+                    <h3 className="font-lexend font-semibold text-slate-900">Terms Summary</h3>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-xs text-slate-500">Lock-in Period</p>
+                      <p className="font-semibold text-slate-800">{tenant.lockin_period_months || 0} months</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-500">Lock-in Penalty</p>
+                      <p className="font-semibold text-slate-800">
+                        {tenant.lockin_penalty_type === "percentage" ? "%" : "₹"}
+                        {tenant.lockin_penalty_amount || 0} ({tenant.lockin_penalty_type || "fixed"})
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-500">Notice Period</p>
+                      <p className="font-semibold text-slate-800">{tenant.notice_period_days || 0} days</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-500">Notice Penalty</p>
+                      <p className="font-semibold text-slate-800">
+                        {tenant.notice_penalty_type === "percentage" ? "%" : "₹"}
+                        {tenant.notice_penalty_amount || 0} ({tenant.notice_penalty_type || "fixed"})
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </TabsContent>
+
+              {/* Partner Tab - NEW */}
+              <TabsContent value="partner" className="mt-0">
+                {partnerDetails && partnerDetails.full_name ? (
+                  <div className="space-y-6">
+                    {/* Partner Basic Info */}
+                    <div className="bg-gradient-to-br from-white to-slate-50/50 rounded-xl border border-slate-200 p-5">
+                      <div className="flex items-center gap-3 mb-4 pb-3 border-b border-slate-200">
+                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-rose-500 to-rose-600 text-white flex items-center justify-center shadow-sm">
+                          <Heart className="w-4 h-4" />
+                        </div>
+                        <h3 className="font-lexend font-semibold text-slate-900">Partner Information</h3>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Salutation</p>
+                          <p className="text-sm font-medium text-slate-900">{partnerDetails.salutation || "—"}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Full Name</p>
+                          <p className="text-sm font-medium text-slate-900">{partnerDetails.full_name}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Phone</p>
+                          <p className="text-sm font-medium text-slate-900">{partnerDetails.country_code} {partnerDetails.phone}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Email</p>
+                          <p className="text-sm font-medium text-slate-900">{partnerDetails.email || "—"}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Gender</p>
+                          <p className="text-sm font-medium text-slate-900">{partnerDetails.gender || "—"}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Date of Birth</p>
+                          <p className="text-sm font-medium text-slate-900">
+                            {partnerDetails.date_of_birth ? new Date(partnerDetails.date_of_birth).toLocaleDateString("en-IN") : "—"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Relationship</p>
+                          <p className="text-sm font-medium text-slate-900">{partnerDetails.relationship || "—"}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Occupation</p>
+                          <p className="text-sm font-medium text-slate-900">{partnerDetails.occupation || "—"}</p>
+                        </div>
+                        <div className="col-span-2">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Organization</p>
+                          <p className="text-sm font-medium text-slate-900">{partnerDetails.organization || "—"}</p>
+                        </div>
+                        <div className="col-span-2">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Address</p>
+                          <p className="text-sm font-medium text-slate-900">{partnerDetails.address || "—"}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Partner Documents */}
+                    {(partnerDetails.id_proof_url || partnerDetails.address_proof_url || partnerDetails.photo_url) && (
+                      <div className="bg-gradient-to-br from-white to-slate-50/50 rounded-xl border border-slate-200 p-5">
+                        <div className="flex items-center gap-3 mb-4 pb-3 border-b border-slate-200">
+                          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-600 text-white flex items-center justify-center shadow-sm">
+                            <FileText className="w-4 h-4" />
+                          </div>
+                          <h3 className="font-lexend font-semibold text-slate-900">Partner Documents</h3>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                          {partnerDetails.id_proof_url && (
+                            <DocCard 
+                              title="Partner ID Proof" 
+                              icon={<IdCard className="w-4 h-4" />} 
+                              url={partnerDetails.id_proof_url} 
+                              filename="ID Proof" 
+                              onView={viewDoc} 
+                              gradient="from-blue-500 to-blue-600"
+                              bg="bg-blue-50"
+                            />
+                          )}
+                          {partnerDetails.address_proof_url && (
+                            <DocCard 
+                              title="Partner Address Proof" 
+                              icon={<Home className="w-4 h-4" />} 
+                              url={partnerDetails.address_proof_url} 
+                              filename="Address Proof" 
+                              onView={viewDoc} 
+                              gradient="from-purple-500 to-purple-600"
+                              bg="bg-purple-50"
+                            />
+                          )}
+                          {partnerDetails.photo_url && (
+                            <DocCard 
+                              title="Partner Photo" 
+                              icon={<Camera className="w-4 h-4" />} 
+                              url={partnerDetails.photo_url} 
+                              filename="Photo" 
+                              onView={viewDoc} 
+                              gradient="from-emerald-500 to-emerald-600"
+                              bg="bg-emerald-50"
+                              isImage 
+                            />
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-center py-12 bg-gradient-to-br from-white to-slate-50/50 rounded-xl border border-slate-200">
+                    <Heart className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                    <p className="text-slate-400">No partner details available for this tenant</p>
+                  </div>
+                )}
+              </TabsContent>
             </div>
           </Tabs>
         </div>
@@ -972,26 +1324,18 @@ function LoadingSkeleton() {
 
 function calcAge(dob: string): number {
   if (!dob) return 0;
-
   const birth = new Date(dob);
   const today = new Date();
-
-  if (isNaN(birth.getTime())) return 0; // invalid date safety
-
+  if (isNaN(birth.getTime())) return 0;
   let age = today.getFullYear() - birth.getFullYear();
-
   const monthDiff = today.getMonth() - birth.getMonth();
-
-  if (
-    monthDiff < 0 ||
-    (monthDiff === 0 && today.getDate() < birth.getDate())
-  ) {
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
     age--;
   }
-
   return age;
 }
-// Stat Card Component - Add this after LoadingSkeleton and calcAge, before the final export
+
+// Stat Card Component
 const StatCard = ({ title, value, icon: Icon, color, bgColor }: any) => (
   <Card className={`${bgColor} border-0 shadow-sm`}>
     <CardContent className="p-2 sm:p-3">
