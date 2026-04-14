@@ -81,6 +81,7 @@ import {
   Globe,
   Mail,
   MessageCircle,
+  DoorOpen,
 } from "lucide-react";
 import {
   Table,
@@ -1504,6 +1505,8 @@ const groupPaymentsByTenant = (payments: any[]) => {
         tenant_salutation: completeTenant?.salutation || getTenantSalutation(tenantId),
         tenant_country_code: completeTenant?.country_code || getTenantCountryCode(tenantId),
         total_amount: 0,
+          total_paid_amount: 0,        // ✅ NEW: Sum of approved payments
+        total_rejected_amount: 0,    // ✅ NEW: Sum of rejected payments
         payment_count: 0,
         last_payment_date: null,
         payments: [],
@@ -1512,10 +1515,10 @@ const groupPaymentsByTenant = (payments: any[]) => {
         rejected_count: 0,
         has_online_booking: false,
         has_manual_payment: false,
-        // ✅ Add complete tenant details
-        room_number: completeTenant?.room_number || payment.room_number,
-        bed_number: completeTenant?.bed_number || payment.bed_number,
-        property_name: completeTenant?.property_name || payment.property_name,
+        // ✅ ADD ROOM AND BED INFO
+        room_number: completeTenant?.room_number || payment.room_number || completeTenant?.current_assignment?.room_number,
+        bed_number: completeTenant?.bed_number || payment.bed_number || completeTenant?.current_assignment?.bed_number,
+        property_name: completeTenant?.property_name || payment.property_name || completeTenant?.current_assignment?.property_name,
         monthly_rent: completeTenant?.monthly_rent || payment.monthly_rent,
         check_in_date: completeTenant?.check_in_date,
         security_deposit: completeTenant?.security_deposit || 0,
@@ -1528,8 +1531,15 @@ const groupPaymentsByTenant = (payments: any[]) => {
     grouped[tenantId].payments.push(payment);
 
     // SUM the amount correctly (convert to number)
-    grouped[tenantId].total_amount += Number(payment.amount) || 0;
-
+    const amount = Number(payment.amount) || 0;
+    grouped[tenantId].total_amount += amount;
+    
+    // ✅ NEW: Separate sums based on payment status
+    if (payment.status === "approved") {
+      grouped[tenantId].total_paid_amount += amount;
+    } else if (payment.status === "rejected") {
+      grouped[tenantId].total_rejected_amount += amount;
+    }
     // Increment payment count
     grouped[tenantId].payment_count += 1;
 
@@ -1557,8 +1567,21 @@ const groupPaymentsByTenant = (payments: any[]) => {
       grouped[tenantId].last_payment_date = payment.payment_date;
     }
   });
+  // ✅ SORT: Most recent payment first (descending order by last_payment_date)
+  const groupedArray = Object.values(grouped);
+  
+  groupedArray.sort((a: any, b: any) => {
+    // If one has no payment date, put it at the bottom
+    if (!a.last_payment_date) return 1;
+    if (!b.last_payment_date) return -1;
+    
+    // Sort by last_payment_date descending (newest first)
+    const dateA = new Date(a.last_payment_date);
+    const dateB = new Date(b.last_payment_date);
+    return dateB.getTime() - dateA.getTime();
+  });
 
-  return Object.values(grouped);
+  return groupedArray;
 };
 
   // Add this function to fetch settings
@@ -1816,6 +1839,7 @@ const groupPaymentsByTenant = (payments: any[]) => {
 
   // Rent Summary Table Component
 
+// In RentSummaryTable component
 const RentSummaryTable = ({ formData }: { formData: any }) => {
   if (!formData) return null;
   
@@ -1834,7 +1858,7 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
           {firstMonthProrated && (
             <Badge variant="outline" className="text-[9px] bg-amber-50 text-amber-700 border-amber-200">
               <Clock className="h-2.5 w-2.5 mr-1" />
-              Prorated: {firstMonthProrated.days} days @ ₹{firstMonthProrated.daily_rate}/day
+              First month: {firstMonthProrated.days} days @ ₹{firstMonthProrated.daily_rate}/day
             </Badge>
           )}
         </div>
@@ -1864,19 +1888,23 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
                 return month.month_num === now.getMonth() + 1 && month.year === now.getFullYear();
               })();
               
+              // For prorated month, show calculation in tooltip
+              const proratedTooltip = month.is_prorated 
+                ? `Prorated: ${month.prorated_days} days × ₹${month.prorated_daily_rate}/day = ₹${month.rent.toLocaleString()} (was ₹${month.original_rent?.toLocaleString()}/month)`
+                : '';
+              
               return (
                 <tr
                   key={`${month.month_key || index}-${index}`}
                   className={`border-t border-slate-200 ${
                     isCurrentMonth ? "bg-blue-50" : ""
                   } ${month.has_discount ? "bg-green-50" : ""} ${month.is_prorated ? "bg-amber-50/30" : ""}`}
+                  title={proratedTooltip}
                 >
                   <td className="p-2 text-sm font-medium">
                     {month.month} {month.year}
                     {month.has_discount && (
-                      <span className="ml-2 text-[10px] text-green-600">
-                        (Discounted)
-                      </span>
+                      <span className="ml-2 text-[10px] text-green-600">(Discounted)</span>
                     )}
                     {month.is_prorated && !month.has_discount && (
                       <span className="ml-2 text-[10px] text-amber-600">
@@ -1886,7 +1914,7 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
                   </td>
                   <td className="p-2 text-right">
                     ₹{month.rent?.toLocaleString()}
-                    {month.original_rent > month.rent && (
+                    {month.original_rent && month.original_rent > month.rent && (
                       <span className="text-[10px] text-slate-400 line-through ml-1">
                         ₹{month.original_rent?.toLocaleString()}
                       </span>
@@ -1914,7 +1942,7 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
                       {month.status}
                     </span>
                   </td>
-                 </tr>
+                </tr>
               );
             })}
           </tbody>
@@ -4680,7 +4708,7 @@ const PaymentsTable = ({
                     <TableHead className="w-6 py-2 px-1 bg-gray-200"></TableHead>
 
                     {/* Tenant Column - Updated with salutation filter */}
-                    <TableHead className="w-[200px] py-2 px-2 bg-gray-200">
+                    <TableHead className="w-[300px] py-2 px-2 bg-gray-200">
                       <div className="flex flex-col gap-1">
                         <div
                           className="flex items-center gap-1 cursor-pointer"
@@ -4734,7 +4762,7 @@ const PaymentsTable = ({
                           onClick={() => handleSort?.("total_amount")}
                         >
                           <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
-                            Amount
+                            Total Amount
                           </span>
                           <ArrowUpDown className="h-2.5 w-2.5 text-gray-500" />
                         </div>
@@ -4752,6 +4780,25 @@ const PaymentsTable = ({
                         />
                       </div>
                     </TableHead>
+                       {/* ✅ NEW: Paid Amount Column (Approved) */}
+    <TableHead className="w-[100px] py-2 px-2 bg-gray-200 text-right">
+      <div className="flex flex-col gap-1 items-end">
+        <span className="font-semibold text-green-700 text-[10px] uppercase tracking-wide">
+          Paid (₹)
+        </span>
+        <div className="h-6"></div> {/* Placeholder for alignment */}
+      </div>
+    </TableHead>
+
+    {/* ✅ NEW: Rejected Amount Column */}
+    <TableHead className="w-[100px] py-2 px-2 bg-gray-200 text-right">
+      <div className="flex flex-col gap-1 items-end">
+        <span className="font-semibold text-red-700 text-[10px] uppercase tracking-wide">
+          Rejected (₹)
+        </span>
+        <div className="h-6"></div> {/* Placeholder for alignment */}
+      </div>
+    </TableHead>
 
                     {/* Status Column */}
                     <TableHead className="w-[100px] py-2 px-2 bg-gray-200">
@@ -4842,11 +4889,12 @@ const PaymentsTable = ({
               <Table>
                 <colgroup>
                   <col style={{ width: "24px" }} />
-                  <col style={{ width: "200px" }} />
+                  <col style={{ width: "400px" }} />
                   <col style={{ width: "55px" }} />
-                  <col style={{ width: "110px" }} />
-                  <col style={{ width: "100px" }} />
-                  <col style={{ width: "100px" }} />
+                  <col style={{ width: "150px" }} />
+                  <col style={{ width: "170px" }} />
+                  <col style={{ width: "150px" }} />
+                  <col style={{ width: "200px" }} />
                   <col style={{ width: "80px" }} />
                 </colgroup>
                 <TableBody>
@@ -4943,6 +4991,28 @@ const PaymentsTable = ({
                                     {group.country_code || "+91"}{" "}
                                     {group.tenant_phone}
                                   </p>
+                                  {/* ✅ ADD ROOM AND BED NUMBER HERE */}
+      {(group.room_number || group.bed_number) && (
+        <div className="flex items-center gap-2 mt-0.5">
+          {group.room_number && (
+            <span className="text-[10px] text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-full inline-flex items-center gap-0.5">
+              <DoorOpen className="h-2.5 w-2.5" />
+              Room {group.room_number}
+            </span>
+          )}
+          {group.bed_number && (
+            <span className="text-[10px] text-green-600 bg-green-50 px-1.5 py-0.5 rounded-full inline-flex items-center gap-0.5">
+              <Bed className="h-2.5 w-2.5" />
+              Bed #{group.bed_number}
+            </span>
+          )}
+          {group.property_name && (
+            <span className="text-[10px] text-slate-500 truncate max-w-[120px]">
+              • {group.property_name}
+            </span>
+          )}
+        </div>
+      )}
                                 </div>
                               </div>
                             </TableCell>
@@ -4961,6 +5031,27 @@ const PaymentsTable = ({
                                 ₹{group.total_amount.toLocaleString()}
                               </span>
                             </TableCell>
+
+                             {/* ✅ NEW: Paid Amount Column (Approved) */}
+  <TableCell className="py-3 text-right">
+    <span className="text-sm font-bold text-green-600">
+      ₹{group.total_paid_amount?.toLocaleString() || 0}
+    </span>
+    {/* {group.approved_count > 0 && (
+      <span className="text-[9px] text-green-500 block">({group.approved_count})</span>
+    )} */}
+  </TableCell>
+
+  {/* ✅ NEW: Rejected Amount Column */}
+  <TableCell className="py-3 text-right">
+    <span className="text-sm font-bold text-red-600">
+      ₹{group.total_rejected_amount?.toLocaleString() || 0}
+    </span>
+    {/* {group.rejected_count > 0 && (
+      <span className="text-[9px] text-red-500 block">({group.rejected_count})</span>
+    )} */}
+  </TableCell>
+
 
                             <TableCell className="py-3">
                               <div className="flex items-center justify-center gap-1">
@@ -5048,7 +5139,7 @@ const PaymentsTable = ({
                           {/* Expanded Child Row - Payment Details (unchanged) */}
                           {isExpanded && (
                             <TableRow className="bg-blue-50/30">
-                              <TableCell colSpan={7} className="p-0 border-t-0">
+                              <TableCell colSpan={9} className="p-0 border-t-0">
                                 <div className="animate-in slide-in-from-top-1 duration-200">
                                   <div className="p-4">
                                     <div className="flex items-center justify-between mb-3">
