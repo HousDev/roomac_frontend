@@ -1653,16 +1653,15 @@ const PaymentConfirmationModal = ({
             </div>
             <div className="mt-1.5 lg:mt-3">
               <Button
-                size="sm"
-                className="w-full bg-emerald-600 hover:bg-emerald-700 h-6 lg:h-7 text-[10px] lg:text-xs"
-                onClick={() => {
-                  handleTabChange("payments"); // ← YEH PORTAL KE ANDAR TAB CHANGE KAREGA
-                  setShowPaymentDialog(true);
-                }}
-              >
-                <CreditCard className="h-2.5 w-2.5 lg:h-3 lg:w-3 mr-1" />
-                Pay Now
-              </Button>
+  size="sm"
+  className="w-full bg-emerald-600 hover:bg-emerald-700 h-6 lg:h-7 text-[10px] lg:text-xs"
+  onClick={() => {
+    navigate("/tenant/payments?openPaymentForm=true");
+  }}
+>
+  <CreditCard className="h-2.5 w-2.5 lg:h-3 lg:w-3 mr-1" />
+  Pay Now
+</Button>
             </div>
           </CardContent>
         </Card>
@@ -1746,21 +1745,20 @@ const PaymentConfirmationModal = ({
         </Button>
 
         <Button
-          variant="outline"
-          className="h-auto py-1.5 lg:py-2 px-1 flex flex-col items-center justify-center gap-0.5 bg-white hover:bg-blue-50 border border-slate-200 text-slate-700 hover:text-[#0149ab] shadow-sm rounded-lg"
-          onClick={() => {
-            handleTabChange("payments");
-            setShowPaymentDialog(true);
-          }}
-        >
-          <CreditCard className="h-3.5 w-3.5 sm:h-4 sm:w-4 lg:h-5 lg:w-5 text-amber-500" />
-          <span className="text-[9px] sm:text-[10px] lg:text-xs font-medium text-center leading-tight">
-            Download Invoice
-          </span>
-          <span className="text-[8px] lg:text-[10px] text-slate-400 text-center leading-tight hidden lg:block">
-            Payment receipts
-          </span>
-        </Button>
+  variant="outline"
+  className="h-auto py-1.5 lg:py-2 px-1 flex flex-col items-center justify-center gap-0.5 bg-white hover:bg-blue-50 border border-slate-200 text-slate-700 hover:text-[#0149ab] shadow-sm rounded-lg"
+  onClick={() => {
+    navigate("/tenant/payments");
+  }}
+>
+  <CreditCard className="h-3.5 w-3.5 sm:h-4 sm:w-4 lg:h-5 lg:w-5 text-amber-500" />
+  <span className="text-[9px] sm:text-[10px] lg:text-xs font-medium text-center leading-tight">
+    Download Invoice
+  </span>
+  <span className="text-[8px] lg:text-[10px] text-slate-400 text-center leading-tight hidden lg:block">
+    Payment receipts
+  </span>
+</Button>
       </div>
 
       {/* Main Grid */}
@@ -1870,21 +1868,21 @@ const PaymentConfirmationModal = ({
             {/* ── Payments Tab ──────────────────────────────────────── */}
             <TabsContent value="payments" className="space-y-6 mt-4">
               <Button
-                className="w-full bg-[#0149ab] hover:bg-[#0149ab]/90 h-10 sm:h-12"
-                onClick={() => {
-                  if (!hasBedAssignment) {
-                    toast.error(
-                      "You cannot make a payment as no bed has been assigned to you yet. Please contact the property manager.",
-                    );
-                    return;
-                  }
-                  fetchPaymentFormData();
-                  setShowPaymentDialog(true);
-                }}
-              >
-                <CreditCard className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
-                Make a Payment
-              </Button>
+  className="w-full bg-[#0149ab] hover:bg-[#0149ab]/90 h-10 sm:h-12"
+  onClick={() => {
+    if (!hasBedAssignment) {
+      toast.error(
+        "You cannot make a payment as no bed has been assigned to you yet. Please contact the property manager.",
+      );
+      return;
+    }
+    // Redirect to payments page with query param to auto-open payment form
+    navigate("/tenant/payments?openPaymentForm=true");
+  }}
+>
+  <CreditCard className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
+  Make a Payment
+</Button>
 
               <Card className="border border-slate-200 shadow-sm">
                 <CardHeader className="px-4 sm:px-6">

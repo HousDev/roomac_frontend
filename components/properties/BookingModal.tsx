@@ -1731,6 +1731,9 @@ const validateAndApplyOffer = useCallback(
         if (!isValid) {
           // Clear the selected bed as well since offer is removed
           setSelectedBed(null);
+           // Clear offer from localStorage
+        localStorage.removeItem("pendingOfferCode");
+        localStorage.removeItem("pendingOfferData");
         }
       }
 
@@ -1790,8 +1793,20 @@ const validateAndApplyOffer = useCallback(
         gender: autoGender,
         isCouple: autoIsCouple,
       }));
+       // ✅ FIX: Re-validate existing offer when room changes
+    if (appliedOffer && (!appliedOffer.room_id || appliedOffer.room_id === room.id)) {
+      if (offerCode) {
+        setTimeout(() => {
+          validateAndApplyOffer(offerCode);
+        }, 100);
+      }
+    } else if (offerCode && !appliedOffer) {
+      setTimeout(() => {
+        validateAndApplyOffer(offerCode);
+      }, 100);
+    }
     },
-    [formData.gender, formData.isCouple, appliedOffer, validateOfferForRoom],
+    [formData.gender, formData.isCouple, appliedOffer,offerCode, validateOfferForRoom, validateAndApplyOffer],
   );
 
   // Update handleBedSelect (if you have a separate bed selection function)
@@ -1824,9 +1839,43 @@ const validateAndApplyOffer = useCallback(
         monthlyRent: bed.bed_rent,
         floor: room.floor || "Ground",
       }));
+
+       // ✅ FIX: Re-validate existing offer when bed changes
+    if (appliedOffer && (!appliedOffer.bedNumber || appliedOffer.bedNumber === bed.bed_number)) {
+      // Re-apply the existing offer with the new bed's rent
+      if (offerCode) {
+        // Small delay to ensure state updates are complete
+        setTimeout(() => {
+          validateAndApplyOffer(offerCode);
+        }, 100);
+      }
+    } else if (offerCode && !appliedOffer) {
+      // If there's an offer code entered but not applied, try to apply it
+      setTimeout(() => {
+        validateAndApplyOffer(offerCode);
+      }, 100);
+    }
     },
-    [appliedOffer],
+    [appliedOffer, offerCode, validateAndApplyOffer],
   );
+
+  useEffect(() => {
+  if (offerCode && selectedBed && !appliedOffer) {
+    // If there's an offer code but no applied offer, try to apply it
+    const timer = setTimeout(() => {
+      validateAndApplyOffer(offerCode);
+    }, 300);
+    return () => clearTimeout(timer);
+  }
+  
+  if (appliedOffer && selectedBed) {
+    // If there's an applied offer, revalidate it with the new bed rent
+    const timer = setTimeout(() => {
+      validateAndApplyOffer(offerCode);
+    }, 300);
+    return () => clearTimeout(timer);
+  }
+}, [selectedBed, selectedRoom, formData.moveInDate, formData.checkInDate, formData.checkOutDate, bookingType]);
 
   const getMinTenantRent = (room: any): number => {
     if (
@@ -2321,10 +2370,15 @@ const prepareBookingData = useCallback((): any => {
         localStorage.removeItem("pendingOfferCode");
         localStorage.removeItem("pendingOfferData");
       } else {
-        throw new Error(result.message || "Failed to create booking");
+         // ✅ Show the error message from the server
+      const errorMessage = result.message || result.error || "Failed to create booking";
+      toast.error(errorMessage);
+      console.error("Booking failed:", result);
       }
-    } catch (err) {
-      console.error("Error submitting booking:", err);
+    } catch (err: any) {
+    console.error("Error submitting booking:", err);
+    // ✅ Show the error message in toast
+    toast.error(err.message || "An error occurred while processing your booking. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -2351,10 +2405,19 @@ const openRazorpay = async () => {
       finalAmount: finalAmount
     });
 
+    // Validate amount before proceeding
+    if (finalAmount <= 0) {
+      toast.error("Invalid payment amount. Please check your booking details.");
+      setLoading(false);
+      return;
+    }
+
     const orderData = await createRazorpayOrder(finalAmount);
 
     if (!orderData || !orderData.order) {
       throw new Error("Failed to create payment order");
+      setLoading(false);
+      return;
     }
 
     const options = {
@@ -2373,6 +2436,7 @@ const openRazorpay = async () => {
           });
         } catch (error) {
           toast.error("Payment successful but booking failed. Contact support.");
+          setLoading(false);
         }
       },
       prefill: {
@@ -2396,6 +2460,7 @@ const openRazorpay = async () => {
       modal: {
         ondismiss: function () {
           setLoading(false);
+          toast.info("Payment cancelled");
         },
       },
     };
@@ -2483,10 +2548,16 @@ Do you want to continue? This will create a new booking but the existing assignm
             return;
           }
         }
-handleSendOTP(e); // Trigger OTP flow on first
-      setShowOTPModal(true);
-        return;
+// ✅ FIX: Only show OTP modal if not already verified
+      if (!verified) {
+        handleSendOTP(e); // Trigger OTP flow on first
+        setShowOTPModal(true);
+      } else {
+        // Already verified, move to next step
+        setBookingStep(2);
       }
+      return;
+    }
 
       if (bookingStep === 2) {
         if (!selectedRoom) {
@@ -2564,6 +2635,8 @@ handleSendOTP(e); // Trigger OTP flow on first
       partnerDetails,
       documentDetails,
       validatePhone,
+      verified, // ✅ Add verified to dependencies
+    handleSendOTP,
     ],
   );
 
@@ -3242,7 +3315,6 @@ handleSendOTP(e); // Trigger OTP flow on first
               }
               className="w-full px-2 py-1.5 text-[10px] border border-pink-200 rounded-lg bg-white focus:border-pink-500 outline-none h-7"
             >
-              <option value="">Select</option>
               <option value="+91">+91 (India)</option>
               <option value="+1">+1 (USA)</option>
               <option value="+44">+44 (UK)</option>
