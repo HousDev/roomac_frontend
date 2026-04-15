@@ -95,31 +95,36 @@ const [filters, setFiltersState] = useState<TenantFilters>({
   }, [tenants, selectedTenantIds]);
 
   // Load tenants
-  const loadTenants = useCallback(async (customFilters?: TenantFilters) => {
-    setLoading(true);
-    try {
-      const useFilters = customFilters || filtersRef.current;
-      const res = await listTenants(useFilters);
-      if (res?.success && Array.isArray(res.data)) {
-        setTenants(res.data);
-        setCurrentPage(1);
-      } else {
-        toast.error(res?.message || "Failed to load tenants");
-        setTenants([]);
-      }
-    } catch (err) {
-      console.error("loadTenants error", err);
-      toast.error("Failed to load tenants");
+const loadTenants = useCallback(async (customFilters?: TenantFilters) => {
+  setLoading(true);
+  try {
+    // If no custom filters provided, use current tab's default
+    const useFilters = customFilters || { 
+      vacate_status: activeTab === 'vacated' ? 'vacated' : 'non_vacated' 
+    };
+    const res = await listTenants(useFilters);
+    if (res?.success && Array.isArray(res.data)) {
+      setTenants(res.data);
+      setCurrentPage(1);
+    } else {
+      toast.error(res?.message || "Failed to load tenants");
       setTenants([]);
-    } finally {
-      setLoading(false);
     }
-  }, []);
+  } catch (err) {
+    console.error("loadTenants error", err);
+    toast.error("Failed to load tenants");
+    setTenants([]);
+  } finally {
+    setLoading(false);
+  }
+}, [activeTab]); 
 
-  // Initialize
-  useEffect(() => {
-  loadTenants({ vacate_status: 'non_vacated' });
-}, []);
+// Initialize based on active tab
+useEffect(() => {
+  loadTenants({ vacate_status: activeTab === 'vacated' ? 'vacated' : 'non_vacated' });
+}, [activeTab]); // Re-run when tab changes
+
+
 
   // Handle column search
  const handleColumnSearch = useCallback(() => {
@@ -212,7 +217,20 @@ const handleImportFile = async (file: File) => {
     loadTenants(newFilters);
   }, [loadTenants]);
 
-// Clear all filters
+  const handleClearAll = useCallback(() => {
+  setActiveTab('all');
+  setColumnSearch({
+    name: "",
+    contact: "",
+    occupation: "",
+    property: "",
+    payments: "",
+    status: "",
+  });
+  handleFilterChange({ vacate_status: 'non_vacated' });
+}, [handleFilterChange]);
+
+// Clear all filters (but keep the current tab's vacate_status)
 const clearAllFilters = useCallback(() => {
   const emptyFilters = {
     search: "",
@@ -224,7 +242,8 @@ const clearAllFilters = useCallback(() => {
     city: "",
     state: "",
     preferred_sharing: "",
-    vacate_status: 'active' as 'active',
+    // PRESERVE the current tab's vacate_status
+    vacate_status: activeTab === 'vacated' ? 'vacated' : 'non_vacated',
   };
   filtersRef.current = emptyFilters;
   setFiltersState(emptyFilters);
@@ -237,26 +256,27 @@ const clearAllFilters = useCallback(() => {
     status: "",
   });
   loadTenants(emptyFilters);
-}, [loadTenants]);
+}, [loadTenants, activeTab]);
 
-  // Clear sidebar filters only
-  const clearSidebarFilters = useCallback(() => {
-    const emptyFilters = {
-      search: filters.search || "",
-      is_active: "any",
-      portal_access_enabled: "",
-      has_credentials: "",
-      gender: "",
-      occupation_category: "",
-      city: "",
-      state: "",
-      preferred_sharing: "",
-vacate_status: filters.vacate_status,    };
-    filtersRef.current = emptyFilters;
-    setFiltersState(emptyFilters);
-    loadTenants(emptyFilters);
-    setIsFilterSidebarOpen(false);
-  }, [filters.search, loadTenants]);
+const clearSidebarFilters = useCallback(() => {
+  const emptyFilters = {
+    search: filters.search || "",
+    is_active: "",
+    portal_access_enabled: "",
+    has_credentials: "",
+    gender: "",
+    occupation_category: "",
+    city: "",
+    state: "",
+    preferred_sharing: "",
+    // PRESERVE the current tab's vacate_status
+    vacate_status: activeTab === 'vacated' ? 'vacated' : 'non_vacated',
+  };
+  filtersRef.current = emptyFilters;
+  setFiltersState(emptyFilters);
+  loadTenants(emptyFilters);
+  setIsFilterSidebarOpen(false);
+}, [filters.search, loadTenants, activeTab]);
 
   // Handle delete
 const handleDelete = useCallback(async (tenant: Tenant) => {
@@ -558,11 +578,16 @@ const handleBulkDelete = useCallback(async (selectedIds: string[]) => {
     }
   }, [selectedTenant, credentialPassword, loadTenants]);
 
-  // Calculate active filters count
-  const activeFiltersCount = useMemo(() => {
-    const main = Object.values(filters).filter(v => v !== "").length;
-    return main;
-  }, [filters]);
+  // Update the activeFiltersCount calculation to EXCLUDE vacate_status
+const activeFiltersCount = useMemo(() => {
+  // Filter out vacate_status and search from the count
+  const filterEntries = Object.entries(filters).filter(([key, value]) => {
+    if (key === 'vacate_status') return false; // EXCLUDE vacate_status
+    if (key === 'search') return false; // EXCLUDE search (handled separately)
+    return value !== "" && value !== undefined && value !== null;
+  });
+  return filterEntries.length;
+}, [filters]);
 
    const filteredTenants = useMemo(() => {
     let filtered = tenants;
@@ -615,6 +640,31 @@ const handleBulkDelete = useCallback(async (selectedIds: string[]) => {
     const start = (currentPage - 1) * pageSize;
     return filteredTenants.slice(start, start + pageSize);
   }, [filteredTenants, currentPage, pageSize]);
+
+
+  // In tenants-client.tsx
+const loadTenantsForTab = useCallback(async () => {
+  setLoading(true);
+  try {
+    const filters = activeTab === 'vacated' 
+      ? { vacate_status: 'vacated' }
+      : { vacate_status: 'non_vacated' };  // All tenants = non-vacated only
+    
+    const res = await listTenants(filters);
+    if (res?.success && Array.isArray(res.data)) {
+      setTenants(res.data);
+    }
+  } catch (err) {
+    toast.error("Failed to load tenants");
+  } finally {
+    setLoading(false);
+  }
+}, [activeTab]);
+
+// Call this when tab changes
+useEffect(() => {
+  loadTenantsForTab();
+}, [activeTab]);
   // ── PAGINATION LOGIC ──
 const totalTenants = filteredTenants?.length ?? tenants.length;
   const totalPages = Math.max(1, Math.ceil(totalTenants / pageSize));
@@ -1047,11 +1097,24 @@ const columns: Column<Tenant>[] = useMemo(() => [    {
 
   return (
 <div className="space-y-0 flex flex-col ">  {/* Tabs */}
+
 <div className="flex overflow-hidden border border-gray-200 bg-white rounded-xl mb-3 shadow-sm sticky top-20 z-10">
   <button
-onClick={() => { setActiveTab('all'); handleFilterChange({ ...filters, vacate_status: 'non_vacated' }); }}
- 
-  className={`flex-1 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold border-b-2 transition-all text-center flex items-center justify-center gap-1.5 sm:gap-2
+    onClick={() => { 
+      setActiveTab('all'); 
+      // RESET ALL COLUMN SEARCHES when switching to All Tenants
+      setColumnSearch({
+        name: "",
+        contact: "",
+        occupation: "",
+        property: "",
+        payments: "",
+        status: "",
+      });
+      // Clear any active filters and set to non_vacated
+      handleFilterChange({ vacate_status: 'non_vacated' }); 
+    }}
+    className={`flex-1 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold border-b-2 transition-all text-center flex items-center justify-center gap-1.5 sm:gap-2
       ${activeTab === 'all'
         ? 'border-blue-600 text-blue-700 bg-white'
         : 'border-transparent text-gray-500 bg-gray-50 hover:text-gray-700 hover:bg-gray-100'}`}
@@ -1060,14 +1123,25 @@ onClick={() => { setActiveTab('all'); handleFilterChange({ ...filters, vacate_st
     <span className="hidden xs:inline sm:inline">All Tenants</span>
     <span className="xs:hidden sm:hidden inline">All</span>
   </button>
+  
   <div className="w-px bg-gray-200 my-2" />
+  
   <button
-onClick={() => {
-  setActiveTab('vacated');
-  const newFilters = { ...filters, vacate_status: 'vacated' as const };
-  setFiltersState(newFilters);
-  handleFilterChange(newFilters);
-}}    className={`flex-1 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold border-b-2 transition-all text-center flex items-center justify-center gap-1.5 sm:gap-2
+    onClick={() => {
+      setActiveTab('vacated');
+      // RESET ALL COLUMN SEARCHES when switching to Vacated Tenants
+      setColumnSearch({
+        name: "",
+        contact: "",
+        occupation: "",
+        property: "",
+        payments: "",
+        status: "",
+      });
+      // Clear any active filters and set to vacated
+      handleFilterChange({ vacate_status: 'vacated' });
+    }}
+    className={`flex-1 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold border-b-2 transition-all text-center flex items-center justify-center gap-1.5 sm:gap-2
       ${activeTab === 'vacated'
         ? 'border-purple-600 text-purple-700 bg-white'
         : 'border-transparent text-gray-500 bg-gray-50 hover:text-gray-700 hover:bg-gray-100'}`}
@@ -1409,23 +1483,26 @@ onClick={() => {
           </div>
         </div>
 
-        {/* Active Filters Row */}
-        {activeFiltersCount > 0 && (
-          <div className="hidden lg:flex items-center gap-1.5 px-4 py-1.5 bg-blue-800/40 border-t border-white/10 flex-wrap">
-            <span className="text-[10px] text-blue-200 font-medium">Active Filters ({activeFiltersCount})</span>
-            {Object.entries(filters).map(([key, value]) => {
-              if (!value || key === 'search') return null;
-              return (
-                <Badge key={key} variant="outline" className="text-[9px] px-1.5 py-0 h-4 bg-white/20 text-white border-white/30">
-                  {key}: {String(value)}
-                </Badge>
-              );
-            })}
-            <button onClick={clearAllFilters} className="text-[10px] text-orange-300 hover:text-orange-200 underline ml-1">
-              Clear all
-            </button>
-          </div>
-        )}
+        {/* Active Filters Row - Desktop */}
+{activeFiltersCount > 0 && (
+  <div className="hidden lg:flex items-center gap-1.5 px-4 py-1.5 bg-blue-800/40 border-t border-white/10 flex-wrap">
+    <span className="text-[10px] text-blue-200 font-medium">Active Filters ({activeFiltersCount})</span>
+    {Object.entries(filters).map(([key, value]) => {
+      // SKIP vacate_status and search
+      if (key === 'vacate_status') return null;
+      if (key === 'search') return null;
+      if (!value) return null;
+      return (
+        <Badge key={key} variant="outline" className="text-[9px] px-1.5 py-0 h-4 bg-white/20 text-white border-white/30">
+          {key}: {String(value)}
+        </Badge>
+      );
+    })}
+    <button onClick={clearAllFilters} className="text-[10px] text-orange-300 hover:text-orange-200 underline ml-1">
+      Clear all
+    </button>
+  </div>
+)}
 
         {/* Tablet View (md to lg) */}
         <div className="hidden md:flex lg:hidden items-center gap-1.5 px-3 py-2">
@@ -1501,20 +1578,22 @@ onClick={() => {
         </div>
 
         {/* Tablet: Active Filters Row */}
-        {activeFiltersCount > 0 && (
-          <div className="hidden md:flex lg:hidden items-center gap-1.5 px-3 py-1 bg-blue-800/40 border-t border-white/10 flex-wrap">
-            <span className="text-[10px] text-blue-200">Active ({activeFiltersCount})</span>
-            {Object.entries(filters).map(([key, value]) => {
-              if (!value || key === 'search') return null;
-              return (
-                <Badge key={key} variant="outline" className="text-[9px] px-1 py-0 h-3.5 bg-white/20 text-white border-white/30">
-                  {key}: {String(value)}
-                </Badge>
-              );
-            })}
-            <button onClick={clearAllFilters} className="text-[10px] text-orange-300 underline ml-1">Clear</button>
-          </div>
-        )}
+{activeFiltersCount > 0 && (
+  <div className="hidden md:flex lg:hidden items-center gap-1.5 px-3 py-1 bg-blue-800/40 border-t border-white/10 flex-wrap">
+    <span className="text-[10px] text-blue-200">Active ({activeFiltersCount})</span>
+    {Object.entries(filters).map(([key, value]) => {
+      if (key === 'vacate_status') return null;
+      if (key === 'search') return null;
+      if (!value) return null;
+      return (
+        <Badge key={key} variant="outline" className="text-[9px] px-1 py-0 h-3.5 bg-white/20 text-white border-white/30">
+          {key}: {String(value)}
+        </Badge>
+      );
+    })}
+    <button onClick={clearAllFilters} className="text-[10px] text-orange-300 underline ml-1">Clear</button>
+  </div>
+)}
 
         <div className="flex md:hidden items-center gap-1.5 px-3 py-2">
  
