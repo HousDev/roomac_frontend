@@ -47,7 +47,8 @@ const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
   const [credentialPassword, setCredentialPassword] = useState("");
   const [credentialLoading, setCredentialLoading] = useState(false);
 const [selectedTenantIds, setSelectedTenantIds] = useState<string[]>([]);  const [isFilterSidebarOpen, setIsFilterSidebarOpen] = useState(false);
-const [activeTab, setActiveTab] = useState<'all' | 'vacated'>('all');
+// Update the activeTab state to include 'deleted'
+const [activeTab, setActiveTab] = useState<'all' | 'vacated' | 'deleted'>('all');
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -98,10 +99,19 @@ const [filters, setFiltersState] = useState<TenantFilters>({
 const loadTenants = useCallback(async (customFilters?: TenantFilters) => {
   setLoading(true);
   try {
-    // If no custom filters provided, use current tab's default
-    const useFilters = customFilters || { 
-      vacate_status: activeTab === 'vacated' ? 'vacated' : 'non_vacated' 
-    };
+    let useFilters;
+    if (customFilters) {
+      useFilters = customFilters;
+    } else {
+      // Set filters based on active tab
+      if (activeTab === 'vacated') {
+        useFilters = { vacate_status: 'vacated', include_deleted: false };
+      } else if (activeTab === 'deleted') {
+        useFilters = { vacate_status: 'vacated', include_deleted: true };
+      } else {
+        useFilters = { vacate_status: 'non_vacated', include_deleted: false };
+      }
+    }
     const res = await listTenants(useFilters);
     if (res?.success && Array.isArray(res.data)) {
       setTenants(res.data);
@@ -117,7 +127,7 @@ const loadTenants = useCallback(async (customFilters?: TenantFilters) => {
   } finally {
     setLoading(false);
   }
-}, [activeTab]); 
+}, [activeTab]);
 
 // Initialize based on active tab
 useEffect(() => {
@@ -641,6 +651,63 @@ const activeFiltersCount = useMemo(() => {
     return filteredTenants.slice(start, start + pageSize);
   }, [filteredTenants, currentPage, pageSize]);
 
+  // Handle delete for vacated tenants - moves to deleted tab
+const handleDeleteVacatedTenant = useCallback(async (tenant: Tenant) => {
+  const result = await Swal.fire({
+    title: "Move to Deleted?",
+    text: `You are about to move "${tenant.full_name}" to Deleted Vacated Tenants. You can restore it later.`,
+    icon: "warning",
+    showCancelButton: true,
+    confirmButtonColor: "#d33",
+    cancelButtonColor: "#3085d6",
+    confirmButtonText: "Yes, move to deleted!",
+    cancelButtonText: "Cancel",
+  });
+
+  if (result.isConfirmed) {
+    try {
+      const res = await softDeleteTenant(tenant.id as any);
+      if (!res?.success) {
+        toast.error(res?.message || "Failed to move tenant to deleted");
+        return;
+      }
+      toast.success(`${tenant.full_name} moved to Deleted Vacated Tenants`);
+      loadTenants(); // Refresh the current tab
+    } catch (err: any) {
+      console.error("Delete error:", err);
+      toast.error(err?.response?.message || "Failed to delete tenant");
+    }
+  }
+}, [loadTenants]);
+
+// Restore tenant from deleted tab back to vacated tab
+const handleRestoreVacatedTenant = useCallback(async (tenant: Tenant) => {
+  const result = await Swal.fire({
+    title: "Restore Tenant?",
+    text: `Are you sure you want to restore "${tenant.full_name}" back to Vacated Tenants?`,
+    icon: "question",
+    showCancelButton: true,
+    confirmButtonColor: "#3085d6",
+    cancelButtonColor: "#d33",
+    confirmButtonText: "Yes, restore it!",
+    cancelButtonText: "Cancel",
+  });
+
+  if (result.isConfirmed) {
+    try {
+      const res = await restoreTenant(tenant.id as any);
+      if (!res?.success) {
+        toast.error(res?.message || "Failed to restore tenant");
+        return;
+      }
+      toast.success(`${tenant.full_name} restored to Vacated Tenants`);
+      loadTenants(); // Refresh the current tab
+    } catch (err: any) {
+      console.error("Restore error:", err);
+      toast.error(err?.message || "Failed to restore tenant");
+    }
+  }
+}, [loadTenants]);
 
   // In tenants-client.tsx
 const loadTenantsForTab = useCallback(async () => {
@@ -825,37 +892,81 @@ const columns: Column<Tenant>[] = useMemo(() => [    {
         </div>
       ),
     },
-    {
-      key: "actions",
-      label: "Actions",
-      render: (tenant) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-gray-100">
-              <MoreVertical className="w-3.5 h-3.5" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-44 text-xs">
-            <DropdownMenuItem className="text-xs" onClick={() => { setSelectedTenant(tenant); setIsViewDialogOpen(true); }}>
-              <Eye className="w-3 h-3 mr-2" /> View Details
+    // In the columns definition, update the actions render function
+{
+  key: "actions",
+  label: "Actions",
+  render: (tenant) => {
+    // Show different actions based on active tab
+    const isDeletedTab = activeTab === 'deleted';
+    const isVacatedTab = activeTab === 'vacated';
+    
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-gray-100">
+            <MoreVertical className="w-3.5 h-3.5" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-44 text-xs">
+          {/* View Details - always available */}
+          <DropdownMenuItem className="text-xs" onClick={() => { setSelectedTenant(tenant); setIsViewDialogOpen(true); }}>
+            <Eye className="w-3 h-3 mr-2" /> View Details
+          </DropdownMenuItem>
+          
+          {isDeletedTab ? (
+            // Show Restore button for Deleted tab
+            <DropdownMenuItem className="text-xs text-green-600" onClick={() => handleRestoreVacatedTenant(tenant)}>
+              <RefreshCw className="w-3 h-3 mr-2" /> Restore to Vacated
             </DropdownMenuItem>
-            <DropdownMenuItem className="text-xs" onClick={() => { setSelectedTenant(tenant); setIsEditDialogOpen(true); }}>
-              <Edit className="w-3 h-3 mr-2" /> Edit
-            </DropdownMenuItem>
-            <DropdownMenuItem className="text-xs" onClick={() => { setSelectedTenant(tenant); setCredentialPassword(""); setIsCredentialDialogOpen(true); }}>
-              <Key className="w-3 h-3 mr-2" /> {tenant.has_credentials ? "Reset Password" : "Create Login"}
-            </DropdownMenuItem>
-            <DropdownMenuItem className="text-xs" onClick={() => handleTogglePortalAccess(tenant)}>
-              <Globe className="w-3 h-3 mr-2" /> {tenant.portal_access_enabled ? "Disable Portal" : "Enable Portal"}
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-xs text-red-600" onClick={() => handleDelete(tenant)}>
-              <Trash2 className="w-3 h-3 mr-2" /> Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ),
-    },
+          ) : isVacatedTab ? (
+            // Show Delete button for Vacated tab
+            <>
+              {can('edit_tenants') && (
+                <DropdownMenuItem className="text-xs" onClick={() => { setSelectedTenant(tenant); setIsEditDialogOpen(true); }}>
+                  <Edit className="w-3 h-3 mr-2" /> Edit
+                </DropdownMenuItem>
+              )}
+              {can('manage_tenant_credentials') && (
+                <DropdownMenuItem className="text-xs" onClick={() => { setSelectedTenant(tenant); setCredentialPassword(""); setIsCredentialDialogOpen(true); }}>
+                  <Key className="w-3 h-3 mr-2" /> {tenant.has_credentials ? "Reset Password" : "Create Login"}
+                </DropdownMenuItem>
+              )}
+              {can('manage_tenant_portal') && (
+                <DropdownMenuItem className="text-xs" onClick={() => handleTogglePortalAccess(tenant)}>
+                  <Globe className="w-3 h-3 mr-2" /> {tenant.portal_access_enabled ? "Disable Portal" : "Enable Portal"}
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="text-xs text-red-600" onClick={() => handleDeleteVacatedTenant(tenant)}>
+                <Trash2 className="w-3 h-3 mr-2" /> Move to Deleted
+              </DropdownMenuItem>
+            </>
+          ) : (
+            // All Tenants tab - regular actions
+            <>
+              {can('edit_tenants') && (
+                <DropdownMenuItem className="text-xs" onClick={() => { setSelectedTenant(tenant); setIsEditDialogOpen(true); }}>
+                  <Edit className="w-3 h-3 mr-2" /> Edit
+                </DropdownMenuItem>
+              )}
+              {can('manage_tenant_credentials') && (
+                <DropdownMenuItem className="text-xs" onClick={() => { setSelectedTenant(tenant); setCredentialPassword(""); setIsCredentialDialogOpen(true); }}>
+                  <Key className="w-3 h-3 mr-2" /> {tenant.has_credentials ? "Reset Password" : "Create Login"}
+                </DropdownMenuItem>
+              )}
+              {can('manage_tenant_portal') && (
+                <DropdownMenuItem className="text-xs" onClick={() => handleTogglePortalAccess(tenant)}>
+                  <Globe className="w-3 h-3 mr-2" /> {tenant.portal_access_enabled ? "Disable Portal" : "Enable Portal"}
+                </DropdownMenuItem>
+              )}
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  },
+},
   ], [handleDelete, handleTogglePortalAccess]);
 
   // Memoized table filters
@@ -1099,10 +1210,10 @@ const columns: Column<Tenant>[] = useMemo(() => [    {
 <div className="space-y-0 flex flex-col ">  {/* Tabs */}
 
 <div className="flex overflow-hidden border border-gray-200 bg-white rounded-xl mb-3 shadow-sm sticky top-20 z-10">
+  {/* All Tenants Tab */}
   <button
     onClick={() => { 
       setActiveTab('all'); 
-      // RESET ALL COLUMN SEARCHES when switching to All Tenants
       setColumnSearch({
         name: "",
         contact: "",
@@ -1111,8 +1222,7 @@ const columns: Column<Tenant>[] = useMemo(() => [    {
         payments: "",
         status: "",
       });
-      // Clear any active filters and set to non_vacated
-      handleFilterChange({ vacate_status: 'non_vacated' }); 
+      handleFilterChange({ vacate_status: 'non_vacated', include_deleted: false }); 
     }}
     className={`flex-1 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold border-b-2 transition-all text-center flex items-center justify-center gap-1.5 sm:gap-2
       ${activeTab === 'all'
@@ -1126,10 +1236,10 @@ const columns: Column<Tenant>[] = useMemo(() => [    {
   
   <div className="w-px bg-gray-200 my-2" />
   
+  {/* Vacated Tenants Tab */}
   <button
     onClick={() => {
       setActiveTab('vacated');
-      // RESET ALL COLUMN SEARCHES when switching to Vacated Tenants
       setColumnSearch({
         name: "",
         contact: "",
@@ -1138,8 +1248,7 @@ const columns: Column<Tenant>[] = useMemo(() => [    {
         payments: "",
         status: "",
       });
-      // Clear any active filters and set to vacated
-      handleFilterChange({ vacate_status: 'vacated' });
+      handleFilterChange({ vacate_status: 'vacated', include_deleted: false });
     }}
     className={`flex-1 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold border-b-2 transition-all text-center flex items-center justify-center gap-1.5 sm:gap-2
       ${activeTab === 'vacated'
@@ -1149,6 +1258,32 @@ const columns: Column<Tenant>[] = useMemo(() => [    {
     <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
     <span className="hidden xs:inline sm:inline">Vacated Tenants</span>
     <span className="xs:hidden sm:hidden inline">Vacated</span>
+  </button>
+
+  <div className="w-px bg-gray-200 my-2" />
+  
+  {/* Deleted Vacated Tenants Tab - NEW */}
+  <button
+    onClick={() => {
+      setActiveTab('deleted');
+      setColumnSearch({
+        name: "",
+        contact: "",
+        occupation: "",
+        property: "",
+        payments: "",
+        status: "",
+      });
+      handleFilterChange({ vacate_status: 'vacated', include_deleted: true });
+    }}
+    className={`flex-1 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold border-b-2 transition-all text-center flex items-center justify-center gap-1.5 sm:gap-2
+      ${activeTab === 'deleted'
+        ? 'border-red-600 text-red-700 bg-white'
+        : 'border-transparent text-gray-500 bg-gray-50 hover:text-gray-700 hover:bg-gray-100'}`}
+  >
+    <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+    <span className="hidden xs:inline sm:inline">Deleted Vacated</span>
+    <span className="xs:hidden sm:hidden inline">Deleted</span>
   </button>
 </div>
 

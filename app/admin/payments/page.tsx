@@ -2685,7 +2685,7 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
                                 Room {room.room_number}
                               </span>
                               <span className="text-[10px] text-slate-400">
-                                ({room.sharing_type} sharing)
+                                ({room.sharing_type})
                               </span>
                             </div>
                           </SelectItem>
@@ -4997,18 +4997,28 @@ const PaymentsTable = ({
                                                   )}
                                                 </TableCell>
                                                 {/* In the expanded child table, find the Source column */}
+{/* Source Column - Updated to identify booking payments */}
 <TableCell className="py-2">
-  {payment.booking_id && payment.payment_mode === "online" ? (
+  {payment.booking_id ? (
+    // Payment came from online booking (BookingModal)
     <Badge className="bg-purple-100 text-purple-700 border-purple-200 text-[10px] px-1.5 py-0">
       <Globe className="h-2.5 w-2.5 mr-0.5 inline" />
       Online Booking
     </Badge>
-  ) : payment.payment_mode === "online" && !payment.booking_id ? (
+  ) : payment.source === 'tenant' ? (
+    // Payment came from tenant dashboard
     <Badge className="bg-blue-100 text-blue-700 border-blue-200 text-[10px] px-1.5 py-0">
       <Globe className="h-2.5 w-2.5 mr-0.5 inline" />
       Online Payment (Tenant)
     </Badge>
+  ) : payment.payment_mode === "online" ? (
+    // Admin manually added online payment
+    <Badge className="bg-orange-100 text-orange-700 border-orange-200 text-[10px] px-1.5 py-0">
+      <Globe className="h-2.5 w-2.5 mr-0.5 inline" />
+      Manual Entry
+    </Badge>
   ) : (
+    // Cash, cheque, bank_transfer payments from admin
     <Badge className="bg-orange-100 text-orange-700 border-orange-200 text-[10px] px-1.5 py-0">
       <User className="h-2.5 w-2.5 mr-0.5 inline" />
       Manual Entry
