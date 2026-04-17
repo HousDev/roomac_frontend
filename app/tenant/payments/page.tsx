@@ -833,6 +833,7 @@ useEffect(() => {
                   payment_status: "completed",
                   status: "approved",
                   transaction_id: response.razorpay_payment_id,
+                  source: "tenant",
                 }),
               });
 
@@ -1927,13 +1928,13 @@ useEffect(() => {
                       </div>
                     </div>
 
-                    {securityDepositInfo.is_fully_paid && (
+                    {/* {securityDepositInfo.is_fully_paid && (
                       <div className="mt-3 p-2 bg-green-50 border border-green-200 rounded-lg">
                         <p className="text-xs text-green-700 text-center flex items-center justify-center gap-1">
                           <span>✅</span> Security deposit is fully paid!
                         </p>
                       </div>
-                    )}
+                    )} */}
                   </div>
                 </div>
               )}

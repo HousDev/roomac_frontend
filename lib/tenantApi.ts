@@ -791,6 +791,7 @@ export type TenantFilters = {
   state?: string;
   preferred_sharing?: string;
 vacate_status?: 'active' | 'vacated' | 'non_vacated' | 'all';
+include_deleted?: boolean; // ADD THIS
 };
 
 // Type for export filters

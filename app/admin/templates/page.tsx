@@ -30,6 +30,7 @@ import {
 } from "@/lib/templateApi";
 import { useAuth } from "@/context/authContext";
 import { toast } from "sonner";
+import { consumeMasters } from "@/lib/masterApi";
 
 type Channel = TemplateChannel;
 type Category = TemplateCategory;
@@ -598,9 +599,10 @@ interface CreateEditDialogProps {
   activeChannel: string;
   onSuccess: () => void;
   masterCategories: { key: string; label: string }[];
+  subCategories: { key: string; label: string }[];
 }
 
-const CreateEditDialog: FC<CreateEditDialogProps> = ({ open, onClose, template, activeChannel, onSuccess, masterCategories }) => {
+const CreateEditDialog: FC<CreateEditDialogProps> = ({ open, onClose, template, activeChannel, onSuccess, masterCategories, subCategories   }) => {
   const isEdit = !!template;
   const [name, setName] = useState("");
   const [channel, setChannel] = useState<Channel>("sms");
@@ -610,15 +612,17 @@ const CreateEditDialog: FC<CreateEditDialogProps> = ({ open, onClose, template, 
   const [priority, setPriority] = useState<Priority>("normal");
   const [autoApprove, setAutoApprove] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [subCategory, setSubCategory] = useState("");
 
   useEffect(() => {
     if (template) {
       setName(template.name); setChannel(template.channel); setCategory(template.category);
       setContent(template.content); setSubject(template.subject || "");
       setPriority(template.priority); setAutoApprove(template.auto_approve === 1);
+      setSubCategory(template.sub_category || "");
     } else {
       setName(""); setChannel((activeChannel === "all" ? "sms" : activeChannel) as Channel);
-      setCategory("alert"); setContent(""); setSubject(""); setPriority("normal"); setAutoApprove(false);
+      setCategory("alert"); setSubCategory(""); setContent(""); setSubject(""); setPriority("normal"); setAutoApprove(false);
     }
   }, [template, activeChannel, open]);
 
@@ -627,24 +631,35 @@ const CreateEditDialog: FC<CreateEditDialogProps> = ({ open, onClose, template, 
   const insertVar = (v: string) => setContent((p) => p + `{${v}}`);
   const handleContentChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => setContent(e.target.value), []);
 
-  const handleSave = async () => {
-    if (!name.trim() || !content.trim()) { toast.error("Name and content are required"); return; }
-    setSaving(true);
-    try {
-      const payload: CreateTemplatePayload = {
-        name, channel, category, content,
-        subject: channel === "email" ? subject : undefined,
-        variables: detectedVars, priority,
-        auto_approve: autoApprove,
-        status: autoApprove ? "approved" : "pending",
-      };
-      if (isEdit && template) { await updateTemplate(template.id, payload); toast.success("Template updated!"); }
-      else { await createTemplate(payload); toast.success("Template created!"); }
-      onSuccess(); onClose();
-    } catch (err: any) {
-      toast.error(err.message || (isEdit ? "Failed to update" : "Failed to create"));
-    } finally { setSaving(false); }
-  };
+const handleSave = async () => {
+  if (!name.trim() || !content.trim()) { toast.error("Name and content are required"); return; }
+  setSaving(true);
+  try {
+    const payload: CreateTemplatePayload = {
+      name, 
+      channel, 
+      category, 
+      sub_category: subCategory,  // ✅ Make sure this is included
+      content,
+      subject: channel === "email" ? subject : undefined,
+      variables: detectedVars, 
+      priority,
+      auto_approve: autoApprove,
+      status: autoApprove ? "approved" : "pending",
+    };
+    if (isEdit && template) { 
+      await updateTemplate(template.id, payload); 
+      toast.success("Template updated!"); 
+    } else { 
+      await createTemplate(payload); 
+      toast.success("Template created!"); 
+    }
+    onSuccess(); 
+    onClose();
+  } catch (err: any) {
+    toast.error(err.message || (isEdit ? "Failed to update" : "Failed to create"));
+  } finally { setSaving(false); }
+};
 
   if (!open) return null;
   return (
@@ -669,6 +684,19 @@ const CreateEditDialog: FC<CreateEditDialogProps> = ({ open, onClose, template, 
                 }
               </select>
             </div>
+<div className="flex flex-col gap-1">
+  <label className={fieldLabelClass}>Sub Category</label>
+  <select 
+    className={fieldInputClass} 
+    value={subCategory} 
+    onChange={(e) => setSubCategory(e.target.value)}
+  >
+    <option value="">None</option>
+    {subCategories.map((sub) => (
+      <option key={sub.key} value={sub.key}>{sub.label}</option>
+    ))}
+  </select>
+</div>
             <div className="flex flex-col gap-1">
               <label className={fieldLabelClass}>Priority</label>
               <select className={fieldInputClass} value={priority} onChange={(e) => setPriority(e.target.value as Priority)}>
@@ -977,6 +1005,8 @@ export default function TemplateCenterPage() {
   const [allStatusCounts, setAllStatusCounts] = useState({
     pending: 0, approved: 0, rejected: 0, total: 0, active: 0, inactive: 0
   });
+  const [subCategories, setSubCategories] = useState<{ key: string; label: string }[]>([]);
+const [subCategoryFilter, setSubCategoryFilter] = useState("all");
 
   const fetchCounts = useCallback(async () => {
     try {
@@ -1007,6 +1037,7 @@ export default function TemplateCenterPage() {
         is_active: activeFilter !== "all" ? activeFilter : undefined,
         status: statusFilter !== "all" ? statusFilter : undefined,
         category: categoryFilter !== "all" ? categoryFilter : undefined,
+        sub_category: subCategoryFilter !== "all" ? subCategoryFilter : undefined,  // ✅ Add this
         search: search || undefined,
       });
       setTemplates(data);
@@ -1015,7 +1046,34 @@ export default function TemplateCenterPage() {
     } finally {
       setLoading(false);
     }
-  }, [activeChannel, statusFilter, categoryFilter, search, activeFilter]);
+  }, [activeChannel, statusFilter, categoryFilter, subCategoryFilter, search, activeFilter]);
+
+const fetchSubCategories = useCallback(async () => {
+  try {
+    const response = await consumeMasters({ tab: "Common", type: "Template Sub Category" });
+    if (response?.success && response.data && Array.isArray(response.data)) {
+      // Map the response - store value_name as both key and label
+      const subs = response.data.map((item: any) => ({
+        key: item.value_name,  // Use value_name as key (e.g., "payment_success")
+        label: item.value_name, // Use value_name as label (e.g., "Payment Success")
+        id: item.value_id
+      }));
+      
+      setSubCategories(subs);
+    } else {
+      console.warn("No sub-categories data received");
+      setSubCategories([]);
+    }
+  } catch (error) {
+    console.error("Error fetching sub-categories:", error);
+    setSubCategories([]);
+    toast.error("Failed to load sub-categories");
+  }
+}, []);
+// Call fetchSubCategories when component mounts
+useEffect(() => {
+  fetchSubCategories();
+}, []);
 
   const isFirstLoad = useRef(true);
   useEffect(() => {
@@ -1161,63 +1219,88 @@ export default function TemplateCenterPage() {
           </div>
 
           {/* Filters row */}
-          <div className="px-5 py-2.5 flex items-center gap-2 flex-wrap border-t border-slate-100">
-            <div className="flex gap-1 flex-nowrap overflow-x-auto pb-1 hide-scrollbar" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-              {[
-                { key: "all", label: "All", count: allStatusCounts.total },
-                { key: "pending", label: "Pending", count: allStatusCounts.pending },
-                { key: "approved", label: "Approved", count: allStatusCounts.approved },
-                { key: "rejected", label: "Rejected", count: allStatusCounts.rejected },
-                { key: "active", label: "Active", count: allStatusCounts.active },
-                { key: "inactive", label: "Inactive", count: allStatusCounts.inactive },
-              ].map((s) => (
-                <button
-                  key={s.key}
-                  onClick={() => {
-                    if (s.key === 'active') {
-                      setActiveFilter('1');
-                      setStatusFilter('all');
-                    } else if (s.key === 'inactive') {
-                      setActiveFilter('0');
-                      setStatusFilter('all');
-                    } else {
-                      setActiveFilter('all');
-                      setStatusFilter(s.key);
-                    }
-                  }}
-                  className={`flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-full border-none text-[11px] sm:text-xs font-medium cursor-pointer transition-all whitespace-nowrap ${(s.key === 'active' && activeFilter === '1') ||
-                      (s.key === 'inactive' && activeFilter === '0') ||
-                      (s.key !== 'active' && s.key !== 'inactive' && statusFilter === s.key)
-                      ? "bg-blue-600 text-white shadow-sm"
-                      : "bg-transparent text-slate-400 hover:bg-slate-100"
-                    }`}>
-                  <span>{s.label}</span>
-                  <span className={`text-[9px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded-full ${(s.key === 'active' && activeFilter === '1') ||
-                      (s.key === 'inactive' && activeFilter === '0') ||
-                      (s.key !== 'active' && s.key !== 'inactive' && statusFilter === s.key)
-                      ? "bg-white/25 text-white"
-                      : "bg-slate-100 text-slate-400"
-                    }`}>
-                    {s.count}
-                  </span>
-                </button>
-              ))}
-            </div>
+<div className="px-5 py-2.5 flex items-center gap-2 flex-wrap border-t border-slate-100">
+  <div className="flex gap-1 flex-nowrap overflow-x-auto pb-1 hide-scrollbar" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+    {[
+      { key: "all", label: "All", count: allStatusCounts.total },
+      { key: "pending", label: "Pending", count: allStatusCounts.pending },
+      { key: "approved", label: "Approved", count: allStatusCounts.approved },
+      { key: "rejected", label: "Rejected", count: allStatusCounts.rejected },
+      { key: "active", label: "Active", count: allStatusCounts.active },
+      { key: "inactive", label: "Inactive", count: allStatusCounts.inactive },
+    ].map((s) => (
+      <button
+        key={s.key}
+        onClick={() => {
+          if (s.key === 'active') {
+            setActiveFilter('1');
+            setStatusFilter('all');
+          } else if (s.key === 'inactive') {
+            setActiveFilter('0');
+            setStatusFilter('all');
+          } else {
+            setActiveFilter('all');
+            setStatusFilter(s.key);
+          }
+        }}
+        className={`flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-full border-none text-[11px] sm:text-xs font-medium cursor-pointer transition-all whitespace-nowrap ${
+          (s.key === 'active' && activeFilter === '1') ||
+          (s.key === 'inactive' && activeFilter === '0') ||
+          (s.key !== 'active' && s.key !== 'inactive' && statusFilter === s.key)
+            ? "bg-blue-600 text-white shadow-sm"
+            : "bg-transparent text-slate-400 hover:bg-slate-100"
+        }`}
+      >
+        <span>{s.label}</span>
+        <span className={`text-[9px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+          (s.key === 'active' && activeFilter === '1') ||
+          (s.key === 'inactive' && activeFilter === '0') ||
+          (s.key !== 'active' && s.key !== 'inactive' && statusFilter === s.key)
+            ? "bg-white/25 text-white"
+            : "bg-slate-100 text-slate-400"
+        }`}>
+          {s.count}
+        </span>
+      </button>
+    ))}
+  </div>
 
-            <div className="flex items-center gap-2 flex-wrap ml-auto">
-              <SearchInput onSearch={setSearch} />
-              <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}
-                className="h-[34px] px-2 sm:px-2.5 border border-slate-200 rounded-full text-[11px] sm:text-xs text-slate-600 bg-slate-50 outline-none cursor-pointer focus:border-blue-500">
-                <option value="all">All Categories</option>
-                {masterCategories.length > 0
-                  ? masterCategories.map((c) => (
-                    <option key={c.key} value={c.key}>{c.label}</option>
-                  ))
-                  : <option disabled>No categories</option>
-                }
-              </select>
-            </div>
-          </div>
+  {/* Right side filters - ALL in one group */}
+  <div className="flex items-center gap-2 flex-wrap ml-auto">
+    <SearchInput onSearch={setSearch} />
+    
+    {/* Category Filter */}
+    <select 
+      value={categoryFilter} 
+      onChange={(e) => setCategoryFilter(e.target.value)}
+      className="h-[34px] px-2 sm:px-2.5 border border-slate-200 rounded-full text-[11px] sm:text-xs text-slate-600 bg-slate-50 outline-none cursor-pointer focus:border-blue-500"
+    >
+      <option value="all">All Categories</option>
+      {masterCategories.length > 0
+        ? masterCategories.map((c) => (
+            <option key={c.key} value={c.key}>{c.label}</option>
+          ))
+        : <option disabled>No categories</option>
+      }
+    </select>
+
+    {/* Sub Category Filter - MOVED INSIDE the same div */}
+    <select 
+      value={subCategoryFilter} 
+      onChange={(e) => setSubCategoryFilter(e.target.value)}
+      className="h-[34px] px-2 sm:px-2.5 border border-slate-200 rounded-full text-[11px] sm:text-xs text-slate-600 bg-slate-50 outline-none cursor-pointer focus:border-blue-500"
+    >
+      <option value="all">All Sub Categories</option>
+      {subCategories.length > 0 ? (
+        subCategories.map((sub) => (
+          <option key={sub.key} value={sub.key}>{sub.label}</option>
+        ))
+      ) : (
+        <option disabled>No sub-categories available</option>
+      )}
+    </select>
+  </div>
+</div>
         </div>
 
         {/* Bulk bar */}
@@ -1284,6 +1367,7 @@ export default function TemplateCenterPage() {
         activeChannel={activeChannel}
         onSuccess={handleCreateSuccess}
         masterCategories={masterCategories}
+        subCategories={subCategories} 
       />
       <ViewDialog template={viewTemplate} onClose={() => setViewTemplate(null)} />
       <RejectDialog

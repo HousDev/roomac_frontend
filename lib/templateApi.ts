@@ -17,6 +17,7 @@ export type MessageTemplate = {
   name: string;
   channel: TemplateChannel;
   category: TemplateCategory;
+  sub_category: string | null; 
   content: string;
   subject: string | null;
   variables: string[];
@@ -39,6 +40,7 @@ export type CreateTemplatePayload = {
   name: string;
   channel: TemplateChannel;
   category: TemplateCategory;
+   sub_category?: string; 
   content: string;
   subject?: string;
   variables?: string[];
@@ -74,6 +76,7 @@ function authHeaders(): Record<string, string> {
 export async function getTemplates(filters?: {
   channel?: string;
   category?: string;
+  sub_category?: string; 
   status?: string;
   search?: string;
   is_active?: string;
@@ -82,6 +85,7 @@ export async function getTemplates(filters?: {
     const params = new URLSearchParams();
     if (filters?.channel && filters.channel !== "all") params.set("channel", filters.channel);
     if (filters?.category && filters.category !== "all") params.set("category", filters.category);
+    if (filters?.sub_category && filters.sub_category !== "all") params.set("sub_category", filters.sub_category);  // ✅ Add this
     if (filters?.status && filters.status !== "all") params.set("status", filters.status);
     if (filters?.search) params.set("search", filters.search);
 if (filters?.is_active !== undefined && filters.is_active !== "all") 
