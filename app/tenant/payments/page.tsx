@@ -1939,26 +1939,6 @@ useEffect(() => {
                 </div>
               )}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-3 mb-3 sm:mb-4">
-              <div className="space-y-1 sm:space-y-1.5">
-                <Label className="text-xs font-medium text-slate-700">
-                  Amount (₹) *
-                </Label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                    ₹
-                  </span>
-                  <Input
-                    type="text"
-                    placeholder="0.00"
-                    value={newPayment.amount}
-                    onChange={(e) =>
-                      setNewPayment({ ...newPayment, amount: e.target.value })
-                    }
-                    className="pl-8 h-6 sm:h-8 text-sm"
-                  />
-                </div>
-              </div>
-
               {newPayment.payment_type === "rent" && (
                 <div className="space-y-1 sm:space-y-1.5">
                   <Label className="text-xs font-medium text-slate-700">
@@ -2018,6 +1998,27 @@ useEffect(() => {
                   </Select>
                 </div>
               )}
+              <div className="space-y-1 sm:space-y-1.5">
+                <Label className="text-xs font-medium text-slate-700">
+                  Amount (₹) *
+                </Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                    ₹
+                  </span>
+                  <Input
+                    type="text"
+                    placeholder="0.00"
+                    value={newPayment.amount}
+                    onChange={(e) =>
+                      setNewPayment({ ...newPayment, amount: e.target.value })
+                    }
+                    className="pl-8 h-6 sm:h-8 text-sm"
+                  />
+                </div>
+              </div>
+
+              
 
               <div className="space-y-1 sm:space-y-1.5">
                 <Label className="text-xs font-medium text-slate-700">

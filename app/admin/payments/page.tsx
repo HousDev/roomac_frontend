@@ -2948,7 +2948,7 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
                     ₹
                   </span>
                   <Input
-                    type="number"
+                    type="text"
                     placeholder="0.00"
                     value={newPayment.amount}
                     onChange={(e) =>
@@ -5169,8 +5169,7 @@ const PaymentsTable = ({
                                                           <Pencil className="h-3 w-3" />
                                                         </Button>
                                                       )}
-                                                    {payment.status ===
-                                                      "pending" &&
+                                                    {
                                                       canDelete && (
                                                         <Button
                                                           size="sm"

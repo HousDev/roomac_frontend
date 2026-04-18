@@ -333,6 +333,8 @@ const PropertyDetailView = memo(function PropertyDetailView({
   // Add new state for automatic modal opening
   const [autoOpenModal, setAutoOpenModal] = useState(false);
   const [offerRoomId, setOfferRoomId] = useState<number | undefined>(undefined);
+  const [propertyOffers, setPropertyOffers] = useState<any[]>([]);
+const [loadingOffers, setLoadingOffers] = useState(false);
 
   // Transform amenities from API
   const transformedAmenities = useMemo(() => {
