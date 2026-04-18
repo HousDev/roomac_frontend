@@ -429,6 +429,67 @@ export function TenantForm({ tenant, onSuccess, onCancel }: TenantFormProps) {
     }
   }, [cities, states, tenant]);
 
+  const checkIfTenantHasPayments = async (
+    tenantId: number,
+  ): Promise<boolean> => {
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL || "http://localhost:3000"}/api/payments/tenant/${tenantId}`,
+      );
+      const result = await response.json();
+
+      if (result.success && result.data) {
+        const payments = result.data;
+        // Check if there are any approved or pending payments
+        const hasPayments = payments.some(
+          (p: any) =>
+            p.status === "approved" ||
+            p.status === "pending" ||
+            p.status === "paid",
+        );
+        return hasPayments;
+      }
+      return false;
+    } catch (error) {
+      console.error("Error checking tenant payments:", error);
+      return false;
+    }
+  };
+
+  // Update the check-in date change handler
+  const handleCheckInDateChange = async (newDate: string) => {
+    if (!tenant?.id) {
+      // For new tenant, just update the date
+      handleInputChange("check_in_date", newDate);
+      return;
+    }
+
+    // For existing tenant, check if they have any payments
+    const hasPayments = await checkIfTenantHasPayments(tenant.id);
+
+    if (hasPayments) {
+      // Show toast notification
+      toast.error(
+        "Cannot change check-in date because this tenant has existing payment transactions. Please delete all payment transactions first.",
+        {
+          duration: 5000,
+        },
+      );
+      return;
+    }
+
+    // No payments, proceed with update
+    handleInputChange("check_in_date", newDate);
+
+    // Show confirmation
+    toast.info(
+      "Check-in date updated. Monthly rent records will be recalculated on save.",
+      {
+        duration: 3000,
+      },
+    );
+  };
+
   // ── ALL original API helpers preserved ────────────────────────────────────
   const fetchMasters = async () => {
     setLoadingMasters(true);
@@ -2316,34 +2377,37 @@ export function TenantForm({ tenant, onSuccess, onCancel }: TenantFormProps) {
                     Actual property where tenant will be staying
                   </p>
                 </div>
-                <div>
-                <label className={L}>Check-in Date</label>
-                <div className="relative">
-                  <Calendar className="absolute left-2.5 top-2 h-3.5 w-3.5 text-gray-300" />
-                  <Input
-                    type="date"
-                    value={formData.check_in_date}
-                    max={
-                      new Date(
-                        new Date().getFullYear(),
-                        new Date().getMonth() + 1,
-                        0,
-                      )
-                        .toISOString()
-                        .split("T")[0]
-                    } // Last day of current month
-                    onChange={(e) => {
-                      handleInputChange("check_in_date", e.target.value);
-                    }}
-                    className={`pl-8 ${F}`}
-                  />
-                </div>
-                {formData.check_in_date && (
-                  <p className="text-[10px] text-gray-400 mt-0.5">
-                    Tenant move-in date
-                  </p>
-                )}
-              </div>
+<div>
+  <label className={L}>Check-in Date</label>
+  <div className="relative">
+    <Calendar className="absolute left-2.5 top-2 h-3.5 w-3.5 text-gray-300" />
+    <Input
+      type="date"
+      value={formData.check_in_date}
+      max={
+        new Date(
+          new Date().getFullYear(),
+          new Date().getMonth() + 1,
+          0,
+        )
+          .toISOString()
+          .split("T")[0]
+      }
+      onChange={(e) => handleCheckInDateChange(e.target.value)}
+      className={`pl-8 ${F}`}
+    />
+  </div>
+  {formData.check_in_date && (
+    <p className="text-[10px] text-gray-400 mt-0.5">
+      Tenant move-in date
+      {tenant?.id && (
+        <span className="text-amber-600 ml-1">
+          (Changing this will recalculate rent if no payments exist)
+        </span>
+      )}
+    </p>
+  )}
+</div>
               </div>
 
               {selectedPropertyDetails && (
@@ -2379,8 +2443,6 @@ export function TenantForm({ tenant, onSuccess, onCancel }: TenantFormProps) {
                   </div>
                 </div>
               )}
-
-              
             </div>
           </TabsContent>
 
