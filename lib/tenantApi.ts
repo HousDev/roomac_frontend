@@ -318,7 +318,7 @@ async function enhancedFetch<T>(
   }
 }
 
-// List tenants with filters - SIMPLIFIED
+// In tenantApi.ts - Update the listTenants function
 export async function listTenants(filters: {
   search?: string;
   page?: number;
@@ -332,7 +332,7 @@ export async function listTenants(filters: {
   state?: string;
   preferred_sharing?: string;
   include_deleted?: boolean;
-  vacate_status?: 'active' | 'vacated';
+  vacate_status?: 'active' | 'vacated' | 'non_vacated' | 'all';
 } = {}): Promise<any> {
   
   const params = new URLSearchParams();
@@ -340,7 +340,6 @@ export async function listTenants(filters: {
   // Convert filters to query parameters
   Object.entries(filters).forEach(([key, value]) => {
     if (value !== undefined && value !== null && value !== '') {
-      // Handle boolean values
       if (typeof value === 'boolean') {
         params.append(key, value ? 'true' : 'false');
       } else {
@@ -349,19 +348,15 @@ export async function listTenants(filters: {
     }
   });
   
+  
   const queryString = params.toString();
   const path = `/api/tenants${queryString ? `?${queryString}` : ""}`;
   
-
-  
   try {
-    // Use enhancedFetch which internally uses `request` -> goes to localhost:3001
     const result = await enhancedFetch<ApiResult<Tenant[]>>(path, { method: "GET" });
     return result;
   } catch (error: any) {
     console.error('❌ Error fetching tenants:', error);
-    
-    // Return error structure
     return {
       success: false,
       message: error.message || 'Failed to fetch tenants',

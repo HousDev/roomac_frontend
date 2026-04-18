@@ -67,7 +67,6 @@ const blankForm = () => ({
   property_name: "",
   category_id: "",
   category_name: "",
-  description: "",
   amount: "" as any,
   payment_mode: "Cash" as "Cash" | "Bank Transfer" | "UPI" | "Cheque" | "Card" | "Online Payment Gateway" | "Wallet",
   expense_date: new Date().toISOString().split("T")[0],
@@ -458,27 +457,26 @@ export default function ExpensesManagement() {
   }, [user]);
 
   /* ── Filtered list ─────────────────────────────────────────────────────── */
-  const filtered = useMemo(
-    () =>
-      expenses.filter((e) => {
-        if (filterCat !== "All" && e.category_name !== filterCat) return false;
-        if (filterStatus !== "All" && e.status !== filterStatus) return false;
-        if (filterProp !== "All" && e.property_name !== filterProp) return false;
-        if (filterPaymentMode !== "All" && e.payment_mode !== filterPaymentMode) return false;
-        if (
-          search &&
-          ![
-            e.description,
-            e.category_name,
-            e.payment_mode,
-            e.added_by_name,
-          ].some((v) => v?.toLowerCase().includes(search.toLowerCase()))
-        )
-          return false;
-        return true;
-      }),
-    [expenses, filterCat, filterStatus, filterProp, filterPaymentMode, search]
-  );
+const filtered = useMemo(
+  () =>
+    expenses.filter((e) => {
+      if (filterCat !== "All" && e.category_name !== filterCat) return false;
+      if (filterStatus !== "All" && e.status !== filterStatus) return false;
+      if (filterProp !== "All" && e.property_name !== filterProp) return false;
+      if (filterPaymentMode !== "All" && e.payment_mode !== filterPaymentMode) return false;
+      if (
+        search &&
+        ![
+          e.category_name,
+          e.payment_mode,
+          e.added_by_name,
+        ].some((v) => v?.toLowerCase().includes(search.toLowerCase()))
+      )
+        return false;
+      return true;
+    }),
+  [expenses, filterCat, filterStatus, filterProp, filterPaymentMode, search]
+);
 
   /* ── Items helpers ─────────────────────────────────────────────────────── */
   const itemsTotal = (items: any[]) =>
@@ -539,7 +537,6 @@ export default function ExpensesManagement() {
     const e: Record<string, string> = {};
     if (!form.property_id) e.property_id = "Required";
     if (!form.category_id) e.category_id = "Required";
-    if (!form.description?.trim()) e.description = "Required";
     if (!form.payment_mode) e.payment_mode = "Required";
     if (!form.expense_date) e.expense_date = "Required";
     if (!form.added_by_name?.trim()) e.added_by_name = "Required";
@@ -1255,25 +1252,7 @@ export default function ExpensesManagement() {
                               {exp.category_name}
                             </span>
                           </td>
-                          {/* Description */}
-                          <td
-                            style={{
-                              padding: "11px 14px",
-                              fontSize: 12,
-                              color: "#374151",
-                              maxWidth: 180,
-                            }}
-                          >
-                            <div
-                              style={{
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                                whiteSpace: "nowrap",
-                              }}
-                            >
-                              {exp.description}
-                            </div>
-                          </td>
+                          
                           {/* Amount */}
                           <td
                             style={{
@@ -1643,18 +1622,7 @@ export default function ExpensesManagement() {
                     />
                     <ErrMsg msg={errors.category_id} />
                   </div>
-                  {/* <div style={{ gridColumn: "1/-1" }}>
-                    <Label required>Description</Label>
-                    <input
-                      value={form.description}
-                      onChange={(e) =>
-                        setForm((f) => ({ ...f, description: e.target.value }))
-                      }
-                      placeholder="e.g. Electricity bill for March 2026"
-                      style={inp(errors.description)}
-                    />
-                    <ErrMsg msg={errors.description} />
-                  </div> */}
+                  
                 </div>
               </div>
 
@@ -2301,24 +2269,7 @@ export default function ExpensesManagement() {
                   })()}
                 </div>
 
-                {/* Description */}
-                <div style={{ gridColumn: "1/-1" }}>
-                  <div
-                    style={{
-                      fontSize: 10,
-                      color: "#8892A4",
-                      fontWeight: 700,
-                      textTransform: "uppercase",
-                      letterSpacing: 0.5,
-                      marginBottom: 3,
-                    }}
-                  >
-                    Description
-                  </div>
-                  <div style={{ fontSize: 13, color: "#374151", fontWeight: 500 }}>
-                    {viewItem.description}
-                  </div>
-                </div>
+                
 
                 {/* Amount */}
                 <div>
