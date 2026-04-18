@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { Badge } from "@/components/ui/badge";
 import { Plus, RefreshCw, Download, CheckCircle, XCircle, UserX, Trash2, Filter, SlidersHorizontal, MoreVertical, Eye, Edit, Key, Mail, Phone, Building, Bed, MapPin, Users, FileText, IndianRupee, CheckSquare, Square, Search, X, Briefcase, Building2, Globe, LogIn, ShieldCheck, Users2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Upload, AlertTriangle, Calendar, Clock, User, } from "lucide-react";
 import { toast } from "sonner";
-import { deleteTenant, bulkDeleteTenants, bulkUpdateTenantStatus, bulkUpdateTenantPortalAccess, updateTenantSimple, createCredential, resetCredential, exportTenantsToExcel, listTenants, type Tenant, type TenantFilters, softDeleteTenant, } from "@/lib/tenantApi";
+import { deleteTenant, bulkDeleteTenants, bulkUpdateTenantStatus, bulkUpdateTenantPortalAccess, updateTenantSimple, createCredential, resetCredential, exportTenantsToExcel, listTenants, type Tenant, type TenantFilters, softDeleteTenant,restoreTenant } from "@/lib/tenantApi";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, } from "@/components/ui/sheet";
@@ -49,12 +49,14 @@ const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
 const [selectedTenantIds, setSelectedTenantIds] = useState<string[]>([]);  const [isFilterSidebarOpen, setIsFilterSidebarOpen] = useState(false);
 // Update the activeTab state to include 'deleted'
 const [activeTab, setActiveTab] = useState<'all' | 'vacated' | 'deleted'>('all');
+const [forceUpdate, setForceUpdate] = useState(0);
+
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
-
-const filtersRef = useRef<TenantFilters>({ vacate_status: 'non_vacated' });
+const isLoadingRef = useRef(false);
+const filtersRef = useRef<TenantFilters>({ vacate_status: 'non_vacated', include_deleted: false });
 
 const [showImportModal, setShowImportModal] = useState(false);
 const [importing, setImporting] = useState(false);
@@ -95,24 +97,22 @@ const [filters, setFiltersState] = useState<TenantFilters>({
     }
   }, [tenants, selectedTenantIds]);
 
-  // Load tenants
 const loadTenants = useCallback(async (customFilters?: TenantFilters) => {
+  // Prevent multiple simultaneous calls
+  if (isLoadingRef.current) {
+    // console.log('⏭️ Skipping duplicate loadTenants call');
+    return;
+  }
+  
+  isLoadingRef.current = true;
   setLoading(true);
+  
   try {
-    let useFilters;
-    if (customFilters) {
-      useFilters = customFilters;
-    } else {
-      // Set filters based on active tab
-      if (activeTab === 'vacated') {
-        useFilters = { vacate_status: 'vacated', include_deleted: false };
-      } else if (activeTab === 'deleted') {
-        useFilters = { vacate_status: 'vacated', include_deleted: true };
-      } else {
-        useFilters = { vacate_status: 'non_vacated', include_deleted: false };
-      }
-    }
+    // If customFilters provided, use them directly - don't override with activeTab
+    const useFilters = customFilters || filtersRef.current;
+    
     const res = await listTenants(useFilters);
+    
     if (res?.success && Array.isArray(res.data)) {
       setTenants(res.data);
       setCurrentPage(1);
@@ -126,50 +126,51 @@ const loadTenants = useCallback(async (customFilters?: TenantFilters) => {
     setTenants([]);
   } finally {
     setLoading(false);
+    isLoadingRef.current = false;
   }
+}, []); 
+
+// Add this useEffect to trigger re-render when activeTab changes
+useEffect(() => {
+  setForceUpdate(prev => prev + 1);
 }, [activeTab]);
 
-// Initialize based on active tab
-useEffect(() => {
-  loadTenants({ vacate_status: activeTab === 'vacated' ? 'vacated' : 'non_vacated' });
-}, [activeTab]); // Re-run when tab changes
-
-
-
   // Handle column search
- const handleColumnSearch = useCallback(() => {
-const newFilters: TenantFilters = {
-    // preserve current vacate_status
+const handleColumnSearch = useCallback(() => {
+  const newFilters: TenantFilters = {
+    // preserve current vacate_status AND include_deleted
     vacate_status: filtersRef.current.vacate_status || 'non_vacated',
+    include_deleted: filtersRef.current.include_deleted, // ✅ PRESERVE include_deleted
   };
-    if (columnSearch.name) {
-      newFilters.search = columnSearch.name;
-    } else if (columnSearch.contact) {
-      newFilters.search = columnSearch.contact;
-    } else if (columnSearch.property) {
-      newFilters.search = columnSearch.property;
+  
+  if (columnSearch.name) {
+    newFilters.search = columnSearch.name;
+  } else if (columnSearch.contact) {
+    newFilters.search = columnSearch.contact;
+  } else if (columnSearch.property) {
+    newFilters.search = columnSearch.property;
+  }
+  if (columnSearch.occupation) {
+    newFilters.occupation_category = columnSearch.occupation;
+  }
+  if (columnSearch.status) {
+    const s = columnSearch.status.toLowerCase();
+    if (s === 'active' || s === 'inactive') {
+      newFilters.is_active = s === 'active' ? 'true' : 'false';
+    } else if (s === 'portal' || s === 'portal access') {
+      newFilters.portal_access_enabled = 'true';
+    } else if (s === 'no portal') {
+      newFilters.portal_access_enabled = 'false';
+    } else if (s === 'login' || s === 'login enabled') {
+      newFilters.has_credentials = 'true';
+    } else if (s === 'no login') {
+      newFilters.has_credentials = 'false';
     }
-    if (columnSearch.occupation) {
-      newFilters.occupation_category = columnSearch.occupation;
-    }
-    if (columnSearch.status) {
-      const s = columnSearch.status.toLowerCase();
-      if (s === 'active' || s === 'inactive') {
-        newFilters.is_active = s === 'active' ? 'true' : 'false';
-      } else if (s === 'portal' || s === 'portal access') {
-        newFilters.portal_access_enabled = 'true';
-      } else if (s === 'no portal') {
-        newFilters.portal_access_enabled = 'false';
-      } else if (s === 'login' || s === 'login enabled') {
-        newFilters.has_credentials = 'true';
-      } else if (s === 'no login') {
-        newFilters.has_credentials = 'false';
-      }
-    }
-    filtersRef.current = newFilters;
-    setFiltersState(newFilters);
-    loadTenants(newFilters);
-  }, [columnSearch, loadTenants]);
+  }
+  filtersRef.current = newFilters;
+  setFiltersState(newFilters);
+  loadTenants(newFilters);
+}, [columnSearch, loadTenants]);
 
 
   // Add import handler
@@ -221,11 +222,41 @@ const handleImportFile = async (file: File) => {
   }, [columnSearch, handleColumnSearch]);
 
   // Handle filter change
-  const handleFilterChange = useCallback((newFilters: TenantFilters) => {
-    filtersRef.current = newFilters;
-    setFiltersState(newFilters);
-    loadTenants(newFilters);
-  }, [loadTenants]);
+const handleFilterChange = useCallback((newFilters: TenantFilters) => {
+  // Merge with existing to preserve include_deleted if not provided
+  const mergedFilters = {
+    ...filtersRef.current,
+    ...newFilters,
+  };
+  filtersRef.current = mergedFilters;
+  setFiltersState(mergedFilters);
+  loadTenants(mergedFilters);
+}, [loadTenants]);
+
+// Instead, load data only when tab is clicked
+const handleTabChange = useCallback((tab: 'all' | 'vacated' | 'deleted') => {
+  setActiveTab(tab);
+  setColumnSearch({
+    name: "",
+    contact: "",
+    occupation: "",
+    property: "",
+    payments: "",
+    status: "",
+  });
+  
+  // Load data directly based on tab
+  let filters;
+  if (tab === 'all') {
+    filters = { vacate_status: 'non_vacated', include_deleted: false };
+  } else if (tab === 'vacated') {
+    filters = { vacate_status: 'vacated', include_deleted: false };
+  } else {
+    filters = { vacate_status: 'vacated', include_deleted: true };
+  }
+  
+  handleFilterChange(filters);
+}, [handleFilterChange]);
 
   const handleClearAll = useCallback(() => {
   setActiveTab('all');
@@ -680,18 +711,32 @@ const handleDeleteVacatedTenant = useCallback(async (tenant: Tenant) => {
   }
 }, [loadTenants]);
 
-// Restore tenant from deleted tab back to vacated tab
 const handleRestoreVacatedTenant = useCallback(async (tenant: Tenant) => {
   const result = await Swal.fire({
-    title: "Restore Tenant?",
-    text: `Are you sure you want to restore "${tenant.full_name}" back to Vacated Tenants?`,
-    icon: "question",
-    showCancelButton: true,
-    confirmButtonColor: "#3085d6",
-    cancelButtonColor: "#d33",
-    confirmButtonText: "Yes, restore it!",
-    cancelButtonText: "Cancel",
-  });
+  title: "Restore Tenant?",
+  text: `Are you sure you want to restore "${tenant.full_name}" back to Vacated Tenants?`,
+  icon: "question",
+  showCancelButton: true,
+  confirmButtonColor: "#d33",
+  cancelButtonColor: "#3085d6",
+
+  confirmButtonText: "Yes, restore",
+  cancelButtonText: "Cancel",
+
+  background: "#fff",
+  backdrop: `rgba(0,0,0,0.4)`,
+
+  buttonsStyling: false, // ⭐ IMPORTANT FIX
+
+  customClass: {
+    title: "text-lg font-bold",
+    popup: "rounded-xl",
+    confirmButton:
+      "bg-blue-600 m-4 text-white font-medium py-2 px-4 rounded-lg hover:bg-red-700",
+    cancelButton:
+      "bg-gray-500 text-white font-medium py-2 px-4 rounded-lg hover:bg-gray-600",
+  },
+});
 
   if (result.isConfirmed) {
     try {
@@ -701,7 +746,7 @@ const handleRestoreVacatedTenant = useCallback(async (tenant: Tenant) => {
         return;
       }
       toast.success(`${tenant.full_name} restored to Vacated Tenants`);
-      loadTenants(); // Refresh the current tab
+      loadTenants();
     } catch (err: any) {
       console.error("Restore error:", err);
       toast.error(err?.message || "Failed to restore tenant");
@@ -709,29 +754,8 @@ const handleRestoreVacatedTenant = useCallback(async (tenant: Tenant) => {
   }
 }, [loadTenants]);
 
-  // In tenants-client.tsx
-const loadTenantsForTab = useCallback(async () => {
-  setLoading(true);
-  try {
-    const filters = activeTab === 'vacated' 
-      ? { vacate_status: 'vacated' }
-      : { vacate_status: 'non_vacated' };  // All tenants = non-vacated only
-    
-    const res = await listTenants(filters);
-    if (res?.success && Array.isArray(res.data)) {
-      setTenants(res.data);
-    }
-  } catch (err) {
-    toast.error("Failed to load tenants");
-  } finally {
-    setLoading(false);
-  }
-}, [activeTab]);
 
-// Call this when tab changes
-useEffect(() => {
-  loadTenantsForTab();
-}, [activeTab]);
+
   // ── PAGINATION LOGIC ──
 const totalTenants = filteredTenants?.length ?? tenants.length;
   const totalPages = Math.max(1, Math.ceil(totalTenants / pageSize));
@@ -751,223 +775,216 @@ const totalTenants = filteredTenants?.length ?? tenants.length;
     setCurrentPage(Math.min(Math.max(1, page), totalPages));
   }, [totalPages]);
 
-  // Memoized columns with inline rendering
-const columns: Column<Tenant>[] = useMemo(() => [    {
-      key: "full_name",
-      label: "Name",
-      sortable: true,
-      render: (tenant) => (
-        <div className="flex items-center gap-2 min-w-0">
-          {tenant.photo_url ? (
-            <img src={tenant.photo_url} alt="" className="w-7 h-7 rounded-full object-cover flex-shrink-0" />
-            
-          ) : (
-            <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-              <span className="text-blue-600 font-semibold text-[10px]">{tenant.full_name?.charAt(0)}</span>
-              
-            </div>
-          )}
-          <div className="min-w-0">
-            <div className="font-medium text-xs text-gray-900 truncate">{tenant.full_name}</div>
-            <div className="text-[10px] text-gray-400 capitalize">{tenant.gender?.toLowerCase()}</div>
+const columns = useMemo(() => [
+  {
+    key: "full_name",
+    label: "Name",
+    sortable: true,
+    render: (tenant: Tenant) => (
+      <div className="flex items-center gap-2 min-w-0">
+        {tenant.photo_url ? (
+          <img src={tenant.photo_url} alt="" className="w-7 h-7 rounded-full object-cover flex-shrink-0" />
+        ) : (
+          <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+            <span className="text-blue-600 font-semibold text-[10px]">{tenant.full_name?.charAt(0)}</span>
           </div>
+        )}
+        <div className="min-w-0">
+          <div className="font-medium text-xs text-gray-900 truncate">{tenant.full_name}</div>
+          <div className="text-[10px] text-gray-400 capitalize">{tenant.gender?.toLowerCase()}</div>
         </div>
-      ),
-    },
-    {
-      key: "email",
-      label: "Contact",
-      render: (tenant) => (
-        <div className="space-y-0.5 min-w-0">
-          <div className="text-[10px] text-gray-700 truncate flex items-center gap-1">
-            <Mail className="w-2.5 h-2.5 text-gray-400 flex-shrink-0" />
-            <span className="truncate">{tenant.email}</span>
-          </div>
-          <div className="text-[10px] text-gray-500 flex items-center gap-1">
-            <Phone className="w-2.5 h-2.5 text-gray-400 flex-shrink-0" />
-            <span>{tenant.country_code} {tenant.phone}</span>
-          </div>
-          {tenant.city && (
-            <div className="text-[10px] text-gray-400 flex items-center gap-1">
-              <MapPin className="w-2.5 h-2.5 flex-shrink-0" />
-              <span className="truncate">{tenant.city}, {tenant.state}</span>
-            </div>
-          )}
+      </div>
+    ),
+  },
+  {
+    key: "email",
+    label: "Contact",
+    render: (tenant: Tenant) => (
+      <div className="space-y-0.5 min-w-0">
+        <div className="text-[10px] text-gray-700 truncate flex items-center gap-1">
+          <Mail className="w-2.5 h-2.5 text-gray-400 flex-shrink-0" />
+          <span className="truncate">{tenant.email}</span>
         </div>
-      ),
-    },
-    {
-      key: "occupation",
-      label: "Occupation",
-      sortable: true,
-      render: (tenant) => (
-        <div className="space-y-0.5">
-          <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 font-medium border-blue-200 text-blue-700 bg-blue-50">
-            {tenant.occupation_category || "Other"}
-          </Badge>
-          <div className="text-[10px] text-gray-600 leading-tight">{tenant.exact_occupation || tenant.occupation || "Not specified"}</div>
+        <div className="text-[10px] text-gray-500 flex items-center gap-1">
+          <Phone className="w-2.5 h-2.5 text-gray-400 flex-shrink-0" />
+          <span>{tenant.country_code} {tenant.phone}</span>
         </div>
-      ),
-    },
-    {
-      key: "property",
-      label: "Property & Room",
-      render: (tenant) => {
-        if (tenant.current_assignment || tenant.assigned_room_id) {
-          const assignment = tenant.current_assignment || {
-            property_name: tenant.assigned_property_name,
-            room_number: tenant.assigned_room_number,
-            bed_number: tenant.assigned_bed_number
-          };
-          return (
-            <div className="space-y-0.5">
-              <div className="text-[10px] font-medium text-gray-800 flex items-center gap-1">
-                <Building className="w-2.5 h-2.5 text-gray-400 flex-shrink-0" />
-                <span className="truncate">{assignment.property_name || 'Unknown Property'}</span>
-              </div>
-              <div className="text-[10px] text-gray-500 flex items-center gap-1">
-                <Bed className="w-2.5 h-2.5 text-gray-400 flex-shrink-0" />
-                <span>Room {assignment.room_number || 'N/A'} · Bed {assignment.bed_number || 'N/A'}</span>
-              </div>
-              <Badge className="text-[9px] px-1.5 py-0 h-4 bg-green-50 text-green-700 border-green-200 border">
-                <CheckCircle className="w-2 h-2 mr-0.5" />Assigned
-              </Badge>
-            </div>
-          );
-        }
-        return (
-          <div className="flex items-center gap-1 text-[10px] text-gray-400">
-            <Building className="w-2.5 h-2.5" />
-            <span>No assignment</span>
+        {tenant.city && (
+          <div className="text-[10px] text-gray-400 flex items-center gap-1">
+            <MapPin className="w-2.5 h-2.5 flex-shrink-0" />
+            <span className="truncate">{tenant.city}, {tenant.state}</span>
           </div>
-        );
-      },
-    },
-    {
-      key: "payments",
-      label: "Payments",
-      render: (tenant) => {
-        const payments = tenant.payments || [];
-        const paid = payments.filter(p => p.status === 'paid').reduce((sum, p) => sum + (p.amount || 0), 0);
-        const pending = payments.filter(p => p.status === 'pending').reduce((sum, p) => sum + (p.amount || 0), 0);
+        )}
+      </div>
+    ),
+  },
+  {
+    key: "occupation",
+    label: "Occupation",
+    sortable: true,
+    render: (tenant: Tenant) => (
+      <div className="space-y-0.5">
+        <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 font-medium border-blue-200 text-blue-700 bg-blue-50">
+          {tenant.occupation_category || "Other"}
+        </Badge>
+        <div className="text-[10px] text-gray-600 leading-tight">{tenant.exact_occupation || tenant.occupation || "Not specified"}</div>
+      </div>
+    ),
+  },
+  {
+    key: "property",
+    label: "Property & Room",
+    render: (tenant: Tenant) => {
+      if (tenant.current_assignment || tenant.assigned_room_id) {
+        const assignment = tenant.current_assignment || {
+          property_name: tenant.assigned_property_name,
+          room_number: tenant.assigned_room_number,
+          bed_number: tenant.assigned_bed_number
+        };
         return (
           <div className="space-y-0.5">
-            <div className="text-[10px] font-semibold text-green-600">₹{paid.toLocaleString()}</div>
-            {pending > 0 && (
-              <div className="text-[10px] text-red-500">₹{pending.toLocaleString()}</div>
-            )}
-            <div className="text-[9px] text-gray-400">{payments.length} txn</div>
+            <div className="text-[10px] font-medium text-gray-800 flex items-center gap-1">
+              <Building className="w-2.5 h-2.5 text-gray-400 flex-shrink-0" />
+              <span className="truncate">{assignment.property_name || 'Unknown Property'}</span>
+            </div>
+            <div className="text-[10px] text-gray-500 flex items-center gap-1">
+              <Bed className="w-2.5 h-2.5 text-gray-400 flex-shrink-0" />
+              <span>Room {assignment.room_number || 'N/A'} · Bed {assignment.bed_number || 'N/A'}</span>
+            </div>
+            <Badge className="text-[9px] px-1.5 py-0 h-4 bg-green-50 text-green-700 border-green-200 border">
+              <CheckCircle className="w-2 h-2 mr-0.5" />Assigned
+            </Badge>
           </div>
         );
-      },
-    },
-    {
-      key: "is_active",
-      label: "Status",
-      sortable: true,
-      filterable: true,
-      render: (tenant) => (
-        <div className="flex flex-wrap gap-1">
-          <Badge className={`text-[9px] px-1.5 py-0 h-4 font-semibold ${tenant.is_active ? "bg-emerald-500 text-white" : "bg-gray-400 text-white"}`}>
-            {tenant.is_active ? "Active" : "Inactive"}
-          </Badge>
-          {tenant.portal_access_enabled ? (
-            <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-blue-300 text-blue-600 bg-blue-50">
-              <ShieldCheck className="w-2 h-2 mr-0.5" />Portal
-            </Badge>
-          ) : (
-            <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-gray-300 text-gray-400">
-              No Portal
-            </Badge>
-          )}
-          {tenant.has_credentials ? (
-            <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-green-300 text-green-600 bg-green-50">
-              <LogIn className="w-2 h-2 mr-0.5" />Login
-            </Badge>
-          ) : (
-            <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-orange-300 text-orange-500">
-              No Login
-            </Badge>
-          )}
+      }
+      return (
+        <div className="flex items-center gap-1 text-[10px] text-gray-400">
+          <Building className="w-2.5 h-2.5" />
+          <span>No assignment</span>
         </div>
-      ),
+      );
     },
-    // In the columns definition, update the actions render function
-{
-  key: "actions",
-  label: "Actions",
-  render: (tenant) => {
-    // Show different actions based on active tab
-    const isDeletedTab = activeTab === 'deleted';
-    const isVacatedTab = activeTab === 'vacated';
-    
-    return (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-gray-100">
-            <MoreVertical className="w-3.5 h-3.5" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-44 text-xs">
-          {/* View Details - always available */}
-          <DropdownMenuItem className="text-xs" onClick={() => { setSelectedTenant(tenant); setIsViewDialogOpen(true); }}>
-            <Eye className="w-3 h-3 mr-2" /> View Details
-          </DropdownMenuItem>
-          
-          {isDeletedTab ? (
-            // Show Restore button for Deleted tab
-            <DropdownMenuItem className="text-xs text-green-600" onClick={() => handleRestoreVacatedTenant(tenant)}>
-              <RefreshCw className="w-3 h-3 mr-2" /> Restore to Vacated
-            </DropdownMenuItem>
-          ) : isVacatedTab ? (
-            // Show Delete button for Vacated tab
-            <>
-              {can('edit_tenants') && (
-                <DropdownMenuItem className="text-xs" onClick={() => { setSelectedTenant(tenant); setIsEditDialogOpen(true); }}>
-                  <Edit className="w-3 h-3 mr-2" /> Edit
-                </DropdownMenuItem>
-              )}
-              {can('manage_tenant_credentials') && (
-                <DropdownMenuItem className="text-xs" onClick={() => { setSelectedTenant(tenant); setCredentialPassword(""); setIsCredentialDialogOpen(true); }}>
-                  <Key className="w-3 h-3 mr-2" /> {tenant.has_credentials ? "Reset Password" : "Create Login"}
-                </DropdownMenuItem>
-              )}
-              {can('manage_tenant_portal') && (
-                <DropdownMenuItem className="text-xs" onClick={() => handleTogglePortalAccess(tenant)}>
-                  <Globe className="w-3 h-3 mr-2" /> {tenant.portal_access_enabled ? "Disable Portal" : "Enable Portal"}
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-xs text-red-600" onClick={() => handleDeleteVacatedTenant(tenant)}>
-                <Trash2 className="w-3 h-3 mr-2" /> Move to Deleted
-              </DropdownMenuItem>
-            </>
-          ) : (
-            // All Tenants tab - regular actions
-            <>
-              {can('edit_tenants') && (
-                <DropdownMenuItem className="text-xs" onClick={() => { setSelectedTenant(tenant); setIsEditDialogOpen(true); }}>
-                  <Edit className="w-3 h-3 mr-2" /> Edit
-                </DropdownMenuItem>
-              )}
-              {can('manage_tenant_credentials') && (
-                <DropdownMenuItem className="text-xs" onClick={() => { setSelectedTenant(tenant); setCredentialPassword(""); setIsCredentialDialogOpen(true); }}>
-                  <Key className="w-3 h-3 mr-2" /> {tenant.has_credentials ? "Reset Password" : "Create Login"}
-                </DropdownMenuItem>
-              )}
-              {can('manage_tenant_portal') && (
-                <DropdownMenuItem className="text-xs" onClick={() => handleTogglePortalAccess(tenant)}>
-                  <Globe className="w-3 h-3 mr-2" /> {tenant.portal_access_enabled ? "Disable Portal" : "Enable Portal"}
-                </DropdownMenuItem>
-              )}
-            </>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    );
   },
-},
-  ], [handleDelete, handleTogglePortalAccess]);
+  {
+    key: "payments",
+    label: "Payments",
+    render: (tenant: Tenant) => {
+      const payments = tenant.payments || [];
+      const paid = payments.filter(p => p.status === 'paid').reduce((sum, p) => sum + (p.amount || 0), 0);
+      const pending = payments.filter(p => p.status === 'pending').reduce((sum, p) => sum + (p.amount || 0), 0);
+      return (
+        <div className="space-y-0.5">
+          <div className="text-[10px] font-semibold text-green-600">₹{paid.toLocaleString()}</div>
+          {pending > 0 && <div className="text-[10px] text-red-500">₹{pending.toLocaleString()}</div>}
+          <div className="text-[9px] text-gray-400">{payments.length} txn</div>
+        </div>
+      );
+    },
+  },
+  {
+    key: "is_active",
+    label: "Status",
+    sortable: true,
+    filterable: true,
+    render: (tenant: Tenant) => (
+      <div className="flex flex-wrap gap-1">
+        <Badge className={`text-[9px] px-1.5 py-0 h-4 font-semibold ${tenant.is_active ? "bg-emerald-500 text-white" : "bg-gray-400 text-white"}`}>
+          {tenant.is_active ? "Active" : "Inactive"}
+        </Badge>
+        {tenant.portal_access_enabled ? (
+          <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-blue-300 text-blue-600 bg-blue-50">
+            <ShieldCheck className="w-2 h-2 mr-0.5" />Portal
+          </Badge>
+        ) : (
+          <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-gray-300 text-gray-400">
+            No Portal
+          </Badge>
+        )}
+        {tenant.has_credentials ? (
+          <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-green-300 text-green-600 bg-green-50">
+            <LogIn className="w-2 h-2 mr-0.5" />Login
+          </Badge>
+        ) : (
+          <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-orange-300 text-orange-500">
+            No Login
+          </Badge>
+        )}
+      </div>
+    ),
+  },
+  {
+    key: "actions",
+    label: "Actions",
+    render: (tenant: Tenant) => {
+      // Use a ref to get the current activeTab value
+      const currentTab = activeTab;
+      const isDeletedTab = currentTab === 'deleted';
+      const isVacatedTab = currentTab === 'vacated';
+      
+      
+      return (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-gray-100">
+              <MoreVertical className="w-3.5 h-3.5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-44 text-xs">
+            <DropdownMenuItem className="text-xs" onClick={() => { setSelectedTenant(tenant); setIsViewDialogOpen(true); }}>
+              <Eye className="w-3 h-3 mr-2" /> View Details
+            </DropdownMenuItem>
+            
+            {isDeletedTab ? (
+              <DropdownMenuItem className="text-xs text-green-600" onClick={() => handleRestoreVacatedTenant(tenant)}>
+                <RefreshCw className="w-3 h-3 mr-2" /> Restore to Vacated
+              </DropdownMenuItem>
+            ) : isVacatedTab ? (
+              <>
+                {can('edit_tenants') && (
+                  <DropdownMenuItem className="text-xs" onClick={() => { setSelectedTenant(tenant); setIsEditDialogOpen(true); }}>
+                    <Edit className="w-3 h-3 mr-2" /> Edit
+                  </DropdownMenuItem>
+                )}
+                {can('manage_tenant_credentials') && (
+                  <DropdownMenuItem className="text-xs" onClick={() => { setSelectedTenant(tenant); setCredentialPassword(""); setIsCredentialDialogOpen(true); }}>
+                    <Key className="w-3 h-3 mr-2" /> {tenant.has_credentials ? "Reset Password" : "Create Login"}
+                  </DropdownMenuItem>
+                )}
+                {can('manage_tenant_portal') && (
+                  <DropdownMenuItem className="text-xs" onClick={() => handleTogglePortalAccess(tenant)}>
+                    <Globe className="w-3 h-3 mr-2" /> {tenant.portal_access_enabled ? "Disable Portal" : "Enable Portal"}
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem className="text-xs text-red-600" onClick={() => handleDeleteVacatedTenant(tenant)}>
+                  <Trash2 className="w-3 h-3 mr-2" /> Move to Deleted
+                </DropdownMenuItem>
+              </>
+            ) : (
+              <>
+                {can('edit_tenants') && (
+                  <DropdownMenuItem className="text-xs" onClick={() => { setSelectedTenant(tenant); setIsEditDialogOpen(true); }}>
+                    <Edit className="w-3 h-3 mr-2" /> Edit
+                  </DropdownMenuItem>
+                )}
+                {can('manage_tenant_credentials') && (
+                  <DropdownMenuItem className="text-xs" onClick={() => { setSelectedTenant(tenant); setCredentialPassword(""); setIsCredentialDialogOpen(true); }}>
+                    <Key className="w-3 h-3 mr-2" /> {tenant.has_credentials ? "Reset Password" : "Create Login"}
+                  </DropdownMenuItem>
+                )}
+                {can('manage_tenant_portal') && (
+                  <DropdownMenuItem className="text-xs" onClick={() => handleTogglePortalAccess(tenant)}>
+                    <Globe className="w-3 h-3 mr-2" /> {tenant.portal_access_enabled ? "Disable Portal" : "Enable Portal"}
+                  </DropdownMenuItem>
+                )}
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      );
+    },
+  },
+], [activeTab, can, handleDeleteVacatedTenant, handleRestoreVacatedTenant, handleTogglePortalAccess, forceUpdate]);
 
   // Memoized table filters
   const tableFilters: FilterConfig[] = useMemo(() => [
@@ -1212,18 +1229,7 @@ const columns: Column<Tenant>[] = useMemo(() => [    {
 <div className="flex overflow-hidden border border-gray-200 bg-white rounded-xl mb-3 shadow-sm sticky top-20 z-10">
   {/* All Tenants Tab */}
   <button
-    onClick={() => { 
-      setActiveTab('all'); 
-      setColumnSearch({
-        name: "",
-        contact: "",
-        occupation: "",
-        property: "",
-        payments: "",
-        status: "",
-      });
-      handleFilterChange({ vacate_status: 'non_vacated', include_deleted: false }); 
-    }}
+    onClick={() => handleTabChange('all')}
     className={`flex-1 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold border-b-2 transition-all text-center flex items-center justify-center gap-1.5 sm:gap-2
       ${activeTab === 'all'
         ? 'border-blue-600 text-blue-700 bg-white'
@@ -1238,18 +1244,7 @@ const columns: Column<Tenant>[] = useMemo(() => [    {
   
   {/* Vacated Tenants Tab */}
   <button
-    onClick={() => {
-      setActiveTab('vacated');
-      setColumnSearch({
-        name: "",
-        contact: "",
-        occupation: "",
-        property: "",
-        payments: "",
-        status: "",
-      });
-      handleFilterChange({ vacate_status: 'vacated', include_deleted: false });
-    }}
+    onClick={() => handleTabChange('vacated')}
     className={`flex-1 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold border-b-2 transition-all text-center flex items-center justify-center gap-1.5 sm:gap-2
       ${activeTab === 'vacated'
         ? 'border-purple-600 text-purple-700 bg-white'
@@ -1262,27 +1257,16 @@ const columns: Column<Tenant>[] = useMemo(() => [    {
 
   <div className="w-px bg-gray-200 my-2" />
   
-  {/* Deleted Vacated Tenants Tab - NEW */}
+  {/* Deleted Vacated Tenants Tab */}
   <button
-    onClick={() => {
-      setActiveTab('deleted');
-      setColumnSearch({
-        name: "",
-        contact: "",
-        occupation: "",
-        property: "",
-        payments: "",
-        status: "",
-      });
-      handleFilterChange({ vacate_status: 'vacated', include_deleted: true });
-    }}
+    onClick={() => handleTabChange('deleted')}
     className={`flex-1 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold border-b-2 transition-all text-center flex items-center justify-center gap-1.5 sm:gap-2
       ${activeTab === 'deleted'
         ? 'border-red-600 text-red-700 bg-white'
         : 'border-transparent text-gray-500 bg-gray-50 hover:text-gray-700 hover:bg-gray-100'}`}
   >
     <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
-    <span className="hidden xs:inline sm:inline">Deleted Vacated</span>
+    <span className="hidden xs:inline sm:inline">Deleted Vacate Tenants (Storage)</span>
     <span className="xs:hidden sm:hidden inline">Deleted</span>
   </button>
 </div>
@@ -1619,7 +1603,7 @@ const columns: Column<Tenant>[] = useMemo(() => [    {
         </div>
 
         {/* Active Filters Row - Desktop */}
-{activeFiltersCount > 0 && (
+{/* {activeFiltersCount > 0 && (
   <div className="hidden lg:flex items-center gap-1.5 px-4 py-1.5 bg-blue-800/40 border-t border-white/10 flex-wrap">
     <span className="text-[10px] text-blue-200 font-medium">Active Filters ({activeFiltersCount})</span>
     {Object.entries(filters).map(([key, value]) => {
@@ -1637,7 +1621,7 @@ const columns: Column<Tenant>[] = useMemo(() => [    {
       Clear all
     </button>
   </div>
-)}
+)} */}
 
         {/* Tablet View (md to lg) */}
         <div className="hidden md:flex lg:hidden items-center gap-1.5 px-3 py-2">
@@ -1713,7 +1697,7 @@ const columns: Column<Tenant>[] = useMemo(() => [    {
         </div>
 
         {/* Tablet: Active Filters Row */}
-{activeFiltersCount > 0 && (
+{/* {activeFiltersCount > 0 && (
   <div className="hidden md:flex lg:hidden items-center gap-1.5 px-3 py-1 bg-blue-800/40 border-t border-white/10 flex-wrap">
     <span className="text-[10px] text-blue-200">Active ({activeFiltersCount})</span>
     {Object.entries(filters).map(([key, value]) => {
@@ -1728,7 +1712,7 @@ const columns: Column<Tenant>[] = useMemo(() => [    {
     })}
     <button onClick={clearAllFilters} className="text-[10px] text-orange-300 underline ml-1">Clear</button>
   </div>
-)}
+)} */}
 
         <div className="flex md:hidden items-center gap-1.5 px-3 py-2">
  
@@ -2179,27 +2163,34 @@ const columns: Column<Tenant>[] = useMemo(() => [    {
         </Link>
 
       </DropdownMenuItem>
+       {/* ✅ ADD THIS RESTORE BUTTON FOR DELETED TAB */}
+      {activeTab === 'deleted' && (
+        <DropdownMenuItem className="text-xs text-green-600" onClick={() => handleRestoreVacatedTenant(tenant)}>
+          <RefreshCw className="w-3 h-3 mr-2" /> Restore to Vacated
+        </DropdownMenuItem>
+      )}
 
-                        {can('edit_tenants') && (
+
+                        {can('edit_tenants') &&  activeTab !== 'deleted' && (
     <DropdownMenuItem className="text-xs" onClick={() => { setSelectedTenant(tenant); setIsEditDialogOpen(true); }}>
       <Edit className="w-3 h-3 mr-2 text-gray-500" /> Edit
     </DropdownMenuItem>
   )}
-                           {can('manage_tenant_credentials') && (
+                           {can('manage_tenant_credentials') &&  activeTab !== 'deleted' &&  (
 
                         <DropdownMenuItem className="text-xs" onClick={() => { setSelectedTenant(tenant); setCredentialPassword(""); setIsCredentialDialogOpen(true); }}>
                           <Key className="w-3 h-3 mr-2 text-gray-500" /> {tenant.has_credentials ? "Reset Password" : "Create Login"}
                         </DropdownMenuItem>
                         )}
 
-                          {can('manage_tenant_portal') && (
+                          {can('manage_tenant_portal') &&  activeTab !== 'deleted' &&  (
 
                         <DropdownMenuItem className="text-xs" onClick={() => handleTogglePortalAccess(tenant)}>
                           <Globe className="w-3 h-3 mr-2 text-gray-500" /> {tenant.portal_access_enabled ? "Disable Portal" : "Enable Portal"}
                         </DropdownMenuItem>
                         )}
                           
-                       {can('delete_tenants') && (
+                       {can('delete_tenants') &&  activeTab !== 'deleted' &&  (
     <>
       <DropdownMenuSeparator />
       <DropdownMenuItem className="text-xs text-red-600" onClick={() => handleDelete(tenant)}>

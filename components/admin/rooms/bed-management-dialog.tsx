@@ -939,7 +939,6 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
       );
 
        // Log tenants after assignment check
-    
       
       setTenants(tenantsWithAssignment);
     } catch (error: any) {
