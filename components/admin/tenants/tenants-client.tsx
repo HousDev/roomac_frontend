@@ -484,14 +484,110 @@ const handleBulkDelete = useCallback(async (selectedIds: string[]) => {
     }
   }, [loadTenants]);
 
-  // Handle success actions
-  const handleSuccess = useCallback(() => {
-    setIsAddDialogOpen(false);
-    setIsEditDialogOpen(false);
-    setIsViewDialogOpen(false);
-    setSelectedTenant(null);
-    loadTenants();
-  }, [loadTenants]);
+const handleSuccess = useCallback(async (updatedData?: Tenant) => {
+  setIsAddDialogOpen(false);
+  setIsEditDialogOpen(false);
+  setIsViewDialogOpen(false);
+  setSelectedTenant(null);
+  
+  console.log("handleSuccess called with:", updatedData);
+  
+  // If we have updated data, update the state immediately
+  if (updatedData && updatedData.id) {
+    // Update the tenant in the local state
+    setTenants(prevTenants => 
+      prevTenants.map(t => {
+        // Update the tenant that was edited
+        if (t.id === updatedData.id) {
+          return { ...t, ...updatedData };
+        }
+        // Also update the partner tenant if this tenant has partner_tenant_id
+        if (updatedData.partner_tenant_id && t.id === updatedData.partner_tenant_id) {
+          // For partner, we need to fetch the partner data from the response
+          // The response includes partner details in the updatedData object
+          return { ...t, 
+            partner_full_name: updatedData.full_name,
+            partner_phone: updatedData.phone,
+            partner_email: updatedData.email,
+            partner_gender: updatedData.gender,
+            partner_date_of_birth: updatedData.date_of_birth,
+            partner_address: updatedData.address,
+            partner_occupation: updatedData.occupation,
+            partner_organization: updatedData.organization,
+            partner_salutation: updatedData.salutation,
+            partner_country_code: updatedData.country_code,
+            is_couple_booking: true,
+            couple_id: updatedData.couple_id,
+            partner_tenant_id: updatedData.id
+          };
+        }
+        return t;
+      })
+    );
+    
+    // Also update selected tenant if it's the same
+    if (selectedTenant && selectedTenant.id === updatedData.id) {
+      setSelectedTenant({ ...selectedTenant, ...updatedData });
+    } else if (selectedTenant && updatedData.partner_tenant_id && selectedTenant.id === updatedData.partner_tenant_id) {
+      // Update the selected tenant if it's the partner
+      setSelectedTenant(prev => prev ? { ...prev, 
+        partner_full_name: updatedData.full_name,
+        partner_phone: updatedData.phone,
+        partner_email: updatedData.email,
+        partner_gender: updatedData.gender,
+        partner_date_of_birth: updatedData.date_of_birth,
+        partner_address: updatedData.address,
+        partner_occupation: updatedData.occupation,
+        partner_organization: updatedData.organization,
+        partner_salutation: updatedData.salutation,
+        partner_country_code: updatedData.country_code,
+        is_couple_booking: true,
+        couple_id: updatedData.couple_id,
+        partner_tenant_id: updatedData.id
+      } : null);
+    }
+    
+    toast.success("Tenant updated successfully!");
+  } else {
+    // Fallback to full refresh
+    await loadTenants();
+  }
+}, [loadTenants, selectedTenant]);
+
+// Add this useEffect for event listener (already there, but update it)
+useEffect(() => {
+  const handleTenantUpdate = (event: CustomEvent) => {
+    const { tenant, partner } = event.detail;
+    
+    setTenants(prevTenants => 
+      prevTenants.map(t => {
+        if (t.id === tenant.id) {
+          return { ...t, ...tenant };
+        }
+        if (partner && t.id === partner.id) {
+          return { ...t, ...partner };
+        }
+        return t;
+      })
+    );
+    
+    if (selectedTenant) {
+      if (selectedTenant.id === tenant.id) {
+        setSelectedTenant({ ...selectedTenant, ...tenant });
+      } else if (partner && selectedTenant.id === partner.id) {
+        setSelectedTenant({ ...selectedTenant, ...partner });
+      }
+    }
+    
+    toast.success("Partner details updated!");
+  };
+  
+  window.addEventListener('tenantUpdated', handleTenantUpdate as EventListener);
+  
+  return () => {
+    window.removeEventListener('tenantUpdated', handleTenantUpdate as EventListener);
+  };
+}, [selectedTenant]);
 
   // Export to Excel
   const handleExportToExcel = useCallback(async () => {

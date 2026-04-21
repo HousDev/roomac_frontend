@@ -38,6 +38,7 @@ export interface BedAssignment {
   tenant_phone?: string;
   tenant_rent?: string | number; // Add this
   is_couple?: boolean; // Add this
+  security_deposit?: string | number;
 }
 
 export type RoomResponse = {
@@ -69,6 +70,7 @@ export type RoomResponse = {
   description: string;
   current_occupants_count: number;
   bed_assignments: BedAssignment[];
+  security_deposit?: number;
 };
 
 // Add bed assignment API
@@ -100,6 +102,7 @@ export interface UpdateBedAssignmentPayload {
   partner_full_name?: string;
   partner_phone?: string;
   partner_email?: string;
+  security_deposit?: number | null; 
   partner_gender?: string;
   partner_date_of_birth?: string;
   partner_address?: string;

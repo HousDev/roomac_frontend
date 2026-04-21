@@ -376,7 +376,6 @@ const handleImportFile = async (file: File) => {
     });
     
     setRooms(roomsData);
-    toast.success("Rooms refreshed successfully!");
   } catch (error) {
     console.error('Error refreshing rooms:', error);
     toast.error("Failed to refresh rooms");
@@ -1228,6 +1227,19 @@ setRooms(roomsData);
           room={selectedRoom}
           open={bedDialogOpen}
           onOpenChange={setBedDialogOpen}
+    onRefresh={handleRefresh}  // Existing
+    onRoomUpdate={(updatedRoom) => {
+      // ✅ Update the selectedRoom state
+      setSelectedRoom(updatedRoom);
+      
+      // ✅ Update the rooms list
+      setRooms(prevRooms => 
+        prevRooms.map(room => 
+          room.id === updatedRoom.id ? updatedRoom : room
+        )
+      );
+      
+    }}
         />
       )}
 

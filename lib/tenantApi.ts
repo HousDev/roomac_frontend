@@ -67,8 +67,10 @@ address_proof_type?: string;
   notice_penalty_amount?: number;
   notice_penalty_type?: string;
   property_id?: number; 
-
-
+  partner_tenant_id?: number; 
+is_primary_tenant?: boolean;
+requested_tenant_id?: number;
+original_id?: number; 
   // ✅ ADD THESE PARTNER FIELDS
   partner_salutation?: string;
   partner_full_name?: string;
@@ -184,6 +186,7 @@ export type OptionType = {
   value: string | number;
   label: string;
   address?: string;
+  
 };
 
 export type PreferredOptions = {
@@ -453,6 +456,17 @@ export async function updateTenant(id: string | number, formData: FormData): Pro
   });
 }
 
+
+// Add a new function for updating both partners
+export async function updateBothPartners(primaryId: string | number, partnerId: string | number, data: any): Promise<ApiResult> {
+  return enhancedFetch<ApiResult>(`/api/tenants/update-both`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ primaryId, partnerId, data }),
+  });
+}
 
 
 // Delete tenant
