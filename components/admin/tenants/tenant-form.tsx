@@ -54,6 +54,7 @@ import {
   ChevronDown,
   Camera,
   Plus,
+  IndianRupee,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -302,6 +303,7 @@ export function TenantForm({ tenant, onSuccess, onCancel }: TenantFormProps) {
     fetchMasters();
     fetchProperties();
   }, []);
+
   useEffect(() => {
     loadOptions();
     if (tenant?.id) {
@@ -325,6 +327,7 @@ export function TenantForm({ tenant, onSuccess, onCancel }: TenantFormProps) {
       if (tenant.pan_number) setPanNumber(tenant.pan_number);
     }
   }, [tenant]);
+
 
   useEffect(() => {
     if (formData.gender && formData.preferred_property_id) loadAvailableRooms();
@@ -611,6 +614,7 @@ export function TenantForm({ tenant, onSuccess, onCancel }: TenantFormProps) {
     if (pid) {
       fetchPropertyDetails(pid);
     } else {
+      
       // If no property selected, reset terms to 0
       setFormData((p: any) => ({
         ...p,
@@ -671,58 +675,163 @@ export function TenantForm({ tenant, onSuccess, onCancel }: TenantFormProps) {
     }
   };
 
-  // Add this useEffect after the existing ones
-  // Add this useEffect after the existing ones
-  useEffect(() => {
-    if (tenant?.id && tenant) {
-      // Load partner details from the tenant data
+
+// Add this function to fetch primary tenant data
+const fetchPrimaryTenant = async (coupleId: string) => {
+  try {
+    // First, get the primary tenant ID from the couple
+    const response = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:3000"}/api/tenants/couple/${coupleId}/primary`);
+    const result = await response.json();
+    
+    if (result.success && result.data) {
+      const primaryTenant = result.data;
       setPartnerDetails({
-        salutation: tenant.partner_salutation || "Mr.",
-        full_name: tenant.partner_full_name || "",
-        country_code: tenant.partner_country_code || "",
-        phone: tenant.partner_phone || "",
-        email: tenant.partner_email || "",
-        gender: tenant.partner_gender || "",
-        date_of_birth: tenant.partner_date_of_birth || "",
-        address: tenant.partner_address || "",
-        occupation: tenant.partner_occupation || "",
-        organization: tenant.partner_organization || "",
-        relationship: tenant.partner_relationship || "Spouse",
-        id_proof_type: tenant.partner_id_proof_type || "",
-        id_proof_number: tenant.partner_id_proof_number || "",
+        salutation: primaryTenant.salutation || "Mr.",
+        full_name: primaryTenant.full_name || "",
+        country_code: primaryTenant.country_code || "",
+        phone: primaryTenant.phone || "",
+        email: primaryTenant.email || "",
+        gender: primaryTenant.gender || "",
+        date_of_birth: primaryTenant.date_of_birth || "",
+        address: primaryTenant.address || "",
+        occupation: primaryTenant.occupation || "",
+        organization: primaryTenant.organization || "",
+        relationship: primaryTenant.partner_relationship || "Spouse",
+        id_proof_type: primaryTenant.id_proof_type || "",
+        id_proof_number: primaryTenant.id_proof_number || "",
         id_proof_url: null,
-        address_proof_type: tenant.partner_address_proof_type || "",
-        address_proof_number: tenant.partner_address_proof_number || "",
+        address_proof_type: primaryTenant.address_proof_type || "",
+        address_proof_number: primaryTenant.address_proof_number || "",
         address_proof_url: null,
         photo_url: null,
       });
-
-      // If there are existing partner document URLs, store them
-      if (tenant.partner_id_proof_url) {
-        setPartnerDetails((prev) => ({
-          ...prev,
-          id_proof_url: tenant.partner_id_proof_url,
-        }));
+      
+      // Store existing document URLs
+      if (primaryTenant.id_proof_url) {
+        setPartnerDetails(prev => ({ ...prev, id_proof_url: primaryTenant.id_proof_url }));
       }
-      if (tenant.partner_address_proof_url) {
-        setPartnerDetails((prev) => ({
-          ...prev,
-          address_proof_url: tenant.partner_address_proof_url,
-        }));
+      if (primaryTenant.address_proof_url) {
+        setPartnerDetails(prev => ({ ...prev, address_proof_url: primaryTenant.address_proof_url }));
       }
-      if (tenant.partner_photo_url) {
-        setPartnerDetails((prev) => ({
-          ...prev,
-          photo_url: tenant.partner_photo_url,
-        }));
+      if (primaryTenant.photo_url) {
+        setPartnerDetails(prev => ({ ...prev, photo_url: primaryTenant.photo_url }));
       }
-
-      // Show partner details section if partner exists
-      if (tenant.partner_full_name) {
-        setShowPartnerDetails(true);
-      }
+      
+      setShowPartnerDetails(true);
     }
-  }, [tenant]);
+  } catch (error) {
+    console.error("Failed to fetch primary tenant:", error);
+  }
+};
+
+// SINGLE useEffect to load partner details
+useEffect(() => {
+  if (tenant?.id && tenant) {
+    const loadPartnerDetails = async () => {
+      try {
+        let partnerData = null;
+        
+        // Check if this is the primary tenant (has is_primary_tenant flag)
+        if (tenant.is_primary_tenant) {
+          console.log('This is the PRIMARY tenant');
+          // Load partner details from tenant's own partner fields
+          if (tenant.partner_full_name) {
+            setPartnerDetails({
+              salutation: tenant.partner_salutation || "Mr.",
+              full_name: tenant.partner_full_name || "",
+              country_code: tenant.partner_country_code || "",
+              phone: tenant.partner_phone || "",
+              email: tenant.partner_email || "",
+              gender: tenant.partner_gender || "",
+              date_of_birth: tenant.partner_date_of_birth || "",
+              address: tenant.partner_address || "",
+              occupation: tenant.partner_occupation || "",
+              organization: tenant.partner_organization || "",
+              relationship: tenant.partner_relationship || "Spouse",
+              id_proof_type: tenant.partner_id_proof_type || "",
+              id_proof_number: tenant.partner_id_proof_number || "",
+              id_proof_url: null,
+              address_proof_type: tenant.partner_address_proof_type || "",
+              address_proof_number: tenant.partner_address_proof_number || "",
+              address_proof_url: null,
+              photo_url: null,
+            });
+            
+            // Store existing document URLs
+            if (tenant.partner_id_proof_url) {
+              setPartnerDetails(prev => ({ ...prev, id_proof_url: tenant.partner_id_proof_url }));
+            }
+            if (tenant.partner_address_proof_url) {
+              setPartnerDetails(prev => ({ ...prev, address_proof_url: tenant.partner_address_proof_url }));
+            }
+            if (tenant.partner_photo_url) {
+              setPartnerDetails(prev => ({ ...prev, photo_url: tenant.partner_photo_url }));
+            }
+            
+            setShowPartnerDetails(true);
+          }
+        } 
+        // Check if this is the partner tenant (has couple_id but not is_primary_tenant)
+        else if (tenant.couple_id && !tenant.is_primary_tenant) {
+          console.log('This is the PARTNER tenant');
+          // Fetch primary tenant data using couple_id
+          await fetchPrimaryTenant(tenant.couple_id);
+        }
+        // Fallback: Check if tenant has partner_tenant_id
+        else if (tenant.partner_tenant_id) {
+          const response = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:3000"}/api/tenants/${tenant.partner_tenant_id}`);
+          const result = await response.json();
+          if (result.success && result.data) {
+            partnerData = result.data;
+          }
+          
+          if (partnerData) {
+            setPartnerDetails({
+              salutation: partnerData.salutation || "Mr.",
+              full_name: partnerData.full_name || "",
+              country_code: partnerData.country_code || "",
+              phone: partnerData.phone || "",
+              email: partnerData.email || "",
+              gender: partnerData.gender || "",
+              date_of_birth: partnerData.date_of_birth || "",
+              address: partnerData.address || "",
+              occupation: partnerData.occupation || "",
+              organization: partnerData.organization || "",
+              relationship: partnerData.partner_relationship || "Spouse",
+              id_proof_type: partnerData.id_proof_type || "",
+              id_proof_number: partnerData.id_proof_number || "",
+              id_proof_url: null,
+              address_proof_type: partnerData.address_proof_type || "",
+              address_proof_number: partnerData.address_proof_number || "",
+              address_proof_url: null,
+              photo_url: null,
+            });
+            
+            if (partnerData.id_proof_url) {
+              setPartnerDetails(prev => ({ ...prev, id_proof_url: partnerData.id_proof_url }));
+            }
+            if (partnerData.address_proof_url) {
+              setPartnerDetails(prev => ({ ...prev, address_proof_url: partnerData.address_proof_url }));
+            }
+            if (partnerData.photo_url) {
+              setPartnerDetails(prev => ({ ...prev, photo_url: partnerData.photo_url }));
+            }
+            
+            setShowPartnerDetails(true);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to load partner details:", error);
+      }
+    };
+    
+    if (tenant.is_couple_booking || tenant.partner_tenant_id || tenant.couple_id) {
+      loadPartnerDetails();
+    }
+  }
+}, [tenant]);
+
+
   const loadAvailableRooms = async () => {
     if (!formData.gender || !formData.preferred_property_id) return;
     try {
@@ -827,261 +936,288 @@ export function TenantForm({ tenant, onSuccess, onCancel }: TenantFormProps) {
   // ── ALL original submit logic preserved ───────────────────────────────────
   // In tenant-form.tsx - Update handleSubmit
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
 
-    if (!validateForm()) return;
+  if (!validateForm()) return;
 
-    setLoading(true);
-    setUploadProgress(0);
+  setLoading(true);
+  setUploadProgress(0);
 
-    try {
-      const progressInterval = setInterval(() => {
-        setUploadProgress((prev) => {
-          if (prev >= 90) {
-            clearInterval(progressInterval);
-            return prev;
-          }
-          return prev + 10;
-        });
-      }, 200);
-
-      const formDataToSend = new FormData();
-
-      // Append tenant data (your existing code)
-      Object.keys(formData).forEach((key) => {
-        const value = formData[key as keyof typeof formData];
-        if (value !== undefined && value !== null && value !== "") {
-          if ((key === "check_in_date" || key === "date_of_birth") && value) {
-            const dateValue = new Date(String(value));
-            if (!isNaN(dateValue.getTime())) {
-              formDataToSend.append(key, dateValue.toISOString().split("T")[0]);
-            }
-          } else {
-            formDataToSend.append(key, String(value));
-          }
+  try {
+    const progressInterval = setInterval(() => {
+      setUploadProgress((prev) => {
+        if (prev >= 90) {
+          clearInterval(progressInterval);
+          return prev;
         }
+        return prev + 10;
       });
+    }, 200);
 
-      // Append credential info
-      if (createCredentials) {
-        if (tenant?.id) {
-          if (password && password.trim() !== "") {
-            formDataToSend.append("update_credentials", "true");
-            formDataToSend.append("password", password);
+    const formDataToSend = new FormData();
+
+    // Append tenant data (your existing code)
+    Object.keys(formData).forEach((key) => {
+      const value = formData[key as keyof typeof formData];
+      if (value !== undefined && value !== null && value !== "") {
+        if ((key === "check_in_date" || key === "date_of_birth") && value) {
+          const dateValue = new Date(String(value));
+          if (!isNaN(dateValue.getTime())) {
+            formDataToSend.append(key, dateValue.toISOString().split("T")[0]);
           }
         } else {
-          if (createCredentials) {
-            formDataToSend.append("create_credentials", "true");
-            formDataToSend.append("password", password);
-          }
+          formDataToSend.append(key, String(value));
         }
       }
+    });
 
-      // Append existing additional documents as JSON
-      if (additionalDocuments.length > 0) {
+    // Append credential info
+    if (createCredentials) {
+      if (tenant?.id) {
+        if (password && password.trim() !== "") {
+          formDataToSend.append("update_credentials", "true");
+          formDataToSend.append("password", password);
+        }
+      } else {
+        if (createCredentials) {
+          formDataToSend.append("create_credentials", "true");
+          formDataToSend.append("password", password);
+        }
+      }
+    }
+
+    // Append existing additional documents as JSON
+    if (additionalDocuments.length > 0) {
+      formDataToSend.append(
+        "additional_documents",
+        JSON.stringify(additionalDocuments),
+      );
+    }
+
+    // Append main document files
+    if (idProofFile) formDataToSend.append("id_proof_url", idProofFile);
+    if (addressProofFile)
+      formDataToSend.append("address_proof_url", addressProofFile);
+    if (photoFile) formDataToSend.append("photo_url", photoFile);
+    if (aadharNumber) formDataToSend.append("aadhar_number", aadharNumber);
+    if (panNumber) formDataToSend.append("pan_number", panNumber);
+    if (idProofType) formDataToSend.append("id_proof_type", idProofType);
+    if (addressProofType)
+      formDataToSend.append("address_proof_type", addressProofType);
+    if (idProofNumber)
+      formDataToSend.append("id_proof_number", idProofNumber);
+    if (addressProofNumber)
+      formDataToSend.append("address_proof_number", addressProofNumber);
+
+    // Append additional files
+    additionalFiles.forEach((file) => {
+      formDataToSend.append("additional_documents[]", file);
+    });
+
+    // When updating a tenant that has a partner (couple booking)
+    if (tenant?.id && tenant.is_couple_booking && tenant.partner_tenant_id) {
+      // Determine which tenant we're editing
+      const isPartnerTenant = tenant.partner_tenant_id ? true : false;
+      const otherTenantId = isPartnerTenant ? tenant.partner_tenant_id : tenant.id;
+      
+      // Add flag to indicate we're updating partner details
+      formDataToSend.append("update_partner_details", "true");
+      formDataToSend.append("other_tenant_id", String(otherTenantId));
+    }
+
+    // Append Partner Details if they exist
+    if (partnerDetails.full_name) {
+      // Send salutation separately
+      if (partnerDetails.salutation) {
         formDataToSend.append(
-          "additional_documents",
-          JSON.stringify(additionalDocuments),
+          "partner_salutation",
+          partnerDetails.salutation,
         );
       }
 
-      // Append main document files
-      if (idProofFile) formDataToSend.append("id_proof_url", idProofFile);
-      if (addressProofFile)
-        formDataToSend.append("address_proof_url", addressProofFile);
-      if (photoFile) formDataToSend.append("photo_url", photoFile);
-      if (aadharNumber) formDataToSend.append("aadhar_number", aadharNumber);
-      if (panNumber) formDataToSend.append("pan_number", panNumber);
-      if (idProofType) formDataToSend.append("id_proof_type", idProofType);
-      if (addressProofType)
-        formDataToSend.append("address_proof_type", addressProofType);
-      if (idProofNumber)
-        formDataToSend.append("id_proof_number", idProofNumber);
-      if (addressProofNumber)
-        formDataToSend.append("address_proof_number", addressProofNumber);
+      // Send full name WITHOUT salutation
+      formDataToSend.append("partner_full_name", partnerDetails.full_name);
 
-      // Append additional files
-      additionalFiles.forEach((file) => {
-        formDataToSend.append("additional_documents[]", file);
-      });
-
-      // Append Partner Details if they exist
-      if (partnerDetails.full_name) {
-        // Send salutation separately
-        if (partnerDetails.salutation) {
-          formDataToSend.append(
-            "partner_salutation",
-            partnerDetails.salutation,
-          );
-        }
-
-        // Send full name WITHOUT salutation
-        formDataToSend.append("partner_full_name", partnerDetails.full_name);
-
-        // Send phone WITHOUT country code
-        if (partnerDetails.phone) {
-          formDataToSend.append("partner_phone", partnerDetails.phone);
-        }
-
-        // Send country code separately
-        if (partnerDetails.country_code) {
-          formDataToSend.append(
-            "partner_country_code",
-            partnerDetails.country_code,
-          );
-        }
-        if (partnerDetails.email)
-          formDataToSend.append("partner_email", partnerDetails.email);
-        if (partnerDetails.gender)
-          formDataToSend.append("partner_gender", partnerDetails.gender);
-        if (partnerDetails.date_of_birth)
-          formDataToSend.append(
-            "partner_date_of_birth",
-            partnerDetails.date_of_birth,
-          );
-        if (partnerDetails.address)
-          formDataToSend.append("partner_address", partnerDetails.address);
-        if (partnerDetails.occupation)
-          formDataToSend.append(
-            "partner_occupation",
-            partnerDetails.occupation,
-          );
-        if (partnerDetails.organization)
-          formDataToSend.append(
-            "partner_organization",
-            partnerDetails.organization,
-          );
-        if (partnerDetails.relationship)
-          formDataToSend.append(
-            "partner_relationship",
-            partnerDetails.relationship,
-          );
-        if (partnerDetails.id_proof_type)
-          formDataToSend.append(
-            "partner_id_proof_type",
-            partnerDetails.id_proof_type,
-          );
-        if (partnerDetails.id_proof_number)
-          formDataToSend.append(
-            "partner_id_proof_number",
-            partnerDetails.id_proof_number,
-          );
-        if (partnerDetails.address_proof_type)
-          formDataToSend.append(
-            "partner_address_proof_type",
-            partnerDetails.address_proof_type,
-          );
-        if (partnerDetails.address_proof_number)
-          formDataToSend.append(
-            "partner_address_proof_number",
-            partnerDetails.address_proof_number,
-          );
-
-        // Handle partner document files - only append if it's a File (new upload)
-        if (
-          partnerDetails.id_proof_url &&
-          partnerDetails.id_proof_url instanceof File
-        ) {
-          formDataToSend.append(
-            "partner_id_proof_url",
-            partnerDetails.id_proof_url,
-          );
-        } else if (
-          partnerDetails.id_proof_url &&
-          typeof partnerDetails.id_proof_url === "string"
-        ) {
-          // If it's a string (existing URL), send it as a field to keep it
-          formDataToSend.append(
-            "partner_id_proof_url_existing",
-            partnerDetails.id_proof_url,
-          );
-        }
-
-        if (
-          partnerDetails.address_proof_url &&
-          partnerDetails.address_proof_url instanceof File
-        ) {
-          formDataToSend.append(
-            "partner_address_proof_url",
-            partnerDetails.address_proof_url,
-          );
-        } else if (
-          partnerDetails.address_proof_url &&
-          typeof partnerDetails.address_proof_url === "string"
-        ) {
-          formDataToSend.append(
-            "partner_address_proof_url_existing",
-            partnerDetails.address_proof_url,
-          );
-        }
-
-        if (
-          partnerDetails.photo_url &&
-          partnerDetails.photo_url instanceof File
-        ) {
-          formDataToSend.append("partner_photo_url", partnerDetails.photo_url);
-        } else if (
-          partnerDetails.photo_url &&
-          typeof partnerDetails.photo_url === "string"
-        ) {
-          formDataToSend.append(
-            "partner_photo_url_existing",
-            partnerDetails.photo_url,
-          );
-        }
+      // Send phone WITHOUT country code
+      if (partnerDetails.phone) {
+        formDataToSend.append("partner_phone", partnerDetails.phone);
       }
 
-      let result: any;
-      if (tenant?.id) {
-        result = await updateTenant(tenant.id, formDataToSend);
-      } else {
-        result = await createTenant(formDataToSend);
+      // Send country code separately
+      if (partnerDetails.country_code) {
+        formDataToSend.append(
+          "partner_country_code",
+          partnerDetails.country_code,
+        );
+      }
+      if (partnerDetails.email)
+        formDataToSend.append("partner_email", partnerDetails.email);
+      if (partnerDetails.gender)
+        formDataToSend.append("partner_gender", partnerDetails.gender);
+      if (partnerDetails.date_of_birth)
+        formDataToSend.append(
+          "partner_date_of_birth",
+          partnerDetails.date_of_birth,
+        );
+      if (partnerDetails.address)
+        formDataToSend.append("partner_address", partnerDetails.address);
+      if (partnerDetails.occupation)
+        formDataToSend.append(
+          "partner_occupation",
+          partnerDetails.occupation,
+        );
+      if (partnerDetails.organization)
+        formDataToSend.append(
+          "partner_organization",
+          partnerDetails.organization,
+        );
+      if (partnerDetails.relationship)
+        formDataToSend.append(
+          "partner_relationship",
+          partnerDetails.relationship,
+        );
+      if (partnerDetails.id_proof_type)
+        formDataToSend.append(
+          "partner_id_proof_type",
+          partnerDetails.id_proof_type,
+        );
+      if (partnerDetails.id_proof_number)
+        formDataToSend.append(
+          "partner_id_proof_number",
+          partnerDetails.id_proof_number,
+        );
+      if (partnerDetails.address_proof_type)
+        formDataToSend.append(
+          "partner_address_proof_type",
+          partnerDetails.address_proof_type,
+        );
+      if (partnerDetails.address_proof_number)
+        formDataToSend.append(
+          "partner_address_proof_number",
+          partnerDetails.address_proof_number,
+        );
+
+      // Handle partner document files - only append if it's a File (new upload)
+      if (
+        partnerDetails.id_proof_url &&
+        partnerDetails.id_proof_url instanceof File
+      ) {
+        formDataToSend.append(
+          "partner_id_proof_url",
+          partnerDetails.id_proof_url,
+        );
+      } else if (
+        partnerDetails.id_proof_url &&
+        typeof partnerDetails.id_proof_url === "string"
+      ) {
+        // If it's a string (existing URL), send it as a field to keep it
+        formDataToSend.append(
+          "partner_id_proof_url_existing",
+          partnerDetails.id_proof_url,
+        );
       }
 
-      clearInterval(progressInterval);
-      setUploadProgress(100);
-
-      if (result.success) {
-        // Check if it was a restored tenant
-        if (result.restored) {
-          toast.success(
-            "Existing deleted tenant restored and updated successfully",
-          );
-        } else {
-          const successMessage = tenant
-            ? "Tenant updated successfully"
-            : "Tenant created successfully";
-          toast.success(successMessage);
-        }
-
-        if (result.additional_documents) {
-          setAdditionalDocuments(result.additional_documents);
-        }
-
-        setIdProofFile(null);
-        setAddressProofFile(null);
-        setPhotoFile(null);
-        setAdditionalFiles([]);
-
-        if (typeof onSuccess === "function") {
-          setTimeout(() => {
-            onSuccess();
-          }, 500);
-        }
-      } else {
-        toast.error(result.message || "Operation failed");
+      if (
+        partnerDetails.address_proof_url &&
+        partnerDetails.address_proof_url instanceof File
+      ) {
+        formDataToSend.append(
+          "partner_address_proof_url",
+          partnerDetails.address_proof_url,
+        );
+      } else if (
+        partnerDetails.address_proof_url &&
+        typeof partnerDetails.address_proof_url === "string"
+      ) {
+        formDataToSend.append(
+          "partner_address_proof_url_existing",
+          partnerDetails.address_proof_url,
+        );
       }
-    } catch (err: any) {
-      console.error("Failed to save tenant", err);
-      toast.error(
-        err.message || "Operation failed. Check console for details.",
-      );
-    } finally {
-      setLoading(false);
-      setUploadProgress(0);
+
+      if (
+        partnerDetails.photo_url &&
+        partnerDetails.photo_url instanceof File
+      ) {
+        formDataToSend.append("partner_photo_url", partnerDetails.photo_url);
+      } else if (
+        partnerDetails.photo_url &&
+        typeof partnerDetails.photo_url === "string"
+      ) {
+        formDataToSend.append(
+          "partner_photo_url_existing",
+          partnerDetails.photo_url,
+        );
+      }
     }
-  };
+    
+    let result: any;
+    if (tenant?.id) {
+      // Always save to the ACTUAL tenant ID (not the displayed one)
+      const actualTenantId = tenant.requested_tenant_id || tenant.id;
+      result = await updateTenant(actualTenantId, formDataToSend);
+      
+      // Update the current tenant data
+      if (result.success && result.data) {
+        if (typeof onSuccess === "function") {
+          onSuccess(result.data);
+        }
+        
+        // If partner data is also returned, trigger a separate update
+        if (result.partner_data && typeof onSuccess === "function") {
+          window.dispatchEvent(new CustomEvent('tenantUpdated', { 
+            detail: { tenant: result.data, partner: result.partner_data }
+          }));
+        }
+      }
+    } else {
+      result = await createTenant(formDataToSend);
+    }
+
+    clearInterval(progressInterval);
+    setUploadProgress(100);
+
+    if (result.success) {
+      // Check if it was a restored tenant
+      if (result.restored) {
+        toast.success(
+          "Existing deleted tenant restored and updated successfully",
+        );
+      } else {
+        const successMessage = tenant
+          ? "Tenant updated successfully"
+          : "Tenant created successfully";
+        toast.success(successMessage);
+      }
+
+      if (result.additional_documents) {
+        setAdditionalDocuments(result.additional_documents);
+      }
+
+      setIdProofFile(null);
+      setAddressProofFile(null);
+      setPhotoFile(null);
+      setAdditionalFiles([]);
+
+      if (typeof onSuccess === "function") {
+        setTimeout(() => {
+          onSuccess(result.data);
+        }, 500);
+      }
+    } else {
+      toast.error(result.message || "Operation failed");
+    }
+  } catch (err: any) {
+    console.error("Failed to save tenant", err);
+    toast.error(
+      err.message || "Operation failed. Check console for details.",
+    );
+  } finally {
+    setLoading(false);
+    setUploadProgress(0);
+  }
+};
 
   const resetPartnerDetails = () => {
     setPartnerDetails({
@@ -1888,22 +2024,7 @@ export function TenantForm({ tenant, onSuccess, onCancel }: TenantFormProps) {
                       </div>
                     </div>
 
-                    {/* Partner Address - Full width */}
-                    <div className="mt-3">
-                      <label className={L}>Partner Address</label>
-                      <Textarea
-                        value={partnerDetails.address}
-                        onChange={(e) =>
-                          setPartnerDetails((prev) => ({
-                            ...prev,
-                            address: e.target.value,
-                          }))
-                        }
-                        placeholder="Partner's address"
-                        rows={2}
-                        className="text-[11px] resize-none"
-                      />
-                    </div>
+                    
                   </div>
                 )}
               </div>
@@ -2408,7 +2529,11 @@ export function TenantForm({ tenant, onSuccess, onCancel }: TenantFormProps) {
     </p>
   )}
 </div>
+<div>
+
+</div>
               </div>
+
 
               {selectedPropertyDetails && (
                 <div className="border border-blue-100 rounded-lg p-3 bg-blue-50/60">

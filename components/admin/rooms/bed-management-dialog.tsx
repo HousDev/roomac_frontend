@@ -1,7 +1,7 @@
 // components/admin/rooms/BedManagementDialog.tsx
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -16,7 +16,10 @@ import {
   ClipboardList, AlertCircle, Check, X,
   UserRound, Eye, Filter, Save,
   UsersRound, Mail, Phone, Search,
-  ChevronDown, RefreshCw, Heart
+  ChevronDown, RefreshCw, Heart,
+  Loader2,
+  Shield,
+  Trash2
 } from 'lucide-react';
 import { getAvailableBeds, assignBed, updateBedAssignment, getRoomById } from '@/lib/roomsApi';
 import { request } from '@/lib/api';
@@ -31,6 +34,7 @@ interface BedManagementDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onRefresh?: () => void;
+  onRoomUpdate?: (room: RoomResponse) => void;
 }
 
 interface Tenant {
@@ -43,6 +47,7 @@ interface Tenant {
   portal_access_enabled: boolean;
   couple_id?: number;
   is_assigned?: boolean;
+  is_partner_of_assigned?: boolean;
    check_in_date?: string;  // Add this field
   property_id?: number;
   property_name?: string;
@@ -119,15 +124,14 @@ const validateTenantForAssignment = (tenant: Tenant, room: RoomResponse, isCoupl
     if (!tenant.partner_full_name || !tenant.partner_phone) {
       return {
         valid: false,
-        message: `Couple booking requires partner details for "${tenant.full_name}".`
+        message: `Couple booking requires partner details for "${tenant.full_name}". Please add partner's full name and phone number in tenant profile.`
       };
     }
     
-    // Optional: Validate partner gender
     if (!tenant.partner_gender) {
       return {
         valid: false,
-        message: `Couple booking requires partner's gender for "${tenant.full_name}".`
+        message: `Couple booking requires partner's gender for "${tenant.full_name}". Please update partner details in tenant profile.`
       };
     }
   }
@@ -144,12 +148,15 @@ function TenantSelectDropdown({
   loading,
   roomGenderPreferences,
   currentRoomAssignments,
+  onSecurityDepositChange,
+  customSecurityDeposit, 
   onCustomRentChange,
   onIsCoupleChange,
   customRent,
   isCouple,
   room,
   bedRent,
+  defaultSecurityDeposit,
 }: {
   bedNumber: number;
   value: string;
@@ -160,15 +167,20 @@ function TenantSelectDropdown({
   currentRoomAssignments: BedAssignment[];
   onCustomRentChange?: (rent: string) => void;
   onIsCoupleChange?: (isCouple: boolean) => void;
+  onSecurityDepositChange?: (deposit: string) => void;
+  customSecurityDeposit?: string;
   customRent?: string;
   isCouple?: boolean;
   room: RoomResponse;
   bedRent?: number;
+  defaultSecurityDeposit?: number;
 }) {
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Filter only unassigned tenants
-  const unassignedTenants = tenants.filter(tenant => !tenant.is_assigned);
+  // Filter only unassigned tenants AND NOT partners of already assigned tenants
+const unassignedTenants = tenants.filter(tenant => 
+  !tenant.is_assigned && !tenant.is_partner_of_assigned  // ← ADD THIS
+);
   
   // Filter based on room preferences and current assignments
   const filteredTenants = unassignedTenants.filter(tenant => {
@@ -191,6 +203,10 @@ function TenantSelectDropdown({
     const hasCouplesAllowed = roomGenderPreferences.some(p => 
       p.toLowerCase() === 'couples'
     );
+    // If it's a couples room and tenant has a partner, show them
+  if (hasCouplesAllowed && tenant.couple_id) {
+    return true;
+  }
     
     // Get assigned genders in current room (excluding the current bed)
     const assignedGenders = currentRoomAssignments
@@ -478,7 +494,27 @@ function TenantSelectDropdown({
               )}
             </p>
           </div>
+          <div>
+  <Label htmlFor={`security-deposit-${bedNumber}`} className="text-xs md:text-sm font-medium">
+    Security Deposit (Optional)
+  </Label>
+  <div className="relative mt-1">
+    <Shield className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 md:h-4 md:w-4 text-gray-500" />
+    <Input
+      id={`security-deposit-${bedNumber}`}
+      type="text"
+      placeholder="Enter security deposit amount"
+      value={customSecurityDeposit ?? ''}
+      onChange={(e) => onSecurityDepositChange?.(e.target.value)}
+      className="pl-7 md:pl-9 h-8 md:h-10 text-xs md:text-sm"
+    />
+  </div>
+  <p className="text-[10px] md:text-xs text-gray-500 mt-1">
+    Security deposit amount for this booking
+  </p>
+</div>
         </div>
+        
       )}
 
       {/* Selected tenant preview */}
@@ -548,6 +584,7 @@ function BedCard({
   isAssigning,
   onAssignClick,
   onUpdateClick,
+  onDeleteClick,
   onVacateClick,
   onChangeBedClick,
   tenants,
@@ -557,14 +594,18 @@ function BedCard({
   isSaving,
   tenantDetails,
   room,
-  bedRent
+  bedRent,
+  securityDeposit,          
+  onSecurityDepositChange,   
+  customSecurityDeposit,
 }: {
   bedNumber: number;
   assignment: any;
   isOccupied: boolean;
   isAssigning: boolean;
   onAssignClick: () => void;
-  onUpdateClick: (bedAssignment: any, tenantId: string, customRent?: string, isCouple?: boolean) => void;
+onUpdateClick: (bedAssignment: any, tenantId: string, customRent?: string, isCouple?: boolean, customSecurityDeposit?: string) => void;
+onDeleteClick?: () => void; 
   onVacateClick: () => void;
   onChangeBedClick: () => void;
   tenants: Tenant[];
@@ -575,12 +616,16 @@ function BedCard({
   tenantDetails?: Tenant;
   room: RoomResponse;
   bedRent?: number;
+  securityDeposit?: number;           // ← ADD THIS
+  onSecurityDepositChange?: (deposit: string) => void;  // ← ADD THIS
+  customSecurityDeposit?: string;     // ← ADD THIS
 }) {
   const [selectedTenantId, setSelectedTenantId] = useState('');
   const [customRent, setCustomRent] = useState<string>(
     bedRent ? bedRent.toString() : room.rent_per_bed.toString()
   );
   const [isCouple, setIsCouple] = useState<boolean>(assignment?.is_couple || false);
+  const [customSecurityDepositLocal, setCustomSecurityDepositLocal] = useState<string>('');
 
   // Reset form when assigning state changes
   useEffect(() => {
@@ -588,12 +633,14 @@ function BedCard({
       setSelectedTenantId('');
       setCustomRent(bedRent ? bedRent.toString() : room.rent_per_bed.toString());
       setIsCouple(assignment?.is_couple || false);
+      setCustomSecurityDepositLocal(securityDeposit?.toString() || '');
     }
-  }, [isAssigning, room.rent_per_bed, bedRent, assignment]);
+  }, [isAssigning, room.rent_per_bed, bedRent, assignment, securityDeposit]);
+
 
   const handleUpdateClick = () => {
     const selectedTenant = tenants.find(t => t.id.toString() === selectedTenantId);
-    onUpdateClick(assignment, selectedTenantId, customRent, isCouple);
+    onUpdateClick(assignment, selectedTenantId, customRent, isCouple, customSecurityDepositLocal);
   };
 
   const displayRent = assignment?.tenant_rent || room.rent_per_bed;
@@ -708,20 +755,23 @@ function BedCard({
               {isAssigning ? (
                 <>
                   <TenantSelectDropdown
-                    bedNumber={bedNumber}
-                    value={selectedTenantId}
-                    onValueChange={setSelectedTenantId}
-                    tenants={tenants}
-                    loading={loadingTenants}
-                    roomGenderPreferences={roomGenderPreferences}
-                    currentRoomAssignments={currentRoomAssignments}
-                    onCustomRentChange={setCustomRent}
-                    onIsCoupleChange={setIsCouple}
-                    customRent={customRent}
-                    isCouple={isCouple}
-                    room={room}
-                    bedRent={bedRent}
-                  />
+  bedNumber={bedNumber}
+  value={selectedTenantId}
+  onValueChange={setSelectedTenantId}
+  tenants={tenants}
+  loading={loadingTenants}
+  roomGenderPreferences={roomGenderPreferences}
+  currentRoomAssignments={currentRoomAssignments}
+  onSecurityDepositChange={setCustomSecurityDepositLocal}
+  onCustomRentChange={setCustomRent}
+  onIsCoupleChange={setIsCouple}
+  customRent={customRent}
+  isCouple={isCouple}
+  room={room}
+  bedRent={bedRent}
+  customSecurityDeposit={customSecurityDepositLocal}  // ← CHANGE THIS - use the local state, not the prop from parent
+  defaultSecurityDeposit={securityDeposit}
+/>
                   
                   <div className="flex gap-2">
                     <Button
@@ -745,6 +795,15 @@ function BedCard({
                 <>
                   <div className="grid grid-cols-2 gap-2">
                     <Button
+            variant="outline"
+            className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-900 h-8 md:h-9 text-[10px] md:text-xs col-span-2"
+            onClick={onDeleteClick}
+            disabled={isSaving}
+          >
+            <Trash2 className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
+          Delete Assignment
+          </Button>
+                    <Button
                       variant="outline"
                       className="border-amber-200 text-amber-600 hover:bg-amber-50 hover:text-amber-900 h-8 md:h-9 text-[10px] md:text-xs"
                       onClick={onChangeBedClick}
@@ -762,6 +821,7 @@ function BedCard({
                       <UserMinus className="h-3 w-3 md:h-4 md:w-4 mr-1" />
                       Vacate
                     </Button>
+                    
                   </div>
                 </>
               )}
@@ -775,20 +835,23 @@ function BedCard({
             {isAssigning ? (
               <>
                 <TenantSelectDropdown
-                  bedNumber={bedNumber}
-                  value={selectedTenantId}
-                  onValueChange={setSelectedTenantId}
-                  tenants={tenants}
-                  loading={loadingTenants}
-                  roomGenderPreferences={roomGenderPreferences}
-                  currentRoomAssignments={currentRoomAssignments}
-                  onCustomRentChange={setCustomRent}
-                  onIsCoupleChange={setIsCouple}
-                  customRent={customRent}
-                  isCouple={isCouple}
-                  room={room}
-                  bedRent={bedRent}
-                />
+  bedNumber={bedNumber}
+  value={selectedTenantId}
+  onValueChange={setSelectedTenantId}
+  tenants={tenants}
+  loading={loadingTenants}
+  roomGenderPreferences={roomGenderPreferences}
+  currentRoomAssignments={currentRoomAssignments}
+  onCustomRentChange={setCustomRent}
+  onIsCoupleChange={setIsCouple}
+  onSecurityDepositChange={setCustomSecurityDepositLocal}  // ← ADD THIS
+  customRent={customRent}
+  isCouple={isCouple}
+  room={room}
+  bedRent={bedRent}
+  customSecurityDeposit={customSecurityDepositLocal}  // ← CHANGE THIS - use the local state
+  defaultSecurityDeposit={securityDeposit}
+/>
                 
                 <div className="flex gap-2">
                   <Button
@@ -810,46 +873,60 @@ function BedCard({
               </>
             ) : (
               <Button
-                variant="outline"
-                className="w-full h-9 md:h-11 text-xs md:text-sm"
-                onClick={onAssignClick}
-                disabled={isSaving}
-              >
-                <UserPlus className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
-                Assign Tenant
-              </Button>
+        variant="outline"
+        className="w-full h-9 md:h-11 text-xs md:text-sm"
+        onClick={onAssignClick}
+        disabled={isSaving}
+      >
+        <UserPlus className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
+        Assign Tenant
+      </Button>
             )}
           </div>
         )}
 
         {/* Rent Info */}
-        <div className="mt-2 pt-2 border-t">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] md:text-xs text-gray-600">Monthly Rent</span>
-            <div className="text-right">
-              <span className="font-bold text-xs md:text-sm text-green-600">
-                ₹{displayRent}
-              </span>
-              {displayRent != room.rent_per_bed && (
-                <div className="text-[8px] md:text-[10px] text-gray-500">
-                  Custom Rate
-                </div>
-              )}
-            </div>
-          </div>
+<div className="mt-2 pt-2 border-t">
+  <div className="flex items-center justify-between">
+    <span className="text-[10px] md:text-xs text-gray-600">Monthly Rent</span>
+    <div className="text-right">
+      <span className="font-bold text-xs md:text-sm text-green-600">
+        ₹{displayRent}
+      </span>
+      {/* {displayRent != room.rent_per_bed && (
+        <div className="text-[8px] md:text-[10px] text-gray-500">
+          Custom Rate (Original: ₹{room.rent_per_bed})
         </div>
+      )} */}
+    </div>
+  </div>
+  
+  {/* Security Deposit Display */}
+  {assignment?.security_deposit && (
+    <div className="flex items-center justify-between mt-1 pt-1 border-t border-gray-100">
+      <span className="text-[10px] md:text-xs text-gray-600">Security Deposit</span>
+      <div className="text-right">
+        <span className="font-bold text-xs md:text-sm text-amber-600">
+          ₹{parseFloat(assignment.security_deposit).toLocaleString()}
+        </span>
+      </div>
+    </div>
+  )}
+</div>
       </CardContent>
     </Card>
   );
 }
 
-export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: BedManagementDialogProps) {
+export function BedManagementDialog({ room, open, onOpenChange, onRefresh ,onRoomUpdate }: BedManagementDialogProps) {
   const [bedAssignments, setBedAssignments] = useState<BedAssignment[]>(room.bed_assignments || []);
   const [assigningBed, setAssigningBed] = useState<number | null>(null);
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingTenants, setLoadingTenants] = useState(false);
   const [savingBed, setSavingBed] = useState<number | null>(null);
+  const [securityDeposit, setSecurityDeposit] = useState<number>(0);
+const [securityDepositLoading, setSecurityDepositLoading] = useState(false);
   
   // State for vacate wizard
   const [vacateWizardOpen, setVacateWizardOpen] = useState(false);
@@ -883,72 +960,158 @@ export function BedManagementDialog({ room, open, onOpenChange, onRefresh }: Bed
       : [];
 
   // Function to refresh room data
-  const refreshRoomData = async () => {
-    try {
-      const response = await getRoomById(room.id.toString());
-      if (response) {
-        setBedAssignments(response.bed_assignments || []);
+const refreshRoomData = async () => {
+  try {
+    const response = await getRoomById(room.id.toString());
+    if (response) {
+      // Update local state
+      setBedAssignments(response.bed_assignments || []);
+      
+      // ✅ Notify parent component about the update
+      if (onRoomUpdate) {
+        onRoomUpdate(response);
       }
-    } catch (error) {
-      console.error('Error refreshing room:', error);
+    
     }
-  };
+  } catch (error) {
+    console.error('Error refreshing room:', error);
+  }
+};
       
   useEffect(() => {
     if (open) {
       loadTenantsBasedOnPreferences();
       setBedAssignments(room.bed_assignments || []);
       setAssigningBed(null);
+      fetchSecurityDeposit();
     }
   }, [open, room]);
 
-  const loadTenantsBasedOnPreferences = async () => {
-    try {
-      setLoadingTenants(true);
-      
-      const response: any = await request<Tenant[]>('/api/tenants?is_active=true&portal_access_enabled=true');
-      
-      let tenantsList: Tenant[] = [];
-      
-      if (Array.isArray(response)) {
-        tenantsList = response;
-      } else if (response.data && Array.isArray(response.data)) {
-        tenantsList = response.data;
-      }
+const loadTenantsBasedOnPreferences = async () => {
+  try {
+    setLoadingTenants(true);
     
-      // Check assignment status for each tenant
-      const tenantsWithAssignment = await Promise.all(
-        tenantsList.map(async (tenant) => {
-          try {
-            const assignmentCheck = await request<ApiResult<any>>(`/api/rooms/tenant-assignment/${tenant.id}`);
+    const response: any = await request<Tenant[]>('/api/tenants?is_active=true&portal_access_enabled=true');
+    
+    let tenantsList: Tenant[] = [];
+    
+    if (Array.isArray(response)) {
+      tenantsList = response;
+    } else if (response.data && Array.isArray(response.data)) {
+      tenantsList = response.data;
+    }
+    
+    // ✅ Fetch full tenant details including partner info for each tenant
+    const tenantsWithDetails = await Promise.all(
+      tenantsList.map(async (tenant) => {
+        try {
+          // Fetch full tenant details including partner info
+          const tenantDetails = await request<ApiResult<Tenant>>(`/api/tenants/${tenant.id}`);
+          if (tenantDetails.success && tenantDetails.data) {
             return {
               ...tenant,
-              is_assigned: assignmentCheck.success && assignmentCheck.data && 
-                           Array.isArray(assignmentCheck.data) && 
-                           assignmentCheck.data.length > 0 &&
-                           assignmentCheck.data.some((assignment: any) => !assignment.is_available)
-                           
-            };
-          } catch {
-            return {
-              ...tenant,
-              is_assigned: false
+              partner_full_name: tenantDetails.data.partner_full_name,
+              partner_phone: tenantDetails.data.partner_phone,
+              partner_email: tenantDetails.data.partner_email,
+              partner_gender: tenantDetails.data.partner_gender,
+              partner_date_of_birth: tenantDetails.data.partner_date_of_birth,
+              partner_address: tenantDetails.data.partner_address,
+              partner_occupation: tenantDetails.data.partner_occupation,
+              partner_organization: tenantDetails.data.partner_organization,
+              partner_relationship: tenantDetails.data.partner_relationship,
+              partner_id_proof_type: tenantDetails.data.partner_id_proof_type,
+              partner_id_proof_number: tenantDetails.data.partner_id_proof_number,
+              partner_id_proof_url: tenantDetails.data.partner_id_proof_url,
+              partner_address_proof_type: tenantDetails.data.partner_address_proof_type,
+              partner_address_proof_number: tenantDetails.data.partner_address_proof_number,
+              partner_address_proof_url: tenantDetails.data.partner_address_proof_url,
+              partner_photo_url: tenantDetails.data.partner_photo_url,
+              is_couple_booking: tenantDetails.data.is_couple_booking,
+              couple_id: tenantDetails.data.couple_id,
+              partner_tenant_id: tenantDetails.data.partner_tenant_id
             };
           }
-        })
-      );
-
-       // Log tenants after assignment check
-      
-      setTenants(tenantsWithAssignment);
-    } catch (error: any) {
-      console.error('Error loading tenants:', error);
-      toast.error(`Failed to load tenants: ${error.message}`);
-      setTenants([]);
-    } finally {
-      setLoadingTenants(false);
+          return tenant;
+        } catch (error) {
+          console.error(`Failed to fetch details for tenant ${tenant.id}:`, error);
+          return tenant;
+        }
+      })
+    );
+    
+    // Get all current assignments in this room
+    const currentRoomAssignments = bedAssignments.filter(b => !b.is_available && b.tenant_id);
+    const currentTenantIds = currentRoomAssignments.map(b => b.tenant_id);
+    
+    // Get couple IDs of already assigned tenants
+    const assignedCoupleIds = new Set<number>();
+    for (const tenantId of currentTenantIds) {
+      const assignedTenant = tenantsWithDetails.find(t => t.id === tenantId);
+      if (assignedTenant?.couple_id) {
+        assignedCoupleIds.add(assignedTenant.couple_id);
+      }
     }
-  };
+    
+    // Check assignment status for each tenant
+    const tenantsWithAssignment = await Promise.all(
+      tenantsWithDetails.map(async (tenant) => {
+        try {
+          const assignmentCheck = await request<ApiResult<any>>(`/api/rooms/tenant-assignment/${tenant.id}`);
+          const isAssigned = assignmentCheck.success && assignmentCheck.data && 
+                           Array.isArray(assignmentCheck.data) && 
+                           assignmentCheck.data.length > 0 &&
+                           assignmentCheck.data.some((assignment: any) => !assignment.is_available);
+          
+          const isPartnerOfAssigned = tenant.couple_id && assignedCoupleIds.has(tenant.couple_id);
+          
+          return {
+            ...tenant,
+            is_assigned: isAssigned,
+            is_partner_of_assigned: isPartnerOfAssigned
+          };
+        } catch {
+          return {
+            ...tenant,
+            is_assigned: false,
+            is_partner_of_assigned: false
+          };
+        }
+      })
+    );
+    
+    setTenants(tenantsWithAssignment);
+  } catch (error: any) {
+    console.error('Error loading tenants:', error);
+    toast.error(`Failed to load tenants: ${error.message}`);
+    setTenants([]);
+  } finally {
+    setLoadingTenants(false);
+  }
+};
+
+const fetchSecurityDeposit = useCallback(async () => {
+  if (!room.property_id) {
+    setSecurityDeposit(0);
+    return;
+  }
+  
+  try {
+    setSecurityDepositLoading(true);
+    const response = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:3000"}/api/tenants/property/${room.property_id}/details`);
+    const result = await response.json();
+    
+    if (result.success && result.data?.security_deposit) {
+      setSecurityDeposit(result.data.security_deposit);
+    } else {
+      setSecurityDeposit(0);
+    }
+  } catch (error) {
+    console.error("Error fetching security deposit:", error);
+    setSecurityDeposit(0);
+  } finally {
+    setSecurityDepositLoading(false);
+  }
+}, [room.property_id]);
 
   const getBedStatus = (bedNumber: number) => {
     const assignment = bedAssignments.find(b => b.bed_number === bedNumber);
@@ -1017,92 +1180,119 @@ const findTenantDetails = (tenantId: number) => {
     }
   };
 
-  const handleAssignBed = async (bedNumber: number, tenantId: string, customRent?: string, isCouple?: boolean) => {
+const handleAssignBed = async (bedNumber: number, tenantId: string, customRent?: string, isCouple?: boolean,customSecurityDeposit?: string) => {
+  if (!tenantId.trim()) {
+    toast.error("Please select a tenant");
+    return;
+  }
 
-    if (!tenantId.trim()) {
-      toast.error("Please select a tenant");
-      return;
-    }
+  const tenant = tenants.find(t => t.id.toString() === tenantId);
+  if (!tenant) {
+    toast.error("Invalid tenant selected");
+    return;
+  }
+  
+  const tenantIdNum = parseInt(tenantId);
+  const isCoupleBooking = isCouple === true;
 
-    const tenant = tenants.find(t => t.id.toString() === tenantId);
-    if (!tenant) {
-      toast.error("Invalid tenant selected");
-      return;
-    }
-    const tenantIdNum = parseInt(tenantId);
-    const isCoupleBooking = isCouple === true;
-
-    // Validate tenant before assignment
+  // Validate tenant before assignment
   const validation = validateTenantForAssignment(tenant, room, isCoupleBooking);
   if (!validation.valid) {
     toast.error(validation.message);
     return;
   }
     
-    try {
-      setSavingBed(bedNumber);
-      
-      // Check if tenant is already assigned elsewhere
-      const existingAssignment = await checkTenantExistingAssignment(tenantIdNum);
-      
-      if (existingAssignment) {
-        setTransferDetails({
-          bedAssignment: null,
-          newTenant: tenant,
-          existingAssignment: existingAssignment,
-          customRent: customRent,
-          isCouple: isCouple
-        });
-        setTransferReason(`Moved to Bed ${bedNumber} in Room ${room.room_number}`);
-        setTransferDialogOpen(true);
-        setSavingBed(null);
-        return;
-      }
-      
-      // Parse rent value - ensure it's a number
-      const rentValue = customRent && customRent.trim() !== '' 
-        ? parseFloat(customRent) 
-        : room.rent_per_bed;
-      
-      // Get tenant gender
-      const tenantGender = tenant.gender as 'Male' | 'Female' | 'Other';
-      
-      // Ensure isCouple is a boolean
-      const coupleValue = isCouple === true;
-      
-      const payload: AssignBedPayload = {
-        room_id: room.id,
-        bed_number: bedNumber,
-        tenant_id: tenantIdNum,
-        tenant_gender: tenantGender,
-        tenant_rent: rentValue,
-        is_couple: coupleValue
-      };
-
-      const result = await assignBed(payload);
-      
-      if (result.success) {
-        toast.success(`Bed ${bedNumber} assigned successfully!`);
-        
-        // Refresh the bed assignments
-        await refreshRoomData();
-        
-        setAssigningBed(null);
-        
-        if (onRefresh) onRefresh();
-        
-      } else {
-        toast.error(result.message || "Failed to assign bed");
-      }
-    } catch (err: any) {
-      console.error("Assign bed error:", err);
-      toast.error(err.message || "Failed to assign bed");
-    } finally {
+  try {
+    setSavingBed(bedNumber);
+    
+    // Check if tenant is already assigned elsewhere
+    const existingAssignment = await checkTenantExistingAssignment(tenantIdNum);
+    
+    if (existingAssignment) {
+      setTransferDetails({
+        bedAssignment: null,
+        newTenant: tenant,
+        existingAssignment: existingAssignment,
+        customRent: customRent,
+        isCouple: isCouple
+      });
+      setTransferReason(`Moved to Bed ${bedNumber} in Room ${room.room_number}`);
+      setTransferDialogOpen(true);
       setSavingBed(null);
+      return;
     }
-  };
+    
+    const rentValue = customRent && customRent.trim() !== '' 
+      ? parseFloat(customRent) 
+      : room.rent_per_bed;
+    
+    const tenantGender = tenant.gender as 'Male' | 'Female' | 'Other';
+    const coupleValue = isCouple === true;
 
-  const handleUpdateBedAssignment = async (bedAssignment: BedAssignment, tenantId: string, customRent?: string, isCouple?: boolean) => {
+    // ✅ FIX: Calculate deposit value
+  let depositValue = securityDeposit; // default from property
+  
+  if (customSecurityDeposit !== undefined && customSecurityDeposit !== null && customSecurityDeposit.trim() !== '') {
+    const parsedDeposit = parseFloat(customSecurityDeposit);
+    if (!isNaN(parsedDeposit)) {
+      depositValue = parsedDeposit;
+    }
+  }
+    
+    const payload: AssignBedPayload = {
+      room_id: room.id,
+      bed_number: bedNumber,
+      tenant_id: tenantIdNum,
+      tenant_gender: tenantGender,
+      tenant_rent: rentValue,
+      security_deposit: customSecurityDeposit ? parseFloat(customSecurityDeposit) : securityDeposit,  
+      is_couple: coupleValue,
+      ...(coupleValue && {
+        partner_full_name: tenant.partner_full_name,
+        partner_phone: tenant.partner_phone,
+        partner_email: tenant.partner_email,
+        partner_gender: tenant.partner_gender,
+        partner_date_of_birth: tenant.partner_date_of_birth,
+        partner_address: tenant.partner_address,
+        partner_occupation: tenant.partner_occupation,
+        partner_organization: tenant.partner_organization,
+        partner_relationship: tenant.partner_relationship || 'Spouse'
+      })
+    };
+
+    const result = await assignBed(payload);
+    
+    if (result.success) {
+      const coupleMsg = coupleValue ? ` (Couple Booking with ${tenant.partner_full_name})` : '';
+      toast.success(`Bed ${bedNumber} assigned successfully!${coupleMsg}`);
+      
+      // ✅ Refresh the bed assignments AND reload tenants
+      await refreshRoomData();
+      await loadTenantsBasedOnPreferences();
+      
+      // ✅ IMPORTANT: Close the assigning state for this bed
+      setAssigningBed(null);
+
+       // ✅ Close the dialog after successful assignment
+      setTimeout(() => {
+        onOpenChange(false);
+      }, 0);
+      
+      
+      if (onRefresh) onRefresh();
+      
+    } else {
+      toast.error(result.message || "Failed to assign bed");
+    }
+  } catch (err: any) {
+    console.error("Assign bed error:", err);
+    toast.error(err.message || "Failed to assign bed");
+  } finally {
+    setSavingBed(null);
+  }
+};
+
+  const handleUpdateBedAssignment = async (bedAssignment: BedAssignment, tenantId: string, customRent?: string, isCouple?: boolean, customSecurityDeposit?: string) => {
     if (!tenantId.trim()) {
       toast.error("Please select a tenant");
       return;
@@ -1140,7 +1330,7 @@ const findTenantDetails = (tenantId: number) => {
   }
 
     if (currentTenantId === newTenantId) {
-      await updateBedAssignmentDirectly(bedAssignment, tenant, customRent, isCouple);
+      await updateBedAssignmentDirectly(bedAssignment, tenant, customRent, isCouple,customSecurityDeposit);
       return;
     }
 
@@ -1163,7 +1353,7 @@ const findTenantDetails = (tenantId: number) => {
         return;
       }
       
-      await updateBedAssignmentDirectly(bedAssignment, tenant, customRent, isCouple);
+      await updateBedAssignmentDirectly(bedAssignment, tenant, customRent, isCouple, customSecurityDeposit);
       
     } catch (err: any) {
       console.error("Update bed error:", err);
@@ -1173,50 +1363,117 @@ const findTenantDetails = (tenantId: number) => {
     }
   };
 
-  const updateBedAssignmentDirectly = async (bedAssignment: BedAssignment, tenant: Tenant, customRent?: string, isCouple?: boolean) => {
-    // Parse rent value - ensure it's a number
-    const rentValue = customRent && customRent.trim() !== '' 
-      ? parseFloat(customRent) 
-      : room.rent_per_bed;
-    
-    const tenantGender = tenant.gender as 'Male' | 'Female' | 'Other';
-    
-    // Ensure isCouple is a boolean
-    const coupleValue = isCouple === true;
-    
-    const payload: UpdateBedAssignmentPayload = {
-      tenant_id: tenant.id,
-      tenant_gender: tenantGender,
-      is_available: false,
-      tenant_rent: rentValue,
-      is_couple: coupleValue,
-      // Partner details - only include if it's a couple booking
+const updateBedAssignmentDirectly = async (bedAssignment: BedAssignment, tenant: Tenant, customRent?: string, isCouple?: boolean, customSecurityDeposit?: string) => {
+  const rentValue = customRent && customRent.trim() !== '' 
+    ? parseFloat(customRent) 
+    : room.rent_per_bed;
+  
+  const tenantGender = tenant.gender as 'Male' | 'Female' | 'Other';
+  const coupleValue = isCouple === true;
+
+   // ✅ FIX: Use customSecurityDeposit if provided, otherwise use default securityDeposit
+  let depositValue = securityDeposit; // default from property
+  
+  if (customSecurityDeposit !== undefined && customSecurityDeposit !== null && customSecurityDeposit.trim() !== '') {
+    const parsedDeposit = parseFloat(customSecurityDeposit);
+    if (!isNaN(parsedDeposit)) {
+      depositValue = parsedDeposit;
+    }
+  }
+  
+  console.log('💰 Saving deposit:', { customSecurityDeposit, depositValue, defaultDeposit: securityDeposit });
+  
+  const payload: UpdateBedAssignmentPayload = {
+    tenant_id: tenant.id,
+    tenant_gender: tenantGender,
+    is_available: false,
+    tenant_rent: rentValue,
+    is_couple: coupleValue,
+    security_deposit: depositValue,
     ...(coupleValue && {
       partner_full_name: tenant.partner_full_name,
       partner_phone: tenant.partner_phone,
       partner_email: tenant.partner_email,
       partner_gender: tenant.partner_gender,
       partner_date_of_birth: tenant.partner_date_of_birth,
+      partner_address: tenant.partner_address,
+      partner_occupation: tenant.partner_occupation,
+      partner_organization: tenant.partner_organization,
       partner_relationship: tenant.partner_relationship || 'Spouse'
-      })
-    };
+    })
+  };
+  
+  const result = await updateBedAssignment(bedAssignment.id.toString(), payload);
+  
+  if (result.success) {
+    const coupleMsg = coupleValue ? ` (Couple Booking with ${tenant.partner_full_name})` : '';
+    toast.success(`Bed ${bedAssignment.bed_number} updated successfully! ${tenant.full_name}${coupleMsg}`);
     
-    const result = await updateBedAssignment(bedAssignment.id.toString(), payload);
+    // ✅ Refresh data
+    await refreshRoomData();
+    await loadTenantsBasedOnPreferences();
+    
+    // ✅ IMPORTANT: Close the assigning state
+    setAssigningBed(null);
+    
+    if (onRefresh) onRefresh();
+  } else {
+    toast.error(result.message || "Failed to update bed assignment");
+  }
+};
+
+const handleDeleteAssignment = async (bedAssignment: BedAssignment) => {
+  try {
+    setSavingBed(bedAssignment.bed_number);
+    
+    // ✅ Get the ORIGINAL bed rent from the bed assignment's tenant_rent
+    // This is the rent value that was set when the room was created
+    // The bed's current tenant_rent might be a custom value, but we want to restore the original
+    // We need to fetch the original bed configuration from the room's beds_config
+    console.log("bed assignment", bedAssignment)
+    // Option 1: If you have the original rent stored somewhere (like room.beds_config)
+    // Find the original bed configuration from the room's beds_config
+    const originalBedConfig = room.beds_config?.find((bed: any) => bed.bed_number === bedAssignment.bed_number);
+    const originalRent = bedAssignment.tenant_rent || room.rent_per_bed;
+    
+    console.log("bed config", originalBedConfig)
+    console.log('Deleting assignment - restoring original bed rent:', originalRent);
+    console.log('Current custom rent:', bedAssignment.tenant_rent);
+    
+    // Call API to delete/unassign the bed - RESTORE original rent, not null
+    const result = await updateBedAssignment(bedAssignment.id.toString(), {
+      tenant_id: null,
+      tenant_gender: null,
+      is_available: true,
+      tenant_rent: originalRent,  // ← Restore original bed rent from room config
+      is_couple: false,
+      security_deposit: null,  // Clear security deposit
+    });
     
     if (result.success) {
-      const coupleMsg = coupleValue ? ` (Couple Booking with ${tenant.partner_full_name})` : '';
-    toast.success(`Bed ${bedAssignment.bed_number} updated successfully! ${tenant.full_name}${coupleMsg}`);
+      toast.success(`Bed ${bedAssignment.bed_number} unassigned successfully`);
       
-      // Refresh the bed assignments
+      // Refresh the data
       await refreshRoomData();
-      
+      await loadTenantsBasedOnPreferences();
       setAssigningBed(null);
+      
+      // Close the dialog after successful deletion
+      setTimeout(() => {
+        onOpenChange(false);
+      }, 0);
       
       if (onRefresh) onRefresh();
     } else {
-      toast.error(result.message || "Failed to update bed assignment");
+      toast.error(result.message || "Failed to unassign bed");
     }
-  };
+  } catch (err: any) {
+    console.error("Delete assignment error:", err);
+    toast.error(err.message || "Failed to unassign bed");
+  } finally {
+    setSavingBed(null);
+  }
+};
 
   const handleTransferConfirmation = async () => {
     try {
@@ -1255,11 +1512,18 @@ const findTenantDetails = (tenantId: number) => {
         const result = await assignBed(payload);
         
         if (result.success) {
-            const coupleMsg = coupleValue ? ` (Couple Booking with ${newTenant.partner_full_name})` : '';
-        toast.success(`Tenant ${newTenant.full_name} assigned successfully!${coupleMsg}`);
-          // Refresh bed assignments
-          await refreshRoomData();
-        } else {
+  const coupleMsg = coupleValue ? ` (Couple Booking with ${tenant.partner_full_name})` : '';
+  toast.success(`Bed ${bedNumber} assigned successfully!${coupleMsg}`);
+  
+  // ✅ Refresh the bed assignments AND reload tenants (only once)
+  await refreshRoomData();
+  await loadTenantsBasedOnPreferences();
+  
+  // ✅ Close the assigning state for this bed
+  setAssigningBed(null);
+  
+  if (onRefresh) onRefresh();
+}else {
           toast.error(result.message || "Failed to assign bed");
         }
       } else {
@@ -1543,7 +1807,7 @@ const handleVacateClick = async (bedAssignment: BedAssignment) => {
                 </Card>
               )}
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-1.5">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-1.5">
                 <Card>
                   <CardContent className="p-2">
                     <div className="flex items-center justify-between">
@@ -1579,6 +1843,24 @@ const handleVacateClick = async (bedAssignment: BedAssignment) => {
                     </div>
                   </CardContent>
                 </Card>
+                <Card>
+  <CardContent className="p-2">
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-[9px] text-gray-500 leading-tight">Security Deposit</p>
+        <h3 className="text-sm font-bold text-amber-600 leading-tight">
+          {securityDepositLoading ? (
+            <Loader2 className="h-3 w-3 animate-spin inline" />
+          ) : (
+            `₹${securityDeposit.toLocaleString()}`
+          )}
+        </h3>
+        <p className="text-[8px] text-gray-400 leading-tight">Per booking</p>
+      </div>
+      <Shield className="h-4 w-4 text-amber-500 flex-shrink-0" />
+    </div>
+  </CardContent>
+</Card>
 
                 <Card>
                   <CardContent className="p-2">
@@ -1637,13 +1919,14 @@ const handleVacateClick = async (bedAssignment: BedAssignment) => {
                             setAssigningBed(bedNumber);
                           }
                         }}
-                        onUpdateClick={(bedAssignment, tenantId, customRent, isCouple) => {
+                        onUpdateClick={(bedAssignment, tenantId, customRent, isCouple, customSecurityDeposit) => {
                           if (bedAssignment) {
-                            handleUpdateBedAssignment(bedAssignment, tenantId, customRent, isCouple);
+                            handleUpdateBedAssignment(bedAssignment, tenantId, customRent, isCouple, customSecurityDeposit);
                           } else {
-                            handleAssignBed(bedNumber, tenantId, customRent, isCouple);
+                            handleAssignBed(bedNumber, tenantId, customRent, isCouple, customSecurityDeposit);
                           }
                         }}
+                         onDeleteClick={() => assignment && handleDeleteAssignment(assignment)}
                         onVacateClick={() => assignment && handleVacateClick(assignment)}
                         onChangeBedClick={() => assignment && handleChangeBedClick(assignment)}
                         tenants={tenants}
@@ -1653,6 +1936,9 @@ const handleVacateClick = async (bedAssignment: BedAssignment) => {
                         tenantDetails={tenantDetails}
                         room={room}
                         bedRent={assignment?.tenant_rent}
+                        securityDeposit={securityDeposit}                    // ← ADD THIS
+  onSecurityDepositChange={(val) => {}}               // ← ADD THIS (or pass a handler)
+  customSecurityDeposit=""  
                       />
                     );
                   })}
