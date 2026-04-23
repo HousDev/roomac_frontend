@@ -19,11 +19,15 @@ export interface Expense {
   category_name: string;
   description: string;
   amount: number;
-  payment_mode: string; 
+  total_amount: number;  // Changed from 'amount'
+  total_paid: number;    // New field
+  balance: number;       // New field
+  vendor_name?: string;  // New field
+  payment_mode?: string; // Changed to optional
   receipt_url?: string | null;
   receipt_name?: string | null;
   expense_date: string;
-  status: "Paid" | "Pending";
+  status: "Pending" | "Partial" | "Paid";
   added_by_name: string;
   notes?: string;
   items: ExpenseItem[];
@@ -78,7 +82,7 @@ export const getExpenseById = async (id: number): Promise<Expense> => {
   throw new Error("Failed to fetch expense");
 };
 
-/** Build a FormData payload (handles file + JSON items) */
+// Update the buildFormData function
 const buildFormData = (data: Record<string, any>, file?: File | null): FormData => {
   const fd = new FormData();
   const { items, receipt, ...rest } = data;
@@ -95,10 +99,50 @@ export const createExpense = async (data: Record<string, any>, file?: File | nul
   return await request("/api/expenses", { method: "POST", body: fd }, true);
 };
 
+// In expenseApi.ts
 export const updateExpense = async (id: number, data: Record<string, any>, file?: File | null) => {
-  const fd = buildFormData(data, file);
-  return await request(`/api/expenses/${id}`, { method: "PUT", body: fd }, true);
+  // Create a new object to avoid mutating the original
+  const formData = new FormData();
+  
+  // Handle items - convert to JSON string if it's an array
+  Object.keys(data).forEach(key => {
+    if (key === 'items' && Array.isArray(data[key])) {
+      formData.append(key, JSON.stringify(data[key]));
+    } else if (data[key] !== undefined && data[key] !== null) {
+      formData.append(key, String(data[key]));
+    }
+  });
+  
+  if (file) {
+    formData.append('receipt', file);
+  }
+  
+  return await request(`/api/expenses/${id}`, { method: "PUT", body: formData }, true);
 };
 
 export const deleteExpense = async (id: number) =>
   request(`/api/expenses/${id}`, { method: "DELETE" });
+
+// Add to expenseApi.ts
+
+// In expenseApi.ts
+export const addExpensePayment = async (expenseId: number, data: {
+  paid_amount: number;
+  payment_mode: string;
+  transaction_date: string;
+  reference_no?: string;
+  notes?: string;
+  created_by?: string;
+}) => {
+  return await request(`/api/expenses/${expenseId}/payment`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+};
+
+export const getExpensePayments = async (expenseId: number) => {
+  return await request(`/api/expenses/${expenseId}/payments`, {
+    method: "GET",
+  });
+};
+
