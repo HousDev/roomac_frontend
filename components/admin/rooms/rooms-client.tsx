@@ -597,10 +597,34 @@ const handleDelete = useCallback(async (id: string, roomName?: string) => {
   }
 }, []);
 
-  const handleViewDetails = useCallback((room: RoomResponse) => {
+const handleViewDetails = useCallback(async (room: RoomResponse) => {
+  try {
+    setLoading(true);
+    const { getRoomById } = await import('@/lib/roomsApi');
+    const response = await getRoomById(room.id.toString());
+    
+    // Handle the response correctly
+    let roomData = null;
+    if (response && response.success && response.data) {
+      roomData = response.data;
+    } else if (response && !response.success && response.data) {
+      roomData = response.data;
+    } else if (response && !response.data) {
+      roomData = response;
+    } else {
+      roomData = room;
+    }
+    
+    setSelectedRoom(roomData);
+    setDetailsDialogOpen(true);
+  } catch (error) {
+    console.error('Error fetching fresh room data:', error);
     setSelectedRoom(room);
     setDetailsDialogOpen(true);
-  }, []);
+  } finally {
+    setLoading(false);
+  }
+}, []);
 
   const handleBedManagement = useCallback((room: RoomResponse) => {
     setSelectedRoom(room);
@@ -710,11 +734,9 @@ const handleAddRoomClick = useCallback(() => {
       if (isEditMode && editingRoomId) {
         const { updateRoom } = await import('@/lib/roomsApi');
         await updateRoom(editingRoomId, formDataObj);
-        toast.success("Room updated successfully!");
       } else {
         const { createRoom } = await import('@/lib/roomsApi');
         await createRoom(formDataObj);
-        toast.success("Room created successfully!");
       }
 
       setRoomDialogOpen(false);
@@ -1226,7 +1248,14 @@ setRooms(roomsData);
         <BedManagementDialog
           room={selectedRoom}
           open={bedDialogOpen}
-          onOpenChange={setBedDialogOpen}
+          onOpenChange={(open) => {
+    setBedDialogOpen(open);
+    // When dialog closes, also refresh the room data
+    if (!open && selectedRoom) {
+      // Optionally refresh the specific room data
+      handleRefresh();
+    }
+  }}
     onRefresh={handleRefresh}  // Existing
     onRoomUpdate={(updatedRoom) => {
       // ✅ Update the selectedRoom state

@@ -27,6 +27,8 @@ import type { RoomResponse, BedAssignment, UpdateBedAssignmentPayload, AssignBed
 import { VacateBedWizard } from '@/components/admin/rooms/VacateBedWizard';
 import { ChangeBedWizard } from '@/components/admin/rooms/ChangeBedWizard';
 import { getAdminVacateRequests } from '@/lib/tenantRequestsApi';
+import Swal from 'sweetalert2';
+import MySwal from '@/app/utils/swal';
 
 
 interface BedManagementDialogProps {
@@ -482,7 +484,11 @@ const unassignedTenants = tenants.filter(tenant =>
                 type="text"
                 placeholder={`Enter rent amount`}
                 value={customRent}
-                onChange={(e) => onCustomRentChange?.(e.target.value)}
+                onChange={(e) => {if (!/^\d*\.?\d*$/.test(e.target.value) ||
+                                  Number(e.target.value) < 0
+                                )
+                                  return;
+                                  onCustomRentChange?.(e.target.value); onSecurityDepositChange?.(e.target.value)}}
                 className="pl-7 md:pl-9 h-8 md:h-10 text-xs md:text-sm"
               />
             </div>
@@ -505,13 +511,13 @@ const unassignedTenants = tenants.filter(tenant =>
       type="text"
       placeholder="Enter security deposit amount"
       value={customSecurityDeposit ?? ''}
-      onChange={(e) => onSecurityDepositChange?.(e.target.value)}
+      onChange={(e) => {
+        if (!/^\d*\.?\d*$/.test(e.target.value) || Number(e.target.value) < 0) return;
+        onCustomRentChange?.(e.target.value); onSecurityDepositChange?.(e.target.value);
+      }}
       className="pl-7 md:pl-9 h-8 md:h-10 text-xs md:text-sm"
     />
   </div>
-  <p className="text-[10px] md:text-xs text-gray-500 mt-1">
-    Security deposit amount for this booking
-  </p>
 </div>
         </div>
         
@@ -633,9 +639,11 @@ onDeleteClick?: () => void;
       setSelectedTenantId('');
       setCustomRent(bedRent ? bedRent.toString() : room.rent_per_bed.toString());
       setIsCouple(assignment?.is_couple || false);
-      setCustomSecurityDepositLocal(securityDeposit?.toString() || '');
+       // Set security deposit default to the bed's rent value
+    const defaultDeposit = bedRent ? bedRent.toString() : room.rent_per_bed.toString();
+    setCustomSecurityDepositLocal(defaultDeposit);
     }
-  }, [isAssigning, room.rent_per_bed, bedRent, assignment, securityDeposit]);
+  }, [isAssigning, room.rent_per_bed, bedRent, assignment]);
 
 
   const handleUpdateClick = () => {
@@ -770,7 +778,6 @@ onDeleteClick?: () => void;
   room={room}
   bedRent={bedRent}
   customSecurityDeposit={customSecurityDepositLocal}  // ← CHANGE THIS - use the local state, not the prop from parent
-  defaultSecurityDeposit={securityDeposit}
 />
                   
                   <div className="flex gap-2">
@@ -893,11 +900,6 @@ onDeleteClick?: () => void;
       <span className="font-bold text-xs md:text-sm text-green-600">
         ₹{displayRent}
       </span>
-      {/* {displayRent != room.rent_per_bed && (
-        <div className="text-[8px] md:text-[10px] text-gray-500">
-          Custom Rate (Original: ₹{room.rent_per_bed})
-        </div>
-      )} */}
     </div>
   </div>
   
@@ -983,7 +985,6 @@ const refreshRoomData = async () => {
       loadTenantsBasedOnPreferences();
       setBedAssignments(room.bed_assignments || []);
       setAssigningBed(null);
-      fetchSecurityDeposit();
     }
   }, [open, room]);
 
@@ -1089,29 +1090,6 @@ const loadTenantsBasedOnPreferences = async () => {
   }
 };
 
-const fetchSecurityDeposit = useCallback(async () => {
-  if (!room.property_id) {
-    setSecurityDeposit(0);
-    return;
-  }
-  
-  try {
-    setSecurityDepositLoading(true);
-    const response = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:3000"}/api/tenants/property/${room.property_id}/details`);
-    const result = await response.json();
-    
-    if (result.success && result.data?.security_deposit) {
-      setSecurityDeposit(result.data.security_deposit);
-    } else {
-      setSecurityDeposit(0);
-    }
-  } catch (error) {
-    console.error("Error fetching security deposit:", error);
-    setSecurityDeposit(0);
-  } finally {
-    setSecurityDepositLoading(false);
-  }
-}, [room.property_id]);
 
   const getBedStatus = (bedNumber: number) => {
     const assignment = bedAssignments.find(b => b.bed_number === bedNumber);
@@ -1180,7 +1158,29 @@ const findTenantDetails = (tenantId: number) => {
     }
   };
 
-const handleAssignBed = async (bedNumber: number, tenantId: string, customRent?: string, isCouple?: boolean,customSecurityDeposit?: string) => {
+  // Add this useEffect to reset all states when dialog closes
+useEffect(() => {
+  if (!open) {
+    // Reset all states when dialog closes
+    setAssigningBed(null);
+    setSavingBed(null);
+    setBedAssignments(room.bed_assignments || []);
+    setTenants([]);
+    setLoading(false);
+    setLoadingTenants(false);
+    setTransferDialogOpen(false);
+    setTransferDetails({
+      bedAssignment: null,
+      newTenant: null,
+      existingAssignment: null,
+      customRent: undefined,
+      isCouple: undefined
+    });
+    setTransferReason('');
+  }
+}, [open, room.bed_assignments]);
+
+const handleAssignBed = async (bedNumber: number, tenantId: string, customRent?: string, isCouple?: boolean, customSecurityDeposit?: string) => {
   if (!tenantId.trim()) {
     toast.error("Please select a tenant");
     return;
@@ -1195,7 +1195,6 @@ const handleAssignBed = async (bedNumber: number, tenantId: string, customRent?:
   const tenantIdNum = parseInt(tenantId);
   const isCoupleBooking = isCouple === true;
 
-  // Validate tenant before assignment
   const validation = validateTenantForAssignment(tenant, room, isCoupleBooking);
   if (!validation.valid) {
     toast.error(validation.message);
@@ -1205,7 +1204,6 @@ const handleAssignBed = async (bedNumber: number, tenantId: string, customRent?:
   try {
     setSavingBed(bedNumber);
     
-    // Check if tenant is already assigned elsewhere
     const existingAssignment = await checkTenantExistingAssignment(tenantIdNum);
     
     if (existingAssignment) {
@@ -1229,15 +1227,13 @@ const handleAssignBed = async (bedNumber: number, tenantId: string, customRent?:
     const tenantGender = tenant.gender as 'Male' | 'Female' | 'Other';
     const coupleValue = isCouple === true;
 
-    // ✅ FIX: Calculate deposit value
-  let depositValue = securityDeposit; // default from property
-  
-  if (customSecurityDeposit !== undefined && customSecurityDeposit !== null && customSecurityDeposit.trim() !== '') {
-    const parsedDeposit = parseFloat(customSecurityDeposit);
-    if (!isNaN(parsedDeposit)) {
-      depositValue = parsedDeposit;
+    let depositValue = securityDeposit;
+    if (customSecurityDeposit !== undefined && customSecurityDeposit !== null && customSecurityDeposit.trim() !== '') {
+      const parsedDeposit = parseFloat(customSecurityDeposit);
+      if (!isNaN(parsedDeposit)) {
+        depositValue = parsedDeposit;
+      }
     }
-  }
     
     const payload: AssignBedPayload = {
       room_id: room.id,
@@ -1245,7 +1241,7 @@ const handleAssignBed = async (bedNumber: number, tenantId: string, customRent?:
       tenant_id: tenantIdNum,
       tenant_gender: tenantGender,
       tenant_rent: rentValue,
-      security_deposit: customSecurityDeposit ? parseFloat(customSecurityDeposit) : securityDeposit,  
+      security_deposit: customSecurityDeposit ? parseFloat(customSecurityDeposit) : rentValue,  
       is_couple: coupleValue,
       ...(coupleValue && {
         partner_full_name: tenant.partner_full_name,
@@ -1263,31 +1259,28 @@ const handleAssignBed = async (bedNumber: number, tenantId: string, customRent?:
     const result = await assignBed(payload);
     
     if (result.success) {
-      const coupleMsg = coupleValue ? ` (Couple Booking with ${tenant.partner_full_name})` : '';
-      toast.success(`Bed ${bedNumber} assigned successfully!${coupleMsg}`);
-      
-      // ✅ Refresh the bed assignments AND reload tenants
-      await refreshRoomData();
-      await loadTenantsBasedOnPreferences();
-      
-      // ✅ IMPORTANT: Close the assigning state for this bed
-      setAssigningBed(null);
-
-       // ✅ Close the dialog after successful assignment
-      setTimeout(() => {
-        onOpenChange(false);
-      }, 0);
-      
-      
-      if (onRefresh) onRefresh();
-      
-    } else {
+  const coupleMsg = coupleValue ? ` (Couple Booking with ${tenant.partner_full_name})` : '';
+  toast.success(`Bed ${bedNumber} assigned successfully!${coupleMsg}`);
+  
+  // Reset saving state before closing
+  setSavingBed(null);
+  setAssigningBed(null);
+  
+  // CLOSE THE DIALOG FIRST
+  onOpenChange(false);
+  
+  // THEN REFRESH DATA IN BACKGROUND
+  refreshRoomData();
+  loadTenantsBasedOnPreferences();
+  
+  if (onRefresh) onRefresh();
+} else {
       toast.error(result.message || "Failed to assign bed");
+      setSavingBed(null);
     }
   } catch (err: any) {
     console.error("Assign bed error:", err);
     toast.error(err.message || "Failed to assign bed");
-  } finally {
     setSavingBed(null);
   }
 };
@@ -1371,17 +1364,13 @@ const updateBedAssignmentDirectly = async (bedAssignment: BedAssignment, tenant:
   const tenantGender = tenant.gender as 'Male' | 'Female' | 'Other';
   const coupleValue = isCouple === true;
 
-   // ✅ FIX: Use customSecurityDeposit if provided, otherwise use default securityDeposit
-  let depositValue = securityDeposit; // default from property
-  
+  let depositValue = rentValue;
   if (customSecurityDeposit !== undefined && customSecurityDeposit !== null && customSecurityDeposit.trim() !== '') {
     const parsedDeposit = parseFloat(customSecurityDeposit);
     if (!isNaN(parsedDeposit)) {
       depositValue = parsedDeposit;
     }
   }
-  
-  console.log('💰 Saving deposit:', { customSecurityDeposit, depositValue, defaultDeposit: securityDeposit });
   
   const payload: UpdateBedAssignmentPayload = {
     tenant_id: tenant.id,
@@ -1406,71 +1395,98 @@ const updateBedAssignmentDirectly = async (bedAssignment: BedAssignment, tenant:
   const result = await updateBedAssignment(bedAssignment.id.toString(), payload);
   
   if (result.success) {
-    const coupleMsg = coupleValue ? ` (Couple Booking with ${tenant.partner_full_name})` : '';
-    toast.success(`Bed ${bedAssignment.bed_number} updated successfully! ${tenant.full_name}${coupleMsg}`);
-    
-    // ✅ Refresh data
-    await refreshRoomData();
-    await loadTenantsBasedOnPreferences();
-    
-    // ✅ IMPORTANT: Close the assigning state
-    setAssigningBed(null);
-    
-    if (onRefresh) onRefresh();
-  } else {
+  const coupleMsg = coupleValue ? ` (Couple Booking with ${tenant.partner_full_name})` : '';
+  toast.success(`Bed ${bedAssignment.bed_number} updated successfully! ${tenant.full_name}${coupleMsg}`);
+  
+  // Reset saving state before closing
+  setSavingBed(null);
+  setAssigningBed(null);
+  
+  // CLOSE THE DIALOG FIRST
+  onOpenChange(false);
+  
+  // THEN REFRESH DATA IN BACKGROUND
+  refreshRoomData();
+  loadTenantsBasedOnPreferences();
+  
+  if (onRefresh) onRefresh();
+} else {
     toast.error(result.message || "Failed to update bed assignment");
   }
 };
 
 const handleDeleteAssignment = async (bedAssignment: BedAssignment) => {
+  // Payment check
+  if (bedAssignment.tenant_id) {
+    try {
+      setLoading(true);
+      const tenantId = bedAssignment.tenant_id;
+      
+      const response = await request<ApiResult<any>>(`/api/payments/tenant/${tenantId}`);
+      
+      if (response.success && response.data && response.data.length > 0) {
+        const hasPayments = response.data.some(
+          (payment: any) => 
+            payment.status === 'approved' || 
+            payment.status === 'pending' || 
+            payment.status === 'paid'
+        );
+        
+        if (hasPayments) {
+          toast.error(`Cannot delete assignment`, {
+            description: `Tenant has existing payment transactions. Please delete all payments first.`,
+            duration: 5000,
+          });
+          setLoading(false);
+          return;
+        }
+      }
+    } catch (error) {
+      console.error("Error checking tenant payments:", error);
+      toast.error("Unable to verify tenant payments. Please check manually.");
+      setLoading(false);
+      return;
+    } finally {
+      setLoading(false);
+    }
+  }
+  
   try {
     setSavingBed(bedAssignment.bed_number);
     
-    // ✅ Get the ORIGINAL bed rent from the bed assignment's tenant_rent
-    // This is the rent value that was set when the room was created
-    // The bed's current tenant_rent might be a custom value, but we want to restore the original
-    // We need to fetch the original bed configuration from the room's beds_config
-    console.log("bed assignment", bedAssignment)
-    // Option 1: If you have the original rent stored somewhere (like room.beds_config)
-    // Find the original bed configuration from the room's beds_config
-    const originalBedConfig = room.beds_config?.find((bed: any) => bed.bed_number === bedAssignment.bed_number);
     const originalRent = bedAssignment.tenant_rent || room.rent_per_bed;
     
-    console.log("bed config", originalBedConfig)
-    console.log('Deleting assignment - restoring original bed rent:', originalRent);
-    console.log('Current custom rent:', bedAssignment.tenant_rent);
-    
-    // Call API to delete/unassign the bed - RESTORE original rent, not null
     const result = await updateBedAssignment(bedAssignment.id.toString(), {
       tenant_id: null,
       tenant_gender: null,
       is_available: true,
-      tenant_rent: originalRent,  // ← Restore original bed rent from room config
+      tenant_rent: originalRent,
       is_couple: false,
-      security_deposit: null,  // Clear security deposit
+      security_deposit: null,
     });
     
     if (result.success) {
-      toast.success(`Bed ${bedAssignment.bed_number} unassigned successfully`);
-      
-      // Refresh the data
-      await refreshRoomData();
-      await loadTenantsBasedOnPreferences();
-      setAssigningBed(null);
-      
-      // Close the dialog after successful deletion
-      setTimeout(() => {
-        onOpenChange(false);
-      }, 0);
-      
-      if (onRefresh) onRefresh();
-    } else {
+  toast.success(`Bed ${bedAssignment.bed_number} unassigned successfully`);
+  
+  // Reset saving state before closing
+  setSavingBed(null);
+  setAssigningBed(null);
+  
+  // CLOSE THE DIALOG FIRST
+  onOpenChange(false);
+  
+  // THEN REFRESH DATA IN BACKGROUND
+  refreshRoomData();
+  loadTenantsBasedOnPreferences();
+  
+  if (onRefresh) onRefresh();
+} else {
       toast.error(result.message || "Failed to unassign bed");
+      setSavingBed(null);
     }
   } catch (err: any) {
     console.error("Delete assignment error:", err);
     toast.error(err.message || "Failed to unassign bed");
-  } finally {
     setSavingBed(null);
   }
 };

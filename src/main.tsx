@@ -6,6 +6,7 @@ import App from './App';
 import '../app/globals.css';
 import { getSettings } from '@/lib/settingsApi';
 import { AuthProvider } from '@/context/authContext';
+import "./index.css";
 
 // One-line approach (actually a few lines but minimal)
 (async () => {

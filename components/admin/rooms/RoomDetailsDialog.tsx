@@ -1,10 +1,8 @@
-// components/admin/rooms/RoomDetailsDialog.tsx
 "use client";
 
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Eye, Pencil, Building, DoorOpen, Users, Bed, Bath, Wind,
   Sun, Heart, Image as ImageIcon, Video, MapPin,
@@ -12,16 +10,15 @@ import {
   Calendar, Wifi, Tv, Droplets, Shield, Coffee,
   Car, Dumbbell, TreePine, Waves, Thermometer, UsersRound, PersonStanding,
   BadgeIndianRupee,
-  X, Phone, Mail, Hash, UserPlus, Loader2, Armchair,
-  Refrigerator, Fan, Lamp, Lock, Key, Utensils, 
-  Mountain, Snowflake, Sunset, Warehouse, Factory,
-  CookingPot, Gamepad, Music, Headphones, BookOpen,
-  Cigarette, Wine, Cat, Dog, Speaker, HardHat,
-  Briefcase, ShoppingBag, Bike, Bus, Train, Plane
+  X, Phone, Mail, UserPlus, Loader2, Armchair,
+  Refrigerator, Fan, Lamp, Utensils, 
+  Mountain, Snowflake, CookingPot, Gamepad, Music, Headphones, BookOpen,
+  Cigarette, Dog, Speaker,
+  Sunset
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { request } from '@/lib/api';
-import type { RoomResponse, BedAssignment } from '@/lib/roomsApi';
+import type { BedAssignment } from '@/lib/roomsApi';
 import { toast } from "sonner";
 
 interface RoomDetailsDialogProps {
@@ -48,7 +45,6 @@ interface TenantDetails {
   pan_number?: string;
 }
 
-// Amenity definitions with soft pastel circle bg colors (like reference image)
 const AMENITIES_WITH_COLORS = [
   { id: 'wifi', label: 'WiFi', icon: Wifi, circleBg: 'bg-blue-100', iconColor: 'text-blue-500' },
   { id: 'tv', label: 'TV', icon: Tv, circleBg: 'bg-purple-100', iconColor: 'text-purple-500' },
@@ -69,11 +65,11 @@ const AMENITIES_WITH_COLORS = [
   { id: 'laundry', label: 'Laundry', icon: Droplets, circleBg: 'bg-blue-100', iconColor: 'text-blue-600' },
   { id: 'security', label: 'Security', icon: Shield, circleBg: 'bg-red-100', iconColor: 'text-red-500' },
   { id: 'parking', label: 'Parking', icon: Car, circleBg: 'bg-green-100', iconColor: 'text-green-600' },
-  { id: 'power backup', label: 'Power Backup', icon: Factory, circleBg: 'bg-yellow-100', iconColor: 'text-yellow-600' },
+  { id: 'power backup', label: 'Power Backup', icon: Mountain, circleBg: 'bg-yellow-100', iconColor: 'text-yellow-600' },
   { id: 'gym', label: 'Gym', icon: Dumbbell, circleBg: 'bg-lime-100', iconColor: 'text-lime-600' },
   { id: 'garden', label: 'Garden', icon: TreePine, circleBg: 'bg-green-100', iconColor: 'text-green-600' },
-  { id: 'terrace', label: 'Terrace', icon: Mountain, circleBg: 'bg-emerald-100', iconColor: 'text-emerald-600' },
-  { id: 'swimming pool', label: 'Swimming Pool', icon: Waves, circleBg: 'bg-blue-100', iconColor: 'text-blue-600' },
+  { id: 'terrace', label: 'Terrace', icon: Waves, circleBg: 'bg-emerald-100', iconColor: 'text-emerald-600' },
+  { id: 'swimming pool', label: 'Swimming Pool', icon: Droplets, circleBg: 'bg-blue-100', iconColor: 'text-blue-600' },
   { id: 'game zone', label: 'Game Zone', icon: Gamepad, circleBg: 'bg-violet-100', iconColor: 'text-violet-600' },
   { id: 'music room', label: 'Music Room', icon: Music, circleBg: 'bg-fuchsia-100', iconColor: 'text-fuchsia-600' },
   { id: 'theatre', label: 'Home Theatre', icon: Headphones, circleBg: 'bg-rose-100', iconColor: 'text-rose-500' },
@@ -99,7 +95,7 @@ const GenderIcon = ({ gender, size = "h-4 w-4" }: { gender: string; size?: strin
   }
 };
 
-const BedStatusBadge = ({ isAvailable, rent }: { isAvailable: boolean; rent?: number }) => {
+const BedStatusBadge = ({ isAvailable }: { isAvailable: boolean }) => {
   if (isAvailable) {
     return (
       <Badge className="bg-green-100 text-green-700 border-green-200 text-[9px] px-1.5 py-0">
@@ -117,28 +113,53 @@ const BedStatusBadge = ({ isAvailable, rent }: { isAvailable: boolean; rent?: nu
 };
 
 export function RoomDetailsDialog({ room, open, onOpenChange }: RoomDetailsDialogProps) {
+  
   const [tenants, setTenants] = useState<TenantDetails[]>([]);
   const [loadingTenants, setLoadingTenants] = useState(false);
   const [errorTenants, setErrorTenants] = useState<string | null>(null);
   const [bedAssignments, setBedAssignments] = useState<BedAssignment[]>([]);
+  const [currentRoom, setCurrentRoom] = useState(room);
+  const [loading, setLoading] = useState(false);
 
+  // Refresh room data when dialog opens
   useEffect(() => {
-    if (room?.bed_assignments) {
-      setBedAssignments(room.bed_assignments);
+    if (open && room?.id) {
+      const fetchFreshRoom = async () => {
+        try {
+          setLoading(true);
+          const { getRoomById } = await import('@/lib/roomsApi');
+          const response = await getRoomById(room.id.toString());
+          
+          // Handle response correctly
+          let freshRoom = null;
+          if (response && response.success && response.data) {
+            freshRoom = response.data;
+          } else if (response && !response.success && response.data) {
+            freshRoom = response.data;
+          } else if (response && !response.data) {
+            freshRoom = response;
+          } else {
+            freshRoom = room;
+          }
+          
+          setCurrentRoom(freshRoom);
+          setBedAssignments(freshRoom?.bed_assignments || []);
+        } catch (error) {
+          console.error('Error fetching fresh room:', error);
+          setCurrentRoom(room);
+          setBedAssignments(room?.bed_assignments || []);
+        } finally {
+          setLoading(false);
+        }
+      };
+      fetchFreshRoom();
     }
-  }, [room]);
+  }, [open, room]);
+  
 
-  const YesNoIcon = ({ value }: { value: boolean }) => {
-    return value ? (
-      <CheckCircle className="h-3 w-3 text-green-600" />
-    ) : (
-      <XCircle className="h-3 w-3 text-red-500" />
-    );
-  };
-
-  const genderPreferences = Array.isArray(room.room_gender_preference) 
-    ? room.room_gender_preference 
-    : [room.room_gender_preference];
+  const genderPreferences = Array.isArray(currentRoom?.room_gender_preference) 
+    ? currentRoom.room_gender_preference 
+    : (currentRoom?.room_gender_preference ? [currentRoom.room_gender_preference] : []);
 
   const occupiedBeds = bedAssignments?.filter((bed: BedAssignment) => bed.tenant_id) || [];
 
@@ -174,21 +195,18 @@ export function RoomDetailsDialog({ room, open, onOpenChange }: RoomDetailsDialo
   };
 
   const formatAssignmentDate = (dateString: string) => {
-    if (!dateString) return 'N/A';
+    if (!dateString) return '';
     try {
       const date = new Date(dateString);
-      return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
-    } catch { return 'N/A'; }
-  };
-
-  const getDaysSinceAssignment = (dateString: string) => {
-    if (!dateString) return null;
-    try {
-      const assignmentDate = new Date(dateString);
-      const today = new Date();
-      const diffTime = Math.abs(today.getTime() - assignmentDate.getTime());
-      return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    } catch { return null; }
+      if (isNaN(date.getTime())) return '';
+      return date.toLocaleDateString('en-IN', { 
+        day: 'numeric', 
+        month: 'short', 
+        year: 'numeric' 
+      });
+    } catch { 
+      return ''; 
+    }
   };
 
   const getAmenityStyle = (amenityName: string) => {
@@ -205,13 +223,26 @@ export function RoomDetailsDialog({ room, open, onOpenChange }: RoomDetailsDialo
     };
   };
 
+  if (!currentRoom || loading) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-md">
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+            <span className="ml-2 text-gray-500">Loading room details...</span>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className="max-w-[calc(100vw-1.5rem)] sm:max-w-[calc(100vw-2rem)] md:max-w-3xl lg:max-w-4xl max-h-[85vh] overflow-hidden p-0 border-0 flex flex-col rounded-2xl"
         onInteractOutside={(e) => e.preventDefault()}
       >
-        {/* ── Header ── */}
+        {/* Header */}
         <div className="bg-gradient-to-r from-blue-600 to-cyan-500 text-white px-3 py-2 flex-shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 min-w-0">
@@ -220,20 +251,20 @@ export function RoomDetailsDialog({ room, open, onOpenChange }: RoomDetailsDialo
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-sm font-bold leading-tight">Room {room.room_number}</span>
+                  <span className="text-sm font-bold leading-tight">Room {currentRoom.room_number}</span>
                   <Badge className="bg-white/20 text-white border-white/30 text-[9px] px-1.5 py-0 h-4">
-                    {room.is_active ? '● Active' : '○ Inactive'}
+                    {currentRoom.is_active ? '● Active' : '○ Inactive'}
                   </Badge>
                   <Badge className="bg-white/20 text-white border-white/30 text-[9px] px-1.5 py-0 h-4">
-                    {room.sharing_type}
+                    {currentRoom.sharing_type}
                   </Badge>
                 </div>
                 <div className="flex items-center gap-1 text-[10px] text-white/80 mt-0.5">
                   <Building className="h-2.5 w-2.5 flex-shrink-0" />
-                  <span className="truncate">{room.property_name}</span>
+                  <span className="truncate">{currentRoom.property_name}</span>
                   <span className="text-white/50">•</span>
                   <MapPin className="h-2.5 w-2.5 flex-shrink-0" />
-                  <span className="truncate max-w-[140px]">{room.property_address}</span>
+                  <span className="truncate max-w-[140px]">{currentRoom.property_address}</span>
                 </div>
               </div>
             </div>
@@ -246,24 +277,24 @@ export function RoomDetailsDialog({ room, open, onOpenChange }: RoomDetailsDialo
           </div>
         </div>
 
-        {/* ── Scrollable Body ── */}
+        {/* Scrollable Body */}
         <div className="px-2.5 py-2 overflow-y-auto flex-1 min-h-0 space-y-2">
 
           {/* Stats Row */}
           <div className="grid grid-cols-4 gap-1.5">
             {[
-              { label: 'Total Beds', value: room.total_bed, icon: Bed, bg: 'bg-blue-50', border: 'border-blue-100', textColor: 'text-blue-700', iconColor: 'text-blue-500' },
-              { label: 'Available', value: room.total_bed - room.occupied_beds, icon: CheckCircle, bg: 'bg-green-50', border: 'border-green-100', textColor: 'text-green-700', iconColor: 'text-green-500' },
-              { label: 'Occupied', value: room.occupied_beds, icon: Users, bg: 'bg-amber-50', border: 'border-amber-100', textColor: 'text-amber-700', iconColor: 'text-amber-500' },
-              { label: 'Rent/Bed', value: `₹${room.rent_per_bed}`, icon: BadgeIndianRupee, bg: 'bg-purple-50', border: 'border-purple-100', textColor: 'text-purple-700', iconColor: 'text-purple-500' },
-            ].map(({ label, value, icon: Icon, bg, border, textColor, iconColor }) => (
-              <div key={label} className={`${bg} border ${border} rounded-xl p-2`}>
+              { label: 'Total Beds', value: currentRoom.total_bed || 0, icon: Bed },
+              { label: 'Available', value: (currentRoom.total_bed || 0) - (currentRoom.occupied_beds || 0), icon: CheckCircle },
+              { label: 'Occupied', value: currentRoom.occupied_beds || 0, icon: Users },
+              { label: 'Rent/Bed', value: `₹${currentRoom.rent_per_bed || 0}`, icon: BadgeIndianRupee },
+            ].map(({ label, value, icon: Icon }) => (
+              <div key={label} className="bg-white border border-gray-100 rounded-xl p-2 shadow-sm">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className={`text-[7px] font-medium ${textColor} leading-tight`}>{label}</p>
-<p className={`text-xs sm:text-xs font-bold ${textColor} leading-tight mt-0.5 truncate`}>{value}</p>          
-        </div>
-                  <Icon className={`h-3 w-3 ${iconColor} flex-shrink-0`} />
+                    <p className="text-[8px] text-gray-500 font-medium leading-tight">{label}</p>
+                    <p className="text-sm font-bold text-gray-800 leading-tight mt-0.5">{value}</p>          
+                  </div>
+                  <Icon className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
                 </div>
               </div>
             ))}
@@ -277,16 +308,18 @@ export function RoomDetailsDialog({ room, open, onOpenChange }: RoomDetailsDialo
                 <span className="text-[10px] font-semibold text-gray-700">Bed Configuration</span>
               </div>
               <Badge className="bg-blue-100 text-blue-700 border-blue-200 text-[9px] px-1.5 py-0">
-                {room.total_bed} Beds • ₹{room.rent_per_bed}/bed
+                {currentRoom.total_bed} Beds • ₹{currentRoom.rent_per_bed}/bed
               </Badge>
             </div>
             <div className="p-2">
               <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-1.5">
-                {Array.from({ length: room.total_bed }, (_, i) => i + 1).map((bedNumber) => {
+                {Array.from({ length: currentRoom.total_bed || 0 }, (_, i) => i + 1).map((bedNumber) => {
                   const bedAssignment = bedAssignments.find(b => b.bed_number === bedNumber);
                   const isOccupied = !!bedAssignment?.tenant_id;
                   const tenantDetail = bedAssignment ? getTenantDetails(bedAssignment.tenant_id) : null;
-                  const bedRent = bedAssignment?.tenant_rent ? Number(bedAssignment.tenant_rent) : room.rent_per_bed;
+                  const bedRent = bedAssignment?.tenant_rent ? Number(bedAssignment.tenant_rent) : currentRoom.rent_per_bed;
+                  const securityDeposit = bedAssignment?.security_deposit ? Number(bedAssignment.security_deposit) : null;
+                  const assignmentDate = bedAssignment?.updated_at ? formatAssignmentDate(bedAssignment.updated_at) : '';
 
                   return (
                     <div
@@ -294,7 +327,6 @@ export function RoomDetailsDialog({ room, open, onOpenChange }: RoomDetailsDialo
                       className={`relative p-2 rounded-xl border text-center transition-all hover:shadow-sm
                         ${isOccupied ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}
                     >
-                      {/* Bed number pill */}
                       <div className={`absolute -top-1.5 -left-1.5 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold text-white
                         ${isOccupied ? 'bg-red-500' : 'bg-green-500'}`}>
                         {bedNumber}
@@ -307,7 +339,19 @@ export function RoomDetailsDialog({ room, open, onOpenChange }: RoomDetailsDialo
                       {isOccupied && tenantDetail && (
                         <div className="mt-1 text-[8px] text-left border-t border-red-200 pt-1">
                           <p className="font-semibold truncate text-gray-700">{tenantDetail.full_name}</p>
-                          <p className="text-gray-500 truncate">{formatAssignmentDate(bedAssignment.created_at)}</p>
+                          <div className="flex items-center justify-between gap-1 mt-0.5">
+                            {assignmentDate && (
+                              <div className="flex items-center gap-0.5">
+                                <Calendar className="h-2 w-2 text-gray-400" />
+                                <p className="text-gray-500 text-[7px]">{assignmentDate}</p>
+                              </div>
+                            )}
+                            {securityDeposit && securityDeposit > 0 && (
+                              <Badge className="text-[7px] px-1 py-0 bg-amber-50 text-amber-600 border-amber-200">
+                                Dep: ₹{securityDeposit.toLocaleString()}
+                              </Badge>
+                            )}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -327,16 +371,16 @@ export function RoomDetailsDialog({ room, open, onOpenChange }: RoomDetailsDialo
               </div>
               <div className="p-2 grid grid-cols-2 gap-1.5">
                 {[
-                  { key: 'has_ac', label: 'AC', sub: room.has_ac ? 'Available' : 'No', icon: Snowflake, activeColor: 'text-cyan-600', activeBg: 'bg-cyan-50 border-cyan-200' },
-                  { key: 'has_balcony', label: 'Balcony', sub: room.has_balcony ? 'Yes' : 'No', icon: Sun, activeColor: 'text-amber-600', activeBg: 'bg-amber-50 border-amber-200' },
-                  { key: 'has_attached_bathroom', label: 'Bathroom', sub: room.has_attached_bathroom ? 'Attached' : 'Shared', icon: Bath, activeColor: 'text-cyan-600', activeBg: 'bg-cyan-50 border-cyan-200' },
-                  { key: 'allow_couples', label: 'Couples', sub: room.allow_couples ? 'Allowed' : 'No', icon: Heart, activeColor: 'text-pink-600', activeBg: 'bg-pink-50 border-pink-200' },
-                ].map(({ key, label, sub, icon: Icon, activeColor, activeBg }) => {
-                  const active = (room as any)[key];
+                  { key: 'has_ac', label: 'AC', sub: currentRoom.has_ac ? 'Available' : 'No', icon: Snowflake },
+                  { key: 'has_balcony', label: 'Balcony', sub: currentRoom.has_balcony ? 'Yes' : 'No', icon: Sun },
+                  { key: 'has_attached_bathroom', label: 'Bathroom', sub: currentRoom.has_attached_bathroom ? 'Attached' : 'Shared', icon: Bath },
+                  { key: 'allow_couples', label: 'Couples', sub: currentRoom.allow_couples ? 'Allowed' : 'No', icon: Heart },
+                ].map(({ key, label, sub, icon: Icon }) => {
+                  const active = (currentRoom as any)[key];
                   return (
-                    <div key={key} className={`flex items-center gap-1.5 p-1.5 rounded-lg border ${active ? activeBg : 'bg-gray-50 border-gray-200'}`}>
+                    <div key={key} className={`flex items-center gap-1.5 p-1.5 rounded-lg border ${active ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200'}`}>
                       <div className={`p-1 rounded-md ${active ? 'bg-white/70' : 'bg-gray-200'}`}>
-                        <Icon className={`h-3 w-3 ${active ? activeColor : 'text-gray-400'}`} />
+                        <Icon className={`h-3 w-3 ${active ? 'text-blue-600' : 'text-gray-400'}`} />
                       </div>
                       <div>
                         <p className="text-[9px] font-semibold text-gray-700 leading-tight">{label}</p>
@@ -371,28 +415,25 @@ export function RoomDetailsDialog({ room, open, onOpenChange }: RoomDetailsDialo
                        pref === 'couples' ? 'Couples' : pref}
                     </Badge>
                   ))}
-                  {genderPreferences.length === 0 && (
-                    <span className="text-[10px] text-gray-400">No preferences set</span>
-                  )}
                 </div>
 
                 {/* Floor & Type info */}
                 <div className="mt-2 pt-2 border-t border-gray-100 grid grid-cols-2 gap-1.5">
                   <div className="bg-slate-50 rounded-lg p-1.5">
                     <p className="text-[8px] text-slate-500 font-medium uppercase tracking-wide">Floor</p>
-                    <p className="text-[10px] font-semibold text-slate-700">{room.floor || 'Ground'}</p>
+                    <p className="text-[10px] font-semibold text-slate-700">{currentRoom.floor || 'Ground'}</p>
                   </div>
                   <div className="bg-slate-50 rounded-lg p-1.5">
                     <p className="text-[8px] text-slate-500 font-medium uppercase tracking-wide">Room Type</p>
-                    <p className="text-[10px] font-semibold text-slate-700 capitalize">{room.room_type || '—'}</p>
+                    <p className="text-[10px] font-semibold text-slate-700 capitalize">{currentRoom.room_type || '—'}</p>
                   </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* ── Amenities — circle icon + label style (like reference) ── */}
-          {room.amenities && room.amenities.length > 0 && (
+          {/* Amenities */}
+          {currentRoom.amenities && currentRoom.amenities.length > 0 && (
             <div className="border border-gray-100 rounded-xl overflow-hidden">
               <div className="bg-gray-50 px-2.5 py-1.5 border-b border-gray-100 flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
@@ -400,21 +441,19 @@ export function RoomDetailsDialog({ room, open, onOpenChange }: RoomDetailsDialo
                   <span className="text-[10px] font-semibold text-gray-700">Amenities & Facilities</span>
                 </div>
                 <Badge className="bg-indigo-100 text-indigo-700 border-indigo-200 text-[9px] px-1.5 py-0">
-                  {room.amenities.length} items
+                  {currentRoom.amenities.length} items
                 </Badge>
               </div>
               <div className="p-3">
                 <div className="grid grid-cols-3 xs:grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-x-2 gap-y-3">
-                  {room.amenities.map((amenity: any, index: number) => {
+                  {currentRoom.amenities.map((amenity: any, index: number) => {
                     const style = getAmenityStyle(amenity);
                     const IconComponent = style.icon;
                     return (
                       <div key={index} className="flex flex-col items-center gap-1.5 group">
-                        {/* Circle icon — matches reference image */}
                         <div className={`w-11 h-11 rounded-full ${style.circleBg} flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform`}>
                           <IconComponent className={`h-5 w-5 ${style.iconColor}`} />
                         </div>
-                        {/* Label */}
                         <span className="text-[9px] font-medium text-gray-600 text-center leading-tight line-clamp-2 w-full">
                           {amenity}
                         </span>
@@ -432,7 +471,7 @@ export function RoomDetailsDialog({ room, open, onOpenChange }: RoomDetailsDialo
               <div className="flex items-center gap-1.5">
                 <UsersRound className="h-3 w-3 text-indigo-500" />
                 <span className="text-[10px] font-semibold text-gray-700">
-                  Current Occupants ({occupiedBeds.length}/{room.total_bed})
+                  Current Occupants ({occupiedBeds.length}/{currentRoom.total_bed || 0})
                 </span>
               </div>
             </div>
@@ -453,7 +492,9 @@ export function RoomDetailsDialog({ room, open, onOpenChange }: RoomDetailsDialo
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                   {occupiedBeds.map((bed: BedAssignment, index: number) => {
                     const tenantDetail = getTenantDetails(bed.tenant_id);
-                    const formattedDate = formatAssignmentDate(bed.created_at);
+                    const assignmentDate = bed.updated_at ? formatAssignmentDate(bed.updated_at) : '';
+                    const securityDeposit = bed.security_deposit ? Number(bed.security_deposit) : null;
+                    
                     return (
                       <div
                         key={bed.id || index}
@@ -471,7 +512,7 @@ export function RoomDetailsDialog({ room, open, onOpenChange }: RoomDetailsDialo
 
                         <div className="space-y-0.5">
                           <p className="font-semibold text-xs text-gray-800 truncate">
-                            {tenantDetail?.full_name || bed.tenant_name || 'Unknown'}
+                            {tenantDetail?.full_name || 'Unknown'}
                           </p>
                           <div className="flex items-center gap-1">
                             <GenderIcon gender={tenantDetail?.gender || bed.tenant_gender || 'other'} size="h-2.5 w-2.5" />
@@ -488,17 +529,30 @@ export function RoomDetailsDialog({ room, open, onOpenChange }: RoomDetailsDialo
                           </div>
                         </div>
 
-                        <div className="mt-1.5 pt-1.5 border-t border-gray-100 flex items-center justify-between">
-                          <div className="flex items-center gap-0.5">
+                        <div className="mt-1.5 pt-1.5 border-t border-gray-100 flex items-center justify-between flex-wrap gap-1">
+                          <div className="flex items-center gap-1">
                             <BadgeIndianRupee className="h-2.5 w-2.5 text-purple-500" />
-                            <span className="text-[9px] font-bold text-purple-700">{bed.tenant_rent || room.rent_per_bed}</span>
+                            <span className="text-[9px] font-bold text-purple-700">{bed.tenant_rent || currentRoom.rent_per_bed}</span>
                             <span className="text-[8px] text-gray-400">/mo</span>
                           </div>
-                          <div className="flex items-center gap-0.5 text-[9px] text-gray-500">
-                            <Calendar className="h-2.5 w-2.5" />
-                            <span>{formattedDate}</span>
-                          </div>
+                          {assignmentDate && (
+                            <div className="flex items-center gap-1 text-[9px] text-gray-500">
+                              <Calendar className="h-2.5 w-2.5" />
+                              <span>{assignmentDate}</span>
+                            </div>
+                          )}
                         </div>
+                        
+                        {/* Security Deposit Row */}
+                        {securityDeposit && securityDeposit > 0 && (
+                          <div className="mt-1 pt-1 border-t border-gray-100 flex items-center justify-between">
+                            <div className="flex items-center gap-1">
+                              <Shield className="h-2.5 w-2.5 text-amber-500" />
+                              <span className="text-[8px] text-gray-500">Security Deposit</span>
+                            </div>
+                            <span className="text-[9px] font-semibold text-amber-600">₹{securityDeposit.toLocaleString()}</span>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -513,14 +567,14 @@ export function RoomDetailsDialog({ room, open, onOpenChange }: RoomDetailsDialo
           </div>
 
           {/* Description */}
-          {room.description && (
+          {currentRoom.description && (
             <div className="border border-gray-100 rounded-xl overflow-hidden">
               <div className="bg-gray-50 px-2.5 py-1.5 border-b border-gray-100 flex items-center gap-1.5">
                 <Pencil className="h-3 w-3 text-amber-500" />
                 <span className="text-[10px] font-semibold text-gray-700">Description</span>
               </div>
               <div className="p-2.5">
-                <p className="text-xs text-gray-600 whitespace-pre-line leading-relaxed">{room.description}</p>
+                <p className="text-xs text-gray-600 whitespace-pre-line leading-relaxed">{currentRoom.description}</p>
               </div>
             </div>
           )}
@@ -537,16 +591,16 @@ export function RoomDetailsDialog({ room, open, onOpenChange }: RoomDetailsDialo
                   <ImageIcon className="h-3.5 w-3.5 text-blue-500" />
                   <div>
                     <p className="text-[9px] font-medium text-blue-700">Photos</p>
-                    <p className="text-xs font-bold text-blue-800">{room.photo_urls?.length || 0}</p>
+                    <p className="text-xs font-bold text-blue-800">{currentRoom.photo_urls?.length || 0}</p>
                   </div>
                 </div>
-                {room.video_url && (
+                {currentRoom.video_url && (
                   <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-red-50 rounded-lg border border-red-100">
                     <Video className="h-3.5 w-3.5 text-red-500" />
                     <div>
                       <p className="text-[9px] font-medium text-red-700">Video</p>
                       <p className="text-[9px] font-semibold text-red-800 truncate max-w-[80px]">
-                        {room.video_label || 'Tour'}
+                        {currentRoom.video_label || 'Tour'}
                       </p>
                     </div>
                   </div>
@@ -557,7 +611,7 @@ export function RoomDetailsDialog({ room, open, onOpenChange }: RoomDetailsDialo
 
         </div>
 
-        {/* ── Footer ── */}
+        {/* Footer */}
         <div className="border-t border-gray-100 bg-white px-3 py-2 flex-shrink-0 flex justify-end">
           <Button
             variant="outline"

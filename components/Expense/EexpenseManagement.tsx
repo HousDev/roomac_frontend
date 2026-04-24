@@ -6,6 +6,7 @@ import {
   createExpense,
   updateExpense,
   deleteExpense,
+  addExpensePayment,
 } from "@/lib/expenseApi";
 import { getAllStaff } from "@/lib/staffApi";
 import { listProperties } from "@/lib/propertyApi";
@@ -60,6 +61,10 @@ const newItem = () => ({
   category: "Groceries",
   qty: "" as any,
   price: "" as any,
+  total_amount: 0,      // New: qty * price
+  paid_amount: 0,       // New: amount paid for this item
+  balance: 0,           // New: total_amount - paid_amount
+  item_status: "Pending" as "Pending" | "Partial" | "Paid",  // New: item-level status
 });
 
 const blankForm = () => ({
@@ -67,13 +72,24 @@ const blankForm = () => ({
   property_name: "",
   category_id: "",
   category_name: "",
-  amount: "" as any,
-  payment_mode: "Cash" as "Cash" | "Bank Transfer" | "UPI" | "Cheque" | "Card" | "Online Payment Gateway" | "Wallet",
+  total_amount: "",
+  vendor_name: "",
+  payment_mode: null,
   expense_date: new Date().toISOString().split("T")[0],
-  status: "Pending" as "Pending" | "Paid",
+  status: "Pending" as "Pending" | "Partial" | "Paid",
   added_by_name: "",
   notes: "",
-  items: [newItem()],
+  items: [{
+    id: Date.now() + Math.random(),
+    name: "",
+    category: "",
+    qty: "",
+    price: "",
+    total_amount: 0,
+    paid_amount: 0,
+    balance: 0,
+    item_status: "Pending",
+  }],
 });
 
 /* ─── SearchableDropdown ───────────────────────────────────────────────────── */
@@ -358,6 +374,14 @@ export default function ExpensesManagement() {
   const [search, setSearch] = useState("");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
+  const [paymentModal, setPaymentModal] = useState<{
+  open: boolean;
+  expense: any | null;
+}>({
+  open: false,
+  expense: null,
+});
+
   // Auth
   const { can, user } = useAuth();
 
@@ -428,21 +452,29 @@ export default function ExpensesManagement() {
   }, []);
 
   /* ── Load expenses ─────────────────────────────────────────────────────── */
-  const loadExpenses = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [data, statsData] = await Promise.all([
-        getExpenses(),
-        getExpenseStats(),
-      ]);
-      setExpenses(data);
-      setStats(statsData);
-    } catch (err: any) {
-      toast.error(err.message || "Failed to load expenses");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+const loadExpenses = useCallback(async () => {
+  setLoading(true);
+  try {
+    const [data, statsData] = await Promise.all([
+      getExpenses(),
+      getExpenseStats(),
+    ]);
+    console.log('Loaded expenses:', data.map(e => ({
+      id: e.id,
+      total_amount: e.total_amount,
+      total_paid: e.total_paid,
+      balance: e.balance,
+      items: e.items?.length,
+      items_data: e.items
+    })));
+    setExpenses(data);
+    setStats(statsData);
+  } catch (err: any) {
+    toast.error(err.message || "Failed to load expenses");
+  } finally {
+    setLoading(false);
+  }
+}, []);
 
   useEffect(() => {
     loadMasterData();
@@ -455,6 +487,68 @@ export default function ExpensesManagement() {
       setForm((prev) => ({ ...prev, added_by_name: user.name }));
     }
   }, [user]);
+
+
+  // Add this function
+const openPaymentModal = (expense: any) => {
+  setPaymentModal({ open: true, expense });
+};
+
+const closePaymentModal = () => {
+  setPaymentModal({ open: false, expense: null });
+};
+
+const processPayment = async () => {
+  if (!paymentModal.expense) return;
+  
+  const paid_amount = parseFloat((document.getElementById('paymentAmount') as HTMLInputElement)?.value || "0");
+  const payment_mode = (document.getElementById('paymentMode') as HTMLSelectElement)?.value;
+  const transaction_date = (document.getElementById('transactionDate') as HTMLInputElement)?.value;
+  const reference_no = (document.getElementById('referenceNo') as HTMLInputElement)?.value;
+  const payment_notes = (document.getElementById('paymentNotes') as HTMLTextAreaElement)?.value;
+  
+  if (!paid_amount || paid_amount <= 0) {
+    toast.error("Please enter a valid amount");
+    return;
+  }
+  
+  if (!payment_mode) {
+    toast.error("Please select a payment mode");
+    return;
+  }
+  
+  if (paid_amount > paymentModal.expense.balance) {
+    toast.error(`Amount cannot exceed balance of ${fmt(paymentModal.expense.balance)}`);
+    return;
+  }
+  
+  setSubmitting(true);
+  try {
+    // Just send the payment - backend will handle item updates
+    await addExpensePayment(paymentModal.expense.id, {
+      paid_amount,
+      payment_mode,
+      transaction_date,
+      reference_no,
+      notes: payment_notes,
+      created_by: user?.name,
+    });
+    
+    toast.success(`Payment of ${fmt(paid_amount)} recorded successfully`);
+    closePaymentModal();
+    await loadExpenses(); // Refresh the list
+    
+  } catch (err: any) {
+    console.error("Payment error:", err);
+    toast.error(err.message || "Failed to process payment");
+  } finally {
+    setSubmitting(false);
+  }
+};
+
+
+
+  
 
   /* ── Filtered list ─────────────────────────────────────────────────────── */
 const filtered = useMemo(
@@ -482,105 +576,222 @@ const filtered = useMemo(
   const itemsTotal = (items: any[]) =>
     items.reduce((s, it) => s + Number(it.qty || 0) * Number(it.price || 0), 0);
   const setItems = (items: any[]) => setForm((f) => ({ ...f, items }));
-  const addItem = () => setItems([...form.items, newItem()]);
+  const addItem = () => {
+  const newItemObj = {
+    id: Date.now() + Math.random(),
+    name: "",
+    category: form.category_name || "Groceries", // Use selected category as default
+    qty: "",
+    price: "",
+    total_amount: 0,
+    paid_amount: 0,
+    balance: 0,
+    item_status: "Pending",
+  };
+  setItems([...form.items, newItemObj]);
+};
   const removeItem = (id: any) => {
     if (form.items.length > 1) setItems(form.items.filter((i: any) => i.id !== id));
   };
-  const updateItem = (id: any, key: string, val: any) =>
-    setItems(form.items.map((i: any) => (i.id === id ? { ...i, [key]: val } : i)));
+  const updateItem = (id: any, key: string, val: any) => {
+  setItems(
+    form.items.map((item: any) => {
+      if (item.id === id) {
+        const updatedItem = { ...item, [key]: val };
+        
+        // Auto-calculate total_amount when qty or price changes
+        if (key === 'qty' || key === 'price') {
+          const qty = key === 'qty' ? Number(val) : Number(item.qty);
+          const price = key === 'price' ? Number(val) : Number(item.price);
+          updatedItem.total_amount = (qty || 0) * (price || 0);
+          
+          // Recalculate balance
+          const paidAmount = Number(updatedItem.paid_amount) || 0;
+          updatedItem.balance = updatedItem.total_amount - paidAmount;
+          
+          // Update item status
+          if (updatedItem.balance === 0 && updatedItem.total_amount > 0) {
+            updatedItem.item_status = 'Paid';
+          } else if (paidAmount > 0 && updatedItem.balance > 0) {
+            updatedItem.item_status = 'Partial';
+          } else {
+            updatedItem.item_status = 'Pending';
+          }
+        }
+        
+        // If paid_amount changes, recalculate balance and status
+        if (key === 'paid_amount') {
+          const totalAmount = Number(updatedItem.total_amount) || (Number(item.qty) * Number(item.price));
+          const paidAmount = Number(val) || 0;
+          updatedItem.balance = totalAmount - paidAmount;
+          updatedItem.total_amount = totalAmount;
+          
+          if (updatedItem.balance === 0 && totalAmount > 0) {
+            updatedItem.item_status = 'Paid';
+          } else if (paidAmount > 0 && updatedItem.balance > 0) {
+            updatedItem.item_status = 'Partial';
+          } else {
+            updatedItem.item_status = 'Pending';
+          }
+        }
+        
+        return updatedItem;
+      }
+      return item;
+    })
+  );
+};
 
-  /* ── Open / close modals ───────────────────────────────────────────────── */
-  function openAdd() {
-    setForm({
-      ...blankForm(),
-      added_by_name: user?.name || "",
-    });
-    setEditId(null);
-    setErrors({});
-    setReceiptFile(null);
-    setReceiptPreview("");
-    setShowModal(true);
-  }
+/* ── Open / close modals ───────────────────────────────────────────────── */
+function openAdd() {
+  const blank = blankForm();
+  setForm({
+    ...blank,
+    added_by_name: user?.name || "",
+  });
+  setEditId(null);
+  setErrors({});
+  setReceiptFile(null);
+  setReceiptPreview("");
+  setShowModal(true);
+}
 
-  function openEdit(exp: any) {
-    setForm({
-      property_id: String(exp.property_id),
-      property_name: exp.property_name,
-      category_id: String(exp.category_id),
-      category_name: exp.category_name,
-      description: exp.description,
-      amount: exp.amount,
-      payment_mode: exp.payment_mode || "Cash",
-      expense_date: exp.expense_date?.split("T")[0] || "",
-      status: exp.status,
-      added_by_name: exp.added_by_name,
-      notes: exp.notes || "",
-      items: exp.items?.length
-        ? exp.items.map((i: any) => ({
-            id: i.id || Math.random(),
-            name: i.name || i.item_name,
-            category: i.category || i.category_name || "Groceries",
-            qty: i.qty || i.quantity,
-            price: i.price || i.unit_price,
-          }))
-        : [newItem()],
-    });
-    setEditId(exp.id);
-    setErrors({});
-    setReceiptFile(null);
-    setReceiptPreview(exp.receipt_name || "");
-    setShowModal(true);
-  }
+function openEdit(exp: any) {
+  // Map items with all payment tracking fields
+  const initialItems = exp.items?.length
+    ? exp.items.map((i: any) => ({
+        id: i.id || Math.random(),
+        name: i.name || i.item_name,
+        category: i.category || i.category_name || "Groceries",
+        qty: i.qty || i.quantity || "",
+        price: i.price || i.unit_price || "",
+        total_amount: i.total_amount || ((Number(i.qty) || 0) * (Number(i.price) || 0)),
+        paid_amount: i.paid_amount || 0,
+        balance: i.balance || ((i.total_amount || 0) - (i.paid_amount || 0)),
+        item_status: i.item_status || i.status || "Pending",
+      }))
+    : [{
+        id: Date.now() + Math.random(),
+        name: "",
+        category: exp.category_name || "Groceries",
+        qty: "",
+        price: "",
+        total_amount: 0,
+        paid_amount: 0,
+        balance: 0,
+        item_status: "Pending",
+      }];
+    
+  setForm({
+    property_id: String(exp.property_id),
+    property_name: exp.property_name,
+    category_id: String(exp.category_id),
+    category_name: exp.category_name,
+    description: exp.description,
+    amount: exp.amount || exp.total_amount,
+    total_amount: exp.total_amount || exp.amount,
+    vendor_name: exp.vendor_name || "",
+    payment_mode: exp.payment_mode || null,
+    expense_date: exp.expense_date?.split("T")[0] || "",
+    status: exp.status || "Pending",
+    added_by_name: exp.added_by_name,
+    notes: exp.notes || "",
+    items: initialItems,
+  });
+  
+  setEditId(exp.id);
+  setErrors({});
+  setReceiptFile(null);
+  setReceiptPreview(exp.receipt_name || "");
+  setShowModal(true);
+}
 
-  /* ── Validate ──────────────────────────────────────────────────────────── */
-  function validate() {
-    const e: Record<string, string> = {};
-    if (!form.property_id) e.property_id = "Required";
-    if (!form.category_id) e.category_id = "Required";
-    if (!form.payment_mode) e.payment_mode = "Required";
-    if (!form.expense_date) e.expense_date = "Required";
-    if (!form.added_by_name?.trim()) e.added_by_name = "Required";
-    const it = itemsTotal(form.items);
-    if (!form.amount && it === 0) e.amount = "Enter amount or add items";
-    return e;
+/* ── Validate ──────────────────────────────────────────────────────────── */
+function validate() {
+  const e: Record<string, string> = {};
+  if (!form.property_id) e.property_id = "Required";
+  if (!form.category_id) e.category_id = "Required";
+  if (!form.expense_date) e.expense_date = "Required";
+  if (!form.added_by_name?.trim()) e.added_by_name = "Required";
+  
+  // Only validate payment_mode when status is "Paid"
+  if (form.status === "Paid" && !form.payment_mode) {
+    e.payment_mode = "Required";
   }
+  
+  const it = itemsTotal(form.items);
+  if (!form.amount && it === 0) e.amount = "Enter amount or add items";
+  return e;
+}
 
   /* ── Save ──────────────────────────────────────────────────────────────── */
-  async function save() {
-    const e = validate();
-    if (Object.keys(e).length) {
-      setErrors(e);
-      return;
-    }
-    setSubmitting(true);
-    try {
-      const it = itemsTotal(form.items);
-      const finalAmt = it > 0 ? it : Number(form.amount);
-      const validItems = form.items.filter((i: any) => i.name);
-
-      const payload = {
-        ...form,
-        amount: finalAmt,
-        items: validItems,
-        paid_by_staff_id: null,
-        paid_by_name: form.payment_mode,
-      };
-
-      if (editId) {
-        await updateExpense(editId, payload, receiptFile);
-        toast.success("Expense updated");
-      } else {
-        await createExpense(payload, receiptFile);
-        toast.success("Expense created");
-      }
-      setShowModal(false);
-      await loadExpenses();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to save");
-    } finally {
-      setSubmitting(false);
-    }
+async function save() {
+  const e = validate();
+  if (Object.keys(e).length) {
+    setErrors(e);
+    return;
   }
+  setSubmitting(true);
+  try {
+    // Calculate totals from items with payment tracking
+    const validItems = form.items.filter((i: any) => i.name);
+    
+    // Update each item with proper calculations
+    const updatedItems = validItems.map((item: any) => {
+      const total = (Number(item.qty) || 0) * (Number(item.price) || 0);
+      const paid = Number(item.paid_amount) || 0;
+      const balance = total - paid;
+      let itemStatus = "Pending";
+      if (balance === 0 && paid > 0) itemStatus = "Paid";
+      else if (paid > 0 && balance > 0) itemStatus = "Partial";
+      
+      return {
+        ...item,
+        total_amount: total,
+        paid_amount: paid,
+        balance: balance,
+        item_status: itemStatus,
+      };
+    });
+    
+    // Calculate expense totals from items
+    const totalAmount = updatedItems.reduce((sum, i) => sum + i.total_amount, 0);
+    const totalPaid = updatedItems.reduce((sum, i) => sum + i.paid_amount, 0);
+    const balance = totalAmount - totalPaid;
+    
+    // Determine overall expense status
+    let expenseStatus = "Pending";
+    if (balance === 0 && totalPaid > 0) expenseStatus = "Paid";
+    else if (totalPaid > 0 && balance > 0) expenseStatus = "Partial";
+    else expenseStatus = "Pending";
+
+    const payload = {
+      ...form,
+      total_amount: totalAmount,
+      total_paid: totalPaid,
+      balance: balance,
+      status: expenseStatus,
+      items: updatedItems,
+      paid_by_staff_id: null,
+      paid_by_name: form.payment_mode,
+      vendor_name: form.vendor_name,
+    };
+
+    if (editId) {
+      await updateExpense(editId, payload, receiptFile);
+      toast.success("Expense updated");
+    } else {
+      await createExpense(payload, receiptFile);
+      toast.success("Expense created");
+    }
+    setShowModal(false);
+    await loadExpenses();
+  } catch (err: any) {
+    toast.error(err.message || "Failed to save");
+  } finally {
+    setSubmitting(false);
+  }
+}
 
   /* ── Delete ────────────────────────────────────────────────────────────── */
   async function handleDelete(id: number, desc: string) {
@@ -661,6 +872,20 @@ const filtered = useMemo(
     }
   }
 
+  // Auto-sync category from Basic Info to first purchase item
+useEffect(() => {
+  if (form.category_name && form.items.length > 0) {
+    const firstItem = form.items[0];
+    if (firstItem.category !== form.category_name) {
+      setItems(
+        form.items.map((item: any, idx: number) =>
+          idx === 0 ? { ...item, category: form.category_name } : item
+        )
+      );
+    }
+  }
+}, [form.category_name]);
+
   /* ── Computed values ───────────────────────────────────────────────────── */
   const iTotal = itemsTotal(form.items);
 
@@ -668,6 +893,18 @@ const filtered = useMemo(
   const uniqueProps = [...new Set(expenses.map((e) => e.property_name))];
   const uniqueCats = [...new Set(expenses.map((e) => e.category_name))];
   const paymentModes = ["Cash", "Bank Transfer", "UPI", "Cheque", "Card", "Online Payment Gateway", "Wallet"];
+
+  // Update the stats display to use new fields
+// Update the stats display to use new fields
+const computedStats = {
+  total_amount: expenses.reduce((sum, e) => sum + (Number(e.total_amount) || Number(e.amount) || 0), 0),
+  paid_amount: expenses.reduce((sum, e) => sum + (Number(e.total_paid) || 0), 0),
+  pending_amount: expenses.reduce((sum, e) => sum + (Number(e.balance) || 0), 0),
+  total_count: expenses.length,
+  paid_count: expenses.filter(e => e.status === 'Paid').length,
+  pending_count: expenses.filter(e => e.status === 'Pending').length,
+  partial_count: expenses.filter(e => e.status === 'Partial').length,
+};
 
   /* ── Style helpers ─────────────────────────────────────────────────────── */
   const inp = (err?: string) => ({
@@ -843,7 +1080,7 @@ const filtered = useMemo(
           {[
             {
               label: "Total Items",
-              val: fmt(stats.total_amount || 0),
+              val: fmt(computedStats.total_amount || 0),
               sub: `${stats.total_count || expenses.length} records`,
               icon: "💰",
               c: "#1A2B6D",
@@ -851,7 +1088,7 @@ const filtered = useMemo(
             },
             {
               label: "Total Value",
-              val: fmt(stats.paid_amount || 0),
+              val: fmt(computedStats.paid_amount || 0),
               sub: `${stats.paid_count || 0} paid`,
               icon: "✅",
               c: "#1B7A4E",
@@ -859,7 +1096,7 @@ const filtered = useMemo(
             },
             {
               label: "Low Stock",
-              val: fmt(stats.pending_amount || 0),
+              val: fmt(computedStats.pending_amount || 0),
               sub: `${stats.pending_count || 0} pending`,
               icon: "⏳",
               c: "#B45309",
@@ -1124,329 +1361,396 @@ const filtered = useMemo(
               </div>
             ) : (
               <table
+  style={{
+    width: "100%",
+    borderCollapse: "collapse",
+    minWidth: 900,
+    tableLayout: "fixed",
+  }}
+>
+  <thead>
+    <tr style={{ background: "#F8FAFF" }}>
+      {[
+        "Property",
+        "Category",
+        "Vendor",
+        "Amount",
+        "Paid By",
+        "Receipt",
+        "Date",
+        "Status",
+        "Added By",
+        "Created",
+        "Actions",
+      ].map((h, index) => (
+        <th
+          key={h}
+          style={{
+            padding: "12px 8px",
+            textAlign: "left",
+            fontSize: 11,
+            fontWeight: 700,
+            color: "#475569",
+            letterSpacing: 0.5,
+            textTransform: "uppercase",
+            borderBottom: "1.5px solid #E2E8F0",
+            whiteSpace: "nowrap",
+            width: index === 0 ? "15%" : 
+                   index === 1 ? "12%" : 
+                   index === 2 ? "12%" : 
+                   index === 3 ? "10%" : 
+                   index === 4 ? "10%" : 
+                   index === 5 ? "8%" : 
+                   index === 6 ? "10%" : 
+                   index === 7 ? "10%" : 
+                   index === 8 ? "10%" : 
+                   index === 9 ? "12%" : "8%",
+          }}
+        >
+          {h}
+        </th>
+      ))}
+    </tr>
+  </thead>
+  <tbody>
+    {filtered.length === 0 ? (
+      <tr>
+        <td
+          colSpan={11}
+          style={{
+            padding: 48,
+            textAlign: "center",
+            color: "#94A3B8",
+            fontSize: 14,
+          }}
+        >
+          No expenses found
+        </td>
+      </tr>
+    ) : (
+      filtered.map((exp) => {
+        const cc = getCatColor(exp.category_name);
+        return (
+          <tr
+            key={exp.id}
+            style={{
+              borderBottom: "1px solid #F1F5F9",
+              transition: "background 0.12s ease",
+            }}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.background = "#F8FAFC")
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.background = "transparent")
+            }
+          >
+            {/* Property */}
+            <td
+              style={{
+                padding: "10px 8px",
+                fontSize: 12,
+                fontWeight: 600,
+                color: "#0F172A",
+              }}
+            >
+              <span
                 style={{
-                  width: "100%",
-                  borderCollapse: "collapse",
-                  minWidth: 900,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
                 }}
               >
-                <thead>
-                  <tr style={{ background: "#F8FAFF" }}>
-                    {[
-                      "Property",
-                      "Expenses Category",
-                      "Description",
-                      "Amount",
-                      "Paid By",
-                      "Receipt",
-                      "Date",
-                      "Status",
-                      "Added By",
-                      "Created",
-                      "Actions",
-                    ].map((h) => (
-                      <th
-                        key={h}
-                        style={{
-                          padding: "12px 14px",
-                          textAlign: "left",
-                          fontSize: 10,
-                          fontWeight: 700,
-                          color: "#8892A4",
-                          letterSpacing: 0.5,
-                          textTransform: "uppercase",
-                          borderBottom: "1px solid #F0F3FA",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={11}
-                        style={{
-                          padding: 48,
-                          textAlign: "center",
-                          color: "#B0BAC9",
-                          fontSize: 14,
-                        }}
-                      >
-                        No expenses found
-                      </td>
-                    </tr>
-                  ) : (
-                    filtered.map((exp) => {
-                      const cc = getCatColor(exp.category_name);
-                      return (
-                        <tr
-                          key={exp.id}
-                          style={{
-                            borderBottom: "1px solid #F5F7FC",
-                            transition: "background .12s",
-                          }}
-                          onMouseEnter={(e) =>
-                            (e.currentTarget.style.background = "#FAFBFF")
-                          }
-                          onMouseLeave={(e) =>
-                            (e.currentTarget.style.background = "transparent")
-                          }
-                        >
-                          {/* Property */}
-                          <td
-                            style={{
-                              padding: "11px 14px",
-                              fontSize: 12,
-                              fontWeight: 600,
-                              color: "#1A2B6D",
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            <span
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 7,
-                              }}
-                            >
-                              <span
-                                style={{
-                                  width: 7,
-                                  height: 7,
-                                  borderRadius: "50%",
-                                  background: "#3B5BDB",
-                                  flexShrink: 0,
-                                }}
-                              />
-                              {exp.property_name}
-                            </span>
-                          </td>
-                          {/* Category */}
-                          <td style={{ padding: "11px 14px" }}>
-                            <span
-                              style={{
-                                background: cc.bg,
-                                color: cc.text,
-                                padding: "3px 10px",
-                                borderRadius: 20,
-                                fontSize: 11,
-                                fontWeight: 600,
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: 5,
-                                whiteSpace: "nowrap",
-                              }}
-                            >
-                              <span
-                                style={{
-                                  width: 5,
-                                  height: 5,
-                                  borderRadius: "50%",
-                                  background: cc.dot,
-                                }}
-                              />
-                              {exp.category_name}
-                            </span>
-                          </td>
-                          
-                          {/* Amount */}
-                          <td
-                            style={{
-                              padding: "11px 14px",
-                              fontSize: 13,
-                              fontWeight: 800,
-                              color: "#1A2B6D",
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            {fmt(exp.amount)}
-                          </td>
-                          {/* Paid By */}
-                          <td
-                            style={{
-                              padding: "11px 14px",
-                              fontSize: 12,
-                              color: "#374151",
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            {exp.paid_by_name}
-                          </td>
-                          {/* Receipt */}
-                          <td style={{ padding: "11px 14px" }}>
-                            {exp.receipt_url ? (
-                              <ReceiptThumbnail
-                                url={exp.receipt_url}
-                                filename={exp.receipt_name}
-                                onClick={() => setViewItem(exp)}
-                              />
-                            ) : (
-                              <span style={{ color: "#CBD5E1", fontSize: 12 }}>
-                                —
-                              </span>
-                            )}
-                          </td>
-                          {/* Date */}
-                          <td
-                            style={{
-                              padding: "11px 14px",
-                              fontSize: 11,
-                              color: "#8892A4",
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            {fmtDate(exp.expense_date)}
-                          </td>
-                          {/* Status */}
-                          <td style={{ padding: "11px 14px" }}>
-                            <span
-                              style={{
-                                background:
-                                  exp.status === "Paid"
-                                    ? "#E8F5F0"
-                                    : "#FFF3E0",
-                                color:
-                                  exp.status === "Paid"
-                                    ? "#1B7A4E"
-                                    : "#B45309",
-                                padding: "3px 10px",
-                                borderRadius: 20,
-                                fontSize: 11,
-                                fontWeight: 600,
-                                whiteSpace: "nowrap",
-                                display: "inline-block",
-                              }}
-                            >
-                              {exp.status === "Paid" ? "✓ Paid" : "⏳ Pending"}
-                            </span>
-                          </td>
-                          {/* Added By */}
-                          <td
-                            style={{
-                              padding: "11px 14px",
-                              fontSize: 12,
-                              color: "#374151",
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            {exp.added_by_name}
-                          </td>
-                          {/* Created */}
-                          <td
-                            style={{
-                              padding: "11px 14px",
-                              fontSize: 10,
-                              color: "#B0BAC9",
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            {fmtDateTime(exp.created_at)}
-                          </td>
-                          {/* Actions */}
-                          <td style={{ padding: "11px 14px" }}>
-                            <div style={{ display: "flex", gap: 5 }}>
-                              <button
-                                onClick={() => setViewItem(exp)}
-                                title="View"
-                                style={{
-                                  width: 30,
-                                  height: 30,
-                                  borderRadius: 7,
-                                  border: "1px solid #E8ECF4",
-                                  background: "#F8FAFF",
-                                  cursor: "pointer",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                }}
-                              >
-                                <svg
-                                  width="13"
-                                  height="13"
-                                  fill="none"
-                                  stroke="#3B5BDB"
-                                  strokeWidth="2"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                                  <circle cx="12" cy="12" r="3" />
-                                </svg>
-                              </button>
-                                  {can('edit_expenses') && (
+                <span
+                  style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: "50%",
+                    background: "#3B82F6",
+                    flexShrink: 0,
+                  }}
+                />
+                {exp.property_name || "—"}
+              </span>
+            </td>
 
-                              <button
-                                onClick={() => openEdit(exp)}
-                                title="Edit"
-                                style={{
-                                  width: 30,
-                                  height: 30,
-                                  borderRadius: 7,
-                                  border: "1px solid #E8ECF4",
-                                  background: "#F8FAFF",
-                                  cursor: "pointer",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                }}
-                              >
-                                <svg
-                                  width="13"
-                                  height="13"
-                                  fill="none"
-                                  stroke="#1A2B6D"
-                                  strokeWidth="2"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                                </svg>
-                              </button>
-                                  )}
-                                      {can('delete_expenses') && (
+            {/* Category */}
+            <td style={{ padding: "10px 8px" }}>
+              {exp.category_name ? (
+                <span
+                  style={{
+                    background: cc.bg,
+                    color: cc.text,
+                    padding: "3px 8px",
+                    borderRadius: 12,
+                    fontSize: 10,
+                    fontWeight: 600,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 4,
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 4,
+                      height: 4,
+                      borderRadius: "50%",
+                      background: cc.dot,
+                    }}
+                  />
+                  {exp.category_name}
+                </span>
+              ) : (
+                "—"
+              )}
+            </td>
 
-                              <button
-                                onClick={() =>
-                                  handleDelete(exp.id, exp.description)
-                                }
-                                title="Delete"
-                                style={{
-                                  width: 30,
-                                  height: 30,
-                                  borderRadius: 7,
-                                  border: "1px solid #FFE4E4",
-                                  background: "#FFF5F5",
-                                  cursor: "pointer",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                }}
-                              >
-                                <svg
-                                  width="13"
-                                  height="13"
-                                  fill="none"
-                                  stroke="#E53E3E"
-                                  strokeWidth="2"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <polyline points="3 6 5 6 21 6" />
-                                  <path d="M19 6l-1 14H6L5 6" />
-                                  <path d="M10 11v6M14 11v6M9 6V4h6v2" />
-                                </svg>
-                              </button>
-                                      )}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
+            {/* Vendor */}
+            <td
+              style={{
+                padding: "10px 8px",
+                fontSize: 12,
+                color: "#334155",
+              }}
+            >
+              {exp.vendor_name || "—"}
+            </td>
+
+            {/* Amount */}
+            <td
+              style={{
+                padding: "10px 8px",
+                fontSize: 13,
+                fontWeight: 700,
+                color: "#0F172A",
+              }}
+            >
+              {fmt(exp.total_amount || exp.amount || 0)}
+            </td>
+
+            {/* Paid By */}
+            <td
+              style={{
+                padding: "10px 8px",
+                fontSize: 12,
+                color: "#475569",
+              }}
+            >
+              {exp.payment_mode || exp.paid_by_name || "—"}
+            </td>
+
+            {/* Receipt */}
+            <td style={{ padding: "10px 8px" }}>
+              {exp.receipt_url ? (
+                <ReceiptThumbnail
+                  url={exp.receipt_url}
+                  filename={exp.receipt_name}
+                  onClick={() => setViewItem(exp)}
+                />
+              ) : (
+                <span style={{ color: "#CBD5E1", fontSize: 11 }}>—</span>
+              )}
+            </td>
+
+            {/* Date */}
+            <td
+              style={{
+                padding: "10px 8px",
+                fontSize: 11,
+                color: "#64748B",
+              }}
+            >
+              {fmtDate(exp.expense_date)}
+            </td>
+
+            {/* Status */}
+            <td style={{ padding: "10px 8px" }}>
+              <span
+                style={{
+                  background:
+                    exp.status === "Paid"
+                      ? "#DCFCE7"
+                      : exp.status === "Partial"
+                      ? "#FEF3C7"
+                      : "#FEF2F2",
+                  color:
+                    exp.status === "Paid"
+                      ? "#166534"
+                      : exp.status === "Partial"
+                      ? "#92400E"
+                      : "#991B1B",
+                  padding: "3px 8px",
+                  borderRadius: 12,
+                  fontSize: 10,
+                  fontWeight: 600,
+                  whiteSpace: "nowrap",
+                  display: "inline-block",
+                }}
+              >
+                {exp.status === "Paid" 
+                  ? "✓ Paid" 
+                  : exp.status === "Partial" 
+                  ? "⟳ Partial" 
+                  : "⏳ Pending"}
+              </span>
+            </td>
+
+            {/* Added By */}
+            <td
+              style={{
+                padding: "10px 8px",
+                fontSize: 11,
+                color: "#475569",
+              }}
+            >
+              {exp.added_by_name || "—"}
+            </td>
+
+            {/* Created */}
+            <td
+              style={{
+                padding: "10px 8px",
+                fontSize: 10,
+                color: "#94A3B8",
+              }}
+            >
+              {fmtDateTime(exp.created_at)}
+            </td>
+
+            {/* Actions */}
+<td style={{ padding: "10px 8px" }}>
+  <div style={{ display: "flex", gap: 4 }}>
+    {/* View Button */}
+    <button
+      onClick={() => setViewItem(exp)}
+      title="View"
+      style={{
+        width: 28,
+        height: 28,
+        borderRadius: 6,
+        border: "1px solid #E2E8F0",
+        background: "#FFFFFF",
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        transition: "all 0.15s",
+      }}
+      onMouseEnter={(e) => (e.currentTarget.style.background = "#F1F5F9")}
+      onMouseLeave={(e) => (e.currentTarget.style.background = "#FFFFFF")}
+    >
+      <svg width="12" height="12" fill="none" stroke="#3B82F6" strokeWidth="2" viewBox="0 0 24 24">
+        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+        <circle cx="12" cy="12" r="3" />
+      </svg>
+    </button>
+    
+    {/* PAY BUTTON - Only show if expense has balance */}
+{(exp.balance > 0 || (exp.total_paid < exp.total_amount)) && (
+  <button
+    onClick={() => openPaymentModal(exp)}
+    title="Make Payment"
+    style={{
+      width: 28,
+      height: 28,
+      borderRadius: 6,
+      border: "1px solid #DCFCE7",
+      background: "#DCFCE7",
+      cursor: "pointer",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      transition: "all 0.15s",
+    }}
+    onMouseEnter={(e) => (e.currentTarget.style.background = "#BBF7D0")}
+    onMouseLeave={(e) => (e.currentTarget.style.background = "#DCFCE7")}
+  >
+    {/* Rupee Icon (₹) */}
+    <svg 
+      width="12" 
+      height="12" 
+      viewBox="0 0 24 24" 
+      fill="none" 
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path 
+        d="M6 3H18M6 8H18M6 13H15M11 3V8M11 13L17 21" 
+        stroke="#166534" 
+        strokeWidth="2" 
+        strokeLinecap="round" 
+        strokeLinejoin="round"
+      />
+      <path 
+        d="M11 3L17 3" 
+        stroke="#166534" 
+        strokeWidth="2" 
+        strokeLinecap="round"
+      />
+    </svg>
+  </button>
+)}
+    
+    {/* Edit Button */}
+    {can('edit_expenses') && (
+      <button
+        onClick={() => openEdit(exp)}
+        title="Edit"
+        style={{
+          width: 28,
+          height: 28,
+          borderRadius: 6,
+          border: "1px solid #E2E8F0",
+          background: "#FFFFFF",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          transition: "all 0.15s",
+        }}
+        onMouseEnter={(e) => (e.currentTarget.style.background = "#F1F5F9")}
+        onMouseLeave={(e) => (e.currentTarget.style.background = "#FFFFFF")}
+      >
+        <svg width="12" height="12" fill="none" stroke="#64748B" strokeWidth="2" viewBox="0 0 24 24">
+          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+        </svg>
+      </button>
+    )}
+    
+    {/* Delete Button */}
+    {can('delete_expenses') && (
+      <button
+        onClick={() => handleDelete(exp.id, exp.description)}
+        title="Delete"
+        style={{
+          width: 28,
+          height: 28,
+          borderRadius: 6,
+          border: "1px solid #FEE2E2",
+          background: "#FEF2F2",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          transition: "all 0.15s",
+        }}
+        onMouseEnter={(e) => (e.currentTarget.style.background = "#FEE2E2")}
+        onMouseLeave={(e) => (e.currentTarget.style.background = "#FEF2F2")}
+      >
+        <svg width="11" height="11" fill="none" stroke="#EF4444" strokeWidth="2" viewBox="0 0 24 24">
+          <polyline points="3 6 5 6 21 6" />
+          <path d="M19 6l-1 14H6L5 6" />
+          <path d="M10 11v6M14 11v6M9 6V4h6v2" />
+        </svg>
+      </button>
+    )}
+  </div>
+</td>
+          </tr>
+        );
+      })
+    )}
+  </tbody>
+</table>
             )}
           </div>
 
@@ -1520,6 +1824,7 @@ const filtered = useMemo(
             zIndex: 1000,
             backdropFilter: "blur(5px)",
             padding: 12,
+            
           }}
         >
           <div
@@ -1527,7 +1832,7 @@ const filtered = useMemo(
               background: "#fff",
               borderRadius: 20,
               width: "100%",
-              maxWidth: 740,
+              maxWidth: 860,
               maxHeight: "95vh",
               overflowY: "auto",
               boxShadow: "0 30px 80px rgba(0,0,0,0.3)",
@@ -1627,439 +1932,519 @@ const filtered = useMemo(
               </div>
 
               {/* SECTION 2 — Purchase Items */}
-              <div style={{ marginBottom: 22 }}>
-                <SectionHead
-                  n="2"
-                  title="Purchase Items"
-                  sub="(optional — auto-fills amount)"
-                />
-                <div
-                  style={{
-                    background: "#F8FAFF",
-                    borderRadius: 14,
-                    border: "1.5px solid #E2E8F4",
-                    overflow: "hidden",
-                  }}
-                >
-                  {/* Column headers */}
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "1fr 140px 70px 100px 90px 32px",
-                      padding: "8px 12px",
-                      background: "linear-gradient(90deg,#EEF1FB,#F0F4FF)",
-                      borderBottom: "1.5px solid #E2E8F4",
-                      alignItems: "center",
-                      gap: 6,
-                    }}
-                  >
-                    {["Item Name *", "Category", "Qty", "Price (₹)", "Amount", ""].map(
-                      (h, i) => (
-                        <div
-                          key={i}
-                          style={{
-                            fontSize: 10,
-                            fontWeight: 700,
-                            color: "#3B5BDB",
-                            textTransform: "uppercase",
-                            letterSpacing: 0.4,
-                          }}
-                        >
-                          {h}
-                        </div>
-                      )
-                    )}
-                  </div>
+<div style={{ marginBottom: 22 }}>
+  <SectionHead
+    n="2"
+    title="Purchase Items"
+    sub="(track payment per item)"
+  />
+  <div
+    style={{
+      background: "#F8FAFF",
+      borderRadius: 14,
+      border: "1.5px solid #E2E8F4",
+      overflow: "auto",
+    }}
+  >
+    {/* Column headers - Updated with payment tracking columns */}
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "1fr 120px 80px 100px 100px 100px 90px 40px",
+        padding: "8px 12px",
+        background: "linear-gradient(90deg,#EEF1FB,#F0F4FF)",
+        borderBottom: "1.5px solid #E2E8F4",
+        alignItems: "center",
+        gap: 6,
+        minWidth: 800,
+      }}
+    >
+      {["Item Name", "Category", "Qty", "Unit Price", "Total", "Paid", "Balance", ""].map(
+        (h, i) => (
+          <div
+            key={i}
+            style={{
+              fontSize: 10,
+              fontWeight: 700,
+              color: "#3B5BDB",
+              textTransform: "uppercase",
+              letterSpacing: 0.4,
+            }}
+          >
+            {h}
+          </div>
+        )
+      )}
+    </div>
 
-                  {form.items.map((item: any, idx: number) => {
-                    const rowAmt = Number(item.qty || 0) * Number(item.price || 0);
-                    return (
-                      <div
-                        key={item.id}
-                        style={{
-                          display: "grid",
-                          gridTemplateColumns: "1fr 140px 70px 100px 90px 32px",
-                          padding: "7px 12px",
-                          gap: 6,
-                          borderBottom:
-                            idx < form.items.length - 1 ? "1px solid #F0F3FA" : "none",
-                          alignItems: "center",
-                          background: idx % 2 === 1 ? "#FAFBFF" : "#fff",
-                        }}
-                      >
-                        {/* Item name — searchable from purchased items */}
-                        <div style={{ position: "relative" }}>
-                          <input
-                            value={item.name}
-                            onChange={(e) => updateItem(item.id, "name", e.target.value)}
-                            placeholder="Item name"
-                            list={`items-list-${item.id}`}
-                            style={{
-                              ...inp(),
-                              fontSize: 12,
-                              padding: "7px 9px",
-                              borderRadius: 8,
-                            }}
-                          />
-                          <datalist id={`items-list-${item.id}`}>
-                            {purchasedItems.map((pi) => (
-                              <option key={pi} value={pi} />
-                            ))}
-                          </datalist>
-                        </div>
-                        <select
-                          value={item.category}
-                          onChange={(e) => updateItem(item.id, "category", e.target.value)}
-                          style={{
-                            ...inp(),
-                            fontSize: 12,
-                            padding: "7px 7px",
-                            borderRadius: 8,
-                          }}
-                        >
-                          {catOptions.length > 0
-                            ? catOptions.map((c) => (
-                                <option key={c} value={c}>
-                                  {c}
-                                </option>
-                              ))
-                            : ["Groceries", "Maintenance", "Other"].map((c) => (
-                                <option key={c} value={c}>
-                                  {c}
-                                </option>
-                              ))}
-                        </select>
-                        <input
-                          type="number"
-                          value={item.qty}
-                          onChange={(e) => updateItem(item.id, "qty", e.target.value)}
-                          placeholder="Qty"
-                          min="1"
-                          style={{
-                            ...inp(),
-                            fontSize: 12,
-                            padding: "7px 7px",
-                            borderRadius: 8,
-                            textAlign: "center",
-                          }}
-                        />
-                        <input
-                          type="number"
-                          value={item.price}
-                          onChange={(e) => updateItem(item.id, "price", e.target.value)}
-                          placeholder="0.00"
-                          min="0"
-                          style={{
-                            ...inp(),
-                            fontSize: 12,
-                            padding: "7px 7px",
-                            borderRadius: 8,
-                          }}
-                        />
-                        <div
-                          style={{
-                            background: "#EEF1FB",
-                            borderRadius: 8,
-                            padding: "7px 6px",
-                            fontSize: 12,
-                            fontWeight: 700,
-                            color: "#1A2B6D",
-                            textAlign: "center",
-                          }}
-                        >
-                          {fmt(rowAmt)}
-                        </div>
-                        <button
-                          onClick={() => removeItem(item.id)}
-                          disabled={form.items.length <= 1}
-                          style={{
-                            width: 26,
-                            height: 26,
-                            borderRadius: 7,
-                            border: "1.5px solid #FFE4E4",
-                            background: "#FFF5F5",
-                            cursor: form.items.length > 1 ? "pointer" : "not-allowed",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            opacity: form.items.length > 1 ? 1 : 0.3,
-                            flexShrink: 0,
-                          }}
-                        >
-                          <svg
-                            width="11"
-                            height="11"
-                            fill="none"
-                            stroke="#E53E3E"
-                            strokeWidth="2"
-                            viewBox="0 0 24 24"
-                          >
-                            <polyline points="3 6 5 6 21 6" />
-                            <path d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2" />
-                          </svg>
-                        </button>
-                      </div>
-                    );
-                  })}
+{form.items.map((item: any, idx: number) => {
+  // Calculate values for display
+  const itemTotal = item.total_amount || ((Number(item.qty) || 0) * (Number(item.price) || 0));
+  const paidAmount = Number(item.paid_amount) || 0;
+  const balance = item.balance !== undefined ? item.balance : (itemTotal - paidAmount);
+  
+  return (
+    <div
+      key={item.id}
+      style={{
+        display: "grid",
+        gridTemplateColumns: "1fr 120px 80px 100px 100px 100px 90px 40px",
+        padding: "7px 12px",
+        gap: 6,
+        borderBottom: idx < form.items.length - 1 ? "1px solid #F0F3FA" : "none",
+        alignItems: "center",
+        background: idx % 2 === 1 ? "#FAFBFF" : "#fff",
+        minWidth: 800,
+      }}
+    >
+      {/* Item Name */}
+      <div style={{ position: "relative" }}>
+        <input
+          type="text"
+          value={item.name || ""}
+          onChange={(e) => updateItem(item.id, "name", e.target.value)}
+          placeholder="Item name"
+          list={`items-list-${item.id}`}
+          style={{
+            ...inp(),
+            fontSize: 12,
+            padding: "7px 9px",
+            borderRadius: 8,
+            width: "100%",
+          }}
+        />
+        <datalist id={`items-list-${item.id}`}>
+          {purchasedItems.map((pi) => (
+            <option key={pi} value={pi} />
+          ))}
+        </datalist>
+      </div>
+      
+      {/* Category */}
+      <select
+        value={item.category || "Groceries"}
+        onChange={(e) => updateItem(item.id, "category", e.target.value)}
+        style={{
+          ...inp(),
+          fontSize: 12,
+          padding: "7px 7px",
+          borderRadius: 8,
+        }}
+      >
+        {catOptions.length > 0
+          ? catOptions.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))
+          : ["Groceries", "Maintenance", "Other"].map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+      </select>
+      
+      {/* Quantity */}
+      <input
+        type="number"
+        value={item.qty || ""}
+        onChange={(e) => updateItem(item.id, "qty", e.target.value)}
+        placeholder="Qty"
+        min="0"
+        step="1"
+        style={{
+          ...inp(),
+          fontSize: 12,
+          padding: "7px 7px",
+          borderRadius: 8,
+          textAlign: "center",
+        }}
+      />
+      
+      {/* Unit Price */}
+      <input
+        type="number"
+        value={item.price || ""}
+        onChange={(e) => updateItem(item.id, "price", e.target.value)}
+        placeholder="Price"
+        min="0"
+        step="1"
+        style={{
+          ...inp(),
+          fontSize: 12,
+          padding: "7px 7px",
+          borderRadius: 8,
+        }}
+      />
+      
+      {/* Total Amount */}
+      <div
+        style={{
+          background: "#EEF1FB",
+          borderRadius: 8,
+          padding: "7px 6px",
+          fontSize: 12,
+          fontWeight: 700,
+          color: "#1A2B6D",
+          textAlign: "center",
+        }}
+      >
+        {fmt(itemTotal)}
+      </div>
+      
+      {/* Paid Amount */}
+      <input
+        type="number"
+        value={item.paid_amount || ""}
+        onChange={(e) => updateItem(item.id, "paid_amount", e.target.value)}
+        placeholder="Paid"
+        min="0"
+        max={itemTotal}
+        step="1"
+        style={{
+          ...inp(),
+          fontSize: 12,
+          padding: "7px 7px",
+          borderRadius: 8,
+          backgroundColor: paidAmount > 0 ? "#E8F5E9" : "#F8FAFF",
+          borderColor: paidAmount > 0 ? "#43A047" : "#E2E8F4",
+        }}
+      />
+      
+      {/* Balance */}
+      <div
+        style={{
+          background: balance > 0 ? "#FFF3E0" : "#EEF1FB",
+          borderRadius: 8,
+          padding: "7px 6px",
+          fontSize: 12,
+          fontWeight: 700,
+          color: balance > 0 ? "#B45309" : "#1A2B6D",
+          textAlign: "center",
+        }}
+      >
+        {fmt(balance)}
+      </div>
+      
+      {/* Delete button */}
+      <button
+        onClick={() => removeItem(item.id)}
+        disabled={form.items.length <= 1}
+        style={{
+          width: 26,
+          height: 26,
+          borderRadius: 7,
+          border: "1.5px solid #FFE4E4",
+          background: "#FFF5F5",
+          cursor: form.items.length > 1 ? "pointer" : "not-allowed",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          opacity: form.items.length > 1 ? 1 : 0.3,
+        }}
+      >
+        <svg width="11" height="11" fill="none" stroke="#E53E3E" strokeWidth="2" viewBox="0 0 24 24">
+          <polyline points="3 6 5 6 21 6" />
+          <path d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2" />
+        </svg>
+      </button>
+    </div>
+  );
+})}
 
-                  <div
-                    style={{
-                      padding: "9px 12px",
-                      borderTop: "1.5px solid #E2E8F4",
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      background: "#EEF1FB",
-                      flexWrap: "wrap",
-                      gap: 8,
-                    }}
-                  >
-                    <button
-                      onClick={addItem}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 6,
-                        background: "#fff",
-                        border: "1.5px solid #3B5BDB",
-                        borderRadius: 9,
-                        padding: "6px 14px",
-                        fontSize: 12,
-                        fontWeight: 700,
-                        color: "#3B5BDB",
-                        cursor: "pointer",
-                      }}
-                    >
-                      + Add Item
-                    </button>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <span style={{ fontSize: 11, color: "#8892A4" }}>Total:</span>
-                      <span style={{ fontSize: 16, fontWeight: 800, color: "#1A2B6D" }}>
-                        {fmt(iTotal)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+    {/* Footer with totals */}
+    <div
+      style={{
+        padding: "9px 12px",
+        borderTop: "1.5px solid #E2E8F4",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        background: "#EEF1FB",
+        flexWrap: "wrap",
+        gap: 8,
+      }}
+    >
+      <button
+        onClick={addItem}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          background: "#fff",
+          border: "1.5px solid #3B5BDB",
+          borderRadius: 9,
+          padding: "6px 14px",
+          fontSize: 12,
+          fontWeight: 700,
+          color: "#3B5BDB",
+          cursor: "pointer",
+        }}
+      >
+        + Add Item
+      </button>
+      <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+        <div>
+          <span style={{ fontSize: 11, color: "#8892A4" }}>Total Amount:</span>
+          <span style={{ fontSize: 14, fontWeight: 800, color: "#1A2B6D", marginLeft: 8 }}>
+            {fmt(form.items.reduce((sum, i) => sum + ((Number(i.qty) || 0) * (Number(i.price) || 0)), 0))}
+          </span>
+        </div>
+        <div>
+          <span style={{ fontSize: 11, color: "#8892A4" }}>Total Paid:</span>
+          <span style={{ fontSize: 14, fontWeight: 800, color: "#1B7A4E", marginLeft: 8 }}>
+            {fmt(form.items.reduce((sum, i) => sum + (Number(i.paid_amount) || 0), 0))}
+          </span>
+        </div>
+        <div>
+          <span style={{ fontSize: 11, color: "#8892A4" }}>Total Balance:</span>
+          <span style={{ fontSize: 14, fontWeight: 800, color: "#B45309", marginLeft: 8 }}>
+            {fmt(form.items.reduce((sum, i) => sum + ((Number(i.qty) || 0) * (Number(i.price) || 0) - (Number(i.paid_amount) || 0)), 0))}
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
               {/* SECTION 3 — Payment Details */}
-              <div style={{ marginBottom: 4 }}>
-                <SectionHead n="3" title="Payment Details" />
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-                    gap: 14,
-                  }}
-                >
-                  <div>
-                    <Label required>
-                      Amount (₹)
-                      {iTotal > 0 && (
-                        <span
-                          style={{
-                            color: "#3B5BDB",
-                            fontWeight: 400,
-                            fontSize: 11,
-                            marginLeft: 4,
-                          }}
-                        >
-                          — auto from items
-                        </span>
-                      )}
-                    </Label>
-                    <input
-                      type="number"
-                      value={iTotal > 0 ? iTotal : form.amount}
-                      readOnly={iTotal > 0}
-                      onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
-                      placeholder="0.00"
-                      style={{
-                        ...inp(errors.amount),
-                        background: iTotal > 0 ? "#EEF1FB" : "#F8FAFF",
-                        fontWeight: iTotal > 0 ? 800 : 400,
-                        color: iTotal > 0 ? "#1A2B6D" : "#374151",
-                      }}
-                    />
-                    <ErrMsg msg={errors.amount} />
-                  </div>
+<div style={{ marginBottom: 4 }}>
+  <SectionHead n="3" title="Payment Details" />
+  <div
+    style={{
+      display: "grid",
+      gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+      gap: 14,
+    }}
+  >
+    <div>
+      <Label required>
+        Amount (₹)
+        {iTotal > 0 && (
+          <span
+            style={{
+              color: "#3B5BDB",
+              fontWeight: 400,
+              fontSize: 11,
+              marginLeft: 4,
+            }}
+          >
+            — auto from items
+          </span>
+        )}
+      </Label>
+      <input
+        type="number"
+        value={iTotal > 0 ? iTotal : form.amount}
+        readOnly={iTotal > 0}
+        onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
+        placeholder="0.00"
+        style={{
+          ...inp(errors.amount),
+          background: iTotal > 0 ? "#EEF1FB" : "#F8FAFF",
+          fontWeight: iTotal > 0 ? 800 : 400,
+          color: iTotal > 0 ? "#1A2B6D" : "#374151",
+        }}
+      />
+      <ErrMsg msg={errors.amount} />
+    </div>
 
-                  {/* Paid Through - Payment Mode Dropdown */}
-                  <div>
-                    <Label required>Paid Through</Label>
-                    <select
-                      value={form.payment_mode}
-                      onChange={(e) => setForm((f) => ({ ...f, payment_mode: e.target.value }))}
-                      style={{
-                        ...inp(errors.payment_mode),
-                        cursor: "pointer",
-                        appearance: "none",
-                        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238892A4' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`,
-                        backgroundRepeat: "no-repeat",
-                        backgroundPosition: "right 12px center",
-                        backgroundSize: "14px",
-                      }}
-                    >
-                      <option value="Cash">💵 Cash</option>
-                      <option value="Bank Transfer">🏦 Bank Transfer</option>
-                      <option value="UPI">📱 UPI</option>
-                      <option value="Cheque">📝 Cheque</option>
-                      <option value="Card">💳 Card (Debit/Credit)</option>
-                      <option value="Online Payment Gateway">🌐 Online Payment Gateway</option>
-                      <option value="Wallet">👛 Wallet</option>
-                    </select>
-                    <ErrMsg msg={errors.payment_mode} />
-                  </div>
+    
 
-                  <div>
-                    <Label required>Expense Date</Label>
-                    <input
-                      type="date"
-                      value={form.expense_date}
-                      onChange={(e) =>
-                        setForm((f) => ({ ...f, expense_date: e.target.value }))
-                      }
-                      style={inp(errors.expense_date)}
-                    />
-                    <ErrMsg msg={errors.expense_date} />
-                  </div>
+    {/* Status Field - Moved here */}
+    <div>
+      <Label required>Status</Label>
+      <div style={{ display: "flex", gap: 8, height: 41 }}>
+        {(["Pending", "Paid"] as const).map((s) => {
+          const active = form.status === s;
+          const col =
+            s === "Paid"
+              ? { border: "#43A047", bg: "#E8F5E9", text: "#1B7A4E" }
+              : { border: "#FFB300", bg: "#FFF8E1", text: "#B45309" };
+          return (
+            <button
+              key={s}
+              onClick={() => setForm((f) => ({ ...f, status: s }))}
+              style={{
+                flex: 1,
+                border: `1.5px solid ${active ? col.border : "#E2E8F4"}`,
+                borderRadius: 10,
+                background: active ? col.bg : "#F8FAFF",
+                fontSize: 12,
+                fontWeight: 700,
+                color: active ? col.text : "#8892A4",
+                cursor: "pointer",
+                transition: "all .15s",
+              }}
+            >
+              {s === "Paid" ? "✓ Paid" : "⏳ Pending"}
+            </button>
+          );
+        })}
+      </div>
+    </div>
 
-                  <div>
-                    <Label required>Status</Label>
-                    <div style={{ display: "flex", gap: 8, height: 41 }}>
-                      {(["Pending", "Paid"] as const).map((s) => {
-                        const active = form.status === s;
-                        const col =
-                          s === "Paid"
-                            ? { border: "#43A047", bg: "#E8F5E9", text: "#1B7A4E" }
-                            : { border: "#FFB300", bg: "#FFF8E1", text: "#B45309" };
-                        return (
-                          <button
-                            key={s}
-                            onClick={() => setForm((f) => ({ ...f, status: s }))}
-                            style={{
-                              flex: 1,
-                              border: `1.5px solid ${active ? col.border : "#E2E8F4"}`,
-                              borderRadius: 10,
-                              background: active ? col.bg : "#F8FAFF",
-                              fontSize: 12,
-                              fontWeight: 700,
-                              color: active ? col.text : "#8892A4",
-                              cursor: "pointer",
-                              transition: "all .15s",
-                            }}
-                          >
-                            {s === "Paid" ? "✓ Paid" : "⏳ Pending"}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
+    {/* Conditionally show Payment Mode and Expense Date only when status is "Paid" */}
+    {form.status === "Paid" && (
+      <>
+        <div>
+          <Label required>Paid Through</Label>
+          <select
+            value={form.payment_mode}
+            onChange={(e) => setForm((f) => ({ ...f, payment_mode: e.target.value }))}
+            style={{
+              ...inp(errors.payment_mode),
+              cursor: "pointer",
+              appearance: "none",
+              backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238892A4' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`,
+              backgroundRepeat: "no-repeat",
+              backgroundPosition: "right 12px center",
+              backgroundSize: "14px",
+            }}
+          >
+            <option value="Cash">Select Payment Mode </option>
+            <option value="Cash">💵 Cash</option>
+            <option value="Bank Transfer">🏦 Bank Transfer</option>
+            <option value="UPI">📱 UPI</option>
+            <option value="Cheque">📝 Cheque</option>
+            <option value="Card">💳 Card (Debit/Credit)</option>
+            <option value="Online Payment Gateway">🌐 Online Payment Gateway</option>
+            <option value="Wallet">👛 Wallet</option>
+          </select>
+          <ErrMsg msg={errors.payment_mode} />
+        </div>
 
-                  <div>
-                    <Label required>Added By</Label>
-                    <input
-                      value={form.added_by_name}
-                      onChange={(e) =>
-                        setForm((f) => ({
-                          ...f,
-                          added_by_name: e.target.value,
-                        }))
-                      }
-                      placeholder="Your name"
-                      style={inp(errors.added_by_name)}
-                    />
-                    <ErrMsg msg={errors.added_by_name} />
-                  </div>
+        <div>
+          <Label required>Expense Date</Label>
+          <input
+            type="date"
+            value={form.expense_date}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, expense_date: e.target.value }))
+            }
+            style={inp(errors.expense_date)}
+          />
+          <ErrMsg msg={errors.expense_date} />
+        </div>
+      </>
+    )}
 
-                  <div>
-                    <Label>Receipt Upload</Label>
-                    <div
-                      onClick={() => fileRef.current?.click()}
-                      style={{
-                        border: "1.5px dashed #3B5BDB",
-                        borderRadius: 10,
-                        padding: "9px 12px",
-                        background: receiptPreview ? "#EEF1FB" : "#F8FAFF",
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 8,
-                        height: 41,
-                        boxSizing: "border-box",
-                      }}
-                    >
-                      <svg
-                        width="14"
-                        height="14"
-                        fill="none"
-                        stroke={receiptPreview ? "#3B5BDB" : "#B0BAC9"}
-                        strokeWidth="2"
-                        viewBox="0 0 24 24"
-                      >
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                        <polyline points="17,8 12,3 7,8" />
-                        <line x1="12" y1="3" x2="12" y2="15" />
-                      </svg>
-                      <span
-                        style={{
-                          fontSize: 12,
-                          color: receiptPreview ? "#3B5BDB" : "#B0BAC9",
-                          fontWeight: receiptPreview ? 600 : 400,
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                          flex: 1,
-                        }}
-                      >
-                        {receiptPreview || "Upload receipt / bill"}
-                      </span>
-                      {receiptPreview && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setReceiptFile(null);
-                            setReceiptPreview("");
-                          }}
-                          style={{
-                            background: "none",
-                            border: "none",
-                            cursor: "pointer",
-                            color: "#8892A4",
-                            fontSize: 15,
-                            lineHeight: 1,
-                          }}
-                        >
-                          ×
-                        </button>
-                      )}
-                      <input
-                        ref={fileRef}
-                        type="file"
-                        accept="image/*,.pdf"
-                        onChange={handleFile}
-                        style={{ display: "none" }}
-                      />
-                    </div>
-                  </div>
+    <div>
+      <Label>Vendor Name</Label>
+      <input
+        type="text"
+        value={form.vendor_name || ""}
+        onChange={(e) => setForm((f) => ({ ...f, vendor_name: e.target.value }))}
+        placeholder="Vendor/supplier name (e.g., Reliance Digital, Local Kirana)"
+        style={inp()}
+      />
+    </div>
 
-                  <div style={{ gridColumn: "1/-1" }}>
-                    <Label>Notes</Label>
-                    <textarea
-                      value={form.notes}
-                      onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-                      placeholder="Additional notes…"
-                      rows={2}
-                      style={{
-                        ...inp(),
-                        resize: "vertical",
-                        minHeight: 60,
-                        fontFamily: "inherit",
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
+    {/* Added By - Always visible */}
+    <div>
+      <Label required>Added By</Label>
+      <input
+        value={form.added_by_name}
+        onChange={(e) =>
+          setForm((f) => ({
+            ...f,
+            added_by_name: e.target.value,
+          }))
+        }
+        placeholder="Your name"
+        style={inp(errors.added_by_name)}
+      />
+      <ErrMsg msg={errors.added_by_name} />
+    </div>
+
+    <div>
+      <Label>Receipt Upload</Label>
+      <div
+        onClick={() => fileRef.current?.click()}
+        style={{
+          border: "1.5px dashed #3B5BDB",
+          borderRadius: 10,
+          padding: "9px 12px",
+          background: receiptPreview ? "#EEF1FB" : "#F8FAFF",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          height: 41,
+          boxSizing: "border-box",
+        }}
+      >
+        <svg
+          width="14"
+          height="14"
+          fill="none"
+          stroke={receiptPreview ? "#3B5BDB" : "#B0BAC9"}
+          strokeWidth="2"
+          viewBox="0 0 24 24"
+        >
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+          <polyline points="17,8 12,3 7,8" />
+          <line x1="12" y1="3" x2="12" y2="15" />
+        </svg>
+        <span
+          style={{
+            fontSize: 12,
+            color: receiptPreview ? "#3B5BDB" : "#B0BAC9",
+            fontWeight: receiptPreview ? 600 : 400,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            flex: 1,
+          }}
+        >
+          {receiptPreview || "Upload receipt / bill"}
+        </span>
+        {receiptPreview && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setReceiptFile(null);
+              setReceiptPreview("");
+            }}
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              color: "#8892A4",
+              fontSize: 15,
+              lineHeight: 1,
+            }}
+          >
+            ×
+          </button>
+        )}
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*,.pdf"
+          onChange={handleFile}
+          style={{ display: "none" }}
+        />
+      </div>
+    </div>
+
+    <div style={{ gridColumn: "1/-1" }}>
+      <Label>Notes</Label>
+      <textarea
+        value={form.notes}
+        onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+        placeholder="Additional notes…"
+        rows={2}
+        style={{
+          ...inp(),
+          resize: "vertical",
+          minHeight: 60,
+          fontFamily: "inherit",
+        }}
+      />
+    </div>
+  </div>
+</div>
             </div>
 
             {/* Modal footer */}
@@ -2269,7 +2654,14 @@ const filtered = useMemo(
                   })()}
                 </div>
 
-                
+                <div>
+  <div style={{ fontSize: 10, color: "#8892A4", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 3 }}>
+    Vendor Name
+  </div>
+  <div style={{ fontSize: 13, color: "#374151", fontWeight: 500 }}>
+    {viewItem.vendor_name || "—"}
+  </div>
+</div>
 
                 {/* Amount */}
                 <div>
@@ -2765,6 +3157,332 @@ const filtered = useMemo(
           </div>
         </div>
       )}
+
+{/* Enhanced Payment Modal with Fixed Header/Footer */}
+{paymentModal.open && paymentModal.expense && (
+  <div
+    style={{
+      position: "fixed",
+      inset: 0,
+      background: "rgba(0,0,0,0.6)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      zIndex: 1000,
+      backdropFilter: "blur(3px)",
+    }}
+  >
+    <div
+      style={{
+        background: "#fff",
+        borderRadius: 20,
+        width: "100%",
+        maxWidth: 550,
+        height: "auto",
+        maxHeight: "85vh",
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
+        boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
+      }}
+    >
+      {/* Fixed Header */}
+      <div
+        style={{
+          padding: "20px 24px",
+          background: "linear-gradient(135deg, #1A2B6D, #2D4A8A)",
+          color: "#fff",
+          borderRadius: "20px 20px 0 0",
+          flexShrink: 0,
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <h3 style={{ fontSize: 18, fontWeight: 700, margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
+              <span>💰</span> Make Payment
+            </h3>
+            <p style={{ fontSize: 12, opacity: 0.9, margin: "5px 0 0 0" }}>
+              Record payment for this expense
+            </p>
+          </div>
+          <button
+            onClick={closePaymentModal}
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: 8,
+              border: "1px solid rgba(255,255,255,0.2)",
+              background: "rgba(255,255,255,0.1)",
+              cursor: "pointer",
+              fontSize: 18,
+              color: "#fff",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              transition: "all 0.15s",
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.2)")}
+            onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.1)")}
+          >
+            ×
+          </button>
+        </div>
+      </div>
+
+      {/* Scrollable Middle Content */}
+      <div
+        style={{
+          flex: 1,
+          overflowY: "auto",
+          padding: "20px 24px",
+        }}
+      >
+        {/* Expense Details Section */}
+        <div style={{ marginBottom: 24, borderBottom: "1px solid #F0F3FA", paddingBottom: 16 }}>
+          <h4 style={{ fontSize: 13, fontWeight: 700, color: "#1A2B6D", marginBottom: 12, textTransform: "uppercase", letterSpacing: 0.5 }}>
+            📋 Expense Details
+          </h4>
+          
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            {/* Vendor/Category */}
+            <div>
+              <div style={{ fontSize: 10, color: "#8892A4", fontWeight: 600, marginBottom: 3 }}>Vendor / Category</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "#1A2B6D" }}>
+                {paymentModal.expense.vendor_name || paymentModal.expense.category_name || "—"}
+              </div>
+            </div>
+            
+            {/* Property */}
+            <div>
+              <div style={{ fontSize: 10, color: "#8892A4", fontWeight: 600, marginBottom: 3 }}>Property</div>
+              <div style={{ fontSize: 13, color: "#374151" }}>{paymentModal.expense.property_name || "—"}</div>
+            </div>
+            
+            {/* Expense Date */}
+            <div>
+              <div style={{ fontSize: 10, color: "#8892A4", fontWeight: 600, marginBottom: 3 }}>Expense Date</div>
+              <div style={{ fontSize: 13, color: "#374151" }}>{fmtDate(paymentModal.expense.expense_date)}</div>
+            </div>
+            
+            {/* Added By */}
+            <div>
+              <div style={{ fontSize: 10, color: "#8892A4", fontWeight: 600, marginBottom: 3 }}>Added By</div>
+              <div style={{ fontSize: 13, color: "#374151" }}>{paymentModal.expense.added_by_name || "—"}</div>
+            </div>
+          </div>
+          
+          {/* Notes if exists */}
+          {paymentModal.expense.notes && (
+            <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid #E2E8F4" }}>
+              <div style={{ fontSize: 10, color: "#8892A4", fontWeight: 600, marginBottom: 3 }}>Notes</div>
+              <div style={{ fontSize: 12, color: "#64748B", fontStyle: "italic" }}>{paymentModal.expense.notes}</div>
+            </div>
+          )}
+        </div>
+
+        {/* Payment Summary Section */}
+        <div style={{ marginBottom: 24, borderBottom: "1px solid #F0F3FA", paddingBottom: 16 }}>
+          <h4 style={{ fontSize: 13, fontWeight: 700, color: "#1A2B6D", marginBottom: 12, textTransform: "uppercase", letterSpacing: 0.5 }}>
+            💵 Payment Summary
+          </h4>
+          
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <span style={{ fontSize: 13, color: "#475569" }}>Total Amount:</span>
+            <span style={{ fontSize: 16, fontWeight: 800, color: "#1A2B6D" }}>{fmt(paymentModal.expense.total_amount)}</span>
+          </div>
+          
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <span style={{ fontSize: 13, color: "#475569" }}>Already Paid:</span>
+            <span style={{ fontSize: 16, fontWeight: 800, color: "#1B7A4E" }}>{fmt(paymentModal.expense.total_paid)}</span>
+          </div>
+          
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 10, borderTop: "2px solid #F0F3FA" }}>
+            <span style={{ fontSize: 14, fontWeight: 700, color: "#475569" }}>Remaining Balance:</span>
+            <span style={{ fontSize: 18, fontWeight: 800, color: "#B45309" }}>{fmt(paymentModal.expense.balance)}</span>
+          </div>
+        </div>
+
+        {/* Select Item to Pay */}
+<div style={{ marginBottom: 24, borderBottom: "1px solid #F0F3FA", paddingBottom: 16 }}>
+  <h4 style={{ fontSize: 13, fontWeight: 700, color: "#1A2B6D", marginBottom: 12, textTransform: "uppercase", letterSpacing: 0.5 }}>
+    🎯 Select Item to Pay
+  </h4>
+  
+  <div style={{ marginBottom: 8 }}>
+    <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6, color: "#374151" }}>
+      Pay For <span style={{ color: "#E53E3E" }}>*</span>
+    </label>
+    <select id="selectItem" style={inp()}>
+      <option value="all">All Items (Distribute payment)</option>
+      {paymentModal.expense.items && Array.isArray(paymentModal.expense.items) && paymentModal.expense.items.map((item: any, idx: number) => {
+        const currentPaid = parseFloat(item.paid_amount) || 0;
+        const totalAmount = parseFloat(item.total_amount) || (parseFloat(item.qty) * parseFloat(item.price));
+        const itemBalance = totalAmount - currentPaid;
+        if (itemBalance > 0.01) { // Only show items with balance > 0
+          return (
+            <option key={item.id || idx} value={item.id}>
+              {item.name || `Item ${idx + 1}`} - Balance: {fmt(itemBalance)}
+            </option>
+          );
+        }
+        return null;
+      })}
+    </select>
+    <div style={{ fontSize: 10, color: "#8892A4", marginTop: 4 }}>
+      Select specific item or pay across all items with balance
+    </div>
+  </div>
+</div>
+
+        {/* Payment Form */}
+        <div>
+          <h4 style={{ fontSize: 13, fontWeight: 700, color: "#1A2B6D", marginBottom: 16, textTransform: "uppercase", letterSpacing: 0.5 }}>
+            ✨ Enter Payment Details
+          </h4>
+          
+          {/* Amount to Pay */}
+          <div style={{ marginBottom: 18 }}>
+            <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6, color: "#374151" }}>
+              Amount to Pay <span style={{ color: "#E53E3E" }}>*</span>
+            </label>
+            <div style={{ position: "relative" }}>
+              <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#1A2B6D", fontWeight: 700 }}>₹</span>
+              <input
+                id="paymentAmount"
+                type="number"
+                placeholder="0.00"
+                style={{
+                  ...inp(),
+                  paddingLeft: 28,
+                  fontSize: 14,
+                  fontWeight: 600,
+                }}
+              />
+            </div>
+          </div>
+          
+          {/* Payment Mode */}
+          <div style={{ marginBottom: 18 }}>
+            <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6, color: "#374151" }}>
+              Payment Mode <span style={{ color: "#E53E3E" }}>*</span>
+            </label>
+            <select id="paymentMode" style={inp()}>
+              <option value="">Select Payment Mode</option>
+              <option value="Cash">💵 Cash</option>
+              <option value="Bank Transfer">🏦 Bank Transfer</option>
+              <option value="UPI">📱 UPI</option>
+              <option value="Cheque">📝 Cheque</option>
+              <option value="Card">💳 Card (Debit/Credit)</option>
+              <option value="Online Payment Gateway">🌐 Online Payment Gateway</option>
+              <option value="Wallet">👛 Wallet</option>
+            </select>
+          </div>
+          
+          {/* Payment Date */}
+          <div style={{ marginBottom: 18 }}>
+            <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6, color: "#374151" }}>
+              Payment Date <span style={{ color: "#E53E3E" }}>*</span>
+            </label>
+            <input
+              id="transactionDate"
+              type="date"
+              defaultValue={new Date().toISOString().split("T")[0]}
+              style={inp()}
+            />
+          </div>
+          
+          {/* Reference Number (Optional) */}
+          <div style={{ marginBottom: 18 }}>
+            <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6, color: "#374151" }}>
+              Reference / Transaction ID <span style={{ fontSize: 10, color: "#8892A4", fontWeight: 400 }}>(Optional)</span>
+            </label>
+            <input
+              id="referenceNo"
+              type="text"
+              placeholder="e.g., UTR Number, Cheque No, Transaction ID"
+              style={inp()}
+            />
+          </div>
+          
+          {/* Payment Notes */}
+          <div style={{ marginBottom: 18 }}>
+            <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 6, color: "#374151" }}>
+              Notes <span style={{ fontSize: 10, color: "#8892A4", fontWeight: 400 }}>(Optional)</span>
+            </label>
+            <textarea
+              id="paymentNotes"
+              rows={3}
+              placeholder="Add any additional notes about this payment..."
+              style={{
+                ...inp(),
+                resize: "vertical",
+                fontFamily: "inherit",
+              }}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Fixed Footer */}
+      <div
+        style={{
+          padding: "16px 24px",
+          borderTop: "1px solid #F0F3FA",
+          background: "#fff",
+          display: "flex",
+          gap: 12,
+          flexShrink: 0,
+        }}
+      >
+        <button
+          onClick={closePaymentModal}
+          style={{
+            flex: 1,
+            padding: "12px",
+            border: "1.5px solid #E2E8F0",
+            borderRadius: 10,
+            background: "#F8FAFF",
+            fontSize: 13,
+            fontWeight: 600,
+            color: "#475569",
+            cursor: "pointer",
+            transition: "all 0.15s",
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = "#F1F5F9")}
+          onMouseLeave={(e) => (e.currentTarget.style.background = "#F8FAFF")}
+        >
+          Cancel
+        </button>
+        <button
+          onClick={processPayment}
+          disabled={submitting}
+          style={{
+            flex: 2,
+            padding: "12px",
+            border: "none",
+            borderRadius: 10,
+            background: submitting ? "#B0BAC9" : "linear-gradient(135deg, #1A2B6D, #2D4A8A)",
+            fontSize: 13,
+            fontWeight: 700,
+            color: "#fff",
+            cursor: submitting ? "not-allowed" : "pointer",
+            transition: "all 0.15s",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+          }}
+        >
+          {submitting ? (
+            <>⏳ Processing...</>
+          ) : (
+            <>💰 Confirm Payment</>
+          )}
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
       {/* Responsive CSS */}
       <style>{`

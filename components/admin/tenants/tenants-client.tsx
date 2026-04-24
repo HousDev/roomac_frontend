@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { Badge } from "@/components/ui/badge";
 import { Plus, RefreshCw, Download, CheckCircle, XCircle, UserX, Trash2, Filter, SlidersHorizontal, MoreVertical, Eye, Edit, Key, Mail, Phone, Building, Bed, MapPin, Users, FileText, IndianRupee, CheckSquare, Square, Search, X, Briefcase, Building2, Globe, LogIn, ShieldCheck, Users2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Upload, AlertTriangle, Calendar, Clock, User, } from "lucide-react";
 import { toast } from "sonner";
-import { deleteTenant, bulkDeleteTenants, bulkUpdateTenantStatus, bulkUpdateTenantPortalAccess, updateTenantSimple, createCredential, resetCredential, exportTenantsToExcel, listTenants, type Tenant, type TenantFilters, softDeleteTenant,restoreTenant } from "@/lib/tenantApi";
+import { deleteTenant, bulkDeleteTenants, bulkUpdateTenantStatus, bulkUpdateTenantPortalAccess, updateTenantSimple, createCredential, resetCredential, exportTenantsToExcel, listTenants, type Tenant, type TenantFilters, softDeleteTenant,restoreTenant, getTenant } from "@/lib/tenantApi";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, } from "@/components/ui/sheet";
@@ -490,7 +490,6 @@ const handleSuccess = useCallback(async (updatedData?: Tenant) => {
   setIsViewDialogOpen(false);
   setSelectedTenant(null);
   
-  console.log("handleSuccess called with:", updatedData);
   
   // If we have updated data, update the state immediately
   if (updatedData && updatedData.id) {
@@ -547,7 +546,6 @@ const handleSuccess = useCallback(async (updatedData?: Tenant) => {
       } : null);
     }
     
-    toast.success("Tenant updated successfully!");
   } else {
     // Fallback to full refresh
     await loadTenants();
@@ -2249,16 +2247,28 @@ const columns = useMemo(() => [
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-44">
-                        <DropdownMenuItem className="text-xs p-0">
-        <Link 
-          href={`/admin/tenants/${tenant.id}`}
-          className="flex items-center w-full px-2 py-1.5 text-gray-700 hover:text-blue-600"
-        >
-          <Eye className="w-3 h-3 mr-2 text-gray-500" />
-          View Details
-        </Link>
-
-      </DropdownMenuItem>
+                        <DropdownMenuItem 
+  className="text-xs" 
+  onClick={async () => { 
+    setLoading(true);
+    try {
+      const fullTenant = await getTenant(tenant.id);
+      if (fullTenant.success && fullTenant.data) {
+        setSelectedTenant(fullTenant.data);
+        setIsViewDialogOpen(true);
+      } else {
+        toast.error("Failed to load tenant details");
+      }
+    } catch (error) {
+      console.error("Error loading tenant:", error);
+      toast.error("Failed to load tenant details");
+    } finally {
+      setLoading(false);
+    }
+  }}
+>
+  <Eye className="w-3 h-3 mr-2" /> View Details
+</DropdownMenuItem>
        {/* ✅ ADD THIS RESTORE BUTTON FOR DELETED TAB */}
       {activeTab === 'deleted' && (
         <DropdownMenuItem className="text-xs text-green-600" onClick={() => handleRestoreVacatedTenant(tenant)}>
@@ -2267,11 +2277,31 @@ const columns = useMemo(() => [
       )}
 
 
-                        {can('edit_tenants') &&  activeTab !== 'deleted' && (
-    <DropdownMenuItem className="text-xs" onClick={() => { setSelectedTenant(tenant); setIsEditDialogOpen(true); }}>
-      <Edit className="w-3 h-3 mr-2 text-gray-500" /> Edit
-    </DropdownMenuItem>
-  )}
+                        {can('edit_tenants') && activeTab !== 'deleted' && (
+  <DropdownMenuItem 
+    className="text-xs" 
+    onClick={async () => { 
+      // Fetch full tenant data before opening edit dialog
+      setLoading(true);
+      try {
+        const fullTenant = await getTenant(tenant.id);
+        if (fullTenant.success && fullTenant.data) {
+          setSelectedTenant(fullTenant.data);
+          setIsEditDialogOpen(true);
+        } else {
+          toast.error("Failed to load tenant details");
+        }
+      } catch (error) {
+        console.error("Error loading tenant:", error);
+        toast.error("Failed to load tenant details");
+      } finally {
+        setLoading(false);
+      }
+    }}
+  >
+    <Edit className="w-3 h-3 mr-2" /> Edit
+  </DropdownMenuItem>
+)}
                            {can('manage_tenant_credentials') &&  activeTab !== 'deleted' &&  (
 
                         <DropdownMenuItem className="text-xs" onClick={() => { setSelectedTenant(tenant); setCredentialPassword(""); setIsCredentialDialogOpen(true); }}>
