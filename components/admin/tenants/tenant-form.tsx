@@ -801,7 +801,7 @@ useEffect(() => {
                               tenant.partner_full_name.trim() !== "";
     
     if (hasPartnerDetails) {
-      console.log('Has partner details, showing partner section');
+      
       
       // Set ALL partner details from tenant's partner_* fields
       setPartnerDetails({
@@ -867,7 +867,7 @@ useEffect(() => {
       // Load partner additional documents - IMPORTANT FIX
       if (tenant.partner_additional_documents && Array.isArray(tenant.partner_additional_documents)) {
         setPartnerAdditionalDocuments(tenant.partner_additional_documents);
-        console.log('Loaded partner additional documents:', tenant.partner_additional_documents);
+        
       } else if (tenant.additional_documents && tenant.is_primary_tenant === false) {
         // If this is the partner tenant itself, additional_documents might be in the main field
         setPartnerAdditionalDocuments(tenant.additional_documents || []);
@@ -890,9 +890,7 @@ useEffect(() => {
     fetch(`${import.meta.env.VITE_API_URL || "http://localhost:3000"}/api/tenants/${tenant.id}`)
       .then(res => res.json())
       .then(data => {
-        console.log('DIRECT API RESPONSE:', data.data);
-        console.log('partner_full_name from direct API:', data.data.partner_full_name);
-        console.log('is_couple_booking from direct API:', data.data.is_couple_booking);
+
       });
   }
 }, [tenant?.id]);
@@ -1003,6 +1001,7 @@ useEffect(() => {
   // In tenant-form.tsx - Update handleSubmit
 
 const handleSubmit = async (e: React.FormEvent) => {
+  console.log("Submitting form with data:", formData);
   e.preventDefault();
 
   if (!validateForm()) return;
@@ -1022,21 +1021,25 @@ const handleSubmit = async (e: React.FormEvent) => {
     }, 200);
 
     const formDataToSend = new FormData();
+    
 
     // Append tenant data
-    Object.keys(formData).forEach((key) => {
-      const value = formData[key as keyof typeof formData];
-      if (value !== undefined && value !== null && value !== "") {
-        if ((key === "check_in_date" || key === "date_of_birth") && value) {
-          const dateValue = new Date(String(value));
-          if (!isNaN(dateValue.getTime())) {
-            formDataToSend.append(key, dateValue.toISOString().split("T")[0]);
-          }
-        } else {
-          formDataToSend.append(key, String(value));
-        }
+Object.keys(formData).forEach((key) => {
+  const value = formData[key as keyof typeof formData];
+  if (value !== undefined && value !== null && value !== "") {
+    // Special handling for is_active - convert to 1 or 0
+    if (key === "is_active") {
+      formDataToSend.append(key, value === true || value === "true"  ||  value === 1 || value === "1"? "1" : "0");
+    } else if ((key === "check_in_date" || key === "date_of_birth") && value) {
+      const dateValue = new Date(String(value));
+      if (!isNaN(dateValue.getTime())) {
+        formDataToSend.append(key, dateValue.toISOString().split("T")[0]);
       }
-    });
+    } else {
+      formDataToSend.append(key, String(value));
+    }
+  }
+});
 
     // Append credential info
     if (createCredentials) {
@@ -1161,6 +1164,7 @@ if (partnerDetails.full_name) {
     setUploadProgress(100);
 
     if (result.success) {
+      onSuccess(); // Call onSuccess immediately with the returned tenant data
       // Check if it was a restored tenant
       if (result.restored) {
         toast.success("Existing deleted tenant restored and updated successfully");
@@ -1743,10 +1747,10 @@ if (partnerDetails.full_name) {
                       </p>
                     </div>
                     <Switch
-                      id="is_active"
-                      checked={formData.is_active}
-                      onCheckedChange={(c) => handleInputChange("is_active", c)}
-                    />
+  id="is_active"
+  checked={formData.is_active === true || formData.is_active === 1 || formData.is_active === "1"}
+  onCheckedChange={(checked) => handleInputChange("is_active", checked)}
+/>
                   </div>
 
                   {/* ── Add Partner Details Button (Simple, matches existing UI) ── */}

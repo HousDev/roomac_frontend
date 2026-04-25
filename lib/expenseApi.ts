@@ -123,9 +123,6 @@ export const updateExpense = async (id: number, data: Record<string, any>, file?
 export const deleteExpense = async (id: number) =>
   request(`/api/expenses/${id}`, { method: "DELETE" });
 
-// Add to expenseApi.ts
-
-// In expenseApi.ts
 export const addExpensePayment = async (expenseId: number, data: {
   paid_amount: number;
   payment_mode: string;
@@ -133,6 +130,7 @@ export const addExpensePayment = async (expenseId: number, data: {
   reference_no?: string;
   notes?: string;
   created_by?: string;
+  selected_item_id?: string;  // Add this
 }) => {
   return await request(`/api/expenses/${expenseId}/payment`, {
     method: "POST",

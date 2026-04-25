@@ -76,7 +76,6 @@ const blankForm = () => ({
   vendor_name: "",
   payment_mode: null,
   expense_date: new Date().toISOString().split("T")[0],
-  status: "Pending" as "Pending" | "Partial" | "Paid",
   added_by_name: "",
   notes: "",
   items: [{
@@ -506,6 +505,10 @@ const processPayment = async () => {
   const transaction_date = (document.getElementById('transactionDate') as HTMLInputElement)?.value;
   const reference_no = (document.getElementById('referenceNo') as HTMLInputElement)?.value;
   const payment_notes = (document.getElementById('paymentNotes') as HTMLTextAreaElement)?.value;
+  const selected_item_id = (document.getElementById('selectItem') as HTMLSelectElement)?.value;
+  
+  console.log("Selected item ID:", selected_item_id);
+  console.log("Payment amount:", paid_amount);
   
   if (!paid_amount || paid_amount <= 0) {
     toast.error("Please enter a valid amount");
@@ -532,11 +535,12 @@ const processPayment = async () => {
       reference_no,
       notes: payment_notes,
       created_by: user?.name,
+      selected_item_id: selected_item_id,  // Send the selected item ID
     });
     
     toast.success(`Payment of ${fmt(paid_amount)} recorded successfully`);
     closePaymentModal();
-    await loadExpenses(); // Refresh the list
+    await loadExpenses();
     
   } catch (err: any) {
     console.error("Payment error:", err);
@@ -545,8 +549,6 @@ const processPayment = async () => {
     setSubmitting(false);
   }
 };
-
-
 
   
 
@@ -706,18 +708,12 @@ function openEdit(exp: any) {
   setShowModal(true);
 }
 
-/* ── Validate ──────────────────────────────────────────────────────────── */
 function validate() {
   const e: Record<string, string> = {};
   if (!form.property_id) e.property_id = "Required";
   if (!form.category_id) e.category_id = "Required";
   if (!form.expense_date) e.expense_date = "Required";
   if (!form.added_by_name?.trim()) e.added_by_name = "Required";
-  
-  // Only validate payment_mode when status is "Paid"
-  if (form.status === "Paid" && !form.payment_mode) {
-    e.payment_mode = "Required";
-  }
   
   const it = itemsTotal(form.items);
   if (!form.amount && it === 0) e.amount = "Enter amount or add items";
@@ -759,23 +755,20 @@ async function save() {
     const totalPaid = updatedItems.reduce((sum, i) => sum + i.paid_amount, 0);
     const balance = totalAmount - totalPaid;
     
-    // Determine overall expense status
-    let expenseStatus = "Pending";
-    if (balance === 0 && totalPaid > 0) expenseStatus = "Paid";
-    else if (totalPaid > 0 && balance > 0) expenseStatus = "Partial";
-    else expenseStatus = "Pending";
-
+    // Status will be calculated by backend based on payments
     const payload = {
       ...form,
       total_amount: totalAmount,
       total_paid: totalPaid,
       balance: balance,
-      status: expenseStatus,
       items: updatedItems,
       paid_by_staff_id: null,
       paid_by_name: form.payment_mode,
       vendor_name: form.vendor_name,
     };
+    
+    // Remove status from payload - backend will calculate it
+    delete payload.status;
 
     if (editId) {
       await updateExpense(editId, payload, receiptFile);
@@ -1563,36 +1556,36 @@ const computedStats = {
             </td>
 
             {/* Status */}
-            <td style={{ padding: "10px 8px" }}>
-              <span
-                style={{
-                  background:
-                    exp.status === "Paid"
-                      ? "#DCFCE7"
-                      : exp.status === "Partial"
-                      ? "#FEF3C7"
-                      : "#FEF2F2",
-                  color:
-                    exp.status === "Paid"
-                      ? "#166534"
-                      : exp.status === "Partial"
-                      ? "#92400E"
-                      : "#991B1B",
-                  padding: "3px 8px",
-                  borderRadius: 12,
-                  fontSize: 10,
-                  fontWeight: 600,
-                  whiteSpace: "nowrap",
-                  display: "inline-block",
-                }}
-              >
-                {exp.status === "Paid" 
-                  ? "✓ Paid" 
-                  : exp.status === "Partial" 
-                  ? "⟳ Partial" 
-                  : "⏳ Pending"}
-              </span>
-            </td>
+<td style={{ padding: "10px 8px" }}>
+  <span
+    style={{
+      background:
+        exp.status === "Paid"
+          ? "#DCFCE7"
+          : exp.status === "Partial"
+          ? "#FEF3C7"
+          : "#FEF2F2",
+      color:
+        exp.status === "Paid"
+          ? "#166534"
+          : exp.status === "Partial"
+          ? "#92400E"
+          : "#991B1B",
+      padding: "3px 8px",
+      borderRadius: 12,
+      fontSize: 10,
+      fontWeight: 600,
+      whiteSpace: "nowrap",
+      display: "inline-block",
+    }}
+  >
+    {exp.status === "Paid" 
+      ? "✓ Paid" 
+      : exp.status === "Partial" 
+      ? "⟳ Partial" 
+      : "⏳ Unpaid"}
+  </span>
+</td>
 
             {/* Added By */}
             <td
@@ -2207,7 +2200,7 @@ const computedStats = {
   </div>
 </div>
 
-              {/* SECTION 3 — Payment Details */}
+{/* SECTION 3 — Payment Details */}
 <div style={{ marginBottom: 4 }}>
   <SectionHead n="3" title="Payment Details" />
   <div
@@ -2249,85 +2242,47 @@ const computedStats = {
       <ErrMsg msg={errors.amount} />
     </div>
 
-    
-
-    {/* Status Field - Moved here */}
+    {/* Paid Through - Payment Mode */}
     <div>
-      <Label required>Status</Label>
-      <div style={{ display: "flex", gap: 8, height: 41 }}>
-        {(["Pending", "Paid"] as const).map((s) => {
-          const active = form.status === s;
-          const col =
-            s === "Paid"
-              ? { border: "#43A047", bg: "#E8F5E9", text: "#1B7A4E" }
-              : { border: "#FFB300", bg: "#FFF8E1", text: "#B45309" };
-          return (
-            <button
-              key={s}
-              onClick={() => setForm((f) => ({ ...f, status: s }))}
-              style={{
-                flex: 1,
-                border: `1.5px solid ${active ? col.border : "#E2E8F4"}`,
-                borderRadius: 10,
-                background: active ? col.bg : "#F8FAFF",
-                fontSize: 12,
-                fontWeight: 700,
-                color: active ? col.text : "#8892A4",
-                cursor: "pointer",
-                transition: "all .15s",
-              }}
-            >
-              {s === "Paid" ? "✓ Paid" : "⏳ Pending"}
-            </button>
-          );
-        })}
-      </div>
+      <Label required>Paid Through</Label>
+      <select
+        value={form.payment_mode || ""}
+        onChange={(e) => setForm((f) => ({ ...f, payment_mode: e.target.value }))}
+        style={{
+          ...inp(errors.payment_mode),
+          cursor: "pointer",
+          appearance: "none",
+          backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238892A4' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`,
+          backgroundRepeat: "no-repeat",
+          backgroundPosition: "right 12px center",
+          backgroundSize: "14px",
+        }}
+      >
+        <option value="">Select Payment Mode</option>
+        <option value="Cash">💵 Cash</option>
+        <option value="Bank Transfer">🏦 Bank Transfer</option>
+        <option value="UPI">📱 UPI</option>
+        <option value="Cheque">📝 Cheque</option>
+        <option value="Card">💳 Card (Debit/Credit)</option>
+        <option value="Online Payment Gateway">🌐 Online Payment Gateway</option>
+        <option value="Wallet">👛 Wallet</option>
+      </select>
+      <ErrMsg msg={errors.payment_mode} />
     </div>
 
-    {/* Conditionally show Payment Mode and Expense Date only when status is "Paid" */}
-    {form.status === "Paid" && (
-      <>
-        <div>
-          <Label required>Paid Through</Label>
-          <select
-            value={form.payment_mode}
-            onChange={(e) => setForm((f) => ({ ...f, payment_mode: e.target.value }))}
-            style={{
-              ...inp(errors.payment_mode),
-              cursor: "pointer",
-              appearance: "none",
-              backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238892A4' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`,
-              backgroundRepeat: "no-repeat",
-              backgroundPosition: "right 12px center",
-              backgroundSize: "14px",
-            }}
-          >
-            <option value="Cash">Select Payment Mode </option>
-            <option value="Cash">💵 Cash</option>
-            <option value="Bank Transfer">🏦 Bank Transfer</option>
-            <option value="UPI">📱 UPI</option>
-            <option value="Cheque">📝 Cheque</option>
-            <option value="Card">💳 Card (Debit/Credit)</option>
-            <option value="Online Payment Gateway">🌐 Online Payment Gateway</option>
-            <option value="Wallet">👛 Wallet</option>
-          </select>
-          <ErrMsg msg={errors.payment_mode} />
-        </div>
-
-        <div>
-          <Label required>Expense Date</Label>
-          <input
-            type="date"
-            value={form.expense_date}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, expense_date: e.target.value }))
-            }
-            style={inp(errors.expense_date)}
-          />
-          <ErrMsg msg={errors.expense_date} />
-        </div>
-      </>
-    )}
+    {/* Expense Date */}
+    <div>
+      <Label required>Expense Date</Label>
+      <input
+        type="date"
+        value={form.expense_date}
+        onChange={(e) =>
+          setForm((f) => ({ ...f, expense_date: e.target.value }))
+        }
+        style={inp(errors.expense_date)}
+      />
+      <ErrMsg msg={errors.expense_date} />
+    </div>
 
     <div>
       <Label>Vendor Name</Label>
@@ -2335,7 +2290,7 @@ const computedStats = {
         type="text"
         value={form.vendor_name || ""}
         onChange={(e) => setForm((f) => ({ ...f, vendor_name: e.target.value }))}
-        placeholder="Vendor/supplier name (e.g., Reliance Digital, Local Kirana)"
+        placeholder="Vendor/supplier name"
         style={inp()}
       />
     </div>
@@ -3302,7 +3257,7 @@ const computedStats = {
           </div>
         </div>
 
-        {/* Select Item to Pay */}
+{/* Select Item to Pay */}
 <div style={{ marginBottom: 24, borderBottom: "1px solid #F0F3FA", paddingBottom: 16 }}>
   <h4 style={{ fontSize: 13, fontWeight: 700, color: "#1A2B6D", marginBottom: 12, textTransform: "uppercase", letterSpacing: 0.5 }}>
     🎯 Select Item to Pay
@@ -3318,9 +3273,9 @@ const computedStats = {
         const currentPaid = parseFloat(item.paid_amount) || 0;
         const totalAmount = parseFloat(item.total_amount) || (parseFloat(item.qty) * parseFloat(item.price));
         const itemBalance = totalAmount - currentPaid;
-        if (itemBalance > 0.01) { // Only show items with balance > 0
+        if (itemBalance > 0.01) {
           return (
-            <option key={item.id || idx} value={item.id}>
+            <option key={item.id || idx} value={String(item.id)}>
               {item.name || `Item ${idx + 1}`} - Balance: {fmt(itemBalance)}
             </option>
           );
