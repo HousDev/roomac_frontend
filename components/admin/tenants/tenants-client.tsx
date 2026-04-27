@@ -485,6 +485,7 @@ const handleBulkDelete = useCallback(async (selectedIds: string[]) => {
   }, [loadTenants]);
 
 const handleSuccess = useCallback(async (updatedData?: Tenant) => {
+  console.log("Handling success with updated data:", updatedData);
   setIsAddDialogOpen(false);
   setIsEditDialogOpen(false);
   setIsViewDialogOpen(false);
@@ -2099,8 +2100,6 @@ const columns = useMemo(() => [
                     </button>
                   </td>
 
-                  {/* Name Column */}
-
 {/* Name Column */}
 <td className="px-3 py-2.5 cursor-pointer" >
    <Link 
@@ -2134,7 +2133,6 @@ const columns = useMemo(() => [
   </Link>
 </td>
 
-                  {/* Contact Column */}
 {/* Contact Column */}
 <td className="px-2 py-2.5">
   <div className="space-y-0.5 min-w-0">
@@ -2247,27 +2245,10 @@ const columns = useMemo(() => [
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-44">
-                        <DropdownMenuItem 
-  className="text-xs" 
-  onClick={async () => { 
-    setLoading(true);
-    try {
-      const fullTenant = await getTenant(tenant.id);
-      if (fullTenant.success && fullTenant.data) {
-        setSelectedTenant(fullTenant.data);
-        setIsViewDialogOpen(true);
-      } else {
-        toast.error("Failed to load tenant details");
-      }
-    } catch (error) {
-      console.error("Error loading tenant:", error);
-      toast.error("Failed to load tenant details");
-    } finally {
-      setLoading(false);
-    }
-  }}
->
-  <Eye className="w-3 h-3 mr-2" /> View Details
+                        <DropdownMenuItem className="text-xs" asChild>
+  <Link href={`/admin/tenants/${tenant.id}`}>
+    <Eye className="w-3 h-3 mr-2" /> View Details
+  </Link>
 </DropdownMenuItem>
        {/* ✅ ADD THIS RESTORE BUTTON FOR DELETED TAB */}
       {activeTab === 'deleted' && (

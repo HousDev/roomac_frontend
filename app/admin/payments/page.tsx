@@ -521,34 +521,35 @@ const formatCurrency = (amount: number) => {
   };
 
   // Fetch rooms by property
-  const fetchRoomsByProperty = async (propertyId: string) => {
-    if (!propertyId) {
-      setRooms([]);
-      setFilteredRooms([]);
-      return;
-    }
+const fetchRoomsByProperty = async (propertyId: string) => {
+  if (!propertyId) {
+    setRooms([]);
+    setFilteredRooms([]);
+    return;
+  }
 
-    setLoadingRooms(true);
-    try {
-      const response = await fetch(`/api/rooms/property/${propertyId}`);
-      const data = await response.json();
-      if (data.success) {
-        setRooms(data.data);
-        // Filter rooms based on roomSearch state
-        const filtered = data.data.filter((room: any) =>
-          room.room_number
-            .toString()
-            .toLowerCase()
-            .includes(roomSearch.toLowerCase()),
-        );
-        setFilteredRooms(filtered);
-      }
-    } catch (error) {
-      console.error("Error fetching rooms:", error);
-    } finally {
-      setLoadingRooms(false);
+  setLoadingRooms(true);
+  try {
+    const response = await fetch(`/api/rooms/property/${propertyId}`);
+    const data = await response.json();
+    if (data.success) {
+      setRooms(data.data);
+      // Filter rooms based on roomSearch state
+      const filtered = data.data.filter((room: any) =>
+        room.room_number
+          .toString()
+          .toLowerCase()
+          .includes(roomSearch.toLowerCase()),
+      );
+      setFilteredRooms(filtered);
+      console.log(`✅ Loaded ${data.data.length} rooms for property ${propertyId}`);
     }
-  };
+  } catch (error) {
+    console.error("Error fetching rooms:", error);
+  } finally {
+    setLoadingRooms(false);
+  }
+};
 
   // Then use it in fetchTenantsByRoom:
   const fetchTenantsByRoom = async (roomId: string) => {
@@ -617,15 +618,24 @@ const formatCurrency = (amount: number) => {
   }, []);
 
   const loadTenants = async () => {
-    try {
-      const response = await listTenants({ is_active: true });
-      if (response.success && response.data) {
-        setTenants(response.data);
-      }
-    } catch (error) {
-      console.error("Error loading tenants:", error);
+  try {
+    // Use listTenantsOptimized or listTenantsWithAssignments to get full tenant data
+    const response = await listTenants({ is_active: true, pageSize: 500 });
+    if (response.success && response.data) {
+      setTenants(response.data);
+      console.log("Loaded tenants:", response.data.map(t => ({ 
+        id: t.id, 
+        name: t.full_name,
+        property_id: t.current_assignment?.property_id,
+        room_id: t.current_assignment?.room_id,
+        property_name: t.current_assignment?.property_name,
+        room_number: t.current_assignment?.room_number
+      })));
     }
-  };
+  } catch (error) {
+    console.error("Error loading tenants:", error);
+  }
+};
 
   const loadStats = async () => {
     try {
@@ -823,24 +833,128 @@ const handleDemandTenantSelect = async (tenantId: string) => {
   }
 };
 
-  // Add this function to handle receipt preview
-  const handlePreviewReceipt = async (receiptId: number) => {
-    //  console.log('Preview receipt clicked:', receiptId);
-    try {
-      const response = await paymentApi.getReceiptById(receiptId);
-      // console.log('Receipt data response:', response);
-      if (response.success) {
-        setSelectedReceipt(response.data);
-        setIsReceiptPreviewOpen(true);
-        // console.log('Receipt preview opened');
-      } else {
-        toast.error("Failed to load receipt");
-      }
-    } catch (error) {
-      console.error("Error loading receipt:", error);
-      toast.error("Failed to load receipt");
+const handlePreviewReceipt = async (receiptId: number) => {
+  try {
+    toast.loading("Loading receipt...", { id: "receipt-preview" });
+    
+    const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/payments/receipts/${receiptId}/preview-pdf`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/pdf',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to load receipt');
     }
-  };
+
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    
+    // Create modal with smaller width
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+    `;
+    
+    const modalContent = document.createElement('div');
+    modalContent.style.cssText = `
+      width: 720px;
+      max-width: 90vw;
+      height: 90vh;
+      background: white;
+      border-radius: 12px;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+    `;
+    
+    const headerBar = document.createElement('div');
+    headerBar.style.cssText = `
+      padding: 12px 20px;
+      background: #1a3c6e;
+      color: white;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+    `;
+    headerBar.innerHTML = `
+      <span style="font-weight: 600; font-size: 14px;">Payment Receipt</span>
+      <button id="closePreviewBtn" style="background: none; border: none; color: white; cursor: pointer; font-size: 20px;">&times;</button>
+    `;
+    
+    const pdfViewer = document.createElement('iframe');
+    pdfViewer.style.cssText = `
+      width: 100%;
+      flex: 1;
+      border: none;
+    `;
+    pdfViewer.src = url;
+    
+    modalContent.appendChild(headerBar);
+    modalContent.appendChild(pdfViewer);
+    modal.appendChild(modalContent);
+    document.body.appendChild(modal);
+    
+    // Add download button outside
+    const downloadBtn = document.createElement('button');
+    downloadBtn.innerHTML = 'Download PDF';
+    downloadBtn.style.cssText = `
+      margin-top: 16px;
+      padding: 8px 20px;
+      background: #1a3c6e;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 500;
+    `;
+    downloadBtn.onclick = () => {
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `receipt-${receiptId}.pdf`;
+      link.click();
+    };
+    modal.appendChild(downloadBtn);
+    
+    const closeBtn = headerBar.querySelector('#closePreviewBtn');
+    closeBtn?.addEventListener('click', () => {
+      URL.revokeObjectURL(url);
+      modal.remove();
+      toast.dismiss("receipt-preview");
+    });
+    
+    modal.onclick = (e) => {
+      if (e.target === modal) {
+        URL.revokeObjectURL(url);
+        modal.remove();
+        toast.dismiss("receipt-preview");
+      }
+    };
+    
+    toast.dismiss("receipt-preview");
+    toast.success("Receipt loaded");
+    
+  } catch (error) {
+    console.error("Error previewing receipt:", error);
+    toast.dismiss("receipt-preview");
+    toast.error("Failed to load receipt preview");
+  }
+};
 
   // In your PaymentsPage component - Simplified handleAddPayment
 
@@ -864,14 +978,37 @@ const handleDemandTenantSelect = async (tenantId: string) => {
         transaction_id: newPayment.transaction_id || null,
         payment_date: newPayment.payment_date,
         remark: newPayment.remark || null,
+        source: "admin", 
       };
 
-      // Add month/year for the payment record itself
+       // ✅ FIX: Use selectedPaymentMonth instead of current date for rent payments
+    if (newPayment.payment_type === "rent") {
+      if (selectedPaymentMonth && selectedPaymentMonth !== "current") {
+        // Selected a specific month from dropdown
+        const [year, month] = selectedPaymentMonth.split("-");
+        const monthNames = [
+          "January", "February", "March", "April", "May", "June",
+          "July", "August", "September", "October", "November", "December"
+        ];
+        paymentData.month = monthNames[parseInt(month) - 1];
+        paymentData.year = parseInt(year);
+      } else if (selectedPaymentMonth === "current") {
+        // Current month
+        const currentDate = new Date();
+        paymentData.month = currentDate.toLocaleString("default", { month: "long" });
+        paymentData.year = currentDate.getFullYear();
+      } else {
+        // Fallback to current month
+        const currentDate = new Date();
+        paymentData.month = currentDate.toLocaleString("default", { month: "long" });
+        paymentData.year = currentDate.getFullYear();
+      }
+    } else {
+      // For security deposit or other payment types, use current date
       const currentDate = new Date();
-      paymentData.month = currentDate.toLocaleString("default", {
-        month: "long",
-      });
+      paymentData.month = currentDate.toLocaleString("default", { month: "long" });
       paymentData.year = currentDate.getFullYear();
+    }
 
       console.log("Sending payment data:", paymentData);
 
@@ -959,23 +1096,35 @@ const handleDemandTenantSelect = async (tenantId: string) => {
     }
   };
 
-  const resetPaymentForm = () => {
-    setPaymentFormData(null);
-    setProofFile(null);
-    setProofPreview(null);
-    setSelectedPaymentMonth(""); // Reset month selection
-    setNewPayment({
-      tenant_id: "",
-      booking_id: null,
-      payment_type: "rent",
-      amount: "",
-      payment_mode: "cash",
-      bank_name: "",
-      transaction_id: "",
-      payment_date: new Date().toISOString().split("T")[0],
-      remark: "",
-    });
-  };
+const resetPaymentForm = () => {
+  // Reset form data
+  setPaymentFormData(null);
+  setSecurityDepositInfo(null);
+  setProofFile(null);
+  setProofPreview(null);
+  setSelectedPaymentMonth("");
+  
+  // ✅ RESET ALL SELECTION STATES
+  setSelectedPropertyId("");
+  setSelectedRoomId("");
+  setFilteredTenants([]);
+  setPropertySearch("");
+  setRoomSearch("");
+  
+  
+  // Reset newPayment to default
+  setNewPayment({
+    tenant_id: "",
+    booking_id: null,
+    payment_type: "rent",
+    amount: "",
+    payment_mode: "cash",
+    bank_name: "",
+    transaction_id: "",
+    payment_date: new Date().toISOString().split("T")[0],
+    remark: "",
+  });
+};
 
   // Reset demand payment form
   const resetDemandPaymentForm = () => {
@@ -1021,10 +1170,56 @@ const handleDemandTenantSelect = async (tenantId: string) => {
     }
   };
 
+const prefillAndOpenPaymentForm = async (tenantId: number, propertyId: number, roomId: number) => {
+  try {
+    toast.loading("Loading payment form...", { id: "prefill-loading" });
+    
+    console.log("Prefill started with:", { tenantId, propertyId, roomId });
+    console.log("Current properties length:", properties.length);
+    
+    // ✅ First, fetch properties if they are empty
+    if (properties.length === 0) {
+      console.log("Fetching properties...");
+      await fetchProperties();
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+    
+    // ✅ Set selections
+    setSelectedPropertyId(propertyId.toString());
+    setSelectedRoomId(roomId.toString());
+    setNewPayment(prev => ({ ...prev, tenant_id: tenantId.toString() }));
+    
+    // ✅ Load rooms for this property
+    console.log("Fetching rooms for property:", propertyId);
+    await fetchRoomsByProperty(propertyId.toString());
+    
+    // ✅ Load tenants for this room
+    console.log("Fetching tenants for room:", roomId);
+    await fetchTenantsByRoom(roomId.toString());
+    
+    // ✅ Wait for state to update
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    // ✅ Load tenant payment data
+    console.log("Loading tenant payment data for:", tenantId);
+    await handleTenantSelect(tenantId.toString());
+    
+    toast.dismiss("prefill-loading");
+    setIsAddPaymentOpen(true);
+    
+  } catch (error) {
+    console.error("Error pre-filling payment form:", error);
+    toast.dismiss("prefill-loading");
+    toast.error("Failed to load tenant data");
+    setIsAddPaymentOpen(true);
+  }
+};
+
   // Add useEffect to fetch rejection reasons
   useEffect(() => {
     fetchRejectionReasons();
   }, []);
+
 
   // Function to fetch rejection reasons
   const fetchRejectionReasons = async () => {
@@ -1150,6 +1345,8 @@ const groupPaymentsByTenant = (payments: any[]) => {
         security_deposit: completeTenant?.security_deposit || 0,
         room_info: completeTenant?.room_info,
         email: completeTenant?.email,
+         property_id: completeTenant?.current_assignment?.property_id || completeTenant?.property_id,
+        room_id: completeTenant?.current_assignment?.room_id || completeTenant?.room_id,
       };
     }
 
@@ -1879,16 +2076,20 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
             <div className="flex justify-end gap-2">
               {can("create_payments") && (
                 <Button
-                  size="sm"
-                  className="h-8 bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white shadow-sm flex-1 sm:flex-none"
-                  onClick={() => {
-                    resetPaymentForm(); // Reset form first
-                    setIsAddPaymentOpen(true);
-                  }}
-                >
-                  <Plus className="h-3.5 w-3.5 mr-1" />
-                  <span className="text-xs">Add Payment</span>
-                </Button>
+  size="sm"
+  className="h-8 bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white shadow-sm flex-1 sm:flex-none"
+  onClick={async () => {
+    // ✅ If properties are empty, fetch them first
+    if (properties.length === 0) {
+      await fetchProperties();
+    }
+    resetPaymentForm();
+    setIsAddPaymentOpen(true);
+  }}
+>
+  <Plus className="h-3.5 w-3.5 mr-1" />
+  <span className="text-xs">Add Payment</span>
+</Button>
               )}
               {can("send_demand_payment") && (
                 <Button
@@ -1962,6 +2163,15 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
               showFilterSidebar={showPaymentFilterSidebar}
               setShowFilterSidebar={setShowPaymentFilterSidebar}
               onLedgerReport={handleLedgerReport}
+              fetchRoomsByProperty={fetchRoomsByProperty}
+              fetchTenantsByRoom={fetchTenantsByRoom}  
+  handleTenantSelect={handleTenantSelect}
+  setSelectedPropertyId={setSelectedPropertyId}
+  setSelectedRoomId={setSelectedRoomId}
+  setNewPayment={setNewPayment}
+  fetchProperties={fetchProperties}
+  properties={properties}
+  prefillAndOpenPaymentForm={prefillAndOpenPaymentForm}
             />
           </TabsContent>
 
@@ -2520,7 +2730,13 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
       </div>
 
       {/* Add Payment Dialog - Your existing code with horizontal layout */}
-      <Dialog open={isAddPaymentOpen} onOpenChange={setIsAddPaymentOpen}>
+      <Dialog open={isAddPaymentOpen} onOpenChange={(open) => {
+  setIsAddPaymentOpen(open);
+  if (!open) {
+    // Reset everything when dialog closes
+    resetPaymentForm();
+  }
+}}>
         <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] sm:max-h-[85vh] p-0 gap-0 flex flex-col overflow-hidden">
           {/* Header - Fixed */}
           <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-3 rounded-t-lg flex-shrink-0">
@@ -2840,9 +3056,28 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
                     Pay For Month
                   </Label>
                   <Select
-                    value={selectedPaymentMonth}
-                    onValueChange={(value) => setSelectedPaymentMonth(value)}
-                  >
+  value={selectedPaymentMonth}
+  onValueChange={(value) => {
+    setSelectedPaymentMonth(value);
+    if (value && value !== "current" && paymentFormData?.unpaid_months) {
+      const selectedMonth = paymentFormData.unpaid_months.find(
+        (m: any) => m.month_key === value,
+      );
+      if (selectedMonth) {
+        setNewPayment((prev) => ({
+          ...prev,
+          amount: selectedMonth.pending.toString(),
+        }));
+      }
+    } else if (value === "current") {
+      const monthlyRent = Number(tenant?.tenant_rent || tenant?.monthly_rent || 0);
+      setNewPayment((prev) => ({
+        ...prev,
+        amount: monthlyRent.toString(),
+      }));
+    }
+  }}
+>
                     <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
                       <SelectValue placeholder="Select month..." />
                     </SelectTrigger>
@@ -3019,21 +3254,23 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
 
               {/* Date */}
               <div className="space-y-1">
-                <Label className="text-[11px] font-medium text-slate-600">
-                  Transaction Date
-                </Label>
-                <Input
-                  type="date"
-                  value={newPayment.payment_date}
-                  onChange={(e) =>
-                    setNewPayment({
-                      ...newPayment,
-                      payment_date: e.target.value,
-                    })
-                  }
-                  className="h-8 text-xs"
-                />
-              </div>
+  <Label className="text-[11px] font-medium text-slate-600">
+    Transaction Date
+  </Label>
+
+  <Input
+    type="date"
+    value={newPayment.payment_date}
+    max={new Date().toISOString().split("T")[0]}   // 👈 key line
+    onChange={(e) =>
+      setNewPayment({
+        ...newPayment,
+        payment_date: e.target.value,
+      })
+    }
+    className="h-8 text-xs"
+  />
+</div>
 
               {/* Bank Name - conditional */}
               {(newPayment.payment_mode === "bank_transfer" ||
@@ -4378,6 +4615,15 @@ const PaymentsTable = ({
   showFilterSidebar,
   setShowFilterSidebar,
   onLedgerReport,
+   fetchRoomsByProperty,
+   fetchTenantsByRoom, 
+  handleTenantSelect,
+  setSelectedPropertyId,
+  setSelectedRoomId,
+  setNewPayment,
+  fetchProperties,
+  properties,
+  prefillAndOpenPaymentForm,
 }: any) => {
   // Group payments by tenant using the passed function
   const tenantGroups = groupPaymentsByTenant(payments).map((group: any) => ({
@@ -4460,6 +4706,8 @@ const PaymentsTable = ({
 
     return true;
   });
+
+
 
   return (
     <Card
@@ -4912,15 +5160,27 @@ const PaymentsTable = ({
                                 >
                                   <Eye className="h-3.5 w-3.5" />
                                 </Button>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-7 w-7 p-0 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-full"
-                                  onClick={() => setIsAddPaymentOpen(true)}
-                                  title="Add Payment"
-                                >
-                                  <Plus className="h-3.5 w-3.5" />
-                                </Button>
+<Button
+  size="sm"
+  variant="ghost"
+  className="h-7 w-7 p-0 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-full"
+  onClick={async () => {
+    const tenant = tenants.find(t => t.id === group.tenant_id);
+    
+    const propertyId = tenant?.current_assignment?.property_id || group.property_id;
+    const roomId = tenant?.current_assignment?.room_id || group.room_id;
+    
+    if (tenant && propertyId && roomId) {
+      await prefillAndOpenPaymentForm(group.tenant_id, propertyId, roomId);
+    } else {
+      toast.error("Tenant missing property or room information");
+      setIsAddPaymentOpen(true);
+    }
+  }}
+  title="Add Payment"
+>
+  <Plus className="h-3.5 w-3.5" />
+</Button>
                               </div>
                             </TableCell>
                           </TableRow>
@@ -4940,271 +5200,248 @@ const PaymentsTable = ({
                                     </div>
 
                                     <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
-                                      <Table>
-                                        <TableHeader className="bg-slate-50">
-                                          <TableRow>
-                                            <TableHead className="text-[12px] py-2">
-                                              Date
-                                            </TableHead>
-                                            <TableHead className="text-[12px] py-2">
-                                              Amount
-                                            </TableHead>
-                                            <TableHead className="text-[12px] py-2">
-                                              Mode
-                                            </TableHead>
-                                            <TableHead className="text-[12px] py-2">
-                                              Source
-                                            </TableHead>
-                                            <TableHead className="text-[12px] py-2">
-                                              Transaction ID
-                                            </TableHead>
-                                            <TableHead className="text-[12px] py-2">
-                                              Month/Year
-                                            </TableHead>
-                                            <TableHead className="text-[12px] py-2">
-                                              Remark
-                                            </TableHead>
-                                             <TableHead className="text-[12px] py-2">Proof</TableHead>
-                                            <TableHead className="text-[12px] py-2">
-                                              Status
-                                            </TableHead>
-                                            <TableHead className="text-[12px] py-2 text-center">
-                                              Actions
-                                            </TableHead>
-                                          </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                          {group.payments.map(
-                                            (payment: any, index: number) => (
-                                              <TableRow
-                                                key={payment.id}
-                                                className={
-                                                  index % 2 === 0
-                                                    ? "bg-white"
-                                                    : "bg-slate-50/50"
-                                                }
-                                              >
-                                                <TableCell className="py-2 text-[12px] whitespace-nowrap">
-                                                  {format(
-                                                    new Date(
-                                                      payment.payment_date,
-                                                    ),
-                                                    "dd/MM/yy",
-                                                  )}
-                                                </TableCell>
-                                                <TableCell className="py-2 text-[12px] font-medium">
-                                                  ₹
-                                                  {Number(
-                                                    payment.amount,
-                                                  ).toLocaleString()}
-                                                </TableCell>
-                                                <TableCell className="py-2">
-                                                  <div className="flex items-center gap-1">
-                                                    <span className="text-[12px] capitalize">
-                                                      {payment.payment_mode}
-                                                    </span>
-                                                  </div>
-                                                  {payment.bank_name && (
-                                                    <p className="text-[10px] text-slate-500">
-                                                      {payment.bank_name}
-                                                    </p>
-                                                  )}
-                                                </TableCell>
-                                                {/* In the expanded child table, find the Source column */}
-{/* Source Column - Updated to identify booking payments */}
-<TableCell className="py-2">
-  {payment.booking_id ? (
-    // Payment came from online booking (BookingModal)
-    <Badge className="bg-purple-100 text-purple-700 border-purple-200 text-[10px] px-1.5 py-0">
-      <Globe className="h-2.5 w-2.5 mr-0.5 inline" />
-      Online Booking
-    </Badge>
-  ) : payment.source === 'tenant' ? (
-    // Payment came from tenant dashboard
-    <Badge className="bg-blue-100 text-blue-700 border-blue-200 text-[10px] px-1.5 py-0">
-      <Globe className="h-2.5 w-2.5 mr-0.5 inline" />
-      Online Payment (Tenant)
-    </Badge>
-  ) : payment.payment_mode === "online" ? (
-    // Admin manually added online payment
-    <Badge className="bg-orange-100 text-orange-700 border-orange-200 text-[10px] px-1.5 py-0">
-      <Globe className="h-2.5 w-2.5 mr-0.5 inline" />
-      Manual Entry
-    </Badge>
-  ) : (
-    // Cash, cheque, bank_transfer payments from admin
-    <Badge className="bg-orange-100 text-orange-700 border-orange-200 text-[10px] px-1.5 py-0">
-      <User className="h-2.5 w-2.5 mr-0.5 inline" />
-      Manual Entry
-    </Badge>
-  )}
-</TableCell>
-                                                <TableCell className="py-2 text-[12px] font-mono">
-                                                  {payment.transaction_id
-                                                    ? payment.transaction_id.substring(
-                                                        0,
-                                                        8,
-                                                      ) + "..."
-                                                    : "-"}
-                                                </TableCell>
-                                                <TableCell className="py-2 text-[12px]">
-                                                  {payment.month} {payment.year}
-                                                </TableCell>
-                                                <TableCell className="py-2 text-xs max-w-[120px] truncate group relative">
-                                                  <span
-                                                    className="cursor-help"
-                                                    title={
-                                                      payment.remark || "-"
-                                                    }
-                                                  >
-                                                    {payment.remark || "-"}
-                                                  </span>
-                                                </TableCell>
-{/* Proof Column with Thumbnail */}
-<TableCell className="py-2">
-  {payment.payment_proof ? (
-    <div className="flex items-center gap-1">
-      {/* Thumbnail preview for images */}
-      {payment.payment_proof.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
-        <img
-          src={`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}${payment.payment_proof}`}
-          alt="Proof"
-          className="h-8 w-8 object-cover rounded cursor-pointer border hover:shadow-md transition-shadow"
-          onClick={() => {
-            window.open(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}${payment.payment_proof}`, '_blank');
-          }}
-        />
-      ) : (
-        <Button
-          size="sm"
-          variant="ghost"
-          className="h-6 w-6 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-full"
-          onClick={() => {
-            window.open(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}${payment.payment_proof}`, '_blank');
-          }}
-          title="View Proof"
-        >
-          <FileText className="h-3 w-3" />
-        </Button>
-      )}
-    </div>
-  ) : (
-    <span className="text-[10px] text-slate-400">-</span>
-  )}
-</TableCell>
+  <Table>
+    <TableHeader className="bg-slate-50">
+      <TableRow>
+        <TableHead className="text-[12px] py-2">
+          Transaction Date
+        </TableHead>
+        <TableHead className="text-[12px] py-2">
+          Amount
+        </TableHead>
+        <TableHead className="text-[12px] py-2">
+          Transaction ID
+        </TableHead>
+        <TableHead className="text-[12px] py-2">
+          Mode
+        </TableHead>
+        <TableHead className="text-[12px] py-2">
+          Month/Year
+        </TableHead>
+        <TableHead className="text-[12px] py-2">
+          Remark
+        </TableHead>
+        <TableHead className="text-[12px] py-2">
+          Proof
+        </TableHead>
+        <TableHead className="text-[12px] py-2">
+          Status
+        </TableHead>
+        <TableHead className="text-[12px] py-2">
+          Source
+        </TableHead>
+        <TableHead className="text-[12px] py-2 text-center">
+          Actions
+        </TableHead>
+      </TableRow>
+    </TableHeader>
+    <TableBody>
+      {group.payments.map(
+        (payment: any, index: number) => (
+          <TableRow
+            key={payment.id}
+            className={
+              index % 2 === 0
+                ? "bg-white"
+                : "bg-slate-50/50"
+            }
+          >
+            {/* Transaction Date - Full year format */}
+            <TableCell className="py-2 text-[12px] whitespace-nowrap">
+              {format(
+                new Date(payment.payment_date),
+                "dd/MM/yyyy",  // Changed from "dd/MM/yy" to "dd/MM/yyyy"
+              )}
+            </TableCell>
+            
+            <TableCell className="py-2 text-[12px] font-medium">
+              ₹
+              {Number(payment.amount).toLocaleString()}
+            </TableCell>
+            
+            
+            
+            <TableCell className="py-2 text-[12px] font-mono">
+              {payment.transaction_id
+                ? payment.transaction_id.substring(0, 8) + "..."
+                : "-"}
+            </TableCell>
 
-                                                <TableCell className="py-2">
-                                                  <PaymentStatusBadge
-                                                    status={
-                                                      payment.status ||
-                                                      "pending"
-                                                    }
-                                                  />
-                                                </TableCell>
-                                                <TableCell className="py-2">
-                                                  {/* Inside the inner table actions column: */}
-                                                  <div className="flex items-center gap-0.5 justify-end">
-                                                    {payment.status ===
-                                                      "approved" &&
-                                                      canViewReceipts && (
-                                                        <Button
-                                                          size="sm"
-                                                          variant="ghost"
-                                                          className="h-6 w-6 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-full"
-                                                          onClick={() => {
-                                                            setActiveTab(
-                                                              "receipts",
-                                                            );
-                                                            setTimeout(
-                                                              () =>
-                                                                onViewReceipt(
-                                                                  payment.id,
-                                                                ),
-                                                              100,
-                                                            );
-                                                          }}
-                                                          title="View Receipt"
-                                                        >
-                                                          <ReceiptIndianRupee className="h-3 w-3" />
-                                                        </Button>
-                                                      )}
-                                                    {(payment.status ===
-                                                      "pending" ||
-                                                      payment.status ===
-                                                        "paid" ||
-                                                      payment.status ===
-                                                        "partial") &&
-                                                      canApprove && (
-                                                        <Button
-                                                          size="sm"
-                                                          variant="ghost"
-                                                          className="h-6 w-6 p-0 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-full"
-                                                          onClick={() =>
-                                                            onApprove(payment)
-                                                          }
-                                                          title="Approve"
-                                                        >
-                                                          <CheckCircle2 className="h-3 w-3" />
-                                                        </Button>
-                                                      )}
-                                                    {(payment.status ===
-                                                      "pending" ||
-                                                      payment.status ===
-                                                        "paid" ||
-                                                      payment.status ===
-                                                        "partial") &&
-                                                      canReject && (
-                                                        <Button
-                                                          size="sm"
-                                                          variant="ghost"
-                                                          className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-full"
-                                                          onClick={() =>
-                                                            onReject(payment)
-                                                          }
-                                                          title="Reject"
-                                                        >
-                                                          <XCircle className="h-3 w-3" />
-                                                        </Button>
-                                                      )}
-                                                    {(payment.status ===
-                                                      "pending" ||
-                                                      payment.status ===
-                                                        "rejected") &&
-                                                      canEdit && (
-                                                        <Button
-                                                          size="sm"
-                                                          variant="ghost"
-                                                          className="h-6 w-6 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-full"
-                                                          onClick={() =>
-                                                            onEdit(payment)
-                                                          }
-                                                          title="Edit"
-                                                        >
-                                                          <Pencil className="h-3 w-3" />
-                                                        </Button>
-                                                      )}
-                                                    {
-                                                      canDelete && (
-                                                        <Button
-                                                          size="sm"
-                                                          variant="ghost"
-                                                          className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-full"
-                                                          onClick={() =>
-                                                            onDelete(payment)
-                                                          }
-                                                          title="Delete"
-                                                        >
-                                                          <Trash2 className="h-3 w-3" />
-                                                        </Button>
-                                                      )}
-                                                  </div>
-                                                </TableCell>
-                                              </TableRow>
-                                            ),
-                                          )}
-                                        </TableBody>
-                                      </Table>
-                                    </div>
+            <TableCell className="py-2">
+              <div className="flex items-center gap-1">
+                <span className="text-[12px] capitalize">
+                  {payment.payment_mode}
+                </span>
+              </div>
+              {payment.bank_name && (
+                <p className="text-[10px] text-slate-500">
+                  {payment.bank_name}
+                </p>
+              )}
+            </TableCell>
+            
+            <TableCell className="py-2 text-[12px]">
+              {payment.month} {payment.year}
+            </TableCell>
+            
+            <TableCell className="py-2 text-xs max-w-[120px] truncate group relative">
+              <span
+                className="cursor-help"
+                title={payment.remark || "-"}
+              >
+                {payment.remark || "-"}
+              </span>
+            </TableCell>
+            
+            {/* Proof Column with Thumbnail */}
+            <TableCell className="py-2">
+              {payment.payment_proof ? (
+                <div className="flex items-center gap-1">
+                  {payment.payment_proof.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+                    <img
+                      src={`${import.meta.env.VITE_API_URL || "http://localhost:3001"}${payment.payment_proof}`}
+                      alt="Proof"
+                      className="h-8 w-8 object-cover rounded cursor-pointer border hover:shadow-md transition-shadow"
+                      onClick={() => {
+                        window.open(
+                          `${import.meta.env.VITE_API_URL || "http://localhost:3001"}${payment.payment_proof}`,
+                          "_blank",
+                        );
+                      }}
+                    />
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 w-6 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-full"
+                      onClick={() => {
+                        window.open(
+                          `${import.meta.env.VITE_API_URL || "http://localhost:3001"}${payment.payment_proof}`,
+                          "_blank",
+                        );
+                      }}
+                      title="View Proof"
+                    >
+                      <FileText className="h-3 w-3" />
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <span className="text-[10px] text-slate-400">-</span>
+              )}
+            </TableCell>
+
+            <TableCell className="py-2">
+              <PaymentStatusBadge
+                status={payment.status || "pending"}
+              />
+            </TableCell>
+            
+            {/* Source Column - Moved after Status */}
+            <TableCell className="py-2">
+              {payment.booking_id ? (
+                <Badge className="bg-purple-100 text-purple-700 border-purple-200 text-[10px] px-1.5 py-0">
+                  <Globe className="h-2.5 w-2.5 mr-0.5 inline" />
+                  Online Booking
+                </Badge>
+              ) : payment.source === "tenant" ? (
+                <Badge className="bg-blue-100 text-blue-700 border-blue-200 text-[10px] px-1.5 py-0">
+                  <Globe className="h-2.5 w-2.5 mr-0.5 inline" />
+                  Online Payment (Tenant)
+                </Badge>
+              ) : payment.payment_mode === "online" ? (
+                <Badge className="bg-orange-100 text-orange-700 border-orange-200 text-[10px] px-1.5 py-0">
+                  <Globe className="h-2.5 w-2.5 mr-0.5 inline" />
+                  Manual Entry
+                </Badge>
+              ) : (
+                <Badge className="bg-orange-100 text-orange-700 border-orange-200 text-[10px] px-1.5 py-0">
+                  <User className="h-2.5 w-2.5 mr-0.5 inline" />
+                  Manual Entry
+                </Badge>
+              )}
+            </TableCell>
+            
+            <TableCell className="py-2">
+  <div className="flex items-center gap-0.5 justify-end">
+    {/* View Receipt - Show for approved or admin-paid payments */}
+    {/* {(payment.status === "approved" ) && canViewReceipts && (
+     <Button
+  size="sm"
+  variant="ghost"
+  className="h-6 w-6 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-full"
+  onClick={() => {
+    if (payment.status === "approved") {
+      handlePreviewReceipt(payment.id);
+    } else {
+      toast.info("Receipt will be available after payment approval");
+    }
+  }}
+  title="View Receipt"
+>
+  <ReceiptIndianRupee className="h-3 w-3" />
+</Button>
+    )} */}
+    
+    {/* Approve Button - Show for pending or partial status */}
+    {(payment.status === "pending" || payment.status === "paid" || payment.status === "partial") && canApprove && (
+      <Button
+        size="sm"
+        variant="ghost"
+        className="h-6 w-6 p-0 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-full"
+        onClick={() => onApprove(payment)}
+        title="Approve"
+      >
+        <CheckCircle2 className="h-3 w-3" />
+      </Button>
+    )}
+    
+    {/* Reject Button - Show for pending or partial status */}
+    {(payment.status === "pending" || payment.status === "paid" || payment.status === "partial") && canReject && (
+      <Button
+        size="sm"
+        variant="ghost"
+        className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-full"
+        onClick={() => onReject(payment)}
+        title="Reject"
+      >
+        <XCircle className="h-3 w-3" />
+      </Button>
+    )}
+    
+    {/* Edit Button - Show ONLY for admin payments (NOT from tenant dashboard) */}
+    {payment.source !== 'tenant'&& (payment.status === "pending" || payment.status === "paid") && canEdit && (
+      <Button
+        size="sm"
+        variant="ghost"
+        className="h-6 w-6 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-full"
+        onClick={() => onEdit(payment)}
+        title="Edit"
+      >
+        <Pencil className="h-3 w-3" />
+      </Button>
+    )}
+    
+    {/* Delete Button - Show for ALL payments */}
+    {canDelete && (
+      <Button
+        size="sm"
+        variant="ghost"
+        className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-full"
+        onClick={() => onDelete(payment)}
+        title="Delete"
+      >
+        <Trash2 className="h-3 w-3" />
+      </Button>
+    )}
+  </div>
+</TableCell>
+          </TableRow>
+        ),
+      )}
+    </TableBody>
+  </Table>
+</div>
                                   </div>
                                 </div>
                               </TableCell>

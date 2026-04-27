@@ -27,6 +27,12 @@ interface RoomDetailsDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
+interface ApiResult<T = any> {
+  success: boolean;
+  message?: string;
+  data?: T;
+}
+
 interface TenantDetails {
   id: number;
   full_name: string;
@@ -43,6 +49,24 @@ interface TenantDetails {
   date_of_birth?: string;
   aadhar_number?: string;
   pan_number?: string;
+  // Partner fields
+  partner_full_name?: string;
+  partner_phone?: string;
+  partner_email?: string;
+  partner_gender?: string;
+  partner_date_of_birth?: string;
+  partner_address?: string;
+  partner_occupation?: string;
+  partner_organization?: string;
+  partner_relationship?: string;
+  partner_id_proof_type?: string;
+  partner_id_proof_number?: string;
+  partner_id_proof_url?: string;
+  partner_address_proof_type?: string;
+  partner_address_proof_number?: string;
+  partner_address_proof_url?: string;
+  partner_photo_url?: string;
+  is_couple_booking?: boolean;
 }
 
 const AMENITIES_WITH_COLORS = [
@@ -163,26 +187,67 @@ export function RoomDetailsDialog({ room, open, onOpenChange }: RoomDetailsDialo
 
   const occupiedBeds = bedAssignments?.filter((bed: BedAssignment) => bed.tenant_id) || [];
 
-  const loadAllTenants = async () => {
-    try {
-      setLoadingTenants(true);
-      setErrorTenants(null);
-      const response: any = await request('/api/tenants?is_active=true&portal_access_enabled=true');
-      let tenantsList: TenantDetails[] = [];
-      if (Array.isArray(response)) {
-        tenantsList = response;
-      } else if (response.data && Array.isArray(response.data)) {
-        tenantsList = response.data;
-      }
-      setTenants(tenantsList);
-    } catch (error: any) {
-      console.error('Error loading tenants:', error);
-      setErrorTenants(error.message || 'Failed to load tenants');
-      toast.error('Failed to load tenant details');
-    } finally {
-      setLoadingTenants(false);
+const loadAllTenants = async () => {
+  try {
+    setLoadingTenants(true);
+    setErrorTenants(null);
+    
+    // First get all basic tenants
+    const response: any = await request('/api/tenants?is_active=true&portal_access_enabled=true');
+    let tenantsList: TenantDetails[] = [];
+    if (Array.isArray(response)) {
+      tenantsList = response;
+    } else if (response.data && Array.isArray(response.data)) {
+      tenantsList = response.data;
     }
-  };
+    
+    // ✅ Fetch full tenant details including partner info for each tenant
+    const tenantsWithDetails = await Promise.all(
+      tenantsList.map(async (tenant) => {
+        try {
+          // Fetch full tenant details including partner info
+          const tenantDetails = await request<ApiResult<TenantDetails>>(`/api/tenants/${tenant.id}`);
+          if (tenantDetails.success && tenantDetails.data) {
+            return {
+              ...tenant,
+              partner_full_name: tenantDetails.data.partner_full_name,
+              partner_phone: tenantDetails.data.partner_phone,
+              partner_email: tenantDetails.data.partner_email,
+              partner_gender: tenantDetails.data.partner_gender,
+              partner_date_of_birth: tenantDetails.data.partner_date_of_birth,
+              partner_address: tenantDetails.data.partner_address,
+              partner_occupation: tenantDetails.data.partner_occupation,
+              partner_organization: tenantDetails.data.partner_organization,
+              partner_relationship: tenantDetails.data.partner_relationship,
+              partner_id_proof_type: tenantDetails.data.partner_id_proof_type,
+              partner_id_proof_number: tenantDetails.data.partner_id_proof_number,
+              partner_id_proof_url: tenantDetails.data.partner_id_proof_url,
+              partner_address_proof_type: tenantDetails.data.partner_address_proof_type,
+              partner_address_proof_number: tenantDetails.data.partner_address_proof_number,
+              partner_address_proof_url: tenantDetails.data.partner_address_proof_url,
+              partner_photo_url: tenantDetails.data.partner_photo_url,
+              is_couple_booking: tenantDetails.data.is_couple_booking,
+              couple_id: tenantDetails.data.couple_id,
+              partner_tenant_id: tenantDetails.data.partner_tenant_id
+            };
+          }
+          return tenant;
+        } catch (error) {
+          console.error(`Failed to fetch details for tenant ${tenant.id}:`, error);
+          return tenant;
+        }
+      })
+    );
+    
+    setTenants(tenantsWithDetails);
+  } catch (error: any) {
+    console.error('Error loading tenants:', error);
+    setErrorTenants(error.message || 'Failed to load tenants');
+    toast.error('Failed to load tenant details');
+  } finally {
+    setLoadingTenants(false);
+  }
+};
 
   useEffect(() => {
     if (open) {
@@ -280,25 +345,39 @@ export function RoomDetailsDialog({ room, open, onOpenChange }: RoomDetailsDialo
         {/* Scrollable Body */}
         <div className="px-2.5 py-2 overflow-y-auto flex-1 min-h-0 space-y-2">
 
-          {/* Stats Row */}
-          <div className="grid grid-cols-4 gap-1.5">
-            {[
-              { label: 'Total Beds', value: currentRoom.total_bed || 0, icon: Bed },
-              { label: 'Available', value: (currentRoom.total_bed || 0) - (currentRoom.occupied_beds || 0), icon: CheckCircle },
-              { label: 'Occupied', value: currentRoom.occupied_beds || 0, icon: Users },
-              { label: 'Rent/Bed', value: `₹${currentRoom.rent_per_bed || 0}`, icon: BadgeIndianRupee },
-            ].map(({ label, value, icon: Icon }) => (
-              <div key={label} className="bg-white border border-gray-100 rounded-xl p-2 shadow-sm">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-[8px] text-gray-500 font-medium leading-tight">{label}</p>
-                    <p className="text-sm font-bold text-gray-800 leading-tight mt-0.5">{value}</p>          
-                  </div>
-                  <Icon className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
-                </div>
-              </div>
-            ))}
-          </div>
+          {/* Stats Row - Updated with 5 columns including Security Deposit */}
+<div className="grid grid-cols-5 gap-1.5">
+  {[
+    { label: 'Total Beds', value: currentRoom.total_bed || 0, icon: Bed, bg: 'bg-blue-50', textColor: 'text-blue-700', iconColor: 'text-blue-500' },
+    { label: 'Available', value: (currentRoom.total_bed || 0) - (currentRoom.occupied_beds || 0), icon: CheckCircle, bg: 'bg-green-50', textColor: 'text-green-700', iconColor: 'text-green-500' },
+    { label: 'Occupied', value: currentRoom.occupied_beds || 0, icon: Users, bg: 'bg-amber-50', textColor: 'text-amber-700', iconColor: 'text-amber-500' },
+    { label: 'Rent/Bed', value: `₹${currentRoom.rent_per_bed || 0}`, icon: BadgeIndianRupee, bg: 'bg-purple-50', textColor: 'text-purple-700', iconColor: 'text-purple-500' },
+    { 
+      label: 'Security Deposit', 
+      value: (() => {
+        // Calculate total security deposit from occupied beds
+        const totalSecurityDeposit = bedAssignments
+          .filter(bed => bed.tenant_id && bed.security_deposit)
+          .reduce((sum, bed) => sum + (Number(bed.security_deposit) || 0), 0);
+        return totalSecurityDeposit > 0 ? `₹${totalSecurityDeposit.toLocaleString()}` : '₹0';
+      })(),
+      icon: Shield, 
+      bg: 'bg-amber-50', 
+      textColor: 'text-amber-700', 
+      iconColor: 'text-amber-500' 
+    },
+  ].map(({ label, value, icon: Icon, bg, textColor, iconColor }) => (
+    <div key={label} className={`${bg} border border-${bg.replace('bg-', '').replace('50', '100')} rounded-xl p-2`}>
+      <div className="flex items-center justify-between">
+        <div>
+          <p className={`text-[7px] font-medium ${textColor} leading-tight`}>{label}</p>
+          <p className={`text-xs sm:text-sm font-bold ${textColor} leading-tight mt-0.5 truncate`}>{value}</p>          
+        </div>
+        <Icon className={`h-3 w-3 ${iconColor} flex-shrink-0`} />
+      </div>
+    </div>
+  ))}
+</div>
 
           {/* Beds Grid */}
           <div className="border border-gray-100 rounded-xl overflow-hidden">
@@ -369,12 +448,11 @@ export function RoomDetailsDialog({ room, open, onOpenChange }: RoomDetailsDialo
                 <Sparkles className="h-3 w-3 text-purple-500" />
                 <span className="text-[10px] font-semibold text-gray-700">Room Features</span>
               </div>
-              <div className="p-2 grid grid-cols-2 gap-1.5">
+              <div className="p-2 grid grid-cols-3 gap-1.5">
                 {[
                   { key: 'has_ac', label: 'AC', sub: currentRoom.has_ac ? 'Available' : 'No', icon: Snowflake },
                   { key: 'has_balcony', label: 'Balcony', sub: currentRoom.has_balcony ? 'Yes' : 'No', icon: Sun },
                   { key: 'has_attached_bathroom', label: 'Bathroom', sub: currentRoom.has_attached_bathroom ? 'Attached' : 'Shared', icon: Bath },
-                  { key: 'allow_couples', label: 'Couples', sub: currentRoom.allow_couples ? 'Allowed' : 'No', icon: Heart },
                 ].map(({ key, label, sub, icon: Icon }) => {
                   const active = (currentRoom as any)[key];
                   return (
@@ -466,105 +544,199 @@ export function RoomDetailsDialog({ room, open, onOpenChange }: RoomDetailsDialo
           )}
 
           {/* Current Occupants */}
-          <div className="border border-gray-100 rounded-xl overflow-hidden">
-            <div className="bg-gray-50 px-2.5 py-1.5 border-b border-gray-100 flex items-center justify-between">
-              <div className="flex items-center gap-1.5">
-                <UsersRound className="h-3 w-3 text-indigo-500" />
-                <span className="text-[10px] font-semibold text-gray-700">
-                  Current Occupants ({occupiedBeds.length}/{currentRoom.total_bed || 0})
-                </span>
+<div className="border border-gray-100 rounded-xl overflow-hidden">
+  <div className="bg-gray-50 px-2.5 py-1.5 border-b border-gray-100 flex items-center justify-between">
+    <div className="flex items-center gap-1.5">
+      <UsersRound className="h-3 w-3 text-indigo-500" />
+      <span className="text-[10px] font-semibold text-gray-700">
+        Current Occupants ({occupiedBeds.length}/{currentRoom.total_bed || 0})
+      </span>
+    </div>
+    <Badge className="bg-indigo-100 text-indigo-700 border-indigo-200 text-[9px] px-1.5 py-0">
+      {occupiedBeds.length} occupied
+    </Badge>
+  </div>
+  <div className="p-2">
+    {loadingTenants ? (
+      <div className="flex items-center justify-center py-5">
+        <Loader2 className="h-4 w-4 animate-spin text-indigo-600" />
+        <span className="ml-2 text-xs text-gray-500">Loading...</span>
+      </div>
+    ) : errorTenants ? (
+      <div className="bg-red-50 p-2.5 rounded-lg text-center border border-red-200">
+        <p className="text-xs text-red-600">{errorTenants}</p>
+        <Button variant="outline" size="sm" className="mt-1.5 h-6 text-[10px]" onClick={loadAllTenants}>
+          Retry
+        </Button>
+      </div>
+    ) : occupiedBeds.length > 0 ? (
+      <div className="grid grid-cols-1 gap-2">
+        {occupiedBeds.map((bed: BedAssignment, index: number) => {
+          const tenantDetail = getTenantDetails(bed.tenant_id);
+          const assignmentDate = bed.updated_at ? formatAssignmentDate(bed.updated_at) : '';
+          const securityDeposit = bed.security_deposit ? Number(bed.security_deposit) : null;
+          const isCoupleBooking = Boolean(bed.is_couple) && tenantDetail?.partner_full_name;
+          
+          return (
+            <div
+              key={bed.id || index}
+              className="rounded-xl border border-gray-100 bg-white overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+            >
+              {/* Header */}
+              <div className={`px-3 py-2 flex items-center justify-between ${isCoupleBooking ? 'bg-gradient-to-r from-pink-50 to-rose-50 border-b border-pink-100' : 'bg-gray-50 border-b border-gray-100'}`}>
+                <div className="flex items-center gap-2">
+                  <div className={`p-1.5 rounded-lg ${isCoupleBooking ? 'bg-pink-100' : 'bg-indigo-100'}`}>
+                    <Bed className={`h-3 w-3 ${isCoupleBooking ? 'text-pink-600' : 'text-indigo-600'}`} />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-sm text-gray-800">Bed {bed.bed_number}</span>
+                      {isCoupleBooking && (
+                        <Badge className="bg-pink-500 text-white border-0 text-[9px] px-1.5 py-0 h-4">
+                          <Heart className="h-2 w-2 mr-0.5" />
+                          Couple Booking
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1 text-[10px] text-gray-500 mt-0.5">
+                      <Calendar className="h-2.5 w-2.5" />
+                      <span>Assigned: {assignmentDate || 'Recently'}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1">
+                  {securityDeposit && securityDeposit > 0 && (
+                    <Badge className="bg-amber-50 text-amber-700 border-amber-200 text-[9px] px-1.5 py-0 h-5">
+                      <Shield className="h-2.5 w-2.5 mr-0.5" />
+                      ₹{securityDeposit.toLocaleString()}
+                    </Badge>
+                  )}
+                </div>
               </div>
-            </div>
-            <div className="p-2">
-              {loadingTenants ? (
-                <div className="flex items-center justify-center py-5">
-                  <Loader2 className="h-4 w-4 animate-spin text-indigo-600" />
-                  <span className="ml-2 text-xs text-gray-500">Loading...</span>
-                </div>
-              ) : errorTenants ? (
-                <div className="bg-red-50 p-2.5 rounded-lg text-center border border-red-200">
-                  <p className="text-xs text-red-600">{errorTenants}</p>
-                  <Button variant="outline" size="sm" className="mt-1.5 h-6 text-[10px]" onClick={loadAllTenants}>
-                    Retry
-                  </Button>
-                </div>
-              ) : occupiedBeds.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                  {occupiedBeds.map((bed: BedAssignment, index: number) => {
-                    const tenantDetail = getTenantDetails(bed.tenant_id);
-                    const assignmentDate = bed.updated_at ? formatAssignmentDate(bed.updated_at) : '';
-                    const securityDeposit = bed.security_deposit ? Number(bed.security_deposit) : null;
-                    
-                    return (
-                      <div
-                        key={bed.id || index}
-                        className="p-2 rounded-xl border border-gray-100 bg-white hover:shadow-sm transition-shadow"
-                      >
-                        <div className="flex items-center gap-1.5 mb-1.5">
-                          <div className="p-1 rounded-md bg-indigo-100">
-                            <Bed className="h-2.5 w-2.5 text-indigo-600" />
-                          </div>
-                          <span className="font-semibold text-[10px] text-gray-700">Bed {bed.bed_number}</span>
-                          {Boolean(bed.is_couple) && (
-                            <Badge className="ml-auto text-[8px] px-1 py-0 bg-red-50 text-red-600 border-red-200">Couple</Badge>
-                          )}
-                        </div>
-
-                        <div className="space-y-0.5">
-                          <p className="font-semibold text-xs text-gray-800 truncate">
-                            {tenantDetail?.full_name || 'Unknown'}
-                          </p>
+              
+              {/* Body - Main Tenant & Partner Details */}
+              <div className="p-3">
+                {/* Main Tenant Details */}
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center">
+                      <span className="text-white font-semibold text-sm">
+                        {tenantDetail?.full_name?.charAt(0) || '?'}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between flex-wrap gap-1">
+                      <div>
+                        <p className="font-semibold text-sm text-gray-900 truncate">
+                          {tenantDetail?.full_name || 'Unknown'}
+                        </p>
+                        <div className="flex items-center gap-2 mt-0.5">
                           <div className="flex items-center gap-1">
-                            <GenderIcon gender={tenantDetail?.gender || bed.tenant_gender || 'other'} size="h-2.5 w-2.5" />
-                            <span className="text-[9px] text-gray-500 capitalize">
+                            <GenderIcon gender={tenantDetail?.gender || bed.tenant_gender || 'other'} size="h-3 w-3" />
+                            <span className="text-[10px] text-gray-500 capitalize">
                               {tenantDetail?.gender || bed.tenant_gender || 'N/A'}
                             </span>
-                            {tenantDetail?.phone && (
-                              <>
-                                <span className="text-gray-300">•</span>
-                                <Phone className="h-2.5 w-2.5 text-gray-400" />
-                                <span className="text-[9px] text-gray-500">{tenantDetail.phone}</span>
-                              </>
-                            )}
                           </div>
+                          {tenantDetail?.phone && (
+                            <>
+                              <span className="text-gray-300">•</span>
+                              <a href={`tel:${tenantDetail.phone}`} className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-blue-600 transition-colors">
+                                <Phone className="h-2.5 w-2.5" />
+                                <span>{tenantDetail.phone}</span>
+                              </a>
+                            </>
+                          )}
+                          {tenantDetail?.email && (
+                            <>
+                              <span className="text-gray-300">•</span>
+                              <a href={`mailto:${tenantDetail.email}`} className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-blue-600 transition-colors">
+                                <Mail className="h-2.5 w-2.5" />
+                                <span className="truncate max-w-[120px]">{tenantDetail.email}</span>
+                              </a>
+                            </>
+                          )}
                         </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <BadgeIndianRupee className="h-3 w-3 text-purple-500" />
+                        <span className="text-sm font-bold text-purple-700">₹{bed.tenant_rent || currentRoom.rent_per_bed}</span>
+                        <span className="text-[9px] text-gray-400">/month</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
 
-                        <div className="mt-1.5 pt-1.5 border-t border-gray-100 flex items-center justify-between flex-wrap gap-1">
-                          <div className="flex items-center gap-1">
-                            <BadgeIndianRupee className="h-2.5 w-2.5 text-purple-500" />
-                            <span className="text-[9px] font-bold text-purple-700">{bed.tenant_rent || currentRoom.rent_per_bed}</span>
-                            <span className="text-[8px] text-gray-400">/mo</span>
-                          </div>
-                          {assignmentDate && (
-                            <div className="flex items-center gap-1 text-[9px] text-gray-500">
-                              <Calendar className="h-2.5 w-2.5" />
-                              <span>{assignmentDate}</span>
+                {/* Partner Details for Couple Booking */}
+                {isCoupleBooking && (
+                  <div className="mt-3 pt-3 border-t border-dashed border-gray-200">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="h-4 w-0.5 bg-pink-400 rounded-full"></div>
+                      <Heart className="h-3 w-3 text-pink-500" />
+                      <span className="text-[10px] font-semibold text-pink-600 uppercase tracking-wide">Partner Details</span>
+                    </div>
+                    <div className="flex items-start gap-3 ml-2">
+                      <div className="flex-shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-400 to-rose-500 flex items-center justify-center">
+                          <span className="text-white font-semibold text-xs">
+                            {tenantDetail?.partner_full_name?.charAt(0) || 'P'}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm text-gray-800 truncate">
+                          {tenantDetail?.partner_full_name}
+                        </p>
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
+                          {tenantDetail?.partner_gender && (
+                            <div className="flex items-center gap-1">
+                              <GenderIcon gender={tenantDetail.partner_gender} size="h-2.5 w-2.5" />
+                              <span className="text-[10px] text-gray-500 capitalize">{tenantDetail.partner_gender}</span>
+                            </div>
+                          )}
+                          {tenantDetail?.partner_phone && (
+                            <a href={`tel:${tenantDetail.partner_phone}`} className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-blue-600 transition-colors">
+                              <Phone className="h-2.5 w-2.5" />
+                              <span>{tenantDetail.partner_phone}</span>
+                            </a>
+                          )}
+                          {tenantDetail?.partner_relationship && (
+                            <div className="flex items-center gap-1">
+                              <Heart className="h-2 w-2 text-pink-400" />
+                              <span className="text-[10px] text-gray-500">{tenantDetail.partner_relationship}</span>
+                            </div>
+                          )}
+                          {tenantDetail?.partner_occupation && (
+                            <div className="flex items-center gap-1">
+                              <Briefcase className="h-2 w-2 text-gray-400" />
+                              <span className="text-[10px] text-gray-500 truncate max-w-[100px]">{tenantDetail.partner_occupation}</span>
                             </div>
                           )}
                         </div>
-                        
-                        {/* Security Deposit Row */}
-                        {securityDeposit && securityDeposit > 0 && (
-                          <div className="mt-1 pt-1 border-t border-gray-100 flex items-center justify-between">
-                            <div className="flex items-center gap-1">
-                              <Shield className="h-2.5 w-2.5 text-amber-500" />
-                              <span className="text-[8px] text-gray-500">Security Deposit</span>
-                            </div>
-                            <span className="text-[9px] font-semibold text-amber-600">₹{securityDeposit.toLocaleString()}</span>
-                          </div>
-                        )}
                       </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="text-center py-5 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
-                  <UserRound className="h-6 w-6 mx-auto text-gray-300 mb-1" />
-                  <span className="text-xs text-gray-400">No occupants currently</span>
-                </div>
-              )}
+                      {tenantDetail?.couple_id && (
+                        <div className="flex-shrink-0">
+                          <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-5 bg-pink-50 text-pink-600 border-pink-200">
+                            ID: {tenantDetail.couple_id}
+                          </Badge>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          );
+        })}
+      </div>
+    ) : (
+      <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
+        <UserRound className="h-8 w-8 mx-auto text-gray-300 mb-2" />
+        <span className="text-sm text-gray-400">No occupants currently</span>
+      </div>
+    )}
+  </div>
+</div>
 
           {/* Description */}
           {currentRoom.description && (
