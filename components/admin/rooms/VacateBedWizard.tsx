@@ -37,7 +37,9 @@ import {
   Bell,
   CalendarIcon,
   Lock,
-  Shield, // Add this line
+  Shield,
+  UsersRound,
+  Heart, // Add this line
 } from "lucide-react";
 import { toast } from "sonner";
 import { vacateApi } from "@/lib/vacateApi";
@@ -49,6 +51,24 @@ interface MasterValue {
   id: number;
   name: string;
   isactive: number;
+}
+
+interface TenantWithSelection {
+  id: number;
+  full_name: string;
+  email: string;
+  phone: string;
+  gender: string;
+  is_primary: boolean;
+  selected: boolean;
+  partner_details?: {
+    id: number;
+    full_name: string;
+    email: string;
+    phone: string;
+    gender: string;
+    relationship: string;
+  };
 }
 
 export function VacateBedWizard({
@@ -75,6 +95,7 @@ export function VacateBedWizard({
   const [existingVacateRequest, setExistingVacateRequest] = useState<any>(null);
   const [wizardDisabled, setWizardDisabled] = useState(false);
   const [isCheckingExisting, setIsCheckingExisting] = useState(false);
+const [isCoupleBooking, setIsCoupleBooking] = useState(false);
 
   // Master data states
   const [roomsMasters, setRoomsMasters] = useState<
@@ -101,6 +122,13 @@ export function VacateBedWizard({
   const [isAdminOverride, setIsAdminOverride] = useState(false);
   // Add this with your other state declarations
   const initialDataLoadedRef = useRef(false);
+  const [tenantsToVacate, setTenantsToVacate] = useState<TenantWithSelection[]>(
+    [],
+  );
+  const [loadingTenants, setLoadingTenants] = useState(false);
+  const [partnerTenant, setPartnerTenant] = useState<any>(null);
+  // Add this with your other state declarations (around line 60-80)
+const [securityDeposit, setSecurityDeposit] = useState<number>(0);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -131,47 +159,61 @@ export function VacateBedWizard({
   };
 
   // Fetch rooms masters for vacate reasons
-  const fetchRoomsMasters = async () => {
-    setLoadingMasters(true);
-    try {
-      const res = await consumeMasters({ tab: "Rooms" });
-      if (res?.success && res.data) {
-        const grouped: Record<string, MasterValue[]> = {};
-        res.data.forEach((item: any) => {
-          const type = item.type_name;
-          if (!grouped[type]) {
-            grouped[type] = [];
-          }
-          grouped[type].push({
-            id: item.value_id,
-            name: item.value_name,
-            isactive: 1,
-          });
+const fetchRoomsMasters = async () => {
+  setLoadingMasters(true);
+  try {
+    const res = await consumeMasters({ tab: "Rooms" });
+    if (res?.success && res.data) {
+      const grouped: Record<string, MasterValue[]> = {};
+      res.data.forEach((item: any) => {
+        const type = item.type_name;
+        if (!grouped[type]) {
+          grouped[type] = [];
+        }
+        grouped[type].push({
+          id: item.value_id,
+          name: item.value_name,
+          isactive: 1,
         });
-        setRoomsMasters(grouped);
+      });
+      setRoomsMasters(grouped);
 
-        // Set vacate reasons from masters
-        if (grouped["Vacate Reason"] && grouped["Vacate Reason"].length > 0) {
-          const reasons = grouped["Vacate Reason"].map((reason) => ({
-            id: reason.id,
-            value: reason.name,
-          }));
-          setVacateReasons(reasons);
+      // Set vacate reasons from masters
+      if (grouped["Vacate Reason"] && grouped["Vacate Reason"].length > 0) {
+        const reasons = grouped["Vacate Reason"].map((reason) => ({
+          id: reason.id,
+          value: reason.name,
+        }));
+        setVacateReasons(reasons);
+        
+        // ✅ After setting vacateReasons, check for existing request
+        if (open && bedAssignment) {
+          await checkForExistingRequest();
+        }
+      } else {
+        // Even if no reasons, still check for existing request
+        if (open && bedAssignment) {
+          await checkForExistingRequest();
         }
       }
-    } catch (error) {
-      console.error("Failed to fetch rooms masters:", error);
-      toast.error("Failed to load vacate reasons");
-    } finally {
-      setLoadingMasters(false);
     }
-  };
+  } catch (error) {
+    console.error("Failed to fetch rooms masters:", error);
+    toast.error("Failed to load vacate reasons");
+    // Still try to check for existing request
+    if (open && bedAssignment) {
+      await checkForExistingRequest();
+    }
+  } finally {
+    setLoadingMasters(false);
+  }
+};
 
   // Reset when wizard opens
   useEffect(() => {
     if (open && bedAssignment) {
       fetchRoomsMasters();
-      checkForExistingRequest();
+     
     } else if (!open) {
       resetWizard();
     }
@@ -368,89 +410,122 @@ export function VacateBedWizard({
     }
   };
 
-  const extractTenantVacateData = async (requests: any[]) => {
-    const vacateRequests = requests.filter((request) => {
-      const isVacateBed = request.request_type === "vacate_bed";
-      const isForCurrentTenant = request.tenant_id === tenantDetails?.id;
-      const isActiveStatus = ["pending", "in_progress", "approved"].includes(
-        request.status,
-      );
-      return isVacateBed && isForCurrentTenant && isActiveStatus;
-    });
+const extractTenantVacateData = async (vacateRequests: any[]) => {
+  if (!vacateRequests || vacateRequests.length === 0) return null;
 
-    if (vacateRequests.length > 0) {
-      const latestRequest = vacateRequests[0];
+  const latestRequest = vacateRequests[0];
+  
+  console.log("🔍 Extracting vacate data from request:", latestRequest);
 
-      const vacateData = latestRequest.vacate_data || {};
+  // Store the full request object with the correct ID field
+  // The API returns vacate_request_id, not id
+  const requestWithId = {
+    ...latestRequest,
+    id: latestRequest.vacate_request_id, // Map vacate_request_id to id for consistent display
+    status: latestRequest.request_status, // Map request_status to status
+    created_at: latestRequest.vacate_request_date || latestRequest.request_created,
+  };
+  
+  setTenantVacateData(requestWithId);
+  
+  // Set tenant requested vacate date (use expected_vacate_date)
+  if (latestRequest.expected_vacate_date) {
+    const tenantDate = latestRequest.expected_vacate_date;
+    setTenantVacateDate(tenantDate);
+    
+    // Also set the form date to tenant's requested date
+    const formattedDate = formatDateForInput(tenantDate);
+    setFormData((prev) => ({
+      ...prev,
+      requestedVacateDate: formattedDate,
+    }));
+  }
 
-      if (vacateData.expected_vacate_date) {
-        const tenantDate = vacateData.expected_vacate_date;
-        setTenantVacateDate(tenantDate);
-      }
+  // Set tenant request date (when they submitted - use vacate_request_date)
+  if (latestRequest.vacate_request_date) {
+    const requestDate = latestRequest.vacate_request_date.split("T")[0];
+    setTenantRequestDate(requestDate);
+  } else if (latestRequest.request_created) {
+    const requestDate = latestRequest.request_created.split("T")[0];
+    setTenantRequestDate(requestDate);
+  }
 
-      // Set tenant request date
-      if (latestRequest.created_at) {
-        const requestDate = latestRequest.created_at.split("T")[0];
-        setTenantRequestDate(requestDate);
-      }
-
-      // Parse boolean values correctly
-      const parseBoolean = (value: any): boolean => {
-        if (value === 1 || value === "1" || value === true || value === "true")
-          return true;
-        if (
-          value === 0 ||
-          value === "0" ||
-          value === false ||
-          value === "false"
-        )
-          return false;
-        return false;
-      };
-
-      const lockinAcceptedFromTenant = parseBoolean(
-        vacateData.lockin_penalty_accepted ??
-          latestRequest.lockin_penalty_accepted,
-      );
-
-      const noticeAcceptedFromTenant = parseBoolean(
-        vacateData.notice_penalty_accepted ??
-          latestRequest.notice_penalty_accepted,
-      );
-
-      setLockinAcceptedByTenant(lockinAcceptedFromTenant);
-      setNoticeGivenByTenant(noticeAcceptedFromTenant);
-
-      // 🔥 FIX: Calculate actual agreement status based on lock-in completion
-      // Don't just rely on tenant's acceptance - check if lock-in is actually completed
-      const isLockinCompleted = await checkIfLockinCompleted();
-
-      // Lock-in is considered "accepted" if:
-      // 1. Tenant accepted it, OR
-      // 2. Lock-in period is already completed (no penalty anyway)
-      const effectiveLockinAccepted =
-        lockinAcceptedFromTenant || isLockinCompleted;
-
-      // Notice is considered "accepted" if tenant accepted it
-      const effectiveNoticeAccepted = noticeAcceptedFromTenant;
-
-      const termsAgreed = effectiveLockinAccepted && effectiveNoticeAccepted;
-      setTenantAgreedToTerms(termsAgreed);
-
-      // Store reason ID for later lookup
-      if (vacateData.primary_reason_id || latestRequest.primary_reason_id) {
-        const reasonId =
-          vacateData.primary_reason_id || latestRequest.primary_reason_id;
-        setTenantVacateReasonId(reasonId);
-      }
-
-      setTenantVacateData(latestRequest);
-      return latestRequest;
-    }
-
-    return null;
+  // Parse boolean values correctly from the request
+  const parseBoolean = (value: any): boolean => {
+    if (value === 1 || value === "1" || value === true || value === "true")
+      return true;
+    if (value === 0 || value === "0" || value === false || value === "false")
+      return false;
+    return false;
   };
 
+  // Get lock-in and notice acceptance from the request
+  const lockinAcceptedFromTenant = parseBoolean(latestRequest.lockin_penalty_accepted);
+  const noticeAcceptedFromTenant = parseBoolean(latestRequest.notice_penalty_accepted);
+
+  setLockinAcceptedByTenant(lockinAcceptedFromTenant);
+  setNoticeGivenByTenant(noticeAcceptedFromTenant);
+
+  // Check if lock-in is actually completed
+  const isLockinCompleted = await checkIfLockinCompleted();
+
+  // Effective acceptance status
+  const effectiveLockinAccepted = lockinAcceptedFromTenant || isLockinCompleted;
+  const effectiveNoticeAccepted = noticeAcceptedFromTenant;
+  const termsAgreed = effectiveLockinAccepted && effectiveNoticeAccepted;
+  setTenantAgreedToTerms(termsAgreed);
+
+  // Store reason ID and reason text from the request
+  const reasonId = latestRequest.primary_reason_id;
+  const reasonText = latestRequest.primary_reason;
+  
+  if (reasonId) {
+    setTenantVacateReasonId(reasonId);
+    
+    // Try to get the reason text from masters
+    const reason = vacateReasons.find((r: any) => r.id === reasonId);
+    if (reason) {
+      setTenantVacateReason(reason.value);
+      setFormData((prev) => ({
+        ...prev,
+        vacateReasonValue: reason.value,
+      }));
+    }
+  } else if (reasonText) {
+    setTenantVacateReason(reasonText);
+    setFormData((prev) => ({
+      ...prev,
+      vacateReasonValue: reasonText,
+    }));
+  }
+
+  // Also store secondary reasons if needed
+  if (latestRequest.secondary_reasons && latestRequest.secondary_reasons.length > 0) {
+    console.log("Secondary reasons:", latestRequest.secondary_reasons);
+  }
+
+  return requestWithId;
+};
+
+// Helper to safely decode JSON data from vacate request
+const decodeVacateData = (data: any) => {
+  if (!data) return {};
+  
+  // If it's already an object, return it
+  if (typeof data === 'object') return data;
+  
+  // If it's a string, try to parse it
+  if (typeof data === 'string') {
+    try {
+      return JSON.parse(data);
+    } catch (e) {
+      console.error("Error parsing vacate_data:", e);
+      return {};
+    }
+  }
+  
+  return {};
+};
   // Function to update form with tenant data
   const updateFormWithTenantData = () => {
     if (!initialData || !tenantVacateData) return;
@@ -521,209 +596,341 @@ export function VacateBedWizard({
 
   // In VacateBedWizard.tsx, update the checkForExistingRequest function with better error logging:
 
-  const checkForExistingRequest = async () => {
-    try {
-      setIsCheckingExisting(true);
+const checkForExistingRequest = async () => {
+  try {
+    setIsCheckingExisting(true);
+    setWizardDisabled(true);
 
-      // Check if tenant token exists
-      if (!checkTenantAuth()) {
-        setExistingVacateRequest(null);
-        setWizardDisabled(false);
-        return;
-      }
-
-      // Try to get tenant requests
-      const allRequests = await getMyTenantRequests();
-
-      if (!Array.isArray(allRequests)) {
-        console.error(
-          "❌ getMyTenantRequests did not return an array:",
-          allRequests,
-        );
-        setExistingVacateRequest(null);
-        setWizardDisabled(false);
-        return;
-      }
-
-      // Filter for vacate requests
-      const vacateRequests = allRequests.filter((request) => {
-        const isVacateBed = request.request_type === "vacate_bed";
-        const isForCurrentTenant = request.tenant_id === tenantDetails?.id;
-        const isActiveStatus = ["pending", "in_progress", "approved"].includes(
-          request.status,
-        );
-
-        return isVacateBed && isForCurrentTenant && isActiveStatus;
-      });
-
-      if (vacateRequests.length > 0) {
-        const tenantRequest = await extractTenantVacateData(vacateRequests);
-
-        if (tenantRequest) {
-          setExistingVacateRequest(tenantRequest);
-          toast.info("Tenant vacate request found", {
-            description: "Loading tenant's vacate request details...",
-            duration: 2000,
-          });
-        }
-      } else {
-        setExistingVacateRequest(null);
-      }
-
-      setWizardDisabled(false);
-    } catch (error) {
-      console.error("❌ Error checking existing request:", error);
-      // Log the full error details
-      if (error instanceof Error) {
-        console.error("Error message:", error.message);
-        console.error("Error stack:", error.stack);
-      }
+    // ✅ Use ADMIN API to get all vacate requests for this tenant
+    const adminToken = localStorage.getItem("auth_token");
+    
+    if (!adminToken) {
+      console.warn("⚠️ No admin token found");
       setExistingVacateRequest(null);
       setWizardDisabled(false);
-    } finally {
-      setIsCheckingExisting(false);
-    }
-  };
-
-  const loadInitialData = async () => {
-    // Prevent multiple calls
-    if (initialDataLoadedRef.current) {
       return;
     }
 
-    try {
-      setLoading(true);
-      setError(null);
-
-      const response = await vacateApi.getInitialData(bedAssignment.id);
-
-      let data;
-      if (response && response.success && response.data) {
-        data = response.data;
-      } else if (response && response.data) {
-        data = response.data;
-      } else {
-        data = response;
+    // Call the admin API to get vacate requests for this specific tenant
+    console.log(`🔍 Fetching vacate requests for tenant: ${tenantDetails?.id}`);
+    const response = await fetch(
+      `/api/admin/vacate-requests?tenant_id=${tenantDetails?.id}`,
+      {
+        headers: {
+          Authorization: `Bearer ${adminToken}`,
+          "Content-Type": "application/json",
+        },
       }
+    );
 
-      if (!data || !data.bedAssignment) {
-        throw new Error("Invalid response from server");
-      }
+    const result = await response.json();
+    console.log("🔍 Admin vacate requests response:", result);
 
-      setInitialData(data);
-
-      // Mark as loaded BEFORE processing the data
-      initialDataLoadedRef.current = true;
-
-      // 🚨 Check if there's an existing vacate request in the initial data
-      // In loadInitialData function, update the section where you process existingVacateRequest:
-
-      if (data.existingVacateRequest) {
-        const tenantRequest = data.existingVacateRequest;
-
-        // Make sure vacate_data exists
-        const vacateData = tenantRequest.vacate_data || {};
-
-        // Set tenant request data
-        setExistingVacateRequest(tenantRequest);
-
-        // Set tenant vacate date
-        if (
-          vacateData.expected_vacate_date ||
-          tenantRequest.expected_vacate_date
-        ) {
-          const date =
-            vacateData.expected_vacate_date ||
-            tenantRequest.expected_vacate_date;
-          setTenantVacateDate(date);
-        }
-
-        // Set tenant request date
-        if (tenantRequest.created_at) {
-          const requestDate = tenantRequest.created_at.split("T")[0];
-          setTenantRequestDate(requestDate);
-        }
-
-        // IMPORTANT: Parse boolean values correctly
-        // Handle both 1/0 and true/false
-        const parseBoolean = (value: any): boolean => {
-          if (
-            value === 1 ||
-            value === "1" ||
-            value === true ||
-            value === "true"
-          )
-            return true;
-          if (
-            value === 0 ||
-            value === "0" ||
-            value === false ||
-            value === "false"
-          )
-            return false;
-          return false; // default
-        };
-
-        // Check if tenant accepted penalties - parse from multiple possible locations
-        const lockinAccepted = parseBoolean(
-          vacateData.lockin_penalty_accepted ??
-            tenantRequest.lockin_penalty_accepted ??
-            false,
-        );
-
-        const noticeAccepted = parseBoolean(
-          vacateData.notice_penalty_accepted ??
-            tenantRequest.notice_penalty_accepted ??
-            false,
-        );
-
-        setLockinAcceptedByTenant(lockinAccepted);
-        setNoticeGivenByTenant(noticeAccepted);
-
-        // Tenant agrees to terms if they accepted BOTH penalties
-        const termsAgreed = lockinAccepted && noticeAccepted;
-        setTenantAgreedToTerms(termsAgreed);
-
-        // Store reason ID for later lookup
-        if (vacateData.primary_reason_id || tenantRequest.primary_reason_id) {
-          const reasonId =
-            vacateData.primary_reason_id || tenantRequest.primary_reason_id;
-          setTenantVacateReasonId(reasonId);
-        }
-
-        // Store reason text
-        if (vacateData.primary_reason || tenantRequest.primary_reason) {
-          const reason =
-            vacateData.primary_reason || tenantRequest.primary_reason;
-          setTenantVacateReason(reason);
-        }
-
-        setTenantVacateData(tenantRequest);
-      } else {
-      }
-
-      // Only set default if no tenant date
-      if (!tenantVacateDate) {
-        const today = new Date();
-        const defaultVacateDate = new Date(today);
-        defaultVacateDate.setDate(today.getDate() + 30);
-        const formattedDate = defaultVacateDate.toISOString().split("T")[0];
-
-        setFormData((prev) => ({
-          ...prev,
-          requestedVacateDate: formattedDate,
-        }));
-      }
-    } catch (error) {
-      console.error("Error loading initial data:", error);
-      const errorMessage =
-        error instanceof Error ? error.message : "Failed to load vacate data";
-      setError(errorMessage);
-      toast.error(errorMessage);
-    } finally {
-      setLoading(false);
+    let vacateRequests = [];
+    if (result.success && Array.isArray(result.data)) {
+      vacateRequests = result.data;
     }
-  };
+
+    // ✅ FIX: Filter for vacate requests that are pending
+    // The API returns vacate requests with request_status, not status
+    const activeVacateRequests = vacateRequests.filter((request) => {
+      // Check if this is a vacate request (has vacate_request_id)
+      const isVacateRequest = request.vacate_request_id !== undefined;
+      const isForCurrentTenant = request.tenant_id === tenantDetails?.id;
+      // Check for pending or in_progress status using request_status
+      const isActiveStatus = ["pending", "in_progress"].includes(
+        request.request_status,
+      );
+      return isVacateRequest && isForCurrentTenant && isActiveStatus;
+    });
+
+    console.log("🔍 Active vacate requests:", activeVacateRequests);
+
+    if (activeVacateRequests.length > 0) {
+      console.log("✅ Found vacate request, extracting data...");
+      const tenantRequest = await extractTenantVacateData(activeVacateRequests);
+      if (tenantRequest) {
+        // Make sure the request has an id field for display
+        const requestWithId = {
+          ...tenantRequest,
+          id: tenantRequest.vacate_request_id,
+          status: tenantRequest.request_status,
+          created_at: tenantRequest.vacate_request_date || tenantRequest.request_created,
+        };
+        setExistingVacateRequest(requestWithId);
+        console.log("✅ Vacate request set in state:", requestWithId);
+        toast.info("Tenant vacate request found", {
+          description: "Loading tenant's vacate request details...",
+          duration: 2000,
+        });
+      }
+    } else {
+      console.log("ℹ️ No active vacate requests found for this tenant");
+      setExistingVacateRequest(null);
+    }
+
+    setWizardDisabled(false);
+  } catch (error) {
+    console.error("❌ Error checking existing request:", error);
+    setExistingVacateRequest(null);
+    setWizardDisabled(false);
+  } finally {
+    setIsCheckingExisting(false);
+  }
+};
+
+// Helper function to fetch raw tenant data
+const fetchRawTenant = async (tenantId: number) => {
+  try {
+    const response = await fetch(`/api/tenants/raw/${tenantId}`);
+    const result = await response.json();
+    return result.success ? result.data : null;
+  } catch (error) {
+    console.error("Error fetching tenant:", error);
+    return null;
+  }
+};
+
+const fetchPartnerDetails = async (tenantId: number) => {
+  try {
+    setLoadingTenants(true);
+
+    // Fetch current tenant using RAW endpoint
+    const tenant = await fetchRawTenant(tenantId);
+
+    if (!tenant) {
+      console.error("Tenant not found");
+      setTenantsToVacate([{
+        id: tenantId,
+        full_name: "Unknown",
+        email: "",
+        phone: "",
+        gender: "",
+        is_primary: false,
+        selected: true,
+      }]);
+      setIsCoupleBooking(false);
+      return;
+    }
+
+    console.log("🔍 Tenant data:", tenant);
+    console.log("🔍 partner_tenant_id:", tenant.partner_tenant_id);
+    console.log("🔍 is_couple_booking:", tenant.is_couple_booking);
+    console.log("🔍 is_primary_tenant:", tenant.is_primary_tenant);
+
+    const partnerTenantId = tenant.partner_tenant_id;
+    const hasPartner = partnerTenantId && partnerTenantId !== tenant.id;
+
+    // ✅ CRITICAL: Check if this tenant is currently in a bed assignment
+    // If the bed assignment is not a couple booking anymore, treat as single
+    const isCurrentlyCoupleBooking = bedAssignment?.is_couple === true || 
+                                      bedAssignment?.is_couple === 1 || 
+                                      bedAssignment?.is_couple === "1";
+
+    console.log("🔍 Bed assignment is_couple:", bedAssignment?.is_couple);
+    console.log("🔍 Currently couple booking:", isCurrentlyCoupleBooking);
+
+    // ✅ Set the couple booking flag
+    setIsCoupleBooking(hasPartner && isCurrentlyCoupleBooking);
+
+    if (hasPartner && isCurrentlyCoupleBooking) {
+      // Fetch partner using RAW endpoint
+      const partner = await fetchRawTenant(partnerTenantId);
+
+      if (partner) {
+        console.log("✅ Partner found:", partner.full_name, "ID:", partner.id);
+        
+        // Determine which one is primary (has is_primary_tenant = 1)
+        const isCurrentPrimary = tenant.is_primary_tenant === 1;
+        
+        if (isCurrentPrimary) {
+          // Current is primary, partner is partner
+          setTenantsToVacate([
+            {
+              id: tenant.id,
+              full_name: tenant.full_name,
+              email: tenant.email || "",
+              phone: tenant.phone || "",
+              gender: tenant.gender || "",
+              is_primary: true,
+              selected: true,
+              partner_details: {
+                id: partner.id,
+                full_name: partner.full_name,
+                email: partner.email || "",
+                phone: partner.phone || "",
+                gender: partner.gender || "",
+                relationship: tenant.partner_relationship || "Spouse",
+              },
+            },
+            {
+              id: partner.id,
+              full_name: partner.full_name,
+              email: partner.email || "",
+              phone: partner.phone || "",
+              gender: partner.gender || "",
+              is_primary: false,
+              selected: false,  // ← Partner not selected by default
+              partner_details: {
+                id: tenant.id,
+                full_name: tenant.full_name,
+                email: tenant.email || "",
+                phone: tenant.phone || "",
+                gender: tenant.gender || "",
+                relationship: partner.partner_relationship || "Spouse",
+              },
+            },
+          ]);
+        } else {
+          // Current is partner, primary is the partner
+          setTenantsToVacate([
+            {
+              id: partner.id,
+              full_name: partner.full_name,
+              email: partner.email || "",
+              phone: partner.phone || "",
+              gender: partner.gender || "",
+              is_primary: true,
+              selected: false,  // ← Primary not selected by default
+              partner_details: {
+                id: tenant.id,
+                full_name: tenant.full_name,
+                email: tenant.email || "",
+                phone: tenant.phone || "",
+                gender: tenant.gender || "",
+                relationship: partner.partner_relationship || "Spouse",
+              },
+            },
+            {
+              id: tenant.id,
+              full_name: tenant.full_name,
+              email: tenant.email || "",
+              phone: tenant.phone || "",
+              gender: tenant.gender || "",
+              is_primary: false,
+              selected: true,  // ← Current tenant selected by default
+              partner_details: {
+                id: partner.id,
+                full_name: partner.full_name,
+                email: partner.email || "",
+                phone: partner.phone || "",
+                gender: partner.gender || "",
+                relationship: tenant.partner_relationship || "Spouse",
+              },
+            },
+          ]);
+        }
+      } else {
+        console.log("⚠️ Partner tenant ID exists but partner not found");
+        setTenantsToVacate([
+          {
+            id: tenant.id,
+            full_name: tenant.full_name,
+            email: tenant.email || "",
+            phone: tenant.phone || "",
+            gender: tenant.gender || "",
+            is_primary: tenant.is_primary_tenant === 1,
+            selected: true,
+          },
+        ]);
+      }
+    } else {
+      console.log("ℹ️ Single tenant or couple booking flag disabled");
+      setTenantsToVacate([
+        {
+          id: tenant.id,
+          full_name: tenant.full_name,
+          email: tenant.email || "",
+          phone: tenant.phone || "",
+          gender: tenant.gender || "",
+          is_primary: tenant.is_primary_tenant === 1,
+          selected: true,
+        },
+      ]);
+    }
+  } catch (error) {
+    console.error("Error fetching partner details:", error);
+    toast.error("Failed to load tenant details");
+    setTenantsToVacate([{
+      id: tenantDetails?.id || 0,
+      full_name: tenantDetails?.full_name || "Unknown",
+      email: "",
+      phone: "",
+      gender: "",
+      is_primary: false,
+      selected: true,
+    }]);
+  } finally {
+    setLoadingTenants(false);
+  }
+};
+
+  // Call this in useEffect
+  useEffect(() => {
+    if (open && bedAssignment && tenantDetails) {
+      fetchPartnerDetails(tenantDetails.id);
+    }
+  }, [open, bedAssignment, tenantDetails]);
+
+const loadInitialData = async () => {
+  if (initialDataLoadedRef.current) return;
+
+  try {
+    setLoading(true);
+    setError(null);
+
+    const response = await vacateApi.getInitialData(bedAssignment.id);
+
+    let data;
+    if (response && response.success && response.data) {
+      data = response.data;
+    } else if (response && response.data) {
+      data = response.data;
+    } else {
+      data = response;
+    }
+
+    if (!data || !data.bedAssignment) {
+      throw new Error("Invalid response from server");
+    }
+
+    setInitialData(data);
+    initialDataLoadedRef.current = true;
+
+    // ✅ Set security deposit from bed data
+    if (data.bedAssignment) {
+      const deposit = parseFloat(data.bedAssignment.security_deposit) || 
+                      parseFloat(data.bedAssignment.rent_per_bed) || 0;
+      setSecurityDeposit(deposit);
+    }
+
+    // ✅ Always fetch partner details - don't rely on is_couple_booking flag
+    if (data.bedAssignment && data.bedAssignment.tenant_id) {
+      console.log("📢 Fetching partner details for tenant:", data.bedAssignment.tenant_id);
+      await fetchPartnerDetails(data.bedAssignment.tenant_id);
+    }
+
+    // Set default vacate date if no tenant date
+    if (!tenantVacateDate) {
+      const today = new Date();
+      const defaultVacateDate = new Date(today);
+      defaultVacateDate.setDate(today.getDate() + 30);
+      const formattedDate = defaultVacateDate.toISOString().split("T")[0];
+
+      setFormData((prev) => ({
+        ...prev,
+        requestedVacateDate: formattedDate,
+      }));
+    }
+  } catch (error) {
+    console.error("Error loading initial data:", error);
+    const errorMessage = error instanceof Error ? error.message : "Failed to load vacate data";
+    setError(errorMessage);
+    toast.error(errorMessage);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleInputChange = (field: string, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -739,36 +946,68 @@ export function VacateBedWizard({
     }
   };
 
-  const handleNext = async () => {
-    if (step === 1) {
-      if (!formData.vacateReasonValue) {
-        toast.error("Please select a vacate reason");
-        return;
-      }
-      setStep(2);
-    } else if (step === 2) {
-      setStep(3);
-    } else if (step === 3) {
-      if (formData.isNoticeGiven && !formData.noticeGivenDate) {
-        toast.error("Please select notice given date");
-        return;
-      }
-      setStep(4);
-    } else if (step === 4) {
-      if (!formData.requestedVacateDate) {
-        toast.error("Please select vacate date");
-        return;
-      }
-      await calculateAllPenalties();
-      setStep(5);
-    } else if (step === 5) {
-      if (!formData.adminApproved) {
-        toast.error("Please approve the vacate request");
-        return;
-      }
-      setStep(6);
+
+const handleNext = async () => {
+  // Step 1: Validate vacate reason
+  if (step === 1) {
+    if (!formData.vacateReasonValue) {
+      toast.error("Please select a vacate reason");
+      return;
     }
-  };
+    
+    // ✅ For non-couple bookings, skip step 2 (Select Tenants)
+    if (isCoupleBooking) {
+      setStep(2);
+    } else {
+      setStep(3); // Skip to Lock-in step
+    }
+  } 
+  // Step 2: Select Tenants (only for couple bookings)
+  else if (step === 2 && isCoupleBooking) {
+    const selectedCount = tenantsToVacate.filter(t => t.selected).length;
+    if (selectedCount === 0) {
+      toast.error("Please select at least one tenant to vacate");
+      return;
+    }
+    setStep(3);
+  } 
+  // Step 3: Lock-in
+  else if (step === 3) {
+    setStep(4);
+  } 
+  // Step 4: Notice
+  else if (step === 4) {
+    setStep(5);
+  } 
+  // Step 5: Date
+  else if (step === 5) {
+    if (!formData.requestedVacateDate) {
+      toast.error("Please select vacate date");
+      return;
+    }
+    await calculateAllPenalties();
+    setStep(6);
+  } 
+  // Step 6: Summary
+  else if (step === 6) {
+    if (!formData.adminApproved) {
+      toast.error("Please approve the vacate request");
+      return;
+    }
+    setStep(7);
+  }
+};
+// Update the icons array to handle dynamic steps
+const getIcons = () => {
+  const icons = [FileText];
+  
+  if (isCoupleBooking) {
+    icons.push(Lock); // Select Tenants step icon
+  }
+  
+  icons.push(Lock, Bell, CalendarIcon, CheckCircle, Check);
+  return icons;
+};
 
   // Fix the checkLockinStatus function - Calculate lock-in end date and compare with current date
   const checkLockinStatus = async () => {
@@ -1039,39 +1278,48 @@ export function VacateBedWizard({
         await checkLockinStatus();
       }
 
-      if (lockinStatus && lockinStatus.penaltyApplicable) {
-        lockinPenaltyApplicable = true;
+      // In calculateAllPenalties function, update the lock-in penalty section:
 
-        // Get penalty from tenant data
-        const penaltyAmount = parseFloat(bedData.lockin_penalty_amount) || 0;
-        const penaltyType = bedData.lockin_penalty_type || "";
+if (lockinStatus && lockinStatus.penaltyApplicable) {
+  lockinPenaltyApplicable = true;
 
-        if (penaltyAmount > 0) {
-          lockinPenalty = penaltyAmount;
-          lockinPenaltyDescription = `Fixed penalty (₹${lockinPenalty.toLocaleString("en-IN")})`;
-        } else if (penaltyType) {
-          // Calculate based on penalty type
-          lockinPenalty = calculatePenaltyAmount(
-            penaltyType,
-            securityDeposit,
-            rentPerBed,
-          );
+  // Get penalty from tenant data
+  const penaltyAmount = parseFloat(bedData.lockin_penalty_amount) || 0;
+  const penaltyType = bedData.lockin_penalty_type || "";
 
-          if (lockinPenalty > 0) {
-            if (penaltyType.includes("%")) {
-              lockinPenaltyDescription = `${penaltyType} of security deposit (₹${lockinPenalty.toLocaleString("en-IN")})`;
-            } else {
-              lockinPenaltyDescription = `${penaltyType.replace(/_/g, " ")} (₹${lockinPenalty.toLocaleString("en-IN")})`;
-            }
-          }
-        }
+  if (penaltyAmount > 0) {
+    // Check if it's a percentage value (e.g., "5.00" for 5%)
+    if (penaltyType === "percentage" && penaltyAmount < 100) {
+      // This is a percentage value, calculate based on security deposit
+      lockinPenalty = Math.round((securityDeposit * penaltyAmount) / 100);
+      lockinPenaltyDescription = `${penaltyAmount}% of security deposit (₹${lockinPenalty.toLocaleString("en-IN")})`;
+    } else {
+      lockinPenalty = penaltyAmount;
+      lockinPenaltyDescription = `Fixed penalty (₹${lockinPenalty.toLocaleString("en-IN")})`;
+    }
+  } else if (penaltyType) {
+    // Calculate based on penalty type
+    lockinPenalty = calculatePenaltyAmount(
+      penaltyType,
+      securityDeposit,
+      rentPerBed,
+    );
 
-        // If still 0, use rent as fallback
-        if (lockinPenalty === 0 && rentPerBed > 0) {
-          lockinPenalty = rentPerBed;
-          lockinPenaltyDescription = `One month rent (₹${rentPerBed.toLocaleString("en-IN")})`;
-        }
-      } else if (lockinStatus?.isCompleted) {
+    if (lockinPenalty > 0) {
+      if (penaltyType.includes("%")) {
+        lockinPenaltyDescription = `${penaltyType} of security deposit (₹${lockinPenalty.toLocaleString("en-IN")})`;
+      } else {
+        lockinPenaltyDescription = `${penaltyType.replace(/_/g, " ")} (₹${lockinPenalty.toLocaleString("en-IN")})`;
+      }
+    }
+  }
+
+  // If still 0, use rent as fallback
+  if (lockinPenalty === 0 && rentPerBed > 0) {
+    lockinPenalty = rentPerBed;
+    lockinPenaltyDescription = `One month rent (₹${rentPerBed.toLocaleString("en-IN")})`;
+  }
+} else if (lockinStatus?.isCompleted) {
         lockinPenaltyDescription = "No penalty - Lock-in period completed";
       }
 
@@ -1084,39 +1332,48 @@ export function VacateBedWizard({
       const noticeStatus = calculateNoticePeriodStatus();
       setNoticePeriodStatus(noticeStatus);
 
-      if (noticeStatus?.penaltyApplicable) {
-        noticePenaltyApplicable = true;
+      // In calculateAllPenalties function, update the notice penalty section:
 
-        // Get penalty from tenant data
-        const penaltyAmount = parseFloat(bedData.notice_penalty_amount) || 0;
-        const penaltyType = bedData.notice_penalty_type || "";
+if (noticeStatus?.penaltyApplicable) {
+  noticePenaltyApplicable = true;
 
-        if (penaltyAmount > 0) {
-          noticePenalty = penaltyAmount;
-          noticePenaltyDescription = `Fixed penalty (₹${noticePenalty.toLocaleString("en-IN")})`;
-        } else if (penaltyType) {
-          // Calculate based on penalty type
-          noticePenalty = calculatePenaltyAmount(
-            penaltyType,
-            securityDeposit,
-            rentPerBed,
-          );
+  // Get penalty from tenant data
+  const penaltyAmount = parseFloat(bedData.notice_penalty_amount) || 0;
+  const penaltyType = bedData.notice_penalty_type || "";
 
-          if (noticePenalty > 0) {
-            if (penaltyType.includes("%")) {
-              noticePenaltyDescription = `${penaltyType} of security deposit (₹${noticePenalty.toLocaleString("en-IN")})`;
-            } else {
-              noticePenaltyDescription = `${penaltyType.replace(/_/g, " ")} (₹${noticePenalty.toLocaleString("en-IN")})`;
-            }
-          }
-        }
+  if (penaltyAmount > 0) {
+    // Check if it's a percentage value (e.g., "7.00" for 7%)
+    if (penaltyType === "percentage" && penaltyAmount < 100) {
+      // This is a percentage value, calculate based on security deposit
+      noticePenalty = Math.round((securityDeposit * penaltyAmount) / 100);
+      noticePenaltyDescription = `${penaltyAmount}% of security deposit (₹${noticePenalty.toLocaleString("en-IN")})`;
+    } else {
+      noticePenalty = penaltyAmount;
+      noticePenaltyDescription = `Fixed penalty (₹${noticePenalty.toLocaleString("en-IN")})`;
+    }
+  } else if (penaltyType) {
+    // Calculate based on penalty type
+    noticePenalty = calculatePenaltyAmount(
+      penaltyType,
+      securityDeposit,
+      rentPerBed,
+    );
 
-        // If still 0, use rent as fallback
-        if (noticePenalty === 0 && rentPerBed > 0) {
-          noticePenalty = rentPerBed;
-          noticePenaltyDescription = `One month rent (₹${rentPerBed.toLocaleString("en-IN")})`;
-        }
-      } else if (noticeStatus?.isNoticeGiven) {
+    if (noticePenalty > 0) {
+      if (penaltyType.includes("%")) {
+        noticePenaltyDescription = `${penaltyType} of security deposit (₹${noticePenalty.toLocaleString("en-IN")})`;
+      } else {
+        noticePenaltyDescription = `${penaltyType.replace(/_/g, " ")} (₹${noticePenalty.toLocaleString("en-IN")})`;
+      }
+    }
+  }
+
+  // If still 0, use rent as fallback
+  if (noticePenalty === 0 && rentPerBed > 0) {
+    noticePenalty = rentPerBed;
+    noticePenaltyDescription = `One month rent (₹${rentPerBed.toLocaleString("en-IN")})`;
+  }
+} else if (noticeStatus?.isNoticeGiven) {
         noticePenaltyDescription = "No penalty - Notice period completed";
       } else if (noticeStatus?.isNoticeRequired === false) {
         noticePenaltyDescription = "No notice period required";
@@ -1202,78 +1459,80 @@ export function VacateBedWizard({
     }
   };
 
-  // Enhanced penalty calculation helper
-  const calculatePenaltyAmount = (
-    penaltyType: string,
-    securityDeposit: number,
-    rentPerBed: number,
-  ) => {
-    if (!penaltyType) return 0;
+const calculatePenaltyAmount = (
+  penaltyType: string,
+  securityDeposit: number,
+  rentPerBed: number,
+) => {
+  if (!penaltyType) return 0;
 
-    const lowerType = penaltyType.toLowerCase();
+  const lowerType = penaltyType.toLowerCase();
 
-    // Check for percentage-based penalties
-    if (lowerType.includes("%")) {
-      const percentageMatch = lowerType.match(/(\d+)%/);
-      if (percentageMatch) {
-        const percentage = parseInt(percentageMatch[1]);
-        return Math.round((securityDeposit * percentage) / 100);
-      }
+  // Check for percentage-based penalties - calculate based on security deposit
+  if (lowerType.includes("%")) {
+    const percentageMatch = lowerType.match(/(\d+)%/);
+    if (percentageMatch) {
+      const percentage = parseInt(percentageMatch[1]);
+      // ✅ Calculate percentage of security deposit
+      const calculatedAmount = Math.round((securityDeposit * percentage) / 100);
+      console.log(`💰 Percentage penalty: ${percentage}% of ₹${securityDeposit} = ₹${calculatedAmount}`);
+      return calculatedAmount;
     }
+  }
 
-    // Check for fixed amounts in the type (e.g., "₹2000", "2000_fixed")
-    const fixedAmountMatch = lowerType.match(/₹?(\d+(?:,\d+)*(?:\.\d+)?)/);
-    if (fixedAmountMatch) {
-      const amountStr = fixedAmountMatch[1].replace(/,/g, "");
-      return parseFloat(amountStr) || 0;
-    }
+  // Check for fixed amounts in the type (e.g., "₹2000", "2000_fixed")
+  const fixedAmountMatch = lowerType.match(/₹?(\d+(?:,\d+)*(?:\.\d+)?)/);
+  if (fixedAmountMatch) {
+    const amountStr = fixedAmountMatch[1].replace(/,/g, "");
+    return parseFloat(amountStr) || 0;
+  }
 
-    // Check for common penalty types
-    if (
-      lowerType.includes("one_month_rent") ||
-      lowerType.includes("one month rent")
-    ) {
-      return rentPerBed;
-    }
+  // Check for common penalty types - based on rent
+  if (
+    lowerType.includes("one_month_rent") ||
+    lowerType.includes("one month rent")
+  ) {
+    return rentPerBed;
+  }
 
-    if (
-      lowerType.includes("two_month_rent") ||
-      lowerType.includes("two months rent")
-    ) {
-      return rentPerBed * 2;
-    }
+  if (
+    lowerType.includes("two_month_rent") ||
+    lowerType.includes("two months rent")
+  ) {
+    return rentPerBed * 2;
+  }
 
-    if (
-      lowerType.includes("three_month_rent") ||
-      lowerType.includes("three months rent")
-    ) {
-      return rentPerBed * 3;
-    }
+  if (
+    lowerType.includes("three_month_rent") ||
+    lowerType.includes("three months rent")
+  ) {
+    return rentPerBed * 3;
+  }
 
-    if (
-      lowerType.includes("half_month_rent") ||
-      lowerType.includes("half month rent")
-    ) {
-      return Math.round(rentPerBed / 2);
-    }
+  if (
+    lowerType.includes("half_month_rent") ||
+    lowerType.includes("half month rent")
+  ) {
+    return Math.round(rentPerBed / 2);
+  }
 
-    if (
-      lowerType.includes("full_deposit") ||
-      lowerType.includes("full security deposit") ||
-      lowerType.includes("deposit_forfeit")
-    ) {
-      return securityDeposit;
-    }
+  if (
+    lowerType.includes("full_deposit") ||
+    lowerType.includes("full security deposit") ||
+    lowerType.includes("deposit_forfeit")
+  ) {
+    return securityDeposit;
+  }
 
-    if (
-      lowerType.includes("half_deposit") ||
-      lowerType.includes("half security deposit")
-    ) {
-      return Math.round(securityDeposit / 2);
-    }
+  if (
+    lowerType.includes("half_deposit") ||
+    lowerType.includes("half security deposit")
+  ) {
+    return Math.round(securityDeposit / 2);
+  }
 
-    return 0;
-  };
+  return 0;
+};
 
   const formatCurrency = (amount: number) => {
     if (isNaN(amount)) return "₹0";
@@ -1303,92 +1562,172 @@ export function VacateBedWizard({
     }
   };
 
-
   useEffect(() => {
-  // If no existing tenant vacate request, enable admin override by default
-  if (!existingVacateRequest && initialData && !isCheckingExisting) {
-    setIsAdminOverride(true);
-    // Also auto-check admin approval when override is enabled
-    setFormData(prev => ({
-      ...prev,
-      adminApproved: true
-    }));
-  }
-}, [existingVacateRequest, initialData, isCheckingExisting]);
+    // If no existing tenant vacate request, enable admin override by default
+    if (!existingVacateRequest && initialData && !isCheckingExisting) {
+      setIsAdminOverride(true);
+      // Also auto-check admin approval when override is enabled
+      setFormData((prev) => ({
+        ...prev,
+        adminApproved: true,
+      }));
+    }
+  }, [existingVacateRequest, initialData, isCheckingExisting]);
 
 const handleSubmit = async () => {
   try {
     setLoading(true);
 
-    // Calculate final amounts based on admin override
-    const finalPenaltyAmount = isAdminOverride ? 0 : formData.finalPenaltyAmount;
-    const finalRefundAmount = isAdminOverride 
-      ? (initialData?.bedAssignment?.security_deposit || 0)
-      : formData.securityRefundAmount;
+    const selectedTenants = tenantsToVacate.filter(t => t.selected);
+    
+    if (selectedTenants.length === 0) {
+      toast.error("Please select at least one tenant to vacate");
+      setLoading(false);
+      return;
+    }
 
-    const payload = {
-      bedAssignmentId: bedAssignment.id,
-      tenantId: tenantDetails?.id || bedAssignment.tenant_id,
-      vacateReasonValue: isAdminOverride ? 'Admin forced vacate' : formData.vacateReasonValue,
-      isNoticeGiven: isAdminOverride ? true : formData.isNoticeGiven,
-      noticeGivenDate: isAdminOverride ? new Date().toISOString().split('T')[0] : (formData.noticeGivenDate || tenantRequestDate),
-      requestedVacateDate: formData.requestedVacateDate,
-      tenantAgreed: isAdminOverride ? true : tenantAgreedToTerms,
-      lockinPeriodMonths: initialData?.bedAssignment?.lockin_period_months || 0,
-      lockinPenaltyType: initialData?.bedAssignment?.lockin_penalty_type || '',
-      lockinPenaltyAmount: isAdminOverride ? 0 : (initialData?.bedAssignment?.lockin_penalty_amount || 0),
-      noticePeriodDays: initialData?.bedAssignment?.notice_period_days || 0,
-      noticePenaltyType: initialData?.bedAssignment?.notice_penalty_type || '',
-      noticePenaltyAmount: isAdminOverride ? 0 : (initialData?.bedAssignment?.notice_penalty_amount || 0),
-      securityDepositAmount: initialData?.bedAssignment?.security_deposit || 0,
-      totalPenaltyAmount: finalPenaltyAmount,
-      refundableAmount: finalRefundAmount,
-      lockinPenaltyApplied: !isAdminOverride && formData.lockinPenaltyApplied,
-      noticePenaltyApplied: !isAdminOverride && formData.noticePenaltyApplied,
-      adminApproved: formData.adminApproved,
-      tenantVacateRequestId: existingVacateRequest?.id,
-      isAdminOverride: isAdminOverride  // ✅ Pass this flag
-    };
+    const results = [];
+    const errors = [];
 
-    const response = await vacateApi.submitVacateRequest(payload);
-
-    if (response && response.success) {
-      setSubmissionResult(response.data);
-      toast.success(response.message || "Bed vacated successfully by admin!");
-
-      if (onVacateComplete) {
-        onVacateComplete();
-      }
-
+    // Process each selected tenant
+    for (const tenant of selectedTenants) {
       try {
+        // Calculate final amounts based on admin override or tenant request
+        let finalPenaltyAmount;
+        let finalRefundAmount;
+        
+        if (isAdminOverride) {
+          // ✅ Admin Override: No penalties, full refund
+          finalPenaltyAmount = 0;
+          finalRefundAmount = initialData?.bedAssignment?.security_deposit || 0;
+        } else if (existingVacateRequest) {
+          // ✅ Tenant submitted a vacate request - use calculations from the request
+          finalPenaltyAmount = calculation?.financials?.totalPenalty || formData.finalPenaltyAmount;
+          finalRefundAmount = calculation?.financials?.refundableAmount || formData.securityRefundAmount;
+        } else {
+          // ✅ No tenant request, admin is processing manually
+          finalPenaltyAmount = formData.finalPenaltyAmount;
+          finalRefundAmount = formData.securityRefundAmount;
+        }
+
+        const payload = {
+          bedAssignmentId: bedAssignment.id,
+          tenantId: tenant.id,
+          vacateReasonValue: isAdminOverride ? 'Admin forced vacate' :(tenantVacateReason || formData.vacateReasonValue),
+          isNoticeGiven: isAdminOverride ? true :(noticeGivenByTenant || formData.isNoticeGiven),
+          noticeGivenDate: isAdminOverride ? new Date().toISOString().split('T')[0] :  (tenantRequestDate || formData.noticeGivenDate),
+          requestedVacateDate: formData.requestedVacateDate,  
+          tenantAgreed: isAdminOverride ? true : tenantAgreedToTerms,
+          lockinPeriodMonths: initialData?.bedAssignment?.lockin_period_months || 0,
+          lockinPenaltyType: initialData?.bedAssignment?.lockin_penalty_type || '',
+          lockinPenaltyAmount: isAdminOverride ? 0 : (initialData?.bedAssignment?.lockin_penalty_amount || 0),
+          noticePeriodDays: initialData?.bedAssignment?.notice_period_days || 0,
+          noticePenaltyType: initialData?.bedAssignment?.notice_penalty_type || '',
+          noticePenaltyAmount: isAdminOverride ? 0 : (initialData?.bedAssignment?.notice_penalty_amount || 0),
+          securityDepositAmount: initialData?.bedAssignment?.security_deposit || 0,
+          totalPenaltyAmount: selectedTenants.length === 2 ? finalPenaltyAmount : Math.floor(finalPenaltyAmount / 2),
+          refundableAmount: selectedTenants.length === 2 ? finalRefundAmount : Math.floor(finalRefundAmount / 2),
+          lockinPenaltyApplied: !isAdminOverride && formData.lockinPenaltyApplied,
+          noticePenaltyApplied: !isAdminOverride && formData.noticePenaltyApplied,
+          adminApproved: formData.adminApproved,
+          tenantVacateRequestId: existingVacateRequest?.id,
+          isAdminOverride: isAdminOverride,
+          isPartialVacate: selectedTenants.length === 1 && tenantsToVacate.length === 2
+        };
+
+        const response = await vacateApi.submitVacateRequest(payload);
+        
+        if (response && response.success) {
+          
+          results.push({
+            tenant_id: tenant.id,
+            tenant_name: tenant.full_name,
+            success: true,
+            message: response.message
+          });
+        } else {
+          errors.push({
+            tenant_id: tenant.id,
+            tenant_name: tenant.full_name,
+            error: response?.message || "Failed to submit vacate request"
+          });
+        }
+      } catch (error) {
+        console.error(`Error vacating tenant ${tenant.id}:`, error);
+        errors.push({
+          tenant_id: tenant.id,
+          tenant_name: tenant.full_name,
+          error: error.message
+        });
+      }
+    }
+
+    if (results.length > 0) {
+      const successMessage = results.map(r => r.tenant_name).join(', ');
+      toast.success(`Successfully vacated: ${successMessage}`);
+      
+      // ✅ HANDLE BED ASSIGNMENT UPDATE FOR PARTIAL VACATE
+      const allTenantsVacated = selectedTenants.length === tenantsToVacate.length;
+      
+      if (allTenantsVacated) {
+        // Both tenants vacated - mark bed as available
         await updateBedAssignment(bedAssignment.id.toString(), {
           tenant_id: null,
           tenant_gender: null,
           is_available: true,
+          // tenant_rent:initialData?.bedAssignment?.tenant_rent || initialData?.bedAssignment?.rent_per_bed,
+          tenant_rent:initialData?.bedAssignment?.tenant_rent,
+          is_couple: false,
+          security_deposit: null
         });
-      } catch (updateError) {
-        console.error("⚠️ Could not update bed assignment:", updateError);
+        console.log("✅ Both tenants vacated - Bed marked as available");
+      } else {
+        // Only one tenant vacated - update bed to remaining tenant
+        const remainingTenant = tenantsToVacate.find(t => !t.selected);
+        if (remainingTenant) {
+          // Fetch remaining tenant's gender
+          const remainingTenantDetails = await fetchRawTenant(remainingTenant.id);
+
+            //  const currentTenantRent = initialData?.bedAssignment?.tenant_rent || 
+            //                          initialData?.bedAssignment?.rent_per_bed || 
+            //                          0;
+                                     const currentTenantRent = initialData?.bedAssignment?.tenant_rent ;
+            // Get the security deposit from the original bed assignment
+  const originalSecurityDeposit = initialData?.bedAssignment?.security_deposit || 
+                                   initialData?.bedAssignment?.rent_per_bed || 
+                                   0;
+          
+          await updateBedAssignment(bedAssignment.id.toString(), {
+            tenant_id: remainingTenant.id,
+            tenant_gender: remainingTenantDetails?.gender || null,
+            is_available: false,
+            is_couple: false, // No longer a couple booking
+            tenant_rent:currentTenantRent,
+             security_deposit: originalSecurityDeposit
+          });
+          console.log(`✅ Single tenant vacated - Bed updated to remaining tenant: ${remainingTenant.full_name}`);
+        }
+      }
+      
+      if (onVacateComplete) {
+        onVacateComplete();
       }
 
       setStep(6);
-
       setTimeout(() => {
         onOpenChange(false);
         resetWizard();
-      }, 3000);
-    } else {
-      const errorMessage = response?.message || response?.data?.message || "Failed to submit vacate request";
-      toast.error(errorMessage);
+      }, 100);
     }
+    
+    if (errors.length > 0) {
+      const errorMessage = errors.map(e => `${e.tenant_name}: ${e.error}`).join('; ');
+      toast.error(`Failed to vacate: ${errorMessage}`);
+    }
+    
   } catch (error) {
     console.error("❌ Error submitting vacate request:", error);
-    const err = error as any;
-    if (err?.response) {
-      const errorMessage = err.response.data?.message || err.message || "Failed to submit vacate request";
-      toast.error(errorMessage);
-    } else {
-      toast.error((err as Error)?.message || "Failed to submit vacate request.");
-    }
+    toast.error(error.message || "Failed to submit vacate request.");
   } finally {
     setLoading(false);
   }
@@ -1396,12 +1735,19 @@ const handleSubmit = async () => {
 
   const handleBack = () => {
     if (step > 1) {
+       // For non-couple bookings, step 2 doesn't exist
+    if (!isCoupleBooking && step === 3) {
+      setStep(1); // Go back from Lock-in to Reason
+    } else if (!isCoupleBooking && step === 4) {
+      setStep(3); // Go back from Notice to Lock-in
+    } else {
       setStep(step - 1);
+    }
     }
   };
 
   const resetWizard = () => {
-    if (step !== 6) {
+    if (step !== 7) {
       setStep(1);
       setInitialData(null);
       setCalculation(null);
@@ -1437,7 +1783,7 @@ const handleSubmit = async () => {
   };
 
   const handleClose = () => {
-    if (step === 6) {
+    if (step === 7) {
       onOpenChange(false);
     } else {
       resetWizard();
@@ -1485,14 +1831,15 @@ const handleSubmit = async () => {
   const bedData = initialData.bedAssignment;
   const currentDate =
     initialData.currentDate || new Date().toISOString().split("T")[0];
-  const stepTitles = [
-    "Reason",
-    "Lock-in",
-    "Notice",
-    "Date",
-    "Summary",
-    "Result",
-  ];
+const getStepTitles = () => {
+  if (isCoupleBooking) {
+    return ["Reason", "Select Tenants", "Lock-in", "Notice", "Date", "Summary", "Result"];
+  } else {
+    return ["Reason", "Lock-in", "Notice", "Date", "Summary", "Result"];
+  }
+};
+
+const stepTitles = getStepTitles();
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -1622,15 +1969,8 @@ const handleSubmit = async () => {
             <div className="px-3 py-2 bg-gray-50 border-b border-gray-200 flex-shrink-0">
               <div className="flex items-center justify-between gap-0.5">
                 {stepTitles.map((title, index) => {
-                  const icons = [
-                    FileText,
-                    Lock,
-                    Bell,
-                    CalendarIcon,
-                    CheckCircle,
-                    Check,
-                  ];
-                  const StepIcon = icons[index] || Check;
+                  const iconsList = getIcons();
+  const StepIcon = iconsList[index] || Check;
                   return (
                     <div
                       key={index}
@@ -1769,6 +2109,157 @@ const handleSubmit = async () => {
 
             {step === 2 && (
               <div className="space-y-4">
+                <div className="bg-purple-50 p-3 rounded-lg">
+                  <h3 className="font-medium text-purple-800 mb-1 text-sm">
+                    Select Tenants to Vacate
+                  </h3>
+                  <p className="text-xs text-purple-700">
+                    Select which tenants you want to vacate from this bed.
+                    {tenantsToVacate.length > 1 &&
+                      " Since this is a couple booking, you can vacate one or both tenants."}
+                  </p>
+                </div>
+
+                {loadingTenants ? (
+                  <div className="text-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin mx-auto text-purple-500" />
+                    <p className="text-sm text-gray-500 mt-2">
+                      Loading tenant details...
+                    </p>
+                  </div>
+                ) : (
+                  <Card className="border">
+                    <CardContent className="p-3">
+                      <div className="space-y-3">
+                        <div className="text-sm font-medium mb-2 flex items-center gap-2">
+                          <UsersRound className="h-4 w-4 text-purple-600" />
+                          Tenants on this bed:
+                        </div>
+
+                        {tenantsToVacate.map((tenant, index) => (
+                          <div
+                            key={tenant.id}
+                            className={`p-3 rounded-lg border ${tenant.selected ? "bg-purple-50 border-purple-300" : "bg-gray-50 border-gray-200"}`}
+                          >
+                            <div className="flex items-start gap-3">
+                              <input
+                                type="checkbox"
+                                id={`tenant_${tenant.id}`}
+                                checked={tenant.selected}
+                                onChange={(e) => {
+                                  const updated = tenantsToVacate.map((t) =>
+                                    t.id === tenant.id
+                                      ? { ...t, selected: e.target.checked }
+                                      : t,
+                                  );
+                                  setTenantsToVacate(updated);
+                                }}
+                                className="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500 mt-1"
+                              />
+                              <div className="flex-1">
+                                <label
+                                  htmlFor={`tenant_${tenant.id}`}
+                                  className="font-medium text-sm cursor-pointer flex items-center gap-2"
+                                >
+                                  {tenant.full_name}
+                                  {tenant.is_primary && tenantsToVacate.length > 1 && (
+  <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+    Primary
+  </Badge>
+)}
+{!tenant.is_primary && tenantsToVacate.length > 1 && index === 1 && (
+  <Badge variant="outline" className="text-xs bg-pink-50 text-pink-700 border-pink-200">
+    Partner
+  </Badge>
+)}
+{!tenant.is_primary && tenantsToVacate.length > 1 && index === 0 && (
+  <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">
+    Partner
+  </Badge>
+)}
+{tenantsToVacate.length === 1 && tenant.is_primary && (
+  <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+    Primary
+  </Badge>
+)}
+                                </label>
+
+                                <div className="grid grid-cols-2 gap-x-4 gap-y-1 mt-2">
+                                  <div className="text-xs text-gray-500">
+                                    <span className="font-medium">Email:</span>{" "}
+                                    {tenant.email || "N/A"}
+                                  </div>
+                                  <div className="text-xs text-gray-500">
+                                    <span className="font-medium">Phone:</span>{" "}
+                                    {tenant.phone || "N/A"}
+                                  </div>
+                                  <div className="text-xs text-gray-500">
+                                    <span className="font-medium">Gender:</span>{" "}
+                                    {tenant.gender || "N/A"}
+                                  </div>
+                                  {tenant.partner_details && (
+                                    <div className="text-xs text-gray-500">
+                                      <span className="font-medium">
+                                        Partner:
+                                      </span>{" "}
+                                      {tenant.partner_details.full_name}
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* {tenant.partner_details && (
+                                  <div className="mt-2 pt-2 border-t border-dashed border-gray-200">
+                                    <div className="text-xs text-purple-600 flex items-center gap-1">
+                                      <Heart className="h-3 w-3" />
+                                      <span>
+                                        Partnered with:{" "}
+                                        {tenant.partner_details.full_name}
+                                      </span>
+                                    </div>
+                                  </div>
+                                )} */}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+
+                        {tenantsToVacate.filter((t) => t.selected).length ===
+                          0 && (
+                          <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
+                            <AlertCircle className="h-4 w-4 inline mr-2" />
+                            Please select at least one tenant to vacate
+                          </div>
+                        )}
+
+                        {tenantsToVacate.length > 1 &&
+                          tenantsToVacate.filter((t) => t.selected).length ===
+                            1 && (
+                            <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-700 text-sm">
+                              <AlertTriangle className="h-4 w-4 inline mr-2" />
+                              Only one tenant will be vacated. The other tenant
+                              will remain in the bed. The bed will remain
+                              occupied with the remaining tenant.
+                            </div>
+                          )}
+
+                        {tenantsToVacate.length > 1 &&
+                          tenantsToVacate.filter((t) => t.selected).length ===
+                            2 && (
+                            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-blue-700 text-sm">
+                              <Info className="h-4 w-4 inline mr-2" />
+                              Both tenants will be vacated. The bed will become
+                              available for new assignment.
+                            </div>
+                          )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            )}
+
+            {step === 3 && (
+              <div className="space-y-4">
                 <div className="bg-blue-50 p-3 rounded-lg">
                   <h3 className="font-medium text-blue-800 mb-1 text-sm">
                     Lock-in Period Policy
@@ -1806,8 +2297,15 @@ const handleSubmit = async () => {
                               Penalty Amount
                             </div>
                             <div className="font-medium text-sm text-red-600">
-                              {formatCurrency(bedData.lockin_penalty_amount)}
-                            </div>
+      {(() => {
+        // Calculate actual penalty amount based on type
+        if (bedData.lockin_penalty_type === "percentage" && bedData.lockin_penalty_amount < 100) {
+          const calculatedAmount = Math.round((securityDeposit * parseFloat(bedData.lockin_penalty_amount)) / 100);
+          return formatCurrency(calculatedAmount);
+        }
+        return formatCurrency(bedData.lockin_penalty_amount);
+      })()}
+    </div>
                           </div>
                         )}
                         <div>
@@ -1880,7 +2378,7 @@ const handleSubmit = async () => {
               </div>
             )}
 
-            {step === 3 && (
+            {step === 4 && (
               <div className="space-y-4">
                 <div className="bg-blue-50 p-3 rounded-lg">
                   <h3 className="font-medium text-blue-800 mb-1 text-sm">
@@ -1923,9 +2421,16 @@ const handleSubmit = async () => {
                             <div className="text-xs text-gray-500">
                               Penalty Amount
                             </div>
-                            <div className="font-medium text-sm text-red-600">
-                              {formatCurrency(bedData.notice_penalty_amount)}
-                            </div>
+                             <div className="font-medium text-sm text-red-600">
+      {(() => {
+        // Calculate actual penalty amount based on type
+        if (bedData.notice_penalty_type === "percentage" && bedData.notice_penalty_amount < 100) {
+          const calculatedAmount = Math.round((securityDeposit * parseFloat(bedData.notice_penalty_amount)) / 100);
+          return formatCurrency(calculatedAmount);
+        }
+        return formatCurrency(bedData.notice_penalty_amount);
+      })()}
+    </div>
                           </div>
                         )}
                         <div>
@@ -2120,7 +2625,7 @@ const handleSubmit = async () => {
               </div>
             )}
 
-            {step === 4 && (
+            {step === 5 && (
               <div className="space-y-4">
                 <div className="bg-blue-50 p-3 rounded-lg">
                   <h3 className="font-medium text-blue-800 mb-1 text-sm">
@@ -2188,7 +2693,7 @@ const handleSubmit = async () => {
               </div>
             )}
 
-            {step === 5 && calculation && (
+            {step === 6 && calculation && (
               <div className="space-y-4">
                 <div className="bg-blue-50 p-3 rounded-lg">
                   <h3 className="font-medium text-blue-800 mb-1 text-sm">
@@ -2236,231 +2741,301 @@ const handleSubmit = async () => {
                 </Card>
 
                 <Card className="border">
-  <CardContent className="p-3">
-    <h4 className="font-medium text-sm mb-2">Financial Summary</h4>
-    <div className="space-y-2">
-      <div className="flex justify-between items-center">
-        <div className="text-sm text-gray-600">Security Deposit</div>
-        <div className="font-medium text-sm">
-          {formatCurrency(calculation.financials.securityDeposit)}
-        </div>
-      </div>
+                  <CardContent className="p-3">
+                    <h4 className="font-medium text-sm mb-2">
+                      Financial Summary
+                    </h4>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <div className="text-sm text-gray-600">
+                          Security Deposit
+                        </div>
+                        <div className="font-medium text-sm">
+                          {formatCurrency(
+                            calculation.financials.securityDeposit,
+                          )}
+                        </div>
+                      </div>
 
-      {/* Lock-in Penalty - Show strikethrough if overridden */}
-      {calculation.financials.lockinPenalty > 0 && (
-        <div className="flex justify-between items-center pt-2 border-t">
-          <div>
-            <div className={`text-sm ${isAdminOverride ? 'text-gray-400 line-through' : 'text-gray-600'}`}>
-              Lock-in Penalty
-            </div>
-            {isAdminOverride && (
-              <div className="text-xs text-green-600">(Waived by admin)</div>
-            )}
-          </div>
-          <div className={`font-medium text-sm ${isAdminOverride ? 'text-gray-400 line-through' : 'text-red-600'}`}>
-            - {formatCurrency(calculation.financials.lockinPenalty)}
-          </div>
-        </div>
-      )}
+                      {/* Lock-in Penalty - Show strikethrough if overridden */}
+                      {calculation.financials.lockinPenalty > 0 && (
+                        <div className="flex justify-between items-center pt-2 border-t">
+                          <div>
+                            <div
+                              className={`text-sm ${isAdminOverride ? "text-gray-400 line-through" : "text-gray-600"}`}
+                            >
+                              Lock-in Penalty
+                            </div>
+                            {isAdminOverride && (
+                              <div className="text-xs text-green-600">
+                                (Waived by admin)
+                              </div>
+                            )}
+                          </div>
+                          <div
+                            className={`font-medium text-sm ${isAdminOverride ? "text-gray-400 line-through" : "text-red-600"}`}
+                          >
+                            -{" "}
+                            {formatCurrency(
+                              calculation.financials.lockinPenalty,
+                            )}
+                          </div>
+                        </div>
+                      )}
 
-      {/* Notice Penalty - Show strikethrough if overridden */}
-      {calculation.financials.noticePenalty > 0 && (
-        <div className="flex justify-between items-center pt-2 border-t">
-          <div>
-            <div className={`text-sm ${isAdminOverride ? 'text-gray-400 line-through' : 'text-gray-600'}`}>
-              Notice Penalty
-            </div>
-            {isAdminOverride && (
-              <div className="text-xs text-green-600">(Waived by admin)</div>
-            )}
-          </div>
-          <div className={`font-medium text-sm ${isAdminOverride ? 'text-gray-400 line-through' : 'text-red-600'}`}>
-            - {formatCurrency(calculation.financials.noticePenalty)}
-          </div>
-        </div>
-      )}
+                      {/* Notice Penalty - Show strikethrough if overridden */}
+                      {calculation.financials.noticePenalty > 0 && (
+                        <div className="flex justify-between items-center pt-2 border-t">
+                          <div>
+                            <div
+                              className={`text-sm ${isAdminOverride ? "text-gray-400 line-through" : "text-gray-600"}`}
+                            >
+                              Notice Penalty
+                            </div>
+                            {isAdminOverride && (
+                              <div className="text-xs text-green-600">
+                                (Waived by admin)
+                              </div>
+                            )}
+                          </div>
+                          <div
+                            className={`font-medium text-sm ${isAdminOverride ? "text-gray-400 line-through" : "text-red-600"}`}
+                          >
+                            -{" "}
+                            {formatCurrency(
+                              calculation.financials.noticePenalty,
+                            )}
+                          </div>
+                        </div>
+                      )}
 
-      <div className="flex justify-between items-center pt-2 border-t">
-        <div className="text-sm font-medium">Total Penalties</div>
-        <div className={`font-medium text-sm ${isAdminOverride ? 'text-gray-400 line-through' : 'text-red-600'}`}>
-          - {formatCurrency(isAdminOverride ? 0 : calculation.financials.totalPenalty)}
-        </div>
-      </div>
+                      <div className="flex justify-between items-center pt-2 border-t">
+                        <div className="text-sm font-medium">
+                          Total Penalties
+                        </div>
+                        <div
+                          className={`font-medium text-sm ${isAdminOverride ? "text-gray-400 line-through" : "text-red-600"}`}
+                        >
+                          -{" "}
+                          {formatCurrency(
+                            isAdminOverride
+                              ? 0
+                              : calculation.financials.totalPenalty,
+                          )}
+                        </div>
+                      </div>
 
-      <div className="flex justify-between items-center pt-2 border-t">
-        <div className="font-medium">Refundable Amount</div>
-        <div className={`font-bold ${isAdminOverride ? 'text-green-600' : (calculation.financials.refundableAmount > 0 ? 'text-green-600' : 'text-red-600')}`}>
-          {formatCurrency(isAdminOverride ? calculation.financials.securityDeposit : calculation.financials.refundableAmount)}
-        </div>
-      </div>
+                      <div className="flex justify-between items-center pt-2 border-t">
+                        <div className="font-medium">Refundable Amount</div>
+                        <div
+                          className={`font-bold ${isAdminOverride ? "text-green-600" : calculation.financials.refundableAmount > 0 ? "text-green-600" : "text-red-600"}`}
+                        >
+                          {formatCurrency(
+                            isAdminOverride
+                              ? calculation.financials.securityDeposit
+                              : calculation.financials.refundableAmount,
+                          )}
+                        </div>
+                      </div>
 
-      {isAdminOverride && (
-        <div className="p-3 bg-green-50 border border-green-200 rounded-lg mt-2">
-          <div className="flex items-start gap-2">
-            <CheckCircle className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
-            <div className="flex-1">
-              <div className="font-medium text-green-800 text-sm mb-1">
-                ✓ Admin Override Active
-              </div>
-              <div className="text-sm text-green-700">
-                • No penalties will be charged
-              </div>
-              <div className="text-sm text-green-700">
-                • Full security deposit of {formatCurrency(calculation.financials.securityDeposit)} will be refunded
-              </div>
-              <div className="text-sm text-green-700">
-                • Tenant agreement is not required
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  </CardContent>
-</Card>
+                      {isAdminOverride && (
+                        <div className="p-3 bg-green-50 border border-green-200 rounded-lg mt-2">
+                          <div className="flex items-start gap-2">
+                            <CheckCircle className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
+                            <div className="flex-1">
+                              <div className="font-medium text-green-800 text-sm mb-1">
+                                ✓ Admin Override Active
+                              </div>
+                              <div className="text-sm text-green-700">
+                                • No penalties will be charged
+                              </div>
+                              <div className="text-sm text-green-700">
+                                • Full security deposit of{" "}
+                                {formatCurrency(
+                                  calculation.financials.securityDeposit,
+                                )}{" "}
+                                will be refunded
+                              </div>
+                              <div className="text-sm text-green-700">
+                                • Tenant agreement is not required
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
 
                 <Card className="border">
-  <CardContent className="p-3">
-    <div className="space-y-3">
-      {/* In step 5 - Admin Override Checkbox */}
-<div className="flex items-start gap-2 p-3 bg-purple-50 border border-purple-200 rounded-lg">
-  <input
-    type="checkbox"
-    id="adminOverride"
-    checked={isAdminOverride}
-    onChange={(e) => {
-      const checked = e.target.checked;
-      setIsAdminOverride(checked);
-      if (checked) {
-        // Set penalties to 0 and refund to full deposit
-        setFormData(prev => ({
-          ...prev,
-          lockinPenaltyApplied: false,
-          noticePenaltyApplied: false,
-          finalPenaltyAmount: 0,
-          securityRefundAmount: calculation?.financials?.securityDeposit || 0,
-          adminApproved: true
-        }));
-        toast.info("Admin override enabled - No penalties will be applied");
-      } else {
-        // Restore original calculation
-        setFormData(prev => ({
-          ...prev,
-          lockinPenaltyApplied: calculation?.lockinPolicy?.penaltyApplicable || false,
-          noticePenaltyApplied: calculation?.noticePolicy?.penaltyApplicable || false,
-          finalPenaltyAmount: calculation?.financials?.totalPenalty || 0,
-          securityRefundAmount: calculation?.financials?.refundableAmount || 0,
-          adminApproved: false
-        }));
-      }
-    }}
-    className="h-4 w-4 rounded border-purple-300 text-purple-600 focus:ring-purple-500 mt-0.5"
-  />
-  <div className="flex-1">
-    <Label htmlFor="adminOverride" className="font-medium text-purple-800">
-      Admin Override - No Penalty Vacate
-    </Label>
-    <p className="text-xs text-purple-600 mt-0.5">
-      Check this to bypass penalties and refund full security deposit. 
-      Tenant agreement will be ignored.
-    </p>
-  </div>
-</div>
+                  <CardContent className="p-3">
+                    <div className="space-y-3">
+                      {/* In step 5 - Admin Override Checkbox */}
+                      <div className="flex items-start gap-2 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                        <input
+                          type="checkbox"
+                          id="adminOverride"
+                          checked={isAdminOverride}
+                          onChange={(e) => {
+                            const checked = e.target.checked;
+                            setIsAdminOverride(checked);
+                            if (checked) {
+                              // Set penalties to 0 and refund to full deposit
+                              setFormData((prev) => ({
+                                ...prev,
+                                lockinPenaltyApplied: false,
+                                noticePenaltyApplied: false,
+                                finalPenaltyAmount: 0,
+                                securityRefundAmount:
+                                  calculation?.financials?.securityDeposit || 0,
+                                adminApproved: true,
+                              }));
+                              toast.info(
+                                "Admin override enabled - No penalties will be applied",
+                              );
+                            } else {
+                              // Restore original calculation
+                              setFormData((prev) => ({
+                                ...prev,
+                                lockinPenaltyApplied:
+                                  calculation?.lockinPolicy
+                                    ?.penaltyApplicable || false,
+                                noticePenaltyApplied:
+                                  calculation?.noticePolicy
+                                    ?.penaltyApplicable || false,
+                                finalPenaltyAmount:
+                                  calculation?.financials?.totalPenalty || 0,
+                                securityRefundAmount:
+                                  calculation?.financials?.refundableAmount ||
+                                  0,
+                                adminApproved: false,
+                              }));
+                            }
+                          }}
+                          className="h-4 w-4 rounded border-purple-300 text-purple-600 focus:ring-purple-500 mt-0.5"
+                        />
+                        <div className="flex-1">
+                          <Label
+                            htmlFor="adminOverride"
+                            className="font-medium text-purple-800"
+                          >
+                            Admin Override - No Penalty Vacate
+                          </Label>
+                          <p className="text-xs text-purple-600 mt-0.5">
+                            Check this to bypass penalties and refund full
+                            security deposit. Tenant agreement will be ignored.
+                          </p>
+                        </div>
+                      </div>
 
-      {/* Admin Approval Checkbox - Original */}
-      <div className="flex items-start gap-2">
-        <input
-          type="checkbox"
-          id="adminApproved"
-          checked={formData.adminApproved}
-          onChange={(e) => handleInputChange("adminApproved", e.target.checked)}
-          className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 mt-0.5"
-          disabled={isAdminOverride} // Disable if admin override is checked
-        />
-        <div>
-          <label
-            htmlFor="adminApproved"
-            className={`font-medium text-sm ${isAdminOverride ? 'text-gray-400' : ''}`}
-          >
-            Admin Approval
-          </label>
-          <div className="text-xs text-gray-600 space-y-0.5 mt-1">
-            <div>
-              • I approve this vacate request with the calculated penalties
-            </div>
-            <div>
-              • Tenant will vacate bed {bedData.bed_number} on{" "}
-              {formatDate(formData.requestedVacateDate)}
-            </div>
-            <div>
-              • Security deposit refund:{" "}
-              {formatCurrency(
-                isAdminOverride 
-                  ? (calculation?.financials?.securityDeposit || 0)
-                  : formData.securityRefundAmount
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
+                      {/* Admin Approval Checkbox - Original */}
+                      <div className="flex items-start gap-2">
+                        <input
+                          type="checkbox"
+                          id="adminApproved"
+                          checked={formData.adminApproved}
+                          onChange={(e) =>
+                            handleInputChange("adminApproved", e.target.checked)
+                          }
+                          className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 mt-0.5"
+                          disabled={isAdminOverride} // Disable if admin override is checked
+                        />
+                        <div>
+                          <label
+                            htmlFor="adminApproved"
+                            className={`font-medium text-sm ${isAdminOverride ? "text-gray-400" : ""}`}
+                          >
+                            Admin Approval
+                          </label>
+                          <div className="text-xs text-gray-600 space-y-0.5 mt-1">
+                            <div>
+                              • I approve this vacate request with the
+                              calculated penalties
+                            </div>
+                            <div>
+                              • Tenant will vacate bed {bedData.bed_number} on{" "}
+                              {formatDate(formData.requestedVacateDate)}
+                            </div>
+                            <div>
+                              • Security deposit refund:{" "}
+                              {formatCurrency(
+                                isAdminOverride
+                                  ? calculation?.financials?.securityDeposit ||
+                                      0
+                                  : formData.securityRefundAmount,
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
 
-      {/* Agreement Status Display - Update to show admin override message */}
-      <div
-        className={`p-2 rounded text-xs ${
-          isAdminOverride
-            ? "bg-purple-50 border border-purple-200 text-purple-800"
-            : lockinStatus?.isCompleted || tenantAgreedToTerms
-            ? "bg-green-50 border border-green-200 text-green-800"
-            : "bg-red-50 border border-red-200 text-red-800"
-        }`}
-      >
-        <div className="flex items-center gap-1.5">
-          {isAdminOverride ? (
-            <>
-              <Shield className="h-3 w-3 text-purple-600 flex-shrink-0" />
-              <span className="font-medium">✓ Admin Override:</span>
-              <span>Penalties waived - Full refund processed</span>
-            </>
-          ) : lockinStatus?.isCompleted || tenantAgreedToTerms ? (
-            <>
-              <CheckCircle className="h-3 w-3 text-green-600 flex-shrink-0" />
-              <span className="font-medium">✓ Agreement Status:</span>
-              <span>
-                {lockinStatus?.isCompleted
-                  ? "Lock-in period completed - No penalty applicable"
-                  : "Tenant has accepted all terms"}
-              </span>
-            </>
-          ) : (
-            <>
-              <AlertTriangle className="h-3 w-3 text-red-600 flex-shrink-0" />
-              <span>
-                <span className="font-medium">⚠️ Agreement Status:</span>
-                <span> Tenant has NOT accepted all terms</span>
-              </span>
-            </>
-          )}
-        </div>
-        {lockinStatus?.isCompleted && !isAdminOverride && (
-          <div className="mt-1 text-green-700 text-[10px]">
-            ✓ Lock-in period completed on{" "}
-            {formatDate(lockinStatus.lockInEndDate)} - No lock-in penalty
-            applies
-          </div>
-        )}
-        {isAdminOverride && (
-          <div className="mt-1 text-purple-700 text-[10px]">
-            ✓ Admin override active - Tenant vacated immediately with no penalties
-          </div>
-        )}
-      </div>
-    </div>
-  </CardContent>
-</Card>
+                      {/* Agreement Status Display - Update to show admin override message */}
+                      {/* <div
+                        className={`p-2 rounded text-xs ${
+                          isAdminOverride
+                            ? "bg-purple-50 border border-purple-200 text-purple-800"
+                            : lockinStatus?.isCompleted || tenantAgreedToTerms
+                              ? "bg-green-50 border border-green-200 text-green-800"
+                              : "bg-red-50 border border-red-200 text-red-800"
+                        }`}
+                      >
+                        <div className="flex items-center gap-1.5">
+                          {isAdminOverride ? (
+                            <>
+                              <Shield className="h-3 w-3 text-purple-600 flex-shrink-0" />
+                              <span className="font-medium">
+                                ✓ Admin Override:
+                              </span>
+                              <span>
+                                Penalties waived - Full refund processed
+                              </span>
+                            </>
+                          ) : lockinStatus?.isCompleted ||
+                            tenantAgreedToTerms ? (
+                            <>
+                              <CheckCircle className="h-3 w-3 text-green-600 flex-shrink-0" />
+                              <span className="font-medium">
+                                ✓ Agreement Status:
+                              </span>
+                              <span>
+                                {lockinStatus?.isCompleted
+                                  ? "Lock-in period completed - No penalty applicable"
+                                  : "Tenant has accepted all terms"}
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              <AlertTriangle className="h-3 w-3 text-red-600 flex-shrink-0" />
+                              <span>
+                                <span className="font-medium">
+                                  ⚠️ Agreement Status:
+                                </span>
+                                <span> Tenant has NOT accepted all terms</span>
+                              </span>
+                            </>
+                          )}
+                        </div>
+                        {lockinStatus?.isCompleted && !isAdminOverride && (
+                          <div className="mt-1 text-green-700 text-[10px]">
+                            ✓ Lock-in period completed on{" "}
+                            {formatDate(lockinStatus.lockInEndDate)} - No
+                            lock-in penalty applies
+                          </div>
+                        )}
+                        {isAdminOverride && (
+                          <div className="mt-1 text-purple-700 text-[10px]">
+                            ✓ Admin override active - Tenant vacated immediately
+                            with no penalties
+                          </div>
+                        )}
+                      </div> */}
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
             )}
 
-            {step === 6 && submissionResult && (
+            {step === 7 && submissionResult && (
               <div className="space-y-4">
                 <div className="bg-green-50 p-4 rounded-lg text-center">
                   <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-green-100 mb-3">
@@ -2532,54 +3107,94 @@ const handleSubmit = async () => {
           </div>
         </div>
 
-        <DialogFooter className="gap-2 pt-3 border-t px-4 pb-3 flex-shrink-0 bg-white">
-          {step > 1 && step < 6 && (
-            <Button
-              variant="outline"
-              onClick={handleBack}
-              disabled={loading || calculating}
-              size="sm"
-            >
-              Back
-            </Button>
-          )}
+<DialogFooter className="gap-2 pt-3 border-t px-4 pb-3 flex-shrink-0 bg-white">
+  {/* Show Back button for steps > 1 and step < 7 (so it shows on Summary step too) */}
+  {step > 1 && step < 7 && (
+    <Button
+      variant="outline"
+      onClick={handleBack}
+      disabled={loading || calculating}
+      size="sm"
+    >
+      Back
+    </Button>
+  )}
 
-          {step < 5 ? (
-            <Button
-              onClick={handleNext}
-              disabled={loading || calculating || loadingMasters}
-              size="sm"
-            >
-              {calculating ? (
-                <>
-                  <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
-                  Calculating...
-                </>
-              ) : (
-                "Next"
-              )}
-            </Button>
-          ) : step === 5 ? (
-            <Button
-              onClick={handleSubmit}
-              disabled={loading || !formData.adminApproved}
-              size="sm"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                "Approve & Process Vacate"
-              )}
-            </Button>
-          ) : (
-            <Button onClick={handleClose} size="sm">
-              Close
-            </Button>
-          )}
-        </DialogFooter>
+  {/* Rest of your button conditions remain the same */}
+  
+  {step === 1 && (
+    <Button
+      onClick={handleNext}
+      disabled={loading || calculating || loadingMasters || !formData.vacateReasonValue}
+      size="sm"
+    >
+      Next
+    </Button>
+  )}
+  
+  {step === 2 && isCoupleBooking && (
+    <Button
+      onClick={handleNext}
+      disabled={loading || tenantsToVacate.filter(t => t.selected).length === 0}
+      size="sm"
+    >
+      Next
+    </Button>
+  )}
+  
+  {step === 3 && (
+    <Button
+      onClick={handleNext}
+      disabled={loading || calculating}
+      size="sm"
+    >
+      Next
+    </Button>
+  )}
+  
+  {step === 4 && (
+    <Button
+      onClick={handleNext}
+      disabled={loading || calculating}
+      size="sm"
+    >
+      Next
+    </Button>
+  )}
+  
+  {step === 5 && (
+    <Button
+      onClick={handleNext}
+      disabled={loading || !formData.requestedVacateDate}
+      size="sm"
+    >
+      Calculate Penalties
+    </Button>
+  )}
+  
+  {step === 6 && (
+    <Button
+      onClick={handleSubmit}
+      disabled={loading || !formData.adminApproved}
+      size="sm"
+    >
+      {loading ? (
+        <>
+          <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
+          Processing...
+        </>
+      ) : (
+        "Approve & Process Vacate"
+      )}
+    </Button>
+  )}
+  
+  {step === 7 && (
+    <Button onClick={handleClose} size="sm">
+      Close
+    </Button>
+  )}
+</DialogFooter>
       </DialogContent>
     </Dialog>
   );
