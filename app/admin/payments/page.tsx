@@ -833,6 +833,68 @@ const handleDemandTenantSelect = async (tenantId: string) => {
   }
 };
 
+const handleEditPayment = async (payment: any) => {
+  setSelectedPayment(payment);
+  
+  setBookingLoading(true);
+  try {
+    // Fetch tenant payment form data for this tenant
+    const formResponse = await paymentApi.getTenantPaymentFormData(payment.tenant_id);
+    if (formResponse.success) {
+      setPaymentFormData(formResponse.data);
+    }
+    
+    // Fetch security deposit info
+    const depositResponse = await paymentApi.getSecurityDepositInfo(payment.tenant_id);
+    if (depositResponse.success) {
+      setSecurityDepositInfo(depositResponse.data);
+    }
+    
+    // ✅ FIX: Set the month correctly for the payment being edited
+    if (payment.month && payment.year) {
+      // Find the month number
+      const monthNumber = new Date(Date.parse(payment.month + " 1, " + payment.year)).getMonth() + 1;
+      const monthKey = `${payment.year}-${String(monthNumber).padStart(2, '0')}`;
+      setSelectedPaymentMonth(monthKey);
+    }
+    
+    // Set form data with existing payment values
+    setNewPayment({
+      tenant_id: payment.tenant_id.toString(),
+      booking_id: payment.booking_id,
+      payment_type: payment.payment_type,
+      amount: payment.amount.toString(),
+      payment_mode: payment.payment_mode,
+      bank_name: payment.bank_name || "",
+      transaction_id: payment.transaction_id || "",
+      payment_date: payment.payment_date.split("T")[0],
+      remark: payment.remark || "",
+    });
+    
+    // Set property and room
+    const tenant = tenants.find(t => t.id === payment.tenant_id);
+    if (tenant) {
+      const propertyId = tenant.current_assignment?.property_id;
+      const roomId = tenant.current_assignment?.room_id;
+      if (propertyId) {
+        setSelectedPropertyId(propertyId.toString());
+        await fetchRoomsByProperty(propertyId.toString());
+      }
+      if (roomId) {
+        setSelectedRoomId(roomId.toString());
+        await fetchTenantsByRoom(roomId.toString());
+      }
+    }
+    
+    setIsEditDialogOpen(true);
+  } catch (error) {
+    console.error("Error loading payment edit data:", error);
+    toast.error("Failed to load payment details for editing");
+  } finally {
+    setBookingLoading(false);
+  }
+};
+
 const handlePreviewReceipt = async (receiptId: number) => {
   try {
     toast.loading("Loading receipt...", { id: "receipt-preview" });
@@ -1284,27 +1346,49 @@ const prefillAndOpenPaymentForm = async (tenantId: number, propertyId: number, r
     }
   };
 
-  const handleUpdatePayment = async (updatedData: any) => {
-    setActionLoading(true);
-    try {
-      const response = await paymentApi.updatePayment(
-        selectedPayment.id,
-        updatedData,
-      );
-      if (response.success) {
-        toast.success("Payment updated successfully");
-        setIsEditDialogOpen(false);
-        setSelectedPayment(null);
-        await loadData(); // Refresh data
-      } else {
-        toast.error(response.message || "Failed to update payment");
+const handleUpdatePayment = async (updatedData: any) => {
+  setActionLoading(true);
+  try {
+    // Prepare payment data with month/year from selectedPaymentMonth
+    const paymentData = { ...updatedData };
+    
+    // ✅ FIX: Use selectedPaymentMonth instead of current date for rent payments
+    if (paymentData.payment_type === "rent") {
+      if (selectedPaymentMonth && selectedPaymentMonth !== "current") {
+        // Selected a specific month from dropdown
+        const [year, month] = selectedPaymentMonth.split("-");
+        const monthNames = [
+          "January", "February", "March", "April", "May", "June",
+          "July", "August", "September", "October", "November", "December"
+        ];
+        paymentData.month = monthNames[parseInt(month) - 1];
+        paymentData.year = parseInt(year);
+      } else if (selectedPaymentMonth === "current") {
+        // Current month
+        const currentDate = new Date();
+        paymentData.month = currentDate.toLocaleString("default", { month: "long" });
+        paymentData.year = currentDate.getFullYear();
       }
-    } catch (error: any) {
-      toast.error(error.message || "Failed to update payment");
-    } finally {
-      setActionLoading(false);
     }
-  };
+    
+    const response = await paymentApi.updatePayment(selectedPayment.id, paymentData);
+    
+    if (response.success) {
+      toast.success("Payment updated successfully");
+      setIsEditDialogOpen(false);
+      setSelectedPayment(null);
+      resetPaymentForm();
+      await loadData(); // Refresh data
+    } else {
+      toast.error(response.message || "Failed to update payment");
+    }
+  } catch (error: any) {
+    console.error("Error updating payment:", error);
+    toast.error(error.message || "Failed to update payment");
+  } finally {
+    setActionLoading(false);
+  }
+};
 
 const groupPaymentsByTenant = (payments: any[]) => {
   const grouped: { [key: string]: any } = {};
@@ -2123,21 +2207,7 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
                 setSelectedPayment(payment);
                 setIsRejectDialogOpen(true);
               }}
-              onEdit={(payment) => {
-                setSelectedPayment(payment);
-                setNewPayment({
-                  tenant_id: payment.tenant_id.toString(),
-                  booking_id: payment.booking_id,
-                  payment_type: payment.payment_type,
-                  amount: payment.amount.toString(),
-                  payment_mode: payment.payment_mode,
-                  bank_name: payment.bank_name || "",
-                  transaction_id: payment.transaction_id || "",
-                  payment_date: payment.payment_date.split("T")[0],
-                  remark: payment.remark || "",
-                });
-                setIsEditDialogOpen(true);
-              }}
+              onEdit={handleEditPayment}
               onDelete={(payment) => {
                 setSelectedPayment(payment);
                 setIsDeleteDialogOpen(true);
@@ -4065,220 +4135,358 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Payment Dialog - Reuse your existing Add Payment dialog but with edit mode */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[600px] p-0 gap-0 overflow-auto">
-          {/* Header */}
-          <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 rounded-t-lg sticky top-0 z-20">
-            <div className="flex items-center justify-between">
+      <Dialog open={isEditDialogOpen} onOpenChange={(open) => {
+  setIsEditDialogOpen(open);
+  if (!open) {
+    resetPaymentForm();
+    setSelectedPayment(null);
+  }
+}}>
+  <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] sm:max-h-[85vh] p-0 gap-0 flex flex-col overflow-hidden">
+    {/* Header - Fixed */}
+    <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-3 rounded-t-lg flex-shrink-0">
+      <div className="flex items-center justify-between">
+        <div>
+          <DialogTitle className="text-white text-sm font-semibold flex items-center gap-2">
+            <div className="p-1 bg-white/20 rounded-md">
+              <Pencil className="h-3.5 w-3.5" />
+            </div>
+            Edit Payment
+          </DialogTitle>
+          <DialogDescription className="text-blue-100 text-xs mt-0.5">
+            Update payment details for this tenant
+          </DialogDescription>
+        </div>
+        <DialogClose asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-white hover:bg-white/20 h-7 w-7"
+            onClick={() => {
+              setIsEditDialogOpen(false);
+              resetPaymentForm();
+              setSelectedPayment(null);
+            }}
+          >
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        </DialogClose>
+      </div>
+    </div>
+
+    {/* Scrollable Body - Same as Add Payment Dialog */}
+    <div className="flex-1 overflow-y-auto p-4 space-y-3">
+      {/* Property + Room Selection (Read-only for edit) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {/* Property Selection - Disabled in edit mode */}
+        <div className="space-y-1">
+          <Label className="text-[11px] font-medium text-slate-600">
+            Property
+          </Label>
+          <Input
+            value={properties.find(p => p.id === parseInt(selectedPropertyId))?.name || "Loading..."}
+            disabled
+            className="h-8 text-xs bg-slate-50"
+          />
+        </div>
+
+        {/* Room Selection - Disabled in edit mode */}
+        <div className="space-y-1">
+          <Label className="text-[11px] font-medium text-slate-600">
+            Room
+          </Label>
+          <Input
+            value={rooms.find(r => r.id === parseInt(selectedRoomId))?.room_number || "Loading..."}
+            disabled
+            className="h-8 text-xs bg-slate-50"
+          />
+        </div>
+      </div>
+
+      {/* Tenant Selection - Disabled in edit mode */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="space-y-1">
+          <Label className="text-[11px] font-medium text-slate-600">
+            Tenant
+          </Label>
+          <Input
+            value={getTenantName(parseInt(newPayment.tenant_id))}
+            disabled
+            className="h-8 text-xs bg-slate-50"
+          />
+        </div>
+
+        {/* Payment Type */}
+        <div className="space-y-1">
+          <Label className="text-[11px] font-medium text-slate-600">
+            Payment Type
+          </Label>
+          <Select
+            value={newPayment.payment_type}
+            onValueChange={handlePaymentTypeChange}
+          >
+            <SelectTrigger className="h-8 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="rent" className="text-xs">Rent</SelectItem>
+              <SelectItem value="security_deposit" className="text-xs">Security Deposit</SelectItem>
+              <SelectItem value="maintenance" className="text-xs">Maintenance</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* Rent Payment Specific Fields */}
+      {newPayment.payment_type === "rent" && (
+        <div className="space-y-2">
+          {/* Bed Assignment Table */}
+          {paymentFormData && <BedAssignmentTable formData={paymentFormData} />}
+
+          {/* Offer Banner */}
+          {paymentFormData?.offer_info && (
+            <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-3 rounded-lg border border-green-200">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-green-600" />
+                <div className="flex-1">
+                  <p className="text-xs font-semibold text-green-800">
+                    🎉 Offer Applied: {paymentFormData.offer_info.code}
+                  </p>
+                  <p className="text-[10px] text-green-700">
+                    First month rent: ₹{paymentFormData.discounted_first_month_rent?.toLocaleString()}{" "}
+                    (was ₹{paymentFormData.monthly_rent?.toLocaleString()})
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Rent Summary Table */}
+          {paymentFormData && <RentSummaryTable formData={paymentFormData} />}
+
+          {/* Pay For Month */}
+          <div className="space-y-1">
+            <Label className="text-[11px] font-medium text-slate-600">
+              Pay For Month
+            </Label>
+            <Select
+              value={selectedPaymentMonth}
+              onValueChange={(value) => {
+                setSelectedPaymentMonth(value);
+                if (value && value !== "current" && paymentFormData?.unpaid_months) {
+                  const selectedMonth = paymentFormData.unpaid_months.find(
+                    (m: any) => m.month_key === value,
+                  );
+                  if (selectedMonth) {
+                    setNewPayment((prev) => ({
+                      ...prev,
+                      amount: selectedMonth.pending.toString(),
+                    }));
+                  }
+                } else if (value === "current") {
+                  const monthlyRent = Number(tenant?.tenant_rent || tenant?.monthly_rent || 0);
+                  setNewPayment((prev) => ({
+                    ...prev,
+                    amount: monthlyRent.toString(),
+                  }));
+                }
+              }}
+            >
+              <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
+                <SelectValue placeholder="Select month..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="current">Current Month</SelectItem>
+                {paymentFormData?.unpaid_months?.map((month: any) => (
+                  <SelectItem key={month.month_key} value={month.month_key} className="text-xs">
+                    <div className="flex items-center justify-between w-full gap-4">
+                      <span>{month.month} {month.year}</span>
+                      <span className="text-amber-600 font-medium">₹{month.pending.toLocaleString()}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      )}
+
+      {/* Security Deposit Specific Fields */}
+      {newPayment.payment_type === "security_deposit" && securityDepositInfo && (
+        <div className="space-y-2">
+          {paymentFormData && <BedAssignmentTable formData={paymentFormData} />}
+          <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+            <div className="bg-slate-50 px-3 py-1.5 border-b border-slate-200">
+              <h4 className="text-[11px] font-semibold text-slate-700 flex items-center gap-1.5">
+                <IndianRupee className="h-3 w-3" />
+                Security Deposit Info
+              </h4>
+            </div>
+            <div className="p-3 grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div>
-                <DialogTitle className="text-white text-lg font-semibold flex items-center gap-2">
-                  <div className="p-1 bg-white/20 rounded-lg">
-                    <FileText className="h-5 w-5" />
-                  </div>
-                  Edit Payment
-                </DialogTitle>
-                <DialogDescription className="text-blue-100 text-sm mt-1">
-                  Update payment details
-                </DialogDescription>
+                <p className="text-[10px] text-slate-500">Property</p>
+                <p className="text-xs font-medium">{securityDepositInfo.property_name}</p>
               </div>
-              <DialogClose asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="text-white hover:bg-white/20 h-8 w-8"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </DialogClose>
+              <div>
+                <p className="text-[10px] text-slate-500">Total</p>
+                <p className="text-xs font-bold text-blue-600">
+                  ₹{securityDepositInfo.security_deposit?.toLocaleString()}
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] text-slate-500">Paid</p>
+                <p className="text-xs font-medium text-green-600">
+                  ₹{securityDepositInfo.paid_amount?.toLocaleString()}
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] text-slate-500">Pending</p>
+                <p className="text-xs font-bold text-amber-600">
+                  ₹{securityDepositInfo.pending_amount?.toLocaleString()}
+                </p>
+              </div>
             </div>
           </div>
+        </div>
+      )}
 
-          {/* Form Content - Similar to Add Payment but with selectedPayment data */}
-          <div className="p-6">
-            {/* Use the same form fields as Add Payment, but values are already set */}
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-slate-700">
-                  Tenant
-                </Label>
-                <Input
-                  value={getTenantName(parseInt(newPayment.tenant_id))}
-                  disabled
-                  className="h-10 bg-slate-50"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-slate-700">
-                  Payment Type
-                </Label>
-                <Select
-                  value={newPayment.payment_type}
-                  onValueChange={(value) =>
-                    setNewPayment({ ...newPayment, payment_type: value })
-                  }
-                >
-                  <SelectTrigger className="h-10">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="rent">Rent</SelectItem>
-                    <SelectItem value="security_deposit">
-                      Security Deposit
-                    </SelectItem>
-                    <SelectItem value="maintenance">Maintenance</SelectItem>
-                    <SelectItem value="electricity">Electricity</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {/* Payment Details Grid */}
-            <div className="grid grid-cols-4 gap-3 mb-4">
-              <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-slate-700">
-                  Amount (₹) *
-                </Label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                    ₹
-                  </span>
-                  <Input
-                    type="number"
-                    value={newPayment.amount}
-                    onChange={(e) =>
-                      setNewPayment({ ...newPayment, amount: e.target.value })
-                    }
-                    className="pl-8 h-10"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-slate-700">
-                  Payment Mode *
-                </Label>
-                <Select
-                  value={newPayment.payment_mode}
-                  onValueChange={(value) =>
-                    setNewPayment({ ...newPayment, payment_mode: value })
-                  }
-                >
-                  <SelectTrigger className="h-10">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="cash">💵 Cash</SelectItem>
-                    <SelectItem value="online">🌐 Online</SelectItem>
-                    <SelectItem value="bank_transfer">
-                      🏦 Bank Transfer
-                    </SelectItem>
-                    <SelectItem value="cheque">📝 Cheque</SelectItem>
-                    <SelectItem value="card">💳 Card</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-slate-700">
-                  Payment Date
-                </Label>
-                <Input
-                  type="date"
-                  value={newPayment.payment_date}
-                  onChange={(e) =>
-                    setNewPayment({
-                      ...newPayment,
-                      payment_date: e.target.value,
-                    })
-                  }
-                  className="h-10"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-slate-700">
-                  Remark
-                </Label>
-                <Input
-                  placeholder="Add notes"
-                  value={newPayment.remark}
-                  onChange={(e) =>
-                    setNewPayment({ ...newPayment, remark: e.target.value })
-                  }
-                  className="h-10"
-                />
-              </div>
-            </div>
-
-            {/* Bank details fields if needed */}
-            {(newPayment.payment_mode === "bank_transfer" ||
-              newPayment.payment_mode === "online") && (
-              <div className="grid grid-cols-2 gap-3 mb-4">
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium text-slate-700">
-                    Bank Name
-                  </Label>
-                  <Input
-                    value={newPayment.bank_name}
-                    onChange={(e) =>
-                      setNewPayment({
-                        ...newPayment,
-                        bank_name: e.target.value,
-                      })
-                    }
-                    className="h-10"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium text-slate-700">
-                    Transaction ID
-                  </Label>
-                  <Input
-                    value={newPayment.transaction_id}
-                    onChange={(e) =>
-                      setNewPayment({
-                        ...newPayment,
-                        transaction_id: e.target.value,
-                      })
-                    }
-                    className="h-10"
-                  />
-                </div>
-              </div>
-            )}
+      {/* Payment Details Grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        {/* Amount */}
+        <div className="space-y-1">
+          <Label className="text-[11px] font-medium text-slate-600">
+            Amount (₹) *
+          </Label>
+          <div className="relative">
+            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs">₹</span>
+            <Input
+              type="text"
+              placeholder="0.00"
+              value={newPayment.amount}
+              onChange={(e) => setNewPayment({ ...newPayment, amount: e.target.value })}
+              className="pl-7 h-8 text-xs"
+            />
           </div>
+        </div>
 
-          {/* Footer */}
-          <DialogFooter className="px-6 py-4 bg-slate-50 border-t border-slate-200 rounded-b-lg sticky bottom-0">
-            <div className="flex justify-end gap-3 w-full">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setIsEditDialogOpen(false);
-                  resetPaymentForm();
-                }}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={() => handleUpdatePayment(newPayment)}
-                disabled={actionLoading}
-                className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white"
-              >
-                {actionLoading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Updating...
-                  </>
-                ) : (
-                  "Update Payment"
-                )}
-              </Button>
-            </div>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        {/* Payment Mode */}
+        <div className="space-y-1">
+          <Label className="text-[11px] font-medium text-slate-600">
+            Payment Mode *
+          </Label>
+          <Select
+            value={newPayment.payment_mode}
+            onValueChange={(value) =>
+              setNewPayment({
+                ...newPayment,
+                payment_mode: value,
+                bank_name: "",
+              })
+            }
+          >
+            <SelectTrigger className="h-8 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="cash" className="text-xs">💵 Cash</SelectItem>
+              <SelectItem value="online" className="text-xs">🌐 Online</SelectItem>
+              <SelectItem value="bank_transfer" className="text-xs">🏦 Bank Transfer</SelectItem>
+              <SelectItem value="cheque" className="text-xs">📝 Cheque</SelectItem>
+              <SelectItem value="card" className="text-xs">💳 Card</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Date */}
+        <div className="space-y-1">
+          <Label className="text-[11px] font-medium text-slate-600">
+            Transaction Date
+          </Label>
+          <Input
+            type="date"
+            value={newPayment.payment_date}
+            max={new Date().toISOString().split("T")[0]}
+            onChange={(e) =>
+              setNewPayment({
+                ...newPayment,
+                payment_date: e.target.value,
+              })
+            }
+            className="h-8 text-xs"
+          />
+        </div>
+
+        {/* Bank Name - conditional */}
+        {(newPayment.payment_mode === "bank_transfer" || newPayment.payment_mode === "online") && (
+          <div className="space-y-1">
+            <Label className="text-[11px] font-medium text-slate-600">
+              Bank Name
+            </Label>
+            <Input
+              value={newPayment.bank_name}
+              onChange={(e) => setNewPayment({ ...newPayment, bank_name: e.target.value })}
+              className="h-8 text-xs"
+            />
+          </div>
+        )}
+
+        {/* Transaction ID - conditional */}
+        {(newPayment.payment_mode === "online" || newPayment.payment_mode === "bank_transfer" || newPayment.payment_mode === "cheque") && (
+          <div className="space-y-1">
+            <Label className="text-[11px] font-medium text-slate-600">
+              Transaction ID
+            </Label>
+            <Input
+              placeholder="Optional"
+              value={newPayment.transaction_id}
+              onChange={(e) => setNewPayment({ ...newPayment, transaction_id: e.target.value })}
+              className="h-8 text-xs"
+            />
+          </div>
+        )}
+
+        {/* Remark - full width */}
+        <div className="space-y-1 col-span-2 sm:col-span-3">
+          <Label className="text-[11px] font-medium text-slate-600">
+            Remark
+          </Label>
+          <Input
+            placeholder="Add notes"
+            value={newPayment.remark}
+            onChange={(e) => setNewPayment({ ...newPayment, remark: e.target.value })}
+            className="h-8 text-xs"
+          />
+        </div>
+      </div>
+    </div>
+
+    {/* Footer */}
+    <div className="px-4 py-3 bg-slate-50 border-t border-slate-200 rounded-b-lg flex-shrink-0">
+      <div className="flex justify-end gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            setIsEditDialogOpen(false);
+            resetPaymentForm();
+            setSelectedPayment(null);
+          }}
+          className="text-xs h-8 px-4"
+        >
+          Cancel
+        </Button>
+        <Button
+          size="sm"
+          onClick={() => handleUpdatePayment(newPayment)}
+          className="text-xs h-8 px-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white"
+        >
+          <Pencil className="h-3 w-3 mr-1.5" />
+          Update Payment
+        </Button>
+      </div>
+    </div>
+  </DialogContent>
+</Dialog>
 
       {/* Receipt Preview Dialog */}
       <Dialog

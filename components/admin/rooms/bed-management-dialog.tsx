@@ -109,6 +109,9 @@ interface Tenant {
   partner_address_proof_url?: string;
   partner_photo_url?: string;
   is_couple_booking?: boolean;
+  is_primary_tenant?: boolean; // ✅ ADD THIS
+  partner_tenant_id?: number; // ✅ ADD THIS
+  is_vacated?: boolean;
 }
 
 interface ApiResult<T = any> {
@@ -228,11 +231,14 @@ function TenantSelectDropdown({
 }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
+  const [vacatedTenants, setVacatedTenants] = useState<Set<number>>(new Set());
 
   // Filter only unassigned tenants AND NOT partners of already assigned tenants
   const unassignedTenants = tenants.filter(
-    (tenant) => !tenant.is_assigned && !tenant.is_partner_of_assigned,
+    (tenant) => !tenant.is_assigned && !tenant.is_partner_of_assigned ,
   );
+
+  
 
   // Filter based on room preferences
   const filteredTenants = unassignedTenants.filter((tenant) => {
@@ -258,7 +264,7 @@ function TenantSelectDropdown({
     const hasCouplesAllowed = roomGenderPreferences.some(
       (p) => p.toLowerCase() === "couples",
     );
-    
+
     // If it's a couples room and tenant has a partner, show them
     if (hasCouplesAllowed && tenant.couple_id) {
       return true;
@@ -358,9 +364,9 @@ function TenantSelectDropdown({
         </span>
       </div>
 
-      <Select 
-        value={value} 
-        onValueChange={onValueChange} 
+      <Select
+        value={value}
+        onValueChange={onValueChange}
         disabled={loading}
         open={isOpen}
         onOpenChange={handleOpenChange}
@@ -449,73 +455,91 @@ function TenantSelectDropdown({
               </div>
             ) : (
               <div className="divide-y">
-                {sortedTenants.map((tenant) => (
-                  <SelectItem
-                    key={tenant.id}
-                    value={tenant.id.toString()}
-                    className="py-2 md:py-3"
-                    // Prevent search input from losing focus when clicking items
-                    onPointerDown={(e) => {
-                      e.stopPropagation();
-                    }}
-                  >
-                    <div className="flex flex-col gap-1 w-full">
-                      <div className="flex items-center gap-2 md:gap-3">
-                        <div className="relative">
-                          {tenant.couple_id ? (
-                            <UsersRound className="h-4 w-4 md:h-5 md:w-5 text-red-600" />
-                          ) : (
-                            <GenderIcon
-                              gender={tenant.gender || "Other"}
-                              size="h-4 w-4 md:h-5 md:w-5"
-                            />
-                          )}
-                          {tenant.is_active && (
-                            <div className="absolute -top-1 -right-1 w-1.5 h-1.5 md:w-2 md:h-2 bg-green-500 rounded-full border border-white"></div>
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium text-xs md:text-sm truncate flex items-center gap-2">
-                            {tenant.full_name}
-                            {tenant.couple_id && (
-                              <Badge
-                                variant="outline"
-                                className="h-4 md:h-5 px-1 md:px-1.5 text-[9px] md:text-xs bg-red-50 text-red-700 border-red-200"
-                              >
-                                Couple
-                              </Badge>
-                            )}
-                            {tenant.is_active && (
-                              <Badge
-                                variant="outline"
-                                className="h-4 md:h-5 px-1 md:px-1.5 text-[9px] md:text-xs bg-green-50 text-green-700 border-green-200"
-                              >
-                                Active
-                              </Badge>
-                            )}
-                          </div>
-                          <div className="text-[10px] md:text-xs text-gray-500 flex flex-wrap items-center gap-1 md:gap-2 mt-0.5">
-                            <span>ID: {tenant.id}</span>
-                            <span>•</span>
-                            <span className="flex items-center gap-1">
-                              {tenant.gender || "Not specified"}
-                            </span>
-                            {tenant.phone && (
-                              <>
-                                <span>•</span>
-                                <span className="flex items-center gap-1">
-                                  <Phone className="h-2.5 w-2.5" />
-                                  {tenant.phone}
-                                </span>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </SelectItem>
-                ))}
-              </div>
+  {sortedTenants.map((tenant) => (
+    <SelectItem
+      key={tenant.id}
+      value={tenant.id.toString()}
+      className="py-2 md:py-3"
+      onPointerDown={(e) => {
+        e.stopPropagation();
+      }}
+    >
+      <div className="flex flex-col gap-1 w-full">
+        <div className="flex items-center gap-2 md:gap-3">
+          <div className="relative">
+            {tenant.couple_id ? (
+              <UsersRound className="h-4 w-4 md:h-5 md:w-5 text-red-600" />
+            ) : (
+              <GenderIcon
+                gender={tenant.gender || "Other"}
+                size="h-4 w-4 md:h-5 md:w-5"
+              />
+            )}
+            {tenant.is_active && !tenant.is_vacated && (
+              <div className="absolute -top-1 -right-1 w-1.5 h-1.5 md:w-2 md:h-2 bg-green-500 rounded-full border border-white"></div>
+            )}
+            {tenant.is_vacated && (
+              <div className="absolute -top-1 -right-1 w-1.5 h-1.5 md:w-2 md:h-2 bg-gray-400 rounded-full border border-white"></div>
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="font-medium text-xs md:text-sm truncate flex items-center gap-2 flex-wrap">
+              {tenant.full_name}
+              {tenant.couple_id && (
+                <Badge
+                  variant="outline"
+                  className="h-4 md:h-5 px-1 md:px-1.5 text-[9px] md:text-xs bg-red-50 text-red-700 border-red-200"
+                >
+                  Couple
+                </Badge>
+              )}
+              {tenant.is_vacated && (
+                <Badge
+                  variant="outline"
+                  className="h-4 md:h-5 px-1 md:px-1.5 text-[9px] md:text-xs bg-gray-100 text-gray-600 border-gray-300"
+                >
+                  Vacated
+                </Badge>
+              )}
+              {tenant.is_active && !tenant.is_vacated && !tenant.couple_id &&  (
+                <Badge
+                  variant="outline"
+                  className="h-4 md:h-5 px-1 md:px-1.5 text-[9px] md:text-xs bg-green-50 text-green-700 border-green-200"
+                >
+                  Active
+                </Badge>
+              )}
+              {!tenant.is_active && (
+                <Badge
+                  variant="outline"
+                  className="h-4 md:h-5 px-1 md:px-1.5 text-[9px] md:text-xs bg-red-50 text-red-700 border-red-200"
+                >
+                  Inactive
+                </Badge>
+              )}
+            </div>
+            <div className="text-[10px] md:text-xs text-gray-500 flex flex-wrap items-center gap-1 md:gap-2 mt-0.5">
+              <span>ID: {tenant.id}</span>
+              <span>•</span>
+              <span className="flex items-center gap-1">
+                {tenant.gender || "Not specified"}
+              </span>
+              {tenant.phone && (
+                <>
+                  <span>•</span>
+                  <span className="flex items-center gap-1">
+                    <Phone className="h-2.5 w-2.5" />
+                    {tenant.phone}
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </SelectItem>
+  ))}
+</div>
             )}
           </div>
         </SelectContent>
@@ -523,7 +547,7 @@ function TenantSelectDropdown({
 
       {/* Rest of your component remains the same */}
       {/* Couple Checkbox, Custom Rent Input, Selected tenant preview... */}
-      
+
       {/* Couple Checkbox - Only show when room allows couples */}
       {roomGenderPreferences.some((pref) => pref.toLowerCase() === "couples") &&
         selectedTenant && (
@@ -877,78 +901,59 @@ function BedCard({
                   </span>
                 </div>
 
-                {/* Show Partner Details from Tenant if it's a couple booking */}
-                {Boolean(assignment.is_couple) &&
-                  tenantDetails.partner_full_name && (
-                    <>
-                      <div className="mt-2 pt-2 border-t border-gray-200">
-                        <p className="text-[9px] font-semibold text-pink-600 flex items-center gap-1">
-                          <Heart className="h-2.5 w-2.5" /> Partner Details
-                        </p>
-                      </div>
-                      {tenantDetails.couple_id && (
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] md:text-xs text-gray-600">
-                            Couple ID
-                          </span>
-                          <Badge
-                            variant="outline"
-                            className="text-[9px] bg-pink-50 text-pink-700"
-                          >
-                            {tenantDetails.couple_id}
-                          </Badge>
-                        </div>
-                      )}
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] md:text-xs text-gray-600">
-                          Partner Name
-                        </span>
-                        <span className="font-medium text-xs md:text-sm">
-                          {tenantDetails.partner_full_name}
-                        </span>
-                      </div>
-                      {tenantDetails.partner_phone && (
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] md:text-xs text-gray-600">
-                            Partner Phone
-                          </span>
-                          <span className="font-medium text-xs md:text-sm">
-                            {tenantDetails.partner_phone}
-                          </span>
-                        </div>
-                      )}
-                      {tenantDetails.partner_gender && (
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] md:text-xs text-gray-600">
-                            Partner Gender
-                          </span>
-                          <span className="font-medium text-xs md:text-sm">
-                            {tenantDetails.partner_gender}
-                          </span>
-                        </div>
-                      )}
-                      {tenantDetails.partner_relationship && (
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] md:text-xs text-gray-600">
-                            Relationship
-                          </span>
-                          <span className="font-medium text-xs md:text-sm">
-                            {tenantDetails.partner_relationship}
-                          </span>
-                        </div>
-                      )}
-                      {tenantDetails.partner_occupation && (
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] md:text-xs text-gray-600">
-                            Partner Occupation
-                          </span>
-                          <span className="font-medium text-xs md:text-sm">
-                            {tenantDetails.partner_occupation}
-                          </span>
-                        </div>
-                      )}
-                    </>
-                  )}
+                {Boolean(assignment.is_couple) && (
+  <>
+    <div className="mt-2 pt-2 border-t border-gray-200">
+      <p className="text-[9px] font-semibold text-pink-600 flex items-center gap-1">
+        <Heart className="h-2.5 w-2.5" /> Partner Details
+      </p>
+    </div>
+    {(() => {
+      // Get partner details using the corrected data
+      const partnerName = tenantDetails?.partner_full_name;
+      const partnerPhone = tenantDetails?.partner_phone;
+      const partnerGender = tenantDetails?.partner_gender;
+      const partnerRelationship = tenantDetails?.partner_relationship;
+      
+      return (
+        <>
+          {tenantDetails?.couple_id && (
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] md:text-xs text-gray-600">Couple ID</span>
+              <Badge variant="outline" className="text-[9px] bg-pink-50 text-pink-700">
+                {tenantDetails.couple_id}
+              </Badge>
+            </div>
+          )}
+          {partnerName && partnerName !== tenantDetails?.full_name && (
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] md:text-xs text-gray-600">Partner Name</span>
+              <span className="font-medium text-xs md:text-sm">{partnerName}</span>
+            </div>
+          )}
+          {partnerPhone && (
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] md:text-xs text-gray-600">Partner Phone</span>
+              <span className="font-medium text-xs md:text-sm">{partnerPhone}</span>
+            </div>
+          )}
+          {partnerGender && (
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] md:text-xs text-gray-600">Partner Gender</span>
+              <span className="font-medium text-xs md:text-sm">{partnerGender}</span>
+            </div>
+          )}
+          {partnerRelationship && (
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] md:text-xs text-gray-600">Relationship</span>
+              <span className="font-medium text-xs md:text-sm">{partnerRelationship}</span>
+            </div>
+          )}
+        </>
+      );
+    })()}
+  </>
+)}
 
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] md:text-xs text-gray-600">
@@ -1154,6 +1159,7 @@ export function BedManagementDialog({
 
   // State for transfer confirmation dialog
   const [transferDialogOpen, setTransferDialogOpen] = useState(false);
+  const [totalSecurityDeposit, setTotalSecurityDeposit] = useState<number>(0);
   const [transferDetails, setTransferDetails] = useState<{
     bedAssignment: BedAssignment | null;
     newTenant: Tenant | null;
@@ -1198,6 +1204,23 @@ export function BedManagementDialog({
     }
   };
 
+  // Add this useEffect to calculate total security deposit from bed assignments
+useEffect(() => {
+  // Calculate total security deposit from all occupied beds
+  const total = bedAssignments.reduce((sum, bed) => {
+    // Only add security deposit if bed is occupied (tenant assigned)
+    if (!bed.is_available && bed.tenant_id && bed.security_deposit) {
+      const deposit = typeof bed.security_deposit === 'string' 
+        ? parseFloat(bed.security_deposit) 
+        : bed.security_deposit;
+      return sum + (isNaN(deposit) ? 0 : deposit);
+    }
+    return sum;
+  }, 0);
+  
+  setTotalSecurityDeposit(total);
+}, [bedAssignments]);
+
   useEffect(() => {
     if (open) {
       loadTenantsBasedOnPreferences();
@@ -1206,9 +1229,62 @@ export function BedManagementDialog({
     }
   }, [open, room]);
 
+const checkIfTenantVacated = async (tenantId: number): Promise<boolean> => {
+  try {
+    // Use the same API that loads tenant details
+    const response = await request<ApiResult<any>>(
+      `/api/tenants/${tenantId}`
+    );
+    
+    if (response.success && response.data) {
+      // Check multiple possible sources for vacate status
+      
+      // 1. Check if there's a vacate_records array with any records
+      if (response.data.vacate_records && response.data.vacate_records.length > 0) {
+        return true;
+      }
+      
+      // 2. Check if tenant has has_vacated flag
+      if (response.data.has_vacated === true) {
+        return true;
+      }
+      
+      // 3. Check if tenant has any vacate records via bed_assignments with vacate_reason
+      // This would require an additional API call if needed
+      
+      return false;
+    }
+    return false;
+  } catch (error) {
+    console.error(`Error checking vacate status for tenant ${tenantId}:`, error);
+    return false;
+  }
+};
+
+const checkTenantBedAssignmentsForVacate = async (tenantId: number): Promise<boolean> => {
+  try {
+    const response = await request<ApiResult<any>>(
+      `/api/rooms/tenant-assignment/${tenantId}`
+    );
+    
+    if (response.success && response.data && Array.isArray(response.data)) {
+      // Check if any assignment has vacate_reason (meaning it was vacated)
+      const hasVacatedAssignment = response.data.some(
+        (assignment: any) => assignment.vacate_reason && assignment.is_available === true
+      );
+      return hasVacatedAssignment;
+    }
+    return false;
+  } catch (error) {
+    console.error(`Error checking bed assignments for tenant ${tenantId}:`, error);
+    return false;
+  }
+};
+
   const loadTenantsBasedOnPreferences = async () => {
     try {
       setLoadingTenants(true);
+      
 
       const response: any = await request<Tenant[]>(
         "/api/tenants?is_active=true&portal_access_enabled=true",
@@ -1230,6 +1306,30 @@ export function BedManagementDialog({
             const tenantDetails = await request<ApiResult<Tenant>>(
               `/api/tenants/${tenant.id}`,
             );
+
+// ✅ Check vacate status from multiple sources
+          let isVacated = false;
+          
+          if (tenantDetails.success && tenantDetails.data) {
+            // Check vacate_records array
+            if (tenantDetails.data.vacate_records && tenantDetails.data.vacate_records.length > 0) {
+              isVacated = true;
+            }
+            
+            // Check has_vacated flag
+            if (tenantDetails.data.has_vacated === true) {
+              isVacated = true;
+            }
+          }
+          
+          // If still false, check bed assignments for vacate reason
+          if (!isVacated) {
+            isVacated = await checkTenantBedAssignmentsForVacate(tenant.id);
+          }
+          
+          console.log(`Tenant ${tenant.id} (${tenant.full_name}) - Vacated: ${isVacated}`);
+
+
             if (tenantDetails.success && tenantDetails.data) {
               return {
                 ...tenant,
@@ -1256,15 +1356,23 @@ export function BedManagementDialog({
                 is_couple_booking: tenantDetails.data.is_couple_booking,
                 couple_id: tenantDetails.data.couple_id,
                 partner_tenant_id: tenantDetails.data.partner_tenant_id,
+                is_primary_tenant: tenantDetails.data.is_primary_tenant,
+                is_vacated: isVacated,
               };
             }
-            return tenant;
+            return {
+            ...tenant,
+            is_vacated: isVacated, // ✅ ADD THIS even if details fetch fails
+          };
           } catch (error) {
             console.error(
               `Failed to fetch details for tenant ${tenant.id}:`,
               error,
             );
-            return tenant;
+            return {
+            ...tenant,
+            is_vacated: false, // ✅ ADD THIS even if details fetch fails
+          };
           }
         }),
       );
@@ -1319,6 +1427,14 @@ export function BedManagementDialog({
           }
         }),
       );
+      console.log("✅ All tenants loaded:", tenantsWithAssignment.map(t => ({
+  id: t.id,
+  name: t.full_name,
+  is_primary: t.is_primary_tenant,
+  couple_id: t.couple_id,
+  is_vacated: t.is_vacated,
+  is_couple_booking: t.is_couple_booking
+})));
 
       setTenants(tenantsWithAssignment);
     } catch (error: any) {
@@ -1329,6 +1445,8 @@ export function BedManagementDialog({
       setLoadingTenants(false);
     }
   };
+
+  
 
   const getBedStatus = (bedNumber: number) => {
     const assignment = bedAssignments.find((b) => b.bed_number === bedNumber);
@@ -1342,13 +1460,98 @@ export function BedManagementDialog({
   };
 
   // In BedManagementDialog.tsx
-
-  const findTenantDetails = (tenantId: number) => {
-    // Don't filter by is_assigned here - we need to find the tenant regardless
-    const tenant = tenants.find((t) => t.id === tenantId);
-
-    return tenant;
+const findTenantDetails = (tenantId: number) => {
+  // Find the tenant in the tenants list
+  const tenant = tenants.find((t) => t.id === tenantId);
+  
+  if (!tenant) return null;
+  
+  console.log("🔍 findTenantDetails for tenant:", tenant.id, tenant.full_name);
+  console.log("🔍 tenant partner_tenant_id:", tenant.partner_tenant_id);
+  
+  // Get partner details using the corrected helper
+  const partnerInfo = getCorrectPartnerDetails(tenant);
+  
+  const result = {
+    ...tenant,
+    partner_full_name: partnerInfo.partner_full_name,
+    partner_phone: partnerInfo.partner_phone,
+    partner_email: partnerInfo.partner_email,
+    partner_gender: partnerInfo.partner_gender,
+    partner_relationship: partnerInfo.partner_relationship,
   };
+  
+  console.log("✅ Returning tenant with partner:", {
+    tenantName: result.full_name,
+    partnerName: result.partner_full_name,
+    isSame: result.full_name === result.partner_full_name
+  });
+  
+  return result;
+};
+
+const getCorrectPartnerDetails = (tenant: Tenant) => {
+  console.log("🔍 getCorrectPartnerDetails called for tenant:", tenant.id, tenant.full_name);
+  console.log("🔍 tenant.partner_tenant_id:", tenant.partner_tenant_id);
+  console.log("🔍 tenant.is_primary_tenant:", tenant.is_primary_tenant);
+  
+  // CASE 1: This tenant is PRIMARY (has partner_tenant_id pointing to partner)
+  if (tenant.partner_tenant_id && tenant.partner_tenant_id !== tenant.id) {
+    const partnerTenant = tenants.find(t => t.id === tenant.partner_tenant_id);
+    
+    if (partnerTenant) {
+      console.log("✅ This is PRIMARY tenant, found partner:", partnerTenant.full_name);
+      return {
+        partner_full_name: partnerTenant.full_name,
+        partner_phone: partnerTenant.phone || '',
+        partner_email: partnerTenant.email || '',
+        partner_gender: partnerTenant.gender || '',
+        partner_relationship: tenant.partner_relationship || 'Spouse',
+      };
+    }
+  }
+  
+  // CASE 2: This tenant is PARTNER (someone else's partner_tenant_id points to this tenant)
+  const primaryTenant = tenants.find(t => t.partner_tenant_id === tenant.id && t.is_primary_tenant === 1);
+  
+  if (primaryTenant) {
+    console.log("✅ This is PARTNER tenant, found primary:", primaryTenant.full_name);
+    return {
+      partner_full_name: primaryTenant.full_name,
+      partner_phone: primaryTenant.phone || '',
+      partner_email: primaryTenant.email || '',
+      partner_gender: primaryTenant.gender || '',
+      partner_relationship: tenant.partner_relationship || 'Spouse',
+    };
+  }
+  
+  // CASE 3: Find by couple_id (fallback for older data)
+  if (tenant.couple_id) {
+    const coupleTenants = tenants.filter(t => t.couple_id === tenant.couple_id && t.id !== tenant.id);
+    
+    if (coupleTenants.length > 0) {
+      const partnerTenant = coupleTenants[0];
+      console.log("✅ Found partner via couple_id:", partnerTenant.full_name);
+      return {
+        partner_full_name: partnerTenant.full_name,
+        partner_phone: partnerTenant.phone || '',
+        partner_email: partnerTenant.email || '',
+        partner_gender: partnerTenant.gender || '',
+        partner_relationship: tenant.partner_relationship || 'Spouse',
+      };
+    }
+  }
+  
+  // Fallback to tenant's own partner fields
+  console.log("⚠️ No partner found, using fallback fields");
+  return {
+    partner_full_name: tenant.partner_full_name || '',
+    partner_phone: tenant.partner_phone || '',
+    partner_email: tenant.partner_email || '',
+    partner_gender: tenant.partner_gender || '',
+    partner_relationship: tenant.partner_relationship || 'Spouse',
+  };
+};
 
   const checkTenantExistingAssignment = async (
     tenantId: number,
@@ -1513,27 +1716,28 @@ export function BedManagementDialog({
           ? parseFloat(customSecurityDeposit)
           : rentValue,
         is_couple: coupleValue,
-        ...(coupleValue && {
-          partner_full_name: tenant.partner_full_name,
-          partner_phone: tenant.partner_phone,
-          partner_email: tenant.partner_email,
-          partner_gender: tenant.partner_gender,
-          partner_date_of_birth: tenant.partner_date_of_birth,
-          partner_address: tenant.partner_address,
-          partner_occupation: tenant.partner_occupation,
-          partner_organization: tenant.partner_organization,
-          partner_relationship: tenant.partner_relationship || "Spouse",
-        }),
+        // ...(coupleValue && {
+        //   partner_full_name: tenant.partner_full_name,
+        //   partner_phone: tenant.partner_phone,
+        //   partner_email: tenant.partner_email,
+        //   partner_gender: tenant.partner_gender,
+        //   partner_date_of_birth: tenant.partner_date_of_birth,
+        //   partner_address: tenant.partner_address,
+        //   partner_occupation: tenant.partner_occupation,
+        //   partner_organization: tenant.partner_organization,
+        //   partner_relationship: tenant.partner_relationship || "Spouse",
+        // }),
+        ...(coupleValue && getCorrectPartnerDetails(tenant)),
       };
 
       const result = await assignBed(payload);
 
       if (result.success) {
-        const coupleMsg = coupleValue
-          ? ` (Couple Booking with ${tenant.partner_full_name})`
-          : "";
-        toast.success(`Bed ${bedNumber} assigned successfully!${coupleMsg}`);
-
+        const partnerDetails = getCorrectPartnerDetails(tenant);
+  const coupleMsg = coupleValue
+    ? ` (Couple Booking with ${partnerDetails.partner_full_name})`
+    : "";
+  toast.success(`Bed ${bedNumber} assigned successfully!${coupleMsg}`);
         // Reset saving state before closing
         setSavingBed(null);
         setAssigningBed(null);
@@ -1685,6 +1889,10 @@ export function BedManagementDialog({
       }
     }
 
+    // ✅ Get correct partner details
+  const partnerDetails = getCorrectPartnerDetails(tenant);
+ console.log("✅ Partner details for toast:", partnerDetails);
+
     const payload: UpdateBedAssignmentPayload = {
       tenant_id: tenant.id,
       tenant_gender: tenantGender,
@@ -1693,15 +1901,20 @@ export function BedManagementDialog({
       is_couple: coupleValue,
       security_deposit: depositValue,
       ...(coupleValue && {
-        partner_full_name: tenant.partner_full_name,
-        partner_phone: tenant.partner_phone,
-        partner_email: tenant.partner_email,
-        partner_gender: tenant.partner_gender,
-        partner_date_of_birth: tenant.partner_date_of_birth,
-        partner_address: tenant.partner_address,
-        partner_occupation: tenant.partner_occupation,
-        partner_organization: tenant.partner_organization,
-        partner_relationship: tenant.partner_relationship || "Spouse",
+        // partner_full_name: tenant.partner_full_name,
+        // partner_phone: tenant.partner_phone,
+        // partner_email: tenant.partner_email,
+        // partner_gender: tenant.partner_gender,
+        // partner_date_of_birth: tenant.partner_date_of_birth,
+        // partner_address: tenant.partner_address,
+        // partner_occupation: tenant.partner_occupation,
+        // partner_organization: tenant.partner_organization,
+        // partner_relationship: tenant.partner_relationship || "Spouse",
+         partner_full_name: partnerDetails.partner_full_name,  // ✅ Use partnerDetails here!
+      partner_phone: partnerDetails.partner_phone,
+      partner_email: partnerDetails.partner_email,
+      partner_gender: partnerDetails.partner_gender,
+      partner_relationship: partnerDetails.partner_relationship,
       }),
     };
 
@@ -1711,12 +1924,13 @@ export function BedManagementDialog({
     );
 
     if (result.success) {
-      const coupleMsg = coupleValue
-        ? ` (Couple Booking with ${tenant.partner_full_name})`
-        : "";
-      toast.success(
-        `Bed ${bedAssignment.bed_number} updated successfully! ${tenant.full_name}${coupleMsg}`,
-      );
+       // ✅ Use partnerDetails.partner_full_name for the toast, NOT tenant.partner_full_name
+    const coupleMsg = coupleValue
+      ? ` (Couple Booking with ${partnerDetails.partner_full_name})`
+      : "";
+    toast.success(
+      `Bed ${bedAssignment.bed_number} updated successfully! ${tenant.full_name}${coupleMsg}`,
+    );
 
       // Reset saving state before closing
       setSavingBed(null);
@@ -2003,78 +2217,91 @@ export function BedManagementDialog({
   //   }
   // };
 
-
   // Alternative version - checks but auto-proceeds
-const handleVacateClick = async (bedAssignment: BedAssignment) => {
-  const tenantDetails = findTenantDetails(bedAssignment.tenant_id);
+  const handleVacateClick = async (bedAssignment: BedAssignment) => {
+    const tenantDetails = findTenantDetails(bedAssignment.tenant_id);
 
-  if (!tenantDetails) {
-    toast.error("Tenant details not found");
-    return;
-  }
+    if (!tenantDetails) {
+      toast.error("Tenant details not found");
+      return;
+    }
 
-  try {
-    setLoading(true);
+    try {
+      setLoading(true);
 
-    const adminToken = localStorage.getItem("auth_token");
+      const adminToken = localStorage.getItem("auth_token");
 
-    const response = await fetch(
-      `${import.meta.env.VITE_API_URL}/api/admin/vacate-requests`,
-      {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${adminToken}`,
-          "Content-Type": "application/json",
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/admin/vacate-requests`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${adminToken}`,
+            "Content-Type": "application/json",
+          },
         },
-      },
-    );
+      );
 
-    const result = await response.json();
+      const result = await response.json();
 
-    let vacateRequests = [];
-    if (result.success && Array.isArray(result.data)) {
-      vacateRequests = result.data;
+      let vacateRequests = [];
+      if (result.success && Array.isArray(result.data)) {
+        vacateRequests = result.data;
+      }
+
+      const tenantRequests = vacateRequests.filter(
+        (req: any) => req.tenant_id === tenantDetails.id,
+      );
+
+      const hasAnyRequest = tenantRequests.length > 0;
+
+      if (!hasAnyRequest) {
+        // ✅ Log it but don't show alert - just proceed
+        console.log(
+          `⚠️ No vacate request found for ${tenantDetails.full_name}, proceeding with admin vacate anyway`,
+        );
+      } else {
+        console.log(
+          `✅ Found ${tenantRequests.length} vacate request(s) for ${tenantDetails.full_name}`,
+        );
+      }
+
+      // ✅ Directly open wizard regardless of request status
+      setSelectedBedForVacate(bedAssignment);
+      setVacateWizardOpen(true);
+    } catch (error) {
+      console.error("Error checking vacate requests:", error);
+      // ✅ Still open wizard even if API fails
+      setSelectedBedForVacate(bedAssignment);
+      setVacateWizardOpen(true);
+    } finally {
+      setLoading(false);
     }
+  };
 
-    const tenantRequests = vacateRequests.filter(
-      (req: any) => req.tenant_id === tenantDetails.id,
-    );
+  
 
-    const hasAnyRequest = tenantRequests.length > 0;
-
-    if (!hasAnyRequest) {
-      // ✅ Log it but don't show alert - just proceed
-      console.log(`⚠️ No vacate request found for ${tenantDetails.full_name}, proceeding with admin vacate anyway`);
-    } else {
-      console.log(`✅ Found ${tenantRequests.length} vacate request(s) for ${tenantDetails.full_name}`);
-    }
-
-    // ✅ Directly open wizard regardless of request status
-    setSelectedBedForVacate(bedAssignment);
-    setVacateWizardOpen(true);
-    
-  } catch (error) {
-    console.error("Error checking vacate requests:", error);
-    // ✅ Still open wizard even if API fails
-    setSelectedBedForVacate(bedAssignment);
-    setVacateWizardOpen(true);
-  } finally {
-    setLoading(false);
-  }
-};
+  // In BedManagementDialog.tsx - Update handleVacateComplete
 
   const handleVacateComplete = async () => {
-    // Refresh the bed assignments
-    await refreshRoomData();
-
-    loadTenantsBasedOnPreferences();
-
+    // First close the wizard
+    setVacateWizardOpen(false);
     setSelectedBedForVacate(null);
+
+    // Reset assigning state
     setAssigningBed(null);
 
-    toast.success("Bed vacated successfully!");
+    // Refresh the bed assignments - CRITICAL: This will fetch fresh data
+    await refreshRoomData();
 
+    // Reload tenants to update their assignment status
+    await loadTenantsBasedOnPreferences();
+
+     onOpenChange(false);
+
+    // Notify parent if needed
     if (onRefresh) onRefresh();
+
   };
 
   const handleChangeBedSuccess = () => {
@@ -2235,27 +2462,27 @@ const handleVacateClick = async (bedAssignment: BedAssignment) => {
                   </CardContent>
                 </Card>
                 <Card>
-                  <CardContent className="p-2">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-[9px] text-gray-500 leading-tight">
-                          Security Deposit
-                        </p>
-                        <h3 className="text-sm font-bold text-amber-600 leading-tight">
-                          {securityDepositLoading ? (
-                            <Loader2 className="h-3 w-3 animate-spin inline" />
-                          ) : (
-                            `₹${securityDeposit.toLocaleString()}`
-                          )}
-                        </h3>
-                        <p className="text-[8px] text-gray-400 leading-tight">
-                          Per booking
-                        </p>
-                      </div>
-                      <Shield className="h-4 w-4 text-amber-500 flex-shrink-0" />
-                    </div>
-                  </CardContent>
-                </Card>
+  <CardContent className="p-2">
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-[9px] text-gray-500 leading-tight">
+          Security Deposit
+        </p>
+        <h3 className="text-sm font-bold text-amber-600 leading-tight">
+          {securityDepositLoading ? (
+            <Loader2 className="h-3 w-3 animate-spin inline" />
+          ) : (
+            `₹${totalSecurityDeposit.toLocaleString()}`
+          )}
+        </h3>
+        <p className="text-[8px] text-gray-400 leading-tight">
+          From {bedAssignments.filter(b => !b.is_available && b.security_deposit).length} occupied bed(s)
+        </p>
+      </div>
+      <Shield className="h-4 w-4 text-amber-500 flex-shrink-0" />
+    </div>
+  </CardContent>
+</Card>
 
                 <Card>
                   <CardContent className="p-2">
