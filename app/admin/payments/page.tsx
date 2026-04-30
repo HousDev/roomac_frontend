@@ -755,36 +755,46 @@ const fetchSecurityDepositInfo = async (tenantId: number) => {
   };
 
   // Add this handler for demand payment type change
-  const handleDemandPaymentTypeChange = async (value: string) => {
-    setDemandPayment((prev) => ({ ...prev, payment_type: value }));
+// Update handleDemandPaymentTypeChange to auto-fill amount when type changes
+const handleDemandPaymentTypeChange = async (value: string) => {
+  setDemandPayment((prev) => ({ ...prev, payment_type: value }));
 
-    if (value === "security_deposit" && demandPayment.tenant_id) {
-      // Use the existing getSecurityDepositInfo function
-      try {
-        const response = await paymentApi.getSecurityDepositInfo(
-          parseInt(demandPayment.tenant_id),
-        );
-        if (response.success) {
-          setSecurityDepositInfo(response.data);
-          // Auto-fill amount with pending amount
-          setDemandPayment((prev) => ({
-            ...prev,
-            amount: response.data.pending_amount,
-          }));
-        }
-      } catch (error) {
-        console.error("Error fetching security deposit info:", error);
+  if (value === "security_deposit" && demandPayment.tenant_id) {
+    try {
+      const response = await paymentApi.getSecurityDepositInfo(
+        parseInt(demandPayment.tenant_id),
+      );
+      if (response.success) {
+        setSecurityDepositInfo(response.data);
+        // ✅ Auto-fill amount with pending amount
+        setDemandPayment((prev) => ({
+          ...prev,
+          amount: response.data.pending_amount,
+        }));
       }
-    } else if (value === "rent" && paymentFormData?.suggested_amount) {
-      // Auto-fill with suggested rent amount
-      setDemandPayment((prev) => ({
-        ...prev,
-        amount: paymentFormData.suggested_amount,
-      }));
+    } catch (error) {
+      console.error("Error fetching security deposit info:", error);
     }
-  };
+  } else if (value === "rent" && demandPayment.tenant_id) {
+    try {
+      const formResponse = await paymentApi.getTenantPaymentFormData(
+        parseInt(demandPayment.tenant_id),
+      );
+      if (formResponse.success && formResponse.data?.total_pending) {
+        setPaymentFormData(formResponse.data);
+        // ✅ Auto-fill amount with total pending amount
+        setDemandPayment((prev) => ({
+          ...prev,
+          amount: formResponse.data.total_pending,
+        }));
+      }
+    } catch (error) {
+      console.error("Error fetching rent pending amount:", error);
+    }
+  }
+};
 
-// Update handleDemandTenantSelect to fetch security deposit info
+// Update handleDemandTenantSelect to fetch and set pending amount correctly
 const handleDemandTenantSelect = async (tenantId: string) => {
   setDemandPayment((prev) => ({ ...prev, tenant_id: tenantId }));
   setPaymentFormData(null);
@@ -800,30 +810,30 @@ const handleDemandTenantSelect = async (tenantId: string) => {
     );
     if (formResponse.success) {
       setPaymentFormData(formResponse.data);
+      
+      // ✅ Auto-fill amount with total pending amount for rent
+      if (demandPayment.payment_type === "rent" && formResponse.data?.total_pending) {
+        setDemandPayment((prev) => ({
+          ...prev,
+          amount: formResponse.data.total_pending,
+        }));
+      }
     }
 
-    // ✅ FIX: Fetch security deposit info using existing function
+    // Fetch security deposit info
     const depositResponse = await paymentApi.getSecurityDepositInfo(
       parseInt(tenantId),
     );
     if (depositResponse.success) {
       setSecurityDepositInfo(depositResponse.data);
-    }
-
-    // Auto-fill based on current payment type
-    if (demandPayment.payment_type === "rent" && formResponse.success) {
-      setDemandPayment((prev) => ({
-        ...prev,
-        amount: formResponse.data.suggested_amount,
-      }));
-    } else if (
-      demandPayment.payment_type === "security_deposit" &&
-      depositResponse.success
-    ) {
-      setDemandPayment((prev) => ({
-        ...prev,
-        amount: depositResponse.data.pending_amount,
-      }));
+      
+      // ✅ Auto-fill amount with pending amount for security deposit
+      if (demandPayment.payment_type === "security_deposit" && depositResponse.data?.pending_amount) {
+        setDemandPayment((prev) => ({
+          ...prev,
+          amount: depositResponse.data.pending_amount,
+        }));
+      }
     }
   } catch (error) {
     console.error("Error loading tenant details:", error);
@@ -3633,7 +3643,7 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
                       <div className="flex items-center gap-2">
                         <Home className="h-3 w-3 text-slate-400" />
                         <span className="text-xs">Room {room.room_number}</span>
-                        <span className="text-[10px] text-slate-400">({room.sharing_type} sharing)</span>
+                        <span className="text-[10px] text-slate-400">({room.sharing_type})</span>
                       </div>
                     </SelectItem>
                   ))
@@ -3721,14 +3731,6 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
       {demandPayment.payment_type === "rent" ? (
         <div className="space-y-2">
           {paymentFormData && <RentSummaryTable formData={paymentFormData} />}
-          {paymentFormData?.suggested_amount > 0 && (
-            <div className="bg-blue-50 px-3 py-2 rounded-lg border border-blue-200">
-              <p className="text-[11px] text-blue-700">
-                <span className="font-medium">Suggested:</span> ₹
-                {paymentFormData.suggested_amount.toLocaleString()}
-              </p>
-            </div>
-          )}
         </div>
       ) : demandPayment.payment_type === "security_deposit" && securityDepositInfo ? (
         <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
@@ -3786,11 +3788,11 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
             }
             className="h-8 text-xs"
           />
-          {demandPayment.payment_type === "rent" && paymentFormData?.suggested_amount > 0 && (
-            <p className="text-[10px] text-blue-600">
-              Suggested: ₹{paymentFormData.suggested_amount.toLocaleString()}
-            </p>
-          )}
+          {demandPayment.payment_type === "rent" && paymentFormData?.total_pending > 0 && (
+      <p className="text-[10px] text-blue-600 mt-1">
+        Total Pending: ₹{paymentFormData.total_pending.toLocaleString()}
+      </p>
+    )}
           {demandPayment.payment_type === "security_deposit" && securityDepositInfo?.pending_amount > 0 && (
             <p className="text-[10px] text-blue-600">
               Pending: ₹{securityDepositInfo.pending_amount.toLocaleString()}

@@ -415,7 +415,7 @@ const extractTenantVacateData = async (vacateRequests: any[]) => {
 
   const latestRequest = vacateRequests[0];
   
-  console.log("🔍 Extracting vacate data from request:", latestRequest);
+  // console.log("🔍 Extracting vacate data from request:", latestRequest);
 
   // Store the full request object with the correct ID field
   // The API returns vacate_request_id, not id
@@ -500,9 +500,9 @@ const extractTenantVacateData = async (vacateRequests: any[]) => {
   }
 
   // Also store secondary reasons if needed
-  if (latestRequest.secondary_reasons && latestRequest.secondary_reasons.length > 0) {
-    console.log("Secondary reasons:", latestRequest.secondary_reasons);
-  }
+  // if (latestRequest.secondary_reasons && latestRequest.secondary_reasons.length > 0) {
+  //   // console.log("Secondary reasons:", latestRequest.secondary_reasons);
+  // }
 
   return requestWithId;
 };
@@ -601,8 +601,16 @@ const checkForExistingRequest = async () => {
     setIsCheckingExisting(true);
     setWizardDisabled(true);
 
-    // ✅ Use ADMIN API to get all vacate requests for this tenant
-    const adminToken = localStorage.getItem("auth_token");
+    // ✅ FIX: Try multiple possible token storage keys
+    let adminToken = localStorage.getItem("auth_token");
+    
+    if (!adminToken) {
+      adminToken = localStorage.getItem("admin_token");
+    }
+    
+    if (!adminToken) {
+      adminToken = localStorage.getItem("token");
+    }
     
     if (!adminToken) {
       console.warn("⚠️ No admin token found");
@@ -612,7 +620,7 @@ const checkForExistingRequest = async () => {
     }
 
     // Call the admin API to get vacate requests for this specific tenant
-    console.log(`🔍 Fetching vacate requests for tenant: ${tenantDetails?.id}`);
+    // console.log(`🔍 Fetching vacate requests for tenant: ${tenantDetails?.id}`);
     const response = await fetch(
       `/api/admin/vacate-requests?tenant_id=${tenantDetails?.id}`,
       {
@@ -623,34 +631,37 @@ const checkForExistingRequest = async () => {
       }
     );
 
+    if (response.status === 401) {
+      console.error("❌ Unauthorized - token invalid");
+      setExistingVacateRequest(null);
+      setWizardDisabled(false);
+      return;
+    }
+
     const result = await response.json();
-    console.log("🔍 Admin vacate requests response:", result);
+    // console.log("🔍 Admin vacate requests response:", result);
 
     let vacateRequests = [];
     if (result.success && Array.isArray(result.data)) {
       vacateRequests = result.data;
     }
 
-    // ✅ FIX: Filter for vacate requests that are pending
-    // The API returns vacate requests with request_status, not status
+    // Filter for vacate requests that are pending
     const activeVacateRequests = vacateRequests.filter((request) => {
-      // Check if this is a vacate request (has vacate_request_id)
       const isVacateRequest = request.vacate_request_id !== undefined;
       const isForCurrentTenant = request.tenant_id === tenantDetails?.id;
-      // Check for pending or in_progress status using request_status
       const isActiveStatus = ["pending", "in_progress"].includes(
         request.request_status,
       );
       return isVacateRequest && isForCurrentTenant && isActiveStatus;
     });
 
-    console.log("🔍 Active vacate requests:", activeVacateRequests);
+    // console.log("🔍 Active vacate requests:", activeVacateRequests);
 
     if (activeVacateRequests.length > 0) {
-      console.log("✅ Found vacate request, extracting data...");
+      // console.log("✅ Found vacate request, extracting data...");
       const tenantRequest = await extractTenantVacateData(activeVacateRequests);
       if (tenantRequest) {
-        // Make sure the request has an id field for display
         const requestWithId = {
           ...tenantRequest,
           id: tenantRequest.vacate_request_id,
@@ -658,14 +669,14 @@ const checkForExistingRequest = async () => {
           created_at: tenantRequest.vacate_request_date || tenantRequest.request_created,
         };
         setExistingVacateRequest(requestWithId);
-        console.log("✅ Vacate request set in state:", requestWithId);
+        // console.log("✅ Vacate request set in state:", requestWithId);
         toast.info("Tenant vacate request found", {
           description: "Loading tenant's vacate request details...",
-          duration: 2000,
+          duration: 1000,
         });
       }
     } else {
-      console.log("ℹ️ No active vacate requests found for this tenant");
+      // console.log("ℹ️ No active vacate requests found for this tenant");
       setExistingVacateRequest(null);
     }
 
@@ -678,6 +689,16 @@ const checkForExistingRequest = async () => {
     setIsCheckingExisting(false);
   }
 };
+
+// Add this useEffect temporarily to debug
+// useEffect(() => {
+//   if (typeof window !== 'undefined') {
+//     console.log("🔍 localStorage keys:", Object.keys(localStorage));
+//     console.log("🔍 auth_token:", localStorage.getItem("auth_token"));
+//     console.log("🔍 admin_token:", localStorage.getItem("admin_token"));
+//     console.log("🔍 token:", localStorage.getItem("token"));
+//   }
+// }, []);
 
 // Helper function to fetch raw tenant data
 const fetchRawTenant = async (tenantId: number) => {
@@ -713,10 +734,10 @@ const fetchPartnerDetails = async (tenantId: number) => {
       return;
     }
 
-    console.log("🔍 Tenant data:", tenant);
-    console.log("🔍 partner_tenant_id:", tenant.partner_tenant_id);
-    console.log("🔍 is_couple_booking:", tenant.is_couple_booking);
-    console.log("🔍 is_primary_tenant:", tenant.is_primary_tenant);
+    // console.log("🔍 Tenant data:", tenant);
+    // console.log("🔍 partner_tenant_id:", tenant.partner_tenant_id);
+    // console.log("🔍 is_couple_booking:", tenant.is_couple_booking);
+    // console.log("🔍 is_primary_tenant:", tenant.is_primary_tenant);
 
     const partnerTenantId = tenant.partner_tenant_id;
     const hasPartner = partnerTenantId && partnerTenantId !== tenant.id;
@@ -727,8 +748,8 @@ const fetchPartnerDetails = async (tenantId: number) => {
                                       bedAssignment?.is_couple === 1 || 
                                       bedAssignment?.is_couple === "1";
 
-    console.log("🔍 Bed assignment is_couple:", bedAssignment?.is_couple);
-    console.log("🔍 Currently couple booking:", isCurrentlyCoupleBooking);
+    // console.log("🔍 Bed assignment is_couple:", bedAssignment?.is_couple);
+    // console.log("🔍 Currently couple booking:", isCurrentlyCoupleBooking);
 
     // ✅ Set the couple booking flag
     setIsCoupleBooking(hasPartner && isCurrentlyCoupleBooking);
@@ -738,7 +759,7 @@ const fetchPartnerDetails = async (tenantId: number) => {
       const partner = await fetchRawTenant(partnerTenantId);
 
       if (partner) {
-        console.log("✅ Partner found:", partner.full_name, "ID:", partner.id);
+        // console.log("✅ Partner found:", partner.full_name, "ID:", partner.id);
         
         // Determine which one is primary (has is_primary_tenant = 1)
         const isCurrentPrimary = tenant.is_primary_tenant === 1;
@@ -821,7 +842,7 @@ const fetchPartnerDetails = async (tenantId: number) => {
           ]);
         }
       } else {
-        console.log("⚠️ Partner tenant ID exists but partner not found");
+        // console.log("⚠️ Partner tenant ID exists but partner not found");
         setTenantsToVacate([
           {
             id: tenant.id,
@@ -835,7 +856,7 @@ const fetchPartnerDetails = async (tenantId: number) => {
         ]);
       }
     } else {
-      console.log("ℹ️ Single tenant or couple booking flag disabled");
+      // console.log("ℹ️ Single tenant or couple booking flag disabled");
       setTenantsToVacate([
         {
           id: tenant.id,
@@ -897,6 +918,14 @@ const loadInitialData = async () => {
     setInitialData(data);
     initialDataLoadedRef.current = true;
 
+    //  console.log("📊 Bed Assignment Data:", {
+    //   tenant_rent: data.bedAssignment?.tenant_rent,
+    //   rent_per_bed: data.bedAssignment?.rent_per_bed,
+    //   security_deposit: data.bedAssignment?.security_deposit,
+    //   bed_id: data.bedAssignment?.id,
+    //   bed_number: data.bedAssignment?.bed_number
+    // });
+
     // ✅ Set security deposit from bed data
     if (data.bedAssignment) {
       const deposit = parseFloat(data.bedAssignment.security_deposit) || 
@@ -906,7 +935,7 @@ const loadInitialData = async () => {
 
     // ✅ Always fetch partner details - don't rely on is_couple_booking flag
     if (data.bedAssignment && data.bedAssignment.tenant_id) {
-      console.log("📢 Fetching partner details for tenant:", data.bedAssignment.tenant_id);
+      // console.log("📢 Fetching partner details for tenant:", data.bedAssignment.tenant_id);
       await fetchPartnerDetails(data.bedAssignment.tenant_id);
     }
 
@@ -1475,7 +1504,7 @@ const calculatePenaltyAmount = (
       const percentage = parseInt(percentageMatch[1]);
       // ✅ Calculate percentage of security deposit
       const calculatedAmount = Math.round((securityDeposit * percentage) / 100);
-      console.log(`💰 Percentage penalty: ${percentage}% of ₹${securityDeposit} = ₹${calculatedAmount}`);
+      // console.log(`💰 Percentage penalty: ${percentage}% of ₹${securityDeposit} = ₹${calculatedAmount}`);
       return calculatedAmount;
     }
   }
@@ -1574,6 +1603,175 @@ const calculatePenaltyAmount = (
     }
   }, [existingVacateRequest, initialData, isCheckingExisting]);
 
+// const handleSubmit = async () => {
+//   try {
+//     setLoading(true);
+
+//     const selectedTenants = tenantsToVacate.filter(t => t.selected);
+    
+//     if (selectedTenants.length === 0) {
+//       toast.error("Please select at least one tenant to vacate");
+//       setLoading(false);
+//       return;
+//     }
+
+//     const results = [];
+//     const errors = [];
+
+//     // Process each selected tenant
+//     for (const tenant of selectedTenants) {
+//       try {
+//         // Calculate final amounts based on admin override or tenant request
+//         let finalPenaltyAmount;
+//         let finalRefundAmount;
+        
+//         if (isAdminOverride) {
+//           // ✅ Admin Override: No penalties, full refund
+//           finalPenaltyAmount = 0;
+//           finalRefundAmount = initialData?.bedAssignment?.security_deposit || 0;
+//         } else if (existingVacateRequest) {
+//           // ✅ Tenant submitted a vacate request - use calculations from the request
+//           finalPenaltyAmount = calculation?.financials?.totalPenalty || formData.finalPenaltyAmount;
+//           finalRefundAmount = calculation?.financials?.refundableAmount || formData.securityRefundAmount;
+//         } else {
+//           // ✅ No tenant request, admin is processing manually
+//           finalPenaltyAmount = formData.finalPenaltyAmount;
+//           finalRefundAmount = formData.securityRefundAmount;
+//         }
+
+//         const payload = {
+//           bedAssignmentId: bedAssignment.id,
+//           tenantId: tenant.id,
+//           vacateReasonValue: isAdminOverride ? 'Admin forced vacate' :(tenantVacateReason || formData.vacateReasonValue),
+//           isNoticeGiven: isAdminOverride ? true :(noticeGivenByTenant || formData.isNoticeGiven),
+//           noticeGivenDate: isAdminOverride ? new Date().toISOString().split('T')[0] :  (tenantRequestDate || formData.noticeGivenDate),
+//           requestedVacateDate: formData.requestedVacateDate,  
+//           tenantAgreed: isAdminOverride ? true : tenantAgreedToTerms,
+//           lockinPeriodMonths: initialData?.bedAssignment?.lockin_period_months || 0,
+//           lockinPenaltyType: initialData?.bedAssignment?.lockin_penalty_type || '',
+//           lockinPenaltyAmount: isAdminOverride ? 0 : (initialData?.bedAssignment?.lockin_penalty_amount || 0),
+//           noticePeriodDays: initialData?.bedAssignment?.notice_period_days || 0,
+//           noticePenaltyType: initialData?.bedAssignment?.notice_penalty_type || '',
+//           noticePenaltyAmount: isAdminOverride ? 0 : (initialData?.bedAssignment?.notice_penalty_amount || 0),
+//           securityDepositAmount: initialData?.bedAssignment?.security_deposit || 0,
+//           totalPenaltyAmount: selectedTenants.length === 2 ? finalPenaltyAmount : Math.floor(finalPenaltyAmount / 2),
+//           refundableAmount: selectedTenants.length === 2 ? finalRefundAmount : Math.floor(finalRefundAmount / 2),
+//           lockinPenaltyApplied: !isAdminOverride && formData.lockinPenaltyApplied,
+//           noticePenaltyApplied: !isAdminOverride && formData.noticePenaltyApplied,
+//           adminApproved: formData.adminApproved,
+//           tenantVacateRequestId: existingVacateRequest?.id,
+//           isAdminOverride: isAdminOverride,
+//           isPartialVacate: selectedTenants.length === 1 && tenantsToVacate.length === 2
+//         };
+
+//         const response = await vacateApi.submitVacateRequest(payload);
+        
+//         if (response && response.success) {
+          
+//           results.push({
+//             tenant_id: tenant.id,
+//             tenant_name: tenant.full_name,
+//             success: true,
+//             message: response.message
+//           });
+//         } else {
+//           errors.push({
+//             tenant_id: tenant.id,
+//             tenant_name: tenant.full_name,
+//             error: response?.message || "Failed to submit vacate request"
+//           });
+//         }
+//       } catch (error) {
+//         console.error(`Error vacating tenant ${tenant.id}:`, error);
+//         errors.push({
+//           tenant_id: tenant.id,
+//           tenant_name: tenant.full_name,
+//           error: error.message
+//         });
+//       }
+//     }
+
+//     if (results.length > 0) {
+//       const successMessage = results.map(r => r.tenant_name).join(', ');
+//       toast.success(`Successfully vacated: ${successMessage}`);
+      
+//       // ✅ HANDLE BED ASSIGNMENT UPDATE FOR PARTIAL VACATE
+//       const allTenantsVacated = selectedTenants.length === tenantsToVacate.length;
+
+//         // Get the original bed rent and security deposit
+//       const originalBedRent = initialData?.bedAssignment?.tenant_rent ||
+//                               0;
+//       const originalSecurityDeposit = initialData?.bedAssignment?.security_deposit || 
+//                                      initialData?.bedAssignment?.rent_per_bed || 
+//                                      0;
+      
+//       if (allTenantsVacated) {
+//         // Both tenants vacated - mark bed as available
+//         await updateBedAssignment(bedAssignment.id.toString(), {
+//           tenant_id: null,
+//           tenant_gender: null,
+//           is_available: true,
+//           // tenant_rent:initialData?.bedAssignment?.tenant_rent || initialData?.bedAssignment?.rent_per_bed,
+//           // tenant_rent:initialData?.bedAssignment?.tenant_rent,
+//           tenant_rent: originalBedRent,
+//           is_couple: false,
+//           security_deposit: null,
+//           vacate_reason: `Both tenants vacated. Bed rent preserved: ${originalBedRent}`
+//         });
+//         console.log("✅ Both tenants vacated - Bed marked as available");
+//       } else {
+//         // Only one tenant vacated - update bed to remaining tenant
+//         const remainingTenant = tenantsToVacate.find(t => !t.selected);
+//         if (remainingTenant) {
+//           // Fetch remaining tenant's gender
+//           const remainingTenantDetails = await fetchRawTenant(remainingTenant.id);
+
+//             //  const currentTenantRent = initialData?.bedAssignment?.tenant_rent || 
+//             //                          initialData?.bedAssignment?.rent_per_bed || 
+//             //                          0;
+//   //                                    const currentTenantRent = initialData?.bedAssignment?.tenant_rent ;
+//   //           // Get the security deposit from the original bed assignment
+//   // const originalSecurityDeposit = initialData?.bedAssignment?.security_deposit || 
+//   //                                  initialData?.bedAssignment?.rent_per_bed || 
+//   //                                  0;
+          
+//           await updateBedAssignment(bedAssignment.id.toString(), {
+//             tenant_id: remainingTenant.id,
+//             tenant_gender: remainingTenantDetails?.gender || null,
+//             is_available: false,
+//             is_couple: false, // No longer a couple booking
+//             tenant_rent:originalBedRent,
+//              security_deposit: originalSecurityDeposit,
+//              vacate_reason: `Partial vacate - ${remainingTenant.full_name} remains. Bed rent preserved: ${originalBedRent}`
+//           });
+//           console.log(`✅ Single tenant vacated - Bed updated to remaining tenant: ${remainingTenant.full_name}`);
+//         }
+//       }
+      
+//       if (onVacateComplete) {
+//         onVacateComplete();
+//       }
+
+//       setStep(6);
+//       setTimeout(() => {
+//         onOpenChange(false);
+//         resetWizard();
+//       }, 100);
+//     }
+    
+//     if (errors.length > 0) {
+//       const errorMessage = errors.map(e => `${e.tenant_name}: ${e.error}`).join('; ');
+//       toast.error(`Failed to vacate: ${errorMessage}`);
+//     }
+    
+//   } catch (error) {
+//     console.error("❌ Error submitting vacate request:", error);
+//     toast.error(error.message || "Failed to submit vacate request.");
+//   } finally {
+//     setLoading(false);
+//   }
+// };
+
 const handleSubmit = async () => {
   try {
     setLoading(true);
@@ -1597,15 +1795,12 @@ const handleSubmit = async () => {
         let finalRefundAmount;
         
         if (isAdminOverride) {
-          // ✅ Admin Override: No penalties, full refund
           finalPenaltyAmount = 0;
           finalRefundAmount = initialData?.bedAssignment?.security_deposit || 0;
         } else if (existingVacateRequest) {
-          // ✅ Tenant submitted a vacate request - use calculations from the request
           finalPenaltyAmount = calculation?.financials?.totalPenalty || formData.finalPenaltyAmount;
           finalRefundAmount = calculation?.financials?.refundableAmount || formData.securityRefundAmount;
         } else {
-          // ✅ No tenant request, admin is processing manually
           finalPenaltyAmount = formData.finalPenaltyAmount;
           finalRefundAmount = formData.securityRefundAmount;
         }
@@ -1613,9 +1808,9 @@ const handleSubmit = async () => {
         const payload = {
           bedAssignmentId: bedAssignment.id,
           tenantId: tenant.id,
-          vacateReasonValue: isAdminOverride ? 'Admin forced vacate' :(tenantVacateReason || formData.vacateReasonValue),
-          isNoticeGiven: isAdminOverride ? true :(noticeGivenByTenant || formData.isNoticeGiven),
-          noticeGivenDate: isAdminOverride ? new Date().toISOString().split('T')[0] :  (tenantRequestDate || formData.noticeGivenDate),
+          vacateReasonValue: isAdminOverride ? 'Admin forced vacate' : (tenantVacateReason || formData.vacateReasonValue),
+          isNoticeGiven: isAdminOverride ? true : (noticeGivenByTenant || formData.isNoticeGiven),
+          noticeGivenDate: isAdminOverride ? new Date().toISOString().split('T')[0] : (tenantRequestDate || formData.noticeGivenDate),
           requestedVacateDate: formData.requestedVacateDate,  
           tenantAgreed: isAdminOverride ? true : tenantAgreedToTerms,
           lockinPeriodMonths: initialData?.bedAssignment?.lockin_period_months || 0,
@@ -1638,7 +1833,6 @@ const handleSubmit = async () => {
         const response = await vacateApi.submitVacateRequest(payload);
         
         if (response && response.success) {
-          
           results.push({
             tenant_id: tenant.id,
             tenant_name: tenant.full_name,
@@ -1668,44 +1862,50 @@ const handleSubmit = async () => {
       
       // ✅ HANDLE BED ASSIGNMENT UPDATE FOR PARTIAL VACATE
       const allTenantsVacated = selectedTenants.length === tenantsToVacate.length;
+
+      // ✅ CRITICAL FIX: Get the original bed rent from multiple sources
+      // First try bedAssignment.tenant_rent, then rent_per_bed, then fallback to 0
+      const originalBedRent = bedAssignment?.tenant_rent || 
+                              initialData?.bedAssignment?.tenant_rent || 
+                              initialData?.bedAssignment?.rent_per_bed || 
+                              bedAssignment?.rent_per_bed || 0;
+      
+      const originalSecurityDeposit = initialData?.bedAssignment?.security_deposit || 
+                                     initialData?.bedAssignment?.rent_per_bed || 
+                                     bedAssignment?.security_deposit || 0;
+      
+      // console.log("💰 Original bed rent to preserve:", originalBedRent);
+      // console.log("💰 Original security deposit to preserve:", originalSecurityDeposit);
       
       if (allTenantsVacated) {
-        // Both tenants vacated - mark bed as available
+        // Both tenants vacated - mark bed as available but preserve rent
         await updateBedAssignment(bedAssignment.id.toString(), {
           tenant_id: null,
           tenant_gender: null,
           is_available: true,
-          // tenant_rent:initialData?.bedAssignment?.tenant_rent || initialData?.bedAssignment?.rent_per_bed,
-          tenant_rent:initialData?.bedAssignment?.tenant_rent,
+          tenant_rent: originalBedRent, // ✅ Preserve the rent
           is_couple: false,
-          security_deposit: null
+          security_deposit: null,
+          vacate_reason: `Both tenants vacated. Bed rent preserved: ${originalBedRent}`
         });
-        console.log("✅ Both tenants vacated - Bed marked as available");
+        // console.log("✅ Both tenants vacated - Bed marked as available with rent preserved:", originalBedRent);
       } else {
         // Only one tenant vacated - update bed to remaining tenant
         const remainingTenant = tenantsToVacate.find(t => !t.selected);
         if (remainingTenant) {
           // Fetch remaining tenant's gender
           const remainingTenantDetails = await fetchRawTenant(remainingTenant.id);
-
-            //  const currentTenantRent = initialData?.bedAssignment?.tenant_rent || 
-            //                          initialData?.bedAssignment?.rent_per_bed || 
-            //                          0;
-                                     const currentTenantRent = initialData?.bedAssignment?.tenant_rent ;
-            // Get the security deposit from the original bed assignment
-  const originalSecurityDeposit = initialData?.bedAssignment?.security_deposit || 
-                                   initialData?.bedAssignment?.rent_per_bed || 
-                                   0;
           
           await updateBedAssignment(bedAssignment.id.toString(), {
             tenant_id: remainingTenant.id,
             tenant_gender: remainingTenantDetails?.gender || null,
             is_available: false,
             is_couple: false, // No longer a couple booking
-            tenant_rent:currentTenantRent,
-             security_deposit: originalSecurityDeposit
+            tenant_rent: originalBedRent, // ✅ IMPORTANT: Use original bed rent, NOT tenant rent
+            security_deposit: originalSecurityDeposit,
+            vacate_reason: `Partial vacate - ${remainingTenant.full_name} remains. Bed rent preserved: ${originalBedRent}`
           });
-          console.log(`✅ Single tenant vacated - Bed updated to remaining tenant: ${remainingTenant.full_name}`);
+          // console.log(`✅ Single tenant vacated - Bed updated to remaining tenant: ${remainingTenant.full_name} with rent preserved: ${originalBedRent}`);
         }
       }
       
@@ -2600,7 +2800,7 @@ const stepTitles = getStepTitles();
                           </div>
                         )}
 
-                        <div className="mt-3 p-2 bg-blue-50 border border-blue-200 rounded">
+                        {/* <div className="mt-3 p-2 bg-blue-50 border border-blue-200 rounded">
                           <div className="text-xs text-blue-700">
                             <span className="font-medium">
                               Calculation Logic:
@@ -2617,7 +2817,7 @@ const stepTitles = getStepTitles();
                             {formatDate(new Date())})<br />• Penalty applies if:
                             Today &lt; Notice End Date
                           </div>
-                        </div>
+                        </div> */}
                       </div>
                     </div>
                   </CardContent>
@@ -2680,7 +2880,7 @@ const stepTitles = getStepTitles();
                   </div>
                 </div>
 
-                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                {/* <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                   <div className="flex items-start gap-2">
                     <Info className="h-3 w-3 text-blue-600 mt-0.5 flex-shrink-0" />
                     <div className="text-xs text-blue-700">
@@ -2689,7 +2889,7 @@ const stepTitles = getStepTitles();
                       calculation.
                     </div>
                   </div>
-                </div>
+                </div> */}
               </div>
             )}
 
