@@ -200,7 +200,14 @@ export function Footer() {
           <div className="border-t border-slate-800 mt-8 pt-2 flex flex-col md:flex-row justify-between items-center gap-4">
             <p className="text-sm text-slate-400">
               © {new Date().getFullYear()} {settings.site_name || 'Roomac Co-living'}. All rights reserved. | Developed by <span className="font-medium text-slate-300">
-              Hously Finntech Realty
+              <a
+    href="https://hously.in"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="font-medium text-slate-300 underline hover:text-slate-200"
+  >
+    Hously Finntech Realty
+  </a>
             </span>
             </p> 
 

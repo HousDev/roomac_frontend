@@ -1327,7 +1327,7 @@ const checkTenantBedAssignmentsForVacate = async (tenantId: number): Promise<boo
             isVacated = await checkTenantBedAssignmentsForVacate(tenant.id);
           }
           
-          console.log(`Tenant ${tenant.id} (${tenant.full_name}) - Vacated: ${isVacated}`);
+          // console.log(`Tenant ${tenant.id} (${tenant.full_name}) - Vacated: ${isVacated}`);
 
 
             if (tenantDetails.success && tenantDetails.data) {
@@ -1427,14 +1427,14 @@ const checkTenantBedAssignmentsForVacate = async (tenantId: number): Promise<boo
           }
         }),
       );
-      console.log("✅ All tenants loaded:", tenantsWithAssignment.map(t => ({
-  id: t.id,
-  name: t.full_name,
-  is_primary: t.is_primary_tenant,
-  couple_id: t.couple_id,
-  is_vacated: t.is_vacated,
-  is_couple_booking: t.is_couple_booking
-})));
+//       console.log("✅ All tenants loaded:", tenantsWithAssignment.map(t => ({
+//   id: t.id,
+//   name: t.full_name,
+//   is_primary: t.is_primary_tenant,
+//   couple_id: t.couple_id,
+//   is_vacated: t.is_vacated,
+//   is_couple_booking: t.is_couple_booking
+// })));
 
       setTenants(tenantsWithAssignment);
     } catch (error: any) {
@@ -1466,8 +1466,8 @@ const findTenantDetails = (tenantId: number) => {
   
   if (!tenant) return null;
   
-  console.log("🔍 findTenantDetails for tenant:", tenant.id, tenant.full_name);
-  console.log("🔍 tenant partner_tenant_id:", tenant.partner_tenant_id);
+  // console.log("🔍 findTenantDetails for tenant:", tenant.id, tenant.full_name);
+  // console.log("🔍 tenant partner_tenant_id:", tenant.partner_tenant_id);
   
   // Get partner details using the corrected helper
   const partnerInfo = getCorrectPartnerDetails(tenant);
@@ -1481,26 +1481,26 @@ const findTenantDetails = (tenantId: number) => {
     partner_relationship: partnerInfo.partner_relationship,
   };
   
-  console.log("✅ Returning tenant with partner:", {
-    tenantName: result.full_name,
-    partnerName: result.partner_full_name,
-    isSame: result.full_name === result.partner_full_name
-  });
+  // console.log("✅ Returning tenant with partner:", {
+  //   tenantName: result.full_name,
+  //   partnerName: result.partner_full_name,
+  //   isSame: result.full_name === result.partner_full_name
+  // });
   
   return result;
 };
 
 const getCorrectPartnerDetails = (tenant: Tenant) => {
-  console.log("🔍 getCorrectPartnerDetails called for tenant:", tenant.id, tenant.full_name);
-  console.log("🔍 tenant.partner_tenant_id:", tenant.partner_tenant_id);
-  console.log("🔍 tenant.is_primary_tenant:", tenant.is_primary_tenant);
+  // console.log("🔍 getCorrectPartnerDetails called for tenant:", tenant.id, tenant.full_name);
+  // console.log("🔍 tenant.partner_tenant_id:", tenant.partner_tenant_id);
+  // console.log("🔍 tenant.is_primary_tenant:", tenant.is_primary_tenant);
   
   // CASE 1: This tenant is PRIMARY (has partner_tenant_id pointing to partner)
   if (tenant.partner_tenant_id && tenant.partner_tenant_id !== tenant.id) {
     const partnerTenant = tenants.find(t => t.id === tenant.partner_tenant_id);
     
     if (partnerTenant) {
-      console.log("✅ This is PRIMARY tenant, found partner:", partnerTenant.full_name);
+      // console.log("✅ This is PRIMARY tenant, found partner:", partnerTenant.full_name);
       return {
         partner_full_name: partnerTenant.full_name,
         partner_phone: partnerTenant.phone || '',
@@ -1515,7 +1515,7 @@ const getCorrectPartnerDetails = (tenant: Tenant) => {
   const primaryTenant = tenants.find(t => t.partner_tenant_id === tenant.id && t.is_primary_tenant === 1);
   
   if (primaryTenant) {
-    console.log("✅ This is PARTNER tenant, found primary:", primaryTenant.full_name);
+    // console.log("✅ This is PARTNER tenant, found primary:", primaryTenant.full_name);
     return {
       partner_full_name: primaryTenant.full_name,
       partner_phone: primaryTenant.phone || '',
@@ -1531,7 +1531,7 @@ const getCorrectPartnerDetails = (tenant: Tenant) => {
     
     if (coupleTenants.length > 0) {
       const partnerTenant = coupleTenants[0];
-      console.log("✅ Found partner via couple_id:", partnerTenant.full_name);
+      // console.log("✅ Found partner via couple_id:", partnerTenant.full_name);
       return {
         partner_full_name: partnerTenant.full_name,
         partner_phone: partnerTenant.phone || '',
@@ -1543,7 +1543,7 @@ const getCorrectPartnerDetails = (tenant: Tenant) => {
   }
   
   // Fallback to tenant's own partner fields
-  console.log("⚠️ No partner found, using fallback fields");
+  // console.log("⚠️ No partner found, using fallback fields");
   return {
     partner_full_name: tenant.partner_full_name || '',
     partner_phone: tenant.partner_phone || '',
@@ -1891,7 +1891,7 @@ const getCorrectPartnerDetails = (tenant: Tenant) => {
 
     // ✅ Get correct partner details
   const partnerDetails = getCorrectPartnerDetails(tenant);
- console.log("✅ Partner details for toast:", partnerDetails);
+//  console.log("✅ Partner details for toast:", partnerDetails);
 
     const payload: UpdateBedAssignmentPayload = {
       tenant_id: tenant.id,
@@ -2218,66 +2218,99 @@ const getCorrectPartnerDetails = (tenant: Tenant) => {
   // };
 
   // Alternative version - checks but auto-proceeds
-  const handleVacateClick = async (bedAssignment: BedAssignment) => {
-    const tenantDetails = findTenantDetails(bedAssignment.tenant_id);
+const handleVacateClick = async (bedAssignment: BedAssignment) => {
+  const tenantDetails = findTenantDetails(bedAssignment.tenant_id);
 
-    if (!tenantDetails) {
-      toast.error("Tenant details not found");
+  if (!tenantDetails) {
+    toast.error("Tenant details not found");
+    return;
+  }
+
+  try {
+    setLoading(true);
+
+    // ✅ FIX: Try multiple possible token storage keys
+    let adminToken = localStorage.getItem("auth_token");
+    
+    if (!adminToken) {
+      adminToken = localStorage.getItem("admin_token");
+    }
+    
+    if (!adminToken) {
+      adminToken = localStorage.getItem("token");
+    }
+    
+    if (!adminToken) {
+      console.warn("⚠️ No admin token found in localStorage");
+      // console.log("Available keys:", Object.keys(localStorage));
+      // Still open wizard, just without tenant request data
+      setSelectedBedForVacate(bedAssignment);
+      setVacateWizardOpen(true);
+      setLoading(false);
       return;
     }
 
-    try {
-      setLoading(true);
+    // console.log("🔍 Using admin token:", adminToken.substring(0, 20) + "...");
 
-      const adminToken = localStorage.getItem("auth_token");
-
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/admin/vacate-requests`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${adminToken}`,
-            "Content-Type": "application/json",
-          },
+    // Call the admin API to get vacate requests for this specific tenant
+    const response = await fetch(
+      `/api/admin/vacate-requests?tenant_id=${tenantDetails.id}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${adminToken}`,
+          "Content-Type": "application/json",
         },
-      );
-
-      const result = await response.json();
-
-      let vacateRequests = [];
-      if (result.success && Array.isArray(result.data)) {
-        vacateRequests = result.data;
       }
+    );
 
-      const tenantRequests = vacateRequests.filter(
-        (req: any) => req.tenant_id === tenantDetails.id,
-      );
+    // console.log("🔍 Response status:", response.status);
 
-      const hasAnyRequest = tenantRequests.length > 0;
-
-      if (!hasAnyRequest) {
-        // ✅ Log it but don't show alert - just proceed
-        console.log(
-          `⚠️ No vacate request found for ${tenantDetails.full_name}, proceeding with admin vacate anyway`,
-        );
-      } else {
-        console.log(
-          `✅ Found ${tenantRequests.length} vacate request(s) for ${tenantDetails.full_name}`,
-        );
-      }
-
-      // ✅ Directly open wizard regardless of request status
+    if (response.status === 401) {
+      console.error("❌ Unauthorized - token may be expired or invalid");
+      // Still open wizard, just without tenant request data
       setSelectedBedForVacate(bedAssignment);
       setVacateWizardOpen(true);
-    } catch (error) {
-      console.error("Error checking vacate requests:", error);
-      // ✅ Still open wizard even if API fails
-      setSelectedBedForVacate(bedAssignment);
-      setVacateWizardOpen(true);
-    } finally {
       setLoading(false);
+      return;
     }
-  };
+
+    const result = await response.json();
+    // console.log("🔍 Admin vacate requests response:", result);
+
+    // Store the vacate request data in a way that VacateBedWizard can access
+    let vacateRequests = [];
+    if (result.success && Array.isArray(result.data)) {
+      vacateRequests = result.data;
+    }
+
+    // Find the active vacate request for this tenant
+    const tenantVacateRequest = vacateRequests.find(
+      (req: any) => req.tenant_id === tenantDetails.id && 
+                     req.request_status === "pending"
+    );
+
+    if (tenantVacateRequest) {
+      // console.log("✅ Found active vacate request:", tenantVacateRequest);
+      // Pass the request data to the wizard via a ref or context
+      // For now, we'll just log it
+    } else {
+      console.log("ℹ️ No active vacate request found for this tenant");
+    }
+
+    // ✅ Directly open wizard regardless of request status
+    setSelectedBedForVacate(bedAssignment);
+    setVacateWizardOpen(true);
+    
+  } catch (error) {
+    console.error("Error checking vacate requests:", error);
+    // ✅ Still open wizard even if API fails
+    setSelectedBedForVacate(bedAssignment);
+    setVacateWizardOpen(true);
+  } finally {
+    setLoading(false);
+  }
+};
 
   
 
