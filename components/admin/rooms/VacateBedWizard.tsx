@@ -1038,251 +1038,234 @@ const getIcons = () => {
   return icons;
 };
 
-  // Fix the checkLockinStatus function - Calculate lock-in end date and compare with current date
-  const checkLockinStatus = async () => {
-    try {
-      if (
-        !initialData?.bedAssignment?.lockin_period_months ||
-        initialData.bedAssignment.lockin_period_months === 0
-      ) {
-        setLockinStatus({
-          isCompleted: true,
-          message: "No lock-in period required",
-          lockinMonths: 0,
-          penaltyApplicable: false,
-        });
-        return;
-      }
+// Replace the checkLockinStatus function
+// Replace the checkLockinStatus function with this corrected version
 
-      setCalculating(true);
-
-      const checkInDateStr = initialData?.bedAssignment?.check_in_date;
-      const lockinMonths =
-        initialData?.bedAssignment?.lockin_period_months || 0;
-      const currentDate = new Date(); // Use current date
-
-      if (!checkInDateStr) {
-        setLockinStatus({
-          isCompleted: true,
-          message: "No check-in date found, cannot calculate lock-in period",
-          lockinMonths: lockinMonths,
-          penaltyApplicable: false,
-        });
-        return;
-      }
-
-      const checkIn = new Date(checkInDateStr);
-
-      // Calculate lock-in end date: check-in date + lock-in months
-      const lockInEndDate = new Date(checkIn);
-      lockInEndDate.setMonth(checkIn.getMonth() + lockinMonths);
-
-      // Normalize dates for comparison (remove time component)
-      const normalizedLockInEndDate = new Date(
-        lockInEndDate.getFullYear(),
-        lockInEndDate.getMonth(),
-        lockInEndDate.getDate(),
-      );
-      const normalizedCurrentDate = new Date(
-        currentDate.getFullYear(),
-        currentDate.getMonth(),
-        currentDate.getDate(),
-      );
-
-      // Check if current date is ON OR AFTER lock-in end date
-      const isCompleted = normalizedCurrentDate >= normalizedLockInEndDate;
-
-      // Calculate how many months have been completed
-      const monthsDiff =
-        (normalizedCurrentDate.getFullYear() - checkIn.getFullYear()) * 12 +
-        (normalizedCurrentDate.getMonth() - checkIn.getMonth());
-      const completedMonths = Math.max(0, Math.min(monthsDiff, lockinMonths));
-
-      // Calculate remaining if not completed
-      let remainingDays = 0;
-      let remainingMonths = 0;
-
-      if (!isCompleted) {
-        const remainingTime =
-          normalizedLockInEndDate.getTime() - normalizedCurrentDate.getTime();
-        remainingDays = Math.ceil(remainingTime / (1000 * 3600 * 24));
-        remainingMonths = Math.ceil(remainingDays / 30);
-      }
-
-      const message = isCompleted
-        ? `Lock-in period completed (${completedMonths} months completed out of required ${lockinMonths} months)`
-        : `Lock-in period not completed (${completedMonths} months completed out of required ${lockinMonths} months. Remaining: ${remainingMonths} months / ${remainingDays} days)`;
-
+const checkLockinStatus = async () => {
+  try {
+    if (
+      !initialData?.bedAssignment?.lockin_period_months ||
+      initialData.bedAssignment.lockin_period_months === 0
+    ) {
       setLockinStatus({
-        isCompleted,
-        message,
-        lockinMonths: lockinMonths,
-        completedMonths: completedMonths,
-        remainingMonths: remainingMonths,
-        remainingDays: remainingDays,
-        checkInDate: checkInDateStr,
-        currentDate: normalizedCurrentDate.toISOString().split("T")[0],
-        lockInEndDate: lockInEndDate.toISOString().split("T")[0],
-        penaltyApplicable: !isCompleted,
+        isCompleted: true,
+        message: "No lock-in period required",
+        lockinMonths: 0,
+        penaltyApplicable: false,
       });
-    } catch (error) {
-      console.error("Error checking lock-in status:", error);
-
-      // Fallback calculation
-      const checkInDateStr = initialData?.bedAssignment?.check_in_date;
-      const lockinMonths =
-        initialData?.bedAssignment?.lockin_period_months || 0;
-
-      if (!checkInDateStr || lockinMonths === 0) {
-        setLockinStatus({
-          isCompleted: true,
-          message: "No lock-in data available",
-          lockinMonths: 0,
-          penaltyApplicable: false,
-        });
-        return;
-      }
-
-      try {
-        const checkIn = new Date(checkInDateStr);
-        const currentDate = new Date();
-        const lockInEndDate = new Date(checkIn);
-        lockInEndDate.setMonth(checkIn.getMonth() + lockinMonths);
-
-        const normalizedLockInEndDate = new Date(
-          lockInEndDate.getFullYear(),
-          lockInEndDate.getMonth(),
-          lockInEndDate.getDate(),
-        );
-        const normalizedCurrentDate = new Date(
-          currentDate.getFullYear(),
-          currentDate.getMonth(),
-          currentDate.getDate(),
-        );
-
-        const isCompleted = normalizedCurrentDate >= normalizedLockInEndDate;
-
-        setLockinStatus({
-          isCompleted,
-          message: isCompleted
-            ? "Lock-in period completed"
-            : "Lock-in period not completed",
-          lockinMonths: lockinMonths,
-          penaltyApplicable: !isCompleted,
-        });
-      } catch (e) {
-        setLockinStatus({
-          isCompleted: false,
-          message: "Error calculating lock-in period",
-          lockinMonths: lockinMonths,
-          penaltyApplicable: true,
-        });
-      }
-    } finally {
-      setCalculating(false);
-    }
-  };
-
-  // Fix the calculateNoticePeriodStatus function - Calculate notice end date and compare with current date
-  const calculateNoticePeriodStatus = () => {
-    if (!initialData?.bedAssignment) {
-      return null;
+      return;
     }
 
-    const bedData = initialData.bedAssignment;
-    const noticePeriodDays = bedData.notice_period_days || 0;
-    const currentDate = new Date(); // Use current date
+    setCalculating(true);
 
-    if (noticePeriodDays === 0) {
-      return {
-        isNoticeRequired: false,
-        message: "No notice period required",
-        penaltyApplicable: false,
+    const checkInDateStr = initialData?.bedAssignment?.check_in_date;
+    const lockinMonths = initialData?.bedAssignment?.lockin_period_months || 0;
+    
+    // Use tenant's request submission date (vacate_request_date)
+    const requestSubmissionDateStr = tenantRequestDate;
+    
+    if (!checkInDateStr) {
+      setLockinStatus({
         isCompleted: true,
-      };
+        message: "No check-in date found, cannot calculate lock-in period",
+        lockinMonths: lockinMonths,
+        penaltyApplicable: false,
+      });
+      return;
     }
 
-    // Notice starts from tenant's request date (or admin override)
-    // Use tenant's request date if available, otherwise use admin's override date
-    const noticeStartDateStr =
-      tenantRequestDate ||
-      (formData.isNoticeGiven ? formData.noticeGivenDate : null);
-
-    if (!noticeStartDateStr) {
-      return {
-        isNoticeGiven: false,
+    if (!requestSubmissionDateStr) {
+      setLockinStatus({
         isCompleted: false,
-        message: "No notice given - penalty applies",
+        message: "No request submission date found - Lock-in period cannot be calculated yet",
+        lockinMonths: lockinMonths,
         penaltyApplicable: true,
-      };
+      });
+      return;
     }
 
-    const noticeStartDate = new Date(noticeStartDateStr);
+    const checkIn = new Date(checkInDateStr);
+    const requestSubmissionDate = new Date(requestSubmissionDateStr);
 
-    // Calculate notice end date: notice start date + notice period days
-    const noticeEndDate = new Date(noticeStartDate);
-    noticeEndDate.setDate(noticeStartDate.getDate() + noticePeriodDays);
+    // Calculate lock-in end date: check-in date + lock-in months
+    const lockInEndDate = new Date(checkIn);
+    lockInEndDate.setMonth(checkIn.getMonth() + lockinMonths);
 
-    // Normalize dates for comparison
-    const normalizedNoticeStartDate = new Date(
-      noticeStartDate.getFullYear(),
-      noticeStartDate.getMonth(),
-      noticeStartDate.getDate(),
+    // Normalize dates for comparison (remove time component)
+    const normalizedCheckIn = new Date(
+      checkIn.getFullYear(),
+      checkIn.getMonth(),
+      checkIn.getDate()
     );
-    const normalizedNoticeEndDate = new Date(
-      noticeEndDate.getFullYear(),
-      noticeEndDate.getMonth(),
-      noticeEndDate.getDate(),
+    const normalizedRequestDate = new Date(
+      requestSubmissionDate.getFullYear(),
+      requestSubmissionDate.getMonth(),
+      requestSubmissionDate.getDate()
     );
-    const normalizedCurrentDate = new Date(
-      currentDate.getFullYear(),
-      currentDate.getMonth(),
-      currentDate.getDate(),
-    );
-
-    // Check if current date is ON OR AFTER notice end date
-    const isNoticeCompleted = normalizedCurrentDate >= normalizedNoticeEndDate;
-
-    // Calculate days since notice given
-    const daysSinceNotice = Math.ceil(
-      (normalizedCurrentDate.getTime() - normalizedNoticeStartDate.getTime()) /
-        (1000 * 3600 * 24),
+    const normalizedLockInEnd = new Date(
+      lockInEndDate.getFullYear(),
+      lockInEndDate.getMonth(),
+      lockInEndDate.getDate()
     );
 
-    const daysRemaining = Math.max(
-      0,
-      Math.ceil(
-        (normalizedNoticeEndDate.getTime() - normalizedCurrentDate.getTime()) /
-          (1000 * 3600 * 24),
-      ),
-    );
+    // ✅ Calculate actual months completed between check-in and request date
+    let monthsCompleted = 0;
+    let daysCompleted = 0;
+    let isCompleted = false;
+    let remainingMonths = 0;
+    let remainingDays = 0;
 
-    if (isNoticeCompleted) {
-      return {
-        isNoticeGiven: true,
-        isCompleted: true,
-        noticeStartDate: normalizedNoticeStartDate.toISOString().split("T")[0],
-        noticeEndDate: normalizedNoticeEndDate.toISOString().split("T")[0],
-        noticePeriodDays,
-        daysCompleted: daysSinceNotice,
-        message: `Notice period completed (${daysSinceNotice} days served out of required ${noticePeriodDays} days)`,
-        penaltyApplicable: false,
-      };
+    // Calculate the difference in days first
+    const diffTime = normalizedRequestDate.getTime() - normalizedCheckIn.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 3600 * 24));
+    
+    // Calculate months roughly (30 days per month)
+    const approxMonths = diffDays / 30;
+    
+    if (approxMonths >= lockinMonths) {
+      // Lock-in is completed
+      isCompleted = true;
+      monthsCompleted = lockinMonths;
+      daysCompleted = lockinMonths * 30;
+      remainingMonths = 0;
+      remainingDays = 0;
     } else {
-      return {
-        isNoticeGiven: true,
-        isCompleted: false,
-        noticeStartDate: normalizedNoticeStartDate.toISOString().split("T")[0],
-        noticeEndDate: normalizedNoticeEndDate.toISOString().split("T")[0],
-        noticePeriodDays,
-        daysCompleted: daysSinceNotice,
-        daysRemaining,
-        message: `Notice period not completed (${daysSinceNotice} days served, ${daysRemaining} days remaining out of ${noticePeriodDays} days required)`,
-        penaltyApplicable: true, // Penalty applies if notice period is still running
-      };
+      // Lock-in not completed
+      isCompleted = false;
+      monthsCompleted = Math.floor(approxMonths);
+      daysCompleted = monthsCompleted * 30;
+      const remainingTotalDays = (lockinMonths * 30) - diffDays;
+      remainingMonths = Math.floor(remainingTotalDays / 30);
+      remainingDays = remainingTotalDays % 30;
     }
-  };
 
+    // For debugging
+    // console.log("🔍 Lock-in Check (Corrected):", {
+    //   checkInDate: normalizedCheckIn.toISOString().split('T')[0],
+    //   requestSubmissionDate: normalizedRequestDate.toISOString().split('T')[0],
+    //   lockInEndDate: normalizedLockInEnd.toISOString().split('T')[0],
+    //   diffDays: diffDays,
+    //   lockinMonths: lockinMonths,
+    //   monthsCompleted: monthsCompleted,
+    //   remainingMonths: remainingMonths,
+    //   remainingDays: remainingDays,
+    //   isCompleted: isCompleted
+    // });
+
+    // Format the message
+    let message = "";
+    if (isCompleted) {
+      message = `✓ Lock-in period completed (${monthsCompleted} months completed out of required ${lockinMonths} months)`;
+    } else {
+      message = `✗ Lock-in period not completed (${monthsCompleted} months completed out of required ${lockinMonths} months. Remaining: ${remainingMonths} month(s) / ${remainingDays} days)`;
+    }
+
+    setLockinStatus({
+      isCompleted,
+      message,
+      lockinMonths: lockinMonths,
+      completedMonths: monthsCompleted,
+      remainingMonths: remainingMonths,
+      remainingDays: remainingDays,
+      checkInDate: checkInDateStr,
+      requestSubmissionDate: requestSubmissionDateStr,
+      lockInEndDate: lockInEndDate.toISOString().split("T")[0],
+      penaltyApplicable: !isCompleted,
+    });
+  } catch (error) {
+    console.error("Error checking lock-in status:", error);
+    setLockinStatus({
+      isCompleted: false,
+      message: "Error calculating lock-in period",
+      lockinMonths: initialData?.bedAssignment?.lockin_period_months || 0,
+      penaltyApplicable: true,
+    });
+  } finally {
+    setCalculating(false);
+  }
+};
+
+// Replace the calculateNoticePeriodStatus function
+const calculateNoticePeriodStatus = () => {
+  if (!initialData?.bedAssignment) {
+    return null;
+  }
+
+  const bedData = initialData.bedAssignment;
+  const noticePeriodDays = bedData.notice_period_days || 0;
+
+  // ✅ CORRECT: Notice is calculated from request submission date to requested vacate date
+  const noticeStartDateStr = tenantRequestDate; // vacate_request_date
+  const noticeEndDateStr = tenantVacateDate; // expected_vacate_date
+
+  if (noticePeriodDays === 0) {
+    return {
+      isNoticeRequired: false,
+      message: "No notice period required",
+      penaltyApplicable: false,
+      isCompleted: true,
+    };
+  }
+
+  if (!noticeStartDateStr || !noticeEndDateStr) {
+    return {
+      isNoticeGiven: !!noticeStartDateStr,
+      isCompleted: false,
+      message: !noticeStartDateStr ? "No notice given - penalty applies" : "Vacate date not set",
+      penaltyApplicable: true,
+    };
+  }
+
+  const noticeStartDate = new Date(noticeStartDateStr);
+  const noticeEndDate = new Date(noticeEndDateStr);
+
+  // Calculate the difference in days
+  const timeDiff = noticeEndDate.getTime() - noticeStartDate.getTime();
+  const daysGiven = Math.ceil(timeDiff / (1000 * 3600 * 24));
+
+  // Normalize dates for comparison
+  const normalizedNoticeStartDate = new Date(
+    noticeStartDate.getFullYear(),
+    noticeStartDate.getMonth(),
+    noticeStartDate.getDate(),
+  );
+  const normalizedNoticeEndDate = new Date(
+    noticeEndDate.getFullYear(),
+    noticeEndDate.getMonth(),
+    noticeEndDate.getDate(),
+  );
+
+  // Notice period is COMPLETED if days given >= required notice period
+  const isNoticeCompleted = daysGiven >= noticePeriodDays;
+
+  const daysRemaining = isNoticeCompleted ? 0 : Math.max(0, noticePeriodDays - daysGiven);
+
+  if (isNoticeCompleted) {
+    return {
+      isNoticeGiven: true,
+      isCompleted: true,
+      noticeStartDate: normalizedNoticeStartDate.toISOString().split("T")[0],
+      noticeEndDate: normalizedNoticeEndDate.toISOString().split("T")[0],
+      noticePeriodDays,
+      daysGiven: daysGiven,
+      daysRemaining: 0,
+      message: `Notice period completed (${daysGiven} days given out of required ${noticePeriodDays} days)`,
+      penaltyApplicable: false,
+    };
+  } else {
+    return {
+      isNoticeGiven: true,
+      isCompleted: false,
+      noticeStartDate: normalizedNoticeStartDate.toISOString().split("T")[0],
+      noticeEndDate: normalizedNoticeEndDate.toISOString().split("T")[0],
+      noticePeriodDays,
+      daysGiven: daysGiven,
+      daysRemaining,
+      message: `Notice period not completed (${daysGiven} days given, ${daysRemaining} days short of required ${noticePeriodDays} days)`,
+      penaltyApplicable: true,
+    };
+  }
+};
   // Update penalty calculation to use current date logic
   const calculateAllPenalties = async () => {
     try {
