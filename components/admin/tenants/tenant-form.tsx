@@ -204,9 +204,24 @@ export function TenantForm({ tenant, onSuccess, onCancel }: TenantFormProps) {
   const [additionalDocuments, setAdditionalDocuments] = useState<
     Array<{ filename: string; url: string; uploaded_at?: string }>
   >(tenant?.additional_documents || []);
-  const [createCredentials, setCreateCredentials] = useState(
-    tenant?.portal_access_enabled === true && tenant?.has_credentials === true,
-  );
+ // Fix the createCredentials initialization
+const [createCredentials, setCreateCredentials] = useState(() => {
+  if (!tenant?.id) return false;
+  // Handle both boolean and number values from backend
+  const portalEnabled = tenant.portal_access_enabled === true || 
+                        tenant.portal_access_enabled === 1 || 
+                        tenant.portal_access_enabled === "1";
+  const hasCreds = tenant.has_credentials === true || 
+                   tenant.has_credentials === 1 || 
+                   tenant.has_credentials === "1";
+  // console.log('🔐 Initializing createCredentials:', { 
+  //   portalEnabled, 
+  //   hasCreds, 
+  //   rawPortal: tenant.portal_access_enabled,
+  //   rawHasCreds: tenant.has_credentials 
+  // });
+  return portalEnabled && hasCreds;
+});
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordStrength, setPasswordStrength] = useState(0);
@@ -366,6 +381,30 @@ const [partnerDetails, setPartnerDetails] = useState<PartnerDetails>({
     fetchProperties();
   }, []);
 
+  // Add this useEffect to ensure createCredentials stays in sync when tenant data changes
+useEffect(() => {
+  if (tenant?.id) {
+    const portalEnabled = tenant.portal_access_enabled === true || 
+                          tenant.portal_access_enabled === 1 || 
+                          tenant.portal_access_enabled === "1";
+    const hasCreds = tenant.has_credentials === true || 
+                     tenant.has_credentials === 1 || 
+                     tenant.has_credentials === "1";
+    const shouldBeEnabled = portalEnabled && hasCreds;
+    
+    // console.log('🔐 Syncing createCredentials:', { 
+    //   shouldBeEnabled, 
+    //   currentValue: createCredentials,
+    //   portalEnabled,
+    //   hasCreds
+    // });
+    
+    if (shouldBeEnabled !== createCredentials) {
+      setCreateCredentials(shouldBeEnabled);
+    }
+  }
+}, [tenant?.portal_access_enabled, tenant?.has_credentials]);
+
   useEffect(() => {
     loadOptions();
     if (tenant?.id) {
@@ -376,10 +415,10 @@ const [partnerDetails, setPartnerDetails] = useState<PartnerDetails>({
       // ✅ FIX: Sync createCredentials with portal_access_enabled
       // If portal_access_enabled is true AND has_credentials is true, enable the toggle
       // If portal_access_enabled is false, disable the toggle regardless
-      setCreateCredentials(
-        tenant?.portal_access_enabled === true &&
-          tenant?.has_credentials === true,
-      );
+      // setCreateCredentials(
+      //   tenant?.portal_access_enabled === true &&
+      //     tenant?.has_credentials === true,
+      // );
 
       // Alternative: If you want the toggle to be ON whenever portal_access_enabled is true
       // setCreateCredentials(tenant?.portal_access_enabled === true);
@@ -789,12 +828,12 @@ const fetchPrimaryTenant = async (coupleId: string) => {
 // Update the useEffect that loads partner details
 useEffect(() => {
   if (tenant?.id && tenant) {
-    console.log('Loading tenant data:', {
-      id: tenant.id,
-      is_primary_tenant: tenant.is_primary_tenant,
-      is_couple_booking: tenant.is_couple_booking,
-      partner_full_name: tenant.partner_full_name,
-    });
+    // console.log('Loading tenant data:', {
+    //   id: tenant.id,
+    //   is_primary_tenant: tenant.is_primary_tenant,
+    //   is_couple_booking: tenant.is_couple_booking,
+    //   partner_full_name: tenant.partner_full_name,
+    // });
     
     const hasPartnerDetails = tenant.is_couple_booking === true && 
                               tenant.partner_full_name && 
@@ -1001,7 +1040,7 @@ useEffect(() => {
   // In tenant-form.tsx - Update handleSubmit
 
 const handleSubmit = async (e: React.FormEvent) => {
-  console.log("Submitting form with data:", formData);
+  // console.log("Submitting form with data:", formData);
   e.preventDefault();
 
   if (!validateForm()) return;
@@ -3941,9 +3980,12 @@ if (partnerDetails.full_name) {
                   </p>
                 </div>
                 <Switch
-                  checked={createCredentials}
-                  onCheckedChange={setCreateCredentials}
-                />
+  checked={createCredentials}
+  onCheckedChange={(checked) => {
+    // console.log('🔐 Switch toggled:', checked);
+    setCreateCredentials(checked);
+  }}
+/>
               </div>
 
               {createCredentials && (

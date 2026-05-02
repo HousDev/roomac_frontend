@@ -32,16 +32,26 @@ export function RequestCard({ request }: RequestCardProps) {
   const displayStatus = getDisplayStatus(request);
   const statusConfig = getStatusConfig(displayStatus);
 
-// components/tenant/tenant-requests/RequestCard.tsx - Updated renderAdminNotes function
-
 function renderAdminNotes(request: TenantRequest) {
-  if (!request.admin_notes) return null;
+  // ✅ FIRST CHECK: For vacate requests, get notes from vacate_data.admin_notes
+  let adminNotesText = '';
+  
+  if (request.request_type === 'vacate_bed' && request.vacate_data?.admin_notes) {
+    adminNotesText = request.vacate_data.admin_notes;
+  }
+  
+  // ✅ SECOND CHECK: Also check main admin_notes field
+  if (request.admin_notes) {
+    adminNotesText = adminNotesText ? adminNotesText + '\n' + request.admin_notes : request.admin_notes;
+  }
+  
+  if (!adminNotesText || adminNotesText.trim() === '') return null;
   
   // Parse the notes string into individual entries
   const noteEntries: Array<{ timestamp: string; status: string; note: string }> = [];
   
   // Split by timestamp pattern [date, time]
-  const lines = request.admin_notes.split('\n');
+  const lines = adminNotesText.split('\n');
   let currentEntry: { timestamp: string; status: string; note: string } | null = null;
   
   for (const line of lines) {
@@ -70,6 +80,10 @@ function renderAdminNotes(request: TenantRequest) {
         // Extract note part after the colon
         const notePart = trimmedLine.replace(/\[.*?\]\s*Status changed to \w+:\s*/, '');
         currentEntry.note = notePart;
+      } else {
+        // If no status pattern, try to get everything after timestamp
+        const afterTimestamp = trimmedLine.substring(trimmedLine.indexOf(']') + 1);
+        currentEntry.note = afterTimestamp.trim();
       }
     } else if (currentEntry && trimmedLine) {
       // This is continuation of the note
@@ -87,22 +101,15 @@ function renderAdminNotes(request: TenantRequest) {
   // Show the most recent 3 entries
   const recentEntries = noteEntries.slice(-3);
   
-  // Get status color for display
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending': return 'text-yellow-700 bg-yellow-50';
-      case 'in_progress': return 'text-blue-700 bg-blue-50';
-      case 'resolved': return 'text-green-700 bg-green-50';
-      case 'closed': return 'text-gray-700 bg-gray-50';
-      default: return 'text-gray-700 bg-gray-50';
-    }
-  };
-  
   const getStatusBadge = (status: string) => {
     const statusMap: Record<string, { label: string; color: string }> = {
       pending: { label: 'Pending', color: 'bg-yellow-100 text-yellow-800' },
+      under_review: { label: 'Under Review', color: 'bg-blue-100 text-blue-800' },
       in_progress: { label: 'In Progress', color: 'bg-blue-100 text-blue-800' },
+      approved: { label: 'Approved', color: 'bg-green-100 text-green-800' },
+      rejected: { label: 'Rejected', color: 'bg-red-100 text-red-800' },
       resolved: { label: 'Resolved', color: 'bg-green-100 text-green-800' },
+      completed: { label: 'Completed', color: 'bg-purple-100 text-purple-800' },
       closed: { label: 'Closed', color: 'bg-gray-100 text-gray-800' }
     };
     
@@ -127,9 +134,9 @@ function renderAdminNotes(request: TenantRequest) {
               <span className="text-[10px] text-gray-500 font-mono">
                 {entry.timestamp}
               </span>
-              {getStatusBadge(entry.status)}
+              {entry.status && getStatusBadge(entry.status)}
             </div>
-            {entry.note && (
+            {entry.note && entry.note !== 'No additional notes' && (
               <p className="text-xs text-gray-700 mt-0.5">
                 {entry.note}
               </p>

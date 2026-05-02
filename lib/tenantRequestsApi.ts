@@ -54,6 +54,11 @@ export type TenantRequest = {
     expected_vacate_date?: string;
     lockin_penalty_accepted?: boolean;
     notice_penalty_accepted?: boolean;
+     status?: string;
+  admin_notes?: string;  // ✅ ADD THIS LINE
+  actual_vacate_date?: string;
+  refund_amount?: number;
+  penalty_deduction?: number;
   };
   // leave_data?: {
   //   leave_type: string;

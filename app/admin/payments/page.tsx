@@ -1198,6 +1198,12 @@ const resetPaymentForm = () => {
   });
 };
 
+useEffect(() => {
+  if (isDemandPaymentOpen && properties.length === 0) {
+    fetchProperties();
+  }
+}, [isDemandPaymentOpen, properties.length]);
+
   // Reset demand payment form
   const resetDemandPaymentForm = () => {
     setPaymentFormData(null);
@@ -1213,6 +1219,15 @@ const resetPaymentForm = () => {
       send_email: true,
       send_sms: false,
     });
+     // ✅ Reset selection states
+  setSelectedPropertyId("");
+  setSelectedRoomId("");
+  setFilteredTenants([]);
+  setPropertySearch("");
+  setRoomSearch("");
+  
+  // ✅ Reset loading states
+  setBookingLoading(false);
   };
   // Payment action handlers
   // Add this handler
@@ -2190,7 +2205,10 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
                   size="sm"
                   variant="outline"
                   className="h-8 border-orange-500 text-orange-600 hover:bg-orange-500 hover:text-white flex-1 sm:flex-none"
-                  onClick={() => setIsDemandPaymentOpen(true)}
+                  onClick={() =>  {
+    resetDemandPaymentForm();  // ✅ Reset before opening
+    setIsDemandPaymentOpen(true);
+  }}
                 >
                   <Bell className="h-3.5 w-3.5 mr-1" />
                   <span className="text-xs">Demand Payment</span>
@@ -3520,7 +3538,13 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
       </Dialog>
 
       {/* Demand Payment Dialog */}
-<Dialog open={isDemandPaymentOpen} onOpenChange={setIsDemandPaymentOpen}>
+<Dialog open={isDemandPaymentOpen} onOpenChange={(open) => {
+  setIsDemandPaymentOpen(open);
+  if (!open) {
+    // ✅ Reset form when dialog closes
+    resetDemandPaymentForm();
+  }
+}}>
   <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] sm:max-h-[85vh] p-0 gap-0 flex flex-col overflow-hidden">
     {/* Header - Fixed */}
     <div className="bg-gradient-to-r from-orange-500 to-red-500 px-4 py-3 rounded-t-lg flex-shrink-0">
@@ -3558,47 +3582,57 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
             Property <span className="text-red-500">*</span>
           </Label>
           <Select
-            value={selectedPropertyId}
-            onValueChange={handlePropertyChange}
-          >
-            <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
-              <SelectValue placeholder="Select property..." />
-            </SelectTrigger>
-            <SelectContent className="max-h-[300px]" position="popper" sideOffset={5}>
-              <div className="sticky top-0 bg-white p-2 border-b z-10" onPointerDown={(e) => e.stopPropagation()}>
-                <Input
-                  ref={propertySearchInputRef}
-                  onKeyDown={(e) => e.stopPropagation()}
-                  placeholder="Search property..."
-                  value={propertySearch}
-                  onChange={(e) => handlePropertySearch(e.target.value)}
-                  className="h-7 text-xs"
-                  onClick={(e) => e.stopPropagation()}
-                />
-              </div>
-              <div className="max-h-[250px] overflow-y-auto">
-                {loadingProperties ? (
-                  <div className="px-2 py-4 text-center text-xs text-slate-500">
-                    <Loader2 className="h-3 w-3 animate-spin inline mr-1" />
-                    Loading properties...
-                  </div>
-                ) : filteredProperties.length === 0 ? (
-                  <div className="px-2 py-4 text-center text-xs text-slate-500">
-                    {propertySearch ? "No matching properties found" : "No properties available"}
-                  </div>
-                ) : (
-                  filteredProperties.map((property) => (
-                    <SelectItem key={property.id} value={property.id.toString()}>
-                      <div className="flex items-center gap-2">
-                        <Building className="h-3 w-3 text-slate-400" />
-                        <span className="text-xs">{property.name}</span>
-                      </div>
-                    </SelectItem>
-                  ))
-                )}
-              </div>
-            </SelectContent>
-          </Select>
+  value={selectedPropertyId}
+  onValueChange={handlePropertyChange}
+>
+  <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
+    <SelectValue placeholder="Select property..." />
+  </SelectTrigger>
+  <SelectContent className="max-h-[300px]" position="popper" sideOffset={5}>
+    {/* Search Input */}
+    <div
+      className="sticky top-0 bg-white p-2 border-b z-10"
+      onPointerDown={(e) => e.stopPropagation()}
+    >
+      <Input
+        ref={propertySearchInputRef}
+        onKeyDown={(e) => e.stopPropagation()}
+        placeholder="Search property..."
+        value={propertySearch}
+        onChange={(e) => handlePropertySearch(e.target.value)}
+        className="h-7 text-xs"
+        onClick={(e) => e.stopPropagation()}
+      />
+    </div>
+
+    {/* Properties List */}
+    <div className="max-h-[250px] overflow-y-auto">
+      {loadingProperties ? (
+        <div className="px-2 py-4 text-center text-xs text-slate-500">
+          <Loader2 className="h-3 w-3 animate-spin inline mr-1" />
+          Loading properties...
+        </div>
+      ) : filteredProperties.length === 0 ? (
+        <div className="px-2 py-4 text-center text-xs text-slate-500">
+          {propertySearch
+            ? "No matching properties found"
+            : properties.length === 0 
+              ? "No properties available" 
+              : "Select a property"}
+        </div>
+      ) : (
+        filteredProperties.map((property) => (
+          <SelectItem key={property.id} value={property.id.toString()}>
+            <div className="flex items-center gap-2">
+              <Building className="h-3 w-3 text-slate-400" />
+              <span className="text-xs">{property.name}</span>
+            </div>
+          </SelectItem>
+        ))
+      )}
+    </div>
+  </SelectContent>
+</Select>
         </div>
 
         {/* Room Selection */}
