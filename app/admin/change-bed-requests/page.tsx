@@ -1039,7 +1039,7 @@ const handleBulkDelete = async () => {
                   <CardTitle className="text-sm">Tenant Information</CardTitle>
                 </CardHeader>
                 <CardContent className="p-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div>
                       <p className="text-[10px] text-gray-500">Name</p>
                       <p className="text-xs font-medium">{selectedRequest.tenant_name}</p>
@@ -1070,7 +1070,7 @@ const handleBulkDelete = async () => {
                   <CardTitle className="text-sm">Current Room</CardTitle>
                 </CardHeader>
                 <CardContent className="p-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div>
                       <p className="text-[10px] text-gray-500">Property</p>
                       <p className="text-xs font-medium flex items-center gap-1">
@@ -1099,7 +1099,7 @@ const handleBulkDelete = async () => {
                   <CardTitle className="text-sm">Requested Room</CardTitle>
                 </CardHeader>
                 <CardContent className="p-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div>
                       <p className="text-[10px] text-gray-500">Property</p>
                       <p className="text-xs font-medium flex items-center gap-1">
@@ -1151,7 +1151,7 @@ const handleBulkDelete = async () => {
                   <CardTitle className="text-sm">Request Details</CardTitle>
                 </CardHeader>
                 <CardContent className="p-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div>
                       <p className="text-[10px] text-gray-500">Change Reason</p>
                       <p className="text-xs">{selectedRequest.change_reason || 'Not specified'}</p>
@@ -1166,12 +1166,7 @@ const handleBulkDelete = async () => {
                         }
                       </p>
                     </div>
-                    <div className="col-span-2">
-                      <p className="text-[10px] text-gray-500">Notes</p>
-                      <p className="text-xs bg-gray-50 p-2 rounded mt-1">
-                        {selectedRequest.notes || 'No notes provided'}
-                      </p>
-                    </div>
+                    
                     <div>
                       <p className="text-[10px] text-gray-500">Tenant Request Status</p>
                       <Badge variant={selectedRequest.tenant_request_status === 'completed' ? 'default' : 'outline'} className="text-[10px] mt-1">

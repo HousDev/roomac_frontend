@@ -495,19 +495,49 @@ const handleUpdateStatus = useCallback(async (id: string, status: string) => {
     }
   }, [followupText, selectedEnquiry, loadData]);
 
-  const handleDeleteEnquiry = useCallback(async (id: string) => {
+const handleDeleteEnquiry = useCallback(async (id: string) => {
+  // First find the enquiry name for better confirmation message
+  const enquiryToDelete = enquiries.find(e => e.id === id);
+  const enquiryName = enquiryToDelete?.tenant_name || "this enquiry";
+  
+  const result = await MySwal.fire({
+    title: 'Delete Enquiry',
+    text: `Are you sure you want to delete "${enquiryName}"? This action cannot be undone.`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#d33',
+    cancelButtonColor: '#3085d6',
+    confirmButtonText: 'Yes, delete it!',
+    cancelButtonText: 'Cancel'
+  });
+
+  if (result.isConfirmed) {
     try {
       await deleteEnquiry(id);
       toast.success("Enquiry deleted successfully");
-
+      
       setShowViewDialog(false);
       setShowEditDialog(false);
+      
+      // Remove from selected rows if present
+      setSelectedRows(prev => prev.filter(rowId => rowId !== id));
+      
       await loadData(true);
+      
+      // Show success confirmation
+      MySwal.fire({
+        title: 'Deleted!',
+        text: 'The enquiry has been deleted.',
+        icon: 'success',
+        timer: 2000,
+        showConfirmButton: false
+      });
     } catch (error) {
       console.error("Error deleting enquiry:", error);
       toast.error("Failed to delete enquiry");
     }
-  }, [loadData]);
+  }
+}, [enquiries, loadData]);
 
   // Format date for display
   const formatDateForDisplay = useCallback((dateString: string) => {
@@ -598,9 +628,6 @@ const handleBulkDelete = async () => {
     toast.error("Please select at least one enquiry to delete");
     return;
   }
-  useEffect(() => {
-  onRegisterBulkDelete?.(() => handleBulkDelete);
-}, [handleBulkDelete]);
 
   const result = await MySwal.fire({
     title: 'Delete Enquiries',
@@ -625,6 +652,11 @@ const handleBulkDelete = async () => {
     }
   }
 };
+
+// Register the bulk delete function with parent
+useEffect(() => {
+  onRegisterBulkDelete?.(handleBulkDelete);
+}, [onRegisterBulkDelete, handleBulkDelete]);
 
   // Check if any column filter is active
   const hasActiveColumnFilters = Object.values(columnFilters).some(value => value !== "");
