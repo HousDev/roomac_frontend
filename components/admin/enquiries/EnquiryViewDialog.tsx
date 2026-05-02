@@ -30,6 +30,7 @@ import {
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import EnquiryVisitsTab from "./EnquiryVisitsTab";
+import MySwal from "@/app/utils/swal";
 
 interface EnquiryViewDialogProps {
   enquiry: Enquiry | null;
@@ -91,11 +92,22 @@ const EnquiryViewDialog = ({
     }
   };
 
-  const handleDeleteClick = async () => {
-    if (window.confirm("Are you sure you want to delete this enquiry? This action cannot be undone.")) {
-      onDelete(localEnquiry.id);
-    }
-  };
+const handleDeleteClick = async () => {
+  const result = await MySwal.fire({
+    title: 'Delete Enquiry',
+    text: `Are you sure you want to delete "${localEnquiry.tenant_name}"? This action cannot be undone.`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#d33',
+    cancelButtonColor: '#3085d6',
+    confirmButtonText: 'Yes, delete it!',
+    cancelButtonText: 'Cancel'
+  });
+
+  if (result.isConfirmed) {
+    onDelete(localEnquiry.id);
+  }
+};
 
   const handleVisitChange = () => {
     if (onEnquiryUpdate) {

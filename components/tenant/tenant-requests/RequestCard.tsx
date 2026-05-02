@@ -33,84 +33,57 @@ export function RequestCard({ request }: RequestCardProps) {
   const statusConfig = getStatusConfig(displayStatus);
 
 function renderAdminNotes(request: TenantRequest) {
-  // ✅ FIRST CHECK: For vacate requests, get notes from vacate_data.admin_notes
+  // Get admin notes from vacate data or main request
   let adminNotesText = '';
   
   if (request.request_type === 'vacate_bed' && request.vacate_data?.admin_notes) {
     adminNotesText = request.vacate_data.admin_notes;
   }
   
-  // ✅ SECOND CHECK: Also check main admin_notes field
   if (request.admin_notes) {
     adminNotesText = adminNotesText ? adminNotesText + '\n' + request.admin_notes : request.admin_notes;
   }
   
   if (!adminNotesText || adminNotesText.trim() === '') return null;
   
-  // Parse the notes string into individual entries
+  // Split by lines and filter out empty lines
+  const lines = adminNotesText.split('\n').filter(line => line.trim());
+  
+  if (lines.length === 0) return null;
+  
+  // Parse each line into entries
   const noteEntries: Array<{ timestamp: string; status: string; note: string }> = [];
   
-  // Split by timestamp pattern [date, time]
-  const lines = adminNotesText.split('\n');
-  let currentEntry: { timestamp: string; status: string; note: string } | null = null;
-  
   for (const line of lines) {
-    const trimmedLine = line.trim();
-    if (!trimmedLine) continue;
+    // Match pattern: [date, time] Status changed to xxx: note
+    const match = line.match(/\[(.*?)\]\s*Status changed to (\w+):\s*(.*)/);
     
-    // Check if this line contains a timestamp
-    const timestampMatch = trimmedLine.match(/\[(.*?)\]/);
-    if (timestampMatch) {
-      // Save previous entry if exists
-      if (currentEntry) {
-        noteEntries.push(currentEntry);
-      }
-      
-      // Start new entry
-      currentEntry = {
-        timestamp: timestampMatch[1],
+    if (match) {
+      noteEntries.push({
+        timestamp: match[1],
+        status: match[2],
+        note: match[3] || 'No additional notes'
+      });
+    } else {
+      // If pattern doesn't match, show as is
+      noteEntries.push({
+        timestamp: 'Info',
         status: '',
-        note: ''
-      };
-      
-      // Extract status from the line
-      const statusMatch = trimmedLine.match(/Status changed to (\w+):/);
-      if (statusMatch) {
-        currentEntry.status = statusMatch[1];
-        // Extract note part after the colon
-        const notePart = trimmedLine.replace(/\[.*?\]\s*Status changed to \w+:\s*/, '');
-        currentEntry.note = notePart;
-      } else {
-        // If no status pattern, try to get everything after timestamp
-        const afterTimestamp = trimmedLine.substring(trimmedLine.indexOf(']') + 1);
-        currentEntry.note = afterTimestamp.trim();
-      }
-    } else if (currentEntry && trimmedLine) {
-      // This is continuation of the note
-      currentEntry.note = currentEntry.note ? currentEntry.note + ' ' + trimmedLine : trimmedLine;
+        note: line
+      });
     }
   }
   
-  // Add the last entry
-  if (currentEntry) {
-    noteEntries.push(currentEntry);
-  }
-  
-  if (noteEntries.length === 0) return null;
-  
-  // Show the most recent 3 entries
+  // Show only last 3 entries
   const recentEntries = noteEntries.slice(-3);
   
   const getStatusBadge = (status: string) => {
     const statusMap: Record<string, { label: string; color: string }> = {
       pending: { label: 'Pending', color: 'bg-yellow-100 text-yellow-800' },
       under_review: { label: 'Under Review', color: 'bg-blue-100 text-blue-800' },
-      in_progress: { label: 'In Progress', color: 'bg-blue-100 text-blue-800' },
       approved: { label: 'Approved', color: 'bg-green-100 text-green-800' },
       rejected: { label: 'Rejected', color: 'bg-red-100 text-red-800' },
-      resolved: { label: 'Resolved', color: 'bg-green-100 text-green-800' },
-      completed: { label: 'Completed', color: 'bg-purple-100 text-purple-800' },
-      closed: { label: 'Closed', color: 'bg-gray-100 text-gray-800' }
+      completed: { label: 'Completed', color: 'bg-purple-100 text-purple-800' }
     };
     
     const config = statusMap[status] || statusMap.pending;
@@ -152,7 +125,6 @@ function renderAdminNotes(request: TenantRequest) {
     </div>
   );
 }
-
   return (
     <Card key={request.id} className="overflow-hidden">
       <CardContent className="p-2 md:p-2">
@@ -239,8 +211,8 @@ function renderRequestDetails(request: TenantRequest) {
       return <VacateRequestDetails request={request} />;
     case 'change_bed':
       return <ChangeBedRequestDetails request={request} />;
-    case 'leave':
-      return <LeaveRequestDetails request={request} />;
+    // case 'leave':
+    //   return <LeaveRequestDetails request={request} />;
     case 'maintenance':
       return <MaintenanceRequestDetails request={request} />;
     case 'complaint':

@@ -1001,6 +1001,29 @@ export const getMaintenanceCategoriesFromMasters = async (): Promise<any[]> => {
 };
 
 
+// Get master values by item name (using consumeMasters API)
+export const getMasterValuesByItemName = async (itemName: string): Promise<{ success: boolean; data: any[] }> => {
+  try {
+    // Use consumeMasters with type parameter to get values for specific master item
+    const response = await consumeMasters({ type: itemName });
+    
+    console.log(`🔍 getMasterValuesByItemName("${itemName}") response:`, response);
+    
+    if (response?.success && Array.isArray(response.data)) {
+      return {
+        success: true,
+        data: response.data
+      };
+    }
+    
+    return { success: false, data: [] };
+  } catch (error) {
+    console.error(`❌ Error fetching master values for "${itemName}":`, error);
+    return { success: false, data: [] };
+  }
+};
+
+
 
 // lib/tenantRequestsApi.ts - CORRECTED
 export const getComplaintCategories = async (): Promise<ComplaintCategory[]> => {
