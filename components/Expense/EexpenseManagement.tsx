@@ -19,14 +19,28 @@ import { useAuth } from "@/context/authContext";
 /* ─── tiny helpers ─────────────────────────────────────────────────────────── */
 const fmt = (n: number) =>
   "₹" + Number(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 0 });
-const fmtDate = (d: string) =>
-  d
-    ? new Date(d).toLocaleDateString("en-IN", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      })
-    : "—";
+// Update the fmtDate helper function at the top
+const fmtDate = (d: string) => {
+  if (!d) return "—";
+  // If the date is in YYYY-MM-DD format, display it as is without timezone conversion
+  if (d.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    const [year, month, day] = d.split('-');
+    return new Date(parseInt(year), parseInt(month) - 1, parseInt(day)).toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  }
+  // Handle ISO string
+  const date = new Date(d);
+  // Adjust for timezone to prevent day shift
+  return date.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC"
+  });
+};
 const fmtDateTime = (d: string) =>
   d
     ? new Date(d).toLocaleString("en-IN", {
@@ -463,21 +477,22 @@ useEffect(() => {
 
 
   /* ── Load expenses ─────────────────────────────────────────────────────── */
-  const loadExpenses = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [data, statsData] = await Promise.all([
-        getExpenses(),
-        getExpenseStats(),
-      ]);
-      setExpenses(data);
-      setStats(statsData);
-    } catch (err: any) {
-      toast.error(err.message || "Failed to load expenses");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+const loadExpenses = useCallback(async () => {
+  setLoading(true);
+  try {
+    const [data, statsData] = await Promise.all([
+      getExpenses(),
+      getExpenseStats(),
+    ]);
+    setExpenses(data);
+    setStats(statsData);
+    console.log("Expenses reloaded:", data.length, "expenses"); // Debug log
+  } catch (err: any) {
+    toast.error(err.message || "Failed to load expenses");
+  } finally {
+    setLoading(false);
+  }
+}, []);
 
   useEffect(() => {
     loadMasterData();
@@ -590,6 +605,24 @@ function openEdit(exp: any) {
         total_amount: 0,
       }];
     
+  // FIX: Handle date correctly - extract just YYYY-MM-DD
+  let expenseDate = exp.expense_date;
+  if (expenseDate) {
+    // If it's an ISO string, extract just the date part
+    if (expenseDate.includes('T')) {
+      expenseDate = expenseDate.split('T')[0];
+    }
+    // Ensure it's in YYYY-MM-DD format
+    if (expenseDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      // Already in correct format, use as is
+      expenseDate = expenseDate;
+    } else {
+      // Try to parse and format
+      const date = new Date(expenseDate);
+      expenseDate = date.toISOString().split('T')[0];
+    }
+  }
+  
   setForm({
     property_id: String(exp.property_id),
     property_name: exp.property_name,
@@ -598,7 +631,7 @@ function openEdit(exp: any) {
     total_amount: exp.total_amount || exp.amount || "",
     vendor_name: exp.vendor_name || "",
     payment_mode: exp.payment_mode || null,
-    expense_date: exp.expense_date?.split("T")[0] || "",
+    expense_date: expenseDate || "",
     added_by_name: exp.added_by_name,
     notes: exp.notes || "",
     items: initialItems,
@@ -623,6 +656,16 @@ function openEdit(exp: any) {
     setPaymentDetails({
       cardRef: exp.card_ref || '',
     });
+  } else if (exp.payment_mode === 'Online Payment Gateway') {
+    setPaymentDetails({
+      transactionId: exp.transaction_id || '',
+      gatewayName: exp.bank_name || '',
+    });
+  } else if (exp.payment_mode === 'Wallet') {
+    setPaymentDetails({
+      walletRef: exp.transaction_id || '',
+      walletName: exp.bank_name || '',
+    });
   } else {
     setPaymentDetails({});
   }
@@ -644,7 +687,6 @@ function openEdit(exp: any) {
     return e;
   }
 
-/* ── Save ──────────────────────────────────────────────────────────────── */
 async function save() {
   const e = validate();
   if (Object.keys(e).length) {
@@ -660,39 +702,11 @@ async function save() {
     }));
     
     const itemsTotal = updatedItems.reduce((sum, i) => sum + i.total_amount, 0);
+    const expenseTotalAmount = itemsTotal;
+    const paymentAmount = form.total_amount ? Number(form.total_amount) : 0;
     
-    // IMPORTANT: The expense total amount should be the FULL bill amount (items total)
-    // The user-entered amount is the PAYMENT amount, not the expense total
-    const expenseTotalAmount = itemsTotal; // Full bill amount from items
-    const paymentAmount = form.total_amount ? Number(form.total_amount) : itemsTotal; // Amount being paid now
-    
-    console.log("Expense total amount (full bill):", expenseTotalAmount);
-    console.log("Payment amount (being paid now):", paymentAmount);
-    
-    // Calculate the payment that will be recorded immediately
-    let total_paid = 0;
-    let balance = expenseTotalAmount;
-    let status = 'Unpaid';
-    
-    // If payment mode is selected, this is an immediate payment
-    if (form.payment_mode && paymentAmount > 0) {
-      total_paid = paymentAmount;
-      balance = expenseTotalAmount - paymentAmount;
-      
-      if (balance === 0 && total_paid > 0) {
-        status = 'Paid';
-      } else if (total_paid > 0 && balance > 0) {
-        status = 'Partial';
-      }
-    }
-    
-    // Prepare payment details for database
-    let cheque_no = null;
-    let cheque_bank = null;
-    let transaction_id = null;
-    let upi_id = null;
-    let card_ref = null;
-    let bank_name = null;
+    // Prepare payment details
+    let cheque_no = null, cheque_bank = null, transaction_id = null, upi_id = null, card_ref = null, bank_name = null;
     
     if (form.payment_mode === 'Cheque') {
       cheque_no = paymentDetails.chequeNo || null;
@@ -704,6 +718,21 @@ async function save() {
       transaction_id = paymentDetails.referenceNo || null;
     } else if (form.payment_mode === 'Card') {
       card_ref = paymentDetails.cardRef || null;
+    } else if (form.payment_mode === 'Online Payment Gateway') {
+      transaction_id = paymentDetails.transactionId || null;
+      bank_name = paymentDetails.gatewayName || null;
+    } else if (form.payment_mode === 'Wallet') {
+      transaction_id = paymentDetails.walletRef || null;
+      bank_name = paymentDetails.walletName || null;
+    }
+    
+    // FIX: Use the date as is from the input without any conversion
+    // The date picker returns YYYY-MM-DD format, which is what we want to store
+    let expenseDate = form.expense_date;
+    // If it's in YYYY-MM-DD format, keep it as is
+    // Don't do any timezone conversion
+    if (expenseDate && expenseDate.includes('T')) {
+      expenseDate = expenseDate.split('T')[0];
     }
     
     const payload = {
@@ -711,17 +740,16 @@ async function save() {
       property_name: form.property_name,
       category_id: form.category_id,
       category_name: form.category_name,
-      total_amount: expenseTotalAmount, // Full bill amount
-      total_paid: total_paid, // Amount paid now
-      balance: balance, // Remaining balance
-      status: status, // Paid, Partial, or Unpaid
+      total_amount: expenseTotalAmount,
+      total_paid: 0,
+      balance: expenseTotalAmount,
+      status: 'Unpaid',
       vendor_name: form.vendor_name,
-      payment_mode: form.payment_mode,
-      expense_date: form.expense_date,
+      payment_mode: null,
+      expense_date: expenseDate, // Use the date as is
       added_by_name: form.added_by_name,
       notes: form.notes,
       items: updatedItems,
-      // Payment details
       cheque_no,
       cheque_bank,
       transaction_id,
@@ -730,7 +758,7 @@ async function save() {
       bank_name,
     };
     
-    console.log("Saving expense payload:", payload);
+    console.log("Creating expense with payload:", payload);
 
     if (editId) {
       await updateExpense(editId, payload, receiptFile);
@@ -739,20 +767,29 @@ async function save() {
       const response = await createExpense(payload, receiptFile);
       toast.success("Expense created");
       
-      // Also create a payment transaction record if payment was made
-      if (form.payment_mode && paymentAmount > 0 && paymentAmount < expenseTotalAmount) {
+      if (form.payment_mode && paymentAmount > 0) {
         try {
-          await addExpensePayment(response.data.id, {
+          let paymentTransactionData: any = {
             paid_amount: paymentAmount,
             payment_mode: form.payment_mode,
-            transaction_date: form.expense_date,
+            transaction_date: expenseDate,
             reference_no: transaction_id || cheque_no || null,
             notes: `Initial payment of ${fmt(paymentAmount)} towards total bill of ${fmt(expenseTotalAmount)}`,
             created_by: user?.name,
-          });
+          };
+          
+          if (transaction_id) {
+            paymentTransactionData.transaction_id = transaction_id;
+          }
+          if (bank_name) {
+            paymentTransactionData.bank_name = bank_name;
+          }
+          
+          await addExpensePayment(response.data.id, paymentTransactionData);
           console.log("Payment transaction created for expense:", response.data.id);
         } catch (paymentError) {
           console.error("Failed to create payment transaction:", paymentError);
+          toast.warning("Expense created but payment recording failed");
         }
       }
     }
@@ -843,153 +880,182 @@ async function save() {
     }
   }, [form.category_name]);
 
-  const processPayment = async () => {
-    if (!paymentModal.expense) return;
-    
-    const paid_amount = parseFloat((document.getElementById('paymentAmount') as HTMLInputElement)?.value || "0");
-    const payment_mode = (document.getElementById('paymentMode') as HTMLSelectElement)?.value;
-    const transaction_date = (document.getElementById('transactionDate') as HTMLInputElement)?.value;
-    const reference_no = (document.getElementById('referenceNo') as HTMLInputElement)?.value;
-    const payment_notes = (document.getElementById('paymentNotes') as HTMLTextAreaElement)?.value;
-    
-    let paymentDetailsStr = '';
-    if (payment_mode === 'UPI') {
-      const upiId = (document.getElementById('upiId') as HTMLInputElement)?.value;
-      if (upiId) paymentDetailsStr = `UPI ID: ${upiId}`;
-    } else if (payment_mode === 'Bank Transfer') {
-  let bankName = (document.getElementById('bankNameSelect') as HTMLSelectElement)?.value;
-  const customBankName = (document.getElementById('customBankName') as HTMLInputElement)?.value;
-  if (customBankName) bankName = customBankName;
-  const bankRef = (document.getElementById('bankRef') as HTMLInputElement)?.value;
-  paymentDetailsStr = `Bank: ${bankName || 'N/A'}, Ref: ${bankRef || 'N/A'}`;
-} else if (payment_mode === 'Cheque') {
-      const chequeNo = (document.getElementById('chequeNo') as HTMLInputElement)?.value;
-      const chequeBank = (document.getElementById('chequeBank') as HTMLInputElement)?.value;
-      paymentDetailsStr = `Cheque: ${chequeNo || 'N/A'}, Bank: ${chequeBank || 'N/A'}`;
-    } else if (payment_mode === 'Card') {
-      const cardRef = (document.getElementById('cardRef') as HTMLInputElement)?.value;
-      if (cardRef) paymentDetailsStr = `Card: ${cardRef}`;
-    }
-    
-    const finalNotes = payment_notes + (paymentDetailsStr ? `\n${paymentDetailsStr}` : '');
-    
-    if (!paid_amount || paid_amount <= 0) {
-      toast.error("Please enter a valid amount");
-      return;
-    }
-    
-    if (!payment_mode) {
-      toast.error("Please select a payment mode");
-      return;
-    }
-    
-    if (paid_amount > paymentModal.expense.balance) {
-      toast.error(`Amount cannot exceed balance of ${fmt(paymentModal.expense.balance)}`);
-      return;
-    }
-    
-    setSubmitting(true);
-    try {
-      await addExpensePayment(paymentModal.expense.id, {
-        paid_amount,
-        payment_mode,
-        transaction_date,
-        reference_no,
-        notes: finalNotes,
-        created_by: user?.name,
-      });
-      
-      toast.success(`Payment of ${fmt(paid_amount)} recorded successfully`);
-      closePaymentModal();
-      await loadExpenses();
-      
-    } catch (err: any) {
-      console.error("Payment error:", err);
-      toast.error(err.message || "Failed to process payment");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  // Add conditional fields effect for payment modal
-  useEffect(() => {
-    if (!paymentModal.open) return;
-    
-    const paymentModeSelect = document.getElementById('paymentMode') as HTMLSelectElement;
-    const container = document.getElementById('paymentConditionalFields');
-    
-    const updateConditionalFields = () => {
-      if (!container) return;
-      const mode = paymentModeSelect?.value;
-      
-      let html = '';
-      if (mode === 'UPI') {
-        html = `
-          <div>
-            <label style="display: block; font-size: 11px; font-weight: 600; margin-bottom: 5px; color: #374151;">UPI ID</label>
-            <input id="upiId" type="text" placeholder="example@upi" style="width: 100%; padding: 8px 12px; border: 1.5px solid #E2E8F4; border-radius: 8px; font-size: 12px; outline: none;" />
-          </div>
-        `;
-      } else if (mode === 'Bank Transfer') {
-  html = `
-    <div style="margin-bottom: 10px;">
-      <label style="display: block; font-size: 11px; font-weight: 600; margin-bottom: 5px; color: #374151;">Bank Name</label>
-      <select id="bankNameSelect" style="width: 100%; padding: 8px 12px; border: 1.5px solid #E2E8F4; border-radius: 8px; font-size: 12px;">
-        <option value="">Select Bank</option>
-        ${bankNames.map(bank => `<option value="${bank.name}">${bank.name}</option>`).join('')}
-        <option value="other">+ Other (Specify)</option>
-      </select>
-      <input id="customBankName" type="text" placeholder="Enter bank name" style="width: 100%; padding: 8px 12px; border: 1.5px solid #E2E8F4; border-radius: 8px; font-size: 12px; margin-top: 8px; display: none;" />
-    </div>
-    <div>
-      <label style="display: block; font-size: 11px; font-weight: 600; margin-bottom: 5px; color: #374151;">Transaction Reference</label>
-      <input id="bankRef" type="text" placeholder="Transaction ID/UTR" style="width: 100%; padding: 8px 12px; border: 1.5px solid #E2E8F4; border-radius: 8px; font-size: 12px;" />
-    </div>
-  `;
+const processPayment = async () => {
+  if (!paymentModal.expense) return;
   
-  // Add event listener to show/hide custom bank input
-  setTimeout(() => {
-    const select = document.getElementById('bankNameSelect');
-    const customInput = document.getElementById('customBankName');
-    if (select && customInput) {
-      select.addEventListener('change', (e) => {
-        const target = e.target as HTMLSelectElement;
-        customInput.style.display = target.value === 'other' ? 'block' : 'none';
-      });
-    }
-  }, 100);
-} else if (mode === 'Cheque') {
-        html = `
-          <div style="margin-bottom: 10px;">
-            <label style="display: block; font-size: 11px; font-weight: 600; margin-bottom: 5px; color: #374151;">Cheque Number</label>
-            <input id="chequeNo" type="text" placeholder="Cheque number" style="width: 100%; padding: 8px 12px; border: 1.5px solid #E2E8F4; border-radius: 8px; font-size: 12px;" />
-          </div>
-          <div>
-            <label style="display: block; font-size: 11px; font-weight: 600; margin-bottom: 5px; color: #374151;">Bank Name</label>
-            <input id="chequeBank" type="text" placeholder="Bank name" style="width: 100%; padding: 8px 12px; border: 1.5px solid #E2E8F4; border-radius: 8px; font-size: 12px;" />
-          </div>
-        `;
-      } else if (mode === 'Card') {
-        html = `
-          <div>
-            <label style="display: block; font-size: 11px; font-weight: 600; margin-bottom: 5px; color: #374151;">Card Reference / Last 4 digits</label>
-            <input id="cardRef" type="text" placeholder="Last 4 digits" style="width: 100%; padding: 8px 12px; border: 1.5px solid #E2E8F4; border-radius: 8px; font-size: 12px;" />
-          </div>
-        `;
-      }
-      
-      container.innerHTML = html;
-    };
+  const paid_amount = parseFloat((document.getElementById('paymentAmount') as HTMLInputElement)?.value || "0");
+  const payment_mode = (document.getElementById('paymentMode') as HTMLSelectElement)?.value;
+  const transaction_date = (document.getElementById('transactionDate') as HTMLInputElement)?.value;
+  const payment_notes = (document.getElementById('paymentNotes') as HTMLTextAreaElement)?.value;
+  
+  let reference_no = '';
+  let paymentData: any = {
+    paid_amount,
+    payment_mode,
+    transaction_date,
+    notes: payment_notes,
+    created_by: user?.name,
+  };
+  
+  // Capture payment details based on payment mode
+  if (payment_mode === 'UPI') {
+    const upiId = (document.getElementById('upiId') as HTMLInputElement)?.value;
+    paymentData.upi_id = upiId;
+    paymentData.reference_no = upiId;
+    paymentData.notes = payment_notes + (upiId ? `\nUPI ID: ${upiId}` : '');
+  } else if (payment_mode === 'Bank Transfer') {
+    const bankName = (document.getElementById('bankName') as HTMLInputElement)?.value;
+    const transactionRef = (document.getElementById('transactionRef') as HTMLInputElement)?.value;
+    paymentData.bank_name = bankName;
+    paymentData.transaction_id = transactionRef;
+    paymentData.reference_no = transactionRef;
+    paymentData.notes = payment_notes + (bankName ? `\nBank: ${bankName}` : '') + (transactionRef ? `\nTransaction ID: ${transactionRef}` : '');
+  } else if (payment_mode === 'Cheque') {
+    const chequeNo = (document.getElementById('chequeNo') as HTMLInputElement)?.value;
+    const chequeBank = (document.getElementById('chequeBank') as HTMLInputElement)?.value;
+    paymentData.cheque_no = chequeNo;
+    paymentData.cheque_bank = chequeBank;
+    paymentData.reference_no = chequeNo;
+    paymentData.notes = payment_notes + (chequeNo ? `\nCheque: ${chequeNo}` : '') + (chequeBank ? `\nBank: ${chequeBank}` : '');
+  } else if (payment_mode === 'Card') {
+    const cardRef = (document.getElementById('cardRef') as HTMLInputElement)?.value;
+    paymentData.card_ref = cardRef;
+    paymentData.reference_no = cardRef;
+    paymentData.notes = payment_notes + (cardRef ? `\nCard: ${cardRef}` : '');
+  } else if (payment_mode === 'Online Payment Gateway') {
+    const transactionId = (document.getElementById('transactionId') as HTMLInputElement)?.value;
+    const gatewayName = (document.getElementById('gatewayName') as HTMLInputElement)?.value;
+    paymentData.transaction_id = transactionId;
+    paymentData.bank_name = gatewayName;
+    paymentData.reference_no = transactionId;
+    paymentData.notes = payment_notes + (gatewayName ? `\nGateway: ${gatewayName}` : '') + (transactionId ? `\nTransaction ID: ${transactionId}` : '');
+  } else if (payment_mode === 'Wallet') {
+    const walletRef = (document.getElementById('walletRef') as HTMLInputElement)?.value;
+    const walletName = (document.getElementById('walletName') as HTMLInputElement)?.value;
+    paymentData.transaction_id = walletRef;
+    paymentData.bank_name = walletName;
+    paymentData.reference_no = walletRef;
+    paymentData.notes = payment_notes + (walletName ? `\nWallet: ${walletName}` : '') + (walletRef ? `\nTransaction ID: ${walletRef}` : '');
+  } else if (payment_mode === 'Cash') {
+    const cashReceivedBy = (document.getElementById('cashReceivedBy') as HTMLInputElement)?.value;
+    paymentData.reference_no = cashReceivedBy;
+    paymentData.notes = payment_notes + (cashReceivedBy ? `\nCash received by: ${cashReceivedBy}` : '');
+  }
+  
+  console.log("Sending payment data:", paymentData);
+  
+  if (!paid_amount || paid_amount <= 0) {
+    toast.error("Please enter a valid amount");
+    return;
+  }
+  
+  if (!payment_mode) {
+    toast.error("Please select a payment mode");
+    return;
+  }
+  
+  if (paid_amount > paymentModal.expense.balance) {
+    toast.error(`Amount cannot exceed balance of ${fmt(paymentModal.expense.balance)}`);
+    return;
+  }
+  
+  setSubmitting(true);
+  try {
+    const result = await addExpensePayment(paymentModal.expense.id, paymentData);
     
-    if (paymentModeSelect) {
-      paymentModeSelect.addEventListener('change', updateConditionalFields);
-      updateConditionalFields();
-      
-      return () => {
-        paymentModeSelect.removeEventListener('change', updateConditionalFields);
-      };
+    toast.success(`Payment of ${fmt(paid_amount)} recorded successfully`);
+    closePaymentModal();
+    await loadExpenses();
+    
+  } catch (err: any) {
+    console.error("Payment error:", err);
+    toast.error(err.message || "Failed to process payment");
+  } finally {
+    setSubmitting(false);
+  }
+};
+
+// Update the conditional fields effect for payment modal
+// Update the conditional fields effect for payment modal
+useEffect(() => {
+  if (!paymentModal.open) return;
+  
+  const paymentModeSelect = document.getElementById('paymentMode') as HTMLSelectElement;
+  const container = document.getElementById('paymentConditionalFields');
+  
+  const updateConditionalFields = () => {
+    if (!container) return;
+    const mode = paymentModeSelect?.value;
+    
+    let html = '';
+    if (mode === 'UPI') {
+      html = `
+        <div style="margin-bottom: 10px;">
+          <label style="display: block; font-size: 11px; font-weight: 600; margin-bottom: 5px; color: #374151;">UPI ID</label>
+          <input id="upiId" type="text" placeholder="example@upi" style="width: 100%; padding: 8px 12px; border: 1.5px solid #E2E8F4; border-radius: 8px; font-size: 12px; outline: none;" />
+        </div>
+      `;
+    } else if (mode === 'Bank Transfer') {
+      html = `
+        <div style="margin-bottom: 10px;">
+          <label style="display: block; font-size: 11px; font-weight: 600; margin-bottom: 5px; color: #374151;">Bank Name</label>
+          <input id="bankName" type="text" placeholder="Enter bank name" style="width: 100%; padding: 8px 12px; border: 1.5px solid #E2E8F4; border-radius: 8px; font-size: 12px;" />
+        </div>
+        <div style="margin-bottom: 10px;">
+          <label style="display: block; font-size: 11px; font-weight: 600; margin-bottom: 5px; color: #374151;">Transaction ID / Reference</label>
+          <input id="transactionRef" type="text" placeholder="Transaction reference" style="width: 100%; padding: 8px 12px; border: 1.5px solid #E2E8F4; border-radius: 8px; font-size: 12px;" />
+        </div>
+      `;
+    } else if (mode === 'Cheque') {
+      html = `
+        <div style="margin-bottom: 10px;">
+          <label style="display: block; font-size: 11px; font-weight: 600; margin-bottom: 5px; color: #374151;">Cheque Number</label>
+          <input id="chequeNo" type="text" placeholder="Cheque number" style="width: 100%; padding: 8px 12px; border: 1.5px solid #E2E8F4; border-radius: 8px; font-size: 12px;" />
+        </div>
+        <div style="margin-bottom: 10px;">
+          <label style="display: block; font-size: 11px; font-weight: 600; margin-bottom: 5px; color: #374151;">Bank Name</label>
+          <input id="chequeBank" type="text" placeholder="Bank name" style="width: 100%; padding: 8px 12px; border: 1.5px solid #E2E8F4; border-radius: 8px; font-size: 12px;" />
+        </div>
+      `;
+    } else if (mode === 'Card') {
+      html = `
+        <div style="margin-bottom: 10px;">
+          <label style="display: block; font-size: 11px; font-weight: 600; margin-bottom: 5px; color: #374151;">Card Reference / Last 4 digits</label>
+          <input id="cardRef" type="text" placeholder="Last 4 digits" style="width: 100%; padding: 8px 12px; border: 1.5px solid #E2E8F4; border-radius: 8px; font-size: 12px;" />
+        </div>
+      `;
+    } else if (mode === 'Online Payment Gateway') {
+      html = `
+        <div style="margin-bottom: 10px;">
+          <label style="display: block; font-size: 11px; font-weight: 600; margin-bottom: 5px; color: #374151;">Transaction ID</label>
+          <input id="transactionId" type="text" placeholder="Gateway transaction ID" style="width: 100%; padding: 8px 12px; border: 1.5px solid #E2E8F4; border-radius: 8px; font-size: 12px;" />
+        </div>
+        <div style="margin-bottom: 10px;">
+          <label style="display: block; font-size: 11px; font-weight: 600; margin-bottom: 5px; color: #374151;">Payment Gateway Name</label>
+          <input id="gatewayName" type="text" placeholder="e.g., Razorpay, Stripe" style="width: 100%; padding: 8px 12px; border: 1.5px solid #E2E8F4; border-radius: 8px; font-size: 12px;" />
+        </div>
+      `;
+    } else if (mode === 'Wallet') {
+      html = `
+        <div style="margin-bottom: 10px;">
+          <label style="display: block; font-size: 11px; font-weight: 600; margin-bottom: 5px; color: #374151;">Wallet Reference / Transaction ID</label>
+          <input id="walletRef" type="text" placeholder="Wallet transaction ID" style="width: 100%; padding: 8px 12px; border: 1.5px solid #E2E8F4; border-radius: 8px; font-size: 12px;" />
+        </div>
+      `;
     }
-  }, [paymentModal.open]);
+    
+    container.innerHTML = html;
+  };
+  
+  if (paymentModeSelect) {
+    paymentModeSelect.addEventListener('change', updateConditionalFields);
+    updateConditionalFields();
+    
+    return () => {
+      paymentModeSelect.removeEventListener('change', updateConditionalFields);
+    };
+  }
+}, [paymentModal.open]);
 
   const totalAmount = form.items.reduce((sum, i) => sum + ((Number(i.qty) || 0) * (Number(i.price) || 0)), 0);
   const computedStats = {
@@ -1126,35 +1192,42 @@ async function save() {
                           <td style={{ padding: "10px 8px" }}>{exp.category_name ? <span style={{ background: cc.bg, color: cc.text, padding: "3px 8px", borderRadius: 12, fontSize: 10, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 4 }}><span style={{ width: 4, height: 4, borderRadius: "50%", background: cc.dot }} />{exp.category_name}</span> : "—"}</td>
                           <td style={{ padding: "10px 8px", fontSize: 12, color: "#334155" }}>{exp.vendor_name || "—"}</td>
                           <td style={{ padding: "10px 8px", fontSize: 13, fontWeight: 700, color: "#0F172A" }}>{fmt(exp.total_amount || exp.amount || 0)}</td>
-                          <td style={{ padding: "10px 8px", fontSize: 12, color: "#475569" }}>
-  {exp.payment_mode === 'Cheque' && (
+                          {/* Replace the Paid By column in the table with this */}
+<td style={{ padding: "10px 8px", fontSize: 12, color: "#475569" }}>
+  {exp.payment_mode ? (
     <div>
-      <div>💵 {exp.payment_mode}</div>
-      {exp.cheque_no && <div className="text-[10px] text-gray-500">Chq: {exp.cheque_no}</div>}
-      {exp.cheque_bank && <div className="text-[10px] text-gray-500">Bank: {exp.cheque_bank}</div>}
+      <div>
+        {exp.payment_mode === 'Cheque' ? '💵' : 
+         exp.payment_mode === 'UPI' ? '📱' : 
+         exp.payment_mode === 'Bank Transfer' ? '🏦' : 
+         exp.payment_mode === 'Card' ? '💳' : 
+         exp.payment_mode === 'Online Payment Gateway' ? '🌐' : '💵'} {exp.payment_mode}
+      </div>
+      {/* Show transaction ID/reference for Online Payment Gateway */}
+      {exp.payment_mode === 'Online Payment Gateway' && exp.transaction_id && (
+        <div className="text-[10px] text-gray-500" style={{ fontSize: 9, color: "#64748B", marginTop: 2 }}>
+          Txn: {exp.transaction_id}
+        </div>
+      )}
+      {exp.payment_mode === 'Cheque' && exp.cheque_no && (
+        <div className="text-[10px] text-gray-500" style={{ fontSize: 9, color: "#64748B", marginTop: 2 }}>
+          Chq: {exp.cheque_no}
+        </div>
+      )}
+      {exp.payment_mode === 'UPI' && exp.upi_id && (
+        <div className="text-[10px] text-gray-500" style={{ fontSize: 9, color: "#64748B", marginTop: 2 }}>
+          UPI: {exp.upi_id}
+        </div>
+      )}
+      {exp.payment_mode === 'Bank Transfer' && exp.transaction_id && (
+        <div className="text-[10px] text-gray-500" style={{ fontSize: 9, color: "#64748B", marginTop: 2 }}>
+          Txn: {exp.transaction_id}
+        </div>
+      )}
     </div>
+  ) : (
+    <span style={{ color: "#CBD5E1", fontSize: 11 }}>—</span>
   )}
-  {exp.payment_mode === 'UPI' && (
-    <div>
-      <div>📱 {exp.payment_mode}</div>
-      {exp.upi_id && <div className="text-[10px] text-gray-500">UPI: {exp.upi_id}</div>}
-    </div>
-  )}
-  {exp.payment_mode === 'Bank Transfer' && (
-    <div>
-      <div>🏦 {exp.payment_mode}</div>
-      {exp.bank_name && <div className="text-[10px] text-gray-500">Bank: {exp.bank_name}</div>}
-      {exp.transaction_id && <div className="text-[10px] text-gray-500">Txn: {exp.transaction_id}</div>}
-    </div>
-  )}
-  {exp.payment_mode === 'Card' && (
-    <div>
-      <div>💳 {exp.payment_mode}</div>
-      {exp.card_ref && <div className="text-[10px] text-gray-500">Card: {exp.card_ref}</div>}
-    </div>
-  )}
-  {exp.payment_mode === 'Cash' && <div>💵 {exp.payment_mode}</div>}
-  {!exp.payment_mode && "—"}
 </td>
                           <td style={{ padding: "10px 8px" }}>{exp.receipt_url ? <ReceiptThumbnail url={exp.receipt_url} filename={exp.receipt_name} onClick={() => setViewItem(exp)} /> : <span style={{ color: "#CBD5E1", fontSize: 11 }}>—</span>}</td>
                           <td style={{ padding: "10px 8px", fontSize: 11, color: "#64748B" }}>{fmtDate(exp.expense_date)}</td>
@@ -1432,23 +1505,28 @@ async function save() {
     }}
   >
     {/* Amount - NOW EDITABLE */}
-    <div>
-      <Label required>Total Amount (₹)</Label>
-      <input
-        type="number"
-        value={form.total_amount || totalAmount}
-        onChange={(e) => setForm((f) => ({ ...f, total_amount: e.target.value }))}
-        placeholder="Enter total amount"
-        min="0"
-        step="1"
-        style={inp()}
-      />
-      {totalAmount > 0 && Number(form.total_amount) !== totalAmount && (
-        <div style={{ fontSize: 10, color: "#8892A4", marginTop: 3 }}>
-          Items total: {fmt(totalAmount)} • You can override
-        </div>
-      )}
+    {/* Amount - NOW EDITABLE with proper clearing */}
+<div>
+  <Label required>Total Amount (₹)</Label>
+  <input
+    type="number"
+    value={form.total_amount !== undefined && form.total_amount !== null && form.total_amount !== '' ? form.total_amount : ''}
+    onChange={(e) => {
+      const value = e.target.value;
+      // Allow empty string to clear the field
+      setForm((f) => ({ ...f, total_amount: value === '' ? '' : value }));
+    }}
+    placeholder="Enter total amount"
+    min="0"
+    step="1"
+    style={inp()}
+  />
+  {totalAmount > 0 && Number(form.total_amount) !== totalAmount && form.total_amount !== '' && (
+    <div style={{ fontSize: 10, color: "#8892A4", marginTop: 3 }}>
+      Items total: {fmt(totalAmount)} • You can override
     </div>
+  )}
+</div>
 
     {/* Paid Through - Payment Mode */}
 {/* Paid Through - Payment Mode */}
@@ -1576,17 +1654,29 @@ async function save() {
     )}
 
     {form.payment_mode === 'Online Payment Gateway' && (
-      <div>
-        <Label>Transaction ID</Label>
-        <input
-          type="text"
-          placeholder="Gateway transaction ID"
-          value={paymentDetails.transactionId || ''}
-          onChange={(e) => setPaymentDetails({ ...paymentDetails, transactionId: e.target.value })}
-          style={inp()}
-        />
-      </div>
-    )}
+  <>
+    <div>
+      <Label>Transaction ID</Label>
+      <input
+        type="text"
+        placeholder="Gateway transaction ID"
+        value={paymentDetails.transactionId || ''}
+        onChange={(e) => setPaymentDetails({ ...paymentDetails, transactionId: e.target.value })}
+        style={inp()}
+      />
+    </div>
+    <div>
+      <Label>Payment Gateway Name</Label>
+      <input
+        type="text"
+        placeholder="e.g., Razorpay, Stripe, PhonePe"
+        value={paymentDetails.gatewayName || ''}
+        onChange={(e) => setPaymentDetails({ ...paymentDetails, gatewayName: e.target.value })}
+        style={inp()}
+      />
+    </div>
+  </>
+)}
 
     {form.payment_mode === 'Wallet' && (
       <div>
@@ -1775,7 +1865,7 @@ async function save() {
                 <label style={{ display: "block", fontSize: 11, fontWeight: 600, marginBottom: 5, color: "#374151" }}>Payment Amount <span style={{ color: "#E53E3E" }}>*</span></label>
                 <div style={{ position: "relative" }}>
                   <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#1A2B6D", fontWeight: 600, fontSize: 12 }}>₹</span>
-                  <input id="paymentAmount" type="number" placeholder="0.00" style={{ width: "100%", padding: "8px 12px 8px 28px", border: "1.5px solid #E2E8F4", borderRadius: 8, fontSize: 13, outline: "none" }} />
+                  <input id="paymentAmount" type="text" placeholder="0.00" style={{ width: "100%", padding: "8px 12px 8px 28px", border: "1.5px solid #E2E8F4", borderRadius: 8, fontSize: 13, outline: "none" }} />
                 </div>
               </div>
 
@@ -1783,13 +1873,15 @@ async function save() {
               <div style={{ marginBottom: 14 }}>
                 <label style={{ display: "block", fontSize: 11, fontWeight: 600, marginBottom: 5, color: "#374151" }}>Payment Mode <span style={{ color: "#E53E3E" }}>*</span></label>
                 <select id="paymentMode" style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #E2E8F4", borderRadius: 8, fontSize: 12, background: "#fff", cursor: "pointer" }}>
-                  <option value="">Select Mode</option>
-                  <option value="Cash">💵 Cash</option>
-                  <option value="Bank Transfer">🏦 Bank Transfer</option>
-                  <option value="UPI">📱 UPI</option>
-                  <option value="Cheque">📝 Cheque</option>
-                  <option value="Card">💳 Card</option>
-                </select>
+  <option value="">Select Mode</option>
+  <option value="Cash">💵 Cash</option>
+  <option value="Bank Transfer">🏦 Bank Transfer</option>
+  <option value="UPI">📱 UPI</option>
+  <option value="Cheque">📝 Cheque</option>
+  <option value="Card">💳 Card</option>
+  <option value="Online Payment Gateway">🌐 Online Payment Gateway</option>
+  <option value="Wallet">👛 Wallet</option>
+</select>
               </div>
 
               {/* Conditional Fields Container */}
@@ -1799,12 +1891,6 @@ async function save() {
               <div style={{ marginBottom: 14 }}>
                 <label style={{ display: "block", fontSize: 11, fontWeight: 600, marginBottom: 5, color: "#374151" }}>Payment Date</label>
                 <input id="transactionDate" type="date" defaultValue={new Date().toISOString().split("T")[0]} style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #E2E8F4", borderRadius: 8, fontSize: 12, outline: "none" }} />
-              </div>
-
-              {/* Reference (Optional) */}
-              <div style={{ marginBottom: 14 }}>
-                <label style={{ display: "block", fontSize: 11, fontWeight: 600, marginBottom: 5, color: "#374151" }}>Reference ID <span style={{ fontSize: 9, color: "#94A3B8" }}>(Optional)</span></label>
-                <input id="referenceNo" type="text" placeholder="Transaction/Cheque/UTR number" style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #E2E8F4", borderRadius: 8, fontSize: 12, outline: "none" }} />
               </div>
 
               {/* Notes */}
