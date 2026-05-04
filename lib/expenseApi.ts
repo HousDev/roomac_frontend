@@ -130,10 +130,19 @@ export const addExpensePayment = async (expenseId: number, data: {
   reference_no?: string;
   notes?: string;
   created_by?: string;
-  selected_item_id?: string;  // Add this
+  // Additional payment fields
+  cheque_no?: string;
+  cheque_bank?: string;
+  transaction_id?: string;
+  upi_id?: string;
+  card_ref?: string;
+  bank_name?: string;
 }) => {
   return await request(`/api/expenses/${expenseId}/payment`, {
     method: "POST",
+    headers: {
+      'Content-Type': 'application/json',
+    },
     body: JSON.stringify(data),
   });
 };
