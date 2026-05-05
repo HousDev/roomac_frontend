@@ -1512,6 +1512,12 @@ const handleSubmit = async () => {
     resetWizard();
     onOpenChange(false);
   };
+const getStepIndex = () => {
+  if (isCoupleBooking) return step - 1;
+  // Non-couple skips step 2, so adjust: 1→0, 3→1, 4→2, 5→3, 6→4, 7→5
+  if (step <= 1) return 0;
+  return step - 2;
+};
 
   if (loading && !initialData) {
     return (
@@ -1576,7 +1582,7 @@ const handleSubmit = async () => {
             </div>
             <div className="flex items-center gap-2">
               <span className="text-[10px] bg-white/20 px-1.5 py-0.5 rounded">
-                Step {step}/{stepTitles.length}
+Step {getStepIndex() + 1}/{stepTitles.length}
               </span>
               <button
                 onClick={handleClose}
@@ -1680,30 +1686,28 @@ const handleSubmit = async () => {
                       {index < stepTitles.length - 1 && (
                         <div
                           className={`absolute top-3 left-1/2 w-full h-0.5 -translate-x-1/2 ${
-                            step > index + 1 ? "bg-blue-500" : "bg-gray-300"
+getStepIndex() > index ? "bg-blue-500" : "bg-gray-300"
                           }`}
                         />
                       )}
                       <div
                         className={`w-7 h-7 rounded-full flex items-center justify-center border-2 z-10 mb-1 ${
-                          step > index + 1
-                            ? "bg-white border-blue-600 text-blue-600"
-                            : step === index + 1
-                              ? "bg-white border-blue-600 text-blue-600"
-                              : "bg-white border-gray-300 text-gray-400"
+                          getStepIndex() >= index
+  ? "bg-white border-blue-600 text-blue-600"
+  : "bg-white border-gray-300 text-gray-400"
                         }`}
                       >
-                        {step > index + 1 ? (
-                          <Check className="h-3 w-3" />
-                        ) : (
-                          <StepIcon className="h-3 w-3" />
-                        )}
+              {getStepIndex() > index ? (
+  <Check className="h-3 w-3" />
+) : (
+  <StepIcon className="h-3 w-3" />
+)}
                       </div>
                       <span
                         className={`text-[10px] font-medium truncate w-full text-center ${
-                          step >= index + 1
-                            ? "text-blue-600 font-semibold"
-                            : "text-gray-500"
+                        getStepIndex() >= index
+  ? "text-blue-600 font-semibold"
+  : "text-gray-500"
                         }`}
                       >
                         {title}
@@ -1716,7 +1720,7 @@ const handleSubmit = async () => {
                 <div className="w-full h-1 bg-gray-200 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-blue-500 transition-all duration-300"
-                    style={{ width: `${(step / stepTitles.length) * 100}%` }}
+style={{ width: `${((getStepIndex() + 1) / stepTitles.length) * 100}%` }}
                   />
                 </div>
               </div>

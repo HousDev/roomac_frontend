@@ -3,7 +3,7 @@
 
 
 // lib/paymentRecordApi.ts
-import { request } from "@/lib/api";
+import { ApiResult, request } from "@/lib/api";
 
 export type Payment = {
   id: number;
@@ -408,6 +408,23 @@ export async function uploadPaymentProof(paymentId: number, file: File): Promise
   }
 }
 
+
+export async function getVacatedTenantPaymentFormData(tenantId: number): Promise<ApiResult<any>> {
+  try {
+    const response = await request<ApiResult<any>>(`/api/payments/tenant/${tenantId}/vacated-payment-form`, {
+      method: "GET",
+    });
+    return response;
+  } catch (error) {
+    console.error("Error fetching vacated tenant payment form data:", error);
+    return {
+      success: false,
+      message: "Failed to fetch vacated tenant payment data",
+      data: null,
+    };
+  }
+}
+
 // Get payment proof
 export async function getPaymentProof(paymentId: number): Promise<string | null> {
   try {
@@ -578,3 +595,4 @@ export async function getSecurityDepositInfo(tenantId: number): Promise<{ succes
   
   return response.json();
 }
+

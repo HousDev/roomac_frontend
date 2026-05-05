@@ -852,20 +852,29 @@ const handleEditPayment = async (payment: any) => {
     const formResponse = await paymentApi.getTenantPaymentFormData(payment.tenant_id);
     if (formResponse.success) {
       setPaymentFormData(formResponse.data);
+      
+      // ✅ Set the month from the payment data AFTER formData is loaded
+      if (payment.month && payment.year) {
+        // Find matching month in formData
+        const matchingMonth = formResponse.data?.month_wise_history?.find(
+          (month: any) => month.month === payment.month && month.year === payment.year
+        );
+        
+        if (matchingMonth) {
+          setSelectedPaymentMonth(matchingMonth.month_key);
+        } else {
+          // Fallback: create month key
+          const monthNumber = new Date(Date.parse(payment.month + " 1, " + payment.year)).getMonth() + 1;
+          const monthKey = `${payment.year}-${String(monthNumber).padStart(2, '0')}`;
+          setSelectedPaymentMonth(monthKey);
+        }
+      }
     }
     
     // Fetch security deposit info
     const depositResponse = await paymentApi.getSecurityDepositInfo(payment.tenant_id);
     if (depositResponse.success) {
       setSecurityDepositInfo(depositResponse.data);
-    }
-    
-    // ✅ FIX: Set the month correctly for the payment being edited
-    if (payment.month && payment.year) {
-      // Find the month number
-      const monthNumber = new Date(Date.parse(payment.month + " 1, " + payment.year)).getMonth() + 1;
-      const monthKey = `${payment.year}-${String(monthNumber).padStart(2, '0')}`;
-      setSelectedPaymentMonth(monthKey);
     }
     
     // Set form data with existing payment values
@@ -904,6 +913,25 @@ const handleEditPayment = async (payment: any) => {
     setBookingLoading(false);
   }
 };
+
+// Add this useEffect to set the month when paymentFormData is loaded during edit
+useEffect(() => {
+  if (selectedPayment && paymentFormData && isEditDialogOpen) {
+    // Find the month in paymentFormData that matches the payment's month/year
+    const matchingMonth = paymentFormData.month_wise_history?.find(
+      (month: any) => month.month === selectedPayment.month && month.year === selectedPayment.year
+    );
+    
+    if (matchingMonth) {
+      setSelectedPaymentMonth(matchingMonth.month_key);
+    } else if (selectedPayment.month && selectedPayment.year) {
+      // Fallback: create month key from payment data
+      const monthNumber = new Date(Date.parse(selectedPayment.month + " 1, " + selectedPayment.year)).getMonth() + 1;
+      const monthKey = `${selectedPayment.year}-${String(monthNumber).padStart(2, '0')}`;
+      setSelectedPaymentMonth(monthKey);
+    }
+  }
+}, [selectedPayment, paymentFormData, isEditDialogOpen]);
 
 const handlePreviewReceipt = async (receiptId: number) => {
   try {
@@ -4301,7 +4329,7 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
           {paymentFormData && <RentSummaryTable formData={paymentFormData} />}
 
           {/* Pay For Month */}
-          <div className="space-y-1">
+          {/* <div className="space-y-1">
             <Label className="text-[11px] font-medium text-slate-600">
               Pay For Month
             </Label>
@@ -4343,7 +4371,90 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
                 ))}
               </SelectContent>
             </Select>
-          </div>
+          </div> */}
+          {/* Pay For Month - in the edit dialog - UPDATED CODE */}
+<div className="space-y-1">
+  <Label className="text-[11px] font-medium text-slate-600">
+    Pay For Month
+  </Label>
+  <Select
+    value={selectedPaymentMonth}
+    onValueChange={(value) => {
+      setSelectedPaymentMonth(value);
+      
+      // For edit mode, we don't auto-fill amount when changing month
+      // The amount should remain as the original payment amount
+      if (value && value !== "current" && paymentFormData?.month_wise_history) {
+        const selectedMonthData = paymentFormData.month_wise_history.find(
+          (m: any) => m.month_key === value,
+        );
+        if (selectedMonthData && selectedMonthData.rent) {
+          // Don't auto-fill amount in edit mode - keep original payment amount
+          // Just update the month selection
+        }
+      }
+    }}
+  >
+    <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
+      <SelectValue placeholder="Select month..." />
+    </SelectTrigger>
+    <SelectContent>
+      {/* Show ALL months from paymentFormData, not just unpaid months */}
+      {paymentFormData?.month_wise_history?.map((month: any) => {
+        const isMonthMatch = selectedPaymentMonth === month.month_key;
+        const isPaidMonth = month.status === 'paid';
+        const isPartialMonth = month.status === 'partial';
+        
+        return (
+          <SelectItem
+            key={month.month_key}
+            value={month.month_key}
+            className="text-xs"
+          >
+            <div className="flex items-center justify-between w-full gap-4">
+              <div className="flex items-center gap-2">
+                <span>{month.month} {month.year}</span>
+                {isMonthMatch && (
+                  <span className="text-[9px] text-blue-500">(Current)</span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                {isPaidMonth && (
+                  <span className="text-[9px] text-green-600">✓ Paid</span>
+                )}
+                {isPartialMonth && month.pending > 0 && (
+                  <span className="text-[9px] text-amber-600">
+                    Pending: ₹{month.pending.toLocaleString()}
+                  </span>
+                )}
+                <span className={`text-xs font-medium ${isPaidMonth ? 'text-green-600' : 'text-gray-600'}`}>
+                  Rent: ₹{month.rent.toLocaleString()}
+                </span>
+              </div>
+            </div>
+          </SelectItem>
+        );
+      })}
+    </SelectContent>
+  </Select>
+  
+  {/* Show a note if editing a payment for a paid month */}
+  {selectedPaymentMonth && paymentFormData?.month_wise_history && (
+    (() => {
+      const selectedMonthData = paymentFormData.month_wise_history.find(
+        (m: any) => m.month_key === selectedPaymentMonth
+      );
+      if (selectedMonthData?.status === 'paid') {
+        return (
+          <p className="text-[10px] text-green-600 mt-1">
+            This month is fully paid. Editing this payment will affect the paid amount.
+          </p>
+        );
+      }
+      return null;
+    })()
+  )}
+</div>
         </div>
       )}
 

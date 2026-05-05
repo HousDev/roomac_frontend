@@ -99,39 +99,65 @@ interface BankName {
   name: string;
 }
 
-// Compact Status Badge
 const StatusBadge = ({ status }: { status: string }) => {
-  const variants: Record<
-    string,
-    { className: string; icon: any; label: string }
-  > = {
-    approved: {
-      className: "bg-green-50 text-green-600 border-green-200",
-      icon: CheckCircle2,
-      label: "Paid",
-    },
-    pending: {
-      className: "bg-[#fff9e6] text-[#ffc107] border-[#ffc107]/20",
-      icon: Clock,
-      label: "Pending",
-    },
-    rejected: {
-      className: "bg-red-50 text-red-600 border-red-200",
-      icon: XCircle,
-      label: "Failed",
-    },
-  };
-
-  const config = variants[status] || variants.pending;
-  const Icon = config.icon;
-
+  const normalizedStatus = status?.toLowerCase() || '';
+  
+  console.log('StatusBadge received:', status); // Add this line to debug
+  
+  if (normalizedStatus === 'approved') {
+    return (
+      <Badge
+        variant="outline"
+        className="bg-green-50 text-green-600 border-green-200 flex items-center gap-0.5 text-[9px] px-1.5 py-0 h-4 rounded-full"
+      >
+        <CheckCircle2 className="h-2.5 w-2.5" />
+        <span>Approved</span>
+      </Badge>
+    );
+  }
+  
+  if (normalizedStatus === 'paid') {
+    return (
+      <Badge
+        variant="outline"
+        className="bg-green-50 text-green-600 border-green-200 flex items-center gap-0.5 text-[9px] px-1.5 py-0 h-4 rounded-full"
+      >
+        <CheckCircle2 className="h-2.5 w-2.5" />
+        <span>Paid</span>
+      </Badge>
+    );
+  }
+  
+  if (normalizedStatus === 'pending') {
+    return (
+      <Badge
+        variant="outline"
+        className="bg-yellow-50 text-yellow-600 border-yellow-200 flex items-center gap-0.5 text-[9px] px-1.5 py-0 h-4 rounded-full"
+      >
+        <Clock className="h-2.5 w-2.5" />
+        <span>Pending</span>
+      </Badge>
+    );
+  }
+  
+  if (normalizedStatus === 'rejected') {
+    return (
+      <Badge
+        variant="outline"
+        className="bg-red-50 text-red-600 border-red-200 flex items-center gap-0.5 text-[9px] px-1.5 py-0 h-4 rounded-full"
+      >
+        <XCircle className="h-2.5 w-2.5" />
+        <span>Rejected</span>
+      </Badge>
+    );
+  }
+  
   return (
     <Badge
       variant="outline"
-      className={`${config.className} flex items-center gap-0.5 text-[9px] px-1.5 py-0 h-4 rounded-full`}
+      className="bg-gray-50 text-gray-600 border-gray-200 flex items-center gap-0.5 text-[9px] px-1.5 py-0 h-4 rounded-full"
     >
-      <Icon className="h-2.5 w-2.5" />
-      <span>{config.label}</span>
+      <span>{status || 'Unknown'}</span>
     </Badge>
   );
 };
@@ -183,10 +209,15 @@ const PaymentHistoryItem = ({
   formatDate: (date: string) => string;
 }) => {
   const amount = Number(payment.amount) || 0;
+  // Show download button only for approved status
+  const showDownloadButton = payment.status === "approved";
+  
   return (
     <div className="bg-white border border-slate-200 rounded-lg p-3 hover:shadow-sm transition-all">
       <div className="flex items-start justify-between gap-2">
+        {/* Left side - Icon and Details */}
         <div className="flex items-start gap-2 flex-1 min-w-0">
+          {/* Payment Type Icon */}
           <div
             className={`p-1.5 rounded-lg flex-shrink-0 ${
               payment.payment_type === "rent" ? "bg-[#e6f0ff]" : "bg-[#fff9e6]"
@@ -199,11 +230,13 @@ const PaymentHistoryItem = ({
             )}
           </div>
 
+          {/* Transaction Details */}
           <div className="flex-1 min-w-0">
+            {/* Remark/Description */}
             <div className="flex items-center flex-wrap gap-1 mb-0.5">
               <p className="text-xs font-semibold text-slate-800 truncate">
                 {payment.remark ||
-                  (payment.payment_type === "rent" ? "Rent" : "Deposit")}
+                  (payment.payment_type === "rent" ? "Rent Payment" : "Security Deposit")}
               </p>
               {payment.month && payment.year && (
                 <span className="text-[8px] bg-slate-100 text-slate-600 px-1 py-0.5 rounded">
@@ -211,7 +244,8 @@ const PaymentHistoryItem = ({
                 </span>
               )}
             </div>
-
+            
+            {/* Date and Payment Mode */}
             <div className="flex items-center flex-wrap gap-1.5 text-[8px] text-slate-500">
               <div className="flex items-center gap-0.5">
                 <Calendar className="h-2.5 w-2.5" />
@@ -224,10 +258,17 @@ const PaymentHistoryItem = ({
                   {payment.payment_mode}
                 </span>
               </div>
+              {payment.transaction_id && (
+                <>
+                  <span className="w-0.5 h-0.5 rounded-full bg-slate-300"></span>
+                  <span className="font-mono">{payment.transaction_id.substring(0, 8)}...</span>
+                </>
+              )}
             </div>
           </div>
         </div>
 
+        {/* Right side - Amount and Status */}
         <div className="flex items-center gap-2 flex-shrink-0">
           <div className="text-right">
             <p className="text-xs font-bold text-[#004aad]">
@@ -236,8 +277,7 @@ const PaymentHistoryItem = ({
           </div>
           <div className="flex flex-col items-end gap-1">
             <StatusBadge status={payment.status} />
-            {(payment.status === "approved" ||
-              payment.status === "completed") && (
+            {showDownloadButton && (
               <Button
                 size="sm"
                 variant="ghost"
@@ -551,143 +591,112 @@ useEffect(() => {
     }
   }, [showPaymentDialog]);
 
-  const calculateStats = (payments: Payment[]) => {
-    let rentTotalPaid = 0;
-    let rentTotalPending = 0;
-    let rentTotalDiscount = 0;
-    let rentApprovedCount = 0;
-    let rentPendingCount = 0;
-    let rentRejectedCount = 0;
-    const monthsPaid = new Set<string>();
-    const monthsPending = new Set<string>();
+const calculateStats = (payments: Payment[]) => {
+  let rentTotalPaid = 0;
+  let rentTotalPending = 0;
+  let rentTotalDiscount = 0;
+  let rentApprovedCount = 0;
+  let rentPendingCount = 0;
+  let rentRejectedCount = 0;
+  const monthsPaid = new Set<string>();
+  const monthsPending = new Set<string>();
 
-    let depositTotalPaid = 0;
-    let depositTotalPending = 0;
-    let depositApprovedCount = 0;
-    let depositPendingCount = 0;
-    let depositRejectedCount = 0;
-    let depositRequiredAmount = 0;
+  let depositTotalPaid = 0;
+  let depositTotalPending = 0;
+  let depositApprovedCount = 0;
+  let depositPendingCount = 0;
+  let depositRejectedCount = 0;
+  let depositRequiredAmount = 0;
 
-    // Group payments by month and type to avoid double-counting
-    const rentPaymentsByMonth = new Map<string, number>();
-    const depositPaymentsList: number[] = [];
+  const rentPaymentsByMonth = new Map<string, number>();
+  const rentApprovedMonths = new Set<string>();
+  const rentPendingMonthsSet = new Set<string>();
 
-    payments.forEach((payment) => {
-      const amount = Number(payment.amount);
-      if (isNaN(amount) || amount === 0) return;
+  payments.forEach((payment) => {
+    const amount = Number(payment.amount);
+    if (isNaN(amount) || amount === 0) return;
 
-      // console.log(
-      //   `Processing payment: ID=${payment.id}, Type=${payment.payment_type}, Amount=${amount}, Status=${payment.status}, Month=${payment.month} ${payment.year}`,
-      // );
+    // ✅ Both 'approved' and 'paid' are successful payments
+    const isPaymentSuccessful = payment.status === "approved" || payment.status === "paid";
+    const isPaymentPending = payment.status === "pending";
+    const isPaymentRejected = payment.status === "rejected";
 
-      if (payment.payment_type === "rent") {
-        const monthKey = `${payment.month || "Unknown"}-${payment.year || "Unknown"}`;
+    if (payment.payment_type === "rent") {
+      const monthKey = `${payment.month || "Unknown"}-${payment.year || "Unknown"}`;
+      
+      const currentMonthTotal = rentPaymentsByMonth.get(monthKey) || 0;
+      rentPaymentsByMonth.set(monthKey, currentMonthTotal + amount);
 
-        // Sum rent payments by month (to avoid counting multiple payments for same month)
-        const currentMonthTotal = rentPaymentsByMonth.get(monthKey) || 0;
-        rentPaymentsByMonth.set(monthKey, currentMonthTotal + amount);
-
-        // Count unique months
-        const isPaid =
-          payment.status === "approved" ||
-          payment.status === "completed" ||
-          payment.status === "pending";
-        if (isPaid && !monthsPaid.has(monthKey)) {
-          monthsPaid.add(monthKey);
-        }
-
-        if (payment.status === "pending") {
-          rentPendingCount++;
-        } else if (payment.status === "approved") {
-          rentApprovedCount++;
-        } else if (payment.status === "rejected") {
-          rentRejectedCount++;
-        }
-
-        if (payment.discount_amount) {
-          rentTotalDiscount += Number(payment.discount_amount);
-        }
-      } else if (payment.payment_type === "security_deposit") {
-        depositPaymentsList.push(amount);
-
-        // ✅ Fix: Count 'paid' status as well
-        const isPaid =
-          payment.status === "approved" ||
-          payment.status === "completed" ||
-          payment.status === "pending" ||
-          payment.status === "paid"; // ← Add 'paid' status
-
-        if (isPaid) {
-          depositTotalPaid += amount;
-          depositApprovedCount++;
-          if (amount > depositRequiredAmount) {
-            depositRequiredAmount = amount;
-          }
-          // console.log(`  Added deposit payment: ₹${amount}, Total deposit now: ₹${depositTotalPaid}`);
-        }
-
-        if (payment.status === "pending") {
-          depositPendingCount++;
-        } else if (payment.status === "rejected") {
-          depositRejectedCount++;
-        }
+      if (isPaymentSuccessful) {
+        rentApprovedMonths.add(monthKey);
+        rentApprovedCount++;
+        rentTotalPaid += amount;
+      } else if (isPaymentPending) {
+        rentPendingMonthsSet.add(monthKey);
+        rentPendingCount++;
+        rentTotalPending += amount;
+      } else if (isPaymentRejected) {
+        rentRejectedCount++;
       }
-    });
 
-    // Calculate total rent paid by summing all month totals
-    rentTotalPaid = Array.from(rentPaymentsByMonth.values()).reduce(
-      (sum, amount) => sum + amount,
-      0,
-    );
-
-    // Calculate total pending from paymentFormData (more accurate than summing payments)
-    if (paymentFormData) {
-      rentTotalPending = paymentFormData.total_pending || 0;
-    } else {
-      // Fallback: calculate from monthly records if available
-      rentTotalPending = 0;
-    }
-
-    // console.log(
-    //   `Rent payments by month:`,
-    //   Array.from(rentPaymentsByMonth.entries()),
-    // );
-    // console.log(`Total Rent Paid: ${rentTotalPaid}`);
-    // console.log(`Total Deposit Paid: ${depositTotalPaid}`);
-
-    // Use securityDepositInfo from API for required amount if available
-    if (securityDepositInfo) {
-      depositRequiredAmount = securityDepositInfo.security_deposit || 0;
-      if (depositTotalPaid === 0 && securityDepositInfo.paid_amount > 0) {
-        depositTotalPaid = securityDepositInfo.paid_amount || 0;
+      if (payment.discount_amount) {
+        rentTotalDiscount += Number(payment.discount_amount);
       }
-      if (depositTotalPending === 0 && securityDepositInfo.pending_amount > 0) {
-        depositTotalPending = securityDepositInfo.pending_amount || 0;
+    } else if (payment.payment_type === "security_deposit") {
+      if (isPaymentSuccessful) {
+        depositTotalPaid += amount;
+        depositApprovedCount++;
+        if (amount > depositRequiredAmount) {
+          depositRequiredAmount = amount;
+        }
+      } else if (isPaymentPending) {
+        depositTotalPending += amount;
+        depositPendingCount++;
+      } else if (isPaymentRejected) {
+        depositRejectedCount++;
       }
     }
+  });
 
-    setRentStats({
-      totalPaid: rentTotalPaid,
-      totalPending: rentTotalPending,
-      totalDiscount: rentTotalDiscount,
-      approvedCount: rentApprovedCount,
-      pendingCount: rentPendingCount,
-      rejectedCount: rentRejectedCount,
-      monthsPaid,
-      monthsPending,
-    });
+  rentApprovedMonths.forEach(month => monthsPaid.add(month));
+  
+  rentPendingMonthsSet.forEach(month => {
+    if (!monthsPaid.has(month)) {
+      monthsPending.add(month);
+    }
+  });
 
-    setDepositStats({
-      requiredAmount: depositRequiredAmount,
-      totalPaid: depositTotalPaid,
-      totalPending: depositTotalPending,
-      approvedCount: depositApprovedCount,
-      pendingCount: depositPendingCount,
-      rejectedCount: depositRejectedCount,
-      isFullyPaid:
-        depositTotalPaid >= depositRequiredAmount && depositRequiredAmount > 0,
-    });
-  };
+  if (securityDepositInfo) {
+    depositRequiredAmount = securityDepositInfo.security_deposit || 0;
+    if (depositTotalPaid === 0 && securityDepositInfo.paid_amount > 0) {
+      depositTotalPaid = securityDepositInfo.paid_amount || 0;
+    }
+    if (depositTotalPending === 0 && securityDepositInfo.pending_amount > 0) {
+      depositTotalPending = securityDepositInfo.pending_amount || 0;
+    }
+  }
+
+  setRentStats({
+    totalPaid: rentTotalPaid,
+    totalPending: rentTotalPending,
+    totalDiscount: rentTotalDiscount,
+    approvedCount: rentApprovedCount,
+    pendingCount: rentPendingCount,
+    rejectedCount: rentRejectedCount,
+    monthsPaid,
+    monthsPending,
+  });
+
+  setDepositStats({
+    requiredAmount: depositRequiredAmount,
+    totalPaid: depositTotalPaid,
+    totalPending: depositTotalPending,
+    approvedCount: depositApprovedCount,
+    pendingCount: depositPendingCount,
+    rejectedCount: depositRejectedCount,
+    isFullyPaid: depositTotalPaid >= depositRequiredAmount && depositRequiredAmount > 0,
+  });
+};
 
   // Recalculate stats when paymentFormData changes (more accurate for pending amounts)
   useEffect(() => {
@@ -831,7 +840,7 @@ useEffect(() => {
                   razorpay_order_id: response.razorpay_order_id,
                   razorpay_signature: response.razorpay_signature,
                   payment_status: "completed",
-                  status: "approved",
+                  status: "paid", 
                   transaction_id: response.razorpay_payment_id,
                   source: "tenant",
                 }),
@@ -952,7 +961,6 @@ useEffect(() => {
         transaction_id: newPayment.transaction_id || null,
         payment_date: newPayment.payment_date,
         remark: newPayment.remark || null,
-        status: "pending",
       };
 
       if (newPayment.payment_type === "rent") {
