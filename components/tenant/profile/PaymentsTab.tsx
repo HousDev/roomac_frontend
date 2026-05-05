@@ -1,4 +1,4 @@
-
+// components/tenant/profile/PaymentsTab.tsx - Fixed
 
 "use client";
 
@@ -62,33 +62,53 @@ interface DepositStats {
   isFullyPaid: boolean;
 }
 
-// Compact Status Badge
 const StatusBadge = ({ status }: { status: string }) => {
-  const variants: Record<string, { className: string; icon: any; label: string }> = {
-    approved: { 
-      className: 'bg-green-50 text-green-600 border-green-200', 
-      icon: CheckCircle2,
-      label: 'Paid'
-    },
-    pending: { 
-      className: 'bg-yellow-50 text-yellow-600 border-yellow-200', 
-      icon: Clock,
-      label: 'Pending'
-    },
-    rejected: { 
-      className: 'bg-red-50 text-red-600 border-red-200', 
-      icon: XCircle,
-      label: 'Failed'
-    }
-  };
-
-  const config = variants[status] || variants.pending;
-  const Icon = config.icon;
-
+  const normalizedStatus = status?.toLowerCase() || '';
+  
+  // Show "Approved" for approved status
+  if (normalizedStatus === 'approved') {
+    return (
+      <Badge variant="outline" className="bg-green-50 text-green-600 border-green-200 flex items-center gap-0.5 text-[9px] px-1.5 py-0 h-4 rounded-full">
+        <CheckCircle2 className="h-2.5 w-2.5" />
+        <span>Approved</span>
+      </Badge>
+    );
+  }
+  
+  // Show "Paid" for paid status
+  if (normalizedStatus === 'paid') {
+    return (
+      <Badge variant="outline" className="bg-green-50 text-green-600 border-green-200 flex items-center gap-0.5 text-[9px] px-1.5 py-0 h-4 rounded-full">
+        <CheckCircle2 className="h-2.5 w-2.5" />
+        <span>Paid</span>
+      </Badge>
+    );
+  }
+  
+  // Show "Pending" for pending status
+  if (normalizedStatus === 'pending') {
+    return (
+      <Badge variant="outline" className="bg-yellow-50 text-yellow-600 border-yellow-200 flex items-center gap-0.5 text-[9px] px-1.5 py-0 h-4 rounded-full">
+        <Clock className="h-2.5 w-2.5" />
+        <span>Pending</span>
+      </Badge>
+    );
+  }
+  
+  // Show "Rejected" for rejected status
+  if (normalizedStatus === 'rejected') {
+    return (
+      <Badge variant="outline" className="bg-red-50 text-red-600 border-red-200 flex items-center gap-0.5 text-[9px] px-1.5 py-0 h-4 rounded-full">
+        <XCircle className="h-2.5 w-2.5" />
+        <span>Rejected</span>
+      </Badge>
+    );
+  }
+  
+  // Fallback for any other status
   return (
-    <Badge variant="outline" className={`${config.className} flex items-center gap-0.5 text-[9px] px-1.5 py-0 h-4 rounded-full`}>
-      <Icon className="h-2.5 w-2.5" />
-      <span>{config.label}</span>
+    <Badge variant="outline" className="bg-gray-50 text-gray-600 border-gray-200 flex items-center gap-0.5 text-[9px] px-1.5 py-0 h-4 rounded-full">
+      <span className="capitalize">{status || 'Unknown'}</span>
     </Badge>
   );
 };
@@ -128,20 +148,30 @@ const StatCard = ({
   );
 };
 
-// Compact Payment History Item
-const PaymentHistoryItem = ({ payment, formatCurrency, formatDate, isMobile, onDownload }: { 
+const PaymentHistoryItem = ({ payment, formatCurrency, formatDate, onDownload }: { 
   payment: Payment; 
   formatCurrency: (amount: number) => string;
   formatDate: (date: string) => string;
-  isMobile?: boolean;
   onDownload?: (id: number) => void;
 }) => {
   const amount = typeof payment.amount === 'string' ? parseFloat(payment.amount) : payment.amount;
+  // ✅ Show download button ONLY for approved status
+  const showDownloadButton = payment.status === "approved";
+  
+  // Get remark text (use remark or default based on payment type)
+  const getRemarkText = () => {
+    if (payment.remark) return payment.remark;
+    if (payment.payment_type === 'rent') return 'Rent Payment';
+    if (payment.payment_type === 'security_deposit') return 'Security Deposit';
+    return 'Payment';
+  };
   
   return (
     <div className="bg-white border border-slate-200 rounded-lg p-3 hover:shadow-sm transition-all">
       <div className="flex items-start justify-between gap-2">
+        {/* Left side - Icon and Details */}
         <div className="flex items-start gap-2 flex-1 min-w-0">
+          {/* Payment Type Icon */}
           <div className={`p-1.5 rounded-lg flex-shrink-0 ${
             payment.payment_type === 'rent' ? 'bg-blue-50' : 'bg-yellow-50'
           }`}>
@@ -152,10 +182,12 @@ const PaymentHistoryItem = ({ payment, formatCurrency, formatDate, isMobile, onD
             )}
           </div>
           
+          {/* Transaction Details */}
           <div className="flex-1 min-w-0">
+            {/* Remark/Description */}
             <div className="flex items-center flex-wrap gap-1 mb-0.5">
               <p className="text-xs font-semibold text-slate-800 truncate">
-                {payment.remark || (payment.payment_type === 'rent' ? 'Rent Payment' : 'Security Deposit')}
+                {getRemarkText()}
               </p>
               {payment.month && payment.year && (
                 <span className="text-[8px] bg-slate-100 text-slate-600 px-1 py-0.5 rounded">
@@ -164,6 +196,7 @@ const PaymentHistoryItem = ({ payment, formatCurrency, formatDate, isMobile, onD
               )}
             </div>
             
+            {/* Date and Payment Mode */}
             <div className="flex items-center flex-wrap gap-1.5 text-[8px] text-slate-500">
               <div className="flex items-center gap-0.5">
                 <Calendar className="h-2.5 w-2.5" />
@@ -177,20 +210,22 @@ const PaymentHistoryItem = ({ payment, formatCurrency, formatDate, isMobile, onD
               {payment.transaction_id && (
                 <>
                   <span className="w-0.5 h-0.5 rounded-full bg-slate-300"></span>
-                  <span className="font-mono">{payment.transaction_id.substring(0, 6)}...</span>
+                  <span className="font-mono">{payment.transaction_id.substring(0, 8)}...</span>
                 </>
               )}
             </div>
           </div>
         </div>
 
+        {/* Right side - Amount and Status */}
         <div className="flex items-center gap-2 flex-shrink-0">
           <div className="text-right">
             <p className="text-xs font-bold text-blue-600">{formatCurrency(amount)}</p>
           </div>
           <div className="flex flex-col items-end gap-1">
             <StatusBadge status={payment.status} />
-            {payment.status === 'approved' && (
+            {/* ✅ Download button ONLY for approved status */}
+            {showDownloadButton && (
               <Button
                 size="sm"
                 variant="ghost"
@@ -209,6 +244,8 @@ const PaymentHistoryItem = ({ payment, formatCurrency, formatDate, isMobile, onD
 
 export default function PaymentsTab({ tenantId, isMobile = false }: PaymentsTabProps) {
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [paymentFormData, setPaymentFormData] = useState<any>(null);
+  const [securityDepositInfo, setSecurityDepositInfo] = useState<any>(null); // ✅ Add this
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [rentStats, setRentStats] = useState<RentStats>({
@@ -238,7 +275,7 @@ export default function PaymentsTab({ tenantId, isMobile = false }: PaymentsTabP
 
   useEffect(() => {
     if (tenantId) {
-      fetchPayments();
+      fetchData();
     } else {
       console.error('No tenantId provided to PaymentsTab');
       setError('Tenant ID not available');
@@ -246,31 +283,54 @@ export default function PaymentsTab({ tenantId, isMobile = false }: PaymentsTabP
     }
   }, [tenantId]);
 
-  const fetchPayments = async () => {
+  const fetchData = async () => {
     try {
       setLoading(true);
       setError(null);
       
-      const response = await paymentApi.getPaymentsByTenant(tenantId);
+      // Fetch payments, payment form data, AND security deposit info
+      const [paymentsRes, formDataRes, depositRes] = await Promise.all([
+        paymentApi.getPaymentsByTenant(tenantId),
+        paymentApi.getTenantPaymentFormData(tenantId),
+        paymentApi.getSecurityDepositInfo(tenantId)  // ✅ Add this
+      ]);
       
-      if (response.success && response.data) {
-        const paymentData = response.data;
-        
+      // ✅ Set security deposit info from API (this has the correct required amount)
+      if (depositRes.success && depositRes.data) {
+        setSecurityDepositInfo(depositRes.data);
+        console.log('Security deposit info:', depositRes.data);
+      }
+      
+      if (paymentsRes.success && paymentsRes.data) {
+        const paymentData = paymentsRes.data;
         const processedPayments = paymentData.map((p: any) => ({
           ...p,
           amount: typeof p.amount === 'string' ? parseFloat(p.amount) : p.amount
         }));
         
         setPayments(processedPayments);
-        calculateStats(processedPayments);
+        
+        // Calculate rent stats from payments
+        calculateRentStats(processedPayments);
+        
+        // Calculate deposit stats using the correct required amount from API
+        if (depositRes.success && depositRes.data) {
+          calculateDepositStats(processedPayments, depositRes.data);
+        }
       } else {
-        console.error('Failed to fetch payments:', response);
-        setError(response.message || 'Failed to load payment history');
         setPayments([]);
-        calculateStats([]);
+        calculateRentStats([]);
+        if (depositRes.success && depositRes.data) {
+          calculateDepositStats([], depositRes.data);
+        }
       }
+      
+      if (formDataRes.success) {
+        setPaymentFormData(formDataRes.data);
+      }
+      
     } catch (error: any) {
-      console.error('Error fetching payments:', error);
+      console.error('Error fetching data:', error);
       setError(error.message || 'Failed to load payment history');
       toast.error('Failed to load payment history');
     } finally {
@@ -278,7 +338,12 @@ export default function PaymentsTab({ tenantId, isMobile = false }: PaymentsTabP
     }
   };
 
-  const calculateStats = (payments: Payment[]) => {
+  const isPaymentPaid = (status: string): boolean => {
+    const paidStatuses = ['approved', 'paid', 'completed'];
+    return paidStatuses.includes(status?.toLowerCase() || '');
+  };
+
+  const calculateRentStats = (payments: Payment[]) => {
     let rentTotalPaid = 0;
     let rentTotalPending = 0;
     let rentApprovedCount = 0;
@@ -286,41 +351,13 @@ export default function PaymentsTab({ tenantId, isMobile = false }: PaymentsTabP
     let rentRejectedCount = 0;
     const monthsPaid = new Set<string>();
     const monthsPending = new Set<string>();
-    
-    let depositTotalPaid = 0;
-    let depositTotalPending = 0;
-    let depositApprovedCount = 0;
-    let depositPendingCount = 0;
-    let depositRejectedCount = 0;
-    let depositRequiredAmount = 0;
-    
     let lastDate: string | null = null;
 
-    // First pass: find the actual required deposit amount from approved payments
-    payments.forEach(payment => {
-      if (payment.payment_type === 'security_deposit' && payment.status === 'approved') {
-        const amount = typeof payment.amount === 'string' ? parseFloat(payment.amount) : payment.amount;
-        if (amount > depositRequiredAmount) {
-          depositRequiredAmount = amount;
-        }
-      }
-    });
-
-    // If no approved deposit found, look at pending ones as reference
-    if (depositRequiredAmount === 0) {
-      payments.forEach(payment => {
-        if (payment.payment_type === 'security_deposit') {
-          const amount = typeof payment.amount === 'string' ? parseFloat(payment.amount) : payment.amount;
-          if (amount > depositRequiredAmount) {
-            depositRequiredAmount = amount;
-          }
-        }
-      });
-    }
-
-    // Second pass: calculate stats based on status
     payments.forEach(payment => {
       const amount = typeof payment.amount === 'string' ? parseFloat(payment.amount) : payment.amount;
+      const isPaid = isPaymentPaid(payment.status);
+      const isPending = payment.status?.toLowerCase() === 'pending';
+      const isRejected = payment.status?.toLowerCase() === 'rejected';
       
       const paymentDate = payment.payment_date;
       if (!lastDate || new Date(paymentDate) > new Date(lastDate)) {
@@ -330,31 +367,19 @@ export default function PaymentsTab({ tenantId, isMobile = false }: PaymentsTabP
       if (payment.payment_type === 'rent') {
         const monthKey = `${payment.month || ''}-${payment.year || ''}`;
         
-        if (payment.status === 'approved' || payment.status === 'completed') {
+        if (isPaid) {
           rentTotalPaid += amount;
           rentApprovedCount++;
           if (monthKey !== '-') monthsPaid.add(monthKey);
-        } else if (payment.status === 'pending') {
+        } else if (isPending) {
           rentTotalPending += amount;
           rentPendingCount++;
           if (monthKey !== '-') monthsPending.add(monthKey);
-        } else if (payment.status === 'rejected' || payment.status === 'failed') {
+        } else if (isRejected) {
           rentRejectedCount++;
-        }
-      } else if (payment.payment_type === 'security_deposit') {
-        if (payment.status === 'approved' || payment.status === 'completed') {
-          depositTotalPaid += amount;
-          depositApprovedCount++;
-        } else if (payment.status === 'pending') {
-          depositTotalPending += amount;
-          depositPendingCount++;
-        } else if (payment.status === 'rejected' || payment.status === 'failed') {
-          depositRejectedCount++;
         }
       }
     });
-
-    const depositRemaining = Math.max(0, depositRequiredAmount - depositTotalPaid);
 
     setRentStats({
       totalPaid: rentTotalPaid,
@@ -366,6 +391,59 @@ export default function PaymentsTab({ tenantId, isMobile = false }: PaymentsTabP
       monthsPending
     });
 
+    setTotalTransactions(payments.length);
+    setLastPaymentDate(lastDate);
+  };
+
+  // ✅ NEW: Calculate deposit stats using the correct required amount from API
+  const calculateDepositStats = (payments: Payment[], depositInfo: any) => {
+    let depositTotalPaid = 0;
+    let depositTotalPending = 0;
+    let depositApprovedCount = 0;
+    let depositPendingCount = 0;
+    let depositRejectedCount = 0;
+    
+    // ✅ Use the actual required amount from bed_assignments (via API)
+    const depositRequiredAmount = depositInfo.security_deposit || 0;
+    
+    payments.forEach(payment => {
+      const amount = typeof payment.amount === 'string' ? parseFloat(payment.amount) : payment.amount;
+      const isPaid = isPaymentPaid(payment.status);
+      const isPending = payment.status?.toLowerCase() === 'pending';
+      const isRejected = payment.status?.toLowerCase() === 'rejected';
+      
+      if (payment.payment_type === 'security_deposit') {
+        if (isPaid) {
+          depositTotalPaid += amount;
+          depositApprovedCount++;
+        } else if (isPending) {
+          depositTotalPending += amount;
+          depositPendingCount++;
+        } else if (isRejected) {
+          depositRejectedCount++;
+        }
+      }
+    });
+    
+    // Also check if depositInfo has paid_amount (more accurate)
+    if (depositInfo.paid_amount > 0) {
+      depositTotalPaid = depositInfo.paid_amount;
+    }
+    if (depositInfo.pending_amount > 0) {
+      depositTotalPending = depositInfo.pending_amount;
+    }
+    
+    const depositRemaining = Math.max(0, depositRequiredAmount - depositTotalPaid);
+    const isFullyPaid = depositRemaining === 0 && depositRequiredAmount > 0;
+    
+    console.log('Deposit calculation:', {
+      required: depositRequiredAmount,
+      paid: depositTotalPaid,
+      pending: depositTotalPending,
+      remaining: depositRemaining,
+      isFullyPaid
+    });
+    
     setDepositStats({
       requiredAmount: depositRequiredAmount,
       totalPaid: depositTotalPaid,
@@ -374,11 +452,8 @@ export default function PaymentsTab({ tenantId, isMobile = false }: PaymentsTabP
       pendingCount: depositPendingCount,
       rejectedCount: depositRejectedCount,
       remainingAmount: depositRemaining,
-      isFullyPaid: depositTotalPaid >= depositRequiredAmount && depositRequiredAmount > 0
+      isFullyPaid: isFullyPaid
     });
-
-    setTotalTransactions(payments.length);
-    setLastPaymentDate(lastDate);
   };
 
   const handleDownloadReceipt = (paymentId: number) => {
@@ -410,6 +485,16 @@ export default function PaymentsTab({ tenantId, isMobile = false }: PaymentsTabP
     return true;
   });
 
+  // Use paymentFormData for rent summary table
+  const months = paymentFormData?.month_wise_history || [];
+  const totalRentPaid = paymentFormData?.total_paid || rentStats.totalPaid;
+  const totalRentPending = paymentFormData?.total_pending || rentStats.totalPending;
+
+  // Calculate deposit percentage
+  const depositPercentage = depositStats.requiredAmount > 0 
+    ? Math.round((depositStats.totalPaid / depositStats.requiredAmount) * 100) 
+    : 0;
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-8">
@@ -430,7 +515,7 @@ export default function PaymentsTab({ tenantId, isMobile = false }: PaymentsTabP
         <Button 
           variant="outline" 
           size="sm" 
-          onClick={fetchPayments}
+          onClick={fetchData}
           className="mt-3 text-xs"
         >
           Try Again
@@ -491,7 +576,7 @@ export default function PaymentsTab({ tenantId, isMobile = false }: PaymentsTabP
         />
       </div>
 
-      {/* Rent Summary - Compact */}
+      {/* Rent Summary - Using paymentFormData for accurate rent table */}
       <Card className="border border-slate-200 shadow-sm overflow-hidden">
         <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-3 py-2">
           <div className="flex items-center justify-between">
@@ -500,55 +585,84 @@ export default function PaymentsTab({ tenantId, isMobile = false }: PaymentsTabP
               Rent Overview
             </h3>
             <Badge className="bg-white/20 text-white border-white/30 text-[8px] px-1.5 py-0 h-4">
-              {rentStats.monthsPaid.size} {rentStats.monthsPaid.size === 1 ? 'month' : 'months'} paid
+              {months.length} {months.length === 1 ? 'month' : 'months'}
             </Badge>
           </div>
         </div>
         <CardContent className="p-3">
-          <div className={`grid ${isMobile ? 'grid-cols-2' : 'grid-cols-4'} gap-2 mb-3`}>
-            <div className="bg-blue-50 rounded-lg p-2">
-              <p className="text-[8px] text-blue-600 uppercase">Paid</p>
-              <p className="text-xs font-bold text-blue-600">{formatCurrency(rentStats.totalPaid)}</p>
-              <p className="text-[7px] text-blue-400">{rentStats.approvedCount} payments</p>
+          {months.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="text-left p-2 text-xs font-medium text-slate-600">Month</th>
+                    <th className="text-right p-2 text-xs font-medium text-slate-600">Rent</th>
+                    <th className="text-right p-2 text-xs font-medium text-slate-600">Paid</th>
+                    <th className="text-right p-2 text-xs font-medium text-slate-600">Discount</th>
+                    <th className="text-right p-2 text-xs font-medium text-slate-600">Pending</th>
+                    <th className="text-center p-2 text-xs font-medium text-slate-600">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {months.map((month: any, index: number) => (
+                    <tr key={index} className="border-t border-slate-200">
+                      <td className="p-2 text-sm font-medium">
+                        {month.month} {month.year}
+                        {month.is_prorated && (
+                          <span className="ml-2 text-[10px] text-amber-600">
+                            (Prorated - {month.prorated_days} days)
+                          </span>
+                        )}
+                      </td>
+                      <td className="p-2 text-right">₹{month.rent?.toLocaleString()}</td>
+                      <td className="p-2 text-right text-green-600 font-medium">
+                        ₹{month.paid?.toLocaleString()}
+                      </td>
+                      <td className="p-2 text-right text-red-500">
+                        ₹{month.discount_applied?.toLocaleString() || 0}
+                      </td>
+                      <td className="p-2 text-right font-medium">
+                        <span className={month.pending > 0 ? "text-amber-600" : "text-green-600"}>
+                          ₹{month.pending?.toLocaleString()}
+                        </span>
+                      </td>
+                      <td className="p-2 text-center">
+                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                          month.status === "paid" ? "bg-green-100 text-green-800" :
+                          month.status === "partial" ? "bg-yellow-100 text-yellow-800" :
+                          "bg-red-100 text-red-800"
+                        }`}>
+                          {month.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot className="bg-slate-50">
+                  <tr className="border-t border-slate-200 font-bold">
+                    <td className="p-2 text-sm">Total</td>
+                    <td className="p-2 text-right">₹{paymentFormData?.total_expected?.toLocaleString() || '0'}</td>
+                    <td className="p-2 text-right text-green-600">₹{totalRentPaid?.toLocaleString() || '0'}</td>
+                    <td className="p-2 text-right text-red-500">₹{paymentFormData?.total_discount?.toLocaleString() || '0'}</td>
+                    <td className="p-2 text-right text-amber-600">₹{totalRentPending?.toLocaleString() || '0'}</td>
+                    <td className="p-2 text-center">
+                      <Badge className="bg-purple-100 text-purple-800">
+                        Due: ₹{totalRentPending?.toLocaleString() || '0'}
+                      </Badge>
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
             </div>
-            <div className="bg-yellow-50 rounded-lg p-2">
-              <p className="text-[8px] text-yellow-600 uppercase">Pending</p>
-              <p className="text-xs font-bold text-yellow-600">{formatCurrency(rentStats.totalPending)}</p>
-              <p className="text-[7px] text-yellow-400">{rentStats.pendingCount} payments</p>
-            </div>
-            <div className="bg-purple-50 rounded-lg p-2">
-              <p className="text-[8px] text-purple-600 uppercase">Months</p>
-              <p className="text-xs font-bold text-purple-600">{rentStats.monthsPaid.size}</p>
-            </div>
-            <div className="bg-red-50 rounded-lg p-2">
-              <p className="text-[8px] text-red-600 uppercase">Failed</p>
-              <p className="text-xs font-bold text-red-600">{rentStats.rejectedCount}</p>
-            </div>
-          </div>
-
-          {/* Rent Progress Bar - CORRECTED */}
-          {rentStats.monthsPaid.size + rentStats.monthsPending.size > 0 && (
-            <div className="bg-slate-50 rounded-lg p-2">
-              <div className="flex justify-between text-[8px] text-slate-600 mb-1">
-                <span>Payment Progress</span>
-                <span className="font-bold text-blue-600">
-                  {Math.round((rentStats.monthsPaid.size / (rentStats.monthsPaid.size + rentStats.monthsPending.size)) * 100)}%
-                </span>
-              </div>
-              <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-gradient-to-r from-blue-600 to-yellow-500 rounded-full transition-all"
-                  style={{ 
-                    width: `${(rentStats.monthsPaid.size / (rentStats.monthsPaid.size + rentStats.monthsPending.size)) * 100}%` 
-                  }}
-                />
-              </div>
+          ) : (
+            <div className="text-center py-6">
+              <p className="text-xs text-slate-500">No rent history available</p>
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Deposit Summary - Compact */}
+      {/* Security Deposit Summary - Corrected with actual required amount */}
       {depositStats.requiredAmount > 0 && (
         <Card className="border border-slate-200 shadow-sm overflow-hidden">
           <div className="bg-gradient-to-r from-yellow-500 to-yellow-600 px-3 py-2">
@@ -558,7 +672,7 @@ export default function PaymentsTab({ tenantId, isMobile = false }: PaymentsTabP
                 Security Deposit
               </h3>
               <Badge className="bg-white/20 text-white border-white/30 text-[8px] px-1.5 py-0 h-4">
-                {depositStats.isFullyPaid ? 'Fully Paid' : `${Math.round((depositStats.totalPaid / depositStats.requiredAmount) * 100)}% Paid`}
+                {depositStats.isFullyPaid ? 'Fully Paid' : `${depositPercentage}% Paid`}
               </Badge>
             </div>
           </div>
@@ -586,18 +700,24 @@ export default function PaymentsTab({ tenantId, isMobile = false }: PaymentsTabP
               )}
             </div>
 
-            {/* Deposit Progress Bar - CORRECTED */}
+            {/* Status Row */}
+            <div className="flex items-center justify-between mb-3 px-1">
+              <span className="text-[9px] text-slate-500">Status:</span>
+              <span className={`text-xs font-bold ${depositStats.isFullyPaid ? 'text-green-600' : depositStats.totalPaid > 0 ? 'text-yellow-600' : 'text-red-600'}`}>
+                {depositStats.isFullyPaid ? 'Fully Paid' : depositStats.totalPaid > 0 ? 'Partial' : 'Not Paid'}
+              </span>
+            </div>
+
+            {/* Deposit Progress Bar */}
             <div className="bg-slate-50 rounded-lg p-2">
               <div className="flex justify-between text-[8px] text-slate-600 mb-1">
                 <span>Deposit Progress</span>
-                <span className="font-bold text-yellow-600">
-                  {Math.round((depositStats.totalPaid / depositStats.requiredAmount) * 100)}%
-                </span>
+                <span className="font-bold text-yellow-600">{depositPercentage}%</span>
               </div>
               <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden">
                 <div 
                   className="h-full bg-gradient-to-r from-yellow-500 to-yellow-600 rounded-full transition-all"
-                  style={{ width: `${(depositStats.totalPaid / depositStats.requiredAmount) * 100}%` }}
+                  style={{ width: `${depositPercentage}%` }}
                 />
               </div>
             </div>
@@ -605,7 +725,7 @@ export default function PaymentsTab({ tenantId, isMobile = false }: PaymentsTabP
         </Card>
       )}
 
-      {/* Payment History with Filters */}
+      {/* Payment History */}
       <Card className="border border-slate-200 shadow-sm overflow-hidden">
         <div className="px-3 py-2 border-b border-slate-100">
           <div className="flex items-center justify-between">
@@ -661,7 +781,6 @@ export default function PaymentsTab({ tenantId, isMobile = false }: PaymentsTabP
                   payment={payment}
                   formatCurrency={formatCurrency}
                   formatDate={formatDate}
-                  isMobile={isMobile}
                   onDownload={handleDownloadReceipt}
                 />
               ))}
@@ -675,7 +794,7 @@ export default function PaymentsTab({ tenantId, isMobile = false }: PaymentsTabP
         <Button
           variant="ghost"
           size="sm"
-          onClick={fetchPayments}
+          onClick={fetchData}
           className="text-[9px] text-slate-500 hover:text-blue-600"
         >
           <Loader2 className={`h-3 w-3 mr-1 ${loading ? 'animate-spin' : ''}`} />

@@ -187,18 +187,34 @@ export default function TenantDetailPage() {
     } catch {}
   };
 
-  const loadPayments = async () => {
-    setLoadingPayments(true);
-    try {
-      const pr = await getTenantPayments(tid);
+const loadPayments = async () => {
+  setLoadingPayments(true);
+  try {
+    // First, check if tenant has vacated records
+    const hasVacated = tenant?.vacate_records && tenant.vacate_records.length > 0;
+    
+    let pr, sr;
+    
+    if (hasVacated) {
+      // Use vacated tenant endpoint
+      pr = await paymentApi.getVacatedTenantPaymentFormData(parseInt(tid));
+      if (pr.success && pr.data) {
+        setPayments(pr.data.payments || []);
+        setPaymentSummary(pr.data);
+      }
+    } else {
+      // Use regular endpoint for active tenants
+      pr = await getTenantPayments(tid);
       if (pr.success) setPayments(pr.data || []);
-      const sr = await getTenantPaymentFormData(tid);
+      sr = await getTenantPaymentFormData(tid);
       if (sr.success && sr.data) setPaymentSummary(sr.data);
-    } catch {
-    } finally {
-      setLoadingPayments(false);
     }
-  };
+  } catch (error) {
+    console.error("Error loading payments:", error);
+  } finally {
+    setLoadingPayments(false);
+  }
+};
 
   const viewDoc = (url: string) => {
     if (!url) {
@@ -391,6 +407,29 @@ export default function TenantDetailPage() {
             color="bg-amber-600"
             bgColor="bg-gradient-to-br from-amber-50 to-amber-100"
           />
+
+          {(() => {
+  const vacateRecord = tenant.vacate_records && tenant.vacate_records.length > 0 
+    ? tenant.vacate_records[0] 
+    : null;
+  
+  if (vacateRecord) {
+    return (
+      <StatCard
+        title="Vacated On"
+        value={new Date(vacateRecord.requested_vacate_date).toLocaleDateString("en-IN", {
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+        })}
+        icon={Calendar}
+        color="bg-red-600"
+        bgColor="bg-gradient-to-br from-red-50 to-red-100"
+      />
+    );
+  }
+  return null;
+})()}
         </div>
 
         {/* Main Card with Modern Tabs */}
@@ -747,6 +786,83 @@ export default function TenantDetailPage() {
                     </div>
                   </div>
                 </div>
+
+                {/* Vacate Information - Only show if tenant has vacated */}
+{(() => {
+  // Find the most recent vacate record
+  const vacateRecord = tenant.vacate_records && tenant.vacate_records.length > 0 
+    ? tenant.vacate_records[0] 
+    : null;
+  
+  if (!vacateRecord) return null;
+  
+  return (
+    <div className="bg-gradient-to-br from-red-50 to-red-100/50 rounded-xl border border-red-200 p-5">
+      <div className="flex items-center gap-3 mb-4 pb-3 border-b border-red-200">
+        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-500 to-red-600 text-white flex items-center justify-center shadow-sm">
+          <Calendar className="w-4 h-4" />
+        </div>
+        <h3 className="font-lexend font-semibold text-red-800">
+          Vacate Information
+        </h3>
+      </div>
+      <div className="space-y-3">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-red-600 mb-1">
+            Vacate Date
+          </p>
+          <p className="text-sm font-medium text-red-900">
+            {vacateRecord.requested_vacate_date
+              ? new Date(vacateRecord.requested_vacate_date).toLocaleDateString("en-IN", {
+                  day: "numeric",
+                  month: "long",
+                  year: "numeric",
+                })
+              : "Not specified"}
+          </p>
+        </div>
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-red-600 mb-1">
+            Vacate Reason
+          </p>
+          <p className="text-sm font-medium text-red-900">
+            {vacateRecord.vacate_reason_value || "Not specified"}
+          </p>
+        </div>
+        <div className="grid grid-cols-2 gap-3 pt-2 border-t border-red-200">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-red-600 mb-1">
+              Total Penalty
+            </p>
+            <p className="text-sm font-semibold text-red-700">
+              ₹{Number(vacateRecord.total_penalty_amount || 0).toLocaleString()}
+            </p>
+          </div>
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-red-600 mb-1">
+              Refund Amount
+            </p>
+            <p className="text-sm font-semibold text-green-700">
+              ₹{Number(vacateRecord.refundable_amount || 0).toLocaleString()}
+            </p>
+          </div>
+        </div>
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-red-600 mb-1">
+            Vacate Status
+          </p>
+          <Badge className={`text-[10px] px-2 py-0.5 ${
+            vacateRecord.status === 'approved' 
+              ? 'bg-green-100 text-green-700 border-green-200' 
+              : 'bg-yellow-100 text-yellow-700 border-yellow-200'
+          } border`}>
+            {vacateRecord.status === 'approved' ? 'Approved' : vacateRecord.status}
+          </Badge>
+        </div>
+      </div>
+    </div>
+  );
+})()}
               </TabsContent>
 
               {/* Occupation Tab - Enhanced with all fields */}
@@ -995,344 +1111,450 @@ export default function TenantDetailPage() {
                   )}
               </TabsContent>
 
-              {/* Payments Tab - Enhanced */}
-              <TabsContent value="payments" className="mt-0 space-y-6">
-                {paymentSummary && (
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                    <PaymentCard
-                      label="Total Paid"
-                      value={`₹${paymentSummary.total_paid?.toLocaleString() || "0"}`}
-                      gradient="from-emerald-500 to-emerald-600"
-                      icon={<TrendingUp className="w-3 h-3" />}
-                    />
-                    <PaymentCard
-                      label="Total Pending"
-                      value={`₹${paymentSummary.total_pending?.toLocaleString() || "0"}`}
-                      gradient="from-orange-500 to-orange-600"
-                      icon={<Clock className="w-3 h-3" />}
-                    />
-                    <PaymentCard
-                      label="Monthly Rent"
-                      value={`₹${paymentSummary.monthly_rent?.toLocaleString() || "0"}`}
-                      gradient="from-blue-500 to-blue-600"
-                      icon={<IndianRupee className="w-3 h-3" />}
-                    />
-                    <PaymentCard
-                      label="Months Joined"
-                      value={String(
-                        paymentSummary.total_months_since_joining || "0",
-                      )}
-                      gradient="from-purple-500 to-purple-600"
-                      icon={<CalendarDays className="w-3 h-3" />}
-                    />
+              {/* Payments Tab - Updated to handle vacated tenants */}
+<TabsContent value="payments" className="mt-0">
+  {loadingPayments ? (
+    <div className="flex justify-center py-12">
+      <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+    </div>
+  ) : (
+    <div className="space-y-4">
+      {/* Show Vacated Banner if tenant is vacated */}
+      {paymentSummary?.is_vacated && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5" />
+            <div className="flex-1">
+              <h4 className="font-semibold text-amber-800 text-sm">Vacated Tenant</h4>
+              <p className="text-xs text-amber-700 mt-0.5">
+                This tenant vacated on {paymentSummary.vacate_info?.vacate_date 
+                  ? new Date(paymentSummary.vacate_info.vacate_date).toLocaleDateString("en-IN") 
+                  : "N/A"}
+              </p>
+              {paymentSummary.vacate_info?.vacate_reason && (
+                <p className="text-xs text-amber-600 mt-1">
+                  Reason: {paymentSummary.vacate_info.vacate_reason}
+                </p>
+              )}
+              <div className="grid grid-cols-2 gap-3 mt-3 pt-2 border-t border-amber-200">
+                <div>
+                  <p className="text-[10px] font-bold uppercase text-amber-600">Total Penalty</p>
+                  <p className="text-sm font-semibold text-red-600">
+                    ₹{(paymentSummary.vacate_info.total_penalty || 0).toLocaleString()}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase text-amber-600">Refund Amount</p>
+                  <p className="text-sm font-semibold text-green-600">
+                    ₹{(paymentSummary.vacate_info.refundable_amount || 0).toLocaleString()}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Payment Summary Cards - Show for vacated tenants too */}
+      {paymentSummary && (
+        <>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {!paymentSummary.is_vacated ? (
+              // Original summary for active tenants
+              <>
+                <PaymentCard
+                  label="Total Paid"
+                  value={`₹${paymentSummary.total_paid?.toLocaleString() || "0"}`}
+                  gradient="from-emerald-500 to-emerald-600"
+                  icon={<TrendingUp className="w-3 h-3" />}
+                />
+                <PaymentCard
+                  label="Total Pending"
+                  value={`₹${paymentSummary.total_pending?.toLocaleString() || "0"}`}
+                  gradient="from-orange-500 to-orange-600"
+                  icon={<Clock className="w-3 h-3" />}
+                />
+                <PaymentCard
+                  label="Monthly Rent"
+                  value={`₹${paymentSummary.monthly_rent?.toLocaleString() || "0"}`}
+                  gradient="from-blue-500 to-blue-600"
+                  icon={<IndianRupee className="w-3 h-3" />}
+                />
+                <PaymentCard
+                  label="Months Joined"
+                  value={String(paymentSummary.total_months_since_joining || "0")}
+                  gradient="from-purple-500 to-purple-600"
+                  icon={<CalendarDays className="w-3 h-3" />}
+                />
+              </>
+            ) : (
+              // Summary for vacated tenants
+              <>
+                <PaymentCard
+                  label="Total Rent Paid"
+                  value={`₹${paymentSummary.total_rent_paid?.toLocaleString() || "0"}`}
+                  gradient="from-emerald-500 to-emerald-600"
+                  icon={<IndianRupee className="w-3 h-3" />}
+                />
+                <PaymentCard
+                  label="Payment Count"
+                  value={String(paymentSummary.rent_payment_count || "0")}
+                  gradient="from-blue-500 to-blue-600"
+                  icon={<CreditCard className="w-3 h-3" />}
+                />
+                <PaymentCard
+                  label="Security Deposit"
+                  value={`₹${paymentSummary.security_deposit_info?.total?.toLocaleString() || "0"}`}
+                  gradient="from-amber-500 to-amber-600"
+                  icon={<Shield className="w-3 h-3" />}
+                />
+                <PaymentCard
+                  label="Deposit Paid"
+                  value={`₹${paymentSummary.security_deposit_info?.paid?.toLocaleString() || "0"}`}
+                  gradient="from-green-500 to-green-600"
+                  icon={<Wallet className="w-3 h-3" />}
+                />
+              </>
+            )}
+          </div>
+
+          {/* Security Deposit Section - Show for vacated tenants */}
+          {paymentSummary.is_vacated && paymentSummary.security_deposit_info && (
+            <div className="bg-white rounded-xl border border-slate-200 p-5">
+              <div className="flex items-center gap-3 mb-4 pb-3 border-b border-slate-200">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 text-white flex items-center justify-center shadow-sm">
+                  <Shield className="w-4 h-4" />
+                </div>
+                <h3 className="font-lexend font-semibold text-slate-900">
+                  Security Deposit Details
+                </h3>
+              </div>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-slate-600">Total Deposit</span>
+                  <span className="font-semibold">₹{paymentSummary.security_deposit_info.total?.toLocaleString() || 0}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-slate-600">Paid Amount</span>
+                  <span className="font-semibold text-green-600">₹{paymentSummary.security_deposit_info.paid?.toLocaleString() || 0}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-slate-600">Refunded/Adjusted</span>
+                  <span className="font-semibold text-blue-600">
+                    ₹{((paymentSummary.security_deposit_info.total || 0) - (paymentSummary.security_deposit_info.paid || 0)).toLocaleString()}
+                  </span>
+                </div>
+                {paymentSummary.security_deposit_info.last_payment_date && (
+                  <div className="flex justify-between items-center pt-2 border-t">
+                    <span className="text-xs text-slate-500">Last Deposit Payment</span>
+                    <span className="text-xs">
+                      {new Date(paymentSummary.security_deposit_info.last_payment_date).toLocaleDateString("en-IN")}
+                    </span>
                   </div>
                 )}
+              </div>
+            </div>
+          )}
 
-                {paymentSummary?.month_wise_history?.length > 0 ? (
-                  <div className="bg-white rounded-xl border border-slate-200 p-5">
-                    <div className="flex items-center gap-3 mb-4 pb-3 border-b border-slate-200">
-                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 text-white flex items-center justify-center shadow-sm">
-                        <CreditCard className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <h3 className="font-lexend font-semibold text-slate-900">
-                          Month-wise Payment History
-                        </h3>
-                        <p className="text-xs text-slate-500 mt-0.5">
-                          Detailed breakdown of payments by month
-                        </p>
-                      </div>
-                    </div>
+          {/* Payment History Table - Works for both active and vacated */}
+          {paymentSummary.month_wise_history?.length > 0 && !paymentSummary.is_vacated ? (
+            // Original month-wise history for active tenants
+            <div className="bg-white rounded-xl border border-slate-200 p-5">
+              <div className="flex items-center gap-3 mb-4 pb-3 border-b border-slate-200">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 text-white flex items-center justify-center shadow-sm">
+                  <CreditCard className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-lexend font-semibold text-slate-900">
+                    Month-wise Payment History
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Detailed breakdown of payments by month
+                  </p>
+                </div>
+              </div>
 
-                    <div className="space-y-3">
-                      {paymentSummary.month_wise_history.map((m: any) => {
-                        const k = `${m.month}-${m.year}`;
-                        const open = expandedMonths.includes(k);
-                        const statusColor =
-                          m.status === "paid"
-                            ? "emerald"
-                            : m.status === "partial"
-                              ? "blue"
-                              : m.status === "overdue"
-                                ? "red"
-                                : "slate";
+              <div className="space-y-3">
+                {paymentSummary.month_wise_history.map((m: any) => {
+                  const k = `${m.month}-${m.year}`;
+                  const open = expandedMonths.includes(k);
+                  const statusColor =
+                    m.status === "paid"
+                      ? "emerald"
+                      : m.status === "partial"
+                        ? "blue"
+                        : m.status === "overdue"
+                          ? "red"
+                          : "slate";
 
-                        return (
-                          <Collapsible
-                            key={k}
-                            open={open}
-                            onOpenChange={() => toggleMonth(k)}
-                          >
-                            <div className="border border-slate-200 rounded-xl overflow-hidden hover:border-slate-300 transition-colors">
-                              <CollapsibleTrigger asChild>
-                                <button className="w-full p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white hover:bg-slate-50/50 transition-all">
-                                  <div className="flex items-center gap-3 min-w-0">
-                                    <div
-                                      className={`w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 transition-all ${open ? "bg-blue-600 text-white shadow-sm" : "bg-slate-100 text-slate-500"}`}
-                                    >
-                                      {open ? (
-                                        <ChevronUp className="w-3.5 h-3.5" />
-                                      ) : (
-                                        <ChevronDown className="w-3.5 h-3.5" />
-                                      )}
-                                    </div>
-                                    <div className="text-left min-w-0">
-                                      <div className="flex flex-wrap items-center gap-2">
-                                        <span className="font-lexend font-semibold text-slate-900">
-                                          {m.month} {m.year}
-                                        </span>
-                                        {m.isCurrentMonth && (
-                                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-50 text-blue-700 border border-blue-200">
-                                            Current
-                                          </span>
-                                        )}
-                                        {m.isFirstMonth && (
-                                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-purple-50 text-purple-700 border border-purple-200">
-                                            First Month
-                                          </span>
-                                        )}
-                                      </div>
-                                      <p className="text-xs text-slate-500 mt-0.5">
-                                        Rent: ₹{m.rent?.toLocaleString()}
-                                      </p>
-                                    </div>
-                                  </div>
-                                  <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto">
-                                    <div className="text-right sm:text-left">
-                                      <p className="text-sm font-semibold text-emerald-600">
-                                        Paid ₹
-                                        {(
-                                          m.paid ||
-                                          m.paid_amount ||
-                                          0
-                                        ).toLocaleString()}
-                                      </p>
-                                      <p className="text-sm font-semibold text-orange-600">
-                                        Pending ₹
-                                        {(
-                                          m.pending ||
-                                          m.pending_amount ||
-                                          m.rent ||
-                                          0
-                                        ).toLocaleString()}
-                                      </p>
-                                    </div>
-                                    <span
-                                      className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium capitalize bg-${statusColor}-50 text-${statusColor}-700 border border-${statusColor}-200`}
-                                    >
-                                      {m.status || "pending"}
+                  return (
+                    <Collapsible
+                      key={k}
+                      open={open}
+                      onOpenChange={() => toggleMonth(k)}
+                    >
+                      <div className="border border-slate-200 rounded-xl overflow-hidden hover:border-slate-300 transition-colors">
+                        <CollapsibleTrigger asChild>
+                          <button className="w-full p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white hover:bg-slate-50/50 transition-all">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div
+                                className={`w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 transition-all ${open ? "bg-blue-600 text-white shadow-sm" : "bg-slate-100 text-slate-500"}`}
+                              >
+                                {open ? (
+                                  <ChevronUp className="w-3.5 h-3.5" />
+                                ) : (
+                                  <ChevronDown className="w-3.5 h-3.5" />
+                                )}
+                              </div>
+                              <div className="text-left min-w-0">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className="font-lexend font-semibold text-slate-900">
+                                    {m.month} {m.year}
+                                  </span>
+                                  {m.isCurrentMonth && (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                                      Current
                                     </span>
-                                  </div>
-                                </button>
-                              </CollapsibleTrigger>
-
-                              <CollapsibleContent>
-                                <div className="bg-slate-50/80 border-t border-slate-200 p-4">
-                                  {m.payments?.length > 0 ? (
-                                    <div className="overflow-x-auto">
-                                      <table className="w-full min-w-[600px] text-sm">
-                                        <thead>
-                                          <tr className="border-b border-slate-200">
-                                            <th className="text-left py-2 px-2 font-semibold text-slate-500 text-xs">
-                                              Date
-                                            </th>
-                                            <th className="text-left py-2 px-2 font-semibold text-slate-500 text-xs">
-                                              Amount
-                                            </th>
-                                            <th className="text-left py-2 px-2 font-semibold text-slate-500 text-xs">
-                                              Mode
-                                            </th>
-                                            <th className="text-left py-2 px-2 font-semibold text-slate-500 text-xs">
-                                              Transaction ID
-                                            </th>
-                                            <th className="text-left py-2 px-2 font-semibold text-slate-500 text-xs">
-                                              Bank
-                                            </th>
-                                            <th className="text-left py-2 px-2 font-semibold text-slate-500 text-xs">
-                                              Remark
-                                            </th>
-                                            <th className="text-right py-2 px-2 font-semibold text-slate-500 text-xs">
-                                              Actions
-                                            </th>
-                                          </tr>
-                                        </thead>
-                                        <tbody>
-                                          {m.payments.map((p: any) => (
-                                            <tr
-                                              key={p.id}
-                                              className="border-b border-slate-100 hover:bg-white/50"
-                                            >
-                                              <td className="py-2 px-2 text-slate-600">
-                                                {p.date
-                                                  ? new Date(
-                                                      p.date,
-                                                    ).toLocaleDateString(
-                                                      "en-IN",
-                                                    )
-                                                  : "—"}
-                                              </td>
-                                              <td className="py-2 px-2 font-semibold text-emerald-600">
-                                                ₹
-                                                {p.amount?.toLocaleString() ||
-                                                  "0"}
-                                              </td>
-                                              <td className="py-2 px-2 text-slate-600 capitalize">
-                                                {p.mode ||
-                                                  p.payment_mode ||
-                                                  "—"}
-                                              </td>
-                                              <td className="py-2 px-2 text-slate-600 font-mono text-xs">
-                                                {p.transaction_id || "—"}
-                                              </td>
-                                              <td className="py-2 px-2 text-slate-600">
-                                                {p.bank_name || "—"}
-                                              </td>
-                                              <td className="py-2 px-2 text-slate-600">
-                                                {p.remark || "—"}
-                                              </td>
-                                              <td className="py-2 px-2 text-right">
-                                                <button
-                                                  onClick={() =>
-                                                    openReceipt(p.id)
-                                                  }
-                                                  className="p-1.5 rounded-lg bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-600 hover:text-white transition-all duration-200"
-                                                  title="View Receipt"
-                                                >
-                                                  <ReceiptIndianRupee className="w-3.5 h-3.5" />
-                                                </button>
-                                              </td>
-                                            </tr>
-                                          ))}
-                                        </tbody>
-                                      </table>
-                                    </div>
-                                  ) : (
-                                    <p className="text-center py-6 text-sm text-slate-400">
-                                      No individual payment records for this
-                                      month
-                                    </p>
+                                  )}
+                                  {m.isFirstMonth && (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-purple-50 text-purple-700 border border-purple-200">
+                                      First Month
+                                    </span>
                                   )}
                                 </div>
-                              </CollapsibleContent>
+                                <p className="text-xs text-slate-500 mt-0.5">
+                                  Rent: ₹{m.rent?.toLocaleString()}
+                                </p>
+                              </div>
                             </div>
-                          </Collapsible>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
-                    <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-3">
-                      <CreditCard className="w-6 h-6 text-slate-300" />
-                    </div>
-                    <p className="text-sm text-slate-400">
-                      No payment records found
-                    </p>
-                    {loadingPayments && (
-                      <Loader2 className="w-5 h-5 text-blue-600 mx-auto mt-3 animate-spin" />
-                    )}
-                  </div>
-                )}
-
-                {payments.length > 0 && (
-                  <div className="bg-white rounded-xl border border-slate-200 p-5">
-                    <div className="flex items-center gap-3 mb-4 pb-3 border-b border-slate-200">
-                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 text-white flex items-center justify-center shadow-sm">
-                        <Wallet className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <h3 className="font-lexend font-semibold text-slate-900">
-                          Recent Transactions
-                        </h3>
-                        <p className="text-xs text-slate-500 mt-0.5">
-                          All payment transactions in chronological order
-                        </p>
-                      </div>
-                    </div>
-                    <div className="overflow-x-auto">
-                      <table className="w-full min-w-[600px] text-sm">
-                        <thead>
-                          <tr className="border-b border-slate-200">
-                            <th className="text-left py-2 px-2 font-semibold text-slate-500 text-xs">
-                              Date
-                            </th>
-                            <th className="text-left py-2 px-2 font-semibold text-slate-500 text-xs">
-                              Description
-                            </th>
-                            <th className="text-left py-2 px-2 font-semibold text-slate-500 text-xs">
-                              Amount
-                            </th>
-                            <th className="text-left py-2 px-2 font-semibold text-slate-500 text-xs">
-                              Method
-                            </th>
-                            <th className="text-left py-2 px-2 font-semibold text-slate-500 text-xs">
-                              Period
-                            </th>
-                            <th className="text-left py-2 px-2 font-semibold text-slate-500 text-xs">
-                              Status
-                            </th>
-                            <th className="text-right py-2 px-2 font-semibold text-slate-500 text-xs">
-                              Actions
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {payments.map((p) => {
-                            const statusColor =
-                              p.status === "approved"
-                                ? "emerald"
-                                : p.status === "rejected"
-                                  ? "red"
-                                  : "amber";
-                            return (
-                              <tr
-                                key={p.id}
-                                className="border-b border-slate-100 hover:bg-slate-50/50"
+                            <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto">
+                              <div className="text-right sm:text-left">
+                                <p className="text-sm font-semibold text-emerald-600">
+                                  Paid ₹
+                                  {(
+                                    m.paid ||
+                                    m.paid_amount ||
+                                    0
+                                  ).toLocaleString()}
+                                </p>
+                                <p className="text-sm font-semibold text-orange-600">
+                                  Pending ₹
+                                  {(
+                                    m.pending ||
+                                    m.pending_amount ||
+                                    m.rent ||
+                                    0
+                                  ).toLocaleString()}
+                                </p>
+                              </div>
+                              <span
+                                className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium capitalize bg-${statusColor}-50 text-${statusColor}-700 border border-${statusColor}-200`}
                               >
-                                <td className="py-2 px-2 font-medium text-slate-900">
-                                  {new Date(p.payment_date).toLocaleDateString(
-                                    "en-IN",
-                                  )}
-                                </td>
-                                <td className="py-2 px-2 text-slate-600">
-                                  {p.remark || "Rent Payment"}
-                                </td>
-                                <td className="py-2 px-2 font-semibold text-slate-900">
-                                  ₹{p.amount?.toLocaleString() || "0"}
-                                </td>
-                                <td className="py-2 px-2 text-slate-600 capitalize">
-                                  {p.payment_mode || p.payment_method || "—"}
-                                </td>
-                                <td className="py-2 px-2 text-slate-600">
-                                  {p.month} {p.year}
-                                </td>
-                                <td className="py-2 px-2">
-                                  <span
-                                    className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium capitalize bg-${statusColor}-50 text-${statusColor}-700 border border-${statusColor}-200`}
-                                  >
-                                    {p.status || "pending"}
-                                  </span>
-                                </td>
-                                <td className="py-2 px-2 text-right">
-                                  {p.status === "approved" && (
-                                    <button
-                                      onClick={() => openReceipt(p.id)}
-                                      className="p-1.5 rounded-lg bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-600 hover:text-white transition-all duration-200"
-                                      title="View Receipt"
-                                    >
-                                      <ReceiptIndianRupee className="w-3.5 h-3.5" />
-                                    </button>
-                                  )}
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-              </TabsContent>
+                                {m.status || "pending"}
+                              </span>
+                            </div>
+                          </button>
+                        </CollapsibleTrigger>
+
+                        <CollapsibleContent>
+                          <div className="bg-slate-50/80 border-t border-slate-200 p-4">
+                            {m.payments?.length > 0 ? (
+                              <div className="overflow-x-auto">
+                                <table className="w-full min-w-[600px] text-sm">
+                                  <thead>
+                                    <tr className="border-b border-slate-200">
+                                      <th className="text-left py-2 px-2 font-semibold text-slate-500 text-xs">
+                                        Date
+                                      </th>
+                                      <th className="text-left py-2 px-2 font-semibold text-slate-500 text-xs">
+                                        Amount
+                                      </th>
+                                      <th className="text-left py-2 px-2 font-semibold text-slate-500 text-xs">
+                                        Mode
+                                      </th>
+                                      <th className="text-left py-2 px-2 font-semibold text-slate-500 text-xs">
+                                        Transaction ID
+                                      </th>
+                                      <th className="text-left py-2 px-2 font-semibold text-slate-500 text-xs">
+                                        Bank
+                                      </th>
+                                      <th className="text-left py-2 px-2 font-semibold text-slate-500 text-xs">
+                                        Remark
+                                      </th>
+                                      <th className="text-right py-2 px-2 font-semibold text-slate-500 text-xs">
+                                        Actions
+                                      </th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {m.payments.map((p: any) => (
+                                      <tr
+                                        key={p.id}
+                                        className="border-b border-slate-100 hover:bg-white/50"
+                                      >
+                                        <td className="py-2 px-2 text-slate-600">
+                                          {p.payment_date
+                                            ? new Date(
+                                                p.payment_date,
+                                              ).toLocaleDateString(
+                                                "en-IN",
+                                              )
+                                            : "—"}
+                                        </td>
+                                        <td className="py-2 px-2 font-semibold text-emerald-600">
+                                          ₹
+                                          {p.amount?.toLocaleString() ||
+                                            "0"}
+                                        </td>
+                                        <td className="py-2 px-2 text-slate-600 capitalize">
+                                          {p.payment_mode ||
+                                            p.payment_mode ||
+                                            "—"}
+                                        </td>
+                                        <td className="py-2 px-2 text-slate-600 font-mono text-xs">
+                                          {p.transaction_id || "—"}
+                                        </td>
+                                        <td className="py-2 px-2 text-slate-600">
+                                          {p.bank_name || "—"}
+                                        </td>
+                                        <td className="py-2 px-2 text-slate-600">
+                                          {p.remark || "—"}
+                                        </td>
+                                        <td className="py-2 px-2 text-right">
+                                          {p.status === "approved" && (
+                                            <button
+                                              onClick={() => openReceipt(p.id)}
+                                              className="p-1.5 rounded-lg bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-600 hover:text-white transition-all duration-200"
+                                              title="View Receipt"
+                                            >
+                                              <ReceiptIndianRupee className="w-3.5 h-3.5" />
+                                            </button>
+                                          )}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            ) : (
+                              <p className="text-center py-6 text-sm text-slate-400">
+                                No individual payment records for this month
+                              </p>
+                            )}
+                          </div>
+                        </CollapsibleContent>
+                      </div>
+                    </Collapsible>
+                  );
+                })}
+              </div>
+            </div>
+          ) : paymentSummary.is_vacated && paymentSummary.rent_payments?.length > 0 ? (
+            // Simple payment history for vacated tenants (no month collapse)
+            <div className="bg-white rounded-xl border border-slate-200 p-5">
+              <div className="flex items-center gap-3 mb-4 pb-3 border-b border-slate-200">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 text-white flex items-center justify-center shadow-sm">
+                  <CreditCard className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-lexend font-semibold text-slate-900">
+                    Payment History
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    All payments made by this vacated tenant
+                  </p>
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[600px] text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-200">
+                      <th className="text-left py-2 px-2 font-semibold text-slate-500 text-xs">
+                        Date
+                      </th>
+                      <th className="text-left py-2 px-2 font-semibold text-slate-500 text-xs">
+                        Amount
+                      </th>
+                      <th className="text-left py-2 px-2 font-semibold text-slate-500 text-xs">
+                        Type
+                      </th>
+                      <th className="text-left py-2 px-2 font-semibold text-slate-500 text-xs">
+                        Mode
+                      </th>
+                      <th className="text-left py-2 px-2 font-semibold text-slate-500 text-xs">
+                        Period
+                      </th>
+                      <th className="text-left py-2 px-2 font-semibold text-slate-500 text-xs">
+                        Status
+                      </th>
+                      <th className="text-right py-2 px-2 font-semibold text-slate-500 text-xs">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paymentSummary.rent_payments?.map((p: any) => (
+                      <tr key={p.id} className="border-b border-slate-100 hover:bg-slate-50/50">
+                        <td className="py-2 px-2 text-slate-600">
+                          {p.payment_date
+                            ? new Date(p.payment_date).toLocaleDateString("en-IN")
+                            : "—"}
+                        </td>
+                        <td className="py-2 px-2 font-semibold text-emerald-600">
+                          ₹{p.amount?.toLocaleString() || "0"}
+                        </td>
+                        <td className="py-2 px-2">
+                          <Badge className="text-[9px] px-1.5 py-0 bg-blue-100 text-blue-700">
+                            Rent
+                          </Badge>
+                        </td>
+                        <td className="py-2 px-2 text-slate-600 capitalize">
+                          {p.payment_mode || "—"}
+                          {p.bank_name && (
+                            <span className="text-[10px] text-slate-400 block">{p.bank_name}</span>
+                          )}
+                        </td>
+                        <td className="py-2 px-2 text-slate-600">
+                          {p.month} {p.year}
+                        </td>
+                        <td className="py-2 px-2">
+                          <Badge className="text-[9px] px-1.5 py-0 bg-green-100 text-green-700">
+                            {p.status}
+                          </Badge>
+                        </td>
+                        <td className="py-2 px-2 text-right">
+                          <button
+                            onClick={() => openReceipt(p.id)}
+                            className="p-1.5 rounded-lg bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-600 hover:text-white transition-all duration-200"
+                            title="View Receipt"
+                          >
+                            <ReceiptIndianRupee className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
+              <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-3">
+                <CreditCard className="w-6 h-6 text-slate-300" />
+              </div>
+              <p className="text-sm text-slate-400">
+                No payment records found
+              </p>
+              {loadingPayments && (
+                <Loader2 className="w-5 h-5 text-blue-600 mx-auto mt-3 animate-spin" />
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )}
+</TabsContent>
 
               {/* Terms Tab - NEW */}
               <TabsContent value="terms" className="mt-0">
@@ -1703,7 +1925,6 @@ function DocCard({
   );
 }
 
-/* Enhanced Payment Card Component */
 function PaymentCard({ label, value, gradient, icon }: any) {
   return (
     <div className="group relative overflow-hidden bg-white rounded-xl p-4 shadow-sm border border-slate-200 hover:shadow-lg transition-all duration-300">
