@@ -1029,13 +1029,6 @@ useEffect(() => {
       ? (depositStats.totalPaid / depositStats.requiredAmount) * 100
       : 0;
 
-  //       console.log('Deposit Stats:', {
-  //   requiredAmount: depositStats.requiredAmount,
-  //   totalPaid: depositStats.totalPaid,
-  //   totalPending: depositStats.totalPending,
-  //   isFullyPaid: depositStats.isFullyPaid
-  // });
-
   useEffect(() => {
     fetchData();
   }, [fetchData]);
