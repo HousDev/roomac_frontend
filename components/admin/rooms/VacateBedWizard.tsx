@@ -2348,7 +2348,7 @@ style={{ width: `${((getStepIndex() + 1) / stepTitles.length) * 100}%` }}
               </div>
             )}
 
-            {/* STEP 6: SUMMARY */}
+{/* STEP 6: SUMMARY */}
 {step === 6 && calculation && (
   <div className="space-y-4 p-2">
     <div className="bg-blue-50 p-3 rounded-lg">
@@ -2356,7 +2356,7 @@ style={{ width: `${((getStepIndex() + 1) / stepTitles.length) * 100}%` }}
         Penalty Calculation & Summary
       </h3>
       <p className="text-xs text-blue-700">
-        Review penalties and approve vacate request.
+        Review penalties and {existingVacateRequest && !isAdminOverrideLockin && !isAdminOverrideNotice ? "approve the tenant's vacate request" : "process the vacate"}.
       </p>
     </div>
 
@@ -2457,25 +2457,49 @@ style={{ width: `${((getStepIndex() + 1) / stepTitles.length) * 100}%` }}
     <Card className="border">
       <CardContent className="p-3">
         <div className="space-y-3">
-          <div className="flex items-start gap-2">
-            <input
-              type="checkbox"
-              id="adminApproved"
-              checked={formData.adminApproved}
-              onChange={(e) => handleInputChange("adminApproved", e.target.checked)}
-              className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 mt-0.5"
-            />
-            <div>
-              <label htmlFor="adminApproved" className="font-medium text-sm">
-                Admin Approval
-              </label>
-              <div className="text-xs text-gray-600 space-y-0.5 mt-1">
-                <div>• I approve this vacate request</div>
-                <div>• Tenant will vacate bed {bedData.bed_number} on {formatDate(formData.requestedVacateDate)}</div>
-                <div>• Security deposit refund: {formatCurrency(calculation.financials.refundableAmount)}</div>
+          {/* ✅ Admin Approval - SHOW ONLY when tenant has request AND no admin override active */}
+          {existingVacateRequest && !isAdminOverrideLockin && !isAdminOverrideNotice && (
+            <div className="flex items-start gap-2">
+              <input
+                type="checkbox"
+                id="adminApproved"
+                checked={formData.adminApproved}
+                onChange={(e) => handleInputChange("adminApproved", e.target.checked)}
+                className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 mt-0.5"
+              />
+              <div>
+                <label htmlFor="adminApproved" className="font-medium text-sm">
+                  Approve Tenant's Vacate Request
+                </label>
+                <div className="text-xs text-gray-600 space-y-0.5 mt-1">
+                  <div>• I approve this vacate request submitted by the tenant</div>
+                  <div>• Tenant will vacate bed {bedData.bed_number} on {formatDate(formData.requestedVacateDate)}</div>
+                  <div>• Security deposit refund: {formatCurrency(calculation.financials.refundableAmount)}</div>
+                </div>
               </div>
             </div>
-          </div>
+          )}
+
+          {/* ✅ For admin override or no tenant request - show info message */}
+          {(!existingVacateRequest || isAdminOverrideLockin || isAdminOverrideNotice) && (
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-start gap-2">
+                <Info className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-blue-800">
+                    {isAdminOverrideLockin || isAdminOverrideNotice 
+                      ? "Admin Override Active" 
+                      : "Direct Admin Vacate"}
+                  </p>
+                  <p className="text-xs text-blue-700 mt-0.5">
+                    {isAdminOverrideLockin || isAdminOverrideNotice
+                      ? "You have enabled admin override. No approval needed - the bed will be vacated immediately with the selected overrides."
+                      : "You are directly vacating this bed. No tenant approval required. The bed will be vacated immediately."}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Override Status Summary */}
           {(isAdminOverrideLockin || isAdminOverrideNotice) && (
@@ -2492,12 +2516,17 @@ style={{ width: `${((getStepIndex() + 1) / stepTitles.length) * 100}%` }}
             </div>
           )}
 
-          <div className="p-2 rounded text-xs bg-yellow-50 border border-yellow-200 text-yellow-800">
-            <div className="flex items-center gap-1.5">
-              <Info className="h-3 w-3 text-yellow-600 flex-shrink-0" />
-              <span>Please review all penalties before approving.</span>
+          {/* Tenant Request Info - Show when tenant has request but no override */}
+          {existingVacateRequest && !isAdminOverrideLockin && !isAdminOverrideNotice && (
+            <div className="p-2 rounded text-xs bg-yellow-50 border border-yellow-200 text-yellow-800">
+              <div className="flex items-center gap-1.5">
+                <FileText className="h-3 w-3 text-yellow-600 flex-shrink-0" />
+                <span>
+                  Tenant submitted this vacate request. Please review and approve.
+                </span>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </CardContent>
     </Card>
@@ -2564,17 +2593,25 @@ style={{ width: `${((getStepIndex() + 1) / stepTitles.length) * 100}%` }}
           )}
           
           {step === 6 && (
-            <Button onClick={handleSubmit} disabled={loading || (!formData.adminApproved && !isAdminOverrideLockin && !isAdminOverrideNotice)} size="sm">
-              {loading ? (
-                <>
-                  <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                "Approve & Process Vacate"
-              )}
-            </Button>
-          )}
+  <Button 
+    onClick={handleSubmit} 
+    disabled={
+      loading || 
+      // Only require approval when tenant has request AND no admin overrides active
+      (existingVacateRequest && !isAdminOverrideLockin && !isAdminOverrideNotice && !formData.adminApproved)
+    } 
+    size="sm"
+  >
+    {loading ? (
+      <>
+        <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
+        Processing...
+      </>
+    ) : (
+      "Process Vacate"
+    )}
+  </Button>
+)}
           
           {step === 7 && (
             <Button onClick={handleClose} size="sm">

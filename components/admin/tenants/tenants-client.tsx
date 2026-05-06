@@ -114,6 +114,17 @@ const loadTenants = useCallback(async (customFilters?: TenantFilters) => {
     const res = await listTenants(useFilters);
     
     if (res?.success && Array.isArray(res.data)) {
+      // Debug: Log partner tenants
+    res.data.forEach(tenant => {
+      if (tenant.is_couple_booking && tenant.is_primary_tenant === false) {
+        console.log('Partner tenant:', {
+          id: tenant.id,
+          name: tenant.full_name,
+          is_primary_tenant: tenant.is_primary_tenant,
+          partner_tenant_id: tenant.partner_tenant_id
+        });
+      }
+    });
       setTenants(res.data);
       setCurrentPage(1);
     } else {
@@ -806,6 +817,23 @@ const handleDeleteVacatedTenant = useCallback(async (tenant: Tenant) => {
   }
 }, [loadTenants]);
 
+// Helper to get the correct tenant ID for viewing
+const getViewTenantId = (tenant: Tenant): string | number => {
+  // If this is a partner tenant (is_primary_tenant === false) 
+  // and has its own ID, use that
+  if (tenant.is_primary_tenant === false && tenant.id) {
+    return tenant.id;
+  }
+  
+  // If the tenant has an original_id (from the backend transformation)
+  if (tenant.original_id) {
+    return tenant.original_id;
+  }
+  
+  // Otherwise use the regular id
+  return tenant.id;
+};
+
 const handleRestoreVacatedTenant = useCallback(async (tenant: Tenant) => {
   const result = await Swal.fire({
   title: "Restore Tenant?",
@@ -872,10 +900,12 @@ const totalTenants = filteredTenants?.length ?? tenants.length;
 
 const columns = useMemo(() => [
   {
-    key: "full_name",
-    label: "Name",
-    sortable: true,
-    render: (tenant: Tenant) => (
+  key: "full_name",
+  label: "Name",
+  sortable: true,
+  render: (tenant: Tenant) => {
+    const viewId = getViewTenantId(tenant);
+    return (
       <div className="flex items-center gap-2 min-w-0">
         {tenant.photo_url ? (
           <img src={tenant.photo_url} alt="" className="w-7 h-7 rounded-full object-cover flex-shrink-0" />
@@ -885,12 +915,23 @@ const columns = useMemo(() => [
           </div>
         )}
         <div className="min-w-0">
-          <div className="font-medium text-xs text-gray-900 truncate">{tenant.full_name}</div>
-          <div className="text-[10px] text-gray-400 capitalize">{tenant.gender?.toLowerCase()}</div>
+          <Link 
+            href={`/admin/tenants/${viewId}`}
+            className="font-medium text-xs text-gray-900 truncate hover:text-blue-600 transition-colors block"
+          >
+            <span className="text-gray-500 mr-1">{(tenant.salutation || '').toUpperCase()}</span>
+            {(tenant.full_name || "").toUpperCase()}
+          </Link>
+          <div className="text-[10px] text-gray-400 capitalize">{tenant.gender?.toLowerCase() || 'N/A'}</div>
+          <div className="text-[9px] text-blue-600 font-semibold">TID-{tenant.id}</div>
+          {tenant.is_primary_tenant === false && (
+            <div className="text-[8px] text-rose-500 font-medium">Partner</div>
+          )}
         </div>
       </div>
-    ),
+    );
   },
+},
   {
     key: "email",
     label: "Contact",
@@ -2105,6 +2146,12 @@ const columns = useMemo(() => [
    <Link 
     href={`/admin/tenants/${tenant.id}`}
     className="flex items-center gap-2 min-w-0 group cursor-pointer"
+    onClick={() => console.log('🔗 Clicking tenant:', { 
+      id: tenant.id, 
+      name: tenant.full_name, 
+      is_primary: tenant.is_primary_tenant,
+      partner_id: tenant.partner_tenant_id
+    })}
   >
      <div>
         {tenant.photo_url ? (
@@ -2246,7 +2293,7 @@ const columns = useMemo(() => [
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-44">
                         <DropdownMenuItem className="text-xs" asChild>
-  <Link href={`/admin/tenants/${tenant.id}`}>
+  <Link href={`/admin/tenants/${getViewTenantId(tenant)}`}>
     <Eye className="w-3 h-3 mr-2" /> View Details
   </Link>
 </DropdownMenuItem>
