@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import {
@@ -29,6 +29,7 @@ import {
 import { getAllRequestCounts, type RequestCounts } from '@/lib/adminRequestCountsApi';
 import { getSupportTicketCounts } from '@/lib/supportTicketsApi';
 import { NotificationRedirectHandler } from './notifications/notification-utils';
+import { io } from 'socket.io-client';
 
 interface AdminHeaderProps {
   title: string;
@@ -134,29 +135,83 @@ export function AdminHeader({
     }
   }, []);
 
-  const backgroundRefresh = useCallback(async () => {
+const backgroundRefresh = useCallback(async () => {
   try {
-    await Promise.all([
-      loadNotifications(),
-      loadUnreadCount(),
-      loadRequestCounts()
+    // Direct API calls — no stale closure issue
+    const [data, count, counts, supportData] = await Promise.all([
+      getAdminNotifications(10),
+      getAdminUnreadCount(),
+      getAllRequestCounts(),
+      getSupportTicketCounts()
     ]);
+    
+    setNotifications(data);
+    setUnreadCount(count);
+    setRequestCounts(counts);
+    setSupportCount(supportData.total);
   } catch (error) {
     console.error('Failed to background refresh:', error);
   }
-}, []);
+}, []); // ✅ Ab koi dependency nahi, direct setState call kar raha hai
 
   // Initial load and setup interval
-  useEffect(() => {
-  loadAllData(); // First load shows spinner (correct)
+//   useEffect(() => {
+//   loadAllData(); // First load shows spinner (correct)
 
-  const interval = setInterval(() => {
-    backgroundRefresh(); // Subsequent polls - NO spinner
-  }, 2000);
+//   const interval = setInterval(() => {
+//     backgroundRefresh(); // Subsequent polls - NO spinner
+//   }, 2000);
 
-  return () => clearInterval(interval);
-}, [loadAllData, backgroundRefresh]);
+//   return () => clearInterval(interval);
+// }, [loadAllData, backgroundRefresh]);
 
+// useEffect(() => {
+//   loadAllData();
+
+//   const socket = io(import.meta.env.VITE_API_URL || 'http://localhost:3001');
+
+//   socket.on('connect', () => {
+//     socket.emit('join_admin');
+//   });
+
+//   socket.on('new_notification', () => {
+//     backgroundRefresh();
+//   });
+
+//   return () => {
+//     socket.disconnect();
+//   };
+// }, []);
+
+// Ref banao taaki latest backgroundRefresh milti rahe
+const backgroundRefreshRef = useRef(backgroundRefresh);
+useEffect(() => {
+  backgroundRefreshRef.current = backgroundRefresh;
+}, [backgroundRefresh]);
+
+useEffect(() => {
+  loadAllData();
+
+  const socket = io(import.meta.env.VITE_API_URL || 'http://localhost:3001');
+
+  socket.on('connect', () => {
+    console.log('✅ Socket connected:', socket.id);
+    socket.emit('join_admin');
+  });
+
+  socket.on('new_notification', (data) => {
+    console.log('🔔 New notification received:', data);
+    backgroundRefreshRef.current(); // ✅ Hamesha latest function call hoga
+  });
+
+  socket.on('disconnect', () => {
+    console.log('❌ Socket disconnected');
+  });
+
+  return () => {
+    socket.disconnect();
+  };
+}, []); // ✅ Ab dependency nahi chahiye
   // Refresh button handler
   const refreshNotifications = async () => {
     setRefreshing(true);

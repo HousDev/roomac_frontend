@@ -56,41 +56,41 @@ export default function ContactForm({ initialData, properties = [] }: ContactFor
   };
 
   // Function to create notification for admin
-const createEnquiryNotification = async (enquiryId: string, propertyName: string, source: string) => {
-  try {
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+// const createEnquiryNotification = async (enquiryId: string, propertyName: string, source: string) => {
+//   try {
+//     const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
     
-    const response = await fetch(`${apiUrl}/api/admin/notifications/enquiry`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        enquiryData: {
-          id: enquiryId,
-          tenant_name: formData.name,
-          tenant_email: formData.email,
-          tenant_phone: formData.phone,
-          property_id: formData.propertyInterest,
-          budget_range: formData.budgetRange,
-          move_in_date: formData.preferredMoveInDate,
-          message: formData.message,
-          source: source 
-        },
-        propertyName: propertyName
-      }),
-    });
+//     const response = await fetch(`${apiUrl}/api/admin/notifications/enquiry`, {
+//       method: 'POST',
+//       headers: {
+//         'Content-Type': 'application/json',
+//       },
+//       body: JSON.stringify({
+//         enquiryData: {
+//           id: enquiryId,
+//           tenant_name: formData.name,
+//           tenant_email: formData.email,
+//           tenant_phone: formData.phone,
+//           property_id: formData.propertyInterest,
+//           budget_range: formData.budgetRange,
+//           move_in_date: formData.preferredMoveInDate,
+//           message: formData.message,
+//           source: source 
+//         },
+//         propertyName: propertyName
+//       }),
+//     });
 
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
+//     if (!response.ok) {
+//       throw new Error(`HTTP ${response.status}`);
+//     }
 
-    const data = await response.json();
+//     const data = await response.json();
     
-  } catch (error) {
-    console.error('❌ Error creating notification:', error);
-  }
-};
+//   } catch (error) {
+//     console.error('❌ Error creating notification:', error);
+//   }
+// };
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -141,14 +141,14 @@ const createEnquiryNotification = async (enquiryId: string, propertyName: string
       // Submit to your enquiry API
       const response = await createEnquiry(enquiryData);
       
-      // Create notification for admin using the test-notification endpoint
-      if (response && response.data && response.data.id) {
-       await createEnquiryNotification(
-  response.data.id, 
-  selectedProperty?.name || 'a property',
-  formData.source || 'website' // Add this parameter
-);
-      }
+//       // Create notification for admin using the test-notification endpoint
+//       if (response && response.data && response.data.id) {
+//        await createEnquiryNotification(
+//   response.data.id, 
+//   selectedProperty?.name || 'a property',
+//   formData.source || 'website' // Add this parameter
+// );
+//       }
       
       setSubmitted(true);
       toast.success('Enquiry submitted successfully!');

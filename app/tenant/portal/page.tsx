@@ -583,48 +583,48 @@ const handleRazorpayPayment = useCallback(
 
             if (saveResult.success) {
               // Create notification for admin
-              try {
-                const paymentTypeDisplay = paymentData.payment_type === "rent" ? "Rent" : "Security Deposit";
-                const monthDisplay = paymentData.month ? ` for ${paymentData.month} ${paymentData.year}` : "";
+              // try {
+              //   const paymentTypeDisplay = paymentData.payment_type === "rent" ? "Rent" : "Security Deposit";
+              //   const monthDisplay = paymentData.month ? ` for ${paymentData.month} ${paymentData.year}` : "";
                 
-                // Create notification for admin
-                await fetch("/api/admin/notifications", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    recipient_id: 1, // Admin ID
-                    recipient_type: "admin",
-                    title: "💰 New Payment Received",
-                    message: `${tenant?.full_name} has successfully paid ${paymentTypeDisplay} payment of ₹${paymentData.amount.toLocaleString()}${monthDisplay} via Razorpay. Transaction ID: ${response.razorpay_payment_id}`,
-                    notification_type: "payment",
-                    related_entity_type: "payment",
-                    related_entity_id: saveResult.data.id,
-                    priority: "medium",
-                  }),
-                });
-              } catch (notifError) {
-                console.error("❌ Error creating admin notification:", notifError);
-              }
+              //   // Create notification for admin
+              //   await fetch("/api/admin/notifications", {
+              //     method: "POST",
+              //     headers: { "Content-Type": "application/json" },
+              //     body: JSON.stringify({
+              //       recipient_id: 1, // Admin ID
+              //       recipient_type: "admin",
+              //       title: "💰 New Payment Received",
+              //       message: `${tenant?.full_name} has successfully paid ${paymentTypeDisplay} payment of ₹${paymentData.amount.toLocaleString()}${monthDisplay} via Razorpay. Transaction ID: ${response.razorpay_payment_id}`,
+              //       notification_type: "payment",
+              //       related_entity_type: "payment",
+              //       related_entity_id: saveResult.data.id,
+              //       priority: "medium",
+              //     }),
+              //   });
+              // } catch (notifError) {
+              //   console.error("❌ Error creating admin notification:", notifError);
+              // }
               
               // Also create notification for tenant
-              try {
-                await fetch("/api/admin/notifications", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    recipient_id: tenant?.id,
-                    recipient_type: "tenant",
-                    title: "✅ Payment Successful",
-                    message: `Your ${paymentData.payment_type === "rent" ? "rent" : "security deposit"} payment of ₹${paymentData.amount.toLocaleString()} has been successfully processed.`,
-                    notification_type: "payment",
-                    related_entity_type: "payment",
-                    related_entity_id: saveResult.data.id,
-                    priority: "low",
-                  }),
-                });
-              } catch (tenantNotifError) {
-                console.error("Error creating tenant notification:", tenantNotifError);
-              }
+              // try {
+              //   await fetch("/api/admin/notifications", {
+              //     method: "POST",
+              //     headers: { "Content-Type": "application/json" },
+              //     body: JSON.stringify({
+              //       recipient_id: tenant?.id,
+              //       recipient_type: "tenant",
+              //       title: "✅ Payment Successful",
+              //       message: `Your ${paymentData.payment_type === "rent" ? "rent" : "security deposit"} payment of ₹${paymentData.amount.toLocaleString()} has been successfully processed.`,
+              //       notification_type: "payment",
+              //       related_entity_type: "payment",
+              //       related_entity_id: saveResult.data.id,
+              //       priority: "low",
+              //     }),
+              //   });
+              // } catch (tenantNotifError) {
+              //   console.error("Error creating tenant notification:", tenantNotifError);
+              // }
               // Show confirmation popup
               setPaymentConfirmationData({
                 id: saveResult.data?.id || Date.now().toString(),
