@@ -849,24 +849,24 @@ const calculateStats = (payments: Payment[]) => {
               const saveResult = await saveResponse.json();
 
               if (saveResult.success) {
-                try {
-                  await fetch("/api/admin/notifications", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      recipient_id: 1,
-                      recipient_type: "admin",
-                      title: "💰 New Payment Received",
-                      message: `${tenant?.full_name} has successfully paid ${paymentData.payment_type === "rent" ? "rent" : "security deposit"} payment of ₹${paymentData.amount.toLocaleString()} via Razorpay.`,
-                      notification_type: "payment",
-                      related_entity_type: "payment",
-                      related_entity_id: saveResult.data.id,
-                      priority: "medium",
-                    }),
-                  });
-                } catch (notifError) {
-                  console.error("Error creating notification:", notifError);
-                }
+                // try {
+                //   await fetch("/api/admin/notifications", {
+                //     method: "POST",
+                //     headers: { "Content-Type": "application/json" },
+                //     body: JSON.stringify({
+                //       recipient_id: 1,
+                //       recipient_type: "admin",
+                //       title: "💰 New Payment Received",
+                //       message: `${tenant?.full_name} has successfully paid ${paymentData.payment_type === "rent" ? "rent" : "security deposit"} payment of ₹${paymentData.amount.toLocaleString()} via Razorpay.`,
+                //       notification_type: "payment",
+                //       related_entity_type: "payment",
+                //       related_entity_id: saveResult.data.id,
+                //       priority: "medium",
+                //     }),
+                //   });
+                // } catch (notifError) {
+                //   console.error("Error creating notification:", notifError);
+                // }
 
                 setPaymentConfirmationData({
                   id: saveResult.data?.id || Date.now().toString(),

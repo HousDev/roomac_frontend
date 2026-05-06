@@ -886,14 +886,14 @@ function TenantHeader({
           onClick={() => setNotificationsOpen(!notificationsOpen)}
         >
           <Bell className="h-4 w-4 lg:h-5 lg:w-5" />
-          {notificationCount > 0 && (
-            <Badge
-              variant="destructive"
-              className="absolute -top-1 -right-1 h-4 w-4 lg:h-5 lg:w-5 flex items-center justify-center text-[9px] lg:text-xs p-0"
-            >
-              {notificationCount > 9 ? "9+" : notificationCount}
-            </Badge>
-          )}
+         {notificationCount > 0 && (
+  <Badge
+    variant="destructive"
+    className="absolute -top-1 -right-1 min-w-[16px] lg:min-w-[20px] h-4 lg:h-5 flex items-center justify-center text-[9px] lg:text-xs px-1"
+  >
+    {notificationCount}
+  </Badge>
+)}
         </Button>
 
         {notificationsOpen && (
@@ -1018,60 +1018,118 @@ export default function TenantLayout() {
 
   // Load notifications
   // Load notifications
-  const loadNotifications = async (showLoading = true) => {
+ // Load notifications
+const loadNotifications = async (showLoading = true) => {
+  try {
+    if (showLoading) setLoadingNotifications(true);
+
+    const [notifs, count] = await Promise.all([
+      getTenantNotifications(20),
+      getUnreadNotificationCount(),
+    ]);
+
+    console.log('📦 Notifications loaded:', notifs.length, 'Unread:', count);
+
+    // Transform API notifications to match component format
+    const formattedNotifs = notifs.map((n) => {
+      return {
+        ...n,
+        type: n.notification_type, // Add type for backward compatibility
+      };
+    });
+
+    setNotifications(formattedNotifs);
+    setNotificationCount(count); // ✅ Update count immediately
+    
+  } catch (error) {
+    console.error("❌ Error loading notifications:", error);
+  } finally {
+    if (showLoading) setLoadingNotifications(false);
+    setInitialLoadDone(true);
+  }
+};
+  // Load notifications on mount
+ // Load notifications on mount
+useEffect(() => {
+  loadNotifications(true);
+
+  // ✅ Setup Socket.IO for real-time notifications
+  let socket: any = null;
+  
+  const setupSocket = async () => {
     try {
-      if (showLoading) setLoadingNotifications(true);
-
-
-
-      // Also check localStorage directly
-      const localTenantId = localStorage.getItem("tenant_id");
-
-      const [notifs, count] = await Promise.all([
-        getTenantNotifications(20),
-        getUnreadNotificationCount(),
-      ]);
-
-      // console.log('📦 Raw notifications from API:', JSON.stringify(notifs, null, 2));
-      // console.log('🔢 Unread count from API:', count);
-
-      // Check if any change_bed notifications exist
-      const changeBedNotifs = notifs.filter(
-        (n) => n.notification_type === "change_bed",
-      );
-
-     
-
-      // Transform API notifications to match component format
-      const formattedNotifs = notifs.map((n) => {
-        return {
-          ...n,
-          type: n.notification_type, // Add type for backward compatibility
-        };
-      });
-
-      setNotifications(formattedNotifs);
-      setNotificationCount(count);
-
+      const tenantId = getTenantId();
+      if (!tenantId) {
+        console.log('⚠️ No tenant ID found, skipping socket setup');
+        return;
+      }
       
-    } catch (error) {
-      console.error("❌ Error loading notifications:", error);
-    } finally {
-      if (showLoading) setLoadingNotifications(false);
-      setInitialLoadDone(true);
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+      const ioModule = await import('socket.io-client');
+      const io = ioModule.default || ioModule;
+      socket = io(apiUrl, {
+        path: '/socket.io',
+        transports: ['websocket', 'polling'],
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000
+      });
+      
+      socket.on('connect', () => {
+        console.log('✅ Tenant socket connected:', socket.id);
+        socket.emit('join_tenant_room', { tenantId: parseInt(tenantId) });
+      });
+      
+      // 🔥 CRITICAL: Listen for new notifications
+      socket.on('new_notification', (notification: any) => {
+        console.log('🔔 Real-time notification for tenant:', notification);
+        
+        // ✅ IMMEDIATELY refresh notifications and count
+        loadNotifications(false);
+        
+        // ✅ Update notification count instantly
+        getUnreadNotificationCount().then(count => {
+          setNotificationCount(count);
+        });
+        
+        // Show toast for important notifications
+        if (notification.priority === 'high' || notification.priority === 'urgent') {
+          toast.info(`🔔 ${notification.title}`, {
+            description: notification.message?.substring(0, 100),
+            duration: 5000
+          });
+        }
+      });
+      
+      socket.on('disconnect', () => {
+        console.log('❌ Tenant socket disconnected');
+      });
+      
+      socket.on('connect_error', (err: any) => {
+        console.error('Socket connection error:', err);
+      });
+      
+    } catch (err) {
+      console.error('Socket.IO setup error:', err);
     }
   };
-  // Load notifications on mount
-  useEffect(() => {
-    loadNotifications(true);
+  
+  setupSocket();
 
-    // Set up polling for real-time updates (every 30 seconds)
-    const interval = setInterval(() => {
-      loadNotifications(false);
-    }, 30000);
+  // Fallback polling every 5 seconds (reduced from 30 to 5 seconds)
+  const interval = setInterval(() => {
+    loadNotifications(false);
+    // Also update count separately
+    getUnreadNotificationCount().then(count => {
+      setNotificationCount(count);
+    });
+  }, 1000);
 
-    return () => clearInterval(interval);
-  }, []);
+  return () => {
+    if (socket) socket.disconnect();
+    clearInterval(interval);
+  };
+}, []);
 
   // Load notifications when notification popup opens
   const handleNotificationsOpen = () => {

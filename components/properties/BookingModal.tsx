@@ -784,54 +784,54 @@ const BookingModal = memo(function BookingModal({
   });
 
   // Function to create notifications for booking
-const createBookingNotifications = useCallback(async (bookingId: number, bookingData: any) => {
-  try {
-    // Create notification for admin
-    const adminNotification = await fetch("/api/admin/notifications", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        recipient_id: 1, // Admin ID
-        recipient_type: "admin",
-        title: "🏠 New Booking Request",
-        message: `${bookingData.fullName} has booked ${bookingData.isCouple ? "couple" : ""} Room ${bookingData.roomNumber} at ${bookingData.propertyName}. Amount: ₹${bookingData.totalAmount.toLocaleString()}`,
-        notification_type: "booking",
-        related_entity_type: "booking",
-        related_entity_id: bookingId,
-        priority: "high",
-      }),
-    });
+// const createBookingNotifications = useCallback(async (bookingId: number, bookingData: any) => {
+//   try {
+//     // Create notification for admin
+//     const adminNotification = await fetch("/api/admin/notifications", {
+//       method: "POST",
+//       headers: { "Content-Type": "application/json" },
+//       body: JSON.stringify({
+//         recipient_id: 1, // Admin ID
+//         recipient_type: "admin",
+//         title: "🏠 New Booking Request",
+//         message: `${bookingData.fullName} has booked ${bookingData.isCouple ? "couple" : ""} Room ${bookingData.roomNumber} at ${bookingData.propertyName}. Amount: ₹${bookingData.totalAmount.toLocaleString()}`,
+//         notification_type: "booking",
+//         related_entity_type: "booking",
+//         related_entity_id: bookingId,
+//         priority: "high",
+//       }),
+//     });
     
-    const adminResult = await adminNotification.json();
-    if (adminResult.success) {
-      console.log("✅ Admin notification created for booking");
-    }
+//     const adminResult = await adminNotification.json();
+//     if (adminResult.success) {
+//       console.log("✅ Admin notification created for booking");
+//     }
     
-    // Create notification for tenant
-    const tenantNotification = await fetch("/api/admin/notifications", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        recipient_id: bookingData.tenantId, // Tenant ID
-        recipient_type: "tenant",
-        title: "📋 Booking Confirmed",
-        message: `Your booking for Room ${bookingData.roomNumber} at ${bookingData.propertyName} has been confirmed. Check-in date: ${bookingData.moveInDate || bookingData.checkInDate}`,
-        notification_type: "booking",
-        related_entity_type: "booking",
-        related_entity_id: bookingId,
-        priority: "medium",
-      }),
-    });
+//     // Create notification for tenant
+//     const tenantNotification = await fetch("/api/admin/notifications", {
+//       method: "POST",
+//       headers: { "Content-Type": "application/json" },
+//       body: JSON.stringify({
+//         recipient_id: bookingData.tenantId, // Tenant ID
+//         recipient_type: "tenant",
+//         title: "📋 Booking Confirmed",
+//         message: `Your booking for Room ${bookingData.roomNumber} at ${bookingData.propertyName} has been confirmed. Check-in date: ${bookingData.moveInDate || bookingData.checkInDate}`,
+//         notification_type: "booking",
+//         related_entity_type: "booking",
+//         related_entity_id: bookingId,
+//         priority: "medium",
+//       }),
+//     });
     
-    const tenantResult = await tenantNotification.json();
-    if (tenantResult.success) {
-      console.log("✅ Tenant notification created for booking");
-    }
+//     const tenantResult = await tenantNotification.json();
+//     if (tenantResult.success) {
+//       console.log("✅ Tenant notification created for booking");
+//     }
     
-  } catch (error) {
-    console.error("❌ Error creating booking notifications:", error);
-  }
-}, []);
+//   } catch (error) {
+//     console.error("❌ Error creating booking notifications:", error);
+//   }
+// }, []);
 
   // ✅ UPDATED - removed test OTP display
   const handleSendOTP = useCallback(
@@ -2046,24 +2046,24 @@ const validateAndApplyOffer = useCallback(
 
       if (enquirySuccess) {
         // Create notification for new enquiry
-      try {
-        await fetch("/api/admin/notifications", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            recipient_id: 1, // Admin ID
-            recipient_type: "admin",
-            title: "📞 New Enquiry Created",
-            message: `${formData.firstName} ${formData.lastName} (${formData.email}) has created a new ${bookingType === "long" ? "long stay" : "short stay"} enquiry.`,
-            notification_type: "enquiry",
-            related_entity_type: "enquiry",
-            related_entity_id: enquiryId,
-            priority: "medium",
-          }),
-        });
-      } catch (notifError) {
-        console.error("Error creating enquiry notification:", notifError);
-      }
+      // try {
+      //   await fetch("/api/admin/notifications", {
+      //     method: "POST",
+      //     headers: { "Content-Type": "application/json" },
+      //     body: JSON.stringify({
+      //       recipient_id: 1, // Admin ID
+      //       recipient_type: "admin",
+      //       title: "📞 New Enquiry Created",
+      //       message: `${formData.firstName} ${formData.lastName} (${formData.email}) has created a new ${bookingType === "long" ? "long stay" : "short stay"} enquiry.`,
+      //       notification_type: "enquiry",
+      //       related_entity_type: "enquiry",
+      //       related_entity_id: enquiryId,
+      //       priority: "medium",
+      //     }),
+      //   });
+      // } catch (notifError) {
+      //   console.error("Error creating enquiry notification:", notifError);
+      // }
       
         setVerified(true);
         setShowOTPModal(false);
@@ -2348,10 +2348,10 @@ const prepareBookingData = useCallback((): any => {
         }
 
          // Create notifications for booking
-      await createBookingNotifications(result.bookingId, {
-        ...bookingData,
-        tenantId: result.tenantId, // Assuming the response includes tenantId
-      });
+      // await createBookingNotifications(result.bookingId, {
+      //   ...bookingData,
+      //   tenantId: result.tenantId, // Assuming the response includes tenantId
+      // });
 
         setConfirmationData({
           id: result.bookingId,
