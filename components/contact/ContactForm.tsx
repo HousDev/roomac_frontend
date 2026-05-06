@@ -56,7 +56,7 @@ export default function ContactForm({ initialData, properties = [] }: ContactFor
   };
 
   // Function to create notification for admin
-const createEnquiryNotification = async (enquiryId: string, propertyName: string, p0: any) => {
+const createEnquiryNotification = async (enquiryId: string, propertyName: string, source: string) => {
   try {
     const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
     

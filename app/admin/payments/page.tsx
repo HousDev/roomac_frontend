@@ -876,6 +876,18 @@ const handleEditPayment = async (payment: any) => {
     if (depositResponse.success) {
       setSecurityDepositInfo(depositResponse.data);
     }
+
+    // ✅ Check if bank name exists in bankNames list, if not, set as "Other" and show custom input
+    const bankNameValue = payment.bank_name || "";
+    const isBankInList = bankNames.some(bank => bank.name === bankNameValue);
+    
+    if (bankNameValue && !isBankInList) {
+      setShowCustomBankInput(true);
+      setCustomBankName(bankNameValue);
+    } else {
+      setShowCustomBankInput(false);
+      setCustomBankName("");
+    }
     
     // Set form data with existing payment values
     setNewPayment({
@@ -884,7 +896,7 @@ const handleEditPayment = async (payment: any) => {
       payment_type: payment.payment_type,
       amount: payment.amount.toString(),
       payment_mode: payment.payment_mode,
-      bank_name: payment.bank_name || "",
+       bank_name: bankNameValue,
       transaction_id: payment.transaction_id || "",
       payment_date: payment.payment_date.split("T")[0],
       remark: payment.remark || "",
@@ -1203,6 +1215,10 @@ const resetPaymentForm = () => {
   setProofFile(null);
   setProofPreview(null);
   setSelectedPaymentMonth("");
+
+  // ✅ Reset custom bank input states
+  setShowCustomBankInput(false);
+  setCustomBankName("");
   
   // ✅ RESET ALL SELECTION STATES
   setSelectedPropertyId("");
@@ -4563,19 +4579,51 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
           />
         </div>
 
-        {/* Bank Name - conditional */}
         {(newPayment.payment_mode === "bank_transfer" || newPayment.payment_mode === "online") && (
-          <div className="space-y-1">
-            <Label className="text-[11px] font-medium text-slate-600">
-              Bank Name
-            </Label>
-            <Input
-              value={newPayment.bank_name}
-              onChange={(e) => setNewPayment({ ...newPayment, bank_name: e.target.value })}
-              className="h-8 text-xs"
-            />
-          </div>
-        )}
+  <div className="space-y-1">
+    <Label className="text-[11px] font-medium text-slate-600">
+      Bank Name
+    </Label>
+    <Select
+      value={newPayment.bank_name}
+      onValueChange={(value) => {
+        if (value === "Other") {
+          setShowCustomBankInput(true);
+          setNewPayment({ ...newPayment, bank_name: "Other" });
+        } else {
+          setShowCustomBankInput(false);
+          setNewPayment({ ...newPayment, bank_name: value });
+        }
+      }}
+    >
+      <SelectTrigger className="h-8 text-xs">
+        <SelectValue placeholder="Select bank" />
+      </SelectTrigger>
+      <SelectContent>
+        {bankNames.map((bank) => (
+          <SelectItem key={bank.id} value={bank.name} className="text-xs">
+            {bank.name}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+    
+    {/* Custom Bank Name Input */}
+    {showCustomBankInput && (
+      <div className="mt-2">
+        <Input
+          placeholder="Enter bank name"
+          value={customBankName}
+          onChange={(e) => {
+            setCustomBankName(e.target.value);
+            setNewPayment({ ...newPayment, bank_name: e.target.value });
+          }}
+          className="h-8 text-xs"
+        />
+      </div>
+    )}
+  </div>
+)}
 
         {/* Transaction ID - conditional */}
         {(newPayment.payment_mode === "online" || newPayment.payment_mode === "bank_transfer" || newPayment.payment_mode === "cheque") && (

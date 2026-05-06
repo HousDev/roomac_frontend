@@ -1218,43 +1218,94 @@ const loadPayments = async () => {
             )}
           </div>
 
-          {/* Security Deposit Section - Show for vacated tenants */}
-          {paymentSummary.is_vacated && paymentSummary.security_deposit_info && (
-            <div className="bg-white rounded-xl border border-slate-200 p-5">
-              <div className="flex items-center gap-3 mb-4 pb-3 border-b border-slate-200">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 text-white flex items-center justify-center shadow-sm">
-                  <Shield className="w-4 h-4" />
-                </div>
-                <h3 className="font-lexend font-semibold text-slate-900">
-                  Security Deposit Details
-                </h3>
-              </div>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-slate-600">Total Deposit</span>
-                  <span className="font-semibold">₹{paymentSummary.security_deposit_info.total?.toLocaleString() || 0}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-slate-600">Paid Amount</span>
-                  <span className="font-semibold text-green-600">₹{paymentSummary.security_deposit_info.paid?.toLocaleString() || 0}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-slate-600">Refunded/Adjusted</span>
-                  <span className="font-semibold text-blue-600">
-                    ₹{((paymentSummary.security_deposit_info.total || 0) - (paymentSummary.security_deposit_info.paid || 0)).toLocaleString()}
-                  </span>
-                </div>
-                {paymentSummary.security_deposit_info.last_payment_date && (
-                  <div className="flex justify-between items-center pt-2 border-t">
-                    <span className="text-xs text-slate-500">Last Deposit Payment</span>
-                    <span className="text-xs">
-                      {new Date(paymentSummary.security_deposit_info.last_payment_date).toLocaleDateString("en-IN")}
-                    </span>
-                  </div>
-                )}
-              </div>
+{paymentSummary.is_vacated && (
+  <>
+    {/* Show Security Deposit from Vacate Record */}
+    {paymentSummary.vacate_info?.security_deposit > 0 && (
+      <div className="bg-white rounded-xl border border-slate-200 p-5">
+        <div className="flex items-center gap-3 mb-4 pb-3 border-b border-slate-200">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 text-white flex items-center justify-center shadow-sm">
+            <Shield className="w-4 h-4" />
+          </div>
+          <h3 className="font-lexend font-semibold text-slate-900">
+            Security Deposit Information
+          </h3>
+        </div>
+        <div className="space-y-3">
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-slate-600">Security Deposit</span>
+            <span className="font-semibold">
+              ₹{paymentSummary.vacate_info.security_deposit.toLocaleString()}
+            </span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-slate-600">Total Penalty</span>
+            <span className="font-semibold text-red-600">
+              ₹{paymentSummary.vacate_info.total_penalty.toLocaleString()}
+            </span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-slate-600">Refund Amount</span>
+            <span className="font-semibold text-green-600">
+              ₹{paymentSummary.vacate_info.refundable_amount.toLocaleString()}
+            </span>
+          </div>
+          {paymentSummary.vacate_info.refundable_amount < paymentSummary.vacate_info.security_deposit && (
+            <div className="mt-2 p-2 bg-amber-50 rounded-lg">
+              <p className="text-xs text-amber-700">
+                Note: ₹{(paymentSummary.vacate_info.security_deposit - paymentSummary.vacate_info.refundable_amount).toLocaleString()} was deducted as penalty.
+              </p>
             </div>
           )}
+        </div>
+      </div>
+    )}
+
+    {/* Original Security Deposit Details from payments table - only show if there are actual payments */}
+    {paymentSummary.security_deposit_info && paymentSummary.security_deposit_info.payments?.length > 0 && (
+      <div className="bg-white rounded-xl border border-slate-200 p-5">
+        <div className="flex items-center gap-3 mb-4 pb-3 border-b border-slate-200">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 text-white flex items-center justify-center shadow-sm">
+            <Wallet className="w-4 h-4" />
+          </div>
+          <h3 className="font-lexend font-semibold text-slate-900">
+            Security Deposit Payment History
+          </h3>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50">
+              <tr>
+                <th className="text-left p-2 text-xs font-medium">Date</th>
+                <th className="text-left p-2 text-xs font-medium">Amount</th>
+                <th className="text-left p-2 text-xs font-medium">Mode</th>
+                <th className="text-left p-2 text-xs font-medium">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {paymentSummary.security_deposit_info.payments.map((p: any) => (
+                <tr key={p.id} className="border-t border-slate-100">
+                  <td className="p-2 text-xs">
+                    {new Date(p.payment_date).toLocaleDateString("en-IN")}
+                  </td>
+                  <td className="p-2 text-xs font-semibold text-green-600">
+                    ₹{p.amount?.toLocaleString()}
+                  </td>
+                  <td className="p-2 text-xs capitalize">{p.payment_mode}</td>
+                  <td className="p-2">
+                    <Badge className="text-[9px] px-1.5 py-0 bg-green-100 text-green-700">
+                      {p.status}
+                    </Badge>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    )}
+  </>
+)}
 
           {/* Payment History Table - Works for both active and vacated */}
           {paymentSummary.month_wise_history?.length > 0 && !paymentSummary.is_vacated ? (
@@ -1393,14 +1444,14 @@ const loadPayments = async () => {
                                         className="border-b border-slate-100 hover:bg-white/50"
                                       >
                                         <td className="py-2 px-2 text-slate-600">
-                                          {p.payment_date
-                                            ? new Date(
-                                                p.payment_date,
-                                              ).toLocaleDateString(
-                                                "en-IN",
-                                              )
-                                            : "—"}
-                                        </td>
+  {p.payment_date
+    ? new Date(p.payment_date).toLocaleDateString("en-IN", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      })
+    : "—"}
+</td>
                                         <td className="py-2 px-2 font-semibold text-emerald-600">
                                           ₹
                                           {p.amount?.toLocaleString() ||
