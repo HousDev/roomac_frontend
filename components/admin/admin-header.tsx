@@ -134,16 +134,28 @@ export function AdminHeader({
     }
   }, []);
 
+  const backgroundRefresh = useCallback(async () => {
+  try {
+    await Promise.all([
+      loadNotifications(),
+      loadUnreadCount(),
+      loadRequestCounts()
+    ]);
+  } catch (error) {
+    console.error('Failed to background refresh:', error);
+  }
+}, []);
+
   // Initial load and setup interval
   useEffect(() => {
-    loadAllData();
+  loadAllData(); // First load shows spinner (correct)
 
-    const interval = setInterval(() => {
-      loadAllData();
-    }, 30000);
+  const interval = setInterval(() => {
+    backgroundRefresh(); // Subsequent polls - NO spinner
+  }, 2000);
 
-    return () => clearInterval(interval);
-  }, [loadAllData]);
+  return () => clearInterval(interval);
+}, [loadAllData, backgroundRefresh]);
 
   // Refresh button handler
   const refreshNotifications = async () => {
@@ -198,9 +210,7 @@ export function AdminHeader({
     }
   };
 
-  // Handle notification click
-  // Handle notification click - redirect to specific request page
-// In admin-header.tsx, update the handleNotificationClick function
+ 
 const handleNotificationClick = (notification: Notification) => {
   if (!notification.is_read) {
     handleMarkAsRead(notification.id);
@@ -422,7 +432,7 @@ const getRequestTypeDisplay = (type: string) => {
                   <Bell className="h-5 w-5" />
                   {unreadCount > 0 && (
                     <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs bg-red-500 text-white">
-                      {unreadCount > 9 ? '9+' : unreadCount}
+                      {unreadCount }
                     </Badge>
                   )}
                 </Button>
