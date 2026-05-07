@@ -586,23 +586,32 @@ const calculatePenalties = (request: VacateRequest) => {
 
   const expectedDate = new Date(request.expected_vacate_date);
   const checkInDate = new Date(request.check_in_date);
+  const currentDate = new Date();
   
   let lockinPenalty = 0;
   let noticePenalty = 0;
+  let isLockinCompleted = false;
+  let isNoticeCompleted = false;
 
-  // Parse numeric values properly
+  // Parse numeric values
   const monthlyRent = parseFloat(String(request.monthly_rent)) || 0;
   const securityDeposit = parseFloat(String(request.security_deposit)) || 0;
   const lockinRawAmount = parseFloat(String(request.lockin_penalty_amount)) || 0;
   const noticeRawAmount = parseFloat(String(request.notice_penalty_amount)) || 0;
 
-  // Calculate lock-in penalty
+  // ====================================================
+  // LOCK-IN PERIOD CALCULATION
+  // ====================================================
   if (request.lockin_period_months && request.lockin_period_months > 0) {
     const lockinEndDate = new Date(checkInDate);
-    lockinEndDate.setMonth(lockinEndDate.getMonth() + request.lockin_period_months);
+    lockinEndDate.setMonth(checkInDate.getMonth() + request.lockin_period_months);
     
-    if (expectedDate < lockinEndDate) {
-      // ✅ Calculate based on penalty type
+    // Check if lock-in is completed based on current date
+    isLockinCompleted = currentDate >= lockinEndDate;
+    
+    // Lock-in penalty applies only if lock-in is NOT completed
+    if (!isLockinCompleted) {
+      // Calculate based on penalty type
       if (request.lockin_penalty_type === 'percentage' && securityDeposit > 0) {
         lockinPenalty = (securityDeposit * lockinRawAmount) / 100;
       } else {
@@ -611,27 +620,63 @@ const calculatePenalties = (request: VacateRequest) => {
     }
   }
 
-  // Calculate notice period penalty
+  // ====================================================
+  // NOTICE PERIOD CALCULATION
+  // ====================================================
   if (request.notice_period_days && request.notice_period_days > 0) {
-    // ✅ Use the expected vacate date for calculation, not today
-    const daysDifference = Math.ceil((expectedDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
+    // Calculate lock-in end date (needed for notice calculation)
+    const lockinEndDate = new Date(checkInDate);
+    lockinEndDate.setMonth(checkInDate.getMonth() + (request.lockin_period_months || 0));
     
-    if (daysDifference < request.notice_period_days) {
-      const daysShort = request.notice_period_days - daysDifference;
+    // Check if lock-in is completed first
+    const isLockinCompletedForNotice = currentDate >= lockinEndDate;
+    
+    if (isLockinCompletedForNotice) {
+      // Notice period starts from lock-in end date
+      const noticeStartDate = lockinEndDate;
+      const noticeEndDate = new Date(noticeStartDate);
+      noticeEndDate.setDate(noticeStartDate.getDate() + request.notice_period_days);
       
-      // ✅ Calculate based on penalty type
-      if (request.notice_penalty_type === 'percentage' && securityDeposit > 0) {
-        noticePenalty = (securityDeposit * noticeRawAmount) / 100;
-      } else {
-        noticePenalty = noticeRawAmount > 0 ? noticeRawAmount : (monthlyRent / 30) * daysShort;
+      // Calculate days given (from lock-in end date to expected vacate date)
+      const timeDiff = expectedDate.getTime() - noticeStartDate.getTime();
+      const daysGiven = Math.ceil(timeDiff / (1000 * 3600 * 24));
+      
+      // Check if notice is completed
+      isNoticeCompleted = daysGiven >= request.notice_period_days;
+      
+      // Notice penalty applies only if notice is NOT completed
+      if (!isNoticeCompleted) {
+        if (request.notice_penalty_type === 'percentage' && securityDeposit > 0) {
+          noticePenalty = (securityDeposit * noticeRawAmount) / 100;
+        } else {
+          noticePenalty = noticeRawAmount > 0 ? noticeRawAmount : (monthlyRent / 30) * request.notice_period_days;
+        }
       }
+    } else {
+      // Lock-in NOT completed - show pending status
+      isNoticeCompleted = false;
     }
   }
+
+  console.log('📊 Admin Penalty Calculation:', {
+    checkInDate: checkInDate.toISOString().split('T')[0],
+    expectedDate: expectedDate.toISOString().split('T')[0],
+    currentDate: currentDate.toISOString().split('T')[0],
+    lockinPeriodMonths: request.lockin_period_months,
+    isLockinCompleted,
+    noticePeriodDays: request.notice_period_days,
+    isNoticeCompleted,
+    lockinPenalty,
+    noticePenalty,
+    totalPenalty: lockinPenalty + noticePenalty
+  });
 
   return {
     lockin_penalty: lockinPenalty,
     notice_penalty: noticePenalty,
-    total_penalty: lockinPenalty + noticePenalty
+    total_penalty: lockinPenalty + noticePenalty,
+    isLockinCompleted,
+    isNoticeCompleted
   };
 };
 
@@ -1361,7 +1406,7 @@ const calculatePenalties = (request: VacateRequest) => {
                 </CardContent>
               </Card>
 
-              {/* Contract & Penalty Information */}
+{/* Contract & Penalty Information */}
 <Card>
   <CardHeader className="px-4 py-2">
     <CardTitle className="text-sm">Contract & Penalty Information</CardTitle>
@@ -1376,12 +1421,27 @@ const calculatePenalties = (request: VacateRequest) => {
             <span className="text-gray-600">Period:</span>
             <span className="font-medium">{selectedRequest.lockin_period_months || 0} months</span>
           </div>
+          {selectedRequest.check_in_date && selectedRequest.lockin_period_months && (
+            <div className="flex justify-between text-xs">
+              <span className="text-gray-600">Status:</span>
+              {(() => {
+                const checkIn = new Date(selectedRequest.check_in_date);
+                const lockinEnd = new Date(checkIn);
+                lockinEnd.setMonth(checkIn.getMonth() + selectedRequest.lockin_period_months);
+                const isCompleted = new Date() >= lockinEnd;
+                return (
+                  <Badge variant={isCompleted ? 'default' : 'destructive'} className="text-[10px]">
+                    {isCompleted ? 'Completed' : 'Active'}
+                  </Badge>
+                );
+              })()}
+            </div>
+          )}
           {selectedRequest.lockin_penalty_amount && (
             <div className="flex justify-between text-xs">
               <span className="text-gray-600">Penalty:</span>
               <span className="font-medium text-red-600">
                 {(() => {
-                  // ✅ Calculate actual penalty amount based on type
                   const securityDeposit = selectedRequest.security_deposit || 0;
                   const penaltyAmount = parseFloat(String(selectedRequest.lockin_penalty_amount)) || 0;
                   
@@ -1410,12 +1470,37 @@ const calculatePenalties = (request: VacateRequest) => {
             <span className="text-gray-600">Period:</span>
             <span className="font-medium">{selectedRequest.notice_period_days || 0} days</span>
           </div>
+          {selectedRequest.expected_vacate_date && selectedRequest.check_in_date && selectedRequest.lockin_period_months && (
+            <div className="flex justify-between text-xs">
+              <span className="text-gray-600">Status:</span>
+              {(() => {
+                const checkIn = new Date(selectedRequest.check_in_date);
+                const lockinEnd = new Date(checkIn);
+                lockinEnd.setMonth(checkIn.getMonth() + selectedRequest.lockin_period_months);
+                const isLockinCompleted = new Date() >= lockinEnd;
+                
+                if (!isLockinCompleted) {
+                  return <Badge variant="destructive" className="text-[10px]">Waiting for Lock-in</Badge>;
+                }
+                
+                const noticeEnd = new Date(lockinEnd);
+                noticeEnd.setDate(lockinEnd.getDate() + selectedRequest.notice_period_days);
+                const expectedDate = new Date(selectedRequest.expected_vacate_date);
+                const isNoticeCompleted = expectedDate >= noticeEnd;
+                
+                return (
+                  <Badge variant={isNoticeCompleted ? 'default' : 'destructive'} className="text-[10px]">
+                    {isNoticeCompleted ? 'Completed' : 'Pending'}
+                  </Badge>
+                );
+              })()}
+            </div>
+          )}
           {selectedRequest.notice_penalty_amount && (
             <div className="flex justify-between text-xs">
               <span className="text-gray-600">Penalty:</span>
               <span className="font-medium text-red-600">
                 {(() => {
-                  // ✅ Calculate actual penalty amount based on type
                   const securityDeposit = selectedRequest.security_deposit || 0;
                   const penaltyAmount = parseFloat(String(selectedRequest.notice_penalty_amount)) || 0;
                   
@@ -1438,97 +1523,80 @@ const calculatePenalties = (request: VacateRequest) => {
     </div>
 
     {/* Penalty Calculation */}
-    {(() => {
-      const penalties = calculatePenalties(selectedRequest);
-      if (!penalties) return null;
-      
-      // ✅ Calculate displayed penalty amounts for lock-in and notice
-      const securityDeposit = selectedRequest.security_deposit || 0;
-      const lockinRawAmount = parseFloat(String(selectedRequest.lockin_penalty_amount)) || 0;
-      const noticeRawAmount = parseFloat(String(selectedRequest.notice_penalty_amount)) || 0;
-      
-      const displayLockinPenalty = selectedRequest.lockin_penalty_type === 'percentage' && securityDeposit > 0
-        ? (securityDeposit * lockinRawAmount) / 100
-        : lockinRawAmount;
-      
-      const displayNoticePenalty = selectedRequest.notice_penalty_type === 'percentage' && securityDeposit > 0
-        ? (securityDeposit * noticeRawAmount) / 100
-        : noticeRawAmount;
-      
-      return (
-        <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-          <h4 className="font-medium text-xs mb-2">Penalty Calculation</h4>
-          <div className="space-y-1 text-xs">
-            {displayLockinPenalty > 0 && (
-              <div className="flex justify-between">
-                <span className="text-gray-600">Lock-in Penalty:</span>
-                <span className="font-medium text-red-600">
-                  {selectedRequest.lockin_penalty_type === 'percentage' 
-                    ? `${lockinRawAmount}% of security deposit (₹${displayLockinPenalty.toFixed(2)})`
-                    : `₹${displayLockinPenalty.toFixed(2)}`}
-                </span>
-              </div>
-            )}
-            {displayNoticePenalty > 0 && (
-              <div className="flex justify-between">
-                <span className="text-gray-600">Notice Period Penalty:</span>
-                <span className="font-medium text-red-600">
-                  {selectedRequest.notice_penalty_type === 'percentage'
-                    ? `${noticeRawAmount}% of security deposit (₹${displayNoticePenalty.toFixed(2)})`
-                    : `₹${displayNoticePenalty.toFixed(2)}`}
-                </span>
-              </div>
-            )}
-            {(displayLockinPenalty > 0 || displayNoticePenalty > 0) && (
-              <div className="flex justify-between pt-1 border-t border-gray-200">
-                <span className="font-medium">Total Penalty:</span>
-                <span className="font-bold text-red-600">
-                  ₹{(displayLockinPenalty + displayNoticePenalty).toFixed(2)}
-                </span>
-              </div>
-            )}
-            {displayLockinPenalty === 0 && displayNoticePenalty === 0 && (
-              <p className="text-green-600 font-medium">No penalties applicable</p>
-            )}
-          </div>
-        </div>
-      );
-    })()}
-
-    {/* Financial Info */}
-    <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
-      <h4 className="font-semibold text-xs text-blue-800 mb-2">Financial Details</h4>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-        <div>
-          <p className="text-[10px] text-blue-700">Monthly Rent</p>
-          <p className="font-semibold text-blue-800">
-            {formatCurrency(selectedRequest.monthly_rent)}
-          </p>
-        </div>
-        <div>
-          <p className="text-[10px] text-blue-700">Security Deposit</p>
-          <p className="font-semibold text-blue-800">
-            {formatCurrency(selectedRequest.security_deposit)}
-          </p>
-        </div>
-        {selectedRequest.refund_amount !== null && (
-          <div>
-            <p className="text-[10px] text-green-700">Refund Amount</p>
-            <p className="font-semibold text-green-600">
-              {formatCurrency(selectedRequest.refund_amount)}
-            </p>
+{(() => {
+  const penalties = calculatePenalties(selectedRequest);
+  if (!penalties) return null;
+  
+  return (
+    <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+      <h4 className="font-medium text-xs mb-2">Penalty Calculation</h4>
+      <div className="space-y-1 text-xs">
+        {penalties.lockin_penalty > 0 && (
+          <div className="flex justify-between">
+            <span className="text-gray-600">Lock-in Penalty:</span>
+            <span className="font-medium text-red-600">
+              {formatCurrency(penalties.lockin_penalty)}
+            </span>
           </div>
         )}
-        {selectedRequest.penalty_deduction !== null && (
-          <div>
-            <p className="text-[10px] text-red-700">Penalty Deduction</p>
-            <p className="font-semibold text-red-600">
-              {formatCurrency(selectedRequest.penalty_deduction)}
-            </p>
+        {penalties.notice_penalty > 0 && (
+          <div className="flex justify-between">
+            <span className="text-gray-600">Notice Period Penalty:</span>
+            <span className="font-medium text-red-600">
+              {formatCurrency(penalties.notice_penalty)}
+            </span>
+          </div>
+        )}
+        {penalties.lockin_penalty === 0 && penalties.notice_penalty === 0 && (
+          <p className="text-green-600 font-medium">✓ No penalties applicable</p>
+        )}
+        {(penalties.lockin_penalty > 0 || penalties.notice_penalty > 0) && (
+          <div className="flex justify-between pt-1 mt-1 border-t">
+            <span className="font-medium">Total Penalty:</span>
+            <span className="font-bold text-red-600">
+              {formatCurrency(penalties.lockin_penalty + penalties.notice_penalty)}
+            </span>
           </div>
         )}
       </div>
     </div>
+  );
+})()}
+
+{/* Financial Details */}
+<div className="bg-blue-50 p-3 rounded-lg border border-blue-200 mt-3">
+  <h4 className="font-semibold text-xs text-blue-800 mb-2">Financial Details</h4>
+  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+    <div>
+      <p className="text-[10px] text-blue-700">Monthly Rent</p>
+      <p className="font-semibold text-blue-800">
+        {formatCurrency(selectedRequest.monthly_rent)}
+      </p>
+    </div>
+    <div>
+      <p className="text-[10px] text-blue-700">Security Deposit</p>
+      <p className="font-semibold text-blue-800">
+        {formatCurrency(selectedRequest.security_deposit)}
+      </p>
+    </div>
+    {selectedRequest.refund_amount !== null && (
+      <div>
+        <p className="text-[10px] text-green-700">Refund Amount</p>
+        <p className="font-semibold text-green-600">
+          {formatCurrency(selectedRequest.refund_amount)}
+        </p>
+      </div>
+    )}
+    {selectedRequest.penalty_deduction !== null && (
+      <div>
+        <p className="text-[10px] text-red-700">Penalty Deduction</p>
+        <p className="font-semibold text-red-600">
+          {formatCurrency(selectedRequest.penalty_deduction)}
+        </p>
+      </div>
+    )}
+  </div>
+</div>
   </CardContent>
 </Card>
             </div>

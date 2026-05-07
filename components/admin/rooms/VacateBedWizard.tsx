@@ -302,80 +302,81 @@ export function VacateBedWizard({
     }
   };
 
-  const extractTenantVacateData = async (vacateRequests: any[]) => {
-    if (!vacateRequests || vacateRequests.length === 0) return null;
+const extractTenantVacateData = async (vacateRequests: any[]) => {
+  if (!vacateRequests || vacateRequests.length === 0) return null;
 
-    const latestRequest = vacateRequests[0];
-    
-    const requestWithId = {
-      ...latestRequest,
-      id: latestRequest.vacate_request_id,
-      status: latestRequest.request_status,
-      created_at: latestRequest.vacate_request_date || latestRequest.request_created,
-    };
-    
-    setTenantVacateData(requestWithId);
-    
-    if (latestRequest.expected_vacate_date) {
-      const tenantDate = latestRequest.expected_vacate_date;
-      setTenantVacateDate(tenantDate);
-      const formattedDate = formatDateForInput(tenantDate);
-      setFormData((prev) => ({
-        ...prev,
-        requestedVacateDate: formattedDate,
-      }));
-    }
-
-    if (latestRequest.vacate_request_date) {
-      const requestDate = latestRequest.vacate_request_date.split("T")[0];
-      setTenantRequestDate(requestDate);
-    } else if (latestRequest.request_created) {
-      const requestDate = latestRequest.request_created.split("T")[0];
-      setTenantRequestDate(requestDate);
-    }
-
-    const parseBoolean = (value: any): boolean => {
-      if (value === 1 || value === "1" || value === true || value === "true") return true;
-      if (value === 0 || value === "0" || value === false || value === "false") return false;
-      return false;
-    };
-
-    const lockinAcceptedFromTenant = parseBoolean(latestRequest.lockin_penalty_accepted);
-    const noticeAcceptedFromTenant = parseBoolean(latestRequest.notice_penalty_accepted);
-
-    setLockinAcceptedByTenant(lockinAcceptedFromTenant);
-    setNoticeGivenByTenant(noticeAcceptedFromTenant);
-
-    const isLockinCompleted = await checkIfLockinCompleted();
-
-    const effectiveLockinAccepted = lockinAcceptedFromTenant || isLockinCompleted;
-    const effectiveNoticeAccepted = noticeAcceptedFromTenant;
-    const termsAgreed = effectiveLockinAccepted && effectiveNoticeAccepted;
-    setTenantAgreedToTerms(termsAgreed);
-
-    const reasonId = latestRequest.primary_reason_id;
-    const reasonText = latestRequest.primary_reason;
-    
-    if (reasonId) {
-      setTenantVacateReasonId(reasonId);
-      const reason = vacateReasons.find((r: any) => r.id === reasonId);
-      if (reason) {
-        setTenantVacateReason(reason.value);
-        setFormData((prev) => ({
-          ...prev,
-          vacateReasonValue: reason.value,
-        }));
-      }
-    } else if (reasonText) {
-      setTenantVacateReason(reasonText);
-      setFormData((prev) => ({
-        ...prev,
-        vacateReasonValue: reasonText,
-      }));
-    }
-
-    return requestWithId;
+  // Get the most recent request (by created date)
+  const sortedRequests = [...vacateRequests].sort((a, b) => 
+    new Date(b.vacate_request_date).getTime() - new Date(a.vacate_request_date).getTime()
+  );
+  const latestRequest = sortedRequests[0];
+  
+  const requestWithId = {
+    ...latestRequest,
+    id: latestRequest.vacate_request_id,
+    status: latestRequest.vacate_status, // Use vacate_status instead of request_status
+    created_at: latestRequest.vacate_request_date,
   };
+  
+  setTenantVacateData(requestWithId);
+  
+  if (latestRequest.expected_vacate_date) {
+    const tenantDate = latestRequest.expected_vacate_date;
+    setTenantVacateDate(tenantDate);
+    const formattedDate = formatDateForInput(tenantDate);
+    setFormData((prev) => ({
+      ...prev,
+      requestedVacateDate: formattedDate,
+    }));
+  }
+
+  if (latestRequest.vacate_request_date) {
+    const requestDate = latestRequest.vacate_request_date.split("T")[0];
+    setTenantRequestDate(requestDate);
+  }
+
+  const parseBoolean = (value: any): boolean => {
+    if (value === 1 || value === "1" || value === true || value === "true") return true;
+    if (value === 0 || value === "0" || value === false || value === "false") return false;
+    return false;
+  };
+
+  const lockinAcceptedFromTenant = parseBoolean(latestRequest.lockin_penalty_accepted);
+  const noticeAcceptedFromTenant = parseBoolean(latestRequest.notice_penalty_accepted);
+
+  setLockinAcceptedByTenant(lockinAcceptedFromTenant);
+  setNoticeGivenByTenant(noticeAcceptedFromTenant);
+
+  const isLockinCompleted = await checkIfLockinCompleted();
+
+  const effectiveLockinAccepted = lockinAcceptedFromTenant || isLockinCompleted;
+  const effectiveNoticeAccepted = noticeAcceptedFromTenant;
+  const termsAgreed = effectiveLockinAccepted && effectiveNoticeAccepted;
+  setTenantAgreedToTerms(termsAgreed);
+
+  const reasonId = latestRequest.primary_reason_id;
+  const reasonText = latestRequest.primary_reason;
+  
+  if (reasonId) {
+    setTenantVacateReasonId(reasonId);
+    const reason = vacateReasons.find((r: any) => r.id === reasonId);
+    if (reason) {
+      setTenantVacateReason(reason.value);
+      setFormData((prev) => ({
+        ...prev,
+        vacateReasonValue: reason.value,
+      }));
+    }
+  } else if (reasonText) {
+    setTenantVacateReason(reasonText);
+    setFormData((prev) => ({
+      ...prev,
+      vacateReasonValue: reasonText,
+    }));
+  }
+
+  return requestWithId;
+};
 
   const updateFormWithTenantData = () => {
     if (!initialData || !tenantVacateData) return;
@@ -399,81 +400,85 @@ export function VacateBedWizard({
     setFormData(newFormData);
   };
 
-  const checkForExistingRequest = async () => {
-    try {
-      setIsCheckingExisting(true);
-      setWizardDisabled(true);
+const checkForExistingRequest = async () => {
+  try {
+    setIsCheckingExisting(true);
+    setWizardDisabled(true);
 
-      let adminToken = localStorage.getItem("auth_token");
-      if (!adminToken) adminToken = localStorage.getItem("admin_token");
-      if (!adminToken) adminToken = localStorage.getItem("token");
-      
-      if (!adminToken) {
-        console.warn("⚠️ No admin token found");
-        setExistingVacateRequest(null);
-        setWizardDisabled(false);
-        return;
-      }
-
-      const response = await fetch(
-        `/api/admin/vacate-requests?tenant_id=${tenantDetails?.id}`,
-        {
-          headers: {
-            Authorization: `Bearer ${adminToken}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (response.status === 401) {
-        console.error("❌ Unauthorized - token invalid");
-        setExistingVacateRequest(null);
-        setWizardDisabled(false);
-        return;
-      }
-
-      const result = await response.json();
-
-      let vacateRequests = [];
-      if (result.success && Array.isArray(result.data)) {
-        vacateRequests = result.data;
-      }
-
-      const activeVacateRequests = vacateRequests.filter((request) => {
-        const isVacateRequest = request.vacate_request_id !== undefined;
-        const isForCurrentTenant = request.tenant_id === tenantDetails?.id;
-        const isActiveStatus = ["pending", "in_progress"].includes(request.request_status);
-        return isVacateRequest && isForCurrentTenant && isActiveStatus;
-      });
-
-      if (activeVacateRequests.length > 0) {
-        const tenantRequest = await extractTenantVacateData(activeVacateRequests);
-        if (tenantRequest) {
-          const requestWithId = {
-            ...tenantRequest,
-            id: tenantRequest.vacate_request_id,
-            status: tenantRequest.request_status,
-            created_at: tenantRequest.vacate_request_date || tenantRequest.request_created,
-          };
-          setExistingVacateRequest(requestWithId);
-          toast.info("Tenant vacate request found", {
-            description: "Loading tenant's vacate request details...",
-            duration: 1000,
-          });
-        }
-      } else {
-        setExistingVacateRequest(null);
-      }
-
-      setWizardDisabled(false);
-    } catch (error) {
-      console.error("❌ Error checking existing request:", error);
+    let adminToken = localStorage.getItem("auth_token");
+    if (!adminToken) adminToken = localStorage.getItem("admin_token");
+    if (!adminToken) adminToken = localStorage.getItem("token");
+    
+    if (!adminToken) {
+      console.warn("⚠️ No admin token found");
       setExistingVacateRequest(null);
       setWizardDisabled(false);
-    } finally {
-      setIsCheckingExisting(false);
+      return;
     }
-  };
+
+    const response = await fetch(
+      `/api/admin/vacate-requests?tenant_id=${tenantDetails?.id}`,
+      {
+        headers: {
+          Authorization: `Bearer ${adminToken}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (response.status === 401) {
+      console.error("❌ Unauthorized - token invalid");
+      setExistingVacateRequest(null);
+      setWizardDisabled(false);
+      return;
+    }
+
+    const result = await response.json();
+
+    let vacateRequests = [];
+    if (result.success && Array.isArray(result.data)) {
+      vacateRequests = result.data;
+    }
+
+    // ✅ FIX: Include ALL statuses, not just pending and in_progress
+    // This will fetch requests that are approved, completed, rejected as well
+    const activeVacateRequests = vacateRequests.filter((request) => {
+      const isVacateRequest = request.vacate_request_id !== undefined;
+      const isForCurrentTenant = request.tenant_id === tenantDetails?.id;
+      // ✅ Include ALL statuses - removed the status filter
+      return isVacateRequest && isForCurrentTenant;
+    });
+
+    console.log("🔍 All vacate requests for tenant:", activeVacateRequests);
+
+    if (activeVacateRequests.length > 0) {
+      const tenantRequest = await extractTenantVacateData(activeVacateRequests);
+      if (tenantRequest) {
+        const requestWithId = {
+          ...tenantRequest,
+          id: tenantRequest.vacate_request_id,
+          status: tenantRequest.request_status,
+          created_at: tenantRequest.vacate_request_date || tenantRequest.request_created,
+        };
+        setExistingVacateRequest(requestWithId);
+        toast.info("Tenant vacate request found", {
+          description: "Loading tenant's vacate request details...",
+          duration: 1000,
+        });
+      }
+    } else {
+      setExistingVacateRequest(null);
+    }
+
+    setWizardDisabled(false);
+  } catch (error) {
+    console.error("❌ Error checking existing request:", error);
+    setExistingVacateRequest(null);
+    setWizardDisabled(false);
+  } finally {
+    setIsCheckingExisting(false);
+  }
+};
 
   const fetchRawTenant = async (tenantId: number) => {
     try {
