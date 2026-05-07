@@ -349,17 +349,21 @@ const getRequestTypeDisplay = (type: string) => {
 
   // Get admin initials
   const getInitials = () => {
-    const name = localStorage.getItem('auth_role') === "admin"
-      ? adminEmail.split('@')[0]
+  const name =
+    localStorage.getItem("auth_role") === "admin"
+      ? adminEmail.split("@")[0]
       : user?.name || "";
 
-    return name
-      .split(" ")
-      .map(word => word[0])
-      .join("")
-      .substring(0, 2)
-      .toUpperCase();
-  };
+  const words = name.trim().split(" ");
+
+  const firstInitial = words[0]?.charAt(0) || "";
+  const lastInitial =
+    words.length > 1
+      ? words[words.length - 1]?.charAt(0)
+      : "";
+
+  return `${firstInitial}${lastInitial}`.toUpperCase();
+};
 
   // Load profile from localStorage
   useEffect(() => {
