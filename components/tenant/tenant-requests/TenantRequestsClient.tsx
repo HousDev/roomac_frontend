@@ -1,28 +1,58 @@
 // components/tenant/tenant-requests/TenantRequestsClient.tsx
-'use client';
+"use client";
 
-import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { useRouter } from '@/src/compat/next-navigation';
-import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
-import { ArrowLeft, FileText, Plus, Loader2, Send, AlertTriangle, Check, Info, Home, X } from 'lucide-react';
-import { format } from 'date-fns';
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
+import { useRouter } from "@/src/compat/next-navigation";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  ArrowLeft,
+  FileText,
+  Plus,
+  Loader2,
+  Send,
+  AlertTriangle,
+  Check,
+  Info,
+  Home,
+  X,
+} from "lucide-react";
+import { format } from "date-fns";
 
 // Import extracted components
-import { QuickRequestCards } from './QuickRequestCards';
-import { RequestFilters } from './RequestFilters';
-import { RequestCard } from './RequestCard';
-import { ChangeBedForm } from './ChangeBedForm';
-import { QUICK_REQUESTS, type RequestFormData } from './requestConfig';
-import { getDisplayStatus, getStatusConfig } from './requestStatusMapper';
+import { QuickRequestCards } from "./QuickRequestCards";
+import { RequestFilters } from "./RequestFilters";
+import { RequestCard } from "./RequestCard";
+import { ChangeBedForm } from "./ChangeBedForm";
+import { QUICK_REQUESTS, type RequestFormData } from "./requestConfig";
+import { getDisplayStatus, getStatusConfig } from "./requestStatusMapper";
 
 // Import API functions
 import {
@@ -51,68 +81,78 @@ import {
 } from "@/lib/tenantRequestsApi";
 
 import { getTenantId, getTenantToken } from "@/lib/tenantAuthApi";
-import * as paymentApi from '@/lib/paymentRecordApi';
+import * as paymentApi from "@/lib/paymentRecordApi";
 
 // Main component - handles all authentication and data loading
 export default function TenantRequestsClient() {
   const router = useRouter();
-  
+
   // Refs to prevent infinite loops
   const isMounted = useRef(true);
   const isDataLoaded = useRef(false);
   const isLoadingRef = useRef(false);
   const retryCount = useRef(0);
   const MAX_RETRIES = 2;
-  
+
   // State management
   const [requests, setRequests] = useState<TenantRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [activeFilter, setActiveFilter] = useState('all');
+  const [activeFilter, setActiveFilter] = useState("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  
+
   // Form state
   const [formData, setFormData] = useState<RequestFormData>({
-    request_type: 'general',
-    title: '',
-    description: '',
-    priority: 'medium'
+    request_type: "general",
+    title: "",
+    description: "",
+    priority: "medium",
   });
-  
+
   // Change bed form state
   const [step, setStep] = useState<number>(1);
   const [currentRoom, setCurrentRoom] = useState<CurrentRoomInfo | null>(null);
   const [changeReasons, setChangeReasons] = useState<ChangeReason[]>([]);
   const [properties, setProperties] = useState<ApiProperty[]>([]);
-  const [selectedPropertyId, setSelectedPropertyId] = useState<number | null>(null);
+  const [selectedPropertyId, setSelectedPropertyId] = useState<number | null>(
+    null,
+  );
   const [availableRooms, setAvailableRooms] = useState<ApiRoom[]>([]);
   const [selectedRoomId, setSelectedRoomId] = useState<number | null>(null);
   const [availableBeds, setAvailableBeds] = useState<number[]>([]);
-  const [selectedBedNumber, setSelectedBedNumber] = useState<number | null>(null);
-  
+  const [selectedBedNumber, setSelectedBedNumber] = useState<number | null>(
+    null,
+  );
+
   // Complaint state
-  const [complaintCategories, setComplaintCategories] = useState<ComplaintCategory[]>([]);
-  const [complaintReasons, setComplaintReasons] = useState<ComplaintReason[]>([]);
-  const [selectedComplaintCategory, setSelectedComplaintCategory] = useState<number | null>(null);
-  
+  const [complaintCategories, setComplaintCategories] = useState<
+    ComplaintCategory[]
+  >([]);
+  const [complaintReasons, setComplaintReasons] = useState<ComplaintReason[]>(
+    [],
+  );
+  const [selectedComplaintCategory, setSelectedComplaintCategory] = useState<
+    number | null
+  >(null);
+
   // Add these state declarations with your other state
   const [maintenanceCategories, setMaintenanceCategories] = useState<any[]>([]);
   const [maintenanceLocations, setMaintenanceLocations] = useState<any[]>([]);
   const [visitTimes, setVisitTimes] = useState<any[]>([]);
   const [showCustomReason, setShowCustomReason] = useState(false);
-  
+
   // Other data
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
   const [vacateReasons, setVacateReasons] = useState<any[]>([]);
   const [lockinInfo, setLockinInfo] = useState<any>(null);
   const [noticeInfo, setNoticeInfo] = useState<any>(null);
-  const [secondaryReasonsInput, setSecondaryReasonsInput] = useState('');
+  const [secondaryReasonsInput, setSecondaryReasonsInput] = useState("");
 
   // Add these with your other useState declarations
   const [paymentFormData, setPaymentFormData] = useState<any>(null);
   const [securityDepositInfo, setSecurityDepositInfo] = useState<any>(null);
-  const [selectedReceiptMonth, setSelectedReceiptMonth] = useState('');
+  const [selectedReceiptMonth, setSelectedReceiptMonth] = useState("");
 
   // Cleanup on unmount
   useEffect(() => {
@@ -129,13 +169,17 @@ export default function TenantRequestsClient() {
   useEffect(() => {
     const token = getTenantToken();
     if (!token) {
-      toast.error('Authentication required. Please login.');
-      router.push('/login');
+      toast.error("Authentication required. Please login.");
+      router.push("/login");
       return;
     }
-    
+
     // Only load data if not already loaded and not currently loading
-    if (!isDataLoaded.current && !initialLoadComplete && !isLoadingRef.current) {
+    if (
+      !isDataLoaded.current &&
+      !initialLoadComplete &&
+      !isLoadingRef.current
+    ) {
       loadAllData();
     }
   }, [router, initialLoadComplete]); // Removed unnecessary dependencies
@@ -144,89 +188,89 @@ export default function TenantRequestsClient() {
   const loadAllData = useCallback(async () => {
     // Prevent concurrent loads
     if (isLoadingRef.current) {
-      console.log('Load already in progress, skipping...');
+      console.log("Load already in progress, skipping...");
       return;
     }
-    
+
     // Prevent multiple loads after initial success
     if (isDataLoaded.current && initialLoadComplete) {
       return;
     }
-    
+
     try {
       isLoadingRef.current = true;
       setLoading(true);
-      
+
       // Check authentication first
       const token = getTenantToken();
       if (!token) {
         if (isMounted.current) {
-          toast.error('Authentication required');
-          router.push('/login');
+          toast.error("Authentication required");
+          router.push("/login");
         }
         return;
       }
 
       // Load all data in parallel with error handling for each
       const results = await Promise.allSettled([
-        getMyTenantRequests().catch(err => {
-          console.error('Failed to fetch tenant requests:', err);
+        getMyTenantRequests().catch((err) => {
+          console.error("Failed to fetch tenant requests:", err);
           return [];
         }),
-        getTenantContractDetails().catch(err => {
-          console.error('Failed to fetch contract details:', err);
+        getTenantContractDetails().catch((err) => {
+          console.error("Failed to fetch contract details:", err);
           return null;
         }),
-        getCurrentRoomInfo().catch(err => {
-          console.error('Failed to fetch current room:', err);
+        getCurrentRoomInfo().catch((err) => {
+          console.error("Failed to fetch current room:", err);
           return null;
         }),
-        getActiveProperties().catch(err => {
-          console.error('Failed to fetch properties:', err);
+        getActiveProperties().catch((err) => {
+          console.error("Failed to fetch properties:", err);
           return [];
         }),
-        getChangeBedReasons().catch(err => {
-          console.error('Failed to fetch change reasons:', err);
+        getChangeBedReasons().catch((err) => {
+          console.error("Failed to fetch change reasons:", err);
           return [];
         }),
-        getVacateReasonsFromMasters().catch(err => {
-          console.error('Failed to fetch vacate reasons:', err);
+        getVacateReasonsFromMasters().catch((err) => {
+          console.error("Failed to fetch vacate reasons:", err);
           return [];
         }),
-        getComplaintCategories().catch(err => {
-          console.error('Failed to fetch complaint categories:', err);
+        getComplaintCategories().catch((err) => {
+          console.error("Failed to fetch complaint categories:", err);
           return [];
         }),
-        getMaintenanceCategoriesFromMasters().catch(err => {
-          console.error('Failed to fetch maintenance categories:', err);
+        getMaintenanceCategoriesFromMasters().catch((err) => {
+          console.error("Failed to fetch maintenance categories:", err);
           return [];
         }),
-        getMaintenanceLocationsFromMasters().catch(err => {
-          console.error('Failed to fetch maintenance locations:', err);
+        getMaintenanceLocationsFromMasters().catch((err) => {
+          console.error("Failed to fetch maintenance locations:", err);
           return [];
         }),
-        getVisitTimesFromMasters().catch(err => {
-          console.error('Failed to fetch visit times:', err);
+        getVisitTimesFromMasters().catch((err) => {
+          console.error("Failed to fetch visit times:", err);
           return [];
-        })
+        }),
       ]);
 
       // Only update state if component is still mounted
       if (!isMounted.current) return;
 
       // Handle requests data
-      if (results[0].status === 'fulfilled') {
+      if (results[0].status === "fulfilled") {
         setRequests(results[0].value || []);
       }
 
       // Handle contract data - FIXED with proper error handling
-      if (results[1].status === 'fulfilled') {
+      if (results[1].status === "fulfilled") {
         const contractResponse = results[1].value;
-        
+
         // Safe extraction with multiple patterns
         let lockinInfoValue = null;
         let noticeInfoValue = null;
-        
+
         if (contractResponse) {
           // Pattern 1: { success: true, data: { lockinInfo, noticeInfo } }
           if (contractResponse.success && contractResponse.data) {
@@ -234,37 +278,43 @@ export default function TenantRequestsClient() {
             noticeInfoValue = contractResponse.data.noticeInfo || null;
           }
           // Pattern 2: { lockinInfo, noticeInfo } directly
-          else if ('lockinInfo' in contractResponse || 'noticeInfo' in contractResponse) {
+          else if (
+            "lockinInfo" in contractResponse ||
+            "noticeInfo" in contractResponse
+          ) {
             lockinInfoValue = contractResponse.lockinInfo || null;
             noticeInfoValue = contractResponse.noticeInfo || null;
           }
           // Pattern 3: Array or other structure
           else {
-            console.warn('Unexpected contract response structure:', contractResponse);
+            console.warn(
+              "Unexpected contract response structure:",
+              contractResponse,
+            );
           }
         }
-        
+
         setLockinInfo(lockinInfoValue);
         setNoticeInfo(noticeInfoValue);
       }
 
       // Handle room info
-      if (results[2].status === 'fulfilled') {
+      if (results[2].status === "fulfilled") {
         setCurrentRoom(results[2].value);
       }
 
       // Handle properties
-      if (results[3].status === 'fulfilled') {
+      if (results[3].status === "fulfilled") {
         setProperties(results[3].value || []);
       }
 
       // Handle change reasons
-      if (results[4].status === 'fulfilled') {
+      if (results[4].status === "fulfilled") {
         setChangeReasons(results[4].value || []);
       }
 
       // Handle vacate reasons
-      if (results[5].status === 'fulfilled') {
+      if (results[5].status === "fulfilled") {
         const vacateData = results[5].value;
         if (Array.isArray(vacateData)) {
           setVacateReasons(vacateData);
@@ -276,7 +326,7 @@ export default function TenantRequestsClient() {
       }
 
       // Handle complaint categories
-      if (results[6].status === 'fulfilled') {
+      if (results[6].status === "fulfilled") {
         const categories = results[6].value;
         if (Array.isArray(categories)) {
           setComplaintCategories(categories);
@@ -284,7 +334,7 @@ export default function TenantRequestsClient() {
       }
 
       // Handle maintenance categories
-      if (results[7].status === 'fulfilled') {
+      if (results[7].status === "fulfilled") {
         const maintenanceCategoriesData = results[7].value;
         if (Array.isArray(maintenanceCategoriesData)) {
           setMaintenanceCategories(maintenanceCategoriesData);
@@ -292,7 +342,7 @@ export default function TenantRequestsClient() {
       }
 
       // Handle maintenance locations
-      if (results[8].status === 'fulfilled') {
+      if (results[8].status === "fulfilled") {
         const maintenanceLocationsData = results[8].value;
         if (Array.isArray(maintenanceLocationsData)) {
           setMaintenanceLocations(maintenanceLocationsData);
@@ -300,7 +350,7 @@ export default function TenantRequestsClient() {
       }
 
       // Handle visit times
-      if (results[9].status === 'fulfilled') {
+      if (results[9].status === "fulfilled") {
         const visitTimesData = results[9].value;
         if (Array.isArray(visitTimesData)) {
           setVisitTimes(visitTimesData);
@@ -311,31 +361,34 @@ export default function TenantRequestsClient() {
       isDataLoaded.current = true;
       setInitialLoadComplete(true);
       retryCount.current = 0;
-
     } catch (error: any) {
-      console.error('Error loading data:', error);
-      
+      console.error("Error loading data:", error);
+
       // Only handle errors if component is still mounted
       if (!isMounted.current) return;
-      
+
       // Check for authentication errors
-      if (error.message?.includes('Authentication') || 
-          error.message?.includes('token') || 
-          error.message?.includes('401')) {
-        toast.error('Authentication failed. Please login again.');
-        router.push('/login');
+      if (
+        error.message?.includes("Authentication") ||
+        error.message?.includes("token") ||
+        error.message?.includes("401")
+      ) {
+        toast.error("Authentication failed. Please login again.");
+        router.push("/login");
       } else if (retryCount.current < MAX_RETRIES) {
         // Retry with exponential backoff
         retryCount.current += 1;
         const delay = 1000 * Math.pow(2, retryCount.current - 1);
-        
+
         setTimeout(() => {
           if (isMounted.current && !isDataLoaded.current) {
             loadAllData();
           }
         }, delay);
       } else {
-        toast.error('Failed to load data after multiple attempts. Please refresh the page.');
+        toast.error(
+          "Failed to load data after multiple attempts. Please refresh the page.",
+        );
         setLoading(false);
       }
     } finally {
@@ -355,9 +408,9 @@ export default function TenantRequestsClient() {
 
   // Memoized values
   const filteredRequests = useMemo(() => {
-    if (activeFilter === 'all') return requests;
-    
-    return requests.filter(req => {
+    if (activeFilter === "all") return requests;
+
+    return requests.filter((req) => {
       const displayStatus = getDisplayStatus(req);
       return displayStatus === activeFilter;
     });
@@ -372,10 +425,10 @@ export default function TenantRequestsClient() {
       rejected: 0,
       completed: 0,
       resolved: 0,
-      closed: 0
+      closed: 0,
     };
 
-    requests.forEach(req => {
+    requests.forEach((req) => {
       const displayStatus = getDisplayStatus(req);
       if (displayStatus in counts) {
         counts[displayStatus]++;
@@ -389,14 +442,16 @@ export default function TenantRequestsClient() {
   const fetchPaymentFormData = useCallback(async () => {
     const tenantId = getTenantId();
     if (!tenantId) return;
-    
+
     try {
-      const response = await paymentApi.getTenantPaymentFormData(parseInt(tenantId));
+      const response = await paymentApi.getTenantPaymentFormData(
+        parseInt(tenantId),
+      );
       if (response.success && isMounted.current) {
         setPaymentFormData(response.data);
       }
     } catch (error) {
-      console.error('Error fetching payment form data:', error);
+      console.error("Error fetching payment form data:", error);
     }
   }, []);
 
@@ -404,52 +459,58 @@ export default function TenantRequestsClient() {
   const fetchSecurityDepositInfo = useCallback(async () => {
     const tenantId = getTenantId();
     if (!tenantId) return;
-    
+
     try {
-      const response = await paymentApi.getSecurityDepositInfo(parseInt(tenantId));
+      const response = await paymentApi.getSecurityDepositInfo(
+        parseInt(tenantId),
+      );
       if (response.success && isMounted.current) {
         setSecurityDepositInfo(response.data);
       }
     } catch (error) {
-      console.error('Error fetching security deposit info:', error);
+      console.error("Error fetching security deposit info:", error);
     }
   }, []);
 
   // Event handlers
-  const handleQuickRequest = useCallback((type: string) => {
-    const typeTitles: Record<string, string> = {
-      'complaint': 'Complaint',
-      'maintenance': 'Maintenance Request',
-      'vacate_bed': 'Vacate Bed Request',
-      'change_bed': 'Change Bed Request',
-      'receipt': 'Receipt Request',
-      'leave': 'Leave Application',
-      'general': 'General Request'
-    };
+  const handleQuickRequest = useCallback(
+    (type: string) => {
+      const typeTitles: Record<string, string> = {
+        complaint: "Complaint",
+        maintenance: "Maintenance Request",
+        vacate_bed: "Vacate Bed Request",
+        change_bed: "Change Bed Request",
+        receipt: "Receipt Request",
+        leave: "Leave Application",
+        general: "General Request",
+      };
 
-    setFormData({
-      request_type: type,
-      title: typeTitles[type] || 'General Request',
-      description: '',
-      priority: type === 'maintenance' || type === 'complaint' ? 'high' : 'medium'
-    });
+      setFormData({
+        request_type: type,
+        title: typeTitles[type] || "General Request",
+        description: "",
+        priority:
+          type === "maintenance" || type === "complaint" ? "high" : "medium",
+      });
 
-    if (type === 'change_bed') {
-      setStep(1);
-      setSelectedPropertyId(null);
-      setAvailableRooms([]);
-      setSelectedRoomId(null);
-      setAvailableBeds([]);
-      setSelectedBedNumber(null);
-    }
+      if (type === "change_bed") {
+        setStep(1);
+        setSelectedPropertyId(null);
+        setAvailableRooms([]);
+        setSelectedRoomId(null);
+        setAvailableBeds([]);
+        setSelectedBedNumber(null);
+      }
 
-    if (type === 'receipt') {
-      fetchPaymentFormData();
-      fetchSecurityDepositInfo();
-      setSelectedReceiptMonth('');
-    }
-    setIsDialogOpen(true);
-  }, [fetchPaymentFormData, fetchSecurityDepositInfo]);
+      if (type === "receipt") {
+        fetchPaymentFormData();
+        fetchSecurityDepositInfo();
+        setSelectedReceiptMonth("");
+      }
+      setIsDialogOpen(true);
+    },
+    [fetchPaymentFormData, fetchSecurityDepositInfo],
+  );
 
   const handlePropertySelect = useCallback(async (propertyId: number) => {
     setSelectedPropertyId(propertyId);
@@ -463,18 +524,18 @@ export default function TenantRequestsClient() {
         setAvailableRooms(rooms);
       }
 
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
         changeBedData: {
           ...prev.changeBedData,
           preferred_property_id: propertyId,
           preferred_room_id: undefined,
-          preferred_bed_number: undefined
-        }
+          preferred_bed_number: undefined,
+        },
       }));
     } catch (error) {
-      console.error('Error loading available rooms:', error);
-      toast.error('Failed to load available rooms');
+      console.error("Error loading available rooms:", error);
+      toast.error("Failed to load available rooms");
     }
   }, []);
 
@@ -487,25 +548,25 @@ export default function TenantRequestsClient() {
 
       if (isMounted.current) {
         if (Array.isArray(beds)) {
-          const bedNumbers = beds.filter(bed => typeof bed === 'number');
+          const bedNumbers = beds.filter((bed) => typeof bed === "number");
           setAvailableBeds(bedNumbers);
         } else {
-          console.error('Beds is not an array:', beds);
+          console.error("Beds is not an array:", beds);
           setAvailableBeds([]);
         }
       }
 
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
         changeBedData: {
           ...prev.changeBedData,
           preferred_room_id: roomId,
-          preferred_bed_number: undefined
-        }
+          preferred_bed_number: undefined,
+        },
       }));
     } catch (error) {
-      console.error('Error loading available beds:', error);
-      toast.error('Failed to load available beds');
+      console.error("Error loading available beds:", error);
+      toast.error("Failed to load available beds");
       if (isMounted.current) {
         setAvailableBeds([]);
       }
@@ -514,226 +575,243 @@ export default function TenantRequestsClient() {
 
   const handleBedSelect = useCallback((bedNumber: number) => {
     setSelectedBedNumber(bedNumber);
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       changeBedData: {
         ...prev.changeBedData,
-        preferred_bed_number: bedNumber
-      }
+        preferred_bed_number: bedNumber,
+      },
     }));
   }, []);
 
   const handleChangeReasonSelect = useCallback((reasonId: number) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       changeBedData: {
         ...prev.changeBedData,
-        change_reason_id: reasonId
-      }
+        change_reason_id: reasonId,
+      },
     }));
   }, []);
 
   const handleShiftingDateChange = useCallback((date: string) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       changeBedData: {
         ...prev.changeBedData,
-        shifting_date: date
-      }
+        shifting_date: date,
+      },
     }));
   }, []);
 
   const handleNotesChange = useCallback((notes: string) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       changeBedData: {
         ...prev.changeBedData,
-        notes
-      }
+        notes,
+      },
     }));
   }, []);
 
   // Complaint handlers
-  const handleComplaintCategoryChange = useCallback(async (categoryId: number) => {
-    setSelectedComplaintCategory(categoryId);
-    setComplaintReasons([]);
-    setShowCustomReason(false);
-    
-    setFormData(prev => ({
-      ...prev,
-      complaintData: {
-        ...prev.complaintData,
-        category_master_type_id: categoryId,
-        reason_master_value_id: undefined,
-        custom_reason: undefined
-      }
-    }));
-    
-    try {
-      const reasons = await getComplaintReasons(categoryId);
-      if (isMounted.current) {
-        setComplaintReasons(reasons);
-      }
-      if (reasons.length === 0) {
-        setShowCustomReason(true);
-      }
-    } catch (error) {
-      console.error('Error loading complaint reasons:', error);
-      toast.error('Failed to load complaint reasons');
-    }
-  }, []);
+  const handleComplaintCategoryChange = useCallback(
+    async (categoryId: number) => {
+      setSelectedComplaintCategory(categoryId);
+      setComplaintReasons([]);
+      setShowCustomReason(false);
 
-  const handleComplaintReasonChange = useCallback((reasonId: number, reasonValue: string) => {
-    const isOthers = reasonValue.toLowerCase() === 'others';
-    setShowCustomReason(isOthers);
-    
-    setFormData(prev => ({
-      ...prev,
-      complaintData: {
-        ...prev.complaintData,
-        reason_master_value_id: isOthers ? undefined : reasonId,
-        custom_reason: isOthers ? prev.complaintData?.custom_reason : undefined
+      setFormData((prev) => ({
+        ...prev,
+        complaintData: {
+          ...prev.complaintData,
+          category_master_type_id: categoryId,
+          reason_master_value_id: undefined,
+          custom_reason: undefined,
+        },
+      }));
+
+      try {
+        const reasons = await getComplaintReasons(categoryId);
+        if (isMounted.current) {
+          setComplaintReasons(reasons);
+        }
+        if (reasons.length === 0) {
+          setShowCustomReason(true);
+        }
+      } catch (error) {
+        console.error("Error loading complaint reasons:", error);
+        toast.error("Failed to load complaint reasons");
       }
-    }));
-  }, []);
+    },
+    [],
+  );
+
+  const handleComplaintReasonChange = useCallback(
+    (reasonId: number, reasonValue: string) => {
+      const isOthers = reasonValue.toLowerCase() === "others";
+      setShowCustomReason(isOthers);
+
+      setFormData((prev) => ({
+        ...prev,
+        complaintData: {
+          ...prev.complaintData,
+          reason_master_value_id: isOthers ? undefined : reasonId,
+          custom_reason: isOthers
+            ? prev.complaintData?.custom_reason
+            : undefined,
+        },
+      }));
+    },
+    [],
+  );
 
   const handleCustomReasonChange = useCallback((value: string) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       complaintData: {
         ...prev.complaintData,
-        custom_reason: value || undefined
-      }
+        custom_reason: value || undefined,
+      },
     }));
   }, []);
 
   // Vacate data handlers
   const handleVacateDataChange = useCallback((field: string, value: any) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       vacateData: {
         ...prev.vacateData,
-        [field]: value
-      }
+        [field]: value,
+      },
     }));
   }, []);
 
   // Leave data handlers
   const handleLeaveDataChange = useCallback(
-    (field: keyof NonNullable<RequestFormData['leaveData']>, value: any) => {
-      setFormData(prev => ({
+    (field: keyof NonNullable<RequestFormData["leaveData"]>, value: any) => {
+      setFormData((prev) => ({
         ...prev,
         leaveData: {
           ...prev.leaveData,
-          [field]: value
-        }
+          [field]: value,
+        },
       }));
     },
-    []
+    [],
   );
 
   // Maintenance data handlers
-  const handleMaintenanceDataChange = useCallback((field: string, value: any) => {
-    setFormData(prev => ({
-      ...prev,
-      maintenanceData: {
-        ...prev.maintenanceData,
-        [field]: value
-      }
-    }));
-  }, []);
+  const handleMaintenanceDataChange = useCallback(
+    (field: string, value: any) => {
+      setFormData((prev) => ({
+        ...prev,
+        maintenanceData: {
+          ...prev.maintenanceData,
+          [field]: value,
+        },
+      }));
+    },
+    [],
+  );
 
   // Calculate total days for leave
-  const calculateTotalDays = useCallback((startDate: string, endDate: string) => {
-    if (!startDate || !endDate) return 0;
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    const diffTime = Math.abs(end.getTime() - start.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-    return diffDays;
-  }, []);
+  const calculateTotalDays = useCallback(
+    (startDate: string, endDate: string) => {
+      if (!startDate || !endDate) return 0;
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      const diffTime = Math.abs(end.getTime() - start.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+      return diffDays;
+    },
+    [],
+  );
 
   // Submit request
   const handleSubmitRequest = useCallback(async () => {
     if (submitting) return; // Prevent double submission
-    
+
     try {
       // Basic validation
       if (!formData.title.trim() || !formData.description.trim()) {
-        toast.error('Please fill all required fields (Title and Description)');
+        toast.error("Please fill all required fields (Title and Description)");
         return;
       }
 
       // Additional validation for specific request types
-      if (formData.request_type === 'vacate_bed') {
+      if (formData.request_type === "vacate_bed") {
         if (!formData.vacateData?.primary_reason_id) {
-          toast.error('Please select a primary reason for vacating');
+          toast.error("Please select a primary reason for vacating");
           return;
         }
-        
+
         if (!formData.vacateData?.expected_vacate_date) {
-          toast.error('Please select an expected vacate date');
+          toast.error("Please select an expected vacate date");
           return;
         }
       }
 
-      if (formData.request_type === 'leave') {
+      if (formData.request_type === "leave") {
         if (!formData.leaveData?.leave_start_date) {
-          toast.error('Please select a leave start date');
+          toast.error("Please select a leave start date");
           return;
         }
-        
+
         if (!formData.leaveData?.leave_end_date) {
-          toast.error('Please select a leave end date');
+          toast.error("Please select a leave end date");
           return;
         }
-        
+
         if (!formData.leaveData?.leave_type) {
-          toast.error('Please select a leave type');
+          toast.error("Please select a leave type");
           return;
         }
-        
+
         const totalDays = calculateTotalDays(
           formData.leaveData.leave_start_date,
-          formData.leaveData.leave_end_date
+          formData.leaveData.leave_end_date,
         );
-        
+
         if (totalDays < 1) {
-          toast.error('Leave end date must be after start date');
+          toast.error("Leave end date must be after start date");
           return;
         }
-        
-        setFormData(prev => ({
+
+        setFormData((prev) => ({
           ...prev,
           leaveData: {
             ...prev.leaveData!,
-            total_days: totalDays
-          }
+            total_days: totalDays,
+          },
         }));
-        
+
         formData.leaveData!.total_days = totalDays;
       }
 
-      if (formData.request_type === 'maintenance') {
+      if (formData.request_type === "maintenance") {
         if (!formData.maintenanceData?.issue_category) {
-          toast.error('Please select an issue category');
+          toast.error("Please select an issue category");
           return;
         }
-        
+
         if (!formData.maintenanceData?.location) {
-          toast.error('Please select a location');
+          toast.error("Please select a location");
           return;
         }
       }
 
-      if (formData.request_type === 'complaint') {
+      if (formData.request_type === "complaint") {
         if (!formData.complaintData?.category_master_type_id) {
-          toast.error('Please select a complaint category');
+          toast.error("Please select a complaint category");
           return;
         }
-        
-        if (!formData.complaintData?.reason_master_value_id && !formData.complaintData?.custom_reason) {
-          toast.error('Please select a reason or provide a custom reason');
+
+        if (
+          !formData.complaintData?.reason_master_value_id &&
+          !formData.complaintData?.custom_reason
+        ) {
+          toast.error("Please select a reason or provide a custom reason");
           return;
         }
       }
@@ -744,25 +822,29 @@ export default function TenantRequestsClient() {
         request_type: formData.request_type,
         title: formData.title,
         description: formData.description,
-        priority: formData.priority
+        priority: formData.priority,
       };
 
-      // Add specific data based on request type
-      if (formData.request_type === 'vacate_bed' && formData.vacateData) {
-        requestData.vacate_data = {
-          ...formData.vacateData,
-          primary_reason_name: formData.vacateData.primary_reason_text,
-          secondary_reasons: secondaryReasonsInput
-            .split(',')
-            .map(r => r.trim())
-            .filter(r => r.length > 0),
-          lockin_penalty_accepted: formData.vacateData.agree_lockin_penalty || false,
-          notice_penalty_accepted: formData.vacateData.agree_notice_penalty || false,
-          expected_vacate_date: formData.vacateData.expected_vacate_date
-        };
-      }
+// In handleSubmitRequest - for vacate_bed
+if (formData.request_type === 'vacate_bed' && formData.vacateData) {
+  // Check if agreement is actually needed from the noticeInfo
+  const needsNoticeAgreement = noticeInfo && !noticeInfo.isNoticeCompleted && noticeInfo.penalty.calculatedAmount > 0;
+  
+  requestData.vacate_data = {
+    ...formData.vacateData,
+    primary_reason_name: formData.vacateData.primary_reason_text,
+    secondary_reasons: secondaryReasonsInput
+      .split(',')
+      .map(r => r.trim())
+      .filter(r => r.length > 0),
+    lockin_penalty_accepted: formData.vacateData.agree_lockin_penalty || false,
+    // ✅ If notice is completed, no need for agreement - set to true
+    notice_penalty_accepted: needsNoticeAgreement ? (formData.vacateData.agree_notice_penalty || false) : true,
+    expected_vacate_date: formData.vacateData.expected_vacate_date
+  };
+}
 
-      if (formData.request_type === 'change_bed' && formData.changeBedData) {
+      if (formData.request_type === "change_bed" && formData.changeBedData) {
         requestData.change_bed_data = {
           current_property_id: currentRoom?.property_id || 1,
           current_room_id: currentRoom?.room_id || 1,
@@ -771,79 +853,90 @@ export default function TenantRequestsClient() {
           preferred_room_id: formData.changeBedData.preferred_room_id,
           change_reason_id: formData.changeBedData.change_reason_id,
           shifting_date: formData.changeBedData.shifting_date,
-          notes: formData.changeBedData.notes || '',
-          preferred_bed_number: formData.changeBedData.preferred_bed_number
+          notes: formData.changeBedData.notes || "",
+          preferred_bed_number: formData.changeBedData.preferred_bed_number,
         };
       }
 
-      if (formData.request_type === 'leave' && formData.leaveData) {
+      if (formData.request_type === "leave" && formData.leaveData) {
         requestData.leave_data = {
           leave_type: formData.leaveData.leave_type,
           leave_start_date: formData.leaveData.leave_start_date,
           leave_end_date: formData.leaveData.leave_end_date,
-          total_days: formData.leaveData.total_days || calculateTotalDays(
-            formData.leaveData.leave_start_date,
-            formData.leaveData.leave_end_date
-          ),
-          contact_address_during_leave: formData.leaveData.contact_address_during_leave || '',
-          emergency_contact_number: formData.leaveData.emergency_contact_number || '',
+          total_days:
+            formData.leaveData.total_days ||
+            calculateTotalDays(
+              formData.leaveData.leave_start_date,
+              formData.leaveData.leave_end_date,
+            ),
+          contact_address_during_leave:
+            formData.leaveData.contact_address_during_leave || "",
+          emergency_contact_number:
+            formData.leaveData.emergency_contact_number || "",
           room_locked: formData.leaveData.room_locked || false,
-          keys_submitted: formData.leaveData.keys_submitted || false
+          keys_submitted: formData.leaveData.keys_submitted || false,
         };
       }
 
-      if (formData.request_type === 'receipt') {
+      if (formData.request_type === "receipt") {
         if (!formData.receiptData?.receipt_type) {
-          toast.error('Please select a receipt type');
+          toast.error("Please select a receipt type");
           return;
         }
-        
-        if (formData.receiptData.receipt_type === 'rent' && !formData.receiptData.month_key) {
-          toast.error('Please select a month for the rent receipt');
+
+        if (
+          formData.receiptData.receipt_type === "rent" &&
+          !formData.receiptData.month_key
+        ) {
+          toast.error("Please select a month for the rent receipt");
           return;
         }
-        
+
         requestData.receipt_data = {
           receipt_type: formData.receiptData.receipt_type,
           month: formData.receiptData.month,
           year: formData.receiptData.year,
           month_key: formData.receiptData.month_key,
           amount: formData.receiptData.amount,
-          include_all_deposit: formData.receiptData.include_all_deposit || false
+          include_all_deposit:
+            formData.receiptData.include_all_deposit || false,
         };
       }
 
-      if (formData.request_type === 'maintenance' && formData.maintenanceData) {
+      if (formData.request_type === "maintenance" && formData.maintenanceData) {
         requestData.maintenance_data = {
           issue_category: formData.maintenanceData.issue_category,
           location: formData.maintenanceData.location,
-          preferred_visit_time: formData.maintenanceData.preferred_visit_time || 'anytime',
-          access_permission: formData.maintenanceData.access_permission || false,
+          preferred_visit_time:
+            formData.maintenanceData.preferred_visit_time || "anytime",
+          access_permission:
+            formData.maintenanceData.access_permission || false,
         };
       }
 
-      if (formData.request_type === 'complaint' && formData.complaintData) {
+      if (formData.request_type === "complaint" && formData.complaintData) {
         requestData.complaint_data = {
-          category_master_type_id: formData.complaintData.category_master_type_id,
+          category_master_type_id:
+            formData.complaintData.category_master_type_id,
           reason_master_value_id: formData.complaintData.reason_master_value_id,
-          custom_reason: formData.complaintData.custom_reason || null
+          custom_reason: formData.complaintData.custom_reason || null,
         };
       }
 
       const result = await createTenantRequest(requestData);
-      
+
       if (result && result.success && isMounted.current) {
-        toast.success('Request created successfully!');
+        toast.success("Request created successfully!");
         setIsDialogOpen(false);
-        
+
         // Reset form
         setFormData({
-          request_type: 'general',
-          title: '',
-          description: '',
-          priority: 'medium'
+          request_type: "general",
+          title: "",
+          description: "",
+          priority: "medium",
         });
-        setSecondaryReasonsInput('');
+        setSecondaryReasonsInput("");
         setStep(1);
         setSelectedPropertyId(null);
         setAvailableRooms([]);
@@ -853,23 +946,32 @@ export default function TenantRequestsClient() {
         setSelectedComplaintCategory(null);
         setComplaintReasons([]);
         setShowCustomReason(false);
-        
+
         // Refresh data
         await refreshData();
       } else {
-        toast.error(result?.message || 'Failed to create request. Please try again.');
+        toast.error(
+          result?.message || "Failed to create request. Please try again.",
+        );
       }
     } catch (error: any) {
-      console.error('Submit error:', error);
+      console.error("Submit error:", error);
       if (isMounted.current) {
-        toast.error(error.message || 'Failed to create request');
+        toast.error(error.message || "Failed to create request");
       }
     } finally {
       if (isMounted.current) {
         setSubmitting(false);
       }
     }
-  }, [formData, currentRoom, secondaryReasonsInput, calculateTotalDays, refreshData, submitting]);
+  }, [
+    formData,
+    currentRoom,
+    secondaryReasonsInput,
+    calculateTotalDays,
+    refreshData,
+    submitting,
+  ]);
 
   // Loading state
   if (loading && !initialLoadComplete) {
@@ -892,8 +994,8 @@ export default function TenantRequestsClient() {
                 My Requests
               </h1>
 
-              <Button 
-                onClick={() => setIsDialogOpen(true)} 
+              <Button
+                onClick={() => setIsDialogOpen(true)}
                 className="bg-blue-600 hover:bg-blue-700 h-8 sm:h-9 px-3 sm:px-4 text-xs sm:text-sm"
               >
                 <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
@@ -914,13 +1016,14 @@ export default function TenantRequestsClient() {
             <CardHeader>
               <CardTitle>Request History</CardTitle>
               <CardDescription>
-                View and track all your requests. Total: {requests.length} requests
+                View and track all your requests. Total: {requests.length}{" "}
+                requests
               </CardDescription>
             </CardHeader>
             <CardContent>
               <Tabs value={activeFilter} onValueChange={setActiveFilter}>
-                <RequestFilters 
-                  filter={activeFilter} 
+                <RequestFilters
+                  filter={activeFilter}
                   onFilterChange={setActiveFilter}
                   counts={requestCounts}
                 />
@@ -929,13 +1032,15 @@ export default function TenantRequestsClient() {
                   {filteredRequests.length === 0 ? (
                     <div className="text-center py-12">
                       <FileText className="h-16 w-16 mx-auto mb-4 text-gray-400" />
-                      <h3 className="text-lg font-medium text-gray-900 mb-2">No requests found</h3>
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">
+                        No requests found
+                      </h3>
                       <p className="text-gray-600 mb-6">
-                        {activeFilter === 'all' 
-                          ? "You haven't created any requests yet." 
-                          : `You have no ${activeFilter.replace('_', ' ')} requests.`}
+                        {activeFilter === "all"
+                          ? "You haven't created any requests yet."
+                          : `You have no ${activeFilter.replace("_", " ")} requests.`}
                       </p>
-                      <Button 
+                      <Button
                         onClick={() => setIsDialogOpen(true)}
                         className="bg-blue-600 hover:bg-blue-700"
                       >
@@ -946,7 +1051,11 @@ export default function TenantRequestsClient() {
                   ) : (
                     <div className="space-y-2 md:space-y-4 max-h-[50vh] overflow-y-auto pr-1">
                       {filteredRequests.map((request) => (
-                        <RequestCard key={request.id} request={request} vacateReasons={vacateReasons} />
+                        <RequestCard
+                          key={request.id}
+                          request={request}
+                          vacateReasons={vacateReasons}
+                        />
                       ))}
                     </div>
                   )}
@@ -958,34 +1067,39 @@ export default function TenantRequestsClient() {
       </div>
 
       {/* Request Form Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={(open) => {
-        setIsDialogOpen(open);
-        if (!open) {
-          // Reset form when dialog closes
-          setFormData({
-            request_type: 'general',
-            title: '',
-            description: '',
-            priority: 'medium'
-          });
-          setSecondaryReasonsInput('');
-          setStep(1);
-          setSelectedPropertyId(null);
-          setAvailableRooms([]);
-          setSelectedRoomId(null);
-          setAvailableBeds([]);
-          setSelectedBedNumber(null);
-          setSelectedComplaintCategory(null);
-          setComplaintReasons([]);
-          setShowCustomReason(false);
-          setPaymentFormData(null);
-          setSecurityDepositInfo(null);
-          setSelectedReceiptMonth('');
-        }
-      }}>
+      <Dialog
+        open={isDialogOpen}
+        onOpenChange={(open) => {
+          setIsDialogOpen(open);
+          if (!open) {
+            // Reset form when dialog closes
+            setFormData({
+              request_type: "general",
+              title: "",
+              description: "",
+              priority: "medium",
+            });
+            setSecondaryReasonsInput("");
+            setStep(1);
+            setSelectedPropertyId(null);
+            setAvailableRooms([]);
+            setSelectedRoomId(null);
+            setAvailableBeds([]);
+            setSelectedBedNumber(null);
+            setSelectedComplaintCategory(null);
+            setComplaintReasons([]);
+            setShowCustomReason(false);
+            setPaymentFormData(null);
+            setSecurityDepositInfo(null);
+            setSelectedReceiptMonth("");
+          }
+        }}
+      >
         <DialogContent className="max-w-3xl w-[98vw] p-0 max-h-[95vh] overflow-hidden rounded-2xl">
           <DialogHeader className="bg-gradient-to-r from-blue-600 to-cyan-600 px-4 py-3 sticky top-0 z-10">
-            <DialogTitle className="text-white text-lg">Create New Request</DialogTitle>
+            <DialogTitle className="text-white text-lg">
+              Create New Request
+            </DialogTitle>
             <DialogDescription className="text-blue-50 text-sm">
               Fill in the details below to submit your request
             </DialogDescription>
@@ -1001,96 +1115,132 @@ export default function TenantRequestsClient() {
           <div className="px-4 py-3 overflow-y-auto max-h-[calc(90vh-80px)]">
             <div className="space-y-4">
               {/* Request Type and Priority in grid */}
-<div className="grid grid-cols-2 gap-4">
-  <div className="space-y-2">
-    <Label htmlFor="request_type" className="text-sm font-medium">Request Type *</Label>
-    {formData.request_type !== 'general' ? (
-      // Show as read-only text when opened from quick request
-      <div className="h-10 px-3 py-2 rounded-md border border-gray-300 bg-gray-50 text-gray-700">
-        {formData.request_type === 'complaint' && 'Complaint'}
-        {formData.request_type === 'receipt' && 'Receipt Request'}
-        {formData.request_type === 'maintenance' && 'Maintenance Request'}
-        {formData.request_type === 'leave' && 'Leave Application'}
-        {formData.request_type === 'vacate_bed' && 'Vacate Bed Request'}
-        {formData.request_type === 'change_bed' && 'Change Bed Request'}
-        {formData.request_type === 'general' && 'General Query'}
-      </div>
-    ) : (
-      // Show dropdown for general request
-      <Select
-        value={formData.request_type}
-        onValueChange={(value) => {
-          setFormData({ 
-            ...formData, 
-            request_type: value,
-            vacateData: value === 'vacate_bed' ? formData.vacateData : undefined,
-            changeBedData: value === 'change_bed' ? formData.changeBedData : undefined,
-            leaveData: value === 'leave' ? formData.leaveData : undefined,
-            maintenanceData: value === 'maintenance' ? formData.maintenanceData : undefined,
-            complaintData: value === 'complaint' ? formData.complaintData : undefined
-          });
-          if (value === 'change_bed') {
-            setStep(1);
-          }
-          if (value === 'complaint') {
-            setSelectedComplaintCategory(null);
-            setComplaintReasons([]);
-            setShowCustomReason(false);
-          }
-        }}
-      >
-        <SelectTrigger className="h-10">
-          <SelectValue placeholder="Select request type" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="complaint">Complaint</SelectItem>
-          <SelectItem value="receipt">Receipt Request</SelectItem>
-          <SelectItem value="maintenance">Maintenance Request</SelectItem>
-          <SelectItem value="vacate_bed">Vacate Bed Request</SelectItem>
-          <SelectItem value="change_bed">Change Bed Request</SelectItem>
-        </SelectContent>
-      </Select>
-    )}
-  </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="request_type" className="text-sm font-medium">
+                    Request Type *
+                  </Label>
+                  {formData.request_type !== "general" ? (
+                    // Show as read-only text when opened from quick request
+                    <div className="h-10 px-3 py-2 rounded-md border border-gray-300 bg-gray-50 text-gray-700">
+                      {formData.request_type === "complaint" && "Complaint"}
+                      {formData.request_type === "receipt" && "Receipt Request"}
+                      {formData.request_type === "maintenance" &&
+                        "Maintenance Request"}
+                      {formData.request_type === "leave" && "Leave Application"}
+                      {formData.request_type === "vacate_bed" &&
+                        "Vacate Bed Request"}
+                      {formData.request_type === "change_bed" &&
+                        "Change Bed Request"}
+                      {formData.request_type === "general" && "General Query"}
+                    </div>
+                  ) : (
+                    // Show dropdown for general request
+                    <Select
+                      value={formData.request_type}
+                      onValueChange={(value) => {
+                        setFormData({
+                          ...formData,
+                          request_type: value,
+                          vacateData:
+                            value === "vacate_bed"
+                              ? formData.vacateData
+                              : undefined,
+                          changeBedData:
+                            value === "change_bed"
+                              ? formData.changeBedData
+                              : undefined,
+                          leaveData:
+                            value === "leave" ? formData.leaveData : undefined,
+                          maintenanceData:
+                            value === "maintenance"
+                              ? formData.maintenanceData
+                              : undefined,
+                          complaintData:
+                            value === "complaint"
+                              ? formData.complaintData
+                              : undefined,
+                        });
+                        if (value === "change_bed") {
+                          setStep(1);
+                        }
+                        if (value === "complaint") {
+                          setSelectedComplaintCategory(null);
+                          setComplaintReasons([]);
+                          setShowCustomReason(false);
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="h-10">
+                        <SelectValue placeholder="Select request type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="complaint">Complaint</SelectItem>
+                        <SelectItem value="receipt">Receipt Request</SelectItem>
+                        <SelectItem value="maintenance">
+                          Maintenance Request
+                        </SelectItem>
+                        <SelectItem value="vacate_bed">
+                          Vacate Bed Request
+                        </SelectItem>
+                        <SelectItem value="change_bed">
+                          Change Bed Request
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
 
-  <div className="space-y-2">
-    <Label htmlFor="priority" className="text-sm font-medium">Priority *</Label>
-    <Select
-      value={formData.priority}
-      onValueChange={(value) => setFormData({ ...formData, priority: value })}
-    >
-      <SelectTrigger className="h-10">
-        <SelectValue placeholder="Select priority" />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value="low">Low</SelectItem>
-        <SelectItem value="medium">Medium</SelectItem>
-        <SelectItem value="high">High</SelectItem>
-        <SelectItem value="urgent">Urgent</SelectItem>
-      </SelectContent>
-    </Select>
-  </div>
-</div>
+                <div className="space-y-2">
+                  <Label htmlFor="priority" className="text-sm font-medium">
+                    Priority *
+                  </Label>
+                  <Select
+                    value={formData.priority}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, priority: value })
+                    }
+                  >
+                    <SelectTrigger className="h-10">
+                      <SelectValue placeholder="Select priority" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="low">Low</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="high">High</SelectItem>
+                      <SelectItem value="urgent">Urgent</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
 
               {/* Title and Description */}
               <div className="grid grid-cols-3 gap-4">
                 <div className="col-span-1 space-y-2">
-                  <Label htmlFor="title" className="text-sm font-medium">Title *</Label>
+                  <Label htmlFor="title" className="text-sm font-medium">
+                    Title *
+                  </Label>
                   <Input
                     id="title"
                     value={formData.title}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, title: e.target.value })
+                    }
                     placeholder="Brief title for your request"
                     className="h-10"
                   />
                 </div>
 
                 <div className="col-span-2 space-y-2">
-                  <Label htmlFor="description" className="text-sm font-medium">Description *</Label>
+                  <Label htmlFor="description" className="text-sm font-medium">
+                    Description *
+                  </Label>
                   <Input
                     id="description"
                     value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, description: e.target.value })
+                    }
                     placeholder="Provide detailed information about your request"
                     className="h-10"
                   />
@@ -1098,7 +1248,7 @@ export default function TenantRequestsClient() {
               </div>
 
               {/* Conditional rendering for Change Bed Request */}
-              {formData.request_type === 'change_bed' && (
+              {formData.request_type === "change_bed" && (
                 <div className="border-t border-gray-200 pt-3">
                   <ChangeBedForm
                     step={step}
@@ -1126,173 +1276,466 @@ export default function TenantRequestsClient() {
               )}
 
               {/* Vacate Bed Details */}
-{formData.request_type === 'vacate_bed' && (
-  <div className="border-t border-gray-200 pt-3 space-y-3">
-    <h3 className="font-semibold text-base">Vacate Bed Details</h3>
-    
-    {/* Lock-in Period Information */}
-    {lockinInfo && (
-      <div className={`rounded-lg p-3 ${
-        lockinInfo.isLockinCompleted 
-          ? 'bg-green-50 border border-green-200' 
-          : 'bg-yellow-50 border border-yellow-200'
-      }`}>
-        <div className="flex items-start gap-2">
-          {lockinInfo.isLockinCompleted ? (
-            <Check className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
-          ) : (
-            <AlertTriangle className="h-4 w-4 text-yellow-600 mt-0.5 flex-shrink-0" />
-          )}
-          <div className="flex-1 min-w-0">
-            <h4 className={`font-semibold text-sm ${
-              lockinInfo.isLockinCompleted ? 'text-green-800' : 'text-yellow-800'
-            }`}>
-              {lockinInfo.isLockinCompleted ? '✓ Lock-in Period Completed' : '⚠️ Lock-in Period Active'}
-            </h4>
-            <div className="grid grid-cols-3 gap-2 mt-1 text-sm">
-              <p>Check-in: {new Date(lockinInfo.checkInDate).toLocaleDateString('en-IN')}</p>
-              <p>Lock-in: {lockinInfo.lockinPeriodMonths} months</p>
-              <p>Ends: {new Date(lockinInfo.lockInEndDate).toLocaleDateString('en-IN')}</p>
-            </div>
-            
-            {!lockinInfo.isLockinCompleted && lockinInfo.penalty.calculatedAmount > 0 && (
-              <>
-                <div className="mt-2 p-2 bg-red-50 rounded border border-red-200">
-                  <p className="text-sm text-red-700 font-semibold">
-                    Lock-in Penalty: ₹{lockinInfo.penalty.calculatedAmount.toFixed(2)}
-                  </p>
-                  <p className="text-xs text-red-600">{lockinInfo.penalty.description}</p>
-                </div>
-                
-                <div className="flex items-center space-x-2 mt-2">
-                  <Checkbox
-                    id="agree_lockin_penalty"
-                    checked={formData.vacateData?.agree_lockin_penalty || false}
-                    onCheckedChange={(checked) => 
-                      handleVacateDataChange('agree_lockin_penalty', checked)
-                    }
-                  />
-                  <Label htmlFor="agree_lockin_penalty" className="text-sm cursor-pointer">
-                    I agree to pay the lock-in penalty
-                  </Label>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-    )}
+              {/* Vacate Bed Details */}
+              {formData.request_type === "vacate_bed" && (
+                <div className="border-t border-gray-200 pt-3 space-y-3">
+                  <h3 className="font-semibold text-base">
+                    Vacate Bed Details
+                  </h3>
 
-    {/* Notice Period Information */}
-    {noticeInfo && (
-      <div className={`rounded-lg p-3 ${
-        noticeInfo.isNoticeCompleted 
-          ? 'bg-green-50 border border-green-200'
-          : noticeInfo.isLockinCompleted 
-            ? 'bg-yellow-50 border border-yellow-200'
-            : 'bg-red-50 border border-red-200'
-      }`}>
-        <div className="flex items-start gap-2">
-          {noticeInfo.isNoticeCompleted ? (
-            <Check className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
-          ) : (
-            <AlertTriangle className="h-4 w-4 text-yellow-600 mt-0.5 flex-shrink-0" />
-          )}
-          <div className="flex-1 min-w-0">
-            <h4 className={`font-semibold text-sm ${
-              noticeInfo.isNoticeCompleted 
-                ? 'text-green-800'
-                : 'text-yellow-800'
-            }`}>
-              {noticeInfo.isNoticeCompleted 
-                ? '✓ Notice Period Completed' 
-                : '⚠️ Notice Period Required'}
-            </h4>
-            
-            <div className="grid grid-cols-2 gap-2 mt-1 text-sm">
-              <p>Required: {noticeInfo.noticePeriodDays} days</p>
-              {noticeInfo.daysGiven > 0 && (
-                <p>Given: {noticeInfo.daysGiven} days</p>
-              )}
-              {noticeInfo.lockInEndDate && (
-                <p className="col-span-2 text-xs text-slate-500">
-                  Notice starts after lock-in ends on {new Date(noticeInfo.lockInEndDate).toLocaleDateString('en-IN')}
-                </p>
-              )}
-            </div>
-            
-            {/* Notice Penalty Display */}
-            {!noticeInfo.isNoticeCompleted && noticeInfo.penalty.calculatedAmount > 0 && (
-              <>
-                <div className="mt-2 p-2 bg-red-50 rounded border border-red-200">
-                  <p className="text-sm text-red-700 font-semibold">
-                    Notice Penalty: ₹{noticeInfo.penalty.calculatedAmount.toFixed(2)}
-                  </p>
-                  <p className="text-xs text-red-600">{noticeInfo.penalty.description}</p>
-                  {!noticeInfo.isLockinCompleted && (
-                    <p className="text-xs text-red-600 mt-1">
-                      ⚠️ Early vacate (lock-in not completed) - Full notice penalty applies
-                    </p>
+                  {/* Lock-in Period Information */}
+                  {lockinInfo && (
+                    <div
+                      className={`rounded-lg p-3 ${
+                        lockinInfo.isLockinCompleted
+                          ? "bg-green-50 border border-green-200"
+                          : "bg-yellow-50 border border-yellow-200"
+                      }`}
+                    >
+                      <div className="flex items-start gap-2">
+                        {lockinInfo.isLockinCompleted ? (
+                          <Check className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
+                        ) : (
+                          <AlertTriangle className="h-4 w-4 text-yellow-600 mt-0.5 flex-shrink-0" />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <h4
+                            className={`font-semibold text-sm ${
+                              lockinInfo.isLockinCompleted
+                                ? "text-green-800"
+                                : "text-yellow-800"
+                            }`}
+                          >
+                            {lockinInfo.isLockinCompleted
+                              ? "✓ Lock-in Period Completed"
+                              : "⚠️ Lock-in Period Active"}
+                          </h4>
+                          <div className="grid grid-cols-3 gap-2 mt-1 text-sm">
+                            <p>
+                              Check-in:{" "}
+                              {new Date(
+                                lockinInfo.checkInDate,
+                              ).toLocaleDateString("en-IN")}
+                            </p>
+                            <p>
+                              Lock-in: {lockinInfo.lockinPeriodMonths} months
+                            </p>
+                            <p>
+                              Ends:{" "}
+                              {new Date(
+                                lockinInfo.lockInEndDate,
+                              ).toLocaleDateString("en-IN")}
+                            </p>
+                          </div>
+
+                          {!lockinInfo.isLockinCompleted &&
+                            lockinInfo.penalty.calculatedAmount > 0 && (
+                              <>
+                                <div className="mt-2 p-2 bg-red-50 rounded border border-red-200">
+                                  <p className="text-sm text-red-700 font-semibold">
+                                    Lock-in Penalty: ₹
+                                    {lockinInfo.penalty.calculatedAmount.toFixed(
+                                      2,
+                                    )}
+                                  </p>
+                                  <p className="text-xs text-red-600">
+                                    {lockinInfo.penalty.description}
+                                  </p>
+                                </div>
+
+                                <div className="flex items-center space-x-2 mt-2">
+                                  <Checkbox
+                                    id="agree_lockin_penalty"
+                                    checked={
+                                      formData.vacateData
+                                        ?.agree_lockin_penalty || false
+                                    }
+                                    onCheckedChange={(checked) =>
+                                      handleVacateDataChange(
+                                        "agree_lockin_penalty",
+                                        checked,
+                                      )
+                                    }
+                                  />
+                                  <Label
+                                    htmlFor="agree_lockin_penalty"
+                                    className="text-sm cursor-pointer"
+                                  >
+                                    I agree to pay the lock-in penalty
+                                  </Label>
+                                </div>
+                              </>
+                            )}
+                        </div>
+                      </div>
+                    </div>
                   )}
-                </div>
-                
-                <div className="flex items-center space-x-2 mt-2">
-                  <Checkbox
-                    id="agree_notice_penalty"
-                    checked={formData.vacateData?.agree_notice_penalty || false}
-                    onCheckedChange={(checked) => 
-                      handleVacateDataChange('agree_notice_penalty', checked)
-                    }
-                  />
-                  <Label htmlFor="agree_notice_penalty" className="text-sm cursor-pointer">
-                    I agree to pay the notice period penalty
-                  </Label>
-                </div>
-              </>
-            )}
-            
-            {/* Summary message for both penalties */}
-            {lockinInfo && !lockinInfo.isLockinCompleted && !noticeInfo.isNoticeCompleted && (
-              <div className="mt-2 p-2 bg-amber-50 rounded border border-amber-200">
-                <p className="text-xs text-amber-700">
-                  ⚠️ Both lock-in and notice penalties apply. Please review and accept both.
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    )}
 
-    {/* Show message if no lock-in/notice info found */}
-    {(!lockinInfo || !noticeInfo) && (
-      <div className="bg-gray-50 border border-gray-200 rounded-lg p-2">
-        <div className="flex items-center gap-2">
-          <Info className="h-4 w-4 text-gray-600 flex-shrink-0" />
-          <div className="text-sm">
-            <p className="text-gray-600">
-              {loading ? 'Loading contract details...' : 'Contract details not available'}
-            </p>
-          </div>
-        </div>
-      </div>
-    )}
+                  {/* Notice Period Information */}
+                  {noticeInfo && (
+                    <div
+                      className={`rounded-lg p-3 ${
+                        noticeInfo.isNoticeCompleted
+                          ? "bg-green-50 border border-green-200"
+                          : noticeInfo.isLockinCompleted
+                            ? "bg-yellow-50 border border-yellow-200"
+                            : "bg-red-50 border border-red-200"
+                      }`}
+                    >
+                      <div className="flex items-start gap-2">
+                        {noticeInfo.isNoticeCompleted ? (
+                          <Check className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
+                        ) : (
+                          <AlertTriangle className="h-4 w-4 text-yellow-600 mt-0.5 flex-shrink-0" />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <h4
+                            className={`font-semibold text-sm ${
+                              noticeInfo.isNoticeCompleted
+                                ? "text-green-800"
+                                : "text-yellow-800"
+                            }`}
+                          >
+                            {noticeInfo.isNoticeCompleted
+                              ? "✓ Notice Period Completed"
+                              : "⚠️ Notice Period Required"}
+                          </h4>
 
-    {/* Rest of your vacate fields... */}
-  </div>
-)}
+                          <div className="grid grid-cols-2 gap-2 mt-1 text-sm">
+                            <p>Required: {noticeInfo.noticePeriodDays} days</p>
+                            {noticeInfo.daysGiven > 0 && (
+                              <p>Given: {noticeInfo.daysGiven} days</p>
+                            )}
+                            {noticeInfo.lockInEndDate && (
+                              <p className="col-span-2 text-xs text-slate-500">
+                                Notice starts after lock-in ends on{" "}
+                                {new Date(
+                                  noticeInfo.lockInEndDate,
+                                ).toLocaleDateString("en-IN")}
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Notice Penalty Display */}
+                          {!noticeInfo.isNoticeCompleted &&
+                            noticeInfo.penalty.calculatedAmount > 0 && (
+                              <>
+                                <div className="mt-2 p-2 bg-red-50 rounded border border-red-200">
+                                  <p className="text-sm text-red-700 font-semibold">
+                                    Notice Penalty: ₹
+                                    {noticeInfo.penalty.calculatedAmount.toFixed(
+                                      2,
+                                    )}
+                                  </p>
+                                  <p className="text-xs text-red-600">
+                                    {noticeInfo.penalty.description}
+                                  </p>
+                                  {!noticeInfo.isLockinCompleted && (
+                                    <p className="text-xs text-red-600 mt-1">
+                                      ⚠️ Early vacate (lock-in not completed) -
+                                      Full notice penalty applies
+                                    </p>
+                                  )}
+                                </div>
+
+                                <div className="flex items-center space-x-2 mt-2">
+                                  <Checkbox
+                                    id="agree_notice_penalty"
+                                    checked={
+                                      formData.vacateData
+                                        ?.agree_notice_penalty || false
+                                    }
+                                    onCheckedChange={(checked) =>
+                                      handleVacateDataChange(
+                                        "agree_notice_penalty",
+                                        checked,
+                                      )
+                                    }
+                                  />
+                                  <Label
+                                    htmlFor="agree_notice_penalty"
+                                    className="text-sm cursor-pointer"
+                                  >
+                                    I agree to pay the notice period penalty
+                                  </Label>
+                                </div>
+                              </>
+                            )}
+
+                          {/* Summary message for both penalties */}
+                          {lockinInfo &&
+                            !lockinInfo.isLockinCompleted &&
+                            !noticeInfo.isNoticeCompleted && (
+                              <div className="mt-2 p-2 bg-amber-50 rounded border border-amber-200">
+                                <p className="text-xs text-amber-700">
+                                  ⚠️ Both lock-in and notice penalties apply.
+                                  Please review and accept both.
+                                </p>
+                              </div>
+                            )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Show message if no lock-in/notice info found */}
+                  {(!lockinInfo || !noticeInfo) && (
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-2">
+                      <div className="flex items-center gap-2">
+                        <Info className="h-4 w-4 text-gray-600 flex-shrink-0" />
+                        <div className="text-sm">
+                          <p className="text-gray-600">
+                            {loading
+                              ? "Loading contract details..."
+                              : "Contract details not available"}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Vacate Fields Grid - PRIMARY REASON, DATE, SECONDARY */}
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="space-y-1">
+                      <Label
+                        htmlFor="expected_vacate_date"
+                        className="text-sm font-medium"
+                      >
+                        Vacate Date *
+                      </Label>
+                      <Input
+                        id="expected_vacate_date"
+                        type="date"
+                        value={formData.vacateData?.expected_vacate_date || ""}
+                        onChange={(e) =>
+                          handleVacateDataChange(
+                            "expected_vacate_date",
+                            e.target.value,
+                          )
+                        }
+                        min={new Date().toISOString().split("T")[0]}
+                        className="h-10"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label
+                        htmlFor="primary_reason"
+                        className="text-sm font-medium"
+                      >
+                        Primary Reason *
+                      </Label>
+                      <Select
+                        value={
+                          formData.vacateData?.primary_reason_id?.toString() ||
+                          ""
+                        }
+                        onValueChange={(value) => {
+                          const selectedReason = vacateReasons.find(
+                            (r) => r.id.toString() === value,
+                          );
+                          handleVacateDataChange(
+                            "primary_reason_id",
+                            parseInt(value),
+                          );
+                          handleVacateDataChange(
+                            "primary_reason_text",
+                            selectedReason?.value || "",
+                          );
+                        }}
+                      >
+                        <SelectTrigger className="h-10">
+                          <SelectValue placeholder="Select primary reason" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Array.isArray(vacateReasons) &&
+                            vacateReasons.map((reason) => (
+                              <SelectItem
+                                key={reason.id}
+                                value={reason.id.toString()}
+                              >
+                                {reason.value}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label
+                        htmlFor="secondary_reasons"
+                        className="text-sm font-medium"
+                      >
+                        Secondary Reasons
+                      </Label>
+                      <Input
+                        id="secondary_reasons"
+                        value={secondaryReasonsInput}
+                        onChange={(e) =>
+                          setSecondaryReasonsInput(e.target.value)
+                        }
+                        placeholder="Comma separated"
+                        className="h-10"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Ratings Section - 4 columns */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-sm font-medium">
+                        Overall Rating
+                      </Label>
+                      <Select
+                        value={
+                          formData.vacateData?.overall_rating?.toString() || ""
+                        }
+                        onValueChange={(value) =>
+                          handleVacateDataChange(
+                            "overall_rating",
+                            parseInt(value),
+                          )
+                        }
+                      >
+                        <SelectTrigger className="h-10">
+                          <SelectValue placeholder="Select Rating" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1">1 - Very Poor</SelectItem>
+                          <SelectItem value="2">2 - Poor</SelectItem>
+                          <SelectItem value="3">3 - Average</SelectItem>
+                          <SelectItem value="4">4 - Good</SelectItem>
+                          <SelectItem value="5">5 - Excellent</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label className="text-sm font-medium">Food Rating</Label>
+                      <Select
+                        value={
+                          formData.vacateData?.food_rating?.toString() || ""
+                        }
+                        onValueChange={(value) =>
+                          handleVacateDataChange("food_rating", parseInt(value))
+                        }
+                      >
+                        <SelectTrigger className="h-10">
+                          <SelectValue placeholder="Select Rating" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1">1 - Very Poor</SelectItem>
+                          <SelectItem value="2">2 - Poor</SelectItem>
+                          <SelectItem value="3">3 - Average</SelectItem>
+                          <SelectItem value="4">4 - Good</SelectItem>
+                          <SelectItem value="5">5 - Excellent</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label className="text-sm font-medium">
+                        Cleanliness Rating
+                      </Label>
+                      <Select
+                        value={
+                          formData.vacateData?.cleanliness_rating?.toString() ||
+                          ""
+                        }
+                        onValueChange={(value) =>
+                          handleVacateDataChange(
+                            "cleanliness_rating",
+                            parseInt(value),
+                          )
+                        }
+                      >
+                        <SelectTrigger className="h-10">
+                          <SelectValue placeholder="Select Rating" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1">1 - Very Poor</SelectItem>
+                          <SelectItem value="2">2 - Poor</SelectItem>
+                          <SelectItem value="3">3 - Average</SelectItem>
+                          <SelectItem value="4">4 - Good</SelectItem>
+                          <SelectItem value="5">5 - Excellent</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label className="text-sm font-medium">
+                        Management Rating
+                      </Label>
+                      <Select
+                        value={
+                          formData.vacateData?.management_rating?.toString() ||
+                          ""
+                        }
+                        onValueChange={(value) =>
+                          handleVacateDataChange(
+                            "management_rating",
+                            parseInt(value),
+                          )
+                        }
+                      >
+                        <SelectTrigger className="h-10">
+                          <SelectValue placeholder="Select Rating" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1">1 - Very Poor</SelectItem>
+                          <SelectItem value="2">2 - Poor</SelectItem>
+                          <SelectItem value="3">3 - Average</SelectItem>
+                          <SelectItem value="4">4 - Good</SelectItem>
+                          <SelectItem value="5">5 - Excellent</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {/* Improvement Suggestions - Full Width */}
+                  <div className="space-y-1">
+                    <Label
+                      htmlFor="improvement_suggestions"
+                      className="text-sm font-medium"
+                    >
+                      Improvement Suggestions
+                    </Label>
+                    <Input
+                      id="improvement_suggestions"
+                      value={formData.vacateData?.improvement_suggestions || ""}
+                      onChange={(e) =>
+                        handleVacateDataChange(
+                          "improvement_suggestions",
+                          e.target.value,
+                        )
+                      }
+                      placeholder="Any suggestions for improvement..."
+                      className="h-10"
+                    />
+                  </div>
+                </div>
+              )}
 
               {/* Conditional rendering for Leave Request */}
-              {formData.request_type === 'leave' && (
+              {formData.request_type === "leave" && (
                 <div className="border-t border-gray-200 pt-3 space-y-3">
-                  <h3 className="font-semibold text-base">Leave Application Details</h3>
-                  
+                  <h3 className="font-semibold text-base">
+                    Leave Application Details
+                  </h3>
+
                   <div className="grid grid-cols-4 gap-3">
                     <div className="col-span-2 space-y-1">
-                      <Label htmlFor="leave_type" className="text-sm font-medium">Leave Type *</Label>
+                      <Label
+                        htmlFor="leave_type"
+                        className="text-sm font-medium"
+                      >
+                        Leave Type *
+                      </Label>
                       <Select
-                        value={formData.leaveData?.leave_type || ''}
-                        onValueChange={(value) => handleLeaveDataChange('leave_type', value)}
+                        value={formData.leaveData?.leave_type || ""}
+                        onValueChange={(value) =>
+                          handleLeaveDataChange("leave_type", value)
+                        }
                       >
                         <SelectTrigger className="h-10">
                           <SelectValue placeholder="Select leave type" />
@@ -1306,29 +1749,56 @@ export default function TenantRequestsClient() {
                         </SelectContent>
                       </Select>
                     </div>
-                    
+
                     <div className="space-y-1">
-                      <Label htmlFor="total_days" className="text-sm font-medium">Days *</Label>
+                      <Label
+                        htmlFor="total_days"
+                        className="text-sm font-medium"
+                      >
+                        Days *
+                      </Label>
                       <Input
                         id="total_days"
                         type="number"
                         min="1"
                         max="30"
-                        value={formData.leaveData?.total_days || ''}
-                        onChange={(e) => handleLeaveDataChange('total_days', parseInt(e.target.value) || 0)}
+                        value={formData.leaveData?.total_days || ""}
+                        onChange={(e) =>
+                          handleLeaveDataChange(
+                            "total_days",
+                            parseInt(e.target.value) || 0,
+                          )
+                        }
                         placeholder="Days"
                         className="h-10"
-                        disabled={!!(formData.leaveData?.leave_start_date && formData.leaveData?.leave_end_date)}
+                        disabled={
+                          !!(
+                            formData.leaveData?.leave_start_date &&
+                            formData.leaveData?.leave_end_date
+                          )
+                        }
                       />
                     </div>
 
                     <div className="space-y-1">
-                      <Label htmlFor="emergency_contact_number" className="text-sm font-medium">Emergency</Label>
+                      <Label
+                        htmlFor="emergency_contact_number"
+                        className="text-sm font-medium"
+                      >
+                        Emergency
+                      </Label>
                       <Input
                         id="emergency_contact_number"
                         type="tel"
-                        value={formData.leaveData?.emergency_contact_number || ''}
-                        onChange={(e) => handleLeaveDataChange('emergency_contact_number', e.target.value)}
+                        value={
+                          formData.leaveData?.emergency_contact_number || ""
+                        }
+                        onChange={(e) =>
+                          handleLeaveDataChange(
+                            "emergency_contact_number",
+                            e.target.value,
+                          )
+                        }
                         placeholder="Contact"
                         className="h-10"
                       />
@@ -1337,45 +1807,83 @@ export default function TenantRequestsClient() {
 
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
-                      <Label htmlFor="leave_start_date" className="text-sm font-medium">Start Date *</Label>
+                      <Label
+                        htmlFor="leave_start_date"
+                        className="text-sm font-medium"
+                      >
+                        Start Date *
+                      </Label>
                       <Input
                         id="leave_start_date"
                         type="date"
-                        value={formData.leaveData?.leave_start_date || ''}
+                        value={formData.leaveData?.leave_start_date || ""}
                         onChange={(e) => {
-                          handleLeaveDataChange('leave_start_date', e.target.value);
-                          if (formData.leaveData?.leave_end_date && e.target.value) {
-                            const totalDays = calculateTotalDays(e.target.value, formData.leaveData.leave_end_date);
-                            handleLeaveDataChange('total_days', totalDays);
+                          handleLeaveDataChange(
+                            "leave_start_date",
+                            e.target.value,
+                          );
+                          if (
+                            formData.leaveData?.leave_end_date &&
+                            e.target.value
+                          ) {
+                            const totalDays = calculateTotalDays(
+                              e.target.value,
+                              formData.leaveData.leave_end_date,
+                            );
+                            handleLeaveDataChange("total_days", totalDays);
                           }
                         }}
-                        min={new Date().toISOString().split('T')[0]}
+                        min={new Date().toISOString().split("T")[0]}
                         className="h-10"
                       />
                     </div>
-                    
+
                     <div className="space-y-1">
-                      <Label htmlFor="leave_end_date" className="text-sm font-medium">End Date *</Label>
+                      <Label
+                        htmlFor="leave_end_date"
+                        className="text-sm font-medium"
+                      >
+                        End Date *
+                      </Label>
                       <Input
                         id="leave_end_date"
                         type="date"
-                        value={formData.leaveData?.leave_end_date || ''}
+                        value={formData.leaveData?.leave_end_date || ""}
                         onChange={(e) => {
-                          handleLeaveDataChange('leave_end_date', e.target.value);
-                          if (formData.leaveData?.leave_start_date && e.target.value) {
-                            const totalDays = calculateTotalDays(formData.leaveData.leave_start_date, e.target.value);
-                            handleLeaveDataChange('total_days', totalDays);
+                          handleLeaveDataChange(
+                            "leave_end_date",
+                            e.target.value,
+                          );
+                          if (
+                            formData.leaveData?.leave_start_date &&
+                            e.target.value
+                          ) {
+                            const totalDays = calculateTotalDays(
+                              formData.leaveData.leave_start_date,
+                              e.target.value,
+                            );
+                            handleLeaveDataChange("total_days", totalDays);
                           }
                         }}
-                        min={formData.leaveData?.leave_start_date || new Date().toISOString().split('T')[0]}
+                        min={
+                          formData.leaveData?.leave_start_date ||
+                          new Date().toISOString().split("T")[0]
+                        }
                         className="h-10"
                       />
                     </div>
                   </div>
 
                   <Input
-                    value={formData.leaveData?.contact_address_during_leave || ''}
-                    onChange={(e) => handleLeaveDataChange('contact_address_during_leave', e.target.value)}
+                    value={
+                      formData.leaveData?.contact_address_during_leave || ""
+                    }
+                    onChange={(e) =>
+                      handleLeaveDataChange(
+                        "contact_address_during_leave",
+                        e.target.value,
+                      )
+                    }
                     placeholder="Contact address during leave"
                     className="h-10"
                   />
@@ -1385,42 +1893,63 @@ export default function TenantRequestsClient() {
                       <Checkbox
                         id="room_locked"
                         checked={formData.leaveData?.room_locked || false}
-                        onCheckedChange={(checked) => handleLeaveDataChange('room_locked', checked)}
+                        onCheckedChange={(checked) =>
+                          handleLeaveDataChange("room_locked", checked)
+                        }
                       />
-                      <Label htmlFor="room_locked" className="text-sm cursor-pointer">Room will be locked during leave</Label>
+                      <Label
+                        htmlFor="room_locked"
+                        className="text-sm cursor-pointer"
+                      >
+                        Room will be locked during leave
+                      </Label>
                     </div>
-                    
+
                     <div className="flex items-center space-x-2">
                       <Checkbox
                         id="keys_submitted"
                         checked={formData.leaveData?.keys_submitted || false}
-                        onCheckedChange={(checked) => handleLeaveDataChange('keys_submitted', checked)}
+                        onCheckedChange={(checked) =>
+                          handleLeaveDataChange("keys_submitted", checked)
+                        }
                       />
-                      <Label htmlFor="keys_submitted" className="text-sm cursor-pointer">Keys will be submitted before leave</Label>
+                      <Label
+                        htmlFor="keys_submitted"
+                        className="text-sm cursor-pointer"
+                      >
+                        Keys will be submitted before leave
+                      </Label>
                     </div>
                   </div>
                 </div>
               )}
 
               {/* Conditional rendering for Receipt Request */}
-              {formData.request_type === 'receipt' && (
+              {formData.request_type === "receipt" && (
                 <div className="border-t border-gray-200 pt-3 space-y-3">
-                  <h3 className="font-semibold text-base">Receipt Request Details</h3>
-                  
+                  <h3 className="font-semibold text-base">
+                    Receipt Request Details
+                  </h3>
+
                   {/* Receipt Type Selection */}
                   <div className="space-y-2">
-                    <Label htmlFor="receipt_type" className="text-sm font-medium">Receipt Type *</Label>
+                    <Label
+                      htmlFor="receipt_type"
+                      className="text-sm font-medium"
+                    >
+                      Receipt Type *
+                    </Label>
                     <Select
-                      value={formData.receiptData?.receipt_type || ''}
+                      value={formData.receiptData?.receipt_type || ""}
                       onValueChange={(value) => {
                         setFormData({
                           ...formData,
                           receiptData: {
                             ...(formData.receiptData || {}),
-                            receipt_type: value
-                          }
+                            receipt_type: value,
+                          },
                         });
-                        setSelectedReceiptMonth('');
+                        setSelectedReceiptMonth("");
                       }}
                     >
                       <SelectTrigger className="h-10">
@@ -1428,34 +1957,41 @@ export default function TenantRequestsClient() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="rent">Rent Receipt</SelectItem>
-                        <SelectItem value="security_deposit">Security Deposit Receipt</SelectItem>
+                        <SelectItem value="security_deposit">
+                          Security Deposit Receipt
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
                   {/* Rent Receipt Fields */}
-                  {formData.receiptData?.receipt_type === 'rent' && (
+                  {formData.receiptData?.receipt_type === "rent" && (
                     <>
                       <div className="space-y-2">
-                        <Label htmlFor="month" className="text-sm font-medium">Select Month *</Label>
-                        <Select 
-                          value={selectedReceiptMonth} 
+                        <Label htmlFor="month" className="text-sm font-medium">
+                          Select Month *
+                        </Label>
+                        <Select
+                          value={selectedReceiptMonth}
                           onValueChange={(value) => {
                             setSelectedReceiptMonth(value);
-                            
+
                             if (value && paymentFormData?.unpaid_months) {
-                              const selectedMonth = paymentFormData.unpaid_months.find((m: any) => m.month_key === value);
+                              const selectedMonth =
+                                paymentFormData.unpaid_months.find(
+                                  (m: any) => m.month_key === value,
+                                );
                               if (selectedMonth) {
                                 setFormData({
                                   ...formData,
                                   receiptData: {
                                     ...(formData.receiptData || {}),
-                                    receipt_type: 'rent',
+                                    receipt_type: "rent",
                                     month: selectedMonth.month,
                                     year: selectedMonth.year,
                                     month_key: selectedMonth.month_key,
-                                    amount: selectedMonth.pending
-                                  }
+                                    amount: selectedMonth.pending,
+                                  },
                                 });
                               }
                             }
@@ -1465,42 +2001,58 @@ export default function TenantRequestsClient() {
                             <SelectValue placeholder="Select month..." />
                           </SelectTrigger>
                           <SelectContent>
-                            {paymentFormData?.unpaid_months?.map((month: any) => (
-                              <SelectItem key={month.month_key} value={month.month_key}>
-                                <div className="flex items-center justify-between w-full">
-                                  <span>{month.month} {month.year}</span>
-                                  <span className="ml-4 text-xs text-amber-600 font-medium">
-                                    ₹{month.pending.toLocaleString()}
-                                  </span>
-                                </div>
-                              </SelectItem>
-                            ))}
+                            {paymentFormData?.unpaid_months?.map(
+                              (month: any) => (
+                                <SelectItem
+                                  key={month.month_key}
+                                  value={month.month_key}
+                                >
+                                  <div className="flex items-center justify-between w-full">
+                                    <span>
+                                      {month.month} {month.year}
+                                    </span>
+                                    <span className="ml-4 text-xs text-amber-600 font-medium">
+                                      ₹{month.pending.toLocaleString()}
+                                    </span>
+                                  </div>
+                                </SelectItem>
+                              ),
+                            )}
                           </SelectContent>
                         </Select>
                         {paymentFormData?.unpaid_months?.length === 0 && (
-                          <p className="text-xs text-green-600 mt-1">All months paid! 🎉</p>
+                          <p className="text-xs text-green-600 mt-1">
+                            All months paid! 🎉
+                          </p>
                         )}
                       </div>
                     </>
                   )}
 
                   {/* Security Deposit Receipt Fields */}
-                  {formData.receiptData?.receipt_type === 'security_deposit' && (
+                  {formData.receiptData?.receipt_type ===
+                    "security_deposit" && (
                     <>
                       {securityDepositInfo ? (
                         <div className="space-y-3">
                           <div className="bg-purple-50 p-3 rounded-lg border border-purple-200">
                             <div className="grid grid-cols-2 gap-3">
                               <div>
-                                <p className="text-xs text-purple-600">Total Deposit</p>
+                                <p className="text-xs text-purple-600">
+                                  Total Deposit
+                                </p>
                                 <p className="text-lg font-bold text-purple-700">
-                                  ₹{securityDepositInfo.security_deposit.toLocaleString()}
+                                  ₹
+                                  {securityDepositInfo.security_deposit.toLocaleString()}
                                 </p>
                               </div>
                               <div>
-                                <p className="text-xs text-purple-600">Paid Amount</p>
+                                <p className="text-xs text-purple-600">
+                                  Paid Amount
+                                </p>
                                 <p className="text-lg font-bold text-green-600">
-                                  ₹{securityDepositInfo.paid_amount.toLocaleString()}
+                                  ₹
+                                  {securityDepositInfo.paid_amount.toLocaleString()}
                                 </p>
                               </div>
                             </div>
@@ -1519,28 +2071,45 @@ export default function TenantRequestsClient() {
               )}
 
               {/* Conditional rendering for Maintenance Request */}
-              {formData.request_type === 'maintenance' && (
+              {formData.request_type === "maintenance" && (
                 <div className="space-y-4 p-4 border border-gray-200 rounded-lg">
-                  <h3 className="font-semibold text-lg">Maintenance Request Details</h3>
-                  
+                  <h3 className="font-semibold text-lg">
+                    Maintenance Request Details
+                  </h3>
+
                   <div>
                     <Label htmlFor="issue_category">Issue Category *</Label>
                     <Select
-                      value={formData.maintenanceData?.issue_category || ''}
-                      onValueChange={(value) => handleMaintenanceDataChange('issue_category', value)}
+                      value={formData.maintenanceData?.issue_category || ""}
+                      onValueChange={(value) =>
+                        handleMaintenanceDataChange("issue_category", value)
+                      }
                       disabled={maintenanceCategories.length === 0}
                     >
                       <SelectTrigger className="h-12">
-                        <SelectValue placeholder={maintenanceCategories.length === 0 ? "Loading categories..." : "Select issue category"} />
+                        <SelectValue
+                          placeholder={
+                            maintenanceCategories.length === 0
+                              ? "Loading categories..."
+                              : "Select issue category"
+                          }
+                        />
                       </SelectTrigger>
                       <SelectContent>
                         {maintenanceCategories.length > 0 ? (
                           maintenanceCategories.map((category) => (
-                            <SelectItem key={category.id} value={category.value}>
+                            <SelectItem
+                              key={category.id}
+                              value={category.value}
+                            >
                               <div className="flex flex-col">
-                                <span className="font-medium">{category.value}</span>
+                                <span className="font-medium">
+                                  {category.value}
+                                </span>
                                 {category.description && (
-                                  <span className="text-xs text-gray-500">{category.description}</span>
+                                  <span className="text-xs text-gray-500">
+                                    {category.description}
+                                  </span>
                                 )}
                               </div>
                             </SelectItem>
@@ -1548,7 +2117,9 @@ export default function TenantRequestsClient() {
                         ) : (
                           <div className="px-2 py-4 text-center text-gray-500">
                             <Loader2 className="h-4 w-4 animate-spin mx-auto mb-2" />
-                            <span className="text-xs">Loading categories...</span>
+                            <span className="text-xs">
+                              Loading categories...
+                            </span>
                           </div>
                         )}
                       </SelectContent>
@@ -1558,21 +2129,36 @@ export default function TenantRequestsClient() {
                   <div>
                     <Label htmlFor="location">Location *</Label>
                     <Select
-                      value={formData.maintenanceData?.location || ''}
-                      onValueChange={(value) => handleMaintenanceDataChange('location', value)}
+                      value={formData.maintenanceData?.location || ""}
+                      onValueChange={(value) =>
+                        handleMaintenanceDataChange("location", value)
+                      }
                       disabled={maintenanceLocations.length === 0}
                     >
                       <SelectTrigger className="h-12">
-                        <SelectValue placeholder={maintenanceLocations.length === 0 ? "Loading locations..." : "Select location"} />
+                        <SelectValue
+                          placeholder={
+                            maintenanceLocations.length === 0
+                              ? "Loading locations..."
+                              : "Select location"
+                          }
+                        />
                       </SelectTrigger>
                       <SelectContent>
                         {maintenanceLocations.length > 0 ? (
                           maintenanceLocations.map((location) => (
-                            <SelectItem key={location.id} value={location.value}>
+                            <SelectItem
+                              key={location.id}
+                              value={location.value}
+                            >
                               <div className="flex flex-col">
-                                <span className="font-medium">{location.value}</span>
+                                <span className="font-medium">
+                                  {location.value}
+                                </span>
                                 {location.description && (
-                                  <span className="text-xs text-gray-500">{location.description}</span>
+                                  <span className="text-xs text-gray-500">
+                                    {location.description}
+                                  </span>
                                 )}
                               </div>
                             </SelectItem>
@@ -1580,7 +2166,9 @@ export default function TenantRequestsClient() {
                         ) : (
                           <div className="px-2 py-4 text-center text-gray-500">
                             <Loader2 className="h-4 w-4 animate-spin mx-auto mb-2" />
-                            <span className="text-xs">Loading locations...</span>
+                            <span className="text-xs">
+                              Loading locations...
+                            </span>
                           </div>
                         )}
                       </SelectContent>
@@ -1588,23 +2176,42 @@ export default function TenantRequestsClient() {
                   </div>
 
                   <div>
-                    <Label htmlFor="preferred_visit_time">Preferred Visit Time</Label>
+                    <Label htmlFor="preferred_visit_time">
+                      Preferred Visit Time
+                    </Label>
                     <Select
-                      value={formData.maintenanceData?.preferred_visit_time || ''}
-                      onValueChange={(value) => handleMaintenanceDataChange('preferred_visit_time', value)}
+                      value={
+                        formData.maintenanceData?.preferred_visit_time || ""
+                      }
+                      onValueChange={(value) =>
+                        handleMaintenanceDataChange(
+                          "preferred_visit_time",
+                          value,
+                        )
+                      }
                       disabled={visitTimes.length === 0}
                     >
                       <SelectTrigger className="h-12">
-                        <SelectValue placeholder={visitTimes.length === 0 ? "Loading visit times..." : "Select preferred time"} />
+                        <SelectValue
+                          placeholder={
+                            visitTimes.length === 0
+                              ? "Loading visit times..."
+                              : "Select preferred time"
+                          }
+                        />
                       </SelectTrigger>
                       <SelectContent>
                         {visitTimes.length > 0 ? (
                           visitTimes.map((time) => (
                             <SelectItem key={time.id} value={time.value}>
                               <div className="flex flex-col">
-                                <span className="font-medium">{time.value}</span>
+                                <span className="font-medium">
+                                  {time.value}
+                                </span>
                                 {time.description && (
-                                  <span className="text-xs text-gray-500">{time.description}</span>
+                                  <span className="text-xs text-gray-500">
+                                    {time.description}
+                                  </span>
                                 )}
                               </div>
                             </SelectItem>
@@ -1612,7 +2219,9 @@ export default function TenantRequestsClient() {
                         ) : (
                           <div className="px-2 py-4 text-center text-gray-500">
                             <Loader2 className="h-4 w-4 animate-spin mx-auto mb-2" />
-                            <span className="text-xs">Loading visit times...</span>
+                            <span className="text-xs">
+                              Loading visit times...
+                            </span>
                           </div>
                         )}
                       </SelectContent>
@@ -1622,34 +2231,60 @@ export default function TenantRequestsClient() {
                   <div className="flex items-center space-x-2">
                     <Checkbox
                       id="access_permission"
-                      checked={formData.maintenanceData?.access_permission || false}
-                      onCheckedChange={(checked) => handleMaintenanceDataChange('access_permission', checked)}
+                      checked={
+                        formData.maintenanceData?.access_permission || false
+                      }
+                      onCheckedChange={(checked) =>
+                        handleMaintenanceDataChange(
+                          "access_permission",
+                          checked,
+                        )
+                      }
                     />
-                    <Label htmlFor="access_permission" className="cursor-pointer">
-                      I grant permission for staff to enter my room when I'm away if needed
+                    <Label
+                      htmlFor="access_permission"
+                      className="cursor-pointer"
+                    >
+                      I grant permission for staff to enter my room when I'm
+                      away if needed
                     </Label>
                   </div>
                 </div>
               )}
 
               {/* Conditional rendering for Complaint Request */}
-              {formData.request_type === 'complaint' && (
+              {formData.request_type === "complaint" && (
                 <div className="border-t border-red-200 pt-3 space-y-3">
-                  <h3 className="font-semibold text-base text-red-800">Complaint Details</h3>
-                  
+                  <h3 className="font-semibold text-base text-red-800">
+                    Complaint Details
+                  </h3>
+
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
-                      <Label htmlFor="complaint_category" className="text-sm font-medium">Category *</Label>
+                      <Label
+                        htmlFor="complaint_category"
+                        className="text-sm font-medium"
+                      >
+                        Category *
+                      </Label>
                       <Select
-                        value={formData.complaintData?.category_master_type_id?.toString() || ''}
-                        onValueChange={(value) => handleComplaintCategoryChange(parseInt(value))}
+                        value={
+                          formData.complaintData?.category_master_type_id?.toString() ||
+                          ""
+                        }
+                        onValueChange={(value) =>
+                          handleComplaintCategoryChange(parseInt(value))
+                        }
                       >
                         <SelectTrigger className="h-10">
                           <SelectValue placeholder="Select category" />
                         </SelectTrigger>
                         <SelectContent>
                           {complaintCategories.map((category) => (
-                            <SelectItem key={category.id} value={category.id.toString()}>
+                            <SelectItem
+                              key={category.id}
+                              value={category.id.toString()}
+                            >
                               {category.name}
                             </SelectItem>
                           ))}
@@ -1657,34 +2292,51 @@ export default function TenantRequestsClient() {
                       </Select>
                     </div>
 
-                    {selectedComplaintCategory && complaintReasons.length > 0 && (
-                      <div className="space-y-1">
-                        <Label htmlFor="complaint_reason" className="text-sm font-medium">Reason *</Label>
-                        <Select
-                          value={formData.complaintData?.reason_master_value_id?.toString() || ''}
-                          onValueChange={(value) => {
-                            const reason = complaintReasons.find(r => r.id.toString() === value);
-                            handleComplaintReasonChange(parseInt(value), reason?.value || '');
-                          }}
-                        >
-                          <SelectTrigger className="h-10">
-                            <SelectValue placeholder="Select reason" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {complaintReasons.map((reason) => (
-                              <SelectItem key={reason.id} value={reason.id.toString()}>
-                                {reason.value}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
+                    {selectedComplaintCategory &&
+                      complaintReasons.length > 0 && (
+                        <div className="space-y-1">
+                          <Label
+                            htmlFor="complaint_reason"
+                            className="text-sm font-medium"
+                          >
+                            Reason *
+                          </Label>
+                          <Select
+                            value={
+                              formData.complaintData?.reason_master_value_id?.toString() ||
+                              ""
+                            }
+                            onValueChange={(value) => {
+                              const reason = complaintReasons.find(
+                                (r) => r.id.toString() === value,
+                              );
+                              handleComplaintReasonChange(
+                                parseInt(value),
+                                reason?.value || "",
+                              );
+                            }}
+                          >
+                            <SelectTrigger className="h-10">
+                              <SelectValue placeholder="Select reason" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {complaintReasons.map((reason) => (
+                                <SelectItem
+                                  key={reason.id}
+                                  value={reason.id.toString()}
+                                >
+                                  {reason.value}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
                   </div>
 
                   {showCustomReason && (
                     <Input
-                      value={formData.complaintData?.custom_reason || ''}
+                      value={formData.complaintData?.custom_reason || ""}
                       onChange={(e) => handleCustomReasonChange(e.target.value)}
                       placeholder="Describe your complaint"
                       className="h-10"

@@ -51,7 +51,8 @@ function renderAdminNotes(request: TenantRequest) {
   
   if (lines.length === 0) return null;
   
-  // Parse each line into entries
+  // ✅ Filter out creation/penalty lines (lines without timestamp)
+  // Only show lines that have a timestamp pattern [dd/mm/yyyy, HH:MM AM/PM]
   const noteEntries: Array<{ timestamp: string; status: string; note: string }> = [];
   
   for (const line of lines) {
@@ -64,18 +65,14 @@ function renderAdminNotes(request: TenantRequest) {
         status: match[2],
         note: match[3] || 'No additional notes'
       });
-    } else {
-      // If pattern doesn't match, show as is
-      noteEntries.push({
-        timestamp: 'Info',
-        status: '',
-        note: line
-      });
     }
+    // ❌ Skip lines that don't match the timestamp pattern (these are creation notes)
   }
   
   // Show only last 3 entries
   const recentEntries = noteEntries.slice(-3);
+  
+  if (recentEntries.length === 0) return null; // No admin updates yet
   
   const getStatusBadge = (status: string) => {
     const statusMap: Record<string, { label: string; color: string }> = {

@@ -1,3 +1,4 @@
+// app/admin/tenants/[id]/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -257,21 +258,32 @@ const loadPayments = async () => {
     // First, check if tenant has vacated records
     const hasVacated = tenant?.vacate_records && tenant.vacate_records.length > 0;
     
-    let pr, sr;
-    
     if (hasVacated) {
       // Use vacated tenant endpoint
-      pr = await paymentApi.getVacatedTenantPaymentFormData(parseInt(tid));
-      if (pr.success && pr.data) {
-        setPayments(pr.data.payments || []);
-        setPaymentSummary(pr.data);
+      const vacatedResult = await paymentApi.getVacatedTenantPaymentFormData(parseInt(tid));
+      if (vacatedResult.success && vacatedResult.data) {
+        setPaymentSummary(vacatedResult.data);
+        setPayments(vacatedResult.data.payments || vacatedResult.data.rent_payments || []);
       }
     } else {
-      // Use regular endpoint for active tenants
-      pr = await getTenantPayments(tid);
-      if (pr.success) setPayments(pr.data || []);
-      sr = await getTenantPaymentFormData(tid);
-      if (sr.success && sr.data) setPaymentSummary(sr.data);
+      // For active tenants: Get BOTH payment form data AND actual payments
+      const [paymentFormResult, paymentsResult, assignmentResult] = await Promise.all([
+        getTenantPaymentFormData(tid),
+        getTenantPayments(tid),
+        getTenantAssignment(tid)
+      ]);
+      
+      if (paymentFormResult.success && paymentFormResult.data) {
+        // If monthly_rent is 0, try to get it from assignment
+        if (paymentFormResult.data.monthly_rent === 0 && assignmentResult?.success && assignmentResult?.data) {
+          paymentFormResult.data.monthly_rent = assignmentResult.data.tenant_rent || 0;
+        }
+        setPaymentSummary(paymentFormResult.data);
+      }
+      
+      if (paymentsResult.success && paymentsResult.data) {
+        setPayments(paymentsResult.data);
+      }
     }
   } catch (error) {
     console.error("Error loading payments:", error);
@@ -291,12 +303,143 @@ const loadPayments = async () => {
     setExpandedMonths((p) =>
       p.includes(k) ? p.filter((m) => m !== k) : [...p, k],
     );
-  const openReceipt = (id: number) => {
-    setReceiptId(id);
-    setReceiptOpen(true);
-  };
-  const dlReceipt = (id: number) =>
-    window.open(`/api/payments/receipts/${id}/download`, "_blank");
+// Preview receipt in a modal (like admin payment page)
+const previewReceipt = async (id: number) => {
+  try {
+    toast.loading("Loading receipt...", { id: "receipt-preview" });
+    
+    const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/payments/receipts/${id}/preview-pdf`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/pdf',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to load receipt');
+    }
+
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    
+    // Create modal with smaller width
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+    `;
+    
+    const modalContent = document.createElement('div');
+    modalContent.style.cssText = `
+      width: 720px;
+      max-width: 90vw;
+      height: 90vh;
+      background: white;
+      border-radius: 12px;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+    `;
+    
+    const headerBar = document.createElement('div');
+    headerBar.style.cssText = `
+      padding: 12px 20px;
+      background: #1a3c6e;
+      color: white;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+    `;
+    headerBar.innerHTML = `
+      <span style="font-weight: 600; font-size: 14px;">Payment Receipt</span>
+      <button id="closePreviewBtn" style="background: none; border: none; color: white; cursor: pointer; font-size: 20px;">&times;</button>
+    `;
+    
+    const pdfViewer = document.createElement('iframe');
+    pdfViewer.style.cssText = `
+      width: 100%;
+      flex: 1;
+      border: none;
+    `;
+    pdfViewer.src = url;
+    
+    modalContent.appendChild(headerBar);
+    modalContent.appendChild(pdfViewer);
+    modal.appendChild(modalContent);
+    document.body.appendChild(modal);
+    
+    // Add download button outside
+    const downloadBtn = document.createElement('button');
+    downloadBtn.innerHTML = 'Download PDF';
+    downloadBtn.style.cssText = `
+      margin-top: 16px;
+      padding: 8px 20px;
+      background: #1a3c6e;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 500;
+    `;
+    downloadBtn.onclick = () => {
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `receipt-${id}.pdf`;
+      link.click();
+    };
+    modal.appendChild(downloadBtn);
+    
+    const closeBtn = headerBar.querySelector('#closePreviewBtn');
+    closeBtn?.addEventListener('click', () => {
+      URL.revokeObjectURL(url);
+      modal.remove();
+      toast.dismiss("receipt-preview");
+    });
+    
+    modal.onclick = (e) => {
+      if (e.target === modal) {
+        URL.revokeObjectURL(url);
+        modal.remove();
+        toast.dismiss("receipt-preview");
+      }
+    };
+    
+    toast.dismiss("receipt-preview");
+    toast.success("Receipt loaded");
+    
+  } catch (error) {
+    console.error("Error previewing receipt:", error);
+    toast.dismiss("receipt-preview");
+    toast.error("Failed to load receipt preview");
+  }
+};
+
+// Download receipt PDF
+const downloadReceipt = (id: number) => {
+  window.open(`/api/payments/receipts/${id}/download`, "_blank");
+};
+
+// For backward compatibility
+const openReceipt = (id: number) => {
+  previewReceipt(id);
+};
+
+const dlReceipt = (id: number) => {
+  downloadReceipt(id);
+};
 
   const copyToClipboard = async (text: string, type: "email" | "phone") => {
     await navigator.clipboard.writeText(text);
@@ -1175,14 +1318,13 @@ const loadPayments = async () => {
                   )}
               </TabsContent>
 
-              {/* Payments Tab - Updated to handle vacated tenants */}
 {/* Payments Tab - Complete */}
 <TabsContent value="payments" className="mt-0">
   {loadingPayments ? (
     <div className="flex justify-center py-12">
       <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
     </div>
-  ) : !paymentSummary ? (
+  ) : !paymentSummary && payments.length === 0 ? (
     <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
       <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-3">
         <CreditCard className="w-6 h-6 text-slate-300" />
@@ -1192,7 +1334,7 @@ const loadPayments = async () => {
   ) : (
     <div className="space-y-4">
       {/* Show Vacated Banner if tenant is vacated */}
-      {paymentSummary.is_vacated && (
+      {paymentSummary?.is_vacated && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
           <div className="flex items-start gap-3">
             <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5" />
@@ -1229,58 +1371,56 @@ const loadPayments = async () => {
 
       {/* Payment Summary Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {!paymentSummary.is_vacated ? (
-          // Original summary for active tenants
+        {!paymentSummary?.is_vacated ? (
           <>
             <PaymentCard
               label="Total Paid"
-              value={`₹${paymentSummary.total_paid?.toLocaleString() || "0"}`}
+              value={`₹${(paymentSummary?.total_paid || 0).toLocaleString()}`}
               gradient="from-emerald-500 to-emerald-600"
               icon={<TrendingUp className="w-3 h-3" />}
             />
             <PaymentCard
               label="Total Pending"
-              value={`₹${paymentSummary.total_pending?.toLocaleString() || "0"}`}
+              value={`₹${(paymentSummary?.total_pending || 0).toLocaleString()}`}
               gradient="from-orange-500 to-orange-600"
               icon={<Clock className="w-3 h-3" />}
             />
             <PaymentCard
               label="Monthly Rent"
-              value={`₹${paymentSummary.monthly_rent?.toLocaleString() || "0"}`}
+              value={`₹${(paymentSummary?.monthly_rent || 0).toLocaleString()}`}
               gradient="from-blue-500 to-blue-600"
               icon={<IndianRupee className="w-3 h-3" />}
             />
             <PaymentCard
               label="Months Joined"
-              value={String(paymentSummary.total_months_since_joining || "0")}
+              value={String(paymentSummary?.total_months_since_joining || "0")}
               gradient="from-purple-500 to-purple-600"
               icon={<CalendarDays className="w-3 h-3" />}
             />
           </>
         ) : (
-          // Summary for vacated tenants - separate rent and deposit totals
           <>
             <PaymentCard
               label="Total Rent Paid"
-              value={`₹${paymentSummary.total_rent_paid?.toLocaleString() || "0"}`}
+              value={`₹${(paymentSummary?.total_rent_paid || 0).toLocaleString()}`}
               gradient="from-emerald-500 to-emerald-600"
               icon={<IndianRupee className="w-3 h-3" />}
             />
             <PaymentCard
               label="Rent Payment Count"
-              value={String(paymentSummary.rent_payment_count || "0")}
+              value={String(paymentSummary?.rent_payment_count || "0")}
               gradient="from-blue-500 to-blue-600"
               icon={<CreditCard className="w-3 h-3" />}
             />
             <PaymentCard
               label="Security Deposit"
-              value={`₹${paymentSummary.vacate_info?.security_deposit?.toLocaleString() || "0"}`}
+              value={`₹${(paymentSummary?.vacate_info?.security_deposit || 0).toLocaleString()}`}
               gradient="from-amber-500 to-amber-600"
               icon={<Shield className="w-3 h-3" />}
             />
             <PaymentCard
               label="Deposit Paid"
-              value={`₹${paymentSummary.security_deposit_info?.paid?.toLocaleString() || "0"}`}
+              value={`₹${(paymentSummary?.security_deposit_info?.paid || 0).toLocaleString()}`}
               gradient="from-green-500 to-green-600"
               icon={<Wallet className="w-3 h-3" />}
             />
@@ -1289,7 +1429,7 @@ const loadPayments = async () => {
       </div>
 
       {/* Security Deposit Information for Vacated Tenants */}
-      {paymentSummary.is_vacated && paymentSummary.vacate_info?.security_deposit > 0 && (
+      {paymentSummary?.is_vacated && paymentSummary?.vacate_info?.security_deposit > 0 && (
         <div className="bg-white rounded-xl border border-slate-200 p-5">
           <div className="flex items-center gap-3 mb-4 pb-3 border-b border-slate-200">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 text-white flex items-center justify-center shadow-sm">
@@ -1303,19 +1443,19 @@ const loadPayments = async () => {
             <div className="flex justify-between items-center">
               <span className="text-sm text-slate-600">Security Deposit</span>
               <span className="font-semibold">
-                ₹{paymentSummary.vacate_info.security_deposit.toLocaleString()}
+                ₹{(paymentSummary.vacate_info.security_deposit || 0).toLocaleString()}
               </span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-sm text-slate-600">Total Penalty</span>
               <span className="font-semibold text-red-600">
-                ₹{paymentSummary.vacate_info.total_penalty.toLocaleString()}
+                ₹{(paymentSummary.vacate_info.total_penalty || 0).toLocaleString()}
               </span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-sm text-slate-600">Refund Amount</span>
               <span className="font-semibold text-green-600">
-                ₹{paymentSummary.vacate_info.refundable_amount.toLocaleString()}
+                ₹{(paymentSummary.vacate_info.refundable_amount || 0).toLocaleString()}
               </span>
             </div>
           </div>
@@ -1323,313 +1463,231 @@ const loadPayments = async () => {
       )}
 
       {/* Payment History - ONE TABLE FOR ALL PAYMENTS */}
-      {paymentSummary.is_vacated ? (
-        // For Vacated Tenants: Simple table with ALL approved/paid/rejected payments (no pending)
-        <>
-          {/* Status Legend - Only Approved and Rejected */}
-          <div className="flex gap-3">
-            <div className="flex items-center gap-1">
-              <div className="w-2 h-2 rounded-full bg-green-500"></div>
-              <span className="text-xs text-slate-600">Approved/Paid</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <div className="w-2 h-2 rounded-full bg-red-500"></div>
-              <span className="text-xs text-slate-600">Rejected</span>
-            </div>
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div className="flex items-center gap-3 p-4 pb-0 border-b border-slate-200">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 text-white flex items-center justify-center shadow-sm">
+            <CreditCard className="w-4 h-4" />
           </div>
-
-          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[800px] text-sm">
-                <thead className="bg-slate-50 border-b border-slate-200">
-                  <tr>
-                    <th className="text-left py-3 px-3 font-semibold text-slate-600 text-xs">Date</th>
-                    <th className="text-left py-3 px-3 font-semibold text-slate-600 text-xs">Amount</th>
-                    <th className="text-left py-3 px-3 font-semibold text-slate-600 text-xs">Type</th>
-                    <th className="text-left py-3 px-3 font-semibold text-slate-600 text-xs">Mode</th>
-                    <th className="text-left py-3 px-3 font-semibold text-slate-600 text-xs">Period</th>
-                    <th className="text-left py-3 px-3 font-semibold text-slate-600 text-xs">Status</th>
-                    <th className="text-left py-3 px-3 font-semibold text-slate-600 text-xs">Rejection Reason</th>
-                    <th className="text-right py-3 px-3 font-semibold text-slate-600 text-xs">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {paymentSummary.payments
-                    ?.filter((p: any) => p.status !== "pending") // ✅ Filter out pending payments
-                    .map((p: any) => {
-                      let statusClass = "bg-gray-100 text-gray-700";
-                      let amountClass = "text-emerald-600";
-                      
-                      if (p.status === "approved" || p.status === "paid") {
-                        statusClass = "bg-green-100 text-green-700";
-                        amountClass = "text-emerald-600";
-                      } else if (p.status === "rejected") {
-                        statusClass = "bg-red-100 text-red-700";
-                        amountClass = "text-red-400 line-through";
-                      }
-                      
-                      return (
-                        <tr key={p.id} className="border-b border-slate-100 hover:bg-slate-50/50">
-                          <td className="py-3 px-3 text-slate-600 whitespace-nowrap text-xs">
-                            {p.payment_date
-                              ? new Date(p.payment_date).toLocaleDateString("en-IN", {
-                                  day: "numeric",
-                                  month: "short",
-                                  year: "numeric",
-                                })
-                              : "—"}
-                          </td>
-                          <td className={`py-3 px-3 font-semibold whitespace-nowrap text-xs ${amountClass}`}>
-                            ₹{p.amount?.toLocaleString() || "0"}
-                          </td>
-                          <td className="py-3 px-3">
-                            <Badge className={`text-[9px] px-1.5 py-0 ${p.payment_type === "rent" ? "bg-blue-100 text-blue-700" : "bg-purple-100 text-purple-700"}`}>
-                              {p.payment_type === "rent" ? "Rent" : "Security Deposit"}
-                            </Badge>
-                          </td>
-                          <td className="py-3 px-3 text-slate-600 capitalize whitespace-nowrap text-xs">
-                            {p.payment_mode || "—"}
-                            {p.bank_name && (
-                              <span className="text-[10px] text-slate-400 block">{p.bank_name}</span>
-                            )}
-                          </td>
-                          <td className="py-3 px-3 text-slate-600 whitespace-nowrap text-xs">
-                            {p.month} {p.year}
-                          </td>
-                          <td className="py-3 px-3">
-                            <Badge className={`text-[9px] px-1.5 py-0 ${statusClass}`}>
-                              {p.status}
-                            </Badge>
-                          </td>
-                          <td className="py-3 px-3 text-xs text-slate-500 max-w-[150px] truncate" title={p.rejection_reason}>
-                            {p.rejection_reason || "—"}
-                          </td>
-                          <td className="py-3 px-3 text-right">
-                            {(p.status === "approved" || p.status === "paid") && (
-                              <button
-                                onClick={() => openReceipt(p.id)}
-                                className="p-1.5 rounded-lg bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-600 hover:text-white transition-all duration-200"
-                                title="View Receipt"
-                              >
-                                <ReceiptIndianRupee className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                </tbody>
-              </table>
-            </div>
+          <div>
+            <h3 className="font-lexend font-semibold text-slate-900">
+              Payment Transactions
+            </h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Complete payment history of this tenant
+            </p>
           </div>
+        </div>
 
-          {/* Summary Cards for Payment Stats - Separate Rent and Deposit */}
-          <div className="grid grid-cols-2 gap-3">
+        {/* Status Legend */}
+        <div className="flex gap-3 px-4 pt-3">
+          <div className="flex items-center gap-1">
+            <div className="w-2 h-2 rounded-full bg-green-500"></div>
+            <span className="text-xs text-slate-600">Approved</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <div className="w-2 h-2 rounded-full bg-red-500"></div>
+            <span className="text-xs text-slate-600">Rejected</span>
+          </div>
+          {!paymentSummary?.is_vacated && (
+            <div className="flex items-center gap-1">
+              <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
+              <span className="text-xs text-slate-600">Pending</span>
+            </div>
+          )}
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[800px] text-sm">
+            <thead className="bg-slate-50 border-b border-slate-200">
+              <tr>
+                <th className="text-left py-3 px-3 font-semibold text-slate-600 text-xs">Date</th>
+                <th className="text-left py-3 px-3 font-semibold text-slate-600 text-xs">Amount</th>
+                <th className="text-left py-3 px-3 font-semibold text-slate-600 text-xs">Type</th>
+                <th className="text-left py-3 px-3 font-semibold text-slate-600 text-xs">Mode</th>
+                <th className="text-left py-3 px-3 font-semibold text-slate-600 text-xs">Period</th>
+                <th className="text-left py-3 px-3 font-semibold text-slate-600 text-xs">Status</th>
+                <th className="text-right py-3 px-3 font-semibold text-slate-600 text-xs">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(() => {
+                // USE THE SEPARATE payments state for active tenants
+                let allPayments: any[] = [...payments];
+                
+                // For vacated tenants, also check paymentSummary
+                if (paymentSummary?.is_vacated) {
+                  if (paymentSummary.payments && Array.isArray(paymentSummary.payments)) {
+                    allPayments = [...allPayments, ...paymentSummary.payments];
+                  }
+                  if (paymentSummary.rent_payments && Array.isArray(paymentSummary.rent_payments)) {
+                    allPayments = [...allPayments, ...paymentSummary.rent_payments];
+                  }
+                  if (paymentSummary.security_deposit_payments && Array.isArray(paymentSummary.security_deposit_payments)) {
+                    allPayments = [...allPayments, ...paymentSummary.security_deposit_payments];
+                  }
+                }
+                
+                // Remove duplicates by id
+                const uniqueMap = new Map();
+                for (const p of allPayments) {
+                  if (p && p.id && !uniqueMap.has(p.id)) {
+                    uniqueMap.set(p.id, p);
+                  }
+                }
+                const uniquePayments = Array.from(uniqueMap.values());
+                
+                // Filter out pending for vacated tenants
+                let paymentsToShow = uniquePayments;
+                if (paymentSummary?.is_vacated) {
+                  paymentsToShow = uniquePayments.filter((p: any) => p.status !== "pending");
+                }
+                
+                // Sort by date (newest first)
+                paymentsToShow.sort((a: any, b: any) => {
+                  const dateA = a.payment_date ? new Date(a.payment_date) : new Date(0);
+                  const dateB = b.payment_date ? new Date(b.payment_date) : new Date(0);
+                  return dateB.getTime() - dateA.getTime();
+                });
+                
+                if (paymentsToShow.length === 0) {
+                  return (
+                    <tr>
+                      <td colSpan={7} className="text-center py-8 text-slate-400 text-sm">
+                        No payment transactions found
+                      </td>
+                    </tr>
+                  );
+                }
+                
+                return paymentsToShow.map((p: any) => {
+                  let statusClass = "bg-gray-100 text-gray-700";
+                  let amountClass = "text-emerald-600";
+                  
+                  if (p.status === "approved") {
+                    statusClass = "bg-green-100 text-green-700";
+                    amountClass = "text-emerald-600";
+                  } else if (p.status === "rejected") {
+                    statusClass = "bg-red-100 text-red-700";
+                    amountClass = "text-red-400 line-through";
+                  } else if (p.status === "pending") {
+                    statusClass = "bg-yellow-100 text-yellow-700";
+                    amountClass = "text-amber-600";
+                  } else if (p.status === "paid") {
+                    statusClass = "bg-green-100 text-green-700";
+                    amountClass = "text-emerald-600";
+                  }
+                  
+                  let paymentTypeDisplay = "—";
+                  let paymentTypeClass = "bg-gray-100 text-gray-700";
+                  
+                  if (p.payment_type === "rent") {
+                    paymentTypeDisplay = "Rent";
+                    paymentTypeClass = "bg-blue-100 text-blue-700";
+                  } else if (p.payment_type === "security_deposit") {
+                    paymentTypeDisplay = "Security Deposit";
+                    paymentTypeClass = "bg-purple-100 text-purple-700";
+                  } else if (p.payment_type === "maintenance") {
+                    paymentTypeDisplay = "Maintenance";
+                    paymentTypeClass = "bg-orange-100 text-orange-700";
+                  }
+                  
+                  return (
+                    <tr key={p.id} className="border-b border-slate-100 hover:bg-slate-50/50">
+                      <td className="py-3 px-3 text-slate-600 whitespace-nowrap text-xs">
+                        {p.payment_date
+                          ? new Date(p.payment_date).toLocaleDateString("en-IN", {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                            })
+                          : "—"}
+                      </td>
+                      <td className={`py-3 px-3 font-semibold whitespace-nowrap text-xs ${amountClass}`}>
+                        ₹{(p.amount || 0).toLocaleString()}
+                      </td>
+                      <td className="py-3 px-3">
+                        <Badge className={`text-[9px] px-1.5 py-0 ${paymentTypeClass}`}>
+                          {paymentTypeDisplay}
+                        </Badge>
+                      </td>
+                      <td className="py-3 px-3 text-slate-600 capitalize whitespace-nowrap text-xs">
+                        {p.payment_mode || "—"}
+                        {p.bank_name && (
+                          <span className="text-[10px] text-slate-400 block">{p.bank_name}</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-3 text-slate-600 whitespace-nowrap text-xs">
+                        {p.month} {p.year}
+                      </td>
+                      <td className="py-3 px-3">
+                        <Badge className={`text-[9px] px-1.5 py-0 ${statusClass}`}>
+                          {p.status === "approved" ? "Approved" : p.status === "paid" ? "Paid" : p.status}
+                        </Badge>
+                      </td>
+                      <td className="py-3 px-3 text-right">
+  {/* Show receipt icons ONLY for approved payments */}
+  {p.status === "approved" && (
+    <div className="flex items-center justify-end gap-1">
+      <button
+        onClick={() => previewReceipt(p.id)}
+        className="p-1.5 rounded-lg bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-600 hover:text-white transition-all duration-200"
+        title="Preview Receipt"
+      >
+        <Eye className="w-3.5 h-3.5" />
+      </button>
+      <button
+        onClick={() => downloadReceipt(p.id)}
+        className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-600 hover:text-white transition-all duration-200"
+        title="Download Receipt"
+      >
+        <Download className="w-3.5 h-3.5" />
+      </button>
+    </div>
+  )}
+</td>
+                    </tr>
+                  );
+                });
+              })()}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Summary Cards for Payment Stats */}
+      <div className="grid grid-cols-2 gap-3">
+        {!paymentSummary?.is_vacated ? (
+          <>
+            <div className="text-center p-3 bg-green-50 rounded-lg border border-green-200">
+              <p className="text-[10px] text-slate-500 uppercase tracking-wide">Total Paid</p>
+              <p className="text-lg font-bold text-green-600">
+                ₹{(paymentSummary?.total_paid || 0).toLocaleString()}
+              </p>
+            </div>
+            <div className="text-center p-3 bg-red-50 rounded-lg border border-red-200">
+              <p className="text-[10px] text-slate-500 uppercase tracking-wide">Total Pending</p>
+              <p className="text-lg font-bold text-red-600">
+                ₹{(paymentSummary?.total_pending || 0).toLocaleString()}
+              </p>
+            </div>
+          </>
+        ) : (
+          <>
             <div className="text-center p-3 bg-green-50 rounded-lg border border-green-200">
               <p className="text-[10px] text-slate-500 uppercase tracking-wide">Total Rent Paid</p>
               <p className="text-lg font-bold text-green-600">
-                ₹{paymentSummary.total_rent_paid?.toLocaleString() || 0}
+                ₹{(paymentSummary?.total_rent_paid || 0).toLocaleString()}
               </p>
             </div>
             <div className="text-center p-3 bg-red-50 rounded-lg border border-red-200">
               <p className="text-[10px] text-slate-500 uppercase tracking-wide">Total Rejected</p>
               <p className="text-lg font-bold text-red-600">
-                ₹{paymentSummary.total_rejected?.toLocaleString() || 0}
+                ₹{(paymentSummary?.total_rejected || 0).toLocaleString()}
               </p>
             </div>
-          </div>
-        </>
-      ) : (
-        // For Active Tenants: Month-wise history with actual payments showing
-        paymentSummary.month_wise_history?.length > 0 && (
-          <div className="bg-white rounded-xl border border-slate-200 p-5">
-            <div className="flex items-center gap-3 mb-4 pb-3 border-b border-slate-200">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 text-white flex items-center justify-center shadow-sm">
-                <CreditCard className="w-4 h-4" />
-              </div>
-              <div>
-                <h3 className="font-lexend font-semibold text-slate-900">
-                  Month-wise Payment History
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Detailed breakdown of payments by month
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              {paymentSummary.month_wise_history.map((m: any) => {
-                const k = `${m.month}-${m.year}`;
-                const open = expandedMonths.includes(k);
-                const statusColor =
-                  m.status === "paid"
-                    ? "emerald"
-                    : m.status === "partial"
-                      ? "blue"
-                      : m.status === "overdue"
-                        ? "red"
-                        : "slate";
-
-                return (
-                  <Collapsible
-                    key={k}
-                    open={open}
-                    onOpenChange={() => toggleMonth(k)}
-                  >
-                    <div className="border border-slate-200 rounded-xl overflow-hidden hover:border-slate-300 transition-colors">
-                      <CollapsibleTrigger asChild>
-                        <button className="w-full p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white hover:bg-slate-50/50 transition-all">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div
-                              className={`w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 transition-all ${open ? "bg-blue-600 text-white shadow-sm" : "bg-slate-100 text-slate-500"}`}
-                            >
-                              {open ? (
-                                <ChevronUp className="w-3.5 h-3.5" />
-                              ) : (
-                                <ChevronDown className="w-3.5 h-3.5" />
-                              )}
-                            </div>
-                            <div className="text-left min-w-0">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span className="font-lexend font-semibold text-slate-900">
-                                  {m.month} {m.year}
-                                </span>
-                                {m.isCurrentMonth && (
-                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-50 text-blue-700 border border-blue-200">
-                                    Current
-                                  </span>
-                                )}
-                                {m.isFirstMonth && (
-                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-purple-50 text-purple-700 border border-purple-200">
-                                    First Month
-                                  </span>
-                                )}
-                              </div>
-                              <p className="text-xs text-slate-500 mt-0.5">
-                                Rent: ₹{Math.round(m.rent).toLocaleString()}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto">
-                            <div className="text-right sm:text-left">
-                              <p className="text-sm font-semibold text-emerald-600">
-                                Paid ₹
-                                {(
-                                  m.paid ||
-                                  m.paid_amount ||
-                                  0
-                                ).toLocaleString()}
-                              </p>
-                              <p className="text-sm font-semibold text-orange-600">
-                                Pending ₹
-                                {(
-                                  m.pending ||
-                                  m.pending_amount ||
-                                  m.rent ||
-                                  0
-                                ).toLocaleString()}
-                              </p>
-                            </div>
-                            <span
-                              className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium capitalize bg-${statusColor}-50 text-${statusColor}-700 border border-${statusColor}-200`}
-                            >
-                              {m.status || "pending"}
-                            </span>
-                          </div>
-                        </button>
-                      </CollapsibleTrigger>
-
-                      <CollapsibleContent>
-                        <div className="bg-slate-50/80 border-t border-slate-200 p-4">
-                          {m.payments && m.payments.length > 0 ? (
-                            <div className="overflow-x-auto">
-                              <table className="w-full min-w-[600px] text-sm">
-                                <thead>
-                                  <tr className="border-b border-slate-200">
-                                    <th className="text-left py-2 px-2 font-semibold text-slate-500 text-xs">
-                                      Date
-                                    </th>
-                                    <th className="text-left py-2 px-2 font-semibold text-slate-500 text-xs">
-                                      Amount
-                                    </th>
-                                    <th className="text-left py-2 px-2 font-semibold text-slate-500 text-xs">
-                                      Mode
-                                    </th>
-                                    <th className="text-left py-2 px-2 font-semibold text-slate-500 text-xs">
-                                      Transaction ID
-                                    </th>
-                                    <th className="text-left py-2 px-2 font-semibold text-slate-500 text-xs">
-                                      Bank
-                                    </th>
-                                    <th className="text-left py-2 px-2 font-semibold text-slate-500 text-xs">
-                                      Remark
-                                    </th>
-                                    <th className="text-right py-2 px-2 font-semibold text-slate-500 text-xs">
-                                      Actions
-                                    </th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {m.payments.map((p: any, idx: number) => (
-                                    <tr
-                                      key={idx}
-                                      className="border-b border-slate-100 hover:bg-white/50"
-                                    >
-                                      <td className="py-2 px-2 text-slate-600 text-xs">
-                                        {p.payment_date
-                                          ? new Date(p.payment_date).toLocaleDateString("en-IN", {
-                                              day: "numeric",
-                                              month: "short",
-                                              year: "numeric",
-                                            })
-                                          : "—"}
-                                      </td>
-                                      <td className="py-2 px-2 font-semibold text-emerald-600 text-xs">
-                                        ₹{p.amount?.toLocaleString() || "0"}
-                                      </td>
-                                      <td className="py-2 px-2 text-slate-600 capitalize text-xs">
-                                        {p.payment_mode || "—"}
-                                      </td>
-                                      <td className="py-2 px-2 text-slate-600 font-mono text-xs">
-                                        {p.transaction_id || "—"}
-                                      </td>
-                                      <td className="py-2 px-2 text-slate-600 text-xs">
-                                        {p.bank_name || "—"}
-                                      </td>
-                                      <td className="py-2 px-2 text-slate-600 text-xs">
-                                        {p.remark || "—"}
-                                      </td>
-                                      <td className="py-2 px-2 text-right">
-                                        {p.status === "approved" && (
-                                          <button
-                                            onClick={() => openReceipt(p.id)}
-                                            className="p-1.5 rounded-lg bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-600 hover:text-white transition-all duration-200"
-                                            title="View Receipt"
-                                          >
-                                            <ReceiptIndianRupee className="w-3.5 h-3.5" />
-                                          </button>
-                                        )}
-                                      </td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                          ) : (
-                            <div className="text-center py-6">
-                              <p className="text-sm text-slate-400">No payments recorded for this month</p>
-                            </div>
-                          )}
-                        </div>
-                      </CollapsibleContent>
-                    </div>
-                  </Collapsible>
-                );
-              })}
-            </div>
-          </div>
-        )
-      )}
+          </>
+        )}
+      </div>
     </div>
   )}
 </TabsContent>
@@ -2028,7 +2086,7 @@ function PaymentCard({ label, value, gradient, icon }: any) {
   );
 }
 
-/* Enhanced Receipt Dialog */
+/* Enhanced Receipt Dialog - Same as admin payment page */
 const ReceiptDialog = ({ open, onOpenChange, receiptId, onDownload }: any) => {
   const [receipt, setReceipt] = useState<any>(null);
   const [settings, setSettings] = useState<SettingsData>({});
@@ -2041,6 +2099,7 @@ const ReceiptDialog = ({ open, onOpenChange, receiptId, onDownload }: any) => {
       } catch {}
     })();
   }, []);
+  
   useEffect(() => {
     if (open && receiptId) fetchR();
   }, [open, receiptId]);
@@ -2065,23 +2124,38 @@ const ReceiptDialog = ({ open, onOpenChange, receiptId, onDownload }: any) => {
   const siteName = settings["site_name"]?.value || "ROOMAC";
   const tagline = settings["site_tagline"]?.value || "Premium Living Spaces";
 
+  // Open PDF in new tab for better preview
+  const openPdfPreview = () => {
+    if (receiptId) {
+      window.open(`/api/payments/receipts/${receiptId}/preview-pdf`, '_blank');
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="p-0 bg-white border border-slate-200 rounded-2xl max-w-[95vw] md:max-w-[560px] max-h-[90vh] overflow-y-auto">
-        <div className="p-5 border-b border-slate-200 flex items-center gap-3 sticky top-0 bg-white z-10">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 text-white flex items-center justify-center shadow-sm">
-            <ReceiptIndianRupee className="w-4 h-4" />
+      <DialogContent className="p-0 bg-white border border-slate-200 rounded-2xl max-w-[95vw] md:max-w-[720px] max-h-[90vh] overflow-y-auto">
+        <div className="p-5 border-b border-slate-200 flex items-center justify-between sticky top-0 bg-white z-10">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 text-white flex items-center justify-center shadow-sm">
+              <ReceiptIndianRupee className="w-4 h-4" />
+            </div>
+            <div>
+              <p className="font-lexend font-semibold text-slate-900">
+                Payment Receipt
+              </p>
+              <p className="text-xs text-slate-400">
+                {receipt
+                  ? `Receipt #${receipt.id} · ${receipt.month} ${receipt.year}`
+                  : "Loading…"}
+              </p>
+            </div>
           </div>
-          <div>
-            <p className="font-lexend font-semibold text-slate-900">
-              Payment Receipt
-            </p>
-            <p className="text-xs text-slate-400">
-              {receipt
-                ? `Receipt #${receipt.id} · ${receipt.month} ${receipt.year}`
-                : "Loading…"}
-            </p>
-          </div>
+          <button
+            onClick={() => onOpenChange(false)}
+            className="p-1 rounded-md hover:bg-gray-100 transition"
+          >
+            <X className="h-4 w-4 text-gray-500" />
+          </button>
         </div>
 
         <div className="p-5">
@@ -2246,8 +2320,14 @@ const ReceiptDialog = ({ open, onOpenChange, receiptId, onDownload }: any) => {
                   Close
                 </button>
                 <button
+                  onClick={openPdfPreview}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600 text-white font-medium text-sm shadow-lg shadow-blue-200 hover:shadow-xl hover:scale-105 transition-all duration-300"
+                >
+                  <Eye className="w-3.5 h-3.5" /> Preview PDF
+                </button>
+                <button
                   onClick={() => onDownload(receipt.id)}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 text-white font-medium text-sm shadow-lg shadow-blue-200 hover:shadow-xl hover:scale-105 transition-all duration-300"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-gradient-to-r from-emerald-600 to-green-600 text-white font-medium text-sm shadow-lg shadow-green-200 hover:shadow-xl hover:scale-105 transition-all duration-300"
                 >
                   <Download className="w-3.5 h-3.5" /> Download PDF
                 </button>
