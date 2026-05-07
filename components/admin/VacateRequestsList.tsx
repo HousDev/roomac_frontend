@@ -91,7 +91,8 @@ import {
   ChevronRight,
   ArrowUpDown,
   X,
-  Settings
+  Settings,
+  IndianRupeeIcon
 } from 'lucide-react';
 import { 
   getAdminVacateRequests, 
@@ -1106,7 +1107,6 @@ const calculatePenalties = (request: VacateRequest) => {
                               </div>
                               {penalties && penalties.total_penalty > 0 && (
                                 <div className="flex items-center gap-1 text-[10px] text-red-600">
-                                  <DollarSign className="h-2 w-2" />
                                   <span>₹{penalties.total_penalty.toFixed(0)}</span>
                                 </div>
                               )}
