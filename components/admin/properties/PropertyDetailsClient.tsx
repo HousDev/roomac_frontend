@@ -966,11 +966,47 @@ const getServiceIcon = (service: string) => {
                 </div>
             </div>
 
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
+            <div className="max-w-9xl mx-auto px-4 sm:px-6 lg:px-4 py-4 lg:py-4">
                 {/* Main Grid */}
                 <div className="grid lg:grid-cols-3 gap-6 lg:gap-8">    
                     {/* Left Column */}
                     <div className="lg:col-span-2 space-y-6">
+
+                        <div className="bg-white rounded-2xl shadow p-2 sm:p-2">
+    <div className="flex flex-wrap items-center justify-between gap-3">
+        {/* Left: Name + Location */}
+        <div className="flex items-center gap-2">
+            <div className="bg-blue-100 rounded-xl p-2">
+                <Building2 className="h-5 w-5 text-blue-600" />
+            </div>
+            <div>
+                <h1 className="text-xl sm:text-2xl font-bold text-slate-900">{property.name}</h1>
+                <div className="flex items-center gap-1 text-slate-600 mt-0.5">
+                    <MapPin className="h-3.5 w-3.5 text-blue-600" />
+                    <span className="text-sm font-medium">
+                        {property.area}
+                        {property.city_id && `, ${getCityName(property.city_id, commonMasters)}`}
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        {/* Right: Tags */}
+        {mappedTags.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+                {mappedTags.map((tag, idx) => (
+                    <span
+                        key={idx}
+                        className="px-3 py-1.5 bg-gradient-to-r from-blue-50 to-cyan-50 text-blue-700 rounded-full text-xs font-medium border border-blue-200 flex items-center gap-1.5"
+                    >
+                        <Tag className="h-3 w-3" />
+                        {tag}
+                    </span>
+                ))}
+            </div>
+        )}
+    </div>
+</div>
                         {/* Image Gallery */}
                         <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
                             <div className="relative aspect-[16/9] bg-gradient-to-br from-slate-200 to-slate-300">
@@ -979,7 +1015,7 @@ const getServiceIcon = (service: string) => {
                                         <img
                                             src={currentPhotoUrl}
                                             alt={`${property.name} - Image ${currentImageIndex + 1}`}
-                                            className="w-full h-full object-cover"
+                                            className="w-full h-full "
                                             onError={(e) => {
                                                 (e.target as HTMLImageElement).src =
                                                     `https://via.placeholder.com/1200x675/f1f5f9/475569?text=${encodeURIComponent(property.name)}`;
@@ -1069,40 +1105,7 @@ const getServiceIcon = (service: string) => {
 
                         {/* Property Info Card */}
                         <div className="bg-white rounded-2xl shadow-lg p-4 sm:p-6">
-                            <div className="flex items-start justify-between mb-4">
-                                <div className="flex-1">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <div className="bg-blue-100 rounded-xl p-2">
-                                            <Building2 className="h-5 w-5 text-blue-600" />
-                                        </div>
-                                        <div>
-                                            <h1 className="text-xl sm:text-2xl font-bold text-slate-900">{property.name}</h1>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-2 text-slate-600">
-                                        <MapPin className="h-4 w-4 text-blue-600" />
-                                        <span className="text-sm font-medium">
-                                            {property.area}
-                                            {property.city_id && `, ${getCityName(property.city_id, commonMasters)}`}
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Tags section with mapped names */}
-                            {mappedTags.length > 0 && (
-                                <div className="flex flex-wrap gap-1.5 mb-4">
-                                    {mappedTags.map((tag, idx) => (
-                                        <span 
-                                            key={idx} 
-                                            className="px-3 py-1.5 bg-gradient-to-r from-blue-50 to-cyan-50 text-blue-700 rounded-full text-xs font-medium border border-blue-200 flex items-center gap-1.5"
-                                        >
-                                            <Tag className="h-3 w-3" />
-                                            {tag}
-                                        </span>
-                                    ))}
-                                </div>
-                            )}
+                           
 
                             {property.description && (
                                 <div className="mb-4 pb-4 border-b border-slate-200">
@@ -1301,34 +1304,49 @@ const getServiceIcon = (service: string) => {
                         </div>
 
                         {/* Pricing Card */}
-                        <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-cyan-600 rounded-2xl shadow-xl p-5 text-white">
-                            <h3 className="text-base font-bold mb-4 flex items-center gap-2">
-                                <IndianRupee className="h-5 w-5" />
-                                Pricing Details
-                            </h3>
+                       <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-cyan-600 rounded-xl p-4 text-white shadow-lg">
+    <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+        <IndianRupee className="h-4 w-4" />
+        Pricing Details
+    </h3>
 
-                            <div className="space-y-3 mb-4">
-                                <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/20">
-                                    <p className="text-blue-100 text-[10px] mb-1 font-medium">Starting Price</p>
-                                    <div className="flex items-baseline gap-1.5">
-                                        <IndianRupee className="h-5 w-5" />
-                                        <span className="text-2xl font-bold">{property.starting_price.toLocaleString()}</span>
-                                        <span className="text-blue-100 text-sm">/month</span>
-                                    </div>
-                                </div>
+    <div className="space-y-2.5">
+        <div className="bg-white/10 backdrop-blur-sm rounded-lg p-2.5 border border-white/15">
+            <p className="text-blue-100 text-[9px] mb-1 uppercase tracking-wide">
+                Starting Price
+            </p>
 
-                                <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/20">
-                                    <p className="text-blue-100 text-[10px] mb-1 font-medium">Security Deposit</p>
-                                    <div className="flex items-baseline gap-1.5">
-                                        <Shield className="h-4 w-4" />
-                                        <span className="text-xl font-bold">₹{property.security_deposit.toLocaleString()}</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+            <div className="flex items-end gap-1">
+                <IndianRupee className="h-4 w-4 mb-0.5" />
+
+                <span className="text-xl font-bold leading-none">
+                    {property.starting_price.toLocaleString()}
+                </span>
+
+                <span className="text-blue-100 text-xs mb-0.5">
+                    /month
+                </span>
+            </div>
+        </div>
+
+        <div className="bg-white/10 backdrop-blur-sm rounded-lg p-2.5 border border-white/15">
+            <p className="text-blue-100 text-[9px] mb-1 uppercase tracking-wide">
+                Security Deposit
+            </p>
+
+            <div className="flex items-center gap-1.5">
+                <Shield className="h-3.5 w-3.5" />
+
+                <span className="text-lg font-semibold leading-none">
+                    ₹{property.security_deposit.toLocaleString()}
+                </span>
+            </div>
+        </div>
+    </div>
+</div>
 
                         {/* Address Card */}
-                        <div className="bg-white rounded-2xl shadow-lg p-4">
+                        <div className="bg-white rounded-2xl shadow p-4">
                             <h3 className="font-bold text-sm text-slate-800 mb-2 flex items-center gap-1.5">
                                 <MapPin className="h-4 w-4 text-blue-600" />
                                 Full Address
@@ -1342,7 +1360,7 @@ const getServiceIcon = (service: string) => {
 
                         {/* Services Card */}
                         {property.services && property.services.length > 0 && (
-                            <div className="bg-white rounded-2xl shadow-lg p-5">
+                            <div className="bg-white rounded-2xl shadow p-5">
                                 <h3 className="font-bold text-sm text-slate-900 mb-4 flex items-center gap-2 border-b pb-2">
                                     <CheckCircle2 className="h-4 w-4 text-green-600" />
                                     Services Included
@@ -1370,7 +1388,7 @@ const getServiceIcon = (service: string) => {
                         {/* Lock-in & Notice Period Card */}
                         {(property.lockin_period_months && property.lockin_period_months > 0) || 
                          (property.notice_period_days && property.notice_period_days > 0) ? (
-                            <div className="bg-white rounded-2xl shadow-lg p-4">
+                            <div className="bg-white rounded-2xl shadow p-4">
                                 <h3 className="font-bold text-sm text-slate-900 mb-3 flex items-center gap-1.5">
                                     <Clock className="h-4 w-4 text-slate-600" />
                                     Stay Terms
@@ -1416,7 +1434,7 @@ const getServiceIcon = (service: string) => {
 
                         {/* Amenities Card */}
                         {property.amenities && property.amenities.length > 0 && (
-                            <div className="bg-white rounded-2xl shadow-lg p-4">
+                            <div className="bg-white rounded-2xl shadow p-4">
                                 <h3 className="font-bold text-sm text-slate-900 mb-3 flex items-center gap-1.5">
                                     <Star className="h-4 w-4 text-amber-500" />
                                     Amenities

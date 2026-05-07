@@ -1250,12 +1250,12 @@ const [loadingOffers, setLoadingOffers] = useState(false);
             {/* Image Gallery */}
             {/* Image Gallery - REPLACE THIS SECTION */}
 <div className="relative group">
-  <div className="relative w-full h-[250px] md:h-[400px] lg:h-[500px] xl:h-[600px] rounded-xl md:rounded-2xl lg:rounded-3xl overflow-hidden shadow-xl md:shadow-2xl bg-gray-100">
+  <div className="relative w-full h-[250px] md:h-[380px] lg:h-[500px] xl:h-[530px] rounded-xl md:rounded-2xl lg:rounded-3xl overflow-hidden shadow-xl md:shadow-2xl bg-gray-100">
     {hasImages && currentImageUrl ? (
       <img
         src={currentImageUrl}
         alt="Property"
-        className="w-full h-full object-cover transition-all duration-700 group-hover:scale-105"
+        className="w-full h-full  transition-all duration-700 group-hover:scale-105"
         onError={(e) => {
           const target = e.target as HTMLImageElement;
           target.style.display = 'none';

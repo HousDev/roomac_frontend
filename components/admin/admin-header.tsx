@@ -192,16 +192,42 @@ useEffect(() => {
 useEffect(() => {
   loadAllData();
 
-  const socket = io(import.meta.env.VITE_API_URL || 'http://localhost:3001');
-
+const socket = io(import.meta.env.VITE_API_URL || 'http://localhost:3001', {
+  transports: ['websocket', 'polling'],
+  reconnection: true,
+});
   socket.on('connect', () => {
     console.log('✅ Socket connected:', socket.id);
     socket.emit('join_admin');
   });
 
   socket.on('new_notification', (data) => {
-    console.log('🔔 New notification received:', data);
-    backgroundRefreshRef.current(); // ✅ Hamesha latest function call hoga
+    
+    // ✅ Immediately add to UI (no refresh needed)
+    setNotifications(prev => {
+      const newNotif: Notification = {
+        id: Date.now(),
+        recipient_id: 1,
+        recipient_type: 'admin',
+        title: data.title,
+        message: data.message,
+        notification_type: data.type || data.notification_type || 'tenant_request',
+        request_type: data.type,
+        priority: data.priority || 'medium',
+        is_read: false,
+        created_at: data.timestamp || new Date().toISOString(),
+        tenant_name: data.tenant_name || null,
+        entity_title: undefined, // Optional: you can set this if your backend sends it
+        related_entity_type: data.related_entity_type || 'tenant_request',
+        related_entity_id: data.request_id || null,
+        read_at: null
+      };
+      return [newNotif, ...prev].slice(0, 10);
+    });
+    setUnreadCount(prev => prev + 1);
+    
+    // Also refresh in background to get real DB data
+    backgroundRefreshRef.current();
   });
 
   socket.on('disconnect', () => {
@@ -480,174 +506,178 @@ const getRequestTypeDisplay = (type: string) => {
             </Link>
 
             {/* Notifications Dropdown */}
-            <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="relative h-9 w-9 hover:bg-slate-400"
-                  onClick={() => !dropdownOpen && loadAllData()}
-                >
-                  <Bell className="h-5 w-5" />
-                  {unreadCount > 0 && (
-                    <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs bg-red-500 text-white">
-                      {unreadCount }
-                    </Badge>
-                  )}
-                </Button>
-              </DropdownMenuTrigger>
+           <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
+  <DropdownMenuTrigger asChild>
+    <Button
+      variant="ghost"
+      size="icon"
+      className="relative h-9 w-9 hover:bg-slate-400"
+      onClick={() => !dropdownOpen && loadAllData()}
+    >
+      <Bell className="h-5 w-5" />
+      {unreadCount > 0 && (
+        <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs bg-red-500 text-white">
+          {unreadCount}
+        </Badge>
+      )}
+    </Button>
+  </DropdownMenuTrigger>
 
-              <DropdownMenuContent
-                align="end"
-                className="w-96 max-h-[80vh] overflow-y-auto shadow-xl border-slate-200"
-                onCloseAutoFocus={(e) => e.preventDefault()}
+  <DropdownMenuContent
+    align="end"
+    className="w-[calc(100vw-2rem)] sm:w-96 max-w-[calc(100vw-2rem)] sm:max-w-none max-h-[80vh] overflow-y-auto shadow-xl border-slate-200 mx-4 sm:mx-0"
+    onCloseAutoFocus={(e) => e.preventDefault()}
+  >
+    <DropdownMenuLabel className="flex justify-between items-center bg-slate-50 sticky top-0 z-10 px-3 py-2 sm:px-4">
+      <span className="font-semibold text-sm sm:text-base">Notifications ({notifications.length})</span>
+      <div className="flex items-center gap-1">
+        {unreadCount > 0 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 text-xs hover:bg-slate-200 hover:text-blue-600 px-2 sm:px-3"
+            onClick={handleMarkAllAsRead}
+            disabled={loading}
+          >
+            <Check className="h-3 w-3 mr-1" />
+            <span className="hidden sm:inline">Mark all read</span>
+            <span className="sm:hidden">All read</span>
+          </Button>
+        )}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 text-xs hover:bg-slate-400 px-2 sm:px-3"
+          onClick={refreshNotifications}
+          disabled={refreshing || loading}
+        >
+          {refreshing ? (
+            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+          ) : (
+            <RefreshCw className="h-3 w-3 mr-1" />
+          )}
+          <span className="hidden sm:inline">Refresh</span>
+          <span className="sm:hidden">↻</span>
+        </Button>
+      </div>
+    </DropdownMenuLabel>
+
+    <DropdownMenuSeparator />
+
+    {/* Notifications Content */}
+    {loading ? (
+      <div className="p-8 text-center">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-3" />
+        <p className="text-sm text-slate-500">Loading notifications...</p>
+      </div>
+    ) : notifications.length === 0 ? (
+      <div className="p-6 text-center">
+        <Bell className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+        <p className="text-sm text-slate-500 font-medium">No notifications yet</p>
+        <p className="text-xs text-slate-400 mt-1">You're all caught up!</p>
+      </div>
+    ) : (
+      <>
+        <div className="p-2 space-y-2 max-h-[60vh] overflow-y-auto">
+          {notifications.map((notification) => {
+            return (
+              <div
+                key={notification.id}
+                className={`p-2 sm:p-3 rounded-lg border cursor-pointer transition-all hover:shadow-sm ${
+                  notification.is_read
+                    ? 'bg-white hover:bg-slate-50 border-slate-200'
+                    : 'bg-blue-50 hover:bg-blue-100 border-blue-200 animate-pulse-border'
+                }`}
+                onClick={() => handleNotificationClick(notification)}
               >
-                <DropdownMenuLabel className="flex justify-between items-center bg-slate-50 sticky top-0 z-10">
-                  <span className="font-semibold">Notifications ({notifications.length})</span>
-                  <div className="flex items-center gap-1">
-                    {unreadCount > 0 && (
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-start gap-2 sm:gap-3 flex-1 min-w-0">
+                    <div className={`p-1.5 sm:p-2 rounded-full flex-shrink-0 ${
+                      notification.is_read ? 'bg-slate-100' : 'bg-blue-100'
+                    }`}>
+                      {getNotificationIcon(notification)}
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1 sm:gap-2 mb-1 flex-wrap">
+                        <p className="text-xs sm:text-sm font-medium truncate max-w-[150px] sm:max-w-none">
+                          {notification.title}
+                        </p>
+                        <Badge
+                          variant="outline"
+                          className={`text-[10px] sm:text-xs flex-shrink-0 px-1.5 py-0 sm:px-2 ${getPriorityColor(notification.priority)}`}
+                        >
+                          {notification.priority}
+                        </Badge>
+                      </div>
+
+                      <p className="text-xs sm:text-sm text-slate-600 mb-2 line-clamp-2">
+                        {notification.message}
+                      </p>
+
+                      <div className="space-y-0.5 sm:space-y-1">
+                        {notification.tenant_name && (
+                          <p className="text-[10px] sm:text-xs text-slate-500 truncate">
+                            <span className="font-medium">Tenant:</span> {notification.tenant_name}
+                          </p>
+                        )}
+
+                        {notification.entity_title && (
+                          <p className="text-[10px] sm:text-xs text-slate-500 truncate">
+                            <span className="font-medium">Request:</span> {notification.entity_title}
+                          </p>
+                        )}
+
+                        {notification.request_type && (
+                          <p className="text-[10px] sm:text-xs text-slate-500 truncate">
+                            <span className="font-medium">Type:</span> {getRequestTypeDisplay(notification.request_type)}
+                          </p>
+                        )}
+
+                        <p className="text-[10px] sm:text-xs text-slate-400 mt-1 sm:mt-2 flex items-center gap-1">
+                          <span>{formatTimeAgo(notification.created_at)}</span>
+                          {!notification.is_read && (
+                            <span className="inline-block h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-blue-500 ml-2 animate-pulse"></span>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col items-end gap-1 flex-shrink-0 ml-1">
+                    {!notification.is_read && (
                       <Button
                         variant="ghost"
-                        size="sm"
-                        className="h-7 text-xs hover:bg-slate-200 hover:text-blue-600"
-                        onClick={handleMarkAllAsRead}
-                        disabled={loading}
+                        size="icon"
+                        className="h-6 w-6 hover:bg-blue-300"
+                        onClick={(e) => handleMarkAsRead(notification.id, e)}
                       >
-                        <Check className="h-3 w-3 mr-1" />
-                        Mark all read
+                        <Check className="h-3 w-3" />
                       </Button>
                     )}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 text-xs hover:bg-slate-400"
-                      onClick={refreshNotifications}
-                      disabled={refreshing || loading}
-                    >
-                      {refreshing ? (
-                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                      ) : (
-                        <RefreshCw className="h-3 w-3 mr-1" />
-                      )}
-                      Refresh
-                    </Button>
                   </div>
-                </DropdownMenuLabel>
+                </div>
+              </div>
+            );
+          })}
+        </div>
 
-                <DropdownMenuSeparator />
-
-                {/* Notifications Content */}
-                {loading ? (
-                  <div className="p-8 text-center">
-                    <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-3" />
-                    <p className="text-sm text-slate-500">Loading notifications...</p>
-                  </div>
-                ) : notifications.length === 0 ? (
-                  <div className="p-6 text-center">
-                    <Bell className="h-12 w-12 text-slate-300 mx-auto mb-3" />
-                    <p className="text-sm text-slate-500 font-medium">No notifications yet</p>
-                    <p className="text-xs text-slate-400 mt-1">You're all caught up!</p>
-                  </div>
-                ) : (
-                  <>
-                    <div className="p-2 space-y-2 max-h-[60vh] overflow-y-auto">
-                      {notifications.map((notification) => {
-                        return (
-                          <div
-                            key={notification.id}
-                            className={`p-3 rounded-lg border cursor-pointer transition-all hover:shadow-sm ${notification.is_read
-                              ? 'bg-white hover:bg-slate-50 border-slate-200'
-                              : 'bg-blue-50 hover:bg-blue-100 border-blue-200 animate-pulse-border'
-                              }`}
-                            onClick={() => handleNotificationClick(notification)}
-                          >
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="flex items-start gap-3 flex-1 min-w-0">
-                                <div className={`p-2 rounded-full flex-shrink-0 ${notification.is_read ? 'bg-slate-100' : 'bg-blue-100'
-                                  }`}>
-                                  {getNotificationIcon(notification)}
-                                </div>
-
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <p className="text-sm font-medium truncate">
-                                      {notification.title}
-                                    </p>
-                                    <Badge
-                                      variant="outline"
-                                      className={`text-xs flex-shrink-0 ${getPriorityColor(notification.priority)}`}
-                                    >
-                                      {notification.priority}
-                                    </Badge>
-                                  </div>
-
-                                  <p className="text-sm text-slate-600 mb-2 line-clamp-2">
-                                    {notification.message}
-                                  </p>
-
-                                  <div className="space-y-1">
-                                    {notification.tenant_name && (
-                                      <p className="text-xs text-slate-500">
-                                        <span className="font-medium">Tenant:</span> {notification.tenant_name}
-                                      </p>
-                                    )}
-
-                                    {notification.entity_title && (
-                                      <p className="text-xs text-slate-500">
-                                        <span className="font-medium">Request:</span> {notification.entity_title}
-                                      </p>
-                                    )}
-
-                                    {notification.request_type && (
-                                      <p className="text-xs text-slate-500">
-                                        <span className="font-medium">Type:</span> {getRequestTypeDisplay(notification.request_type)}
-                                      </p>
-                                    )}
-
-                                    <p className="text-xs text-slate-400 mt-2 flex items-center gap-1">
-                                      <span>{formatTimeAgo(notification.created_at)}</span>
-                                      {!notification.is_read && (
-                                        <span className="inline-block h-2 w-2 rounded-full bg-blue-500 ml-2 animate-pulse"></span>
-                                      )}
-                                    </p>
-                                  </div>
-                                </div>
-                              </div>
-
-                              <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                                {!notification.is_read && (
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-6 w-6 hover:bg-blue-300"
-                                    onClick={(e) => handleMarkAsRead(notification.id, e)}
-                                  >
-                                    <Check className="h-3 w-3" />
-                                  </Button>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    <div className="p-2 border-t border-slate-200 bg-slate-50">
-                      <Link href="/admin/notifications">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="w-full text-sm hover:bg-slate-200 hover:text-blue-600"
-                          onClick={() => setDropdownOpen(false)}
-                        >
-                          View all notifications
-                        </Button>
-                      </Link>
-                    </div>
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+        <div className="p-2 border-t border-slate-200 bg-slate-50">
+          <Link href="/admin/notifications">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full text-xs sm:text-sm hover:bg-slate-200 hover:text-blue-600 py-1.5 sm:py-2"
+              onClick={() => setDropdownOpen(false)}
+            >
+              View all notifications
+            </Button>
+          </Link>
+        </div>
+      </>
+    )}
+  </DropdownMenuContent>
+</DropdownMenu>
 
             {/* User Profile Menu */}
             <DropdownMenu>

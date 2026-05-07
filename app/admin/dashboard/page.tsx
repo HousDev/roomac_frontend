@@ -3,7 +3,7 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Check, RefreshCw } from 'lucide-react';
+import { Check, IndianRupeeIcon, RefreshCw } from 'lucide-react';
 import { format } from 'date-fns';
 import { 
   Building2, DoorOpen, Users, CreditCard, TrendingUp, 
@@ -1273,7 +1273,7 @@ export default function AdminDashboard() {
                   <div className="flex items-center justify-between p-2 sm:p-3 bg-purple-50 rounded-xl">
                     <div className="flex items-center gap-2 sm:gap-3">
                       <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
-                        <DollarSign className="w-3 h-3 sm:w-4 sm:h-4 text-purple-600"/>
+                        <IndianRupeeIcon className="w-3 h-3 sm:w-4 sm:h-4 text-purple-600"/>
                       </div>
                       <div className="min-w-0">
                         <p className="text-xs sm:text-sm font-medium text-gray-700 truncate">Other Income</p>

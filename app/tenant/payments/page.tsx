@@ -102,7 +102,6 @@ interface BankName {
 const StatusBadge = ({ status }: { status: string }) => {
   const normalizedStatus = status?.toLowerCase() || '';
   
-  console.log('StatusBadge received:', status); // Add this line to debug
   
   if (normalizedStatus === 'approved') {
     return (

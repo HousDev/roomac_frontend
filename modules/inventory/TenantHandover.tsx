@@ -1,7 +1,3 @@
-
-
-
-
 // TenantHandover.tsx - COMPLETE FIXED VERSION
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import {
@@ -1964,7 +1960,9 @@ const handleVerifyOTP = async () => {
         text-[9px] sm:text-[11px] 
         font-bold text-gray-600 uppercase tracking-wider
       ">
-        <div className="col-span-3 break-words leading-tight">ITEM NAME *</div>
+<div className="col-span-3 break-words leading-tight flex items-center gap-1">
+  <span className="text-[9px]">#</span> ITEM NAME *
+</div>
         <div className="col-span-3 break-words leading-tight">CATEGORY</div>
         <div className="col-span-2 break-words leading-tight">CONDITION</div>
         <div className="col-span-1 text-center break-words">QTY</div>
@@ -1979,8 +1977,12 @@ const handleVerifyOTP = async () => {
           <div key={idx}>
             {/* Main Row */}
             <div className="grid grid-cols-12 gap-2 items-center p-2">
+              
               {/* Item Name */}
-              <div className="col-span-3">
+      <div className="col-span-3 flex items-center gap-2">
+                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-blue-600 text-white text-[9px] font-bold flex items-center justify-center">
+          {idx + 1}
+        </span>
                 {purchasedItems.length > 0 ? (
                   <Select
                     value={item.item_name}

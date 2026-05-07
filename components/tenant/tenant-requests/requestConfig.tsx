@@ -35,7 +35,7 @@ export const QUICK_REQUESTS = [
     type: 'receipt',
     title: 'Request Receipt',
     description: 'Get rent or deposit receipt',
-    icon: Receipt,
+    icon: FileText,
     color: 'bg-blue-50 border-blue-200'
   },
   {
