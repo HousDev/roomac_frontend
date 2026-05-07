@@ -712,16 +712,16 @@ const propertyHref = generatePropertySlug({
 <Link href={`/properties/${propertyHref}`} className="group block h-full">
                     <div className="relative overflow-hidden rounded-2xl bg-[#f0f5f5] shadow-md hover:shadow-2xl transition-all duration-500 group-hover:-translate-y-2 h-[520px] flex flex-col">
                       {/* Image area */}
-                      <div className="relative h-52 sm:h-56 md:h-60 overflow-hidden rounded-t-2xl flex-shrink-0 bg-slate-200">
+<div className="relative overflow-hidden rounded-t-2xl flex-shrink-0 bg-white" style={{ aspectRatio: '16/9' }}>
                         {hasImage ? (
-                          <img
-                            src={propertyImage!}
-                            alt={propertyName}
-                            className="w-full h-full object-cover group-hover:scale-108 transition-transform duration-700"
-                            style={{ transform: 'scale(1.03)' }}
-                            onMouseOver={e => (e.currentTarget.style.transform = 'scale(1.08)')}
-                            onMouseOut={e => (e.currentTarget.style.transform = 'scale(1.03)')}
-                          />
+      <img
+  src={propertyImage!}
+  alt={propertyName}
+className="w-full h-full transition-transform duration-500"
+style={{ objectFit: 'fill', transform: 'scale(1.0)' }}  
+onMouseOver={e => (e.currentTarget.style.transform = 'scale(1.05)')}
+  onMouseOut={e => (e.currentTarget.style.transform = 'scale(1.0)')}
+/>
                         ) : (
                           <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200">
                             <svg className="w-12 h-12 text-slate-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">

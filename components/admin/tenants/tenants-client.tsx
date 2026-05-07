@@ -731,6 +731,8 @@ const activeFiltersCount = useMemo(() => {
   const filterEntries = Object.entries(filters).filter(([key, value]) => {
     if (key === 'vacate_status') return false; // EXCLUDE vacate_status
     if (key === 'search') return false; // EXCLUDE search (handled separately)
+        if (key === 'include_deleted') return false;   // ✅ ADD THIS
+
     return value !== "" && value !== undefined && value !== null;
   });
   return filterEntries.length;

@@ -395,16 +395,16 @@ const PropertyCard = memo(function PropertyCard({
         className="group block h-full cursor-pointer"
         onClick={handleCardClick}
       >
-        <div className="relative overflow-hidden rounded-2xl bg-[#f0f5f5] shadow-md hover:shadow-2xl transition-all duration-500 group-hover:-translate-y-2 h-[515px] flex flex-col">
+                    <div className="relative overflow-hidden rounded-2xl bg-[#f0f5f5] shadow-md hover:shadow-2xl transition-all duration-500 group-hover:-translate-y-2 h-[520px] flex flex-col">
 
           {/* Image area */}
-          <div className="relative h-52 sm:h-56 md:h-60 overflow-hidden rounded-t-2xl flex-shrink-0 bg-slate-200">
+<div className="relative overflow-hidden rounded-t-2xl flex-shrink-0 bg-white" style={{ aspectRatio: '16/9' }}>
             {hasImages ? (
               <img
                 src={currentImageUrl!}
                 alt={propertyName}
-                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                style={{ transform: 'scale(1.03)' }}
+className="w-full h-full transition-transform duration-500"
+style={{ objectFit: 'fill', transform: 'scale(1.0)' }}  
                 onError={handleImageError}
               />
             ) : (

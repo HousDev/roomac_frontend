@@ -6,6 +6,7 @@ import {
   updateExpense,
   deleteExpense,
   addExpensePayment,
+  getExpensePayments,
   getBankNames,
 } from "@/lib/expenseApi";
 import { getAllStaff } from "@/lib/staffApi";
@@ -22,23 +23,31 @@ const fmt = (n: number) =>
 // Update the fmtDate helper function at the top
 const fmtDate = (d: string) => {
   if (!d) return "—";
-  // If the date is in YYYY-MM-DD format, display it as is without timezone conversion
+  
+  // If the date is in YYYY-MM-DD format, display it directly without conversion
   if (d.match(/^\d{4}-\d{2}-\d{2}$/)) {
     const [year, month, day] = d.split('-');
-    return new Date(parseInt(year), parseInt(month) - 1, parseInt(day)).toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
+    // Create date in local timezone to prevent shifting
+    return `${parseInt(day)} ${new Date(parseInt(year), parseInt(month) - 1, parseInt(day)).toLocaleDateString("en-IN", {
+      month: "short"
+    })} ${year}`;
   }
-  // Handle ISO string
+  
+  // Handle ISO string - extract just the date part
+  if (d.includes('T')) {
+    const datePart = d.split('T')[0];
+    const [year, month, day] = datePart.split('-');
+    return `${parseInt(day)} ${new Date(parseInt(year), parseInt(month) - 1, parseInt(day)).toLocaleDateString("en-IN", {
+      month: "short"
+    })} ${year}`;
+  }
+  
+  // Fallback for other formats
   const date = new Date(d);
-  // Adjust for timezone to prevent day shift
   return date.toLocaleDateString("en-IN", {
     day: "2-digit",
     month: "short",
     year: "numeric",
-    timeZone: "UTC"
   });
 };
 const fmtDateTime = (d: string) =>
@@ -380,6 +389,7 @@ export default function ExpensesManagement() {
 const [bankNames, setBankNames] = useState<Array<{ id: number; name: string }>>([]);
 const [showCustomBankInput, setShowCustomBankInput] = useState(false);
 
+
   const [paymentModal, setPaymentModal] = useState<{
     open: boolean;
     expense: any | null;
@@ -387,6 +397,9 @@ const [showCustomBankInput, setShowCustomBankInput] = useState(false);
     open: false,
     expense: null,
   });
+    // Add these states for payment history
+  const [paymentTransactions, setPaymentTransactions] = useState<any[]>([]);
+  const [loadingTransactions, setLoadingTransactions] = useState(false);
 
   // Auth
   const { can, user } = useAuth();
@@ -493,6 +506,20 @@ const loadExpenses = useCallback(async () => {
     setLoading(false);
   }
 }, []);
+  // Add this function after loadExpenses
+  const fetchPaymentTransactions = useCallback(async (expenseId: number) => {
+    setLoadingTransactions(true);
+    try {
+      const response = await getExpensePayments(expenseId);
+      setPaymentTransactions(response.data || []);
+      console.log("Payment transactions loaded:", response.data);
+    } catch (error) {
+      console.error("Error fetching payment transactions:", error);
+      setPaymentTransactions([]);
+    } finally {
+      setLoadingTransactions(false);
+    }
+  }, []);
 
   useEffect(() => {
     loadMasterData();
@@ -678,14 +705,14 @@ function openEdit(exp: any) {
 }
 
   function validate() {
-    const e: Record<string, string> = {};
-    if (!form.property_id) e.property_id = "Required";
-    if (!form.category_id) e.category_id = "Required";
-    if (!form.expense_date) e.expense_date = "Required";
-    if (!form.added_by_name?.trim()) e.added_by_name = "Required";
-    if (form.items.filter((i: any) => i.name).length === 0) e.items = "At least one item required";
-    return e;
-  }
+  const e: Record<string, string> = {};
+  if (!form.property_id) e.property_id = "Required";
+  if (!form.category_id) e.category_id = "Required";
+  if (!form.expense_date) e.expense_date = "Required";
+  if (!form.added_by_name?.trim()) e.added_by_name = "Required";
+  if (form.items.filter((i: any) => i.name).length === 0) e.items = "At least one item required";
+  return e;
+}
 
 async function save() {
   const e = validate();
@@ -904,20 +931,34 @@ const processPayment = async () => {
     paymentData.reference_no = upiId;
     paymentData.notes = payment_notes + (upiId ? `\nUPI ID: ${upiId}` : '');
   } else if (payment_mode === 'Bank Transfer') {
-    const bankName = (document.getElementById('bankName') as HTMLInputElement)?.value;
+    let bankName = (document.getElementById('bankName') as HTMLSelectElement)?.value;
+    const bankNameOther = (document.getElementById('bankNameOther') as HTMLInputElement)?.value;
     const transactionRef = (document.getElementById('transactionRef') as HTMLInputElement)?.value;
+    
+    // If "Other" is selected and other bank name is provided, use that
+    if (bankName === 'Other' && bankNameOther) {
+        bankName = bankNameOther;
+    }
+    
     paymentData.bank_name = bankName;
     paymentData.transaction_id = transactionRef;
     paymentData.reference_no = transactionRef;
     paymentData.notes = payment_notes + (bankName ? `\nBank: ${bankName}` : '') + (transactionRef ? `\nTransaction ID: ${transactionRef}` : '');
-  } else if (payment_mode === 'Cheque') {
+} else if (payment_mode === 'Cheque') {
     const chequeNo = (document.getElementById('chequeNo') as HTMLInputElement)?.value;
-    const chequeBank = (document.getElementById('chequeBank') as HTMLInputElement)?.value;
+    let chequeBank = (document.getElementById('chequeBank') as HTMLSelectElement)?.value;
+    const chequeBankOther = (document.getElementById('chequeBankOther') as HTMLInputElement)?.value;
+    
+    // If "Other" is selected and other bank name is provided, use that
+    if (chequeBank === 'Other' && chequeBankOther) {
+        chequeBank = chequeBankOther;
+    }
+    
     paymentData.cheque_no = chequeNo;
     paymentData.cheque_bank = chequeBank;
     paymentData.reference_no = chequeNo;
     paymentData.notes = payment_notes + (chequeNo ? `\nCheque: ${chequeNo}` : '') + (chequeBank ? `\nBank: ${chequeBank}` : '');
-  } else if (payment_mode === 'Card') {
+} else if (payment_mode === 'Card') {
     const cardRef = (document.getElementById('cardRef') as HTMLInputElement)?.value;
     paymentData.card_ref = cardRef;
     paymentData.reference_no = cardRef;
@@ -995,29 +1036,73 @@ useEffect(() => {
           <input id="upiId" type="text" placeholder="example@upi" style="width: 100%; padding: 8px 12px; border: 1.5px solid #E2E8F4; border-radius: 8px; font-size: 12px; outline: none;" />
         </div>
       `;
-    } else if (mode === 'Bank Transfer') {
-      html = `
-        <div style="margin-bottom: 10px;">
-          <label style="display: block; font-size: 11px; font-weight: 600; margin-bottom: 5px; color: #374151;">Bank Name</label>
-          <input id="bankName" type="text" placeholder="Enter bank name" style="width: 100%; padding: 8px 12px; border: 1.5px solid #E2E8F4; border-radius: 8px; font-size: 12px;" />
-        </div>
-        <div style="margin-bottom: 10px;">
-          <label style="display: block; font-size: 11px; font-weight: 600; margin-bottom: 5px; color: #374151;">Transaction ID / Reference</label>
-          <input id="transactionRef" type="text" placeholder="Transaction reference" style="width: 100%; padding: 8px 12px; border: 1.5px solid #E2E8F4; border-radius: 8px; font-size: 12px;" />
-        </div>
-      `;
-    } else if (mode === 'Cheque') {
-      html = `
-        <div style="margin-bottom: 10px;">
-          <label style="display: block; font-size: 11px; font-weight: 600; margin-bottom: 5px; color: #374151;">Cheque Number</label>
-          <input id="chequeNo" type="text" placeholder="Cheque number" style="width: 100%; padding: 8px 12px; border: 1.5px solid #E2E8F4; border-radius: 8px; font-size: 12px;" />
-        </div>
-        <div style="margin-bottom: 10px;">
-          <label style="display: block; font-size: 11px; font-weight: 600; margin-bottom: 5px; color: #374151;">Bank Name</label>
-          <input id="chequeBank" type="text" placeholder="Bank name" style="width: 100%; padding: 8px 12px; border: 1.5px solid #E2E8F4; border-radius: 8px; font-size: 12px;" />
-        </div>
-      `;
-    } else if (mode === 'Card') {
+} else if (mode === 'Bank Transfer') {
+  // Get bank names for dropdown
+  const bankOptions = bankNames.map(bank => `<option value="${bank.name}">${bank.name}</option>`).join('');
+  html = `
+    <div style="margin-bottom: 10px;">
+      <label style="display: block; font-size: 11px; font-weight: 600; margin-bottom: 5px; color: #374151;">Bank Name</label>
+      <select id="bankName" style="width: 100%; padding: 8px 12px; border: 1.5px solid #E2E8F4; border-radius: 8px; font-size: 12px; background: #fff; cursor: pointer;">
+        <option value="">Select Bank</option>
+        ${bankOptions}
+        <option value="Other">Other (Specify)</option>
+      </select>
+      <input id="bankNameOther" type="text" placeholder="Enter other bank name" style="display: none; width: 100%; margin-top: 8px; padding: 8px 12px; border: 1.5px solid #E2E8F4; border-radius: 8px; font-size: 12px;" />
+    </div>
+    <div style="margin-bottom: 10px;">
+      <label style="display: block; font-size: 11px; font-weight: 600; margin-bottom: 5px; color: #374151;">Transaction ID / Reference</label>
+      <input id="transactionRef" type="text" placeholder="Transaction reference" style="width: 100%; padding: 8px 12px; border: 1.5px solid #E2E8F4; border-radius: 8px; font-size: 12px;" />
+    </div>
+    <script>
+      setTimeout(function() {
+        const bankSelect = document.getElementById('bankName');
+        const bankOther = document.getElementById('bankNameOther');
+        if (bankSelect && bankOther) {
+          bankSelect.addEventListener('change', function() {
+            if (this.value === 'Other') {
+              bankOther.style.display = 'block';
+            } else {
+              bankOther.style.display = 'none';
+            }
+          });
+        }
+      }, 100);
+    <\/script>
+  `;
+} else if (mode === 'Cheque') {
+  // Get bank names for dropdown
+  const bankOptions = bankNames.map(bank => `<option value="${bank.name}">${bank.name}</option>`).join('');
+  html = `
+    <div style="margin-bottom: 10px;">
+      <label style="display: block; font-size: 11px; font-weight: 600; margin-bottom: 5px; color: #374151;">Cheque Number</label>
+      <input id="chequeNo" type="text" placeholder="Cheque number" style="width: 100%; padding: 8px 12px; border: 1.5px solid #E2E8F4; border-radius: 8px; font-size: 12px;" />
+    </div>
+    <div style="margin-bottom: 10px;">
+      <label style="display: block; font-size: 11px; font-weight: 600; margin-bottom: 5px; color: #374151;">Bank Name</label>
+      <select id="chequeBank" style="width: 100%; padding: 8px 12px; border: 1.5px solid #E2E8F4; border-radius: 8px; font-size: 12px; background: #fff; cursor: pointer;">
+        <option value="">Select Bank</option>
+        ${bankOptions}
+        <option value="Other">Other (Specify)</option>
+      </select>
+      <input id="chequeBankOther" type="text" placeholder="Enter other bank name" style="display: none; width: 100%; margin-top: 8px; padding: 8px 12px; border: 1.5px solid #E2E8F4; border-radius: 8px; font-size: 12px;" />
+    </div>
+    <script>
+      setTimeout(function() {
+        const chequeSelect = document.getElementById('chequeBank');
+        const chequeOther = document.getElementById('chequeBankOther');
+        if (chequeSelect && chequeOther) {
+          chequeSelect.addEventListener('change', function() {
+            if (this.value === 'Other') {
+              chequeOther.style.display = 'block';
+            } else {
+              chequeOther.style.display = 'none';
+            }
+          });
+        }
+      }, 100);
+    <\/script>
+  `;
+} else if (mode === 'Card') {
       html = `
         <div style="margin-bottom: 10px;">
           <label style="display: block; font-size: 11px; font-weight: 600; margin-bottom: 5px; color: #374151;">Card Reference / Last 4 digits</label>
@@ -1175,9 +1260,9 @@ useEffect(() => {
               <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 900, tableLayout: "fixed" }}>
                 <thead>
                   <tr style={{ background: "#F8FAFF" }}>
-                    {["Property", "Category", "Vendor", "Amount", "Paid By", "Receipt", "Date", "Status", "Added By", "Created", "Actions"].map((h, index) => (
-                      <th key={h} style={{ padding: "12px 8px", textAlign: "left", fontSize: 11, fontWeight: 700, color: "#475569", letterSpacing: 0.5, textTransform: "uppercase", borderBottom: "1.5px solid #E2E8F0", whiteSpace: "nowrap", width: index === 0 ? "15%" : index === 1 ? "12%" : index === 2 ? "12%" : index === 3 ? "10%" : index === 4 ? "10%" : index === 5 ? "8%" : index === 6 ? "10%" : index === 7 ? "10%" : index === 8 ? "10%" : index === 9 ? "12%" : "8%" }}>{h}</th>
-                    ))}
+                   {["Property", "Category", "Vendor", "Amount", "Paid By", "Receipt", "Date", "Status", "Added By", "Created", "Actions"].map((h, index) => (
+  <th key={h} style={{ padding: "12px 8px", textAlign: "left", fontSize: 11, fontWeight: 700, color: "#475569", letterSpacing: 0.5, textTransform: "uppercase", borderBottom: "1.5px solid #E2E8F0", whiteSpace: "nowrap", width: index === 0 ? "12%" : index === 1 ? "10%" : index === 2 ? "10%" : index === 3 ? "8%" : index === 4 ? "10%" : index === 5 ? "6%" : index === 6 ? "8%" : index === 7 ? "8%" : index === 8 ? "8%" : index === 9 ? "10%" : "10%" }}>{h}</th>
+))}
                   </tr>
                 </thead>
                 <tbody>
@@ -1230,8 +1315,10 @@ useEffect(() => {
   )}
 </td>
                           <td style={{ padding: "10px 8px" }}>{exp.receipt_url ? <ReceiptThumbnail url={exp.receipt_url} filename={exp.receipt_name} onClick={() => setViewItem(exp)} /> : <span style={{ color: "#CBD5E1", fontSize: 11 }}>—</span>}</td>
-                          <td style={{ padding: "10px 8px", fontSize: 11, color: "#64748B" }}>{fmtDate(exp.expense_date)}</td>
-                          <td style={{ padding: "10px 8px" }}>
+<td style={{ padding: "10px 8px", fontSize: 11, color: "#64748B" }}>
+  <div>{fmtDate(exp.expense_date)}</div>
+</td>                          
+<td style={{ padding: "10px 8px" }}>
   <span
     style={{
       background: exp.status === "Paid" 
@@ -1260,11 +1347,18 @@ useEffect(() => {
   </span>
 </td>
                           <td style={{ padding: "10px 8px", fontSize: 11, color: "#475569" }}>{exp.added_by_name || "—"}</td>
-                          <td style={{ padding: "10px 8px", fontSize: 10, color: "#94A3B8" }}>{fmtDateTime(exp.created_at)}</td>
-                          <td style={{ padding: "10px 8px" }}>
-  <div style={{ display: "flex", gap: 4 }}>
+<td style={{ padding: "10px 8px", fontSize: 10, color: "#94A3B8" }}>
+  <div>{new Date(exp.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</div>
+  <div style={{ fontSize: 9, color: "#B0BAC9", marginTop: 2 }}>{new Date(exp.created_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</div>
+</td>                        
+ <td style={{ padding: "10px 8px", width: "10%", minWidth: "140px" }}>
+  <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "nowrap" }}>
     {/* View Button */}
-    <button onClick={() => setViewItem(exp)} title="View" style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid #E2E8F0", background: "#FFFFFF", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+<button onClick={() => {
+      setViewItem(exp);
+      fetchPaymentTransactions(exp.id);  
+    }}    
+    title="View" style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid #E2E8F0", background: "#FFFFFF", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
       <svg width="12" height="12" fill="none" stroke="#3B82F6" strokeWidth="2" viewBox="0 0 24 24">
         <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
         <circle cx="12" cy="12" r="3" />
@@ -1344,7 +1438,7 @@ useEffect(() => {
       {/* ADD/EDIT MODAL */}
       {showModal && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(5px)", padding: 12 }}>
-          <div style={{ background: "#fff", borderRadius: 20, width: "100%", maxWidth: 860, maxHeight: "95vh", overflowY: "auto", boxShadow: "0 30px 80px rgba(0,0,0,0.3)" }}>
+          <div style={{ background: "#fff", borderRadius: 20, width: "100%", maxWidth: 650, maxHeight: "90vh", overflowY: "auto", boxShadow: "0 30px 80px rgba(0,0,0,0.3)" }}>
             {/* Modal header */}
             <div style={{ padding: "18px 22px 14px", borderBottom: "1px solid #F0F3FA", display: "flex", justifyContent: "space-between", alignItems: "center", position: "sticky", top: 0, background: "#fff", zIndex: 10, borderRadius: "20px 20px 0 0" }}>
               <div>
@@ -1376,28 +1470,38 @@ useEffect(() => {
 <div style={{ marginBottom: 22 }}>
   <SectionHead n="2" title="Purchase Items" sub="(items from bill)" />
   <div style={{ background: "#F8FAFF", borderRadius: 14, border: "1.5px solid #E2E8F4", overflow: "auto" }}>
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 120px 100px 100px 40px", padding: "8px 12px", background: "linear-gradient(90deg,#EEF1FB,#F0F4FF)", borderBottom: "1.5px solid #E2E8F4", alignItems: "center", gap: 6, minWidth: 600 }}>
-      {["Item Name", "Category", "Qty", "Unit Price", ""].map((h) => <div key={h} style={{ fontSize: 10, fontWeight: 700, color: "#3B5BDB", textTransform: "uppercase", letterSpacing: 0.4 }}>{h}</div>)}
-    </div>
+<div style={{ display: "grid", gridTemplateColumns: "30px 1fr 120px 80px 80px 35px", padding: "8px 12px", background: "linear-gradient(90deg,#EEF1FB,#F0F4FF)", borderBottom: "1.5px solid #E2E8F4", alignItems: "center", gap: 6 }}>
+  {["#", "Item Name", "Category", "Qty", "Unit Price", ""].map((h) => <div key={h} style={{ fontSize: 10, fontWeight: 700, color: "#3B5BDB", textTransform: "uppercase", letterSpacing: 0.4 }}>{h}</div>)}
+</div>
 
     {form.items.map((item: any, idx: number) => (
-      <div key={item.id} style={{ display: "grid", gridTemplateColumns: "1fr 120px 100px 100px 40px", padding: "7px 12px", gap: 6, borderBottom: idx < form.items.length - 1 ? "1px solid #F0F3FA" : "none", alignItems: "center", background: idx % 2 === 1 ? "#FAFBFF" : "#fff", minWidth: 600 }}>
-        <div style={{ position: "relative" }}>
-          <input type="text" value={item.name || ""} onChange={(e) => updateItem(item.id, "name", e.target.value)} placeholder="Item name" list={`items-list-${item.id}`} style={{ ...inp(), fontSize: 12, padding: "7px 9px", borderRadius: 8, width: "100%" }} />
-          <datalist id={`items-list-${item.id}`}>{purchasedItems.map((pi) => <option key={pi} value={pi} />)}</datalist>
-        </div>
-        <select value={item.category || "Groceries"} onChange={(e) => updateItem(item.id, "category", e.target.value)} style={{ ...inp(), fontSize: 12, padding: "7px 7px", borderRadius: 8 }}>
-          {catOptions.length > 0 ? catOptions.map((c) => <option key={c} value={c}>{c}</option>) : ["Groceries", "Maintenance", "Other"].map((c) => <option key={c} value={c}>{c}</option>)}
-        </select>
-        <input type="number" value={item.qty || ""} onChange={(e) => updateItem(item.id, "qty", e.target.value)} placeholder="Qty" min="0" step="1" style={{ ...inp(), fontSize: 12, padding: "7px 7px", borderRadius: 8, textAlign: "center" }} />
-        <input type="number" value={item.price || ""} onChange={(e) => updateItem(item.id, "price", e.target.value)} placeholder="Price" min="0" step="1" style={{ ...inp(), fontSize: 12, padding: "7px 7px", borderRadius: 8 }} />
-        <button onClick={() => removeItem(item.id)} disabled={form.items.length <= 1} style={{ width: 26, height: 26, borderRadius: 7, border: "1.5px solid #FFE4E4", background: "#FFF5F5", cursor: form.items.length > 1 ? "pointer" : "not-allowed", display: "flex", alignItems: "center", justifyContent: "center", opacity: form.items.length > 1 ? 1 : 0.3 }}>
-          <svg width="11" height="11" fill="none" stroke="#E53E3E" strokeWidth="2" viewBox="0 0 24 24">
-            <polyline points="3 6 5 6 21 6" />
-            <path d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2" />
-          </svg>
-        </button>
-      </div>
+<div key={item.id} style={{ display: "grid", gridTemplateColumns: "30px 1fr 120px 80px 80px 35px", padding: "7px 12px", gap: 6, borderBottom: idx < form.items.length - 1 ? "1px solid #F0F3FA" : "none", alignItems: "center", background: idx % 2 === 1 ? "#FAFBFF" : "#fff" }}>  {/* Serial Number */}
+<div style={{ fontSize: 11, fontWeight: 600, color: "#3B5BDB", textAlign: "center" }}>{idx + 1}</div>  
+  {/* Item Name */}
+  <div style={{ position: "relative" }}>
+    <input type="text" value={item.name || ""} onChange={(e) => updateItem(item.id, "name", e.target.value)} placeholder="Item name" list={`items-list-${item.id}`} style={{ ...inp(), fontSize: 12, padding: "7px 9px", borderRadius: 8, width: "100%" }} />
+    <datalist id={`items-list-${item.id}`}>{purchasedItems.map((pi) => <option key={pi} value={pi} />)}</datalist>
+  </div>
+  
+  {/* Category */}
+  <select value={item.category || "Groceries"} onChange={(e) => updateItem(item.id, "category", e.target.value)} style={{ ...inp(), fontSize: 12, padding: "7px 7px", borderRadius: 8 }}>
+    {catOptions.length > 0 ? catOptions.map((c) => <option key={c} value={c}>{c}</option>) : ["Groceries", "Maintenance", "Other"].map((c) => <option key={c} value={c}>{c}</option>)}
+  </select>
+  
+  {/* Quantity */}
+  <input type="number" value={item.qty || ""} onChange={(e) => updateItem(item.id, "qty", e.target.value)} placeholder="Qty" min="0" step="1" style={{ ...inp(), fontSize: 12, padding: "7px 7px", borderRadius: 8, textAlign: "center" }} />
+  
+  {/* Unit Price */}
+  <input type="number" value={item.price || ""} onChange={(e) => updateItem(item.id, "price", e.target.value)} placeholder="Price" min="0" step="1" style={{ ...inp(), fontSize: 12, padding: "7px 7px", borderRadius: 8 }} />
+  
+  {/* Delete Button */}
+  <button onClick={() => removeItem(item.id)} disabled={form.items.length <= 1} style={{ width: 26, height: 26, borderRadius: 7, border: "1.5px solid #FFE4E4", background: "#FFF5F5", cursor: form.items.length > 1 ? "pointer" : "not-allowed", display: "flex", alignItems: "center", justifyContent: "center", opacity: form.items.length > 1 ? 1 : 0.3 }}>
+    <svg width="11" height="11" fill="none" stroke="#E53E3E" strokeWidth="2" viewBox="0 0 24 24">
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2" />
+    </svg>
+  </button>
+</div>
     ))}
 
     {/* Footer with 3 sections: Add Item button, Expense Date, Items Total */}
@@ -1507,7 +1611,7 @@ useEffect(() => {
     {/* Amount - NOW EDITABLE */}
     {/* Amount - NOW EDITABLE with proper clearing */}
 <div>
-  <Label required>Total Amount (₹)</Label>
+  <Label >Total Amount (₹)</Label>
   <input
     type="number"
     value={form.total_amount !== undefined && form.total_amount !== null && form.total_amount !== '' ? form.total_amount : ''}
@@ -1531,7 +1635,7 @@ useEffect(() => {
     {/* Paid Through - Payment Mode */}
 {/* Paid Through - Payment Mode */}
 <div>
-  <Label required>Paid Through</Label>
+  <Label >Paid Through</Label>
   <select
     value={form.payment_mode || ""}
     onChange={(e) => {
@@ -1793,8 +1897,11 @@ useEffect(() => {
         <div style={{ fontSize: 15, fontWeight: 800, color: "#1A2B6D" }}>
           📄 Expense Details
         </div>
-        <button
-          onClick={() => setViewItem(null)}
+          <button
+          onClick={() => {
+            setViewItem(null);
+            setPaymentTransactions([]);  // ADD THIS LINE
+          }}
           style={{
             width: 30,
             height: 30,
@@ -2314,7 +2421,113 @@ useEffect(() => {
             </div>
           )}
         </div>
-
+        
+        {/* PAYMENT HISTORY SECTION - ADD THIS AFTER INFO GRID AND BEFORE ITEMS TABLE */}
+        {paymentTransactions.length > 0 && (
+          <div style={{ marginTop: 20, marginBottom: 20 }}>
+            <div
+              style={{
+                fontSize: 10,
+                fontWeight: 700,
+                color: "#3B5BDB",
+                textTransform: "uppercase",
+                letterSpacing: 0.5,
+                marginBottom: 10,
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+              }}
+            >
+              <span
+                style={{
+                  width: 18,
+                  height: 18,
+                  background: "linear-gradient(135deg,#1A2B6D,#3B5BDB)",
+                  borderRadius: 5,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "#fff",
+                  fontSize: 9,
+                  fontWeight: 800,
+                }}
+              >
+                💰
+              </span>
+              Payment History ({paymentTransactions.length} transactions)
+            </div>
+            <div style={{ overflowX: "auto", borderRadius: 12, border: "1px solid #E8ECF4" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, minWidth: 500 }}>
+                <thead>
+                  <tr style={{ background: "#F8FAFF" }}>
+                    <th style={{ padding: "8px 12px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "#8892A4", borderBottom: "1px solid #F0F3FA" }}>Date</th>
+                    <th style={{ padding: "8px 12px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "#8892A4", borderBottom: "1px solid #F0F3FA" }}>Amount</th>
+                    <th style={{ padding: "8px 12px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "#8892A4", borderBottom: "1px solid #F0F3FA" }}>Payment Mode</th>
+                    <th style={{ padding: "8px 12px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "#8892A4", borderBottom: "1px solid #F0F3FA" }}>Reference / Details</th>
+                    <th style={{ padding: "8px 12px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "#8892A4", borderBottom: "1px solid #F0F3FA" }}>Notes</th>
+                    <th style={{ padding: "8px 12px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "#8892A4", borderBottom: "1px solid #F0F3FA" }}>Recorded By</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paymentTransactions.map((transaction, idx) => {
+                    const getPaymentIcon = (mode: string) => {
+                      if (mode === 'Cheque') return '📝';
+                      if (mode === 'UPI') return '📱';
+                      if (mode === 'Bank Transfer') return '🏦';
+                      if (mode === 'Card') return '💳';
+                      if (mode === 'Online Payment Gateway') return '🌐';
+                      if (mode === 'Wallet') return '👛';
+                      return '💵';
+                    };
+                    
+                    return (
+                      <tr
+                        key={transaction.id || idx}
+                        style={{ borderBottom: "1px solid #F5F7FC" }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = "#FAFBFF")}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                      >
+                        <td style={{ padding: "8px 12px", fontSize: 11, color: "#475569" }}>
+                          {fmtDate(transaction.transaction_date?.split('T')[0] || transaction.created_at?.split('T')[0])}
+                        </td>
+                        <td style={{ padding: "8px 12px", fontWeight: 700, color: "#1B7A4E" }}>
+                          {fmt(transaction.paid_amount)}
+                        </td>
+                        <td style={{ padding: "8px 12px", fontSize: 11 }}>
+                          <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                            {getPaymentIcon(transaction.payment_mode)} {transaction.payment_mode}
+                          </span>
+                        </td>
+                        <td style={{ padding: "8px 12px", fontSize: 10, color: "#64748B" }}>
+                          {transaction.reference_no && <div>Ref: {transaction.reference_no}</div>}
+                          {transaction.transaction_id && transaction.payment_mode !== 'Bank Transfer' && <div>Txn: {transaction.transaction_id}</div>}
+                          {transaction.cheque_no && <div>Chq: {transaction.cheque_no}</div>}
+                          {transaction.upi_id && <div>UPI: {transaction.upi_id}</div>}
+                          {transaction.card_ref && <div>Card: {transaction.card_ref}</div>}
+                        </td>
+                        <td style={{ padding: "8px 12px", fontSize: 10, color: "#64748B", maxWidth: 150 }}>
+                          {transaction.notes?.substring(0, 50) || '—'}
+                        </td>
+                        <td style={{ padding: "8px 12px", fontSize: 10, color: "#64748B" }}>
+                          {transaction.created_by || '—'}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  <tr style={{ background: "#EEF1FB", borderTop: "1px solid #E2E8F4" }}>
+                    <td style={{ padding: "8px 12px", fontWeight: 700, color: "#1A2B6D" }} colSpan={1}>
+                      Total:
+                    </td>
+                    <td style={{ padding: "8px 12px", fontWeight: 800, color: "#1A2B6D", fontSize: 13 }}>
+                      {fmt(paymentTransactions.reduce((sum, t) => sum + (parseFloat(t.paid_amount) || 0), 0))}
+                    </td>
+                    <td colSpan={4} style={{ padding: "8px 12px" }}></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
         {/* Items table */}
         {viewItem.items?.filter((i: any) => i.name || i.item_name).length > 0 && (
           <div>
