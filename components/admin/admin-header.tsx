@@ -192,16 +192,42 @@ useEffect(() => {
 useEffect(() => {
   loadAllData();
 
-  const socket = io(import.meta.env.VITE_API_URL || 'http://localhost:3001');
-
+const socket = io(import.meta.env.VITE_API_URL || 'http://localhost:3001', {
+  transports: ['websocket', 'polling'],
+  reconnection: true,
+});
   socket.on('connect', () => {
     console.log('✅ Socket connected:', socket.id);
     socket.emit('join_admin');
   });
 
   socket.on('new_notification', (data) => {
-    console.log('🔔 New notification received:', data);
-    backgroundRefreshRef.current(); // ✅ Hamesha latest function call hoga
+    
+    // ✅ Immediately add to UI (no refresh needed)
+    setNotifications(prev => {
+      const newNotif: Notification = {
+        id: Date.now(),
+        recipient_id: 1,
+        recipient_type: 'admin',
+        title: data.title,
+        message: data.message,
+        notification_type: data.type || data.notification_type || 'tenant_request',
+        request_type: data.type,
+        priority: data.priority || 'medium',
+        is_read: false,
+        created_at: data.timestamp || new Date().toISOString(),
+        tenant_name: data.tenant_name || null,
+        entity_title: undefined, // Optional: you can set this if your backend sends it
+        related_entity_type: data.related_entity_type || 'tenant_request',
+        related_entity_id: data.request_id || null,
+        read_at: null
+      };
+      return [newNotif, ...prev].slice(0, 10);
+    });
+    setUnreadCount(prev => prev + 1);
+    
+    // Also refresh in background to get real DB data
+    backgroundRefreshRef.current();
   });
 
   socket.on('disconnect', () => {

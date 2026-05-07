@@ -1028,7 +1028,6 @@ const loadNotifications = async (showLoading = true) => {
       getUnreadNotificationCount(),
     ]);
 
-    console.log('📦 Notifications loaded:', notifs.length, 'Unread:', count);
 
     // Transform API notifications to match component format
     const formattedNotifs = notifs.map((n) => {
@@ -1060,7 +1059,6 @@ useEffect(() => {
     try {
       const tenantId = getTenantId();
       if (!tenantId) {
-        console.log('⚠️ No tenant ID found, skipping socket setup');
         return;
       }
       
@@ -1076,13 +1074,11 @@ useEffect(() => {
       });
       
       socket.on('connect', () => {
-        console.log('✅ Tenant socket connected:', socket.id);
         socket.emit('join_tenant_room', { tenantId: parseInt(tenantId) });
       });
       
       // 🔥 CRITICAL: Listen for new notifications
       socket.on('new_notification', (notification: any) => {
-        console.log('🔔 Real-time notification for tenant:', notification);
         
         // ✅ IMMEDIATELY refresh notifications and count
         loadNotifications(false);
@@ -1102,7 +1098,6 @@ useEffect(() => {
       });
       
       socket.on('disconnect', () => {
-        console.log('❌ Tenant socket disconnected');
       });
       
       socket.on('connect_error', (err: any) => {
