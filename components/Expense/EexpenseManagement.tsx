@@ -609,8 +609,12 @@ const loadExpenses = useCallback(async () => {
     setErrors({});
     setReceiptFile(null);
     setReceiptPreview("");
-    setPaymentDetails({});
-    setShowModal(true);
+setPaymentDetails({
+    showOtherBank: false,
+    showOtherBankCheque: false,
+    showOtherGateway: false
+  });
+      setShowModal(true);
   }
 
 function openEdit(exp: any) {
@@ -1469,68 +1473,123 @@ useEffect(() => {
               {/* SECTION 2 — Purchase Items (Simplified) */}
 <div style={{ marginBottom: 22 }}>
   <SectionHead n="2" title="Purchase Items" sub="(items from bill)" />
-  <div style={{ background: "#F8FAFF", borderRadius: 14, border: "1.5px solid #E2E8F4", overflow: "auto" }}>
-<div style={{ display: "grid", gridTemplateColumns: "30px 1fr 120px 80px 80px 35px", padding: "8px 12px", background: "linear-gradient(90deg,#EEF1FB,#F0F4FF)", borderBottom: "1.5px solid #E2E8F4", alignItems: "center", gap: 6 }}>
-  {["#", "Item Name", "Category", "Qty", "Unit Price", ""].map((h) => <div key={h} style={{ fontSize: 10, fontWeight: 700, color: "#3B5BDB", textTransform: "uppercase", letterSpacing: 0.4 }}>{h}</div>)}
-</div>
+  <div style={{ background: "#F8FAFF", borderRadius: 14, border: "1.5px solid #E2E8F4", overflow: "hidden" }}>
+    
+    {/* Scrollable table wrapper */}
+    <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+      <div style={{ minWidth: 520 }}>
+        
+        {/* Header */}
+        <div style={{ display: "grid", gridTemplateColumns: "30px 1fr 120px 80px 90px 35px", padding: "8px 12px", background: "linear-gradient(90deg,#EEF1FB,#F0F4FF)", borderBottom: "1.5px solid #E2E8F4", alignItems: "center", gap: 6 }}>
+          {["#", "Item Name", "Category", "Qty", "Unit Price", ""].map((h) => (
+            <div key={h} style={{ fontSize: 10, fontWeight: 700, color: "#3B5BDB", textTransform: "uppercase", letterSpacing: 0.4 }}>{h}</div>
+          ))}
+        </div>
 
-    {form.items.map((item: any, idx: number) => (
-<div key={item.id} style={{ display: "grid", gridTemplateColumns: "30px 1fr 120px 80px 80px 35px", padding: "7px 12px", gap: 6, borderBottom: idx < form.items.length - 1 ? "1px solid #F0F3FA" : "none", alignItems: "center", background: idx % 2 === 1 ? "#FAFBFF" : "#fff" }}>  {/* Serial Number */}
-<div style={{ fontSize: 11, fontWeight: 600, color: "#3B5BDB", textAlign: "center" }}>{idx + 1}</div>  
-  {/* Item Name */}
-  <div style={{ position: "relative" }}>
-    <input type="text" value={item.name || ""} onChange={(e) => updateItem(item.id, "name", e.target.value)} placeholder="Item name" list={`items-list-${item.id}`} style={{ ...inp(), fontSize: 12, padding: "7px 9px", borderRadius: 8, width: "100%" }} />
-    <datalist id={`items-list-${item.id}`}>{purchasedItems.map((pi) => <option key={pi} value={pi} />)}</datalist>
-  </div>
-  
-  {/* Category */}
-  <select value={item.category || "Groceries"} onChange={(e) => updateItem(item.id, "category", e.target.value)} style={{ ...inp(), fontSize: 12, padding: "7px 7px", borderRadius: 8 }}>
-    {catOptions.length > 0 ? catOptions.map((c) => <option key={c} value={c}>{c}</option>) : ["Groceries", "Maintenance", "Other"].map((c) => <option key={c} value={c}>{c}</option>)}
-  </select>
-  
-  {/* Quantity */}
-  <input type="number" value={item.qty || ""} onChange={(e) => updateItem(item.id, "qty", e.target.value)} placeholder="Qty" min="0" step="1" style={{ ...inp(), fontSize: 12, padding: "7px 7px", borderRadius: 8, textAlign: "center" }} />
-  
-  {/* Unit Price */}
-  <input type="number" value={item.price || ""} onChange={(e) => updateItem(item.id, "price", e.target.value)} placeholder="Price" min="0" step="1" style={{ ...inp(), fontSize: 12, padding: "7px 7px", borderRadius: 8 }} />
-  
-  {/* Delete Button */}
-  <button onClick={() => removeItem(item.id)} disabled={form.items.length <= 1} style={{ width: 26, height: 26, borderRadius: 7, border: "1.5px solid #FFE4E4", background: "#FFF5F5", cursor: form.items.length > 1 ? "pointer" : "not-allowed", display: "flex", alignItems: "center", justifyContent: "center", opacity: form.items.length > 1 ? 1 : 0.3 }}>
-    <svg width="11" height="11" fill="none" stroke="#E53E3E" strokeWidth="2" viewBox="0 0 24 24">
-      <polyline points="3 6 5 6 21 6" />
-      <path d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2" />
-    </svg>
-  </button>
-</div>
-    ))}
+        {/* Items */}
+        {form.items.map((item: any, idx: number) => (
+          <div key={item.id} style={{ display: "grid", gridTemplateColumns: "30px 1fr 120px 80px 90px 35px", padding: "7px 12px", gap: 6, borderBottom: idx < form.items.length - 1 ? "1px solid #F0F3FA" : "none", alignItems: "center", background: idx % 2 === 1 ? "#FAFBFF" : "#fff" }}>
+            
+            {/* Serial Number */}
+            <div style={{ fontSize: 11, fontWeight: 600, color: "#3B5BDB", textAlign: "center" }}>{idx + 1}</div>
 
-    {/* Footer with 3 sections: Add Item button, Expense Date, Items Total */}
-    <div style={{ 
-      padding: "12px 16px", 
-      borderTop: "1.5px solid #E2E8F4", 
+            {/* Item Name */}
+            <div style={{ position: "relative" }}>
+              <input
+                type="text"
+                value={item.name || ""}
+                onChange={(e) => updateItem(item.id, "name", e.target.value)}
+                placeholder="Item name"
+                list={`items-list-${item.id}`}
+                style={{ ...inp(), fontSize: 12, padding: "7px 9px", borderRadius: 8, width: "100%" }}
+              />
+              <datalist id={`items-list-${item.id}`}>
+                {purchasedItems.map((pi) => <option key={pi} value={pi} />)}
+              </datalist>
+            </div>
+
+            {/* Category */}
+            <select
+              value={item.category || "Groceries"}
+              onChange={(e) => updateItem(item.id, "category", e.target.value)}
+              style={{ ...inp(), fontSize: 12, padding: "7px 7px", borderRadius: 8 }}
+            >
+              {catOptions.length > 0
+                ? catOptions.map((c) => <option key={c} value={c}>{c}</option>)
+                : ["Groceries", "Maintenance", "Other"].map((c) => <option key={c} value={c}>{c}</option>)
+              }
+            </select>
+
+            {/* Quantity */}
+            <input
+              type="number"
+              value={item.qty || ""}
+              onChange={(e) => updateItem(item.id, "qty", e.target.value)}
+              placeholder="Qty"
+              min="0"
+              step="1"
+              style={{ ...inp(), fontSize: 12, padding: "7px 7px", borderRadius: 8, textAlign: "center" }}
+            />
+
+            {/* Unit Price */}
+            <input
+              type="number"
+              value={item.price || ""}
+              onChange={(e) => updateItem(item.id, "price", e.target.value)}
+              placeholder="Price"
+              min="0"
+              step="1"
+              style={{ ...inp(), fontSize: 12, padding: "7px 7px", borderRadius: 8 }}
+            />
+
+            {/* Delete Button */}
+            <button
+              onClick={() => removeItem(item.id)}
+              disabled={form.items.length <= 1}
+              style={{ width: 26, height: 26, borderRadius: 7, border: "1.5px solid #FFE4E4", background: "#FFF5F5", cursor: form.items.length > 1 ? "pointer" : "not-allowed", display: "flex", alignItems: "center", justifyContent: "center", opacity: form.items.length > 1 ? 1 : 0.3, flexShrink: 0 }}
+            >
+              <svg width="11" height="11" fill="none" stroke="#E53E3E" strokeWidth="2" viewBox="0 0 24 24">
+                <polyline points="3 6 5 6 21 6" />
+                <path d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2" />
+              </svg>
+            </button>
+          </div>
+        ))}
+
+      </div>
+    </div>
+
+    {/* Footer */}
+    <div style={{
+      padding: "12px 16px",
+      borderTop: "1.5px solid #E2E8F4",
       background: "#EEF1FB",
       display: "flex",
       justifyContent: "space-between",
       alignItems: "center",
-      flexWrap: "wrap",
-      gap: 12
+      flexWrap: "nowrap",
+      gap: 10,
+      overflowX: "auto",
+      WebkitOverflowScrolling: "touch",
     }}>
-      {/* Left: Add Item Button */}
-      <button 
-        onClick={addItem} 
-        style={{ 
-          display: "flex", 
-          alignItems: "center", 
-          gap: 6, 
-          background: "#fff", 
-          border: "1.5px solid #3B5BDB", 
-          borderRadius: 9, 
-          padding: "6px 14px", 
-          fontSize: 12, 
-          fontWeight: 700, 
-          color: "#3B5BDB", 
+      {/* Add Item Button */}
+      <button
+        onClick={addItem}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          background: "#fff",
+          border: "1.5px solid #3B5BDB",
+          borderRadius: 9,
+          padding: "6px 14px",
+          fontSize: 12,
+          fontWeight: 700,
+          color: "#3B5BDB",
           cursor: "pointer",
-          transition: "all 0.2s"
+          transition: "all 0.2s",
+          flexShrink: 0,
+          whiteSpace: "nowrap",
         }}
         onMouseEnter={(e) => { e.currentTarget.style.background = "#3B5BDB"; e.currentTarget.style.color = "#fff"; }}
         onMouseLeave={(e) => { e.currentTarget.style.background = "#fff"; e.currentTarget.style.color = "#3B5BDB"; }}
@@ -1542,15 +1601,16 @@ useEffect(() => {
         Add Item
       </button>
 
-      {/* Center: Expense Date */}
-      <div style={{ 
-        display: "flex", 
-        alignItems: "center", 
+      {/* Expense Date */}
+      <div style={{
+        display: "flex",
+        alignItems: "center",
         gap: 8,
         background: "#fff",
         padding: "4px 12px",
         borderRadius: 8,
-        border: "1px solid #E2E8F4"
+        border: "1px solid #E2E8F4",
+        flexShrink: 0,
       }}>
         <svg width="14" height="14" fill="none" stroke="#3B5BDB" strokeWidth="1.8" viewBox="0 0 24 24">
           <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
@@ -1560,39 +1620,42 @@ useEffect(() => {
         </svg>
         <div style={{ display: "flex", flexDirection: "column" }}>
           <span style={{ fontSize: 9, color: "#8892A4", fontWeight: 600 }}>EXPENSE DATE</span>
-          <input 
-            type="date" 
-            value={form.expense_date} 
-            onChange={(e) => setForm((f) => ({ ...f, expense_date: e.target.value }))} 
-            style={{ 
-              border: "none", 
-              background: "transparent", 
-              fontSize: 12, 
+          <input
+            type="date"
+            value={form.expense_date}
+            onChange={(e) => setForm((f) => ({ ...f, expense_date: e.target.value }))}
+            style={{
+              border: "none",
+              background: "transparent",
+              fontSize: 12,
               fontWeight: 600,
               color: "#1A2B6D",
               outline: "none",
               padding: 0,
               fontFamily: "inherit",
-              cursor: "pointer"
-            }} 
+              cursor: "pointer",
+            }}
           />
         </div>
       </div>
 
-      {/* Right: Total Amount */}
-      <div style={{ 
-        display: "flex", 
-        alignItems: "center", 
+      {/* Items Total */}
+      <div style={{
+        display: "flex",
+        alignItems: "center",
         gap: 8,
         background: "linear-gradient(135deg, #1A2B6D, #3B5BDB)",
         padding: "6px 16px",
         borderRadius: 8,
-        boxShadow: "0 2px 8px rgba(59,91,219,0.2)"
+        boxShadow: "0 2px 8px rgba(59,91,219,0.2)",
+        flexShrink: 0,
+        whiteSpace: "nowrap",
       }}>
         <span style={{ fontSize: 11, color: "#fff", opacity: 0.9 }}>Items Total:</span>
         <span style={{ fontSize: 16, fontWeight: 800, color: "#fff" }}>{fmt(totalAmount)}</span>
       </div>
     </div>
+
   </div>
   {errors.items && <ErrMsg msg={errors.items} />}
 </div>
@@ -1698,13 +1761,33 @@ useEffect(() => {
   <>
     <div>
       <Label>Bank Name</Label>
-      <input
-        type="text"
-        placeholder="Enter bank name"
+      <select
         value={paymentDetails.bankName || ''}
-        onChange={(e) => setPaymentDetails({ ...paymentDetails, bankName: e.target.value })}
+        onChange={(e) => {
+          const value = e.target.value;
+          if (value === 'Other') {
+            setPaymentDetails({ ...paymentDetails, bankName: '', showOtherBank: true });
+          } else {
+            setPaymentDetails({ ...paymentDetails, bankName: value, showOtherBank: false });
+          }
+        }}
         style={inp()}
-      />
+      >
+        <option value="">Select Bank</option>
+        {bankNames.map((bank) => (
+          <option key={bank.id} value={bank.name}>{bank.name}</option>
+        ))}
+        <option value="Other">Other (Specify)</option>
+      </select>
+      {paymentDetails.showOtherBank && (
+        <input
+          type="text"
+          placeholder="Enter other bank name"
+          value={paymentDetails.otherBankName || ''}
+          onChange={(e) => setPaymentDetails({ ...paymentDetails, bankName: e.target.value, otherBankName: e.target.value })}
+          style={{ ...inp(), marginTop: 8 }}
+        />
+      )}
     </div>
     <div>
       <Label>Transaction ID / Reference</Label>
@@ -1733,13 +1816,33 @@ useEffect(() => {
     </div>
     <div>
       <Label>Bank Name</Label>
-      <input
-        type="text"
-        placeholder="Bank name"
+      <select
         value={paymentDetails.bankName || ''}
-        onChange={(e) => setPaymentDetails({ ...paymentDetails, bankName: e.target.value })}
+        onChange={(e) => {
+          const value = e.target.value;
+          if (value === 'Other') {
+            setPaymentDetails({ ...paymentDetails, bankName: '', showOtherBankCheque: true });
+          } else {
+            setPaymentDetails({ ...paymentDetails, bankName: value, showOtherBankCheque: false });
+          }
+        }}
         style={inp()}
-      />
+      >
+        <option value="">Select Bank</option>
+        {bankNames.map((bank) => (
+          <option key={bank.id} value={bank.name}>{bank.name}</option>
+        ))}
+        <option value="Other">Other (Specify)</option>
+      </select>
+      {paymentDetails.showOtherBankCheque && (
+        <input
+          type="text"
+          placeholder="Enter other bank name"
+          value={paymentDetails.otherBankName || ''}
+          onChange={(e) => setPaymentDetails({ ...paymentDetails, bankName: e.target.value, otherBankName: e.target.value })}
+          style={{ ...inp(), marginTop: 8 }}
+        />
+      )}
     </div>
   </>
 )}
@@ -1757,7 +1860,7 @@ useEffect(() => {
       </div>
     )}
 
-    {form.payment_mode === 'Online Payment Gateway' && (
+   {form.payment_mode === 'Online Payment Gateway' && (
   <>
     <div>
       <Label>Transaction ID</Label>
@@ -1771,17 +1874,40 @@ useEffect(() => {
     </div>
     <div>
       <Label>Payment Gateway Name</Label>
-      <input
-        type="text"
-        placeholder="e.g., Razorpay, Stripe, PhonePe"
+      <select
         value={paymentDetails.gatewayName || ''}
-        onChange={(e) => setPaymentDetails({ ...paymentDetails, gatewayName: e.target.value })}
+        onChange={(e) => {
+          const value = e.target.value;
+          if (value === 'Other') {
+            setPaymentDetails({ ...paymentDetails, gatewayName: '', showOtherGateway: true });
+          } else {
+            setPaymentDetails({ ...paymentDetails, gatewayName: value, showOtherGateway: false });
+          }
+        }}
         style={inp()}
-      />
+      >
+        <option value="">Select Gateway</option>
+        <option value="Razorpay">Razorpay</option>
+        <option value="Stripe">Stripe</option>
+        <option value="PayPal">PayPal</option>
+        <option value="PayU">PayU</option>
+        <option value="Cashfree">Cashfree</option>
+        <option value="PhonePe">PhonePe</option>
+        <option value="Google Pay">Google Pay</option>
+        <option value="Other">Other (Specify)</option>
+      </select>
+      {paymentDetails.showOtherGateway && (
+        <input
+          type="text"
+          placeholder="Enter other gateway name"
+          value={paymentDetails.otherGatewayName || ''}
+          onChange={(e) => setPaymentDetails({ ...paymentDetails, gatewayName: e.target.value, otherGatewayName: e.target.value })}
+          style={{ ...inp(), marginTop: 8 }}
+        />
+      )}
     </div>
   </>
 )}
-
     {form.payment_mode === 'Wallet' && (
       <div>
         <Label>Wallet Reference</Label>
@@ -1923,13 +2049,14 @@ useEffect(() => {
       <div style={{ padding: "18px 20px", flex: 1, overflowY: "auto" }}>
         {/* Info grid */}
         <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
-            gap: 14,
-            marginBottom: 18,
-          }}
-        >
+  style={{
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+    gap: 14,
+    marginBottom: 18,
+  }}
+  className="view-info-grid"
+>
           {/* Property */}
           <div>
             <div
@@ -2505,24 +2632,23 @@ useEffect(() => {
                           {transaction.upi_id && <div>UPI: {transaction.upi_id}</div>}
                           {transaction.card_ref && <div>Card: {transaction.card_ref}</div>}
                         </td>
-                        <td style={{ padding: "8px 12px", fontSize: 10, color: "#64748B", maxWidth: 150 }}>
-                          {transaction.notes?.substring(0, 50) || '—'}
-                        </td>
+                       <td style={{ padding: "8px 12px", fontSize: 10, color: "#64748B", maxWidth: 200 }}>
+  {transaction.notes || '—'}
+</td>
                         <td style={{ padding: "8px 12px", fontSize: 10, color: "#64748B" }}>
                           {transaction.created_by || '—'}
                         </td>
                       </tr>
                     );
                   })}
-                  <tr style={{ background: "#EEF1FB", borderTop: "1px solid #E2E8F4" }}>
-                    <td style={{ padding: "8px 12px", fontWeight: 700, color: "#1A2B6D" }} colSpan={1}>
-                      Total:
-                    </td>
-                    <td style={{ padding: "8px 12px", fontWeight: 800, color: "#1A2B6D", fontSize: 13 }}>
-                      {fmt(paymentTransactions.reduce((sum, t) => sum + (parseFloat(t.paid_amount) || 0), 0))}
-                    </td>
-                    <td colSpan={4} style={{ padding: "8px 12px" }}></td>
-                  </tr>
+                 <tr style={{ background: "#EEF1FB", borderTop: "1px solid #E2E8F4" }}>
+  <td colSpan={2} style={{ padding: "8px 12px", fontWeight: 700, color: "#1A2B6D", textAlign: "left" }}>
+    Total Paid: <span style={{ fontWeight: 800, color: "#1B7A4E", fontSize: 13, marginLeft: 5 }}>{fmt(paymentTransactions.reduce((sum, t) => sum + (parseFloat(t.paid_amount) || 0), 0))}</span>
+  </td>
+  <td colSpan={4} style={{ padding: "8px 12px", fontWeight: 700, color: "#1A2B6D", textAlign: "right" }}>
+    Pending Balance: <span style={{ fontWeight: 800, color: "#B45309", fontSize: 13, marginLeft: 5 }}>{fmt((viewItem?.total_amount || 0) - paymentTransactions.reduce((sum, t) => sum + (parseFloat(t.paid_amount) || 0), 0))}</span>
+  </td>
+</tr>
                 </tbody>
               </table>
             </div>
@@ -2779,6 +2905,17 @@ useEffect(() => {
           .exp-stat-grid { grid-template-columns: repeat(2,1fr) !important; }
         }
       `}</style>
+      <style>{`
+  * { box-sizing: border-box; }
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: #F0F3FA; }
+  ::-webkit-scrollbar-thumb { background: #C5CEE0; border-radius: 10px; }
+
+  @media (max-width: 480px) {
+    .exp-stat-grid { grid-template-columns: repeat(2,1fr) !important; }
+    .view-info-grid { grid-template-columns: repeat(2, 1fr) !important; }
+  }
+`}</style>
     </div>
   );
 }

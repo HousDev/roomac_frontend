@@ -2259,31 +2259,31 @@ const columns = useMemo(() => [
                   </td>
 
                   {/* Status Column */}
-                  <td className="px-2 py-2.5">
-                    <div className="flex flex-wrap gap-0.5">
-                      <Badge className={`text-[9px] px-1.5 py-0 h-4 font-semibold leading-none ${tenant.is_active ? "bg-emerald-500 text-white" : "bg-gray-400 text-white"}`}>
-                        {tenant.is_active ? "Active" : "Inactive"}
-                      </Badge>
-                      {tenant.portal_access_enabled ? (
-                        <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-blue-300 text-blue-600 bg-blue-50 leading-none">
-                          <ShieldCheck className="w-2 h-2 mr-0.5" />Portal
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-gray-300 text-gray-400 leading-none">
-                          No Portal
-                        </Badge>
-                      )}
-                      {tenant.has_credentials ? (
-                        <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-green-300 text-green-600 bg-green-50 leading-none">
-                          <LogIn className="w-2 h-2 mr-0.5" />Login
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-orange-300 text-orange-500 leading-none">
-                          No Login
-                        </Badge>
-                      )}
-                    </div>
-                  </td>
+                 <td className="px-2 py-2.5">
+  <div className="flex flex-col sm:flex-row sm:flex-wrap gap-0.5 sm:gap-1">
+    <Badge className={`text-[9px] px-1.5 py-0 h-4 font-semibold leading-none whitespace-nowrap ${tenant.is_active ? "bg-emerald-500 text-white" : "bg-gray-400 text-white"}`}>
+      {tenant.is_active ? "Active" : "Inactive"}
+    </Badge>
+    {tenant.portal_access_enabled ? (
+      <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-blue-300 text-blue-600 bg-blue-50 leading-none whitespace-nowrap">
+        <ShieldCheck className="w-2 h-2 mr-0.5" />Portal
+      </Badge>
+    ) : (
+      <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-gray-300 text-gray-400 leading-none whitespace-nowrap">
+        No Portal
+      </Badge>
+    )}
+    {tenant.has_credentials ? (
+      <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-green-300 text-green-600 bg-green-50 leading-none whitespace-nowrap">
+        <LogIn className="w-2 h-2 mr-0.5" />Login
+      </Badge>
+    ) : (
+      <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-orange-300 text-orange-500 leading-none whitespace-nowrap">
+        No Login
+      </Badge>
+    )}
+  </div>
+</td>
 
                   {/* Actions Column */}
                   <td className="px-2 py-2.5 text-center">

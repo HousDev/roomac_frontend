@@ -59,7 +59,13 @@ function SMSCardOnly({ settings, updateSetting, showSecrets, toggleSecretVisibil
             </div>
             <div className="flex items-center gap-2">
               {isConnected && <Check className="h-4 w-4 text-green-500" />}
-              <Switch checked={isConnected} onCheckedChange={(c) => updateSetting('sms_enabled', c ? 'true' : 'false')} className="data-[state=checked]:bg-blue-600" />
+              <Switch checked={isConnected} 
+              onCheckedChange={async (c) => {
+  const val = c ? 'true' : 'false';
+  updateSetting('sms_enabled', val);
+  await onSave({ ...settings, sms_enabled: val });
+}}
+ className="data-[state=checked]:bg-blue-600" />
             </div>
           </div>
           <p className="text-xs text-slate-500 mt-2">Send SMS messages through your provider.</p>
@@ -148,7 +154,13 @@ function EmailCardOnly({ settings, updateSetting, showSecrets, toggleSecretVisib
             </div>
             <div className="flex items-center gap-2">
               {isConnected && <Check className="h-4 w-4 text-blue-500" />}
-              <Switch checked={isConnected} onCheckedChange={(c) => updateSetting('email_enabled', c ? 'true' : 'false')} className="data-[state=checked]:bg-blue-600" />
+              <Switch checked={isConnected} 
+              onCheckedChange={async (c) => {
+  const val = c ? 'true' : 'false';
+  updateSetting('email_enabled', val);
+  await onSave({ ...settings, email_enabled: val });
+}}
+ className="data-[state=checked]:bg-blue-600" />
             </div>
           </div>
           <p className="text-xs text-slate-500 mt-2">Send and receive emails via SMTP.</p>
@@ -239,7 +251,12 @@ function PaymentCardOnly({ settings, updateSetting, showSecrets, toggleSecretVis
             </div>
             <div className="flex items-center gap-2">
               {isConnected && <Check className="h-4 w-4 text-emerald-500" />}
-              <Switch checked={isConnected} onCheckedChange={(c) => updateSetting('razorpay_enabled', c ? 'true' : 'false')} className="data-[state=checked]:bg-emerald-600" />
+              <Switch checked={isConnected} 
+              onCheckedChange={async (c) => {
+  const val = c ? 'true' : 'false';
+  updateSetting('razorpay_enabled', val);
+  await onSave({ ...settings, razorpay_enabled: val });
+}} className="data-[state=checked]:bg-emerald-600" />
             </div>
           </div>
           <p className="text-xs text-slate-500 mt-2">Accept online payments via Razorpay gateway.</p>

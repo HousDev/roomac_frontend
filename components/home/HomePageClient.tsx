@@ -612,6 +612,16 @@ function PropertiesSection({
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const getAmenityColor = (index: number) => {
+  const colors = [
+    'bg-blue-50 text-blue-700 border-blue-200',
+    'bg-emerald-50 text-emerald-700 border-emerald-200',
+    'bg-amber-50 text-amber-700 border-amber-200',
+    'bg-purple-50 text-purple-700 border-purple-200',
+    'bg-cyan-50 text-cyan-700 border-cyan-200',
+  ];
+  return colors[index % colors.length];
+};
   const handleSocialShare = (platform: string) => {
     const shareUrl = `${window.location.origin}/properties/${sharePopup.property?.slug || sharePopup.property?.id}`;
     const propertyName = sharePopup.property?.name || sharePopup.property?.property_name || 'Premium Property';
@@ -781,11 +791,7 @@ onMouseOver={e => (e.currentTarget.style.transform = 'scale(1.05)')}
                               <div className="h-0.5 w-2 bg-yellow-400 rounded-full" />
                             </div>
                           </div>
-                          {/* <div className="flex items-center justify-center">
-                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm bg-slate-200 text-black whitespace-nowrap">
-                              RMCX-00{index + 1}
-                            </span>
-                          </div> */}
+                         
                           <div className="text-right ml-2">
                             <p className="text-xs text-slate-400 font-medium whitespace-nowrap">Starting from</p>
                             <p className="text-lg font-bold text-[#0249a8] whitespace-nowrap">
@@ -815,27 +821,30 @@ onMouseOver={e => (e.currentTarget.style.transform = 'scale(1.05)')}
                           )}
                         </div>
 
-                        {displayAmenities.length > 0 && (
-                          <div className="flex flex-wrap gap-1.5 mb-3">
-                            {displayAmenities.map((a: any, ai: number) => {
-                              const colors = [
-                                'bg-blue-50 text-blue-700 border-blue-200',
-                                'bg-emerald-50 text-emerald-700 border-emerald-200',
-                                'bg-amber-50 text-amber-700 border-amber-200',
-                                'bg-purple-50 text-purple-700 border-purple-200',
-                                'bg-cyan-50 text-cyan-700 border-cyan-200',
-                              ];
-                              return (
-                                <span key={ai} className={`px-2 py-0.5 rounded-md border text-xs font-medium ${colors[ai % colors.length]}`}>
-                                  {String(a)}
-                                </span>
-                              );
-                            })}
-                            {amenities.length > 5 && (
-                              <span className="px-2 py-0.5 rounded-md border border-slate-200 text-xs text-slate-500 bg-slate-50">+{amenities.length - 5}</span>
-                            )}
-                          </div>
-                        )}
+   {amenities.length > 0 && (() => {
+  const avgLen = amenities.slice(0, 5).reduce((s: number, a: any) => s + String(a).length, 0) / Math.min(amenities.length, 5);
+  const visibleCount = avgLen > 8 ? 3 : 5;
+  const displayAmenities = amenities.slice(0, visibleCount);
+  const remaining = amenities.length - visibleCount;
+
+  return (
+    <div className="flex flex-wrap gap-1.5 mb-3">
+      {displayAmenities.map((a: any, ai: number) => (
+        <span
+          key={ai}
+          className={`px-2 py-0.5 rounded-md border text-xs font-medium ${getAmenityColor(ai)}`}
+        >
+          {String(a)}
+        </span>
+      ))}
+      {remaining > 0 && (
+        <span className="px-2 py-0.5 rounded-md border border-slate-200 text-xs text-slate-500 bg-slate-50">
+          +{remaining}
+        </span>
+      )}
+    </div>
+  );
+})()}
 
                         <div className="border-t border-slate-200 mt-auto pt-3">
                           <div className="flex items-center gap-2">
