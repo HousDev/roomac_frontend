@@ -1361,7 +1361,7 @@ const [loadingOffers, setLoadingOffers] = useState(false);
                   </p>
                 </div>
 
-                {propertyData.highlights && propertyData.highlights.length > 0 && (
+                {propertyData.highlights && Array.isArray(propertyData.highlights) && propertyData.highlights.length > 0 && (
                   <div>
                     <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
                       SERVICES & AMENITIES
