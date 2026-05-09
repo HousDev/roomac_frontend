@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "@/src/compat/next-navigation";
 import { toast } from "sonner";
 import { useAuth } from "@/context/authContext"; // ✅ ADDED
@@ -13,6 +13,8 @@ import {
   sendTenantOTP,
   verifyTenantOTP,
 } from "@/lib/tenantAuthApi";
+
+import { getAndClearPaymentIntent } from "@/lib/paymentRecordApi";
 
 interface LoginClientProps {
   initialPropertyImages: string[];
@@ -33,7 +35,8 @@ export default function LoginClient({
   const [propertyImages] = useState<string[]>(initialPropertyImages);
   const [exitAnimation, setExitAnimation] = useState(false);
   const [slideDirection, setSlideDirection] = useState("");
-  
+  const [pendingRedirect, setPendingRedirect] = useState<string | null>(null);
+
 
   const [credentials, setCredentials] = useState({
     email: "",
@@ -54,13 +57,17 @@ export default function LoginClient({
         setShowConfirmation(true);
       }, 300);
 
-      if (role === "tenant") router.push("/tenant/portal");
-      else {
+     // Check if we have a pending redirect first
+      if (pendingRedirect) {
+        router.push(pendingRedirect);
+      } else if (role === "tenant") {
+        router.push("/tenant/portal");
+      } else {
         router.push("/admin/dashboard");
       }
       setTimeout(() => {}, 2500);
     },
-    [],
+    [router, pendingRedirect],
   );
 
   // ✅ UPDATED with auth context
@@ -213,6 +220,19 @@ export default function LoginClient({
     },
     [],
   );
+
+   // ADD THIS useEffect after all state declarations
+  useEffect(() => {
+    const pendingIntent = getAndClearPaymentIntent();
+    if (pendingIntent) {
+      console.log("Found pending payment intent:", pendingIntent);
+      if (pendingIntent.type === "demand" && pendingIntent.demandId) {
+        setPendingRedirect(`/tenant/payments?demand_id=${pendingIntent.demandId}&action=pay`);
+      } else if (pendingIntent.type === "open_payment") {
+        setPendingRedirect(`/tenant/payments?openPaymentForm=true`);
+      }
+    }
+  }, []);
 
   if (showConfirmation) {
     return <LoginConfirmation />;
