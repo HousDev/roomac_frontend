@@ -4235,19 +4235,18 @@ if (partnerDetails.full_name) {
       {/* end scrollable */}
 
       {/* ── Fixed footer ────────────────────────────────────────────────────── */}
-      <div className="flex-shrink-0 border-t border-gray-200 bg-white px-4 py-2.5 flex items-center justify-between">
-        {/* Left: Prev + dots + Next */}
+<div className="flex-shrink-0 border-t border-gray-200 bg-white px-2 py-1.5 md:px-4 md:py-2.5 flex items-center justify-between">        {/* Left: Prev + dots + Next */}
         <div className="flex items-center gap-2">
           <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={goToPrevTab}
-            disabled={activeTab === tabs[0] || loading}
-            className="h-7 px-3 text-[11px] border-gray-200 text-gray-600 hover:text-gray-800"
-          >
-            <ChevronLeft className="h-3.5 w-3.5 mr-0.5" /> Prev
-          </Button>
+  type="button"
+  variant="outline"
+  size="sm"
+  onClick={goToPrevTab}
+  disabled={activeTab === tabs[0] || loading}
+  className="h-6 md:h-7 px-2 md:px-3 text-[10px] md:text-[11px] border-gray-200 text-gray-600 hover:text-gray-800"
+>
+  <ChevronLeft className="h-3 w-3 md:h-3.5 md:w-3.5 mr-0.5" /> Prev
+</Button>
 
           <div className="flex items-center gap-1">
             {tabs.map((t) => (
@@ -4265,10 +4264,10 @@ if (partnerDetails.full_name) {
               type="button"
               variant="outline"
               size="sm"
-              onClick={goToNextTab}
-              className="h-7 px-3 text-[11px] border-gray-200 text-gray-600 hover:text-gray-800"
-            >
-              Next <ChevronRight className="h-3.5 w-3.5 ml-0.5" />
+             onClick={goToNextTab}
+  className="h-6 md:h-7 px-2 md:px-3 text-[10px] md:text-[11px] border-gray-200 text-gray-600 hover:text-gray-800"
+>
+  Next <ChevronRight className="h-3 w-3 md:h-3.5 md:w-3.5 ml-0.5" />
             </Button>
           ) : (
             <div className="w-16" />
@@ -4283,14 +4282,13 @@ if (partnerDetails.full_name) {
             size="sm"
             onClick={onCancel}
             disabled={loading}
-            className="h-7 px-4 text-[11px] text-gray-500 hover:text-gray-700 border border-gray-200"
-          >
+className="h-6 md:h-7 px-2 md:px-4 text-[10px] md:text-[11px] text-gray-500 hover:text-gray-700 border border-gray-200"          >
             Cancel
           </Button>
           <Button
             type="submit"
             disabled={loading}
-            className="h-7 px-5 text-[11px] font-semibold rounded-lg shadow-sm
+            className="h-6 md:h-7 px-3 md:px-5 text-[10px] md:text-[11px] font-semibold rounded-lg shadow-sm
               bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white"
           >
             {loading ? (

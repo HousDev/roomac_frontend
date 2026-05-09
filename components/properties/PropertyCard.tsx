@@ -581,23 +581,30 @@ style={{ objectFit: 'fill', transform: 'scale(1.0)' }}
             </div>
 
             {/* Amenity tags */}
-            {displayAmenities.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mb-3">
-                {displayAmenities.map((a: any, ai: number) => (
-                  <span
-                    key={ai}
-                    className={`px-2 py-0.5 rounded-md border text-xs font-medium ${getAmenityColor(ai)}`}
-                  >
-                    {String(a)}
-                  </span>
-                ))}
-                {amenities.length > 5 && (
-                  <span className="px-2 py-0.5 rounded-md border border-slate-200 text-xs text-slate-500 bg-slate-50">
-                    +{amenities.length - 5}
-                  </span>
-                )}
-              </div>
-            )}
+           {amenities.length > 0 && (() => {
+  const avgLen = amenities.slice(0, 5).reduce((s: number, a: any) => s + String(a).length, 0) / Math.min(amenities.length, 5);
+  const visibleCount = avgLen > 8 ? 3 : 5;
+  const displayAmenities = amenities.slice(0, visibleCount);
+  const remaining = amenities.length - visibleCount;
+
+  return (
+    <div className="flex flex-wrap gap-1.5 mb-3">
+      {displayAmenities.map((a: any, ai: number) => (
+        <span
+          key={ai}
+          className={`px-2 py-0.5 rounded-md border text-xs font-medium ${getAmenityColor(ai)}`}
+        >
+          {String(a)}
+        </span>
+      ))}
+      {remaining > 0 && (
+        <span className="px-2 py-0.5 rounded-md border border-slate-200 text-xs text-slate-500 bg-slate-50">
+          +{remaining}
+        </span>
+      )}
+    </div>
+  );
+})()}
 
             {/* Divider and Actions */}
             <div className="border-t border-slate-200 mt-auto pt-3">

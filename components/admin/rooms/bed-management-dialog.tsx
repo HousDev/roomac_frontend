@@ -1281,171 +1281,7 @@ const checkTenantBedAssignmentsForVacate = async (tenantId: number): Promise<boo
   }
 };
 
-//   const loadTenantsBasedOnPreferences = async () => {
-//     try {
-//       setLoadingTenants(true);
-      
 
-//       const response: any = await request<Tenant[]>(
-//         "/api/tenants?is_active=true&portal_access_enabled=true",
-//       );
-
-//       let tenantsList: Tenant[] = [];
-
-//       if (Array.isArray(response)) {
-//         tenantsList = response;
-//       } else if (response.data && Array.isArray(response.data)) {
-//         tenantsList = response.data;
-//       }
-
-//       // ✅ Fetch full tenant details including partner info for each tenant
-//       const tenantsWithDetails = await Promise.all(
-//         tenantsList.map(async (tenant) => {
-//           try {
-//             // Fetch full tenant details including partner info
-//             const tenantDetails = await request<ApiResult<Tenant>>(
-//               `/api/tenants/${tenant.id}`,
-//             );
-
-// // ✅ Check vacate status from multiple sources
-//           let isVacated = false;
-          
-//           if (tenantDetails.success && tenantDetails.data) {
-//             // Check vacate_records array
-//             if (tenantDetails.data.vacate_records && tenantDetails.data.vacate_records.length > 0) {
-//               isVacated = true;
-//             }
-            
-//             // Check has_vacated flag
-//             if (tenantDetails.data.has_vacated === true) {
-//               isVacated = true;
-//             }
-//           }
-          
-//           // If still false, check bed assignments for vacate reason
-//           if (!isVacated) {
-//             isVacated = await checkTenantBedAssignmentsForVacate(tenant.id);
-//           }
-          
-//           // console.log(`Tenant ${tenant.id} (${tenant.full_name}) - Vacated: ${isVacated}`);
-
-
-//             if (tenantDetails.success && tenantDetails.data) {
-//               return {
-//                 ...tenant,
-//                 partner_full_name: tenantDetails.data.partner_full_name,
-//                 partner_phone: tenantDetails.data.partner_phone,
-//                 partner_email: tenantDetails.data.partner_email,
-//                 partner_gender: tenantDetails.data.partner_gender,
-//                 partner_date_of_birth: tenantDetails.data.partner_date_of_birth,
-//                 partner_address: tenantDetails.data.partner_address,
-//                 partner_occupation: tenantDetails.data.partner_occupation,
-//                 partner_organization: tenantDetails.data.partner_organization,
-//                 partner_relationship: tenantDetails.data.partner_relationship,
-//                 partner_id_proof_type: tenantDetails.data.partner_id_proof_type,
-//                 partner_id_proof_number:
-//                   tenantDetails.data.partner_id_proof_number,
-//                 partner_id_proof_url: tenantDetails.data.partner_id_proof_url,
-//                 partner_address_proof_type:
-//                   tenantDetails.data.partner_address_proof_type,
-//                 partner_address_proof_number:
-//                   tenantDetails.data.partner_address_proof_number,
-//                 partner_address_proof_url:
-//                   tenantDetails.data.partner_address_proof_url,
-//                 partner_photo_url: tenantDetails.data.partner_photo_url,
-//                 is_couple_booking: tenantDetails.data.is_couple_booking,
-//                 couple_id: tenantDetails.data.couple_id,
-//                 partner_tenant_id: tenantDetails.data.partner_tenant_id,
-//                 is_primary_tenant: tenantDetails.data.is_primary_tenant,
-//                 is_vacated: isVacated,
-//               };
-//             }
-//             return {
-//             ...tenant,
-//             is_vacated: isVacated, // ✅ ADD THIS even if details fetch fails
-//           };
-//           } catch (error) {
-//             console.error(
-//               `Failed to fetch details for tenant ${tenant.id}:`,
-//               error,
-//             );
-//             return {
-//             ...tenant,
-//             is_vacated: false, // ✅ ADD THIS even if details fetch fails
-//           };
-//           }
-//         }),
-//       );
-
-
-//       // Get all current assignments in this room
-//       const currentRoomAssignments = bedAssignments.filter(
-//         (b) => !b.is_available && b.tenant_id,
-//       );
-//       const currentTenantIds = currentRoomAssignments.map((b) => b.tenant_id);
-
-//       // Get couple IDs of already assigned tenants
-//       const assignedCoupleIds = new Set<number>();
-//       for (const tenantId of currentTenantIds) {
-//         const assignedTenant = tenantsWithDetails.find(
-//           (t) => t.id === tenantId,
-//         );
-//         if (assignedTenant?.couple_id) {
-//           assignedCoupleIds.add(assignedTenant.couple_id);
-//         }
-//       }
-
-//       // Check assignment status for each tenant
-//       const tenantsWithAssignment = await Promise.all(
-//         tenantsWithDetails.map(async (tenant) => {
-//           try {
-//             const assignmentCheck = await request<ApiResult<any>>(
-//               `/api/rooms/tenant-assignment/${tenant.id}`,
-//             );
-//             const isAssigned =
-//               assignmentCheck.success &&
-//               assignmentCheck.data &&
-//               Array.isArray(assignmentCheck.data) &&
-//               assignmentCheck.data.length > 0 &&
-//               assignmentCheck.data.some(
-//                 (assignment: any) => !assignment.is_available,
-//               );
-
-//             const isPartnerOfAssigned =
-//               tenant.couple_id && assignedCoupleIds.has(tenant.couple_id);
-
-//             return {
-//               ...tenant,
-//               is_assigned: isAssigned,
-//               is_partner_of_assigned: isPartnerOfAssigned,
-//             };
-//           } catch {
-//             return {
-//               ...tenant,
-//               is_assigned: false,
-//               is_partner_of_assigned: false,
-//             };
-//           }
-//         }),
-//       );
-// //       console.log("✅ All tenants loaded:", tenantsWithAssignment.map(t => ({
-// //   id: t.id,
-// //   name: t.full_name,
-// //   is_primary: t.is_primary_tenant,
-// //   couple_id: t.couple_id,
-// //   is_vacated: t.is_vacated,
-// //   is_couple_booking: t.is_couple_booking
-// // })));
-
-//       setTenants(tenantsWithAssignment);
-//     } catch (error: any) {
-//       console.error("Error loading tenants:", error);
-//       toast.error(`Failed to load tenants: ${error.message}`);
-//       setTenants([]);
-//     } finally {
-//       setLoadingTenants(false);
-//     }
-//   };
 
 
 const loadTenantsBasedOnPreferences = async () => {
@@ -2532,34 +2368,36 @@ const handleVacateClick = async (bedAssignment: BedAssignment) => {
         <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-[calc(100vw-2rem)] md:max-w-3xl lg:max-w-4xl max-h-[85vh] overflow-hidden p-0 border-0 flex flex-col rounded-2xl">
           <div className="sticky top-0 z-10 bg-gradient-to-r from-blue-600 to-cyan-600 text-white px-3 py-1.5 md:px-3 md:py-2 flex-shrink-0">
             <DialogHeader className="space-y-0.5 md:space-y-1">
-              <DialogTitle className="text-xs md:text-base lg:text-lg font-bold flex items-center gap-2 justify-between flex-wrap">
-                <div className="flex items-center gap-2">
-                  <Bed className="h-4 w-4 md:h-5 md:w-5 flex-shrink-0" />
-                  <span className="flex-1">
-                    Bed Management - Room {room.room_number}
-                  </span>
-                  <Badge
-                    variant="outline"
-                    className="text-[9px] md:text-[10px] px-1.5 py-0.5 bg-white text-blue-600"
-                  >
-                    {room.property_name}
-                  </Badge>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onOpenChange(false)}
-                  className="h-7 md:h-8 px-2 md:px-3 text-white hover:bg-white/20 text-xs md:text-sm"
-                >
-                  <X className="h-3 w-3 md:h-4 md:w-4 mr-1" />
-                </Button>
-              </DialogTitle>
-              <div className="flex items-center gap-1.5 text-[10px] md:text-xs text-blue-100 flex-wrap">
-                <MapPin className="h-3 w-3 md:h-3.5 md:w-3.5 flex-shrink-0" />
-                <span className="truncate">
-                  {room.property_address} • Floor {room.floor || "G"}
-                </span>
-              </div>
+          <DialogTitle className="text-xs md:text-base lg:text-lg font-bold">
+  <div className="flex items-start justify-between gap-2">
+    <div className="flex flex-col md:flex-row md:items-center gap-1 md:gap-2 flex-1 min-w-0">
+      <div className="flex items-center gap-2">
+        <Bed className="h-4 w-4 md:h-5 md:w-5 flex-shrink-0" />
+        <span>Bed Management - Room {room.room_number}</span>
+      </div>
+      <Badge
+        variant="outline"
+        className="text-[9px] md:text-[10px] px-1.5 py-0.5 bg-white text-blue-600 w-fit"
+      >
+        {room.property_name}
+      </Badge>
+    </div>
+    <Button
+      variant="ghost"
+      size="sm"
+      onClick={() => onOpenChange(false)}
+      className="h-7 w-7 p-0 text-white hover:bg-white/20 flex-shrink-0 mt-0"
+    >
+      <X className="h-3 w-3 md:h-4 md:w-4" />
+    </Button>
+  </div>
+</DialogTitle>
+              <div className="flex items-center gap-1.5 text-[10px] md:text-xs text-blue-100 flex-nowrap min-w-0 justify-start">
+  <MapPin className="h-3 w-3 md:h-3.5 md:w-3.5 flex-shrink-0" />
+  <span className="truncate min-w-0">
+    {room.property_address} • Floor {room.floor || "G"}
+  </span>
+</div>
             </DialogHeader>
           </div>
 
