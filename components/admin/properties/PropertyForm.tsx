@@ -956,12 +956,12 @@ area: areaValue,
       const fullName = staff.name || "";
       setFormData((prev) => ({
         ...prev,
-        staff_id: staffId,
-        // property_manager_name: fullName,
-        // property_manager_phone: staff.phone || "",
-        // property_manager_email: staff.email || "",
-        // property_manager_role: staff.role || "",
         // staff_id: staffId,
+        property_manager_name: fullName,
+        property_manager_phone: staff.phone || "",
+        property_manager_email: staff.email || "",
+        property_manager_role: staff.role || "",
+        staff_id: staffId,
       }));
       setManagerRole(staff.role_name || "");
       setManagerEmail(staff.email || "");
