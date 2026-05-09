@@ -56,6 +56,7 @@ import * as paymentApi from "@/lib/paymentRecordApi";
 import * as notificationApi from "@/lib/notificationApi";
 import { createRazorpayOrder, verifyRazorpayPayment } from "@/lib/paymentApi";
 import { consumeMasters } from "@/lib/masterApi";
+import { getAndClearPaymentIntent } from "@/lib/paymentRecordApi";
 
 // Types
 interface Payment {
@@ -93,29 +94,13 @@ interface DepositStats {
   isFullyPaid: boolean;
 }
 
-// Bank Name Type
-interface BankName {
-  id: number;
-  name: string;
-}
 
+// Update StatusBadge component
 const StatusBadge = ({ status }: { status: string }) => {
   const normalizedStatus = status?.toLowerCase() || '';
   
-  
-  if (normalizedStatus === 'approved') {
-    return (
-      <Badge
-        variant="outline"
-        className="bg-green-50 text-green-600 border-green-200 flex items-center gap-0.5 text-[9px] px-1.5 py-0 h-4 rounded-full"
-      >
-        <CheckCircle2 className="h-2.5 w-2.5" />
-        <span>Approved</span>
-      </Badge>
-    );
-  }
-  
-  if (normalizedStatus === 'paid') {
+  // ✅ Treat both 'paid' and 'approved' as success
+  if (normalizedStatus === 'paid' || normalizedStatus === 'approved') {
     return (
       <Badge
         variant="outline"
@@ -127,6 +112,7 @@ const StatusBadge = ({ status }: { status: string }) => {
     );
   }
   
+  // Rest remains the same...
   if (normalizedStatus === 'pending') {
     return (
       <Badge
@@ -146,7 +132,7 @@ const StatusBadge = ({ status }: { status: string }) => {
         className="bg-red-50 text-red-600 border-red-200 flex items-center gap-0.5 text-[9px] px-1.5 py-0 h-4 rounded-full"
       >
         <XCircle className="h-2.5 w-2.5" />
-        <span>Rejected</span>
+        <span>Failed</span>
       </Badge>
     );
   }
@@ -313,12 +299,7 @@ export default function TenantPaymentsPage() {
   const [preSelectedAmount, setPreSelectedAmount] = useState<number | null>(
     null,
   );
-
-  // Bank Names State
-  const [bankNames, setBankNames] = useState<BankName[]>([]);
-  const [loadingBankNames, setLoadingBankNames] = useState(false);
-  const [showCustomBankInput, setShowCustomBankInput] = useState(false);
-  const [customBankName, setCustomBankName] = useState("");
+   const [paymentIntentProcessed, setPaymentIntentProcessed] = useState(false);
 
   // Stats
   const [rentStats, setRentStats] = useState<RentStats>({
@@ -355,7 +336,6 @@ export default function TenantPaymentsPage() {
     payment_type: "rent",
     amount: "",
     payment_mode: "online",
-    bank_name: "",
     transaction_id: "",
     payment_date: new Date().toISOString().split("T")[0],
     remark: "",
@@ -390,93 +370,149 @@ export default function TenantPaymentsPage() {
     }
   };
 
-  // Fetch bank names from masters - Same as admin form
-  const fetchBankNames = async () => {
-    setLoadingBankNames(true);
-    try {
-      // Fetch from Common tab for "Bank Names" master item
-      const response = await consumeMasters({
-        tab: "Common",
-        type: "Bank Names",
-      });
+//  // Fetch demand details
+// const fetchDemandDetails = async (demandId: number) => {
+//   try {
+//     console.log("Fetching demand details for ID:", demandId);
+    
+//     // Use the correct API endpoint
+//     const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/payments/demands/${demandId}`, {
+//       headers: {
+//         'Content-Type': 'application/json',
+//       },
+//       credentials: 'include',
+//     });
+    
+//     const result = await response.json();
+//     console.log("API Response:", result);
 
-      if (response?.success && response.data) {
-        const banks = response.data.map((item: any) => ({
-          id: item.value_id,
-          name: item.value_name,
-        }));
-        setBankNames(banks);
+//     if (result.success && result.data) {
+//       const demand = result.data;
+//       console.log("Demand fetched:", demand);
+      
+//       setPreSelectedPaymentType(demand.payment_type);
+//       setPreSelectedAmount(demand.amount);
+//       setShouldAutoOpenPayment(true);
+      
+//       setNewPayment((prev) => ({
+//         ...prev,
+//         amount: demand.amount.toString(),
+//         payment_type: demand.payment_type,
+//         remark: `Payment for demand request #${demand.id}: ${demand.description || ""}`,
+//       }));
+      
+//       // Open the dialog after a short delay to ensure state is updated
+//       setTimeout(() => {
+//         setShowPaymentDialog(true);
+//         toast.success("Payment request loaded. Please complete your payment.");
+//       }, 100);
+//     } else {
+//       console.error("API returned error:", result);
+//       toast.error(result.message || "Unable to load payment request details");
+//     }
+//   } catch (error) {
+//     console.error("Error fetching demand details:", error);
+//     toast.error("Unable to load payment request details. Please contact support.");
+//   }
+// };
+
+  useEffect(() => {
+  const checkForPaymentIntent = async () => {
+    // Don't process if already processed or still loading
+    if (paymentIntentProcessed || loading) return;
+    
+    // Wait for hasBedAssignment to be set
+    if (hasBedAssignment === undefined) return;
+    
+    setTimeout(async () => {
+      // Check URL parameters
+      const urlParams = new URLSearchParams(window.location.search);
+      const openPaymentFormParam = urlParams.get('openPaymentForm');
+      
+      console.log("Checking payment intent. hasBedAssignment:", hasBedAssignment, "openPaymentForm:", openPaymentFormParam);
+      
+      // Check localStorage for pending intent from ProtectedRoute
+      if (!openPaymentFormParam) {
+        const pendingIntent = getAndClearPaymentIntent();
+        if (pendingIntent && pendingIntent.type === "open_payment") {
+          console.log("Found pending open_payment intent in localStorage");
+          if (hasBedAssignment) {
+            setPaymentIntentProcessed(true);
+            setShowPaymentDialog(true);
+            toast.info("Please complete your payment");
+            // Clean URL
+            window.history.replaceState({}, '', window.location.pathname);
+          } else {
+            toast.error("Cannot make payment: No bed assigned yet");
+          }
+          return;
+        }
       }
-    } catch (error) {
-      console.error("Error fetching bank names:", error);
-    } finally {
-      setLoadingBankNames(false);
-    }
-  };
-
-
-  // Auto-open payment form when coming from portal page
-useEffect(() => {
-  const urlParams = new URLSearchParams(window.location.search);
-  const openPaymentForm = urlParams.get('openPaymentForm');
-  
-  if (openPaymentForm === 'true') {
-    // Small delay to ensure component is fully loaded
-    const timer = setTimeout(() => {
-      if (hasBedAssignment) {
+      
+      // Process open payment form from URL param
+      if (openPaymentFormParam === 'true' && hasBedAssignment) {
+        setPaymentIntentProcessed(true);
         setShowPaymentDialog(true);
-        // Remove the query param from URL without reloading
-        const newUrl = window.location.pathname;
-        window.history.replaceState({}, '', newUrl);
-      } else {
-        toast.error(
-          "You cannot make a payment as no bed has been assigned to you yet. Please contact the property manager."
-        );
+        toast.info("Please complete your payment");
+        // Clean URL
+        window.history.replaceState({}, '', window.location.pathname);
+      } else if (openPaymentFormParam === 'true' && !hasBedAssignment) {
+        toast.error("Cannot make payment: No bed assigned yet");
       }
     }, 500);
-    return () => clearTimeout(timer);
-  }
-}, [hasBedAssignment]);
-
-  // Fetch demand details from URL
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const demandId = urlParams.get("demand_id");
-    const action = urlParams.get("action");
-
-    if (demandId && action === "pay") {
-      fetchDemandDetails(parseInt(demandId));
-    }
-  }, []);
-
-  // Fetch bank names when component mounts
-  useEffect(() => {
-    fetchBankNames();
-  }, []);
-
-  const fetchDemandDetails = async (demandId: number) => {
-    try {
-      const response = await fetch(`/api/payments/demands/${demandId}`);
-      const result = await response.json();
-
-      if (result.success && result.data) {
-        const demand = result.data;
-        setPreSelectedPaymentType(demand.payment_type);
-        setPreSelectedAmount(demand.amount);
-        setShouldAutoOpenPayment(true);
-        setShowPaymentDialog(true);
-        setNewPayment((prev) => ({
-          ...prev,
-          amount: demand.amount.toString(),
-          payment_type: demand.payment_type,
-          remark: `Payment for demand request #${demand.id}: ${demand.description || ""}`,
-        }));
-      }
-    } catch (error) {
-      console.error("Error fetching demand details:", error);
-      toast.error("Unable to load payment request details");
-    }
   };
+  
+  checkForPaymentIntent();
+}, [loading, hasBedAssignment, paymentIntentProcessed]);
+
+// Auto-open payment form when coming from portal page
+useEffect(() => {
+  const urlParams = new URLSearchParams(window.location.search);
+  const openPaymentFormParam = urlParams.get('openPaymentForm');
+  
+  if (openPaymentFormParam === 'true' && !paymentIntentProcessed && !loading && hasBedAssignment) {
+    setPaymentIntentProcessed(true);
+    setTimeout(() => {
+      setShowPaymentDialog(true);
+      window.history.replaceState({}, '', window.location.pathname);
+    }, 100);
+  }
+}, [loading, hasBedAssignment, paymentIntentProcessed]); // ← Remove openPaymentForm from deps
+
+
+//   // Auto-open payment form when coming from portal page
+// useEffect(() => {
+//   const urlParams = new URLSearchParams(window.location.search);
+//   const openPaymentForm = urlParams.get('openPaymentForm');
+  
+//   if (openPaymentForm === 'true') {
+//     // Small delay to ensure component is fully loaded
+//     const timer = setTimeout(() => {
+//       if (hasBedAssignment) {
+//         setShowPaymentDialog(true);
+//         // Remove the query param from URL without reloading
+//         const newUrl = window.location.pathname;
+//         window.history.replaceState({}, '', newUrl);
+//       } else {
+//         toast.error(
+//           "You cannot make a payment as no bed has been assigned to you yet. Please contact the property manager."
+//         );
+//       }
+//     }, 500);
+//     return () => clearTimeout(timer);
+//   }
+// }, [hasBedAssignment]);
+
+//   // Fetch demand details from URL
+//   useEffect(() => {
+//     const urlParams = new URLSearchParams(window.location.search);
+//     const demandId = urlParams.get("demand_id");
+//     const action = urlParams.get("action");
+
+//     if (demandId && action === "pay") {
+//       fetchDemandDetails(parseInt(demandId));
+//     }
+//   }, []);
 
   const fetchData = useCallback(async () => {
     try {
@@ -776,235 +812,189 @@ const calculateStats = (payments: Payment[]) => {
     }
   };
 
-  const handleRazorpayPayment = useCallback(
-    async (amount: number, paymentData: any) => {
-      try {
-        setLoading(true);
+const handleRazorpayPayment = useCallback(
+  async (amount: number, paymentData: any) => {
+    try {
+      setLoading(true);
 
-        const loadRazorpayScript = () => {
-          return new Promise((resolve) => {
-            if ((window as any).Razorpay) {
-              resolve(true);
-              return;
-            }
-            const script = document.createElement("script");
-            script.src = "https://checkout.razorpay.com/v1/checkout.js";
-            script.onload = () => resolve(true);
-            script.onerror = () => {
-              console.error("Failed to load Razorpay script");
-              resolve(false);
-            };
-            document.body.appendChild(script);
-          });
-        };
-
-        const scriptLoaded = await loadRazorpayScript();
-        if (!scriptLoaded) {
-          toast.error(
-            "Failed to load payment gateway. Please refresh and try again.",
-          );
-          setLoading(false);
-          return false;
-        }
-
-        const orderResponse = await fetch("/api/payment/create-order", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ amount }),
+      const loadRazorpayScript = () => {
+        return new Promise((resolve) => {
+          if ((window as any).Razorpay) {
+            resolve(true);
+            return;
+          }
+          const script = document.createElement("script");
+          script.src = "https://checkout.razorpay.com/v1/checkout.js";
+          script.onload = () => resolve(true);
+          script.onerror = () => {
+            console.error("Failed to load Razorpay script");
+            resolve(false);
+          };
+          document.body.appendChild(script);
         });
+      };
 
-        const orderResult = await orderResponse.json();
-
-        if (!orderResult.success) {
-          toast.error(orderResult.message || "Failed to create payment order");
-          setLoading(false);
-          return false;
-        }
-
-        const options = {
-          key: orderResult.key,
-          amount: orderResult.order.amount,
-          currency: "INR",
-          name: "ROOMAC",
-          description: `Payment for ${paymentData.payment_type === "rent" ? "Rent" : "Security Deposit"}`,
-          order_id: orderResult.order.id,
-          handler: async function (response: any) {
-            try {
-              const saveResponse = await fetch("/api/payments", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  ...paymentData,
-                  razorpay_payment_id: response.razorpay_payment_id,
-                  razorpay_order_id: response.razorpay_order_id,
-                  razorpay_signature: response.razorpay_signature,
-                  payment_status: "completed",
-                  status: "paid", 
-                  transaction_id: response.razorpay_payment_id,
-                  source: "tenant",
-                }),
-              });
-
-              const saveResult = await saveResponse.json();
-
-              if (saveResult.success) {
-                // try {
-                //   await fetch("/api/admin/notifications", {
-                //     method: "POST",
-                //     headers: { "Content-Type": "application/json" },
-                //     body: JSON.stringify({
-                //       recipient_id: 1,
-                //       recipient_type: "admin",
-                //       title: "💰 New Payment Received",
-                //       message: `${tenant?.full_name} has successfully paid ${paymentData.payment_type === "rent" ? "rent" : "security deposit"} payment of ₹${paymentData.amount.toLocaleString()} via Razorpay.`,
-                //       notification_type: "payment",
-                //       related_entity_type: "payment",
-                //       related_entity_id: saveResult.data.id,
-                //       priority: "medium",
-                //     }),
-                //   });
-                // } catch (notifError) {
-                //   console.error("Error creating notification:", notifError);
-                // }
-
-                setPaymentConfirmationData({
-                  id: saveResult.data?.id || Date.now().toString(),
-                  payment_type: paymentData.payment_type,
-                  amount: paymentData.amount,
-                  month: paymentData.month,
-                  year: paymentData.year,
-                  transaction_id: response.razorpay_payment_id,
-                });
-                setShowPaymentConfirmation(true);
-                setShowPaymentDialog(false);
-                fetchTenantPayments();
-                fetchData(); // Refresh all data
-
-                setNewPayment({
-                  payment_type: "rent",
-                  amount: "",
-                  payment_mode: "online",
-                  bank_name: "",
-                  transaction_id: "",
-                  payment_date: new Date().toISOString().split("T")[0],
-                  remark: "",
-                });
-                setSelectedPaymentMonth("");
-                setSecurityDepositInfo(null);
-                setPaymentFormData(null);
-                setShowCustomBankInput(false);
-                setCustomBankName("");
-
-                toast.success("Payment successful!");
-              } else {
-                toast.error(
-                  saveResult.message ||
-                    "Payment saved but verification pending",
-                );
-              }
-            } catch (error) {
-              console.error("Error saving payment:", error);
-              toast.error("Payment successful but failed to save record");
-            } finally {
-              setLoading(false);
-            }
-          },
-          prefill: {
-            name: tenant?.full_name,
-            email: tenant?.email,
-            contact: tenant?.phone,
-          },
-          theme: { color: "#0149ab" },
-          modal: {
-            ondismiss: function () {
-              setLoading(false);
-              toast.info("Payment cancelled");
-            },
-          },
-        };
-
-        const razorpay = new (window as any).Razorpay(options);
-        razorpay.open();
-        return true;
-      } catch (error: any) {
-        console.error("Razorpay error:", error);
-        toast.error(error.message || "Payment failed");
+      const scriptLoaded = await loadRazorpayScript();
+      if (!scriptLoaded) {
+        toast.error("Failed to load payment gateway. Please refresh and try again.");
         setLoading(false);
         return false;
       }
-    },
-    [tenant, fetchTenantPayments, fetchData],
-  );
 
-  const handleSubmitPayment = useCallback(async () => {
-    if (!newPayment.amount) {
-      toast.error("Please enter an amount");
-      return;
-    }
+      console.log("📤 Sending to create-order:", {
+        amount,
+        tenant_id: paymentData.tenant_id,
+        payment_type: paymentData.payment_type,
+        month: paymentData.month,
+        year: paymentData.year,
+        remark: paymentData.remark
+      });
 
-    if (!hasBedAssignment) {
-      toast.error(
-        "You cannot make a payment as no bed has been assigned to you yet",
-      );
-      return;
-    }
+      const orderResponse = await fetch("/api/payment/create-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          amount,
+          tenant_id: paymentData.tenant_id,
+          payment_type: paymentData.payment_type,
+          month: paymentData.month,
+          year: paymentData.year,
+          remark: paymentData.remark
+        }),
+      });
 
-    try {
-      const paymentData: any = {
-        tenant_id: tenant?.id,
-        booking_id: null,
-        payment_type: newPayment.payment_type,
-        amount: parseFloat(newPayment.amount),
-        payment_mode: "online",
-        bank_name: newPayment.bank_name || null,
-        transaction_id: newPayment.transaction_id || null,
-        payment_date: newPayment.payment_date,
-        remark: newPayment.remark || null,
-      };
+      const orderResult = await orderResponse.json();
 
-      if (newPayment.payment_type === "rent") {
-        if (selectedPaymentMonth && selectedPaymentMonth !== "current") {
-          const [year, month] = selectedPaymentMonth.split("-");
-          const monthNames = [
-            "January",
-            "February",
-            "March",
-            "April",
-            "May",
-            "June",
-            "July",
-            "August",
-            "September",
-            "October",
-            "November",
-            "December",
-          ];
-          paymentData.month = monthNames[parseInt(month) - 1];
-          paymentData.year = parseInt(year);
-          paymentData.remark =
-            paymentData.remark ||
-            `Payment for ${paymentData.month} ${paymentData.year}`;
-        } else {
-          const currentDate = new Date();
-          paymentData.month = currentDate.toLocaleString("default", {
-            month: "long",
-          });
-          paymentData.year = currentDate.getFullYear();
-        }
+      if (!orderResult.success) {
+        toast.error(orderResult.message || "Failed to create payment order");
+        setLoading(false);
+        return false;
       }
 
-      await handleRazorpayPayment(parseFloat(newPayment.amount), paymentData);
+      const options = {
+        key: orderResult.key,
+        amount: orderResult.order.amount,
+        currency: "INR",
+        name: "ROOMAC",
+        description: `Payment for ${paymentData.payment_type === "rent" ? "Rent" : "Security Deposit"}`,
+        order_id: orderResult.order.id,
+        handler: async function (response: any) {
+          console.log("💰 Razorpay success callback triggered", response);
+          
+          try {
+            // ❌ REMOVED: Manual test-webhook call
+            // ✅ Now relying on Razorpay's live webhook to update the payment
+            
+            // Show success UI immediately
+            setPaymentConfirmationData({
+              id: orderResult.payment_id,
+              payment_type: paymentData.payment_type,
+              amount: paymentData.amount,
+              month: paymentData.month,
+              year: paymentData.year,
+              transaction_id: response.razorpay_payment_id,
+            });
+            setShowPaymentConfirmation(true);
+            setShowPaymentDialog(false);
+            
+            // Reset form
+            setNewPayment({
+              payment_type: "rent",
+              amount: "",
+              payment_mode: "online",
+              transaction_id: "",
+              payment_date: new Date().toISOString().split("T")[0],
+              remark: "",
+            });
+            setSelectedPaymentMonth("");
+            setSecurityDepositInfo(null);
+            setPaymentFormData(null);
+            
+            // Refresh data after webhook should have processed (5-10 seconds)
+            setTimeout(() => {
+              fetchTenantPayments();
+              fetchData();
+            }, 8000); // Increased delay to allow webhook to process
+            
+            toast.success("Payment successful! Processing confirmation...");
+            
+          } catch (error) {
+            console.error("Error in payment handler:", error);
+            toast.error("Payment successful but verification pending");
+          } finally {
+            setLoading(false);
+          }
+        },
+        prefill: {
+          name: tenant?.full_name,
+          email: tenant?.email,
+          contact: tenant?.phone,
+        },
+        theme: { color: "#0149ab" },
+        modal: {
+          ondismiss: function () {
+            setLoading(false);
+            toast.info("Payment cancelled");
+          },
+        },
+      };
+
+      const razorpay = new (window as any).Razorpay(options);
+      razorpay.open();
+      return true;
     } catch (error: any) {
-      console.error("Payment error:", error);
-      toast.error(error.message || "Failed to initiate payment");
+      console.error("Razorpay error:", error);
+      toast.error(error.message || "Payment failed");
+      setLoading(false);
+      return false;
     }
-  }, [
-    tenant?.id,
-    newPayment,
-    selectedPaymentMonth,
-    hasBedAssignment,
-    handleRazorpayPayment,
-  ]);
+  },
+  [tenant, fetchTenantPayments, fetchData],
+);
+
+const handleSubmitPayment = useCallback(async () => {
+  if (!newPayment.amount) {
+    toast.error("Please enter an amount");
+    return;
+  }
+
+  if (!hasBedAssignment) {
+    toast.error("You cannot make a payment as no bed has been assigned to you yet");
+    return;
+  }
+
+  try {
+    const paymentData: any = {
+      tenant_id: tenant?.id,
+      payment_type: newPayment.payment_type,
+      amount: parseFloat(newPayment.amount),
+      remark: newPayment.remark || null,
+      payment_date: newPayment.payment_date,
+    };
+
+    if (newPayment.payment_type === "rent") {
+      if (selectedPaymentMonth && selectedPaymentMonth !== "current") {
+        const [year, month] = selectedPaymentMonth.split("-");
+        const monthNames = [
+          "January", "February", "March", "April", "May", "June",
+          "July", "August", "September", "October", "November", "December"
+        ];
+        paymentData.month = monthNames[parseInt(month) - 1];
+        paymentData.year = parseInt(year);
+        paymentData.remark = paymentData.remark || `Payment for ${paymentData.month} ${paymentData.year}`;
+      } else {
+        const currentDate = new Date();
+        paymentData.month = currentDate.toLocaleString("default", { month: "long" });
+        paymentData.year = currentDate.getFullYear();
+      }
+    }
+
+    await handleRazorpayPayment(parseFloat(newPayment.amount), paymentData);
+  } catch (error: any) {
+    console.error("Payment error:", error);
+    toast.error(error.message || "Failed to initiate payment");
+  }
+}, [tenant?.id, newPayment, selectedPaymentMonth, hasBedAssignment, handleRazorpayPayment]);
 
   useEffect(() => {
     if (showPaymentConfirmation) {
@@ -2018,74 +2008,6 @@ const calculateStats = (payments: Payment[]) => {
                 </div>
               </div>
 
-              
-
-              <div className="space-y-1 sm:space-y-1.5">
-                <Label className="text-xs font-medium text-slate-700">
-                  Payment Mode *
-                </Label>
-                <Select value="online" disabled>
-                  <SelectTrigger className="h-6 sm:h-8 text-sm bg-slate-50">
-                    <SelectValue placeholder="Online" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="online">🌐 Online</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-3 mb-3 sm:mb-4">
-              <div className="space-y-1 sm:space-y-1.5">
-                <Label className="text-[11px] font-medium text-slate-600">
-                  Bank Name
-                </Label>
-                <Select
-                  value={newPayment.bank_name}
-                  onValueChange={(value) => {
-                    if (value === "Other") {
-                      setShowCustomBankInput(true);
-                      setNewPayment({ ...newPayment, bank_name: "Other" });
-                    } else {
-                      setShowCustomBankInput(false);
-                      setNewPayment({ ...newPayment, bank_name: value });
-                    }
-                  }}
-                >
-                  <SelectTrigger className="h-6 sm:h-8 text-xs">
-                    <SelectValue placeholder="Select bank" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {bankNames.map((bank) => (
-                      <SelectItem
-                        key={bank.id}
-                        value={bank.name}
-                        className="text-xs"
-                      >
-                        {bank.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                {showCustomBankInput && (
-                  <div className="mt-2">
-                    <Input
-                      placeholder="Enter bank name"
-                      value={customBankName}
-                      onChange={(e) => {
-                        setCustomBankName(e.target.value);
-                        setNewPayment({
-                          ...newPayment,
-                          bank_name: e.target.value,
-                        });
-                      }}
-                      className="h-6 sm:h-8 text-xs"
-                    />
-                  </div>
-                )}
-              </div>
-
               <div className="space-y-1 sm:space-y-1.5 mb-3 sm:mb-4">
                 <Label className="text-xs font-medium text-slate-700">
                   Remark (Optional)
@@ -2099,6 +2021,7 @@ const calculateStats = (payments: Payment[]) => {
                   className="h-6 sm:h-8 text-sm"
                 />
               </div>
+
             </div>
 
             <DialogFooter className="px-2 sm:px-3 py-6 sm:py-2 bg-slate-50 border-t border-slate-200 rounded-b-lg sticky bottom-0">
@@ -2111,14 +2034,11 @@ const calculateStats = (payments: Payment[]) => {
                       amount: "",
                       payment_type: "rent",
                       payment_mode: "online",
-                      bank_name: "",
                       transaction_id: "",
                       payment_date: new Date().toISOString().split("T")[0],
                       remark: "",
                     });
                     setSelectedPaymentMonth("");
-                    setShowCustomBankInput(false);
-                    setCustomBankName("");
                   }}
                   className="w-full sm:w-auto px-4 sm:px-6 text-sm"
                 >

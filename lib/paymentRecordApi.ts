@@ -5,6 +5,74 @@
 // lib/paymentRecordApi.ts
 import { ApiResult, request } from "@/lib/api";
 
+const STORAGE_KEY = 'pending_payment_intent';
+
+export const savePaymentIntent = (intent: { 
+  type: 'demand' | 'open_payment'; 
+  demandId?: number; 
+  openPaymentForm?: boolean; 
+  action?: string; 
+  returnUrl?: string;
+}): boolean => {
+  try {
+    const intentWithTimestamp = {
+      ...intent,
+      timestamp: Date.now(),
+      expiresAt: Date.now() + (5 * 60 * 1000) // Expires in 5 minutes
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(intentWithTimestamp));
+    console.log('Payment intent saved to localStorage:', intentWithTimestamp);
+    return true;
+  } catch (error) {
+    console.error('Failed to save payment intent:', error);
+    return false;
+  }
+};
+
+export const getAndClearPaymentIntent = (): {
+  type: 'demand' | 'open_payment';
+  demandId?: number;
+  openPaymentForm?: boolean;
+  action?: string;
+  returnUrl?: string;
+  timestamp?: number;
+  expiresAt?: number;
+} | null => {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (!stored) return null;
+    
+    const intent = JSON.parse(stored);
+    
+    // Check if expired
+    if (intent.expiresAt && Date.now() > intent.expiresAt) {
+      localStorage.removeItem(STORAGE_KEY);
+      console.log('Payment intent expired');
+      return null;
+    }
+    
+    // Remove from storage after reading
+    localStorage.removeItem(STORAGE_KEY);
+    console.log('Payment intent retrieved and cleared:', intent);
+    return intent;
+  } catch (error) {
+    console.error('Failed to retrieve payment intent:', error);
+    localStorage.removeItem(STORAGE_KEY);
+    return null;
+  }
+};
+
+export const hasPendingPaymentIntent = (): boolean => {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (!stored) return false;
+    const intent = JSON.parse(stored);
+    return !(intent.expiresAt && Date.now() > intent.expiresAt);
+  } catch (error) {
+    return false;
+  }
+};
+
 export type Payment = {
   id: number;
   tenant_id: number;
