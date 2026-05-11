@@ -1,3 +1,5 @@
+// app/tenant/payments.tsx
+
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
@@ -58,6 +60,7 @@ import * as notificationApi from "@/lib/notificationApi";
 import { createRazorpayOrder, verifyRazorpayPayment } from "@/lib/paymentApi";
 import { consumeMasters } from "@/lib/masterApi";
 import { getAndClearPaymentIntent } from "@/lib/paymentRecordApi";
+import { useSocketIO } from "@/hooks/useSocketIO";
 
 // Types
 interface Payment {
@@ -196,21 +199,29 @@ const PaymentHistoryItem = ({
   formatDate: (date: string) => string;
 }) => {
   const amount = Number(payment.amount) || 0;
-  const showDownloadButton = payment.status === "approved" || payment.status === "paid";
   
-  // Get status color and icon
+  // ✅ Show download button ONLY for 'approved' status
+  const showDownloadButton = payment.status === "approved";
+  
+  // Get status color and icon based on actual database status
   const getStatusConfig = (status: string) => {
     const normalizedStatus = status?.toLowerCase() || '';
-    if (normalizedStatus === 'paid' || normalizedStatus === 'approved') {
-      return { bg: 'bg-green-50', text: 'text-green-700', border: 'border-green-200', icon: CheckCircle2 };
+    
+    // ✅ Only 'approved' shows as "Approved"
+    if (normalizedStatus === 'approved') {
+      return { bg: 'bg-green-50', text: 'text-green-700', border: 'border-green-200', icon: CheckCircle2, label: 'Approved' };
+    }
+    // ✅ 'paid' shows as "Paid"
+    if (normalizedStatus === 'paid') {
+      return { bg: 'bg-green-50', text: 'text-green-700', border: 'border-green-200', icon: CheckCircle2, label: 'Paid' };
     }
     if (normalizedStatus === 'pending') {
-      return { bg: 'bg-yellow-50', text: 'text-yellow-700', border: 'border-yellow-200', icon: Clock };
+      return { bg: 'bg-yellow-50', text: 'text-yellow-700', border: 'border-yellow-200', icon: Clock, label: 'Pending' };
     }
     if (normalizedStatus === 'rejected') {
-      return { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200', icon: XCircle };
+      return { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200', icon: XCircle, label: 'Failed' };
     }
-    return { bg: 'bg-gray-50', text: 'text-gray-600', border: 'border-gray-200', icon: CreditCard };
+    return { bg: 'bg-gray-50', text: 'text-gray-600', border: 'border-gray-200', icon: CreditCard, label: status || 'Unknown' };
   };
   
   const statusConfig = getStatusConfig(payment.status);
@@ -283,8 +294,9 @@ const PaymentHistoryItem = ({
           <div className="flex flex-col items-end gap-1">
             <Badge className={`${statusConfig.bg} ${statusConfig.text} border ${statusConfig.border} flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full`}>
               <StatusIcon className="h-2.5 w-2.5" />
-              {payment.status === "approved" || payment.status === "paid" ? "Paid" : payment.status}
+              {statusConfig.label}
             </Badge>
+            {/* ✅ Download button only for 'approved' status */}
             {showDownloadButton && (
               <Button
                 size="sm"
@@ -355,6 +367,8 @@ export default function TenantPaymentsPage() {
   const [hasBedAssignment, setHasBedAssignment] = useState(false);
   const [tenantPayments, setTenantPayments] = useState<any[]>([]);
   const [loadingPaymentForm, setLoadingPaymentForm] = useState(false);
+   const { on, connected } = useSocketIO();
+  const [socketLastUpdate, setSocketLastUpdate] = useState<Date | null>(null);
 
   const [newPayment, setNewPayment] = useState({
     payment_type: "rent",
@@ -372,6 +386,9 @@ export default function TenantPaymentsPage() {
   const [filterStatus, setFilterStatus] = useState<
     "all" | "approved" | "pending" | "rejected"
   >("all");
+
+
+  
 
   const formatCurrency = (amount: number) => {
     const validAmount =
@@ -440,7 +457,7 @@ export default function TenantPaymentsPage() {
 //   }
 // };
 
-  useEffect(() => {
+useEffect(() => {
   const checkForPaymentIntent = async () => {
     // Don't process if already processed or still loading
     if (paymentIntentProcessed || loading) return;
@@ -451,44 +468,110 @@ export default function TenantPaymentsPage() {
     setTimeout(async () => {
       // Check URL parameters
       const urlParams = new URLSearchParams(window.location.search);
-      const openPaymentFormParam = urlParams.get('openPaymentForm');
+      let demandId = urlParams.get("demand_id");
+      const action = urlParams.get("action");
+      const openPaymentFormParam = urlParams.get("openPaymentForm");
       
-      console.log("Checking payment intent. hasBedAssignment:", hasBedAssignment, "openPaymentForm:", openPaymentFormParam);
+      console.log("Checking payment intent. hasBedAssignment:", hasBedAssignment, "demandId:", demandId, "openPaymentForm:", openPaymentFormParam);
       
-      // Check localStorage for pending intent from ProtectedRoute
-      if (!openPaymentFormParam) {
+      // Check localStorage for pending intent from ProtectedRoute (for demand payments)
+      if (!demandId) {
         const pendingIntent = getAndClearPaymentIntent();
-        if (pendingIntent && pendingIntent.type === "open_payment") {
-          console.log("Found pending open_payment intent in localStorage");
-          if (hasBedAssignment) {
-            setPaymentIntentProcessed(true);
-            setShowPaymentDialog(true);
-            toast.info("Please complete your payment");
-            // Clean URL
-            window.history.replaceState({}, '', window.location.pathname);
-          } else {
-            toast.error("Cannot make payment: No bed assigned yet");
+        if (pendingIntent) {
+          console.log("Found pending intent in localStorage:", pendingIntent);
+          if (pendingIntent.type === "demand" && pendingIntent.demandId) {
+            demandId = pendingIntent.demandId.toString();
+            action = "pay";
+          } else if (pendingIntent.type === "open_payment") {
+            // Handle open payment form intent
+            if (hasBedAssignment) {
+              setPaymentIntentProcessed(true);
+              // Pre-fill with total pending amount
+              if (paymentFormData?.total_pending > 0) {
+                setNewPayment(prev => ({ 
+                  ...prev, 
+                  amount: paymentFormData.total_pending.toString(),
+                  payment_type: "rent"
+                }));
+              }
+              setShowPaymentDialog(true);
+              toast.info("Please complete your payment");
+              window.history.replaceState({}, '', window.location.pathname);
+            } else {
+              toast.error("Cannot make payment: No bed assigned yet");
+            }
+            return;
           }
-          return;
         }
       }
       
-      // Process open payment form from URL param
+      // Process demand payment (from demand email)
+      if (demandId && action === "pay") {
+        setPaymentIntentProcessed(true);
+        console.log("Processing demand payment for ID:", demandId);
+        
+        try {
+          // Fetch demand details from API
+          const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/payments/demands/${demandId}`, {
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+          });
+          
+          const result = await response.json();
+          console.log("Demand API response:", result);
+          
+          if (result.success && result.data) {
+            const demand = result.data;
+            console.log("Demand fetched:", demand);
+            
+            // Pre-fill the amount field with the demand amount
+            setNewPayment(prev => ({
+              ...prev,
+              amount: demand.amount.toString(),
+              payment_type: demand.payment_type,
+              remark: `Payment for demand request #${demand.id}: ${demand.description || ""}`,
+            }));
+            
+            // Open the payment dialog
+            setShowPaymentDialog(true);
+            toast.success(`Payment request of ₹${demand.amount.toLocaleString()} loaded. Please complete your payment.`);
+          } else {
+            toast.error(result.message || "Unable to load payment request details");
+          }
+        } catch (error) {
+          console.error("Error fetching demand details:", error);
+          toast.error("Unable to load payment request details. Please contact support.");
+        } finally {
+          // Clean URL after processing
+          window.history.replaceState({}, '', window.location.pathname);
+        }
+        return;
+      }
+      
+      // Process open payment form from URL param (for cron reminders)
       if (openPaymentFormParam === 'true' && hasBedAssignment) {
         setPaymentIntentProcessed(true);
+        // Pre-fill with total pending amount
+        if (paymentFormData?.total_pending > 0) {
+          setNewPayment(prev => ({ 
+            ...prev, 
+            amount: paymentFormData.total_pending.toString(),
+            payment_type: "rent"
+          }));
+          console.log("Pre-filled amount with total pending:", paymentFormData.total_pending);
+        }
         setShowPaymentDialog(true);
         toast.info("Please complete your payment");
-        // Clean URL
         window.history.replaceState({}, '', window.location.pathname);
       } else if (openPaymentFormParam === 'true' && !hasBedAssignment) {
         toast.error("Cannot make payment: No bed assigned yet");
       }
-    }, 500);
+    }, 800);
   };
   
   checkForPaymentIntent();
-}, [loading, hasBedAssignment, paymentIntentProcessed]);
-
+}, [loading, hasBedAssignment, paymentIntentProcessed, paymentFormData]); // ✅ Add paymentFormData to dependencies
+// Auto-open payment form when coming from portal page
 // Auto-open payment form when coming from portal page
 useEffect(() => {
   const urlParams = new URLSearchParams(window.location.search);
@@ -497,12 +580,21 @@ useEffect(() => {
   if (openPaymentFormParam === 'true' && !paymentIntentProcessed && !loading && hasBedAssignment) {
     setPaymentIntentProcessed(true);
     setTimeout(() => {
+      // ✅ ADD THIS: Pre-fill total pending amount
+      if (paymentFormData?.total_pending > 0) {
+        setNewPayment(prev => ({ 
+          ...prev, 
+          amount: paymentFormData.total_pending.toString(),
+          payment_type: "rent"
+        }));
+        console.log("Pre-filled amount with total pending:", paymentFormData.total_pending);
+      }
+      
       setShowPaymentDialog(true);
       window.history.replaceState({}, '', window.location.pathname);
-    }, 100);
+    }, 200);
   }
-}, [loading, hasBedAssignment, paymentIntentProcessed]); // ← Remove openPaymentForm from deps
-
+}, [loading, hasBedAssignment, paymentIntentProcessed, paymentFormData]); // ✅ Add paymentFormData to dependencies
 
 //   // Auto-open payment form when coming from portal page
 // useEffect(() => {
@@ -616,6 +708,8 @@ useEffect(() => {
       setLoading(false);
     }
   }, [navigate]);
+
+  
 
   // Update deposit stats from security deposit info
   const updateDepositStatsFromInfo = (depositInfo: any) => {
@@ -785,6 +879,100 @@ const calculateStats = (payments: Payment[]) => {
     }
   }, [tenant?.id]);
 
+  useEffect(() => {
+  const joinTenantRoom = async () => {
+    const tenantId = getTenantId();
+    if (tenantId && connected) {
+      // Emit event to join tenant's room
+      const socket = (window as any).socket;
+      if (socket) {
+        socket.emit('join_tenant_room', tenantId);
+      }
+    }
+  };
+  
+  joinTenantRoom();
+}, [connected, tenant?.id]);
+
+// Socket.IO listener for real-time payment updates
+useEffect(() => {
+  if (!connected) return;
+
+  // Listen for payment status updates (approved/rejected)
+  const unsubscribePaymentUpdate = on('payment_updated', (data) => {
+    
+    // Show toast notification
+    if (data.status === 'approved') {
+      toast.success(`✅ Your payment of ₹${data.amount?.toLocaleString()} has been approved!`, {
+        duration: 5000,
+      });
+    } else if (data.status === 'rejected') {
+      toast.error(`❌ Your payment of ₹${data.amount?.toLocaleString()} was rejected.`, {
+        duration: 5000,
+      });
+    }
+    
+    // ✅ Force immediate refresh of all data
+    fetchData();
+    fetchTenantPayments();
+    setSocketLastUpdate(new Date());
+  });
+
+  // Listen for new payment confirmation (when payment is successful)
+  const unsubscribeNewPayment = on('new_payment', (data) => {
+    console.log('New payment confirmed via Socket.IO:', data);
+    
+    // Only show notification if this payment belongs to current tenant
+    if (data.tenant_id === tenant?.id) {
+      toast.success(`💰 Payment of ₹${data.amount?.toLocaleString()} successful!`, {
+        duration: 5000,
+      });
+      
+      // ✅ Force immediate refresh of all data (don't wait for timeout)
+      fetchData();
+      fetchTenantPayments();
+      setSocketLastUpdate(new Date());
+    }
+  });
+
+  // Listen for payment pending (when payment is initiated)
+  const unsubscribePaymentPending = on('payment_pending', (data) => {
+    console.log('Payment pending via Socket.IO:', data);
+    
+    if (data.tenant_id === tenant?.id) {
+      toast.info(`⏳ Payment of ₹${data.amount?.toLocaleString()} initiated - processing...`, {
+        duration: 3000,
+      });
+      
+      // ✅ Immediately fetch to show pending payment
+      fetchData();
+      fetchTenantPayments();
+    }
+  });
+
+  const unsubscribePaymentFailed = on('payment_failed', (data) => {
+  console.log('Payment failed via Socket.IO:', data);
+  
+  if (data.tenant_id === tenant?.id) {
+    toast.error(`❌ Payment of ₹${data.amount?.toLocaleString()} failed. Reason: ${data.reason || 'Payment failed'}`, {
+      duration: 6000,
+    });
+    
+    // Force refresh to show failed payment
+    fetchData();
+    fetchTenantPayments();
+    setSocketLastUpdate(new Date());
+  }
+});
+
+  return () => {
+    unsubscribePaymentUpdate();
+    unsubscribeNewPayment();
+    unsubscribePaymentPending();
+    unsubscribePaymentFailed();
+  };
+}, [connected, on, tenant?.id, fetchData, fetchTenantPayments]);
+
   const fetchSecurityDepositInfo = useCallback(async () => {
     if (!tenant?.id) return;
     try {
@@ -840,6 +1028,15 @@ const handleRazorpayPayment = useCallback(
   async (amount: number, paymentData: any) => {
     try {
       setLoading(true);
+      
+      // ✅ Close the payment dialog first
+      setShowPaymentDialog(false);
+      
+      // Small delay to allow dialog to close
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Show loading toast
+      const loadingToastId = toast.loading("Preparing payment...", { id: "razorpay-loading" });
 
       const loadRazorpayScript = () => {
         return new Promise((resolve) => {
@@ -860,6 +1057,7 @@ const handleRazorpayPayment = useCallback(
 
       const scriptLoaded = await loadRazorpayScript();
       if (!scriptLoaded) {
+        toast.dismiss(loadingToastId);
         toast.error("Failed to load payment gateway. Please refresh and try again.");
         setLoading(false);
         return false;
@@ -890,10 +1088,14 @@ const handleRazorpayPayment = useCallback(
       const orderResult = await orderResponse.json();
 
       if (!orderResult.success) {
+        toast.dismiss(loadingToastId);
         toast.error(orderResult.message || "Failed to create payment order");
         setLoading(false);
         return false;
       }
+
+      // Dismiss loading toast before opening Razorpay
+      toast.dismiss(loadingToastId);
 
       const options = {
         key: orderResult.key,
@@ -906,9 +1108,6 @@ const handleRazorpayPayment = useCallback(
           console.log("💰 Razorpay success callback triggered", response);
           
           try {
-            // ❌ REMOVED: Manual test-webhook call
-            // ✅ Now relying on Razorpay's live webhook to update the payment
-            
             // Show success UI immediately
             setPaymentConfirmationData({
               id: orderResult.payment_id,
@@ -919,7 +1118,6 @@ const handleRazorpayPayment = useCallback(
               transaction_id: response.razorpay_payment_id,
             });
             setShowPaymentConfirmation(true);
-            setShowPaymentDialog(false);
             
             // Reset form
             setNewPayment({
@@ -934,18 +1132,13 @@ const handleRazorpayPayment = useCallback(
             setSecurityDepositInfo(null);
             setPaymentFormData(null);
             
-            // Refresh data after webhook should have processed (5-10 seconds)
-            setTimeout(() => {
-              fetchTenantPayments();
-              fetchData();
-            }, 8000); // Increased delay to allow webhook to process
-            
-            toast.success("Payment successful! Processing confirmation...");
+            toast.success("Payment successful! Your payment is being processed.", {
+              duration: 4000,
+            });
             
           } catch (error) {
             console.error("Error in payment handler:", error);
             toast.error("Payment successful but verification pending");
-          } finally {
             setLoading(false);
           }
         },
@@ -957,8 +1150,11 @@ const handleRazorpayPayment = useCallback(
         theme: { color: "#0149ab" },
         modal: {
           ondismiss: function () {
+            console.log("Razorpay modal closed by user");
+            toast.dismiss("razorpay-loading");
+            toast.dismiss("payment-processing");
+            toast.info("Payment cancelled", { duration: 3000 });
             setLoading(false);
-            toast.info("Payment cancelled");
           },
         },
       };
@@ -968,6 +1164,8 @@ const handleRazorpayPayment = useCallback(
       return true;
     } catch (error: any) {
       console.error("Razorpay error:", error);
+      toast.dismiss("razorpay-loading");
+      toast.dismiss("payment-processing");
       toast.error(error.message || "Payment failed");
       setLoading(false);
       return false;
@@ -988,6 +1186,7 @@ const handleSubmitPayment = useCallback(async () => {
   }
 
   try {
+    const currentDate = new Date();
     const paymentData: any = {
       tenant_id: tenant?.id,
       payment_type: newPayment.payment_type,
@@ -996,36 +1195,27 @@ const handleSubmitPayment = useCallback(async () => {
       payment_date: newPayment.payment_date,
     };
 
+    // Always send current month and year for rent payments
     if (newPayment.payment_type === "rent") {
-      if (selectedPaymentMonth && selectedPaymentMonth !== "current") {
-        const [year, month] = selectedPaymentMonth.split("-");
-        const monthNames = [
-          "January", "February", "March", "April", "May", "June",
-          "July", "August", "September", "October", "November", "December"
-        ];
-        paymentData.month = monthNames[parseInt(month) - 1];
-        paymentData.year = parseInt(year);
-        paymentData.remark = paymentData.remark || `Payment for ${paymentData.month} ${paymentData.year}`;
-      } else {
-        const currentDate = new Date();
-        paymentData.month = currentDate.toLocaleString("default", { month: "long" });
-        paymentData.year = currentDate.getFullYear();
-      }
+      paymentData.month = currentDate.toLocaleString("default", { month: "long" });
+      paymentData.year = currentDate.getFullYear();
+      paymentData.remark = paymentData.remark || `Rent payment for ${paymentData.month} ${paymentData.year}`;
     }
 
+    // The handleRazorpayPayment will close the dialog
     await handleRazorpayPayment(parseFloat(newPayment.amount), paymentData);
   } catch (error: any) {
     console.error("Payment error:", error);
     toast.error(error.message || "Failed to initiate payment");
   }
-}, [tenant?.id, newPayment, selectedPaymentMonth, hasBedAssignment, handleRazorpayPayment]);
+}, [tenant?.id, newPayment, hasBedAssignment, handleRazorpayPayment]);
 
   useEffect(() => {
     if (showPaymentConfirmation) {
       const timer = setTimeout(() => {
         setShowPaymentConfirmation(false);
         setPaymentConfirmationData(null);
-      }, 5000);
+      }, 3000);
       return () => clearTimeout(timer);
     }
   }, [showPaymentConfirmation]);
@@ -1074,119 +1264,126 @@ const handleSubmitPayment = useCallback(async () => {
   }
 
   // Payment Confirmation Modal Component
-  const PaymentConfirmationModal = ({
-    isOpen,
-    onClose,
-    paymentDetails,
-  }: {
-    isOpen: boolean;
-    onClose: () => void;
-    paymentDetails: any;
-  }) => {
-    const [countdown, setCountdown] = useState(5);
+const PaymentConfirmationModal = ({
+  isOpen,
+  onClose,
+  paymentDetails,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  paymentDetails: any;
+}) => {
+  const [countdown, setCountdown] = useState(5);
 
-    useEffect(() => {
-      if (isOpen) {
-        setCountdown(5);
-        const timer = setInterval(() => {
-          setCountdown((prev) => {
-            if (prev <= 1) {
-              clearInterval(timer);
-              return 0;
-            }
-            return prev - 1;
-          });
-        }, 1000);
-        return () => clearInterval(timer);
-      }
-    }, [isOpen]);
+  useEffect(() => {
+    if (isOpen) {
+      setCountdown(5);
+      const timer = setInterval(() => {
+        setCountdown((prev) => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [isOpen]);
 
-    if (!isOpen) return null;
+  // Auto-close after countdown
+  useEffect(() => {
+    if (countdown === 0 && isOpen) {
+      onClose();
+    }
+  }, [countdown, isOpen, onClose]);
 
-    return (
-      <div className="fixed inset-0 z-[70] flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm">
-        <div className="bg-white rounded-xl sm:rounded-2xl max-w-md w-full shadow-2xl">
-          <div className="p-5 sm:p-6">
-            <div className="flex items-center justify-center mb-4">
-              <div className="w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center shadow-lg">
-                <CheckCircle className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm">
+      <div className="bg-white rounded-xl sm:rounded-2xl max-w-md w-full shadow-2xl">
+        <div className="p-5 sm:p-6">
+          <div className="flex items-center justify-center mb-4">
+            <div className="w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center shadow-lg">
+              <CheckCircle className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
+            </div>
+          </div>
+
+          <h3 className="text-lg sm:text-xl font-bold text-center text-gray-900 mb-2">
+            Payment Successful! 🎉
+          </h3>
+
+          <p className="text-xs sm:text-sm text-gray-600 text-center mb-4">
+            Your payment has been processed successfully.
+          </p>
+
+          {paymentDetails && (
+            <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-3 sm:p-4 mb-4 space-y-2">
+              <div className="flex justify-between items-center pb-2 border-b border-gray-200">
+                <span className="text-xs text-gray-600">Payment ID:</span>
+                <span className="text-sm sm:text-base font-bold text-gray-900">
+                  #{String(paymentDetails.id || "").slice(-8) || "N/A"}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-gray-600">Payment Type:</span>
+                <span className="text-xs sm:text-sm font-semibold text-gray-900 capitalize">
+                  {paymentDetails.payment_type === "rent"
+                    ? "Rent Payment"
+                    : "Security Deposit"}
+                </span>
+              </div>
+              {paymentDetails.month && paymentDetails.year && (
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-gray-600">For Month:</span>
+                  <span className="text-xs sm:text-sm font-semibold text-gray-900">
+                    {paymentDetails.month} {paymentDetails.year}
+                  </span>
+                </div>
+              )}
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-gray-600">Amount Paid:</span>
+                <span className="text-base sm:text-lg font-bold text-green-600">
+                  ₹{paymentDetails.amount?.toLocaleString()}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-gray-600">Payment Mode:</span>
+                <span className="text-xs sm:text-sm font-semibold text-gray-900 capitalize">
+                  Online (Razorpay)
+                </span>
+              </div>
+              {paymentDetails.transaction_id && (
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-gray-600">
+                    Transaction ID:
+                  </span>
+                  <span className="text-xs font-mono text-gray-900">
+                    {String(paymentDetails.transaction_id).slice(0, 12)}...
+                  </span>
+                </div>
+              )}
+              <div className="flex justify-between items-center pt-2 border-t border-gray-200">
+                <span className="text-xs text-gray-600">Status:</span>
+                <Badge className="bg-green-100 text-green-700 text-[10px] px-2 py-0.5">
+                  Completed
+                </Badge>
               </div>
             </div>
+          )}
 
-            <h3 className="text-lg sm:text-xl font-bold text-center text-gray-900 mb-2">
-              Payment Successful! 🎉
-            </h3>
-
-            <p className="text-xs sm:text-sm text-gray-600 text-center mb-4">
-              Your payment has been processed successfully.
-            </p>
-
-            {paymentDetails && (
-              <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-3 sm:p-4 mb-4 space-y-2">
-                <div className="flex justify-between items-center pb-2 border-b border-gray-200">
-                  <span className="text-xs text-gray-600">Payment ID:</span>
-                  <span className="text-sm sm:text-base font-bold text-gray-900">
-                    #{String(paymentDetails.id || "").slice(-8) || "N/A"}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-gray-600">Payment Type:</span>
-                  <span className="text-xs sm:text-sm font-semibold text-gray-900 capitalize">
-                    {paymentDetails.payment_type === "rent"
-                      ? "Rent Payment"
-                      : "Security Deposit"}
-                  </span>
-                </div>
-                {paymentDetails.month && paymentDetails.year && (
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs text-gray-600">For Month:</span>
-                    <span className="text-xs sm:text-sm font-semibold text-gray-900">
-                      {paymentDetails.month} {paymentDetails.year}
-                    </span>
-                  </div>
-                )}
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-gray-600">Amount Paid:</span>
-                  <span className="text-base sm:text-lg font-bold text-green-600">
-                    ₹{paymentDetails.amount?.toLocaleString()}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-gray-600">Payment Mode:</span>
-                  <span className="text-xs sm:text-sm font-semibold text-gray-900 capitalize">
-                    Online (Razorpay)
-                  </span>
-                </div>
-                {paymentDetails.transaction_id && (
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs text-gray-600">
-                      Transaction ID:
-                    </span>
-                    <span className="text-xs font-mono text-gray-900">
-                      {String(paymentDetails.transaction_id).slice(0, 12)}...
-                    </span>
-                  </div>
-                )}
-                <div className="flex justify-between items-center pt-2 border-t border-gray-200">
-                  <span className="text-xs text-gray-600">Status:</span>
-                  <Badge className="bg-green-100 text-green-700 text-[10px] px-2 py-0.5">
-                    Completed
-                  </Badge>
-                </div>
-              </div>
-            )}
-
-            <button
-              onClick={onClose}
-              className="w-full py-2.5 sm:py-3 bg-gradient-to-r from-blue-600 to-cyan-600 text-white text-sm font-semibold rounded-xl hover:shadow-lg transition-all"
-            >
-              {countdown > 0 ? `Auto-closing in ${countdown}s...` : "Done"}
-            </button>
-          </div>
+          <button
+            onClick={onClose}
+            className="w-full py-2.5 sm:py-3 bg-gradient-to-r from-blue-600 to-cyan-600 text-white text-sm font-semibold rounded-xl hover:shadow-lg transition-all"
+          >
+            {countdown > 0 ? `Auto-closing in ${countdown}s...` : "Done"}
+          </button>
         </div>
       </div>
-    );
-  };
+    </div>
+  );
+};
 
   return (
     <div className="bg-slate-50">
@@ -1455,37 +1652,6 @@ const handleSubmitPayment = useCallback(async () => {
         </tbody>
       </table>
     </div>
-
-    {/* Progress Bar for Overall Payment */}
-    {((paymentFormData?.total_expected || rentStats.totalPaid + rentStats.totalPending) + 
-      (depositStats.requiredAmount || securityDepositInfo?.security_deposit || 0)) > 0 && (
-      <div className="mt-3 pt-2">
-        <div className="flex justify-between text-[9px] text-slate-500 mb-1">
-          <span>Overall Payment Progress</span>
-          <span className="font-medium">
-            {Math.round(
-              (((paymentFormData?.total_paid || rentStats.totalPaid) + 
-                (depositStats.totalPaid || securityDepositInfo?.paid_amount || 0)) /
-               ((paymentFormData?.total_expected || rentStats.totalPaid + rentStats.totalPending) + 
-                (depositStats.requiredAmount || securityDepositInfo?.security_deposit || 1))) * 100
-            )}%
-          </span>
-        </div>
-        <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-gradient-to-r from-blue-600 to-amber-600 rounded-full transition-all"
-            style={{
-              width: `${Math.min(100, Math.round(
-                (((paymentFormData?.total_paid || rentStats.totalPaid) + 
-                  (depositStats.totalPaid || securityDepositInfo?.paid_amount || 0)) /
-                 ((paymentFormData?.total_expected || rentStats.totalPaid + rentStats.totalPending) + 
-                  (depositStats.requiredAmount || securityDepositInfo?.security_deposit || 1))) * 100
-              ))}%`
-            }}
-          />
-        </div>
-      </div>
-    )}
   </CardContent>
 </Card>
 
@@ -1556,16 +1722,17 @@ const handleSubmitPayment = useCallback(async () => {
           </SelectContent>
         </Select>
         <Select value={filterStatus} onValueChange={(v: any) => setFilterStatus(v)}>
-          <SelectTrigger className="w-[75px] h-7 text-[10px] px-2 border-slate-200">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all" className="text-xs">All</SelectItem>
-            <SelectItem value="approved" className="text-xs">Paid</SelectItem>
-            <SelectItem value="pending" className="text-xs">Pending</SelectItem>
-            <SelectItem value="rejected" className="text-xs">Failed</SelectItem>
-          </SelectContent>
-        </Select>
+  <SelectTrigger className="w-[75px] h-7 text-[10px] px-2 border-slate-200">
+    <SelectValue placeholder="Status" />
+  </SelectTrigger>
+  <SelectContent>
+    <SelectItem value="all" className="text-xs">All</SelectItem>
+    <SelectItem value="approved" className="text-xs">Approved</SelectItem>
+    <SelectItem value="paid" className="text-xs">Paid</SelectItem>
+    <SelectItem value="pending" className="text-xs">Pending</SelectItem>
+    <SelectItem value="rejected" className="text-xs">Failed</SelectItem>
+  </SelectContent>
+</Select>
         <Button
           variant="ghost"
           size="sm"
@@ -1603,8 +1770,7 @@ const handleSubmitPayment = useCallback(async () => {
 </Card>
       </div>
 
-      {/* Payment Dialog*/}
-      {/* Payment Dialog - Simplified & Compact */}
+{/* Payment Dialog - Simplified & Compact */}
 <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
   <DialogContent className="max-w-md w-[95vw] max-h-[85vh] p-0 gap-0 rounded-xl">
     {/* Header - Compact */}
@@ -1684,90 +1850,40 @@ const handleSubmitPayment = useCallback(async () => {
         </div>
       )}
 
-      {/* Month Selection - Only for Rent */}
-{/* Month Selection - Only for Rent - RESTRICTED TO OLDEST PENDING MONTH */}
-{newPayment.payment_type === "rent" && paymentFormData?.unpaid_months && paymentFormData.unpaid_months.length > 0 && (
-  <div className="space-y-1.5">
-    <Label className="text-xs font-medium text-slate-700">
-      Pay For Month
-    </Label>
     
-    {/* Find the oldest pending month (FIFO - first month in the list) */}
-    {(() => {
-      // Sort unpaid months by date (oldest first)
-      const sortedUnpaidMonths = [...paymentFormData.unpaid_months].sort((a, b) => {
-        if (a.year !== b.year) return a.year - b.year;
-        return a.month_num - b.month_num;
-      });
-      
-      const oldestPendingMonth = sortedUnpaidMonths[0];
-      const hasPendingMonths = sortedUnpaidMonths.length > 0;
-      
-      if (!hasPendingMonths) {
-        return (
-          <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
-            <p className="text-xs text-green-700">✓ All months are paid!</p>
-          </div>
-        );
-      }
-      
-      // Auto-select the oldest pending month when component loads or when payment type changes
-      if (!selectedPaymentMonth && oldestPendingMonth) {
-        setTimeout(() => {
-          setSelectedPaymentMonth(oldestPendingMonth.month_key);
-          setNewPayment(prev => ({ 
-            ...prev, 
-            amount: oldestPendingMonth.pending.toString() 
-          }));
-        }, 100);
-      }
-      
-      return (
-        <>
-          
-          <Select
-            value={selectedPaymentMonth}
-            onValueChange={(value) => {
-              setSelectedPaymentMonth(value);
-              const selectedMonth = paymentFormData.unpaid_months.find(
-                (m: any) => m.month_key === value
-              );
-              if (selectedMonth) {
-                setNewPayment((prev) => ({ ...prev, amount: selectedMonth.pending.toString() }));
-              }
-            }}
-          >
-            <SelectTrigger className="h-9 text-sm">
-              <SelectValue placeholder="Select month to pay" />
-            </SelectTrigger>
-            <SelectContent>
-              {/* Only show unpaid months, sorted from oldest to newest */}
-              {sortedUnpaidMonths.map((month: any) => (
-                <SelectItem key={month.month_key} value={month.month_key}>
-                  <div className="flex justify-between w-full">
-                    <span>
-                      {month.month} {month.year}
-                      {month.month_key === oldestPendingMonth.month_key && (
-                        <span className="ml-2 text-[10px] text-amber-600">(Oldest Pending)</span>
-                      )}
-                    </span>
-                    <span className="text-amber-600 font-medium">₹{month.pending.toLocaleString()}</span>
-                  </div>
-                </SelectItem>
+
+      {/* Pending Months Summary (Optional - shows what will be paid) */}
+      {newPayment.payment_type === "rent" && paymentFormData?.unpaid_months && paymentFormData.unpaid_months.length > 0 && (
+        <div className="bg-amber-50 rounded-lg p-3 border border-amber-200">
+          <p className="text-xs font-semibold text-amber-800 mb-2">Pending Months:</p>
+          <div className="space-y-1">
+            {paymentFormData.unpaid_months
+              .sort((a, b) => {
+                if (a.year !== b.year) return a.year - b.year;
+                return a.month_num - b.month_num;
+              })
+              .slice(0, 3)
+              .map((month, idx) => (
+                <div key={month.month_key} className="flex justify-between items-center text-xs">
+                  <span className="font-medium">
+                    {idx === 0 && "👉 "}{month.month} {month.year}
+                    {idx === 0 && <span className="ml-2 text-[10px] text-amber-600">(Will be paid first)</span>}
+                  </span>
+                  <span className="font-semibold text-amber-700">₹{month.pending.toLocaleString()}</span>
+                </div>
               ))}
-            </SelectContent>
-          </Select>
-          
-          {paymentFormData.total_pending > 0 && (
-            <p className="text-[10px] text-amber-600">
-              Total pending across all months: ₹{paymentFormData.total_pending.toLocaleString()}
-            </p>
-          )}
-        </>
-      );
-    })()}
-  </div>
-)}
+            {paymentFormData.unpaid_months.length > 3 && (
+              <p className="text-[10px] text-amber-600 text-center pt-1">
+                +{paymentFormData.unpaid_months.length - 3} more months
+              </p>
+            )}
+          </div>
+          <div className="mt-2 pt-2 border-t border-amber-200 flex justify-between text-xs font-bold">
+            <span>Total Pending:</span>
+            <span className="text-amber-700">₹{paymentFormData.total_pending?.toLocaleString()}</span>
+          </div>
+        </div>
+      )}
 
       {/* Security Deposit Info - Only for Deposit */}
       {newPayment.payment_type === "security_deposit" && securityDepositInfo && (
@@ -1858,7 +1974,6 @@ const handleSubmitPayment = useCallback(async () => {
               payment_date: new Date().toISOString().split("T")[0],
               remark: "",
             });
-            setSelectedPaymentMonth("");
           }}
           className="flex-1 text-sm h-10"
         >

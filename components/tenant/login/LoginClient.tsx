@@ -15,6 +15,7 @@ import {
 } from "@/lib/tenantAuthApi";
 
 import { getAndClearPaymentIntent } from "@/lib/paymentRecordApi";
+import { io } from "socket.io-client";
 
 interface LoginClientProps {
   initialPropertyImages: string[];
@@ -103,6 +104,9 @@ export default function LoginClient({
             duration: 500,
           });
           handleSuccessfulLogin(result.role);
+          // Join tenant's Socket.IO room
+  const socket = io(import.meta.env.VITE_API_URL || 'http://localhost:3001');
+  socket.emit('join_tenant_room', result.tenant_id);
         } else {
           toast.error(result.error || result.message || "Invalid credentials");
         }

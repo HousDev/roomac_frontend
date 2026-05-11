@@ -114,6 +114,7 @@ import { useAuth } from "@/context/authContext";
 import React from "react";
 import { getLatestRentPayment } from "@/lib/paymentRecordApi";
 import { LedgerReportDialog } from "@/components/admin/payments/LedgerReportDialog";
+import { useSocketIO } from "@/hooks/useSocketIO";
 
 // Types
 interface PaymentFormData {
@@ -247,6 +248,8 @@ const [bankNames, setBankNames] = useState<Array<{ id: number; name: string }>>(
 const [loadingBankNames, setLoadingBankNames] = useState(false);
 const [customBankName, setCustomBankName] = useState("");
 const [showCustomBankInput, setShowCustomBankInput] = useState(false);
+const { on, connected } = useSocketIO();
+  const [lastUpdateTime, setLastUpdateTime] = useState<Date | null>(null);
 
   const [columnFilters, setColumnFilters] = useState({
     payment_date: "",
@@ -320,6 +323,50 @@ const [showCustomBankInput, setShowCustomBankInput] = useState(false);
   useEffect(() => {
     loadData();
   }, []);
+
+   // Listen for new payment events
+  useEffect(() => {
+    if (!connected) return;
+
+    // Listen for new payment notification
+    const unsubscribeNewPayment = on('new_payment', (data) => {
+      // Refresh all data
+      loadData();
+      setLastUpdateTime(new Date());
+    });
+
+    // Listen for payment status updates (approved/rejected)
+    const unsubscribePaymentUpdate = on('payment_updated', (data) => {
+      loadData();
+      setLastUpdateTime(new Date());
+    });
+
+    // Listen for demand payment created
+    const unsubscribeDemandCreated = on('demand_created', (data) => {
+      loadDemands();
+      setLastUpdateTime(new Date());
+    });
+
+    
+const unsubscribePaymentFailed = on('payment_failed', (data) => {
+  loadData(); // Refresh to show failed payment
+  setLastUpdateTime(new Date());
+});
+
+// Also add listener for payment_pending (when payment is initiated but not completed)
+const unsubscribePaymentPending = on('payment_pending', (data) => {
+  loadData();
+  setLastUpdateTime(new Date());
+});
+
+    return () => {
+      unsubscribeNewPayment();
+      unsubscribePaymentUpdate();
+      unsubscribeDemandCreated();
+      unsubscribePaymentFailed();
+      unsubscribePaymentPending();
+    };
+  }, [connected, on]);
 
   // Fetch bank names from masters
 const fetchBankNames = async () => {
@@ -3151,9 +3198,6 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
                     <SelectItem value="security_deposit" className="text-xs">
                       Security Deposit
                     </SelectItem>
-                    <SelectItem value="maintenance" className="text-xs">
-                      Maintenance
-                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -3796,7 +3840,6 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
             <SelectContent>
               <SelectItem value="rent" className="text-xs">Rent</SelectItem>
               <SelectItem value="security_deposit" className="text-xs">Security Deposit</SelectItem>
-              <SelectItem value="maintenance" className="text-xs">Maintenance</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -6174,7 +6217,7 @@ const ReceiptsTable = ({
                     </TableHead>
 
                     {/* Tenant Column - Updated with salutation and phone */}
-                    <TableHead className="w-[200px] py-2 px-2 bg-gray-200">
+                    <TableHead className="w-[140px] py-2 px-2 bg-gray-200">
                       <div className="flex flex-col gap-1">
                         <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
                           Tenant
@@ -6194,7 +6237,7 @@ const ReceiptsTable = ({
                     </TableHead>
 
                     {/* Amount Column */}
-                    <TableHead className="w-[90px] py-2 px-2 bg-gray-200 text-right">
+                    <TableHead className="w-[200px] py-2 px-2 bg-gray-200 text-left">
                       <div className="flex flex-col gap-1">
                         <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
                           Amount
@@ -6202,7 +6245,7 @@ const ReceiptsTable = ({
                         <Input
                           placeholder="Search..."
                           type="number"
-                          className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 text-right font-normal w-full"
+                          className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 text-left font-normal w-full"
                           value={receiptFilters.amount}
                           onChange={(e) =>
                             setReceiptFilters({
@@ -6215,7 +6258,7 @@ const ReceiptsTable = ({
                     </TableHead>
 
                     {/* Method/Bank Column */}
-                    <TableHead className="w-[120px] py-2 px-2 bg-gray-200">
+                    <TableHead className="w-[80px] py-2 px-2 bg-gray-200">
                       <div className="flex flex-col gap-1">
                         <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
                           Method/Bank
@@ -6279,9 +6322,9 @@ const ReceiptsTable = ({
             <div className="overflow-y-auto flex-1 min-h-0">
               <Table>
                 <colgroup>
-                  <col style={{ width: "90px" }} />
-                  <col style={{ width: "200px" }} />
-                  <col style={{ width: "90px" }} />
+                  <col style={{ width: "120px" }} />
+<col style={{ width: "80px" }} />
+                  <col style={{ width: "80px" }} />
                   <col style={{ width: "120px" }} />
                   <col style={{ width: "100px" }} />
                   <col style={{ width: "60px" }} />
