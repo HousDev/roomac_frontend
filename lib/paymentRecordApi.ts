@@ -91,6 +91,7 @@ export type Payment = {
   status: 'pending' | 'approved' | 'rejected';
   created_at: string;
   updated_at: string;
+  payment_mode_type?: string;
   // Joined fields
   tenant_name?: string;
   tenant_email?: string;
