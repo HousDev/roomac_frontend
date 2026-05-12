@@ -730,19 +730,30 @@ useEffect(() => {
     }
   };
 
-  useEffect(() => {
-    if (showPaymentDialog) {
-      if (preSelectedAmount && preSelectedPaymentType) {
-        setNewPayment((prev) => ({
-          ...prev,
-          amount: preSelectedAmount?.toString() || "",
-          payment_type: preSelectedPaymentType,
-        }));
-        setPreSelectedAmount(null);
-        setPreSelectedPaymentType("rent");
-      }
+useEffect(() => {
+  if (showPaymentDialog) {
+    // ✅ Pre-fill total pending amount when dialog opens
+    if (newPayment.payment_type === "rent" && paymentFormData?.total_pending > 0) {
+      setNewPayment(prev => ({
+        ...prev,
+        amount: paymentFormData.total_pending.toString(),
+      }));
+    } else if (newPayment.payment_type === "security_deposit" && securityDepositInfo?.pending_amount > 0) {
+      setNewPayment(prev => ({
+        ...prev,
+        amount: securityDepositInfo.pending_amount.toString(),
+      }));
+    } else if (preSelectedAmount && preSelectedPaymentType) {
+      setNewPayment((prev) => ({
+        ...prev,
+        amount: preSelectedAmount?.toString() || "",
+        payment_type: preSelectedPaymentType,
+      }));
+      setPreSelectedAmount(null);
+      setPreSelectedPaymentType("rent");
     }
-  }, [showPaymentDialog]);
+  }
+}, [showPaymentDialog, paymentFormData, securityDepositInfo, preSelectedAmount, preSelectedPaymentType]);
 
 const calculateStats = (payments: Payment[]) => {
   let rentTotalPaid = 0;
@@ -1015,12 +1026,25 @@ useEffect(() => {
     if (type === "rent") {
       setSecurityDepositInfo(null);
       await fetchPaymentFormData();
-      if (!preSelectedAmount) {
-        setNewPayment((prev) => ({ ...prev, amount: "" }));
-      }
+       // ✅ Auto-fill with TOTAL pending amount (not just first month)
+    if (paymentFormData?.total_pending > 0) {
+      setNewPayment((prev) => ({
+        ...prev,
+        amount: paymentFormData.total_pending.toString(),
+      }));
+    } else if (!preSelectedAmount) {
+      setNewPayment((prev) => ({ ...prev, amount: "" }));
+    }
     } else if (type === "security_deposit") {
       setPaymentFormData(null);
       await fetchSecurityDepositInfo();
+      // ✅ Auto-fill with security deposit pending amount
+    if (securityDepositInfo?.pending_amount > 0) {
+      setNewPayment((prev) => ({
+        ...prev,
+        amount: securityDepositInfo.pending_amount.toString(),
+      }));
+    }
     }
   };
 
@@ -1481,6 +1505,7 @@ const PaymentConfirmationModal = ({
              </td>
             <td className="p-2 text-center">
               {/* Rent Row - Pay Now button */}
+{/* Rent Row - Pay Now button */}
 {(paymentFormData?.total_pending || rentStats.totalPending) > 0 && (
   <Button
     size="sm"
@@ -1491,35 +1516,20 @@ const PaymentConfirmationModal = ({
         return;
       }
       
-      // Sort unpaid months to find the oldest pending month
-      const sortedUnpaid = [...(paymentFormData?.unpaid_months || [])].sort((a, b) => {
-        if (a.year !== b.year) return a.year - b.year;
-        return a.month_num - b.month_num;
-      });
-      
-      const oldestPending = sortedUnpaid[0];
-      
-      if (oldestPending) {
-        // Set the oldest pending month
-        setSelectedPaymentMonth(oldestPending.month_key);
-        setNewPayment(prev => ({ 
-          ...prev, 
-          payment_type: "rent",
-          amount: oldestPending.pending.toString(),
-          remark: `Payment for ${oldestPending.month} ${oldestPending.year}`
-        }));
-      } else if (paymentFormData?.total_pending > 0) {
-        // Fallback: use current month
-        const currentDate = new Date();
-        const monthName = currentDate.toLocaleString("default", { month: "long" });
-        const year = currentDate.getFullYear();
-        const monthKey = `${year}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
-        setSelectedPaymentMonth(monthKey);
+      // ✅ Pre-fill with TOTAL pending amount instead of just oldest month
+      if (paymentFormData?.total_pending > 0) {
         setNewPayment(prev => ({ 
           ...prev, 
           payment_type: "rent",
           amount: paymentFormData.total_pending.toString(),
-          remark: `Payment for ${monthName} ${year}`
+          remark: `Payment for pending rent of ₹${paymentFormData.total_pending.toLocaleString()}`
+        }));
+      } else if (rentStats.totalPending > 0) {
+        setNewPayment(prev => ({ 
+          ...prev, 
+          payment_type: "rent",
+          amount: rentStats.totalPending.toString(),
+          remark: `Payment for pending rent of ₹${rentStats.totalPending.toLocaleString()}`
         }));
       }
       
@@ -1936,7 +1946,7 @@ const PaymentConfirmationModal = ({
             className="pl-8 h-10 text-base font-medium"
           />
         </div>
-        {newPayment.payment_type === "rent" && paymentFormData?.total_pending > 0 && (
+        {/* {newPayment.payment_type === "rent" && paymentFormData?.total_pending > 0 && (
           <button
             type="button"
             onClick={() => setNewPayment(prev => ({ ...prev, amount: paymentFormData.total_pending.toString() }))}
@@ -1944,7 +1954,7 @@ const PaymentConfirmationModal = ({
           >
             Pay full pending amount (₹{paymentFormData.total_pending.toLocaleString()})
           </button>
-        )}
+        )} */}
       </div>
 
       {/* Remark - Optional */}

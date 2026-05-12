@@ -33,54 +33,131 @@ export function RequestCard({ request }: RequestCardProps) {
   const statusConfig = getStatusConfig(displayStatus);
 
 function renderAdminNotes(request: TenantRequest) {
-  // Get admin notes from vacate data or main request
+  // Get admin notes from multiple possible locations
   let adminNotesText = '';
   
+  // For vacate bed requests
   if (request.request_type === 'vacate_bed' && request.vacate_data?.admin_notes) {
     adminNotesText = request.vacate_data.admin_notes;
   }
   
+  // For complaint, maintenance, change_bed, receipt requests
   if (request.admin_notes) {
     adminNotesText = adminNotesText ? adminNotesText + '\n' + request.admin_notes : request.admin_notes;
   }
   
   if (!adminNotesText || adminNotesText.trim() === '') return null;
   
-  // Split by lines and filter out empty lines
-  const lines = adminNotesText.split('\n').filter(line => line.trim());
+  console.log('📝 Parsing admin notes:', adminNotesText);
   
-  if (lines.length === 0) return null;
+  // Split by lines
+  const lines = adminNotesText.split('\n');
   
-  // ✅ Filter out creation/penalty lines (lines without timestamp)
-  // Only show lines that have a timestamp pattern [dd/mm/yyyy, HH:MM AM/PM]
+  // Parse admin notes - look for timestamp pattern [date, time]
   const noteEntries: Array<{ timestamp: string; status: string; note: string }> = [];
+  let currentEntry: { timestamp: string; status: string; note: string } | null = null;
   
   for (const line of lines) {
-    // Match pattern: [date, time] Status changed to xxx: note
-    const match = line.match(/\[(.*?)\]\s*Status changed to (\w+):\s*(.*)/);
+    const trimmedLine = line.trim();
+    if (!trimmedLine) continue;
     
-    if (match) {
-      noteEntries.push({
-        timestamp: match[1],
-        status: match[2],
-        note: match[3] || 'No additional notes'
-      });
+    // Skip separator lines
+    if (trimmedLine.includes('--- Complaint History ---') || 
+        trimmedLine.includes('----------------------------------------')) {
+      continue;
     }
-    // ❌ Skip lines that don't match the timestamp pattern (these are creation notes)
+    
+    // Check for timestamp pattern [date, time]
+    const timestampMatch = trimmedLine.match(/\[(.*?)\]/);
+    
+    if (timestampMatch) {
+      // If we have a current entry, save it
+      if (currentEntry) {
+        noteEntries.push(currentEntry);
+      }
+      
+      // Start new entry
+      currentEntry = {
+        timestamp: timestampMatch[1],
+        status: '',
+        note: ''
+      };
+      
+      // Extract status and note from the same line
+      // Pattern: [timestamp] Status: STATUS_VALUE
+      const afterTimestamp = trimmedLine.replace(/\[.*?\]\s*/, '');
+      
+      // Check for "Status:" pattern
+      const statusMatch = afterTimestamp.match(/Status:\s*(\w+(?:\s+\w+)?)/i);
+      if (statusMatch) {
+        currentEntry.status = statusMatch[1].toLowerCase();
+        // Get any remaining text after status
+        const remaining = afterTimestamp.replace(/Status:\s*\w+(?:\s+\w+)?/i, '').trim();
+        if (remaining && !remaining.startsWith('Note:')) {
+          currentEntry.note = remaining;
+        }
+      } else {
+        // No status pattern, treat as note
+        currentEntry.note = afterTimestamp;
+      }
+    } 
+    else if (currentEntry) {
+      // Check for "Note:" pattern on subsequent lines
+      const noteMatch = trimmedLine.match(/Note:\s*(.*)/i);
+      if (noteMatch) {
+        currentEntry.note = noteMatch[1];
+      } 
+      // Also check for "Status:" pattern without timestamp
+      else if (trimmedLine.match(/Status:\s*(\w+(?:\s+\w+)?)/i)) {
+        const statusMatch = trimmedLine.match(/Status:\s*(\w+(?:\s+\w+)?)/i);
+        if (statusMatch) {
+          currentEntry.status = statusMatch[1].toLowerCase();
+        }
+      }
+      // Append to existing note if not a special field
+      else if (currentEntry.note) {
+        currentEntry.note += ' ' + trimmedLine;
+      } else {
+        currentEntry.note = trimmedLine;
+      }
+    }
   }
+  
+  // Add the last entry
+  if (currentEntry) {
+    noteEntries.push(currentEntry);
+  }
+  
+  console.log('📝 Parsed entries:', noteEntries);
   
   // Show only last 3 entries
   const recentEntries = noteEntries.slice(-3);
   
-  if (recentEntries.length === 0) return null; // No admin updates yet
+  if (recentEntries.length === 0) {
+    // If no parsed entries but we have text, show as plain text
+    return (
+      <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+        <h4 className="font-medium text-sm mb-2 text-blue-800 flex items-center gap-1">
+          <FileText className="h-3.5 w-3.5" />
+          Admin Updates
+        </h4>
+        <div className="text-xs text-gray-700 whitespace-pre-wrap">
+          {adminNotesText}
+        </div>
+      </div>
+    );
+  }
   
   const getStatusBadge = (status: string) => {
     const statusMap: Record<string, { label: string; color: string }> = {
       pending: { label: 'Pending', color: 'bg-yellow-100 text-yellow-800' },
+      in_progress: { label: 'In Progress', color: 'bg-blue-100 text-blue-800' },
       under_review: { label: 'Under Review', color: 'bg-blue-100 text-blue-800' },
       approved: { label: 'Approved', color: 'bg-green-100 text-green-800' },
       rejected: { label: 'Rejected', color: 'bg-red-100 text-red-800' },
-      completed: { label: 'Completed', color: 'bg-purple-100 text-purple-800' }
+      resolved: { label: 'Resolved', color: 'bg-purple-100 text-purple-800' },
+      completed: { label: 'Completed', color: 'bg-green-100 text-green-800' },
+      closed: { label: 'Closed', color: 'bg-gray-100 text-gray-800' }
     };
     
     const config = statusMap[status] || statusMap.pending;
@@ -97,17 +174,17 @@ function renderAdminNotes(request: TenantRequest) {
         <FileText className="h-3.5 w-3.5" />
         Admin Updates
       </h4>
-      <div className="space-y-2 max-h-48 overflow-y-auto">
+      <div className="space-y-3 max-h-48 overflow-y-auto">
         {recentEntries.map((entry, idx) => (
           <div key={idx} className="border-l-2 border-blue-300 pl-2 py-1">
-            <div className="flex items-center justify-between gap-2 mb-1">
+            <div className="flex items-center justify-between gap-2 mb-1 flex-wrap">
               <span className="text-[10px] text-gray-500 font-mono">
                 {entry.timestamp}
               </span>
               {entry.status && getStatusBadge(entry.status)}
             </div>
-            {entry.note && entry.note !== 'No additional notes' && (
-              <p className="text-xs text-gray-700 mt-0.5">
+            {entry.note && entry.note.trim() && (
+              <p className="text-xs text-gray-700 mt-1">
                 {entry.note}
               </p>
             )}

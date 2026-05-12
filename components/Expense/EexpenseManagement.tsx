@@ -2214,39 +2214,6 @@ useEffect(() => {
             </div>
           </div>
 
-          {/* Paid Through */}
-          <div>
-            <div
-              style={{
-                fontSize: 10,
-                color: "#8892A4",
-                fontWeight: 700,
-                textTransform: "uppercase",
-                letterSpacing: 0.5,
-                marginBottom: 3,
-              }}
-            >
-              Paid Through
-            </div>
-            <div
-              style={{
-                fontSize: 13,
-                color: "#374151",
-                fontWeight: 500,
-                padding: "2px 10px",
-                borderRadius: 12,
-                background: "#F8FAFF",
-                display: "inline-block",
-              }}
-            >
-              {viewItem.payment_mode || "Cash"}
-            </div>
-            {viewItem.transaction_id && (
-              <div style={{ fontSize: 10, color: "#64748B", marginTop: 3 }}>
-                Txn: {viewItem.transaction_id}
-              </div>
-            )}
-          </div>
 
           {/* Status - FIXED: Show Partial status too */}
           <div>
@@ -2328,7 +2295,7 @@ useEffect(() => {
           </div>
 
           {/* Created At */}
-          <div>
+          {/* <div>
             <div
               style={{
                 fontSize: 10,
@@ -2344,7 +2311,7 @@ useEffect(() => {
             <div style={{ fontSize: 12, color: "#B0BAC9", fontWeight: 400 }}>
               {fmtDateTime(viewItem.created_at)}
             </div>
-          </div>
+          </div> */}
 
           {/* Notes */}
           {viewItem.notes && (
@@ -2549,112 +2516,7 @@ useEffect(() => {
           )}
         </div>
         
-        {/* PAYMENT HISTORY SECTION - ADD THIS AFTER INFO GRID AND BEFORE ITEMS TABLE */}
-        {paymentTransactions.length > 0 && (
-          <div style={{ marginTop: 20, marginBottom: 20 }}>
-            <div
-              style={{
-                fontSize: 10,
-                fontWeight: 700,
-                color: "#3B5BDB",
-                textTransform: "uppercase",
-                letterSpacing: 0.5,
-                marginBottom: 10,
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-              }}
-            >
-              <span
-                style={{
-                  width: 18,
-                  height: 18,
-                  background: "linear-gradient(135deg,#1A2B6D,#3B5BDB)",
-                  borderRadius: 5,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "#fff",
-                  fontSize: 9,
-                  fontWeight: 800,
-                }}
-              >
-                💰
-              </span>
-              Payment History ({paymentTransactions.length} transactions)
-            </div>
-            <div style={{ overflowX: "auto", borderRadius: 12, border: "1px solid #E8ECF4" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, minWidth: 500 }}>
-                <thead>
-                  <tr style={{ background: "#F8FAFF" }}>
-                    <th style={{ padding: "8px 12px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "#8892A4", borderBottom: "1px solid #F0F3FA" }}>Date</th>
-                    <th style={{ padding: "8px 12px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "#8892A4", borderBottom: "1px solid #F0F3FA" }}>Amount</th>
-                    <th style={{ padding: "8px 12px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "#8892A4", borderBottom: "1px solid #F0F3FA" }}>Payment Mode</th>
-                    <th style={{ padding: "8px 12px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "#8892A4", borderBottom: "1px solid #F0F3FA" }}>Reference / Details</th>
-                    <th style={{ padding: "8px 12px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "#8892A4", borderBottom: "1px solid #F0F3FA" }}>Notes</th>
-                    <th style={{ padding: "8px 12px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "#8892A4", borderBottom: "1px solid #F0F3FA" }}>Recorded By</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {paymentTransactions.map((transaction, idx) => {
-                    const getPaymentIcon = (mode: string) => {
-                      if (mode === 'Cheque') return '📝';
-                      if (mode === 'UPI') return '📱';
-                      if (mode === 'Bank Transfer') return '🏦';
-                      if (mode === 'Card') return '💳';
-                      if (mode === 'Online Payment Gateway') return '🌐';
-                      if (mode === 'Wallet') return '👛';
-                      return '💵';
-                    };
-                    
-                    return (
-                      <tr
-                        key={transaction.id || idx}
-                        style={{ borderBottom: "1px solid #F5F7FC" }}
-                        onMouseEnter={(e) => (e.currentTarget.style.background = "#FAFBFF")}
-                        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                      >
-                        <td style={{ padding: "8px 12px", fontSize: 11, color: "#475569" }}>
-                          {fmtDate(transaction.transaction_date?.split('T')[0] || transaction.created_at?.split('T')[0])}
-                        </td>
-                        <td style={{ padding: "8px 12px", fontWeight: 700, color: "#1B7A4E" }}>
-                          {fmt(transaction.paid_amount)}
-                        </td>
-                        <td style={{ padding: "8px 12px", fontSize: 11 }}>
-                          <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                            {getPaymentIcon(transaction.payment_mode)} {transaction.payment_mode}
-                          </span>
-                        </td>
-                        <td style={{ padding: "8px 12px", fontSize: 10, color: "#64748B" }}>
-                          {transaction.reference_no && <div>Ref: {transaction.reference_no}</div>}
-                          {transaction.transaction_id && transaction.payment_mode !== 'Bank Transfer' && <div>Txn: {transaction.transaction_id}</div>}
-                          {transaction.cheque_no && <div>Chq: {transaction.cheque_no}</div>}
-                          {transaction.upi_id && <div>UPI: {transaction.upi_id}</div>}
-                          {transaction.card_ref && <div>Card: {transaction.card_ref}</div>}
-                        </td>
-                       <td style={{ padding: "8px 12px", fontSize: 10, color: "#64748B", maxWidth: 200 }}>
-  {transaction.notes || '—'}
-</td>
-                        <td style={{ padding: "8px 12px", fontSize: 10, color: "#64748B" }}>
-                          {transaction.created_by || '—'}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                 <tr style={{ background: "#EEF1FB", borderTop: "1px solid #E2E8F4" }}>
-  <td colSpan={2} style={{ padding: "8px 12px", fontWeight: 700, color: "#1A2B6D", textAlign: "left" }}>
-    Total Paid: <span style={{ fontWeight: 800, color: "#1B7A4E", fontSize: 13, marginLeft: 5 }}>{fmt(paymentTransactions.reduce((sum, t) => sum + (parseFloat(t.paid_amount) || 0), 0))}</span>
-  </td>
-  <td colSpan={4} style={{ padding: "8px 12px", fontWeight: 700, color: "#1A2B6D", textAlign: "right" }}>
-    Pending Balance: <span style={{ fontWeight: 800, color: "#B45309", fontSize: 13, marginLeft: 5 }}>{fmt((viewItem?.total_amount || 0) - paymentTransactions.reduce((sum, t) => sum + (parseFloat(t.paid_amount) || 0), 0))}</span>
-  </td>
-</tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-        {/* Items table */}
+         {/* Items table */}
         {viewItem.items?.filter((i: any) => i.name || i.item_name).length > 0 && (
           <div>
             <div
@@ -2807,6 +2669,113 @@ useEffect(() => {
             </div>
           </div>
         )}
+
+        {/* PAYMENT HISTORY SECTION - ADD THIS AFTER INFO GRID AND BEFORE ITEMS TABLE */}
+        {paymentTransactions.length > 0 && (
+          <div style={{ marginTop: 20, marginBottom: 20 }}>
+            <div
+              style={{
+                fontSize: 10,
+                fontWeight: 700,
+                color: "#3B5BDB",
+                textTransform: "uppercase",
+                letterSpacing: 0.5,
+                marginBottom: 10,
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+              }}
+            >
+              <span
+                style={{
+                  width: 18,
+                  height: 18,
+                  background: "linear-gradient(135deg,#1A2B6D,#3B5BDB)",
+                  borderRadius: 5,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "#fff",
+                  fontSize: 9,
+                  fontWeight: 800,
+                }}
+              >
+                💰
+              </span>
+              Payment History ({paymentTransactions.length} transactions)
+            </div>
+            <div style={{ overflowX: "auto", borderRadius: 12, border: "1px solid #E8ECF4" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, minWidth: 500 }}>
+                <thead>
+                  <tr style={{ background: "#F8FAFF" }}>
+                    <th style={{ padding: "8px 12px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "#8892A4", borderBottom: "1px solid #F0F3FA" }}>Date</th>
+                    <th style={{ padding: "8px 12px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "#8892A4", borderBottom: "1px solid #F0F3FA" }}>Amount</th>
+                    <th style={{ padding: "8px 12px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "#8892A4", borderBottom: "1px solid #F0F3FA" }}>Payment Mode</th>
+                    <th style={{ padding: "8px 12px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "#8892A4", borderBottom: "1px solid #F0F3FA" }}>Reference / Details</th>
+                    <th style={{ padding: "8px 12px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "#8892A4", borderBottom: "1px solid #F0F3FA" }}>Notes</th>
+                    <th style={{ padding: "8px 12px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "#8892A4", borderBottom: "1px solid #F0F3FA" }}>Recorded By</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paymentTransactions.map((transaction, idx) => {
+                    const getPaymentIcon = (mode: string) => {
+                      if (mode === 'Cheque') return '📝';
+                      if (mode === 'UPI') return '📱';
+                      if (mode === 'Bank Transfer') return '🏦';
+                      if (mode === 'Card') return '💳';
+                      if (mode === 'Online Payment Gateway') return '🌐';
+                      if (mode === 'Wallet') return '👛';
+                      return '💵';
+                    };
+                    
+                    return (
+                      <tr
+                        key={transaction.id || idx}
+                        style={{ borderBottom: "1px solid #F5F7FC" }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = "#FAFBFF")}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                      >
+                        <td style={{ padding: "8px 12px", fontSize: 11, color: "#475569" }}>
+                          {fmtDate(transaction.transaction_date?.split('T')[0] || transaction.created_at?.split('T')[0])}
+                        </td>
+                        <td style={{ padding: "8px 12px", fontWeight: 700, color: "#1B7A4E" }}>
+                          {fmt(transaction.paid_amount)}
+                        </td>
+                        <td style={{ padding: "8px 12px", fontSize: 11 }}>
+                          <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                            {getPaymentIcon(transaction.payment_mode)} {transaction.payment_mode}
+                          </span>
+                        </td>
+                        <td style={{ padding: "8px 12px", fontSize: 10, color: "#64748B" }}>
+                          {transaction.reference_no && <div>Ref: {transaction.reference_no}</div>}
+                          {transaction.transaction_id && transaction.payment_mode !== 'Bank Transfer' && <div>Txn: {transaction.transaction_id}</div>}
+                          {transaction.cheque_no && <div>Chq: {transaction.cheque_no}</div>}
+                          {transaction.upi_id && <div>UPI: {transaction.upi_id}</div>}
+                          {transaction.card_ref && <div>Card: {transaction.card_ref}</div>}
+                        </td>
+                       <td style={{ padding: "8px 12px", fontSize: 10, color: "#64748B", maxWidth: 200 }}>
+  {transaction.notes || '—'}
+</td>
+                        <td style={{ padding: "8px 12px", fontSize: 10, color: "#64748B" }}>
+                          {transaction.created_by || '—'}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                 <tr style={{ background: "#EEF1FB", borderTop: "1px solid #E2E8F4" }}>
+  <td colSpan={2} style={{ padding: "8px 12px", fontWeight: 700, color: "#1A2B6D", textAlign: "left" }}>
+    Total Paid: <span style={{ fontWeight: 800, color: "#1B7A4E", fontSize: 13, marginLeft: 5 }}>{fmt(paymentTransactions.reduce((sum, t) => sum + (parseFloat(t.paid_amount) || 0), 0))}</span>
+  </td>
+  <td colSpan={4} style={{ padding: "8px 12px", fontWeight: 700, color: "#1A2B6D", textAlign: "right" }}>
+    Pending Balance: <span style={{ fontWeight: 800, color: "#B45309", fontSize: 13, marginLeft: 5 }}>{fmt((viewItem?.total_amount || 0) - paymentTransactions.reduce((sum, t) => sum + (parseFloat(t.paid_amount) || 0), 0))}</span>
+  </td>
+</tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+       
       </div>
     </div>
   </div>

@@ -1,5 +1,3 @@
-
-
 // components/tenant/layout/TenantLayout.tsx
 "use client";
 
@@ -53,6 +51,7 @@ import roomacLogo from "@/app/src/assets/images/image.png";
 import { useAuth } from "@/context/authContext";
 import { markNoticePeriodAsSeen } from "@/lib/noticePeriodApi";
 import { number } from "framer-motion";
+import { initNotificationSound, playNotificationSound, preloadNotificationSound } from "../../utils/notificationSound";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1047,57 +1046,99 @@ const loadNotifications = async (showLoading = true) => {
     setInitialLoadDone(true);
   }
 };
-  // Load notifications on mount
- // Load notifications on mount
-useEffect(() => {
-  loadNotifications(true);
 
-  // ✅ Setup Socket.IO for real-time notifications
+// Initialize notification sound on first user interaction
+useEffect(() => {
+  // Preload sound when component mounts
+  preloadNotificationSound();
+  
+  // Initialize sound on first click/tap
+  const handleFirstInteraction = () => {
+    initNotificationSound();
+    window.removeEventListener("click", handleFirstInteraction);
+    window.removeEventListener("touchstart", handleFirstInteraction);
+    console.log("🔊 Audio unlocked by user interaction");
+  };
+  
+  window.addEventListener("click", handleFirstInteraction);
+  window.addEventListener("touchstart", handleFirstInteraction);
+  
+  // Also try to unlock on any key press
+  const handleKeyPress = () => {
+    initNotificationSound();
+    window.removeEventListener("keydown", handleKeyPress);
+  };
+  window.addEventListener("keydown", handleKeyPress);
+  
+  return () => {
+    window.removeEventListener("click", handleFirstInteraction);
+    window.removeEventListener("touchstart", handleFirstInteraction);
+    window.removeEventListener("keydown", handleKeyPress);
+  };
+}, []);
+
+  // Load notifications on mount 
+// Setup Socket.IO for real-time notifications
+useEffect(() => {
   let socket: any = null;
+  let mounted = true;
   
   const setupSocket = async () => {
     try {
       const tenantId = getTenantId();
       if (!tenantId) {
+        console.log("No tenant ID found, skipping socket setup");
         return;
       }
       
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+      
+      // Dynamic import for socket.io-client
       const ioModule = await import('socket.io-client');
       const io = ioModule.default || ioModule;
+      
       socket = io(apiUrl, {
-        path: '/socket.io',
         transports: ['websocket', 'polling'],
         reconnection: true,
         reconnectionAttempts: 5,
-        reconnectionDelay: 1000
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
       });
       
       socket.on('connect', () => {
+        console.log('✅ Tenant Socket connected:', socket.id);
+        // Join tenant room with proper ID
         socket.emit('join_tenant_room', { tenantId: parseInt(tenantId) });
       });
       
-      // 🔥 CRITICAL: Listen for new notifications
+      // Listen for new notifications
       socket.on('new_notification', (notification: any) => {
+        if (!mounted) return;
         
-        // ✅ IMMEDIATELY refresh notifications and count
-        loadNotifications(false);
+        console.log("🔔 New notification received for tenant:", notification);
         
-        // ✅ Update notification count instantly
-        getUnreadNotificationCount().then(count => {
-          setNotificationCount(count);
-        });
+        // Play sound
+        playNotificationSound();
         
         // Show toast for important notifications
         if (notification.priority === 'high' || notification.priority === 'urgent') {
-          toast.info(`🔔 ${notification.title}`, {
+          toast.info(`🔔 ${notification.title || 'New Notification'}`, {
             description: notification.message?.substring(0, 100),
-            duration: 5000
+            duration: 5000,
           });
         }
+        
+        // Immediately refresh notifications
+        loadNotifications(false);
+        
+        // Update count instantly
+        getUnreadNotificationCount().then(count => {
+          if (mounted) setNotificationCount(count);
+        });
       });
       
       socket.on('disconnect', () => {
+        console.log('❌ Tenant Socket disconnected');
       });
       
       socket.on('connect_error', (err: any) => {
@@ -1110,21 +1151,23 @@ useEffect(() => {
   };
   
   setupSocket();
-
-  // Fallback polling every 5 seconds (reduced from 30 to 5 seconds)
+  
+  // Fallback polling every 3 seconds (reduced from 5 to 3 seconds for faster updates)
   const interval = setInterval(() => {
-    loadNotifications(false);
-    // Also update count separately
-    getUnreadNotificationCount().then(count => {
-      setNotificationCount(count);
-    });
-  }, 1000);
-
+    if (mounted) {
+      loadNotifications(false);
+      getUnreadNotificationCount().then(count => {
+        if (mounted) setNotificationCount(count);
+      });
+    }
+  }, 3000);
+  
   return () => {
+    mounted = false;
     if (socket) socket.disconnect();
     clearInterval(interval);
   };
-}, []);
+}, []); // Empty dependency array - run once
 
   // Load notifications when notification popup opens
   const handleNotificationsOpen = () => {
