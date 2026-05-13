@@ -402,14 +402,14 @@ function SidebarAccommodationCard({
               ))}
             </div>
 
-            {/* Show couple badge if applicable
+            {/* Show couple badge if applicable */}
             {tenant?.is_couple && (
               <div className="mt-1 flex justify-end">
                 <Badge className="bg-pink-500/30 text-white border-pink-300/30 text-[7px]">
                   👫 Couple Booking
                 </Badge>
               </div>
-            )} */}
+            )}
           </>
         ) : (
           <div className="py-2 lg:py-3 text-center relative z-10">

@@ -211,11 +211,6 @@ export function AdminHeader({
       // Play sound immediately
       playNotificationSound();
       
-      // Show toast notification
-      toast.info(data.title || 'New Notification', {
-        description: data.message || 'You have a new notification',
-        duration: 5000,
-      });
       
       // Immediately update UI
       const newNotification: Notification = {

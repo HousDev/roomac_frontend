@@ -1,92 +1,81 @@
-// lib/reportApi.ts
 import { request } from "@/lib/api";
 
 // Types
 export interface ReportFilters {
-  reportType: 'revenue' | 'occupancy' | 'payments' | 'tenants' | 'expenses';
+  reportType: 'revenue' | 'payments' | 'tenants' | 'occupancy' | 'expenses' | 'requests';
   startDate: string;
   endDate: string;
   propertyId: string | 'all';
+  status?: string;
+  categoryId?: string;
+  requestType?: string;
+  groupBy?: 'day' | 'month';
 }
 
-export interface RevenueSummary {
-  totalRevenue: number;
-  rentRevenue: number;
-  depositRevenue: number;
-  addonRevenue: number;
-  paymentCount: number;
-  rentCount: number;
-  depositCount: number;
-  addonCount: number;
-  byPaymentMethod?: Record<string, number>;
-  dailyBreakdown?: Array<{ date: string; amount: number }>;
-}
-
-export interface PaymentSummary {
-  totalAmount: number;
-  completedPayments: number;
-  pendingPayments: number;
-  failedPayments: number;
-  refundedPayments: number;
-  completedAmount: number;
-  pendingAmount: number;
-  failedAmount: number;
-  refundedAmount: number;
-  byMethod?: Record<string, { count: number; amount: number }>;
-}
-
-export interface TenantSummary {
+export interface DashboardStats {
+  // Property Stats
+  totalProperties: number;
+  totalRooms: number;
+  totalBeds: number;
+  occupiedBeds: number;
+  occupancyRate: number;
+  
+  // Tenant Stats
   totalTenants: number;
   activeTenants: number;
   inactiveTenants: number;
-  withActiveBookings: number;
-  maleCount: number;
-  femaleCount: number;
-  otherCount: number;
-  byOccupation?: Record<string, number>;
-  byCity?: Record<string, number>;
-  newTenantsThisMonth?: number;
-}
-
-export interface OccupancySummary {
-  totalRooms: number;
-  occupiedRooms: number;
-  vacantRooms: number;
-  maintenanceRooms: number;
-  occupancyRate: string;
-  potentialRevenue: number;
-  actualRevenue: number;
-  byProperty?: Record<string, { total: number; occupied: number; rate: number }>;
-  byRoomType?: Record<string, { total: number; occupied: number }>;
+  
+  // Revenue Stats
+  totalRevenue: number;
+  rentRevenue: number;
+  depositRevenue: number;
+  monthlyRevenue: number;
+  revenueGrowth: number;
+  
+  // Payment Stats
+  totalPayments: number;
+  completedPayments: number;
+  pendingPayments: number;
+  rejectedPayments: number;
+  completedAmount: number;
+  pendingAmount: number;
+  collectionRate: number;
+  
+  // Request Stats
+  totalRequests: number;
+  pendingRequests: number;
+  inProgressRequests: number;
+  resolvedRequests: number;
+  complaints: number;
+  maintenanceRequests: number;
+  vacateRequests: number;
+  changeBedRequests: number;
 }
 
 export interface ReportData {
   payments?: any[];
   tenants?: any[];
   rooms?: any[];
-  summary: RevenueSummary | PaymentSummary | TenantSummary | OccupancySummary;
-  meta?: {
+  expenses?: any[];
+  requests?: any[];
+  summary: any;
+  meta: {
     generatedAt: string;
     dateRange: { start: string; end: string };
     property?: { id: string; name: string };
+    groupBy?: string;
   };
 }
 
-export interface DashboardStats {
-  totalRevenue: number;
-  revenueGrowth: number;
-  avgOccupation: number;
-  occupationGrowth: number;
-  netProfit: number;
-  profitGrowth: number;
-  totalTenants: number;
-  totalProperties: number;
-  occupancyRate: number;
-  collectionRate: number;
-  pendingPayments: number;
-  pendingAmount: number;
-  upcomingCheckouts: number;
-  maintenanceRequests: number;
+export interface FilterOptions {
+  properties: PropertyOption[];
+  expenseCategories: { id: number; name: string }[];
+  requestTypes: string[];
+  paymentStatuses: string[];
+  requestStatuses: string[];
+  expenseStatuses: string[];
+  roomStatuses: string[];
+  dateRanges: { value: string; label: string }[];
 }
 
 export interface PropertyOption {
@@ -94,16 +83,13 @@ export interface PropertyOption {
   name: string;
   address: string;
   city: string;
-  roomCount?: number;
-  tenantCount?: number;
+  state: string;
 }
 
-// Cache for properties
 let propertiesCache: PropertyOption[] | null = null;
 let lastFetchTime = 0;
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const CACHE_DURATION = 5 * 60 * 1000;
 
-// Fetch all properties with caching
 export async function fetchProperties(forceRefresh = false): Promise<PropertyOption[]> {
   const now = Date.now();
   
@@ -115,7 +101,6 @@ export async function fetchProperties(forceRefresh = false): Promise<PropertyOpt
     const response = await request<any>('/api/properties?is_active=true&pageSize=1000');
     
     if (response.success && response.data) {
-      // Handle different response structures
       const propertiesData = response.data.data || response.data;
       
       propertiesCache = Array.isArray(propertiesData) 
@@ -124,8 +109,7 @@ export async function fetchProperties(forceRefresh = false): Promise<PropertyOpt
             name: p.name,
             address: p.address || '',
             city: p.city_id || p.city || '',
-            roomCount: p.total_rooms || 0,
-            tenantCount: p.occupied_beds || 0
+            state: p.state || ''
           }))
         : [];
       
@@ -140,7 +124,6 @@ export async function fetchProperties(forceRefresh = false): Promise<PropertyOpt
   }
 }
 
-// Dashboard stats with property filter
 export async function getDashboardStats(filters?: Partial<ReportFilters>): Promise<DashboardStats> {
   try {
     const params = new URLSearchParams();
@@ -154,7 +137,6 @@ export async function getDashboardStats(filters?: Partial<ReportFilters>): Promi
       return response.data;
     }
     
-    // Return default stats if API fails
     return getDefaultDashboardStats();
   } catch (error) {
     console.error('Error fetching dashboard stats:', error);
@@ -164,29 +146,43 @@ export async function getDashboardStats(filters?: Partial<ReportFilters>): Promi
 
 function getDefaultDashboardStats(): DashboardStats {
   return {
-    totalRevenue: 0,
-    revenueGrowth: 0,
-    avgOccupation: 0,
-    occupationGrowth: 0,
-    netProfit: 0,
-    profitGrowth: 0,
-    totalTenants: 0,
     totalProperties: 0,
+    totalRooms: 0,
+    totalBeds: 0,
+    occupiedBeds: 0,
     occupancyRate: 0,
-    collectionRate: 0,
+    totalTenants: 0,
+    activeTenants: 0,
+    inactiveTenants: 0,
+    totalRevenue: 0,
+    rentRevenue: 0,
+    depositRevenue: 0,
+    monthlyRevenue: 0,
+    revenueGrowth: 0,
+    totalPayments: 0,
+    completedPayments: 0,
     pendingPayments: 0,
+    rejectedPayments: 0,
+    completedAmount: 0,
     pendingAmount: 0,
-    upcomingCheckouts: 0,
-    maintenanceRequests: 0
+    collectionRate: 0,
+    totalRequests: 0,
+    pendingRequests: 0,
+    inProgressRequests: 0,
+    resolvedRequests: 0,
+    complaints: 0,
+    maintenanceRequests: 0,
+    vacateRequests: 0,
+    changeBedRequests: 0
   };
 }
 
-// Generate reports with property filter
 export async function generateRevenueReport(filters: ReportFilters): Promise<ReportData> {
   try {
     const params = new URLSearchParams({
       startDate: filters.startDate,
-      endDate: filters.endDate
+      endDate: filters.endDate,
+      groupBy: filters.groupBy || 'day'
     });
     
     if (filters.propertyId && filters.propertyId !== 'all') {
@@ -216,6 +212,9 @@ export async function generatePaymentsReport(filters: ReportFilters): Promise<Re
     if (filters.propertyId && filters.propertyId !== 'all') {
       params.append('propertyId', filters.propertyId);
     }
+    if (filters.status) {
+      params.append('status', filters.status);
+    }
 
     const response = await request<any>(`/api/reports/payments?${params.toString()}`);
     
@@ -236,6 +235,9 @@ export async function generateTenantsReport(filters: ReportFilters): Promise<Rep
     
     if (filters.propertyId && filters.propertyId !== 'all') {
       params.append('propertyId', filters.propertyId);
+    }
+    if (filters.status) {
+      params.append('status', filters.status);
     }
 
     const response = await request<any>(`/api/reports/tenants?${params.toString()}`);
@@ -258,6 +260,9 @@ export async function generateOccupancyReport(filters: ReportFilters): Promise<R
     if (filters.propertyId && filters.propertyId !== 'all') {
       params.append('propertyId', filters.propertyId);
     }
+    if (filters.status) {
+      params.append('status', filters.status);
+    }
 
     const response = await request<any>(`/api/reports/occupancy?${params.toString()}`);
     
@@ -272,19 +277,88 @@ export async function generateOccupancyReport(filters: ReportFilters): Promise<R
   }
 }
 
-// Export functions
-export async function exportReportToCSV(reportType: string, data: any): Promise<Blob> {
+export async function generateExpenseReport(filters: ReportFilters): Promise<ReportData> {
+  try {
+    const params = new URLSearchParams({
+      startDate: filters.startDate,
+      endDate: filters.endDate
+    });
+    
+    if (filters.propertyId && filters.propertyId !== 'all') {
+      params.append('propertyId', filters.propertyId);
+    }
+    if (filters.categoryId) {
+      params.append('categoryId', filters.categoryId);
+    }
+
+    const response = await request<any>(`/api/reports/expenses?${params.toString()}`);
+    
+    if (response.success) {
+      return response.data;
+    }
+    
+    throw new Error(response.message || 'Failed to generate expense report');
+  } catch (error) {
+    console.error('Error generating expense report:', error);
+    throw error;
+  }
+}
+
+export async function generateRequestReport(filters: ReportFilters): Promise<ReportData> {
+  try {
+    const params = new URLSearchParams({
+      startDate: filters.startDate,
+      endDate: filters.endDate
+    });
+    
+    if (filters.requestType && filters.requestType !== 'all') {
+      params.append('requestType', filters.requestType);
+    }
+    if (filters.status) {
+      params.append('status', filters.status);
+    }
+
+    const response = await request<any>(`/api/reports/requests?${params.toString()}`);
+    
+    if (response.success) {
+      return response.data;
+    }
+    
+    throw new Error(response.message || 'Failed to generate request report');
+  } catch (error) {
+    console.error('Error generating request report:', error);
+    throw error;
+  }
+}
+
+export async function getReportFilters(): Promise<FilterOptions> {
+  try {
+    const response = await request<any>('/api/reports/filters');
+    
+    if (response.success) {
+      return response.data;
+    }
+    
+    throw new Error(response.message || 'Failed to get report filters');
+  } catch (error) {
+    console.error('Error getting report filters:', error);
+    throw error;
+  }
+}
+
+export async function exportReportToExcel(reportType: string, data: any, filters: any): Promise<Blob> {
   try {
     const response = await fetch(`/api/reports/export/${reportType}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ data }),
+      body: JSON.stringify({ data, filters }),
     });
 
     if (!response.ok) {
-      throw new Error('Export failed');
+      const error = await response.json();
+      throw new Error(error.message || 'Export failed');
     }
 
     return await response.blob();
@@ -294,9 +368,7 @@ export async function exportReportToCSV(reportType: string, data: any): Promise<
   }
 }
 
-// Print function with proper styling and Rupee symbol
 export function printReport(reportType: string, reportData: any, filters: ReportFilters, propertyName?: string) {
-  // Create a new window for printing
   const printWindow = window.open('', '_blank');
   
   if (!printWindow) {
@@ -304,205 +376,315 @@ export function printReport(reportType: string, reportData: any, filters: Report
     return;
   }
 
-  // Generate HTML content
   const htmlContent = generatePrintHTML(reportType, reportData, filters, propertyName);
   
-  // Write to the new window
   printWindow.document.write(htmlContent);
   printWindow.document.close();
   
-  // Wait for content to load then print
   printWindow.onload = function() {
     printWindow.print();
-    // Optional: close after printing
-    // printWindow.onafterprint = function() { printWindow.close(); };
   };
 }
 
 function generatePrintHTML(reportType: string, reportData: any, filters: ReportFilters, propertyName?: string): string {
-  const title = reportType.charAt(0).toUpperCase() + reportType.slice(1) + ' Report';
+  const title = getReportTitle(reportType);
   const dateRange = `${filters.startDate} to ${filters.endDate}`;
   const property = propertyName || 'All Properties';
   const generatedAt = new Date().toLocaleString();
   
   let tableHTML = '';
+  let summaryHTML = '';
   
   switch (reportType) {
     case 'revenue':
+      tableHTML = generateRevenueTableHTML(reportData.payments || []);
+      summaryHTML = generateRevenueSummaryHTML(reportData.summary);
+      break;
     case 'payments':
       tableHTML = generatePaymentsTableHTML(reportData.payments || []);
+      summaryHTML = generatePaymentsSummaryHTML(reportData.summary);
       break;
     case 'tenants':
       tableHTML = generateTenantsTableHTML(reportData.tenants || []);
+      summaryHTML = generateTenantsSummaryHTML(reportData.summary);
       break;
     case 'occupancy':
       tableHTML = generateOccupancyTableHTML(reportData.rooms || []);
+      summaryHTML = generateOccupancySummaryHTML(reportData.summary);
+      break;
+    case 'expenses':
+      tableHTML = generateExpensesTableHTML(reportData.expenses || []);
+      summaryHTML = generateExpensesSummaryHTML(reportData.summary);
+      break;
+    case 'requests':
+      tableHTML = generateRequestsTableHTML(reportData.requests || []);
+      summaryHTML = generateRequestsSummaryHTML(reportData.summary);
       break;
   }
-  
-  const summaryHTML = generateSummaryHTML(reportType, reportData.summary);
   
   return `
     <!DOCTYPE html>
     <html>
     <head>
       <title>${title}</title>
+      <meta charset="UTF-8">
       <style>
-        body { font-family: Arial, sans-serif; margin: 20px; color: #333; }
-        .header { text-align: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid #eee; }
-        h1 { color: #2563eb; margin-bottom: 5px; }
-        .meta { color: #666; font-size: 14px; margin: 5px 0; }
-        .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 30px; }
-        .summary-card { background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; }
-        .summary-card h3 { margin: 0 0 10px 0; color: #64748b; font-size: 14px; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .report-container { max-width: 1200px; margin: 0 auto; background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); overflow: hidden; }
+        .header { background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); color: white; padding: 30px; text-align: center; }
+        .header h1 { font-size: 28px; margin-bottom: 10px; }
+        .header .meta { font-size: 12px; opacity: 0.8; margin-top: 5px; }
+        .summary-section { padding: 20px 30px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; }
+        .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
+        .summary-card { background: white; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+        .summary-card h3 { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
         .summary-card .value { font-size: 24px; font-weight: bold; color: #0f172a; }
-        .summary-card .sub-value { font-size: 14px; color: #64748b; margin-top: 5px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 12px; }
-        th { background: #f1f5f9; color: #475569; font-weight: 600; padding: 10px; text-align: left; }
-        td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; }
+        .summary-card .sub-value { font-size: 12px; color: #64748b; margin-top: 5px; }
+        .data-section { padding: 20px 30px; }
+        .data-section h2 { font-size: 18px; margin-bottom: 15px; color: #1e293b; border-left: 4px solid #3b82f6; padding-left: 12px; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        th { background: #f1f5f9; color: #475569; font-weight: 600; padding: 12px; text-align: left; border-bottom: 1px solid #e2e8f0; }
+        td { padding: 10px 12px; border-bottom: 1px solid #e2e8f0; }
         tr:hover { background: #f8fafc; }
         .badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; }
         .badge-success { background: #dcfce7; color: #166534; }
         .badge-warning { background: #fef9c3; color: #854d0e; }
         .badge-danger { background: #fee2e2; color: #991b1b; }
+        .badge-info { background: #dbeafe; color: #1e40af; }
         .badge-secondary { background: #f1f5f9; color: #475569; }
-        .footer { margin-top: 30px; text-align: center; color: #94a3b8; font-size: 12px; }
-        .rupee-symbol { font-family: 'Rupee Foradian', Arial, sans-serif; }
+        .footer { padding: 20px 30px; text-align: center; color: #94a3b8; font-size: 11px; border-top: 1px solid #e2e8f0; background: #f8fafc; }
         @media print {
-          body { margin: 0.5in; }
-          .no-print { display: none; }
-          th { background-color: #f1f5f9 !important; }
+          body { background: white; margin: 0; }
+          .report-container { box-shadow: none; border-radius: 0; }
+          .header { background: #1e3c72; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          .badge { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
       </style>
     </head>
     <body>
-      <div class="header">
-        <h1>${title}</h1>
-        <div class="meta">Property: ${property}</div>
-        <div class="meta">Period: ${dateRange}</div>
-        <div class="meta">Generated: ${generatedAt}</div>
-      </div>
-      
-      ${summaryHTML}
-      
-      <h2 style="margin-top: 30px; font-size: 18px;">Detailed Data</h2>
-      ${tableHTML}
-      
-      <div class="footer">
-        <p>This report is system generated. For any queries, please contact support.</p>
+      <div class="report-container">
+        <div class="header">
+          <h1>${title}</h1>
+          <div class="meta">Property: ${property}</div>
+          <div class="meta">Period: ${dateRange}</div>
+          <div class="meta">Generated: ${generatedAt}</div>
+        </div>
+        
+        <div class="summary-section">
+          ${summaryHTML}
+        </div>
+        
+        <div class="data-section">
+          <h2>Detailed Data</h2>
+          ${tableHTML}
+        </div>
+        
+        <div class="footer">
+          <p>This report is system generated from Roomac Management System</p>
+          <p>For any queries, please contact support@roomac.in</p>
+        </div>
       </div>
     </body>
     </html>
   `;
 }
 
-function generateSummaryHTML(reportType: string, summary: any): string {
-  let cards = '';
-  
-  switch (reportType) {
-    case 'revenue':
-      cards = `
-        <div class="summary-card">
-          <h3>Total Revenue</h3>
-          <div class="value">₹${(summary.totalRevenue || 0).toLocaleString('en-IN')}</div>
-        </div>
-        <div class="summary-card">
-          <h3>Rent Revenue</h3>
-          <div class="value">₹${(summary.rentRevenue || 0).toLocaleString('en-IN')}</div>
-          <div class="sub-value">${summary.rentCount || 0} payments</div>
-        </div>
-        <div class="summary-card">
-          <h3>Deposit Revenue</h3>
-          <div class="value">₹${(summary.depositRevenue || 0).toLocaleString('en-IN')}</div>
-          <div class="sub-value">${summary.depositCount || 0} payments</div>
-        </div>
-        <div class="summary-card">
-          <h3>Addon Revenue</h3>
-          <div class="value">₹${(summary.addonRevenue || 0).toLocaleString('en-IN')}</div>
-          <div class="sub-value">${summary.addonCount || 0} payments</div>
-        </div>
-        <div class="summary-card">
-          <h3>Total Payments</h3>
-          <div class="value">${summary.paymentCount || 0}</div>
-        </div>
-      `;
-      break;
-      
-    case 'payments':
-      cards = `
-        <div class="summary-card">
-          <h3>Total Amount</h3>
-          <div class="value">₹${(summary.totalAmount || 0).toLocaleString('en-IN')}</div>
-        </div>
-        <div class="summary-card">
-          <h3>Completed</h3>
-          <div class="value">${summary.completedPayments || 0}</div>
-          <div class="sub-value">₹${(summary.completedAmount || 0).toLocaleString('en-IN')}</div>
-        </div>
-        <div class="summary-card">
-          <h3>Pending</h3>
-          <div class="value">${summary.pendingPayments || 0}</div>
-          <div class="sub-value">₹${(summary.pendingAmount || 0).toLocaleString('en-IN')}</div>
-        </div>
-        <div class="summary-card">
-          <h3>Collection Rate</h3>
-          <div class="value">${((summary.completedAmount / (summary.totalAmount || 1)) * 100).toFixed(1)}%</div>
-        </div>
-      `;
-      break;
-      
-    case 'tenants':
-      cards = `
-        <div class="summary-card">
-          <h3>Total Tenants</h3>
-          <div class="value">${summary.totalTenants || 0}</div>
-        </div>
-        <div class="summary-card">
-          <h3>Active Tenants</h3>
-          <div class="value">${summary.activeTenants || 0}</div>
-        </div>
-        <div class="summary-card">
-          <h3>With Bookings</h3>
-          <div class="value">${summary.withActiveBookings || 0}</div>
-        </div>
-        <div class="summary-card">
-          <h3>Gender Split</h3>
-          <div class="value">M: ${summary.maleCount || 0} / F: ${summary.femaleCount || 0}</div>
-        </div>
-        <div class="summary-card">
-          <h3>New This Month</h3>
-          <div class="value">${summary.newTenantsThisMonth || 0}</div>
-        </div>
-      `;
-      break;
-      
-    case 'occupancy':
-      cards = `
-        <div class="summary-card">
-          <h3>Total Rooms</h3>
-          <div class="value">${summary.totalRooms || 0}</div>
-        </div>
-        <div class="summary-card">
-          <h3>Occupied</h3>
-          <div class="value">${summary.occupiedRooms || 0}</div>
-        </div>
-        <div class="summary-card">
-          <h3>Vacant</h3>
-          <div class="value">${summary.vacantRooms || 0}</div>
-        </div>
-        <div class="summary-card">
-          <h3>Maintenance</h3>
-          <div class="value">${summary.maintenanceRooms || 0}</div>
-        </div>
-        <div class="summary-card">
-          <h3>Occupancy Rate</h3>
-          <div class="value">${summary.occupancyRate || 0}%</div>
-        </div>
-      `;
-      break;
+function getReportTitle(reportType: string): string {
+  const titles: Record<string, string> = {
+    revenue: 'Revenue Report',
+    payments: 'Payments Report',
+    tenants: 'Tenants Report',
+    occupancy: 'Occupancy Report',
+    expenses: 'Expenses Report',
+    requests: 'Requests Report'
+  };
+  return titles[reportType] || 'Report';
+}
+
+function generateRevenueSummaryHTML(summary: any): string {
+  return `
+    <div class="summary-grid">
+      <div class="summary-card">
+        <h3>Total Revenue</h3>
+        <div class="value">₹${(summary.totalRevenue || 0).toLocaleString('en-IN')}</div>
+        <div class="sub-value">${summary.totalTransactions || 0} transactions</div>
+      </div>
+      <div class="summary-card">
+        <h3>Rent Revenue</h3>
+        <div class="value">₹${(summary.revenueByType?.rent || 0).toLocaleString('en-IN')}</div>
+      </div>
+      <div class="summary-card">
+        <h3>Security Deposit</h3>
+        <div class="value">₹${(summary.revenueByType?.security_deposit || 0).toLocaleString('en-IN')}</div>
+      </div>
+      <div class="summary-card">
+        <h3>Average Transaction</h3>
+        <div class="value">₹${Math.round(summary.avgTransactionValue || 0).toLocaleString('en-IN')}</div>
+      </div>
+    </div>
+  `;
+}
+
+function generatePaymentsSummaryHTML(summary: any): string {
+  return `
+    <div class="summary-grid">
+      <div class="summary-card">
+        <h3>Total Amount</h3>
+        <div class="value">₹${(summary.totalAmount || 0).toLocaleString('en-IN')}</div>
+      </div>
+      <div class="summary-card">
+        <h3>Collection Rate</h3>
+        <div class="value">${summary.collectionRate || 0}%</div>
+      </div>
+      <div class="summary-card">
+        <h3>Completed</h3>
+        <div class="value">${summary.completedTransactions || 0}</div>
+        <div class="sub-value">₹${(summary.completedAmount || 0).toLocaleString('en-IN')}</div>
+      </div>
+      <div class="summary-card">
+        <h3>Pending</h3>
+        <div class="value">${summary.pendingTransactions || 0}</div>
+        <div class="sub-value">₹${(summary.pendingAmount || 0).toLocaleString('en-IN')}</div>
+      </div>
+    </div>
+  `;
+}
+
+function generateTenantsSummaryHTML(summary: any): string {
+  return `
+    <div class="summary-grid">
+      <div class="summary-card">
+        <h3>Total Tenants</h3>
+        <div class="value">${summary.totalTenants || 0}</div>
+      </div>
+      <div class="summary-card">
+        <h3>Active</h3>
+        <div class="value">${summary.activeTenants || 0}</div>
+      </div>
+      <div class="summary-card">
+        <h3>With Bookings</h3>
+        <div class="value">${summary.tenantsWithAssignments || 0}</div>
+      </div>
+      <div class="summary-card">
+        <h3>New This Month</h3>
+        <div class="value">${summary.newTenantsThisMonth || 0}</div>
+      </div>
+      <div class="summary-card">
+        <h3>Total Paid</h3>
+        <div class="value">₹${(summary.totalPaid || 0).toLocaleString('en-IN')}</div>
+      </div>
+    </div>
+  `;
+}
+
+function generateOccupancySummaryHTML(summary: any): string {
+  return `
+    <div class="summary-grid">
+      <div class="summary-card">
+        <h3>Occupancy Rate</h3>
+        <div class="value">${summary.occupancyRate || 0}%</div>
+      </div>
+      <div class="summary-card">
+        <h3>Total Beds</h3>
+        <div class="value">${summary.totalBeds || 0}</div>
+      </div>
+      <div class="summary-card">
+        <h3>Occupied Beds</h3>
+        <div class="value">${summary.occupiedBeds || 0}</div>
+      </div>
+      <div class="summary-card">
+        <h3>Total Rooms</h3>
+        <div class="value">${summary.totalRooms || 0}</div>
+      </div>
+    </div>
+  `;
+}
+
+function generateExpensesSummaryHTML(summary: any): string {
+  return `
+    <div class="summary-grid">
+      <div class="summary-card">
+        <h3>Total Expenses</h3>
+        <div class="value">₹${(summary.totalAmount || 0).toLocaleString('en-IN')}</div>
+      </div>
+      <div class="summary-card">
+        <h3>Total Paid</h3>
+        <div class="value">₹${(summary.totalPaid || 0).toLocaleString('en-IN')}</div>
+      </div>
+      <div class="summary-card">
+        <h3>Pending Balance</h3>
+        <div class="value">₹${(summary.totalBalance || 0).toLocaleString('en-IN')}</div>
+      </div>
+      <div class="summary-card">
+        <h3>Transactions</h3>
+        <div class="value">${summary.totalTransactions || 0}</div>
+      </div>
+    </div>
+  `;
+}
+
+function generateRequestsSummaryHTML(summary: any): string {
+  return `
+    <div class="summary-grid">
+      <div class="summary-card">
+        <h3>Total Requests</h3>
+        <div class="value">${summary.totalRequests || 0}</div>
+      </div>
+      <div class="summary-card">
+        <h3>Pending</h3>
+        <div class="value">${summary.pendingCount || 0}</div>
+      </div>
+      <div class="summary-card">
+        <h3>In Progress</h3>
+        <div class="value">${summary.inProgressCount || 0}</div>
+      </div>
+      <div class="summary-card">
+        <h3>Resolved</h3>
+        <div class="value">${summary.resolvedCount || 0}</div>
+      </div>
+    </div>
+  `;
+}
+
+function generateRevenueTableHTML(payments: any[]): string {
+  if (!payments || payments.length === 0) {
+    return '<p>No payment data available</p>';
   }
   
-  return `<div class="summary-grid">${cards}</div>`;
+  let rows = '';
+  payments.slice(0, 50).forEach(p => {
+    rows += `
+      <tr>
+        <td>${p.payment_date?.split('T')[0] || '-'}</td>
+        <td>${p.tenant_name || 'N/A'}</td>
+        <td>${p.property_name || 'N/A'}</td>
+        <td>${p.payment_type || '-'}</td>
+        <td class="text-right">₹${(p.amount || 0).toLocaleString('en-IN')}</td>
+        <td>${p.payment_mode || '-'}</td>
+        <td><span class="badge badge-success">${p.status || 'N/A'}</span></td>
+      </tr>
+    `;
+  });
+  
+  return `
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Tenant</th>
+          <th>Property</th>
+          <th>Type</th>
+          <th class="text-right">Amount (₹)</th>
+          <th>Mode</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows}
+      </tbody>
+    </table>
+  `;
 }
 
 function generatePaymentsTableHTML(payments: any[]): string {
@@ -511,41 +693,33 @@ function generatePaymentsTableHTML(payments: any[]): string {
   }
   
   let rows = '';
-  payments.slice(0, 50).forEach(p => { // Limit to 50 rows for print
-    const statusClass = p.status === 'completed' ? 'badge-success' : 
-                        p.status === 'pending' ? 'badge-warning' : 
-                        p.status === 'failed' ? 'badge-danger' : 'badge-secondary';
-    
+  payments.slice(0, 50).forEach(p => {
+    const statusClass = p.status === 'approved' || p.status === 'paid' ? 'badge-success' : 
+                        p.status === 'pending' ? 'badge-warning' : 'badge-danger';
     rows += `
       <tr>
-        <td>${p.payment_number || p.id || '-'}</td>
-        <td>${p.payment_date ? new Date(p.payment_date).toLocaleDateString() : '-'}</td>
+        <td>${p.payment_date?.split('T')[0] || '-'}</td>
         <td>${p.tenant_name || 'N/A'}</td>
         <td>${p.property_name || 'N/A'}</td>
-        <td>${p.payment_type || '-'}</td>
-        <td>₹${(p.amount || 0).toLocaleString('en-IN')}</td>
-        <td>${p.payment_method || '-'}</td>
-        <td><span class="badge ${statusClass}">${p.status || 'unknown'}</span></td>
+        <td class="text-right">₹${(p.amount || 0).toLocaleString('en-IN')}</td>
+        <td>${p.payment_mode || '-'}</td>
+        <td><span class="badge ${statusClass}">${p.status || 'N/A'}</span></td>
+        <td>${p.transaction_id || '-'}</td>
       </tr>
     `;
   });
-  
-  if (payments.length > 50) {
-    rows += `<tr><td colspan="8" style="text-align: center; font-style: italic;">... and ${payments.length - 50} more records</td></tr>`;
-  }
   
   return `
     <table>
       <thead>
         <tr>
-          <th>Payment #</th>
           <th>Date</th>
           <th>Tenant</th>
           <th>Property</th>
-          <th>Type</th>
-          <th>Amount (₹)</th>
+          <th class="text-right">Amount (₹)</th>
           <th>Method</th>
           <th>Status</th>
+          <th>Transaction ID</th>
         </tr>
       </thead>
       <tbody>
@@ -568,16 +742,13 @@ function generateTenantsTableHTML(tenants: any[]): string {
         <td>${t.email || '-'}</td>
         <td>${t.phone || '-'}</td>
         <td>${t.gender || 'N/A'}</td>
-        <td>${t.occupation || 'N/A'}</td>
-        <td>${t.city || 'N/A'}</td>
+        <td>${t.occupation_category || 'N/A'}</td>
+        <td>${t.property_name || 'N/A'}</td>
+        <td>${t.room_number || 'N/A'}</td>
         <td><span class="badge ${t.is_active ? 'badge-success' : 'badge-danger'}">${t.is_active ? 'Active' : 'Inactive'}</span></td>
       </tr>
     `;
   });
-  
-  if (tenants.length > 50) {
-    rows += `<tr><td colspan="7" style="text-align: center; font-style: italic;">... and ${tenants.length - 50} more records</td></tr>`;
-  }
   
   return `
     <table>
@@ -588,7 +759,8 @@ function generateTenantsTableHTML(tenants: any[]): string {
           <th>Phone</th>
           <th>Gender</th>
           <th>Occupation</th>
-          <th>City</th>
+          <th>Property</th>
+          <th>Room</th>
           <th>Status</th>
         </tr>
       </thead>
@@ -606,26 +778,20 @@ function generateOccupancyTableHTML(rooms: any[]): string {
   
   let rows = '';
   rooms.slice(0, 50).forEach(r => {
-    const statusClass = r.status === 'occupied' ? 'badge-success' : 
-                        r.status === 'vacant' ? 'badge-warning' : 
-                        r.status === 'maintenance' ? 'badge-danger' : 'badge-secondary';
-    
+    const statusClass = r.status === 'full' || r.status === 'occupied' ? 'badge-success' : 
+                        r.status === 'partial' ? 'badge-warning' : 'badge-secondary';
     rows += `
       <tr>
         <td>${r.property_name || 'N/A'}</td>
         <td>${r.room_number || '-'}</td>
-        <td>${r.room_type || '-'}</td>
+        <td>${r.room_type || 'Standard'}</td>
         <td>${r.floor || 'N/A'}</td>
-        <td>₹${(r.rent_amount || 0).toLocaleString('en-IN')}</td>
-        <td><span class="badge ${statusClass}">${r.status || 'unknown'}</span></td>
+        <td class="text-right">₹${(r.rent_per_bed || 0).toLocaleString('en-IN')}</td>
         <td>${r.occupied_beds || 0} / ${r.total_bed || 0}</td>
+        <td><span class="badge ${statusClass}">${r.status || 'N/A'}</span></td>
       </tr>
     `;
   });
-  
-  if (rooms.length > 50) {
-    rows += `<tr><td colspan="7" style="text-align: center; font-style: italic;">... and ${rooms.length - 50} more records</td></tr>`;
-  }
   
   return `
     <table>
@@ -635,9 +801,91 @@ function generateOccupancyTableHTML(rooms: any[]): string {
           <th>Room #</th>
           <th>Type</th>
           <th>Floor</th>
-          <th>Rent (₹)</th>
-          <th>Status</th>
+          <th class="text-right">Rent (₹)</th>
           <th>Occupancy</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows}
+      </tbody>
+    </table>
+  `;
+}
+
+function generateExpensesTableHTML(expenses: any[]): string {
+  if (!expenses || expenses.length === 0) {
+    return '<p>No expense data available</p>';
+  }
+  
+  let rows = '';
+  expenses.slice(0, 50).forEach(e => {
+    const statusClass = e.status === 'Paid' ? 'badge-success' : 
+                        e.status === 'Partial' ? 'badge-warning' : 'badge-danger';
+    rows += `
+      <tr>
+        <td>${e.expense_date?.split('T')[0] || '-'}</td>
+        <td>${e.property_name || 'N/A'}</td>
+        <td>${e.category_name || 'N/A'}</td>
+        <td>${e.vendor_name || 'N/A'}</td>
+        <td class="text-right">₹${(e.total_amount || 0).toLocaleString('en-IN')}</td>
+        <td class="text-right">₹${(e.total_paid || 0).toLocaleString('en-IN')}</td>
+        <td><span class="badge ${statusClass}">${e.status || 'N/A'}</span></td>
+      </tr>
+    `;
+  });
+  
+  return `
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Property</th>
+          <th>Category</th>
+          <th>Vendor</th>
+          <th class="text-right">Amount (₹)</th>
+          <th class="text-right">Paid (₹)</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows}
+      </tbody>
+    </table>
+  `;
+}
+
+function generateRequestsTableHTML(requests: any[]): string {
+  if (!requests || requests.length === 0) {
+    return '<p>No request data available</p>';
+  }
+  
+  let rows = '';
+  requests.slice(0, 50).forEach(r => {
+    const statusClass = r.status === 'resolved' ? 'badge-success' : 
+                        r.status === 'in_progress' ? 'badge-warning' : 'badge-secondary';
+    rows += `
+      <tr>
+        <td>${r.created_at?.split('T')[0] || '-'}</td>
+        <td>${r.tenant_name || 'N/A'}</td>
+        <td>${r.request_type || '-'}</td>
+        <td>${r.title || '-'}</td>
+        <td><span class="badge ${statusClass}">${r.status || 'N/A'}</span></td>
+        <td><span class="badge badge-info">${r.priority || 'medium'}</span></td>
+      </tr>
+    `;
+  });
+  
+  return `
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Tenant</th>
+          <th>Type</th>
+          <th>Title</th>
+          <th>Status</th>
+          <th>Priority</th>
         </tr>
       </thead>
       <tbody>
