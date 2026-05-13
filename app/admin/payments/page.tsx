@@ -5483,27 +5483,27 @@ const PaymentsTable = ({
                                     {group.tenant_phone}
                                   </p>
                                   {/* ✅ ADD ROOM AND BED NUMBER HERE */}
-      {(group.room_number || group.bed_number) && (
-        <div className="flex items-center gap-2 mt-0.5">
-          {group.room_number && (
-            <span className="text-[10px] text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-full inline-flex items-center gap-0.5">
-              <DoorOpen className="h-2.5 w-2.5" />
-              Room {group.room_number}
-            </span>
-          )}
-          {group.bed_number && (
-            <span className="text-[10px] text-green-600 bg-green-50 px-1.5 py-0.5 rounded-full inline-flex items-center gap-0.5">
-              <Bed className="h-2.5 w-2.5" />
-              Bed #{group.bed_number}
-            </span>
-          )}
-          {group.property_name && (
-            <span className="text-[10px] text-slate-500 truncate max-w-[120px]">
-              • {group.property_name}
-            </span>
-          )}
-        </div>
-      )}
+     {(group.room_number || group.bed_number) && (
+  <div className="flex flex-wrap sm:flex-nowrap items-center gap-1.5 mt-0.5">
+    {group.room_number && (
+      <span className="text-[10px] text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-full inline-flex items-center gap-0.5 whitespace-nowrap">
+        <DoorOpen className="h-2.5 w-2.5" />
+        Room {group.room_number}
+      </span>
+    )}
+    {group.bed_number && (
+      <span className="text-[10px] text-green-600 bg-green-50 px-1.5 py-0.5 rounded-full inline-flex items-center gap-0.5 whitespace-nowrap">
+        <Bed className="h-2.5 w-2.5" />
+        Bed #{group.bed_number}
+      </span>
+    )}
+    {group.property_name && (
+      <span className="text-[10px] text-slate-500 truncate max-w-[100px] sm:max-w-[120px] flex-shrink-0">
+        • {group.property_name}
+      </span>
+    )}
+  </div>
+)}
                                 </div>
                               </div>
                             </TableCell>
