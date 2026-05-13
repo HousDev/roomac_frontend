@@ -469,7 +469,7 @@ useEffect(() => {
       // Check URL parameters
       const urlParams = new URLSearchParams(window.location.search);
       let demandId = urlParams.get("demand_id");
-      const action = urlParams.get("action");
+      let action = urlParams.get("action");
       const openPaymentFormParam = urlParams.get("openPaymentForm");
       
       console.log("Checking payment intent. hasBedAssignment:", hasBedAssignment, "demandId:", demandId, "openPaymentForm:", openPaymentFormParam);

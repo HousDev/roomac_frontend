@@ -7,6 +7,10 @@ export interface PartnerFormData {
   property_type: string;
   location: string;
   message: string;
+  no_of_buildings: string;   // ← ADD
+  no_of_rooms: string;       // ← ADD
+  city: string;              // ← ADD
+  locality: string;
 }
 
 export interface Benefit {

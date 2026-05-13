@@ -41,7 +41,6 @@ export default function AboutHeader() {
         <div className="max-w-4xl mx-auto text-center">
           
           <Badge className="mb-4 bg-white/10 backdrop-blur-md border-white/30 text-white  px-4 py-1.5 text-xs sm:text-sm opacity-0 animate-[popIn_0.6s_ease-out_0.2s_forwards] hover:scale-105 transition-transform duration-300">
-            <Sparkles className="h-3 w-3 mr-1 animate-spin animate-infinite animate-duration-[2000ms]" />
             {headerData.badgeText}
           </Badge>
           

@@ -82,6 +82,9 @@ import {
   Mail,
   MessageCircle,
   DoorOpen,
+  Building2,
+  Copy,
+  Smartphone,
 } from "lucide-react";
 import {
   Table,
@@ -5644,285 +5647,303 @@ const PaymentsTable = ({
             </h4>
           </div>
 
-          <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
-            <Table>
-              <TableHeader className="bg-slate-50">
-                <TableRow>
-                  <TableHead className="text-[12px] py-2">Transaction Date</TableHead>
-                  <TableHead className="text-[12px] py-2">Amount</TableHead>
-                  <TableHead className="text-[12px] py-2">Transaction ID</TableHead>
-                  <TableHead className="text-[12px] py-2">Mode</TableHead>
-                  <TableHead className="text-[12px] py-2">Mode Type</TableHead> {/* ✅ NEW COLUMN */}
-                  <TableHead className="text-[12px] py-2">Payment Type</TableHead> {/* ✅ NEW COLUMN */}
-                  <TableHead className="text-[12px] py-2">Month/Year</TableHead>
-                  <TableHead className="text-[12px] py-2">Remark</TableHead>
-                  <TableHead className="text-[12px] py-2">Proof</TableHead>
-                  <TableHead className="text-[12px] py-2">Status</TableHead>
-                  <TableHead className="text-[12px] py-2">Source</TableHead>
-                  <TableHead className="text-[12px] py-2 text-center">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {group.payments.map((payment: any, index: number) => {
-                  // Parse payment_mode_type JSON to get detailed payment info
-                  let modeTypeDisplay = '';
-                  let modeTypeTooltip = '';
-                  
-                  if (payment.payment_mode_type) {
-                    try {
-                      const modeTypeData = typeof payment.payment_mode_type === 'string' 
-                        ? JSON.parse(payment.payment_mode_type) 
-                        : payment.payment_mode_type;
-                      
-                      if (payment.payment_mode === 'card' && modeTypeData) {
-                        modeTypeDisplay = `${modeTypeData.network || 'Card'} •••• ${modeTypeData.last4 || '****'}`;
-                        modeTypeTooltip = `${modeTypeData.type || 'Card'} - ${modeTypeData.bank || 'Unknown Bank'}`;
-                      } else if (payment.payment_mode === 'upi' && modeTypeData?.vpa) {
-                        modeTypeDisplay = modeTypeData.vpa;
-                        modeTypeTooltip = modeTypeData.vpa;
-                      } else if ((payment.payment_mode === 'netbanking' || payment.payment_mode === 'bank_transfer') && modeTypeData?.bank) {
-                        modeTypeDisplay = modeTypeData.bank;
-                        modeTypeTooltip = modeTypeData.bank;
-                      } else if (payment.payment_mode === 'wallet' && modeTypeData?.wallet) {
-                        modeTypeDisplay = modeTypeData.wallet;
-                        modeTypeTooltip = modeTypeData.wallet;
-                      } else {
-                        modeTypeDisplay = '-';
-                      }
-                    } catch (e) {
-                      modeTypeDisplay = '-';
-                    }
-                  } else {
-                    modeTypeDisplay = '-';
-                  }
-                  
-                  return (
-                    <TableRow
-                      key={payment.id}
-                      className={index % 2 === 0 ? "bg-white" : "bg-slate-50/50"}
+         <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300">
+  <div className="overflow-x-auto">
+    <table className="w-full text-sm border-collapse">
+      <thead>
+        <tr className="bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200">
+          <th className="text-left py-3.5 px-3 font-semibold text-slate-700 text-[11px] uppercase tracking-wider border-r border-slate-300">Transaction Date</th>
+          <th className="text-left py-3.5 px-3 font-semibold text-slate-700 text-[11px] uppercase tracking-wider border-r border-slate-300">Amount</th>
+          <th className="text-left py-3.5 px-3 font-semibold text-slate-700 text-[11px] uppercase tracking-wider border-r border-slate-300">Transaction ID</th>
+          <th className="text-left py-3.5 px-3 font-semibold text-slate-700 text-[11px] uppercase tracking-wider border-r border-slate-300">Mode</th>
+          <th className="text-left py-3.5 px-3 font-semibold text-slate-700 text-[11px] uppercase tracking-wider border-r border-slate-300">Mode Type</th>
+          <th className="text-left py-3.5 px-3 font-semibold text-slate-700 text-[11px] uppercase tracking-wider border-r border-slate-300">Payment Type</th>
+          <th className="text-left py-3.5 px-3 font-semibold text-slate-700 text-[11px] uppercase tracking-wider border-r border-slate-300">Period</th>
+          <th className="text-left py-3.5 px-3 font-semibold text-slate-700 text-[11px] uppercase tracking-wider border-r border-slate-300">Remark</th>
+          <th className="text-left py-3.5 px-3 font-semibold text-slate-700 text-[11px] uppercase tracking-wider border-r border-slate-300">Proof</th>
+          <th className="text-left py-3.5 px-3 font-semibold text-slate-700 text-[11px] uppercase tracking-wider border-r border-slate-300">Status</th>
+          <th className="text-left py-3.5 px-3 font-semibold text-slate-700 text-[11px] uppercase tracking-wider border-r border-slate-300">Source</th>
+          <th className="text-center py-3.5 px-3 font-semibold text-slate-700 text-[11px] uppercase tracking-wider">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {group.payments.map((payment: any, index: number) => {
+          // Parse payment_mode_type JSON to get detailed payment info
+          let modeTypeDisplay = '';
+          let modeTypeTooltip = '';
+          
+          if (payment.payment_mode_type) {
+            try {
+              const modeTypeData = typeof payment.payment_mode_type === 'string' 
+                ? JSON.parse(payment.payment_mode_type) 
+                : payment.payment_mode_type;
+              
+              if (payment.payment_mode === 'card' && modeTypeData) {
+                modeTypeDisplay = `${modeTypeData.network || 'Card'} •••• ${modeTypeData.last4 || '****'}`;
+                modeTypeTooltip = `${modeTypeData.type || 'Card'} - ${modeTypeData.bank || 'Unknown Bank'}`;
+              } else if (payment.payment_mode === 'upi' && modeTypeData?.vpa) {
+                modeTypeDisplay = modeTypeData.vpa;
+                modeTypeTooltip = modeTypeData.vpa;
+              } else if ((payment.payment_mode === 'netbanking' || payment.payment_mode === 'bank_transfer') && modeTypeData?.bank) {
+                modeTypeDisplay = modeTypeData.bank;
+                modeTypeTooltip = modeTypeData.bank;
+              } else if (payment.payment_mode === 'wallet' && modeTypeData?.wallet) {
+                modeTypeDisplay = modeTypeData.wallet;
+                modeTypeTooltip = modeTypeData.wallet;
+              } else {
+                modeTypeDisplay = '-';
+              }
+            } catch (e) {
+              modeTypeDisplay = '-';
+            }
+          } else {
+            modeTypeDisplay = '-';
+          }
+          
+          const isEven = index % 2 === 0;
+          
+          return (
+            <tr 
+              key={payment.id}
+              className={`${isEven ? 'bg-white' : 'bg-slate-50/30'} border-b border-slate-100 hover:bg-blue-50/30 transition-colors duration-200 group`}
+            >
+              {/* Transaction Date */}
+              <td className="py-1 px-3 border-r border-slate-200">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
+                    <Calendar className="w-3.5 h-3.5 text-blue-600" />
+                  </div>
+                  <span className="text-[12px] font-medium text-slate-700 whitespace-nowrap">
+                    {format(new Date(payment.payment_date), "dd MMM yyyy")}
+                  </span>
+                </div>
+              </td>
+              
+              {/* Amount */}
+              <td className="py-1 px-3 border-r border-slate-200">
+                <div className="flex items-center gap-1">
+                  <span className="text-[13px] font-bold text-slate-900">
+                    ₹{Number(payment.amount).toLocaleString()}
+                  </span>
+                </div>
+              </td>
+              
+              {/* Transaction ID */}
+              <td className="py-1 px-3 border-r border-slate-200">
+                {payment.transaction_id ? (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] font-mono text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                      {payment.transaction_id.substring(0, 8)}...
+                    </span>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(payment.transaction_id);
+                        toast.success("Transaction ID copied");
+                      }}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity"
                     >
-                      {/* Transaction Date */}
-                      <TableCell className="py-2 text-[12px] whitespace-nowrap">
-                        {format(new Date(payment.payment_date), "dd/MM/yyyy")}
-                      </TableCell>
-                      
-                      {/* Amount */}
-                      <TableCell className="py-2 text-[12px] font-medium">
-                        ₹{Number(payment.amount).toLocaleString()}
-                      </TableCell>
-                      
-                      {/* Transaction ID */}
-                      <TableCell className="py-2 text-[12px] font-mono">
-                        {payment.transaction_id
-                          ? payment.transaction_id.substring(0, 8) + "..."
-                          : "-"}
-                      </TableCell>
-                      
-                      {/* Payment Mode */}
-                      <TableCell className="py-2">
-                        <div className="flex items-center gap-1">
-                          <span className="text-[12px] capitalize">
-                            {payment.payment_mode}
-                          </span>
-                        </div>
-                        {payment.bank_name && (
-                          <p className="text-[10px] text-slate-500">
-                            {payment.bank_name}
-                          </p>
-                        )}
-                      </TableCell>
-                      
-                      {/* ✅ Payment Mode Type - NEW COLUMN */}
-                      <TableCell className="py-2">
-                        <span 
-                          className="text-[11px] text-slate-600 cursor-help"
-                          title={modeTypeTooltip || modeTypeDisplay}
-                        >
-                          {modeTypeDisplay || '-'}
-                        </span>
-                      </TableCell>
-                      
-                      {/* ✅ Payment Type - NEW COLUMN */}
-                      <TableCell className="py-2">
-                        <Badge 
-                          variant="outline" 
-                          className={`text-[10px] px-1.5 py-0 ${
-                            payment.payment_type === 'rent' 
-                              ? 'bg-blue-50 text-blue-700 border-blue-200'
-                              : payment.payment_type === 'security_deposit'
-                              ? 'bg-purple-50 text-purple-700 border-purple-200'
-                              : 'bg-gray-50 text-gray-700 border-gray-200'
-                          }`}
-                        >
-                          {payment.payment_type === 'rent' 
-                            ? 'Rent' 
-                            : payment.payment_type === 'security_deposit'
-                            ? 'Security Deposit'
-                            : payment.payment_type || 'Other'}
-                        </Badge>
-                      </TableCell>
-                      
-                      {/* Month/Year */}
-                      <TableCell className="py-2 text-[12px]">
-                        {payment.month} {payment.year}
-                      </TableCell>
-                      
-                      {/* Remark */}
-                      <TableCell className="py-2 text-xs max-w-[120px] truncate group relative">
-                        <span className="cursor-help" title={payment.remark || "-"}>
-                          {payment.remark || "-"}
-                        </span>
-                      </TableCell>
-                      
-                      {/* Proof Column with Thumbnail */}
-                      <TableCell className="py-2">
-                        {payment.payment_proof ? (
-                          <div className="flex items-center gap-1">
-                            {payment.payment_proof.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
-                              <img
-                                src={`${import.meta.env.VITE_API_URL || "http://localhost:3001"}${payment.payment_proof}`}
-                                alt="Proof"
-                                className="h-8 w-8 object-cover rounded cursor-pointer border hover:shadow-md transition-shadow"
-                                onClick={() => {
-                                  window.open(
-                                    `${import.meta.env.VITE_API_URL || "http://localhost:3001"}${payment.payment_proof}`,
-                                    "_blank",
-                                  );
-                                }}
-                              />
-                            ) : (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-6 w-6 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-full"
-                                onClick={() => {
-                                  window.open(
-                                    `${import.meta.env.VITE_API_URL || "http://localhost:3001"}${payment.payment_proof}`,
-                                    "_blank",
-                                  );
-                                }}
-                                title="View Proof"
-                              >
-                                <FileText className="h-3 w-3" />
-                              </Button>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-[10px] text-slate-400">-</span>
-                        )}
-                      </TableCell>
-                      
-                      {/* Status */}
-                      <TableCell className="py-2">
-                        <PaymentStatusBadge status={payment.status || "pending"} />
-                      </TableCell>
-                      
-                      {/* Source */}
-                      <TableCell className="py-2">
-                        {payment.booking_id ? (
-                          <Badge className="bg-purple-100 text-purple-700 border-purple-200 text-[10px] px-1.5 py-0">
-                            <Globe className="h-2.5 w-2.5 mr-0.5 inline" />
-                            Online Booking
-                          </Badge>
-                        ) : payment.source === "tenant" ? (
-                          <Badge className="bg-blue-100 text-blue-700 border-blue-200 text-[10px] px-1.5 py-0">
-                            <Globe className="h-2.5 w-2.5 mr-0.5 inline" />
-                            Online Payment
-                          </Badge>
-                        ) : payment.payment_mode === "online" ? (
-                          <Badge className="bg-orange-100 text-orange-700 border-orange-200 text-[10px] px-1.5 py-0">
-                            <Globe className="h-2.5 w-2.5 mr-0.5 inline" />
-                            Manual Entry
-                          </Badge>
-                        ) : (
-                          <Badge className="bg-orange-100 text-orange-700 border-orange-200 text-[10px] px-1.5 py-0">
-                            <User className="h-2.5 w-2.5 mr-0.5 inline" />
-                            Manual Entry
-                          </Badge>
-                        )}
-                      </TableCell>
-                      
-                      {/* Actions */}
-                      <TableCell className="py-2">
-                        <div className="flex items-center gap-0.5 justify-end">
-                          {/* View Receipt - Show for approved or admin-paid payments */}
-                          {/* {(payment.status === "approved") && canViewReceipts && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-6 w-6 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-full"
-                              onClick={() => {
-                                if (payment.status === "approved") {
-                                  handlePreviewReceipt(payment.id);
-                                } else {
-                                  toast.info("Receipt will be available after payment approval");
-                                }
-                              }}
-                              title="View Receipt"
-                            >
-                              <ReceiptIndianRupee className="h-3 w-3" />
-                            </Button>
-                          )} */}
-                          
-                          {/* Approve Button */}
-                          {(payment.status === "pending" || payment.status === "paid" || payment.status === "partial") && canApprove && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-6 w-6 p-0 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-full"
-                              onClick={() => onApprove(payment)}
-                              title="Approve"
-                            >
-                              <CheckCircle2 className="h-3 w-3" />
-                            </Button>
-                          )}
-                          
-                          {/* Reject Button */}
-                          {(payment.status === "pending" || payment.status === "paid" || payment.status === "partial") && canReject && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-full"
-                              onClick={() => onReject(payment)}
-                              title="Reject"
-                            >
-                              <XCircle className="h-3 w-3" />
-                            </Button>
-                          )}
-                          
-                          {/* Edit Button */}
-                          {payment.source !== 'tenant' && (payment.status === "pending" || payment.status === "paid") && canEdit && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-6 w-6 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-full"
-                              onClick={() => onEdit(payment)}
-                              title="Edit"
-                            >
-                              <Pencil className="h-3 w-3" />
-                            </Button>
-                          )}
-                          
-                          {/* Delete Button */}
-                          {canDelete && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-full"
-                              onClick={() => onDelete(payment)}
-                              title="Delete"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
+                      <Copy className="w-3 h-3 text-slate-400 hover:text-slate-600" />
+                    </button>
+                  </div>
+                ) : (
+                  <span className="text-[11px] text-slate-400">—</span>
+                )}
+               </td>
+              
+              {/* Payment Mode - Mode and Bank Name in SAME ROW (horizontal) */}
+              <td className="py-1 px-1 border-r border-slate-200">
+                <div className="flex items-center gap-1 flex-wrap">
+                  {payment.payment_mode === 'card' && <CreditCard className="w-3.5 h-3.5 text-blue-500" />}
+                  {payment.payment_mode === 'upi' && <Smartphone className="w-3.5 h-3.5 text-green-500" />}
+                  {payment.payment_mode === 'cash' && <IndianRupee className="w-3.5 h-3.5 text-emerald-500" />}
+                  {payment.payment_mode === 'bank_transfer' }
+                  <span className="text-[10px] font-medium text-slate-700 capitalize">
+                    {payment.payment_mode === 'bank_transfer' ? 'Bank Transfer' : payment.payment_mode}
+                  </span>
+                  {payment.bank_name && (
+                    <>
+                      <span className="text-slate-300"></span>
+                      <span className="text-[9px] text-slate-500">
+                        {payment.bank_name}
+                      </span>
+                    </>
+                  )}
+                </div>
+               </td>
+              
+              {/* Payment Mode Type */}
+              <td className="py-1 px-3 border-r border-slate-200">
+                {modeTypeDisplay !== '-' ? (
+                  <div className="flex items-center gap-1">
+                    <span 
+                      className="text-[11px] text-slate-600 cursor-help bg-slate-100 px-1.5 py-0.5 rounded"
+                      title={modeTypeTooltip || modeTypeDisplay}
+                    >
+                      {modeTypeDisplay.length > 20 ? modeTypeDisplay.substring(0, 20) + '...' : modeTypeDisplay}
+                    </span>
+                  </div>
+                ) : (
+                  <span className="text-[11px] text-slate-400">—</span>
+                )}
+                </td>
+              
+              {/* Payment Type */}
+              <td className="py-1 px-3 border-r border-slate-200">
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                  payment.payment_type === 'rent' 
+                    ? 'bg-blue-100 text-blue-700'
+                    : payment.payment_type === 'security_deposit'
+                    ? 'bg-purple-100 text-purple-700'
+                    : 'bg-slate-100 text-slate-600'
+                }`}>
+                  {payment.payment_type === 'rent' 
+                    ? 'Rent' 
+                    : payment.payment_type === 'security_deposit'
+                    ? 'Security Deposit'
+                    : payment.payment_type || 'Other'}
+                </span>
+                </td>
+              
+              {/* Month/Year */}
+              <td className="py-1 px-3 border-r border-slate-200">
+                <span className="text-[12px] text-slate-600 whitespace-nowrap">
+                  {payment.month} {payment.year}
+                </span>
+                </td>
+              
+              {/* Remark */}
+              <td className="py-1 px-3 border-r border-slate-200 max-w-[150px]">
+                {payment.remark ? (
+                  <div className="group relative">
+                    <p className="text-[11px] text-slate-500 truncate cursor-help" title={payment.remark}>
+                      {payment.remark}
+                    </p>
+                  </div>
+                ) : (
+                  <span className="text-[11px] text-slate-400">—</span>
+                )}
+                </td>
+              
+              {/* Proof Column with Thumbnail */}
+              <td className="py-1 px-3 border-r border-slate-200">
+                {payment.payment_proof ? (
+                  <button
+                    className="flex items-center gap-1.5 group/proof"
+                    onClick={() => {
+                      window.open(
+                        `${import.meta.env.VITE_API_URL || "http://localhost:3001"}${payment.payment_proof}`,
+                        "_blank",
+                      );
+                    }}
+                  >
+                    {payment.payment_proof.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+                      <div className="relative">
+                        <img
+                          src={`${import.meta.env.VITE_API_URL || "http://localhost:3001"}${payment.payment_proof}`}
+                          alt="Proof"
+                          className="h-8 w-8 rounded-lg object-cover border border-slate-200 shadow-sm hover:shadow-md transition-all cursor-pointer hover:scale-105"
+                        />
+                        <div className="absolute inset-0 bg-black/0 hover:bg-black/10 rounded-lg transition-colors" />
+                      </div>
+                    ) : (
+                      <div className="h-8 w-8 rounded-lg bg-blue-50 flex items-center justify-center border border-blue-200 hover:bg-blue-100 transition-colors">
+                        <FileText className="h-4 w-4 text-blue-600" />
+                      </div>
+                    )}
+                  </button>
+                ) : (
+                  <div className="h-8 w-8 rounded-lg bg-slate-50 flex items-center justify-center border border-slate-200">
+                    <span className="text-[10px] text-slate-400">—</span>
+                  </div>
+                )}
+                </td>
+              
+              {/* Status */}
+              <td className="py-1 px-3 border-r border-slate-200">
+                <PaymentStatusBadge status={payment.status || "pending"} />
+                </td>
+              
+              {/* Source */}
+              <td className="py-1 px-3 border-r border-slate-200">
+                {payment.booking_id ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-[10px] font-medium">
+                    <Globe className="h-2.5 w-2.5" />
+                    Online Booking
+                  </span>
+                ) : payment.source === "tenant" ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-medium">
+                    <Globe className="h-2.5 w-2.5" />
+                    Online Payment
+                  </span>
+                ) : payment.payment_mode === "online" ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 text-[10px] font-medium">
+                    <User className="h-2.5 w-2.5" />
+                    Manual Entry
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 text-[10px] font-medium">
+                    <User className="h-2.5 w-2.5" />
+                    Manual Entry
+                  </span>
+                )}
+                </td>
+              
+              {/* Actions */}
+              <td className="py-1 px-3">
+                <div className="flex items-center gap-1 justify-end">
+                  {/* Approve Button */}
+                  {(payment.status === "pending" || payment.status === "paid" || payment.status === "partial") && canApprove && (
+                    <button
+                      className="h-7 w-7 rounded-lg text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 flex items-center justify-center transition-all duration-200"
+                      onClick={() => onApprove(payment)}
+                      title="Approve"
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                  
+                  {/* Reject Button */}
+                  {(payment.status === "pending" || payment.status === "paid" || payment.status === "partial") && canReject && (
+                    <button
+                      className="h-7 w-7 rounded-lg text-red-600 hover:text-red-700 hover:bg-red-50 flex items-center justify-center transition-all duration-200"
+                      onClick={() => onReject(payment)}
+                      title="Reject"
+                    >
+                      <XCircle className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                  
+                  {/* Edit Button */}
+                  {payment.source !== 'tenant' && (payment.status === "pending" || payment.status === "paid") && canEdit && (
+                    <button
+                      className="h-7 w-7 rounded-lg text-blue-600 hover:text-blue-700 hover:bg-blue-50 flex items-center justify-center transition-all duration-200"
+                      onClick={() => onEdit(payment)}
+                      title="Edit"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                  
+                  {/* Delete Button */}
+                  {canDelete && (
+                    <button
+                      className="h-7 w-7 rounded-lg text-red-600 hover:text-red-700 hover:bg-red-50 flex items-center justify-center transition-all duration-200"
+                      onClick={() => onDelete(payment)}
+                      title="Delete"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+                </td>
+              
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  </div>
+</div>
         </div>
       </div>
     </TableCell>

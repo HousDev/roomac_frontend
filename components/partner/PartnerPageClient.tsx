@@ -22,6 +22,7 @@ export function PartnerPageClient({ initialData }: PartnerPageClientProps) {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [isPopupOpen, setIsPopupOpen] = useState(false);
   const [formData, setFormData] = useState<PartnerFormData>({
     company_name: '',
     contact_person: '',
@@ -30,12 +31,27 @@ export function PartnerPageClient({ initialData }: PartnerPageClientProps) {
     property_count: '',
     property_type: '',
     location: '',
-    message: ''
+    message: '',
+     no_of_buildings: '',   
+  no_of_rooms: '',       
+  city: '',              
+  locality: '', 
   });
 
   const { visibleSections, refs } = useIntersectionObserver({
     sectionIds: ['section1', 'section2', 'section3', 'section4', 'section5']
   });
+
+  const handleApplyClick = useCallback(() => {
+  setIsPopupOpen(true);
+  document.body.style.overflow = 'hidden';
+}, []);
+
+const handleClosePopup = useCallback(() => {
+  setIsPopupOpen(false);
+  document.body.style.overflow = 'unset';
+  handleResetSubmission();
+}, []);
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -86,7 +102,10 @@ export function PartnerPageClient({ initialData }: PartnerPageClientProps) {
         property_count: '',
         property_type: '',
         location: '',
-        message: ''
+        message: '',no_of_buildings: '',   
+  no_of_rooms: '',       
+  city: '',              
+  locality: '',   
       });
     } catch (error) {
       toast({
@@ -109,10 +128,27 @@ export function PartnerPageClient({ initialData }: PartnerPageClientProps) {
   return (
     <>
       <Toaster />
+      
       <HeroSection 
         ref={refs.section1Ref}
         id="section1"
         visible={visibleSections.section1}
+        onApplyClick={handleApplyClick}
+      />
+      <FormSection 
+        ref={refs.section4Ref}
+        id="section4"
+        visible={visibleSections.section4}
+        formData={formData}
+        isSubmitting={isSubmitting}
+        submitted={submitted}
+        onChange={handleChange}
+        onSelectChange={handleSelectChange}
+        onSubmit={handleSubmit}
+        onReset={handleResetSubmission}
+        isPopupOpen={isPopupOpen}        // ← ADD THIS LINE
+  onClosePopup={handleClosePopup}
+  onApplyClick={handleApplyClick}
       />
       
       <BenefitsSection 
@@ -129,18 +165,7 @@ export function PartnerPageClient({ initialData }: PartnerPageClientProps) {
         steps={steps}
       />
       
-      <FormSection 
-        ref={refs.section4Ref}
-        id="section4"
-        visible={visibleSections.section4}
-        formData={formData}
-        isSubmitting={isSubmitting}
-        submitted={submitted}
-        onChange={handleChange}
-        onSelectChange={handleSelectChange}
-        onSubmit={handleSubmit}
-        onReset={handleResetSubmission}
-      />
+      
       
       {/* <FooterSection 
         ref={refs.section5Ref}

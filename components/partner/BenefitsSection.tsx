@@ -2,6 +2,10 @@ import { forwardRef, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { TrendingUp, Users, Shield, Building2 } from 'lucide-react';
 import type { Benefit, ColorSet } from './types';
+import partnerImg from '@/app/src/assets/images/partnersec1.png';
+import partnerImg2 from '@/app/src/assets/images/partnersec2.png';
+import partnerImg3 from '@/app/src/assets/images/partnersec3.png';
+import partnerImg4 from '@/app/src/assets/images/partnersec4.png';
 
 interface BenefitsSectionProps {
   id: string;
@@ -31,7 +35,7 @@ export const BenefitsSection = forwardRef<HTMLElement, BenefitsSectionProps>(
       <section
         ref={ref}
         id={id}
-        className={`py-10 bg-white transition-all duration-1000 ${
+        className={`py-0 bg-white transition-all duration-1000 ${
           visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
         }`}
       >
@@ -47,7 +51,7 @@ export const BenefitsSection = forwardRef<HTMLElement, BenefitsSectionProps>(
   </p>
 </div>
           {/* ================= TOP SECTION - BENEFITS CARDS ================= */}
-       <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-20 max-w-5xl mx-auto">
+       <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-0 max-w-5xl mx-auto">
   {benefits.map((benefit, index) => {
     const IconComponent = iconMap[benefit.icon as keyof typeof iconMap];
     const delayClass = delayClasses[index % delayClasses.length];
@@ -89,7 +93,7 @@ export const BenefitsSection = forwardRef<HTMLElement, BenefitsSectionProps>(
           {/* ================= BOTTOM SECTION - NETWORK OVERLAP DESIGN ================= */}
        <div className="flex justify-center items-center py-2 -mt-8">
   {/* Desktop View - Original (UNCHANGED) */}
-  <div className="hidden md:flex relative w-[800px] h-[800px] justify-center items-center">
+  <div className="hidden md:flex relative w-[800px] h-[780px] justify-center items-center">
     
     {/* CENTER CIRCLE */}
     <div className="absolute w-[400px] h-[400px] flex items-center justify-center z-[5]">
@@ -116,16 +120,16 @@ export const BenefitsSection = forwardRef<HTMLElement, BenefitsSectionProps>(
 
     {/* IMAGE NODES */}
     {[
-      { top: 'top-20', left: 'left-20', src: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=400&h=400&fit=crop' },
-      { top: 'top-20', right: 'right-20', src: 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=400&h=400&fit=crop' },
-      { bottom: 'bottom-20', left: 'left-20', src: 'https://images.unsplash.com/photo-1600880292203-757bb62b4baf?w=400&h=400&fit=crop' },
-      { bottom: 'bottom-20', right: 'right-14', src: 'https://images.unsplash.com/photo-1556761175-b413da4baf72?w=400&h=400&fit=crop' },
+      { top: 'top-20', left: 'left-20', src: partnerImg },
+      { top: 'top-20', right: 'right-20', src: partnerImg2 },
+      { bottom: 'bottom-20', left: 'left-20', src: partnerImg3 },
+      { bottom: 'bottom-20', right: 'right-14', src: partnerImg4 },
     ].map((img, idx) => (
       <div
         key={idx}
         className={`absolute ${img.top || ''} ${img.bottom || ''} ${img.left || ''} ${img.right || ''} w-[300px] h-[300px] rounded-full border-[6px] border-[#5b9ce8] overflow-hidden bg-white transition-transform duration-300 hover:scale-110 hover:shadow-xl`}
       >
-        <img src={img.src} alt={`Network ${idx}`} className="w-full h-full object-cover" />
+<img src={img.src} alt={`Network ${idx}`} className="w-full h-full object-cover object-center" />
       </div>
     ))}
   </div>
@@ -167,7 +171,7 @@ export const BenefitsSection = forwardRef<HTMLElement, BenefitsSectionProps>(
         key={idx}
         className={`absolute ${img.top || ''} ${img.bottom || ''} ${img.left || ''} ${img.right || ''} w-[131px] h-[131px] rounded-full border-[3px] border-[#5b9ce8] overflow-hidden bg-white transition-transform duration-300 hover:scale-110 hover:shadow-xl active:scale-105`}
       >
-        <img src={img.src} alt={`Network ${idx}`} className="w-full h-full object-cover" />
+<img src={img.src} alt={`Network ${idx}`} className="w-full h-full object-contain" />
       </div>
     ))}
   </div>

@@ -140,7 +140,7 @@ const PartnershipForm = ({
       {/* ══ SECTION 2 — Property Details ══════════════════════════════════════════ */}
       <div>
         <SH icon={<Building className="h-3 w-3" />} title="Property Details" color="text-indigo-600" />
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-2.5">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-3 gap-y-2.5">
 
           {/* Property Type */}
           <div>
@@ -176,22 +176,66 @@ const PartnershipForm = ({
     }}
   />
 </div>
+ {/* No of Buildings */}
+    <div>
+      <label className={L}>No. of Buildings</label>
+      <Input 
+        type="number"
+        className={F} 
+        min="0"
+        placeholder="e.g. 2"
+        value={formData.no_of_buildings ?? ""}
+        onChange={(e) => upd("no_of_buildings", e.target.value === "" ? "" : parseInt(e.target.value))}
+      />
+    </div>
 
           {/* Location */}
-          <div className="sm:col-span-2">
-            <label className={L}>Primary Location <span className="text-red-400">*</span></label>
-            <div className="relative">
-              <MapPin className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400 pointer-events-none" />
-              <Input 
-                className={`${F} pl-7`} 
-                placeholder="City, State"
-                value={formData.location ?? ""}
-                onChange={e => upd("location", e.target.value)} 
-              />
-            </div>
-          </div>
+         
         </div>
       </div>
+      {/* ══ SECTION — Buildings, Rooms, City, Locality ══ */}
+<div>
+  <div className="grid grid-cols-3 gap-x-3 gap-y-2.5">
+
+   
+
+    {/* No of Rooms */}
+    <div>
+      <label className={L}>No. of Rooms</label>
+      <Input 
+        type="number"
+        className={F} 
+        min="0"
+        placeholder="e.g. 20"
+        value={formData.no_of_rooms ?? ""}
+        onChange={(e) => upd("no_of_rooms", e.target.value === "" ? "" : parseInt(e.target.value))}
+      />
+    </div>
+
+    {/* City */}
+    <div>
+      <label className={L}>City</label>
+      <Input 
+        className={F} 
+        placeholder="e.g. Mumbai"
+        value={formData.city ?? ""}
+        onChange={e => upd("city", e.target.value)}
+      />
+    </div>
+
+    {/* Locality */}
+    <div>
+      <label className={L}>Locality</label>
+      <Input 
+        className={F} 
+        placeholder="e.g. Andheri West"
+        value={formData.locality ?? ""}
+        onChange={e => upd("locality", e.target.value)}
+      />
+    </div>
+
+  </div>
+</div>
 
       {/* ══ SECTION 3 — Status (only for edit) ═══════════════════════════════════ */}
       {isEdit && (
@@ -221,7 +265,20 @@ const PartnershipForm = ({
             </div>
           </div>
         </div>
+        
       )}
+       <div className="sm:col-span-2">
+            <label className={L}>Primary Location <span className="text-red-400">*</span></label>
+            <div className="relative">
+              <MapPin className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400 pointer-events-none" />
+              <Input 
+                className={`${F} pl-7`} 
+                placeholder="City, State"
+                value={formData.location ?? ""}
+                onChange={e => upd("location", e.target.value)} 
+              />
+            </div>
+          </div>
 
       {/* ══ SECTION 4 — Message & Remarks ════════════════════════════════════════ */}
       <div>
