@@ -614,67 +614,70 @@ export default function TenantRequestsClient() {
     }));
   }, []);
 
-  // Complaint handlers
-  const handleComplaintCategoryChange = useCallback(
-    async (categoryId: number) => {
-      setSelectedComplaintCategory(categoryId);
-      setComplaintReasons([]);
-      setShowCustomReason(false);
-
-      setFormData((prev) => ({
-        ...prev,
-        complaintData: {
-          ...prev.complaintData,
-          category_master_type_id: categoryId,
-          reason_master_value_id: undefined,
-          custom_reason: undefined,
-        },
-      }));
-
-      try {
-        const reasons = await getComplaintReasons(categoryId);
-        if (isMounted.current) {
-          setComplaintReasons(reasons);
-        }
-        if (reasons.length === 0) {
-          setShowCustomReason(true);
-        }
-      } catch (error) {
-        console.error("Error loading complaint reasons:", error);
-        toast.error("Failed to load complaint reasons");
+// Load complaint reasons ONCE when component mounts or when complaint type is selected
+useEffect(() => {
+  const loadComplaintReasons = async () => {
+    try {
+      const reasons = await getComplaintReasons();
+      if (isMounted.current) {
+        setComplaintReasons(reasons);
       }
-    },
-    [],
-  );
+    } catch (error) {
+      console.error("Error loading complaint reasons:", error);
+      toast.error("Failed to load complaint reasons");
+    }
+  };
+  
+  // Load reasons when complaint request type is opened
+  if (formData.request_type === "complaint") {
+    loadComplaintReasons();
+  }
+}, [formData.request_type]);
 
-  const handleComplaintReasonChange = useCallback(
-    (reasonId: number, reasonValue: string) => {
-      const isOthers = reasonValue.toLowerCase() === "others";
-      setShowCustomReason(isOthers);
-
-      setFormData((prev) => ({
-        ...prev,
-        complaintData: {
-          ...prev.complaintData,
-          reason_master_value_id: isOthers ? undefined : reasonId,
-          custom_reason: isOthers
-            ? prev.complaintData?.custom_reason
-            : undefined,
-        },
-      }));
-    },
-    [],
-  );
-
-  const handleCustomReasonChange = useCallback((value: string) => {
+// Handle category selection - just store the category
+const handleComplaintCategoryChange = useCallback(
+  (categoryId: number) => {
+    setSelectedComplaintCategory(categoryId);
+    
     setFormData((prev) => ({
       ...prev,
       complaintData: {
         ...prev.complaintData,
-        custom_reason: value || undefined,
+        category_master_type_id: categoryId,
+        // Don't reset reason when category changes
       },
     }));
-  }, []);
+  },
+  []
+);
+
+// Handle reason selection - check if "Other" is selected
+const handleComplaintReasonChange = useCallback(
+  (reasonId: number, reasonValue: string) => {
+    const isOther = reasonValue.toLowerCase() === "other";
+    setShowCustomReason(isOther);
+
+    setFormData((prev) => ({
+      ...prev,
+      complaintData: {
+        ...prev.complaintData,
+        reason_master_value_id: isOther ? undefined : reasonId,
+        custom_reason: isOther ? prev.complaintData?.custom_reason : undefined,
+      },
+    }));
+  },
+  []
+);
+
+const handleCustomReasonChange = useCallback((value: string) => {
+  setFormData((prev) => ({
+    ...prev,
+    complaintData: {
+      ...prev.complaintData,
+      custom_reason: value || undefined,
+    },
+  }));
+}, []);
 
   // Vacate data handlers
   const handleVacateDataChange = useCallback((field: string, value: any) => {
@@ -2253,97 +2256,79 @@ if (formData.request_type === 'vacate_bed' && formData.vacateData) {
               )}
 
               {/* Conditional rendering for Complaint Request */}
-              {formData.request_type === "complaint" && (
-                <div className="border-t border-red-200 pt-3 space-y-3">
-                  <h3 className="font-semibold text-base text-red-800">
-                    Complaint Details
-                  </h3>
+{formData.request_type === "complaint" && (
+  <div className="border-t border-gray-200 pt-3 space-y-3">
+    <h3 className="font-semibold text-base">Complaint Details</h3>
 
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <Label
-                        htmlFor="complaint_category"
-                        className="text-sm font-medium"
-                      >
-                        Category *
-                      </Label>
-                      <Select
-                        value={
-                          formData.complaintData?.category_master_type_id?.toString() ||
-                          ""
-                        }
-                        onValueChange={(value) =>
-                          handleComplaintCategoryChange(parseInt(value))
-                        }
-                      >
-                        <SelectTrigger className="h-10">
-                          <SelectValue placeholder="Select category" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {complaintCategories.map((category) => (
-                            <SelectItem
-                              key={category.id}
-                              value={category.id.toString()}
-                            >
-                              {category.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+    <div className="grid grid-cols-2 gap-3">
+      {/* Category Selection */}
+      <div className="space-y-1">
+        <Label htmlFor="complaint_category" className="text-sm font-medium">
+          Category *
+        </Label>
+        <Select
+          value={formData.complaintData?.category_master_type_id?.toString() || ""}
+          onValueChange={(value) => handleComplaintCategoryChange(parseInt(value))}
+        >
+          <SelectTrigger className="h-10">
+            <SelectValue placeholder="Select category" />
+          </SelectTrigger>
+          <SelectContent>
+            {complaintCategories.map((category) => (
+              <SelectItem key={category.id} value={category.id.toString()}>
+                {category.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
-                    {selectedComplaintCategory &&
-                      complaintReasons.length > 0 && (
-                        <div className="space-y-1">
-                          <Label
-                            htmlFor="complaint_reason"
-                            className="text-sm font-medium"
-                          >
-                            Reason *
-                          </Label>
-                          <Select
-                            value={
-                              formData.complaintData?.reason_master_value_id?.toString() ||
-                              ""
-                            }
-                            onValueChange={(value) => {
-                              const reason = complaintReasons.find(
-                                (r) => r.id.toString() === value,
-                              );
-                              handleComplaintReasonChange(
-                                parseInt(value),
-                                reason?.value || "",
-                              );
-                            }}
-                          >
-                            <SelectTrigger className="h-10">
-                              <SelectValue placeholder="Select reason" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {complaintReasons.map((reason) => (
-                                <SelectItem
-                                  key={reason.id}
-                                  value={reason.id.toString()}
-                                >
-                                  {reason.value}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
-                  </div>
+      {/* Reason Selection - Always show, independent of category */}
+      <div className="space-y-1">
+        <Label htmlFor="complaint_reason" className="text-sm font-medium">
+          Reason *
+        </Label>
+        <Select
+          value={formData.complaintData?.reason_master_value_id?.toString() || ""}
+          onValueChange={(value) => {
+            const reason = complaintReasons.find((r) => r.id.toString() === value);
+            if (reason) {
+              handleComplaintReasonChange(reason.id, reason.value);
+            }
+          }}
+        >
+          <SelectTrigger className="h-10">
+            <SelectValue placeholder="Select reason" />
+          </SelectTrigger>
+          <SelectContent>
+            {complaintReasons.map((reason) => (
+              <SelectItem key={reason.id} value={reason.id.toString()}>
+                {reason.value}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
 
-                  {showCustomReason && (
-                    <Input
-                      value={formData.complaintData?.custom_reason || ""}
-                      onChange={(e) => handleCustomReasonChange(e.target.value)}
-                      placeholder="Describe your complaint"
-                      className="h-10"
-                    />
-                  )}
-                </div>
-              )}
+    {/* Custom Reason Input - Only when "Other" is selected from reason dropdown */}
+    {showCustomReason && (
+      <div className="space-y-1">
+        <Label htmlFor="custom_reason" className="text-sm font-medium">
+          Please specify *
+        </Label>
+        <Textarea
+          id="custom_reason"
+          value={formData.complaintData?.custom_reason || ""}
+          onChange={(e) => handleCustomReasonChange(e.target.value)}
+          placeholder="Please provide detailed description..."
+          className="min-h-[80px]"
+          rows={3}
+        />
+      </div>
+    )}
+  </div>
+)}
             </div>
 
             <DialogFooter className="mt-4 pt-3 border-t border-gray-200 flex flex-row gap-2">

@@ -1,389 +1,335 @@
-
+// app/admin/dashboard/page.tsx
 
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Check, IndianRupeeIcon, RefreshCw } from 'lucide-react';
 import { format } from 'date-fns';
 import { 
   Building2, DoorOpen, Users, CreditCard, TrendingUp, 
-  MoreVertical, Filter, ChevronDown, Calendar, X, BarChart3, TrendingDown, DollarSign, ChevronLeft, ChevronRight, 
-  FileText, Receipt, IndianRupee, CheckCircle, AlertCircle
+  MoreVertical, Filter, ChevronDown, Calendar, X, BarChart3, 
+  TrendingDown, IndianRupee, AlertCircle, Loader2, RefreshCw,
+  Wallet, Banknote, Landmark, Receipt, CheckCircle2, Clock,
+  Home, Bed as BedIcon, DollarSign
 } from 'lucide-react';
-import { LineChart } from 'recharts';
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  AreaChart, Area, Legend, Line, BarChart, Bar
+  AreaChart, Area, Legend, LineChart, Line, BarChart, Bar,
+  PieChart, Pie, Cell
 } from 'recharts';
+import { toast } from 'sonner';
 
-// ─── Real API imports ────────────────────────────────────────────────────────
+// Import APIs
+import * as paymentApi from '@/lib/paymentRecordApi';
+import { getExpenses, type Expense } from '@/lib/expenseApi';
 import { listProperties } from '@/lib/propertyApi';
 import { listRooms } from '@/lib/roomsApi';
 import { listTenants } from '@/lib/tenantApi';
 
 // Types
+type DateRangeType = 'week' | 'month' | 'quarter' | 'year' | 'all';
 type FinancialTab = 'all' | 'income' | 'expense' | 'profit';
 type ChartType = 'area' | 'line' | 'bar';
-type DateFilterType = 'today' | 'week' | 'month' | 'year' | 'custom';
-type ComparisonMode = '1year' | '2year' | 'custom' | null;
 
-interface MonthlySummary {
+interface MonthlyData {
+  month: string;
+  year: number;
+  month_num: number;
   income: number;
   expense: number;
-  netProfit: number;
+  profit: number;
 }
 
-// Stat Card Component with gradient background like payment stats
-const StatCard = ({ title, value, icon: Icon, color, bgColor }: any) => (
+// Badge component
+const Badge = ({ className, children }: { className?: string; children: React.ReactNode }) => (
+  <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-medium ${className}`}>
+    {children}
+  </span>
+);
+
+// Gradient Stat Card (matching your payment stats theme)
+const GradientStatCard = ({ title, value, icon: Icon, color, bgColor, loading, trend, trendValue }: any) => (
   <div className={`${bgColor} rounded-xl p-2 sm:p-3 shadow-sm hover:shadow-md transition-all duration-300 border border-gray-100`}>
     <div className="flex items-center gap-2 sm:gap-3">
       <div className={`${color} p-1.5 sm:p-2 rounded-lg shadow-sm flex-shrink-0`}>
         <Icon className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-[10px] sm:text-xs font-medium text-gray-600 truncate">{title}</p>
-        <p className="text-xs sm:text-sm font-bold text-gray-800 truncate">{value}</p>
+        <div className="flex items-center justify-between">
+          <p className="text-[10px] sm:text-xs font-medium text-gray-600 truncate">{title}</p>
+          {trend && (
+            <div className={`flex items-center gap-0.5 text-[9px] ${trend === 'up' ? 'text-green-600' : 'text-red-600'}`}>
+              {trend === 'up' ? <TrendingUp className="w-2.5 h-2.5" /> : <TrendingDown className="w-2.5 h-2.5" />}
+              <span>{trendValue}%</span>
+            </div>
+          )}
+        </div>
+        {loading ? (
+          <div className="h-4 sm:h-5 w-16 bg-gray-200 rounded animate-pulse mt-0.5"></div>
+        ) : (
+          <p className="text-xs sm:text-sm font-bold text-gray-800 truncate">{value}</p>
+        )}
       </div>
     </div>
   </div>
 );
 
-// ─── FinancialTrendChart ──────────────────────────────────────────────────────
+// Financial Trend Chart Component
 const FinancialTrendChart: React.FC<{
-  summary: MonthlySummary;
+  data: MonthlyData[];
   activeTab: FinancialTab;
   chartType: ChartType;
   selectedYear: number | 'all';
-  selectedMonth: string;
   onTabChange: (tab: FinancialTab) => void;
   onChartTypeChange: (type: ChartType) => void;
   onYearChange: (year: number | 'all') => void;
   onClose: () => void;
-}> = ({ summary, activeTab, chartType, selectedYear, selectedMonth, onTabChange, onChartTypeChange, onYearChange, onClose }) => {
+  loading: boolean;
+  formatCurrency: (amount: number) => string;
+}> = ({ data, activeTab, chartType, selectedYear, onTabChange, onChartTypeChange, onYearChange, onClose, loading, formatCurrency }) => {
   const [showFilterPanel, setShowFilterPanel] = useState(false);
-  const [comparisonMode, setComparisonMode] = useState<'1year' | '2year' | '2month'>('1year');
-  const [selectedYear1, setSelectedYear1] = useState<string>('2024');
-  const [selectedYear2, setSelectedYear2] = useState<string>('2023');
-  const [firstMonth, setFirstMonth] = useState<string>('January');
-  const [firstYear, setFirstYear] = useState<string>('2024');
-  const [secondMonth, setSecondMonth] = useState<string>('June');
-  const [secondYear, setSecondYear] = useState<string>('2024');
-  const [filteredTrendData, setFilteredTrendData] = useState<any[]>([]);
-  const [chartTitle, setChartTitle] = useState('Financial Trend Analysis');
+  const availableYears = useMemo(() => [...new Set(data.map(d => d.year))].sort((a, b) => b - a), [data]);
 
-  const allMonths = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-  const availableYears = [2022, 2023, 2024, 2025, 2026];
+  const filteredData = useMemo(() => {
+    if (selectedYear === 'all') return data;
+    return data.filter(d => d.year === selectedYear);
+  }, [data, selectedYear]);
 
-  const getBaseTrendData = () => [
-    { month: 'Jan', year: 2024, income: 382500, expense: 331500, profit: 51000 },
-    { month: 'Feb', year: 2024, income: 420000, expense: 310000, profit: 110000 },
-    { month: 'Mar', year: 2024, income: 480000, expense: 340000, profit: 140000 },
-    { month: 'Apr', year: 2024, income: 450000, expense: 390000, profit: 60000 },
-    { month: 'May', year: 2024, income: 520000, expense: 330000, profit: 190000 },
-    { month: 'Jun', year: 2024, income: 580000, expense: 410000, profit: 170000 },
-    { month: 'Jan', year: 2023, income: 325125, expense: 281775, profit: 43350 },
-    { month: 'Feb', year: 2023, income: 357000, expense: 263500, profit: 93500 },
-    { month: 'Mar', year: 2023, income: 408000, expense: 289000, profit: 119000 },
-    { month: 'Apr', year: 2023, income: 382500, expense: 331500, profit: 51000 },
-    { month: 'May', year: 2023, income: 442000, expense: 280500, profit: 161500 },
-    { month: 'Jun', year: 2023, income: 493000, expense: 348500, profit: 144500 },
-    { month: 'Jan', year: 2022, income: 267750, expense: 232050, profit: 35700 },
-    { month: 'Feb', year: 2022, income: 294000, expense: 217000, profit: 77000 },
-    { month: 'Mar', year: 2022, income: 336000, expense: 238000, profit: 98000 },
-    { month: 'Apr', year: 2022, income: 315000, expense: 273000, profit: 42000 },
-    { month: 'May', year: 2022, income: 364000, expense: 231000, profit: 133000 },
-    { month: 'Jun', year: 2022, income: 406000, expense: 287000, profit: 119000 },
-  ];
-
-  const getComparisonLabel = useCallback(() => {
-    switch (comparisonMode) {
-      case '1year': return selectedYear === 'all' ? 'All Years' : `Year ${selectedYear}`;
-      case '2year': return `Compare ${selectedYear1} vs ${selectedYear2}`;
-      case '2month': return `${firstMonth.substring(0,3)} ${firstYear} vs ${secondMonth.substring(0,3)} ${secondYear}`;
-      default: return 'All Years';
+  const chartData = useMemo(() => {
+    if (activeTab === 'income') {
+      return filteredData.map(d => ({ month: `${d.month.substring(0,3)} ${d.year}`, value: d.income }));
     }
-  }, [comparisonMode, selectedYear, selectedYear1, selectedYear2, firstMonth, firstYear, secondMonth, secondYear]);
-
-  const getFilteredData = useCallback(() => {
-    const base = getBaseTrendData();
-    switch (comparisonMode) {
-      case '1year': return selectedYear === 'all' ? base : base.filter(d => d.year === selectedYear);
-      case '2year': {
-        const y1 = parseInt(selectedYear1 || '2024');
-        const y2 = parseInt(selectedYear2 || '2023');
-        return base.filter(d => d.year === y1 || d.year === y2);
-      }
-      case '2month': {
-        const m1 = firstMonth.substring(0, 3);
-        const m2 = secondMonth.substring(0, 3);
-        return base
-          .filter(d => (d.month === m1 && d.year === parseInt(firstYear || '2024')) || (d.month === m2 && d.year === parseInt(secondYear || '2024')))
-          .map(d => ({ ...d, month: d.month === m1 ? `${firstMonth.substring(0,3)} ${firstYear}` : `${secondMonth.substring(0,3)} ${secondYear}` }));
-      }
-      default: return base.filter(d => d.year === (selectedYear === 'all' ? 2024 : selectedYear));
+    if (activeTab === 'expense') {
+      return filteredData.map(d => ({ month: `${d.month.substring(0,3)} ${d.year}`, value: d.expense }));
     }
-  }, [comparisonMode, selectedYear, selectedYear1, selectedYear2, firstMonth, firstYear, secondMonth, secondYear]);
-
-  useEffect(() => {
-    setFilteredTrendData(getFilteredData());
-    setChartTitle(`Financial Trend Analysis - ${getComparisonLabel()}`);
-  }, [getFilteredData, getComparisonLabel]);
-
-  const chartData = useMemo(() => filteredTrendData.map(item => {
-    const month = comparisonMode === '2month' ? item.month : `${item.month} ${item.year}`;
-    if (activeTab === 'income') return { ...item, month, value: item.income, label: 'Income' };
-    if (activeTab === 'expense') return { ...item, month, value: item.expense, label: 'Expense' };
-    if (activeTab === 'profit') return { ...item, month, value: item.profit, label: 'Profit' };
-    return { ...item, month };
-  }), [filteredTrendData, activeTab, comparisonMode]);
-
-  const totalIncome = chartData.reduce((s, d) => s + d.income, 0);
-  const totalExpense = chartData.reduce((s, d) => s + d.expense, 0);
-  const totalProfit = chartData.reduce((s, d) => s + d.profit, 0);
-  const avgIncome = Math.round(totalIncome / (chartData.length || 1));
-  const avgExpense = Math.round(totalExpense / (chartData.length || 1));
-  const avgProfit = Math.round(totalProfit / (chartData.length || 1));
-
-  const chartColors = useMemo(() => {
-    switch (activeTab) {
-      case 'income': return { stroke: '#10b981', gradient: 'url(#colorIncome)', name: 'Income' };
-      case 'expense': return { stroke: '#f43f5e', gradient: 'url(#colorExpense)', name: 'Expense' };
-      case 'profit': return { stroke: '#3b82f6', gradient: 'url(#colorProfit)', name: 'Profit' };
-      default: return null;
+    if (activeTab === 'profit') {
+      return filteredData.map(d => ({ month: `${d.month.substring(0,3)} ${d.year}`, value: d.profit }));
     }
-  }, [activeTab]);
+    return filteredData.map(d => ({ 
+      month: `${d.month.substring(0,3)} ${d.year}`, 
+      income: d.income, 
+      expense: d.expense, 
+      profit: d.profit 
+    }));
+  }, [filteredData, activeTab]);
 
-  const applyFilters = () => {
-    const newData = getFilteredData();
-    setFilteredTrendData(newData.length ? newData : getBaseTrendData().filter(d => d.year === 2024));
-    setChartTitle(`Financial Trend Analysis - ${getComparisonLabel()}`);
-    setShowFilterPanel(false);
-    alert(`✅ Filters Applied!\nMode: ${comparisonMode === '1year' ? 'Single Year' : comparisonMode === '2year' ? 'Compare Years' : 'Compare Months'}\nData Points: ${newData.length}`);
+  const totalIncome = filteredData.reduce((s, d) => s + d.income, 0);
+  const totalExpense = filteredData.reduce((s, d) => s + d.expense, 0);
+  const totalProfit = filteredData.reduce((s, d) => s + d.profit, 0);
+  const avgIncome = filteredData.length ? Math.round(totalIncome / filteredData.length) : 0;
+  const avgExpense = filteredData.length ? Math.round(totalExpense / filteredData.length) : 0;
+  const avgProfit = filteredData.length ? Math.round(totalProfit / filteredData.length) : 0;
+
+  const chartColors = {
+    income: { stroke: '#10b981', gradient: 'url(#colorIncome)', name: 'Income' },
+    expense: { stroke: '#f43f5e', gradient: 'url(#colorExpense)', name: 'Expense' },
+    profit: { stroke: '#3b82f6', gradient: 'url(#colorProfit)', name: 'Profit' }
   };
 
-  const resetFilters = () => {
-    setComparisonMode('1year'); setSelectedYear1('2024'); setSelectedYear2('2023');
-    setFirstMonth('January'); setFirstYear('2024'); setSecondMonth('June'); setSecondYear('2024');
-    setFilteredTrendData(getBaseTrendData().filter(d => d.year === 2024));
-    setChartTitle('Financial Trend Analysis - Year 2024');
-    onYearChange(2024);
-    alert('✅ All filters reset to default');
-  };
+  const renderChart = () => {
+    if (loading) {
+      return (
+        <div className="flex items-center justify-center h-full">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+        </div>
+      );
+    }
 
-  const tooltipStyle = { borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', padding: '12px' };
+    if (chartData.length === 0) {
+      return (
+        <div className="flex flex-col items-center justify-center h-full text-gray-400">
+          <CreditCard className="w-12 h-12 mb-2" />
+          <p className="text-sm">No payment data available</p>
+        </div>
+      );
+    }
+
+    const commonProps = { margin: { top: 10, right: 10, left: 0, bottom: 20 } };
+
+    if (chartType === 'area') {
+      return (
+        <AreaChart data={chartData} {...commonProps}>
+          <defs>
+            <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+              <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+            </linearGradient>
+            <linearGradient id="colorExpense" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.3}/>
+              <stop offset="95%" stopColor="#f43f5e" stopOpacity={0}/>
+            </linearGradient>
+            <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
+              <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+          <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fill:'#94a3b8',fontSize:10}} dy={10} />
+          <YAxis axisLine={false} tickLine={false} tick={{fill:'#94a3b8',fontSize:10}} tickFormatter={formatCurrency} width={70} />
+          <Tooltip formatter={(v: number) => [formatCurrency(v), 'Amount']} />
+          <Legend verticalAlign="top" align="right" iconType="circle" wrapperStyle={{paddingBottom:'10px',fontSize:'10px'}} />
+          {activeTab === 'all' ? (
+            <>
+              <Area type="monotone" dataKey="income" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorIncome)" name="Income" />
+              <Area type="monotone" dataKey="expense" stroke="#f43f5e" strokeWidth={2} fillOpacity={1} fill="url(#colorExpense)" name="Expense" />
+              <Area type="monotone" dataKey="profit" stroke="#3b82f6" strokeWidth={2} fillOpacity={1} fill="url(#colorProfit)" name="Profit" />
+            </>
+          ) : (
+            <Area type="monotone" dataKey="value" stroke={chartColors[activeTab].stroke} strokeWidth={2} fillOpacity={1} fill={chartColors[activeTab].gradient} name={chartColors[activeTab].name} />
+          )}
+        </AreaChart>
+      );
+    }
+
+    if (chartType === 'line') {
+      return (
+        <LineChart data={chartData} {...commonProps}>
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+          <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fill:'#94a3b8',fontSize:10}} dy={10} />
+          <YAxis axisLine={false} tickLine={false} tick={{fill:'#94a3b8',fontSize:10}} tickFormatter={formatCurrency} width={70} />
+          <Tooltip formatter={(v: number) => [formatCurrency(v), 'Amount']} />
+          <Legend verticalAlign="top" align="right" iconType="circle" wrapperStyle={{paddingBottom:'10px',fontSize:'10px'}} />
+          {activeTab === 'all' ? (
+            <>
+              <Line type="monotone" dataKey="income" stroke="#10b981" strokeWidth={2} dot={{r:3}} name="Income" />
+              <Line type="monotone" dataKey="expense" stroke="#f43f5e" strokeWidth={2} strokeDasharray="5 5" dot={{r:3}} name="Expense" />
+              <Line type="monotone" dataKey="profit" stroke="#3b82f6" strokeWidth={2} dot={{r:3}} name="Profit" />
+            </>
+          ) : (
+            <Line type="monotone" dataKey="value" stroke={chartColors[activeTab].stroke} strokeWidth={2} dot={{r:3}} name={chartColors[activeTab].name} />
+          )}
+        </LineChart>
+      );
+    }
+
+    return (
+      <BarChart data={chartData} {...commonProps}>
+        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+        <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fill:'#94a3b8',fontSize:10}} dy={10} />
+        <YAxis axisLine={false} tickLine={false} tick={{fill:'#94a3b8',fontSize:10}} tickFormatter={formatCurrency} width={70} />
+        <Tooltip formatter={(v: number) => [formatCurrency(v), 'Amount']} />
+        <Legend verticalAlign="top" align="right" iconType="circle" wrapperStyle={{paddingBottom:'10px',fontSize:'10px'}} />
+        {activeTab === 'all' ? (
+          <>
+            <Bar dataKey="income" fill="#10b981" name="Income" radius={[4,4,0,0]} />
+            <Bar dataKey="expense" fill="#f43f5e" name="Expense" radius={[4,4,0,0]} />
+            <Bar dataKey="profit" fill="#3b82f6" name="Profit" radius={[4,4,0,0]} />
+          </>
+        ) : (
+          <Bar dataKey="value" fill={chartColors[activeTab].stroke} name={chartColors[activeTab].name} radius={[4,4,0,0]} />
+        )}
+      </BarChart>
+    );
+  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex relative flex-col md:flex-row">
-        {/* Main */}
-        <div className={`transition-all duration-300 ${showFilterPanel ? 'md:w-3/4 w-full' : 'w-full'} overflow-y-auto`}>
-          {/* Header */}
-          <div className="p-3 sm:p-4 border-b border-gray-100 flex flex-wrap items-center justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-2 sm:gap-4">
-              <div className="min-w-0">
-                <h2 className="text-base sm:text-xl font-bold text-slate-800 tracking-tight truncate max-w-[200px] sm:max-w-full">{chartTitle}</h2>
-                <p className="text-[10px] sm:text-xs text-slate-500 uppercase tracking-widest mt-0.5 flex flex-wrap items-center gap-1">
-                  <span className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-blue-100 text-blue-600 rounded">{comparisonMode === '1year' ? 'Single Year' : comparisonMode === '2year' ? 'Compare Years' : 'Compare Months'}</span>
-                  <span className="text-green-600 font-bold">{filteredTrendData.length} points</span>
-                </p>
-              </div>
-              <button onClick={() => setShowFilterPanel(!showFilterPanel)} className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-lg transition-all relative">
-                <Filter className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
-                <span className="absolute -top-1 -right-1 w-1.5 h-1.5 sm:w-2 sm:h-2 bg-red-500 rounded-full animate-pulse"></span>
-              </button>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-white text-sm font-semibold">Financial Trend Analysis</h2>
+              <p className="text-blue-100 text-xs mt-0.5">{filteredData.length} months of data</p>
             </div>
-            <button onClick={onClose} className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-lg"><X className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" /></button>
+            <button onClick={onClose} className="text-white hover:bg-white/20 p-1 rounded-lg">
+              <X className="w-4 h-4" />
+            </button>
           </div>
+        </div>
 
-          {/* Stats */}
-          <div className="p-3 sm:p-4 bg-gradient-to-r from-gray-50 to-white">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
-              {[
-                { label: 'Total Income', val: totalIncome, avg: avgIncome, icon: TrendingUp, color: 'green' },
-                { label: 'Total Expense', val: totalExpense, avg: avgExpense, icon: TrendingDown, color: 'red' },
-                { label: 'Net Profit', val: totalProfit, avg: avgProfit, icon: DollarSign, color: 'blue' },
-              ].map(({ label, val, avg, icon: Icon, color }) => (
-                <div key={label} className={`bg-white p-2 sm:p-3 rounded-xl shadow-sm border border-${color}-100`}>
-                  <div className="flex items-center gap-2">
-                    <div className={`h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-${color}-100 flex items-center justify-center flex-shrink-0`}>
-                      <Icon className={`h-4 w-4 sm:h-5 sm:w-5 text-${color}-600`} />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-[10px] sm:text-xs font-medium text-gray-600 truncate">{label}</p>
-                      <p className={`text-sm sm:text-lg font-bold text-${color}-600 truncate`}>₹{val.toLocaleString()}</p>
-                    </div>
-                  </div>
-                  <div className={`mt-1 text-[10px] sm:text-xs text-${color}-500`}>Avg: ₹{avg.toLocaleString()}</div>
+        {/* Stats Summary */}
+        <div className="p-3 sm:p-4 bg-gray-50">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <div className="bg-white p-3 rounded-xl shadow-sm border border-green-100">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-green-100 rounded-lg">
+                  <TrendingUp className="w-4 h-4 text-green-600" />
                 </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Chart */}
-          <div className="p-3 sm:p-4">
-            <div className="h-[250px] sm:h-[300px] md:h-[350px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                {chartType === 'area' ? (
-                  <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 20 }}>
-                    <defs>
-                      <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/><stop offset="95%" stopColor="#10b981" stopOpacity={0}/></linearGradient>
-                      <linearGradient id="colorExpense" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#f43f5e" stopOpacity={0.3}/><stop offset="95%" stopColor="#f43f5e" stopOpacity={0}/></linearGradient>
-                      <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/><stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/></linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis 
-                      dataKey="month" 
-                      axisLine={false} 
-                      tickLine={false} 
-                      tick={{fill:'#94a3b8',fontSize:10}} 
-                      dy={10} 
-                      angle={window.innerWidth < 640 ? -45 : 0} 
-                      textAnchor={window.innerWidth < 640 ? 'end' : 'middle'} 
-                      height={60}
-                    />
-                    <YAxis axisLine={false} tickLine={false} tick={{fill:'#94a3b8',fontSize:10}} tickFormatter={v => `₹${v/1000}k`} width={45} />
-                    <Tooltip contentStyle={tooltipStyle} itemStyle={{fontSize:'10px',fontWeight:600}} formatter={(v: number) => [`₹${v.toLocaleString('en-IN')}`, 'Amount']} />
-                    <Legend verticalAlign="top" align="right" iconType="circle" wrapperStyle={{paddingBottom:'10px',fontSize:'10px'}} />
-                    {activeTab === 'all' ? (<>
-                      <Area type="monotone" dataKey="income" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorIncome)" name="Income" activeDot={{r:4,strokeWidth:0}} />
-                      <Area type="monotone" dataKey="expense" stroke="#f43f5e" strokeWidth={2} fillOpacity={1} fill="url(#colorExpense)" name="Expense" activeDot={{r:4,strokeWidth:0}} />
-                      <Area type="monotone" dataKey="profit" stroke="#3b82f6" strokeWidth={2} fillOpacity={1} fill="url(#colorProfit)" name="Profit" activeDot={{r:4,strokeWidth:0}} />
-                    </>) : (
-                      <Area type="monotone" dataKey="value" stroke={chartColors?.stroke} strokeWidth={2} fillOpacity={1} fill={chartColors?.gradient} name={chartColors?.name} activeDot={{r:4,strokeWidth:0}} />
-                    )}
-                  </AreaChart>
-                ) : chartType === 'line' ? (
-                  <LineChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 20 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fill:'#94a3b8',fontSize:10}} dy={10} angle={window.innerWidth < 640 ? -45 : 0} textAnchor={window.innerWidth < 640 ? 'end' : 'middle'} height={60} />
-                    <YAxis axisLine={false} tickLine={false} tick={{fill:'#94a3b8',fontSize:10}} tickFormatter={v => `₹${v/1000}k`} width={45} />
-                    <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`₹${v.toLocaleString('en-IN')}`, 'Amount']} />
-                    <Legend verticalAlign="top" align="right" iconType="circle" wrapperStyle={{paddingBottom:'10px',fontSize:'10px'}} />
-                    {activeTab === 'all' ? (<>
-                      <Line type="monotone" dataKey="income" stroke="#10b981" strokeWidth={2} dot={{r:3,strokeWidth:1,stroke:'#10b981',fill:'white'}} activeDot={{r:4,strokeWidth:0}} name="Income" />
-                      <Line type="monotone" dataKey="expense" stroke="#f43f5e" strokeWidth={2} strokeDasharray="5 5" dot={{r:3,strokeWidth:1,stroke:'#f43f5e',fill:'white'}} activeDot={{r:4,strokeWidth:0}} name="Expense" />
-                      <Line type="monotone" dataKey="profit" stroke="#3b82f6" strokeWidth={2} dot={{r:3,strokeWidth:1,stroke:'#3b82f6',fill:'white'}} activeDot={{r:4,strokeWidth:0}} name="Profit" />
-                    </>) : (
-                      <Line type="monotone" dataKey="value" stroke={chartColors?.stroke} strokeWidth={2} dot={{r:3,strokeWidth:1,stroke:chartColors?.stroke,fill:'white'}} activeDot={{r:4,strokeWidth:0}} name={chartColors?.name} />
-                    )}
-                  </LineChart>
-                ) : (
-                  <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 20 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fill:'#94a3b8',fontSize:10}} dy={10} angle={window.innerWidth < 640 ? -45 : 0} textAnchor={window.innerWidth < 640 ? 'end' : 'middle'} height={60} />
-                    <YAxis axisLine={false} tickLine={false} tick={{fill:'#94a3b8',fontSize:10}} tickFormatter={v => `₹${v/1000}k`} width={45} />
-                    <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`₹${v.toLocaleString('en-IN')}`, 'Amount']} />
-                    <Legend verticalAlign="top" align="right" iconType="circle" wrapperStyle={{paddingBottom:'10px',fontSize:'10px'}} />
-                    {activeTab === 'all' ? (<>
-                      <Bar dataKey="income" fill="#10b981" name="Income" radius={[4,4,0,0]} />
-                      <Bar dataKey="expense" fill="#f43f5e" name="Expense" radius={[4,4,0,0]} />
-                      <Bar dataKey="profit" fill="#3b82f6" name="Profit" radius={[4,4,0,0]} />
-                    </>) : (
-                      <Bar dataKey="value" fill={chartColors?.stroke} name={chartColors?.name} radius={[4,4,0,0]} />
-                    )}
-                  </BarChart>
-                )}
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          {/* Footer controls */}
-          <div className="p-3 sm:p-4 border-t border-gray-100 bg-gray-50">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-              <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-                <div className="flex flex-wrap items-center gap-1 bg-white p-1 rounded-lg border border-gray-200">
-                  <span className="text-[10px] sm:text-xs font-medium text-gray-700 px-1">View:</span>
-                  {(['all','income','expense','profit'] as FinancialTab[]).map(tab => (
-                    <button key={tab} onClick={() => onTabChange(tab)} className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-[10px] sm:text-xs font-medium transition-all ${activeTab===tab?'bg-blue-600 text-white':'hover:bg-gray-100 text-gray-700'}`}>
-                      {tab === 'all' ? 'All' : tab.charAt(0).toUpperCase()+tab.slice(1)}
-                    </button>
-                  ))}
-                </div>
-                <div className="flex items-center gap-1 bg-white p-1 rounded-lg border border-gray-200">
-                  <span className="text-[10px] sm:text-xs font-medium text-gray-700 px-1">Chart:</span>
-                  {(['area','line','bar'] as ChartType[]).map(type => (
-                    <button key={type} onClick={() => onChartTypeChange(type)} className={`p-1 rounded transition-all ${chartType===type?'bg-blue-100 text-blue-600':'hover:bg-gray-100 text-gray-600'}`}>
-                      {type==='area'&&<LineChart className="w-3 h-3 sm:w-3.5 sm:h-3.5"/>}
-                      {type==='line'&&<TrendingUp className="w-3 h-3 sm:w-3.5 sm:h-3.5"/>}
-                      {type==='bar'&&<BarChart3 className="w-3 h-3 sm:w-3.5 sm:h-3.5"/>}
-                    </button>
-                  ))}
+                <div>
+                  <p className="text-xs text-gray-500">Total Income</p>
+                  <p className="text-lg font-bold text-green-600">{formatCurrency(totalIncome)}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2 w-full sm:w-auto">
-                <div className="bg-white p-1 rounded-lg border border-gray-200 flex-1 sm:flex-none">
-                  <select className="bg-transparent border-none outline-none text-[10px] sm:text-xs font-medium text-gray-700 w-full" value={selectedYear} onChange={e => onYearChange(e.target.value==='all'?'all':parseInt(e.target.value))}>
-                    <option value="all">All Years</option>
-                    {[2022,2023,2024,2025,2026].map(y => <option key={y} value={y}>{y}</option>)}
-                  </select>
+              <p className="text-[10px] text-gray-400 mt-1">Avg: {formatCurrency(avgIncome)}</p>
+            </div>
+            <div className="bg-white p-3 rounded-xl shadow-sm border border-red-100">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-red-100 rounded-lg">
+                  <TrendingDown className="w-4 h-4 text-red-600" />
                 </div>
-                <button onClick={() => alert('Export feature coming soon!')} className="px-3 sm:px-4 py-1 sm:py-1.5 bg-blue-600 text-white rounded-lg text-[10px] sm:text-xs font-medium hover:bg-blue-700 whitespace-nowrap">Export</button>
+                <div>
+                  <p className="text-xs text-gray-500">Total Expense</p>
+                  <p className="text-lg font-bold text-red-600">{formatCurrency(totalExpense)}</p>
+                </div>
               </div>
+              <p className="text-[10px] text-gray-400 mt-1">Avg: {formatCurrency(avgExpense)}</p>
+            </div>
+            <div className="bg-white p-3 rounded-xl shadow-sm border border-blue-100">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <IndianRupee className="w-4 h-4 text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Net Profit</p>
+                  <p className="text-lg font-bold text-blue-600">{formatCurrency(totalProfit)}</p>
+                </div>
+              </div>
+              <p className="text-[10px] text-gray-400 mt-1">Avg: {formatCurrency(avgProfit)}</p>
             </div>
           </div>
         </div>
 
-        {/* Filter Panel */}
-        <div className={`fixed md:absolute right-0 top-0 h-full bg-white border-l border-gray-200 shadow-lg transition-all duration-300 ease-in-out ${showFilterPanel ? 'w-full md:w-1/4 translate-x-0' : 'w-0 translate-x-full'} overflow-hidden`}>
-          <div className="h-full overflow-y-auto p-3 sm:p-4">
-            <div className="mb-4 pb-3 border-b border-gray-100 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 sm:p-2 bg-blue-100 rounded-lg"><Filter className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-600"/></div>
-                <div><h3 className="font-semibold text-gray-800 text-xs sm:text-sm">Filter Trends</h3><p className="text-[10px] sm:text-xs text-gray-500">Compare financial data</p></div>
-              </div>
-              <button onClick={() => setShowFilterPanel(false)} className="p-1 hover:bg-gray-100 rounded-lg"><X className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-500"/></button>
+        {/* Controls */}
+        <div className="p-3 border-b flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex bg-gray-100 p-1 rounded-lg">
+              {(['all', 'income', 'expense', 'profit'] as FinancialTab[]).map(tab => (
+                <button
+                  key={tab}
+                  onClick={() => onTabChange(tab)}
+                  className={`px-3 py-1 rounded text-xs font-medium transition-all ${
+                    activeTab === tab ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  {tab === 'all' ? 'All' : tab.charAt(0).toUpperCase() + tab.slice(1)}
+                </button>
+              ))}
             </div>
-            <div className="space-y-4">
-              <h4 className="text-[10px] sm:text-xs font-semibold text-gray-700">Comparison Type</h4>
-              <div className="space-y-2">
-                {/* Single Year */}
-                <button onClick={() => setComparisonMode('1year')} className={`w-full text-left px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm transition-all ${comparisonMode==='1year'?'bg-blue-50 text-blue-700 border border-blue-200':'hover:bg-gray-50 text-gray-700 border border-gray-200'}`}>
-                  <div className="flex items-center justify-between"><div className="flex items-center gap-2"><div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-blue-500"></div><span>Single Year</span></div>{comparisonMode==='1year'&&<Check className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-blue-500"/>}</div>
+            <div className="flex bg-gray-100 p-1 rounded-lg">
+              {(['area', 'line', 'bar'] as ChartType[]).map(type => (
+                <button
+                  key={type}
+                  onClick={() => onChartTypeChange(type)}
+                  className={`p-1.5 rounded transition-all ${
+                    chartType === type ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  {type === 'area' && <BarChart3 className="w-3.5 h-3.5" />}
+                  {type === 'line' && <TrendingUp className="w-3.5 h-3.5" />}
+                  {type === 'bar' && <BarChart3 className="w-3.5 h-3.5" />}
                 </button>
-                {/* Compare Years */}
-                <button onClick={() => setComparisonMode(comparisonMode==='2year'?'1year':'2year')} className={`w-full text-left px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm transition-all ${comparisonMode==='2year'?'bg-green-50 text-green-700 border border-green-200':'hover:bg-gray-50 text-gray-700 border border-gray-200'}`}>
-                  <div className="flex items-center justify-between"><div className="flex items-center gap-2"><div className="flex gap-0.5"><div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-blue-500"></div><div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-green-500"></div></div><span>Compare Years</span></div><ChevronDown className={`w-3 h-3 sm:w-3.5 sm:h-3.5 transition-transform ${comparisonMode==='2year'?'rotate-180':''}`}/></div>
-                </button>
-                {comparisonMode==='2year'&&(
-                  <div className="p-2 sm:p-3 bg-green-50/30 rounded-lg border border-green-100">
-                    <div className="grid grid-cols-2 gap-2">
-                      <div><label className="text-[10px] sm:text-xs font-medium text-gray-700 mb-1 block">Year 1</label><select value={selectedYear1} onChange={e => setSelectedYear1(e.target.value)} className="w-full px-1.5 sm:px-2 py-1 sm:py-1.5 text-xs border border-gray-300 rounded bg-white"><option value="">Choose year</option>{availableYears.map(y=><option key={y} value={y}>{y}</option>)}</select></div>
-                      <div><label className="text-[10px] sm:text-xs font-medium text-gray-700 mb-1 block">Year 2</label><select value={selectedYear2} onChange={e => setSelectedYear2(e.target.value)} className="w-full px-1.5 sm:px-2 py-1 sm:py-1.5 text-xs border border-gray-300 rounded bg-white"><option value="">Choose year</option>{availableYears.map(y=><option key={y} value={y}>{y}</option>)}</select></div>
-                    </div>
-                  </div>
-                )}
-                {/* Compare Months */}
-                <button onClick={() => setComparisonMode(comparisonMode==='2month'?'1year':'2month')} className={`w-full text-left px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm transition-all ${comparisonMode==='2month'?'bg-purple-50 text-purple-700 border border-purple-200':'hover:bg-gray-50 text-gray-700 border border-gray-200'}`}>
-                  <div className="flex items-center justify-between"><div className="flex items-center gap-2"><div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-purple-500"></div><span>Compare Months</span></div><ChevronDown className={`w-3 h-3 sm:w-3.5 sm:h-3.5 transition-transform ${comparisonMode==='2month'?'rotate-180':''}`}/></div>
-                </button>
-                {comparisonMode==='2month'&&(
-                  <div className="bg-purple-50/30 rounded-lg border border-purple-100 p-2 sm:p-3 space-y-3">
-                    <div className="grid grid-cols-2 gap-2 text-[10px] sm:text-xs font-medium text-gray-700"><div>Month 1</div><div>Month 2</div></div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <select value={firstMonth} onChange={e=>setFirstMonth(e.target.value)} className="w-full px-1.5 sm:px-2 py-1 sm:py-1.5 text-xs border border-gray-300 rounded bg-white">{allMonths.map(m=><option key={`f-${m}`} value={m}>{m.substring(0,3)}</option>)}</select>
-                      <select value={secondMonth} onChange={e=>setSecondMonth(e.target.value)} className="w-full px-1.5 sm:px-2 py-1 sm:py-1.5 text-xs border border-gray-300 rounded bg-white">{allMonths.map(m=><option key={`s-${m}`} value={m}>{m.substring(0,3)}</option>)}</select>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <select value={firstYear} onChange={e=>setFirstYear(e.target.value)} className="w-full px-1.5 sm:px-2 py-1 sm:py-1.5 text-xs border border-gray-300 rounded bg-white">{availableYears.map(y=><option key={`fy-${y}`} value={y}>{y}</option>)}</select>
-                      <select value={secondYear} onChange={e=>setSecondYear(e.target.value)} className="w-full px-1.5 sm:px-2 py-1 sm:py-1.5 text-xs border border-gray-300 rounded bg-white">{availableYears.map(y=><option key={`sy-${y}`} value={y}>{y}</option>)}</select>
-                    </div>
-                    {(firstMonth||secondMonth)&&(
-                      <div className="p-1.5 sm:p-2 bg-purple-100/30 rounded border border-purple-100 text-[10px] sm:text-xs text-center">
-                        <span className="font-medium text-purple-700">{firstMonth&&firstYear?`${firstMonth.substring(0,3)} ${firstYear}`:'___'}</span>
-                        <span className="mx-1 sm:mx-2 text-gray-400">vs</span>
-                        <span className="font-medium text-purple-700">{secondMonth&&secondYear?`${secondMonth.substring(0,3)} ${secondYear}`:'___'}</span>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-              <div className="pt-3 border-t border-gray-100 space-y-2">
-                <h4 className="text-[10px] sm:text-xs font-semibold text-gray-700">Actions</h4>
-                <button onClick={applyFilters} className="w-full px-2 sm:px-3 py-1.5 sm:py-2 bg-blue-600 text-white text-xs sm:text-sm font-medium rounded hover:bg-blue-700 flex items-center justify-center gap-1 sm:gap-2"><Check className="w-3 h-3 sm:w-4 sm:h-4"/>Apply Filters</button>
-                <button onClick={resetFilters} className="w-full px-2 sm:px-3 py-1.5 sm:py-2 bg-gray-100 text-gray-700 text-xs sm:text-sm font-medium rounded hover:bg-gray-200 flex items-center justify-center gap-1 sm:gap-2 border border-gray-300"><RefreshCw className="w-3 h-3 sm:w-4 sm:h-4"/>Reset All</button>
-              </div>
+              ))}
             </div>
+          </div>
+          <select
+            value={selectedYear}
+            onChange={(e) => onYearChange(e.target.value === 'all' ? 'all' : parseInt(e.target.value))}
+            className="text-xs border rounded-lg px-2 py-1 bg-white"
+          >
+            <option value="all">All Years</option>
+            {availableYears.map(year => (
+              <option key={year} value={year}>{year}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Chart */}
+        <div className="flex-1 p-4 min-h-[350px]">
+          <div className="h-[350px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              {renderChart()}
+            </ResponsiveContainer>
           </div>
         </div>
       </div>
@@ -391,1220 +337,691 @@ const FinancialTrendChart: React.FC<{
   );
 };
 
-// ─── Main Dashboard ───────────────────────────────────────────────────────────
 export default function AdminDashboard() {
-  // ── Stats from real API ──────────────────────────────────────────────────
-  const [stats, setStats] = useState({
-    totalProperties: 0,
-    totalRooms: 0,
-    totalBeds: 0,
-    occupiedBeds: 0,
-    totalTenants: 0,
-    activeTenants: 0,
-    inactiveTenants: 0,
-    monthlyRevenue: 0,
-    totalCollected: 12500000,
-    pendingAmount: 2500000,
-    totalTransactions: 245
-  });
-
-  // Stats for different overviews
-  const [roomStats, setRoomStats] = useState({ active: 0, inactive: 0, total: 0 });
-  const [propertyStats, setPropertyStats] = useState({ active: 0, inactive: 0, total: 0 });
-  const [tenantOverviewStats, setTenantOverviewStats] = useState({ active: 0, inactive: 0, total: 0 });
-
-  // ── UI state ─────────────────────────────────────────────────────────────
-  const [firstMonth, setFirstMonth] = useState('');
-  const [firstYear, setFirstYear] = useState('');
-  const [secondMonth, setSecondMonth] = useState('');
-  const [secondYear, setSecondYear] = useState('');
-  const [selectedYear1, setSelectedYear1] = useState<string>('');
-  const [selectedYear2, setSelectedYear2] = useState<string>('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [isSelectingStartDate, setIsSelectingStartDate] = useState(false);
-  const [isSelectingEndDate, setIsSelectingEndDate] = useState(false);
-  const [startDateDisplay, setStartDateDisplay] = useState('');
-  const [endDateDisplay, setEndDateDisplay] = useState('');
   const [loading, setLoading] = useState(true);
-  const [animatedHeights, setAnimatedHeights] = useState<number[]>([]);
-  const [showFilterPanel, setShowFilterPanel] = useState(false);
-  const [selectedMonth, setSelectedMonth] = useState('January');
-  const [selectedYear, setSelectedYear] = useState<number | 'all'>('all');
-  const [showFilter, setShowFilter] = useState(false);
-  const [showMonthCalendar, setShowMonthCalendar] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [showDateCalendar, setShowDateCalendar] = useState(false);
-  const [showTypeMenu, setShowTypeMenu] = useState(false);
-  const [occupancyDateFilter, setOccupancyDateFilter] = useState<DateFilterType>('today');
-  const [occupancySelectedDate, setOccupancySelectedDate] = useState<Date>(new Date());
-  const [showOccupancyCalendar, setShowOccupancyCalendar] = useState(false);
-  const [showYearCalendar, setShowYearCalendar] = useState(false);
-  const [yearRange, setYearRange] = useState(2020);
+  const [refreshing, setRefreshing] = useState(false);
+  
+  // Stats from APIs
+  const [propertyStats, setPropertyStats] = useState({ total: 0, active: 0 });
+  const [roomStats, setRoomStats] = useState({ total: 0, active: 0, totalBeds: 0, occupiedBeds: 0 });
+  const [tenantStats, setTenantStats] = useState({ total: 0, active: 0 });
+  
+  // Payment Data
+  const [allPayments, setAllPayments] = useState<any[]>([]);
+  const [paymentStats, setPaymentStats] = useState({
+    total_collected: 0,
+    total_transactions: 0,
+    cash_payments: 0,
+    online_payments: 0,
+    bank_transfers: 0,
+    card_payments: 0,
+    cheque_payments: 0,
+    current_month_collected: 0,
+    rent_collected: 0
+  });
+  
+  // Expense Data
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [expenseTotal, setExpenseTotal] = useState(0);
+  
+  // Chart Data
+  const [monthlyData, setMonthlyData] = useState<MonthlyData[]>([]);
+  const [dateRange, setDateRange] = useState<DateRangeType>('year');
+  
+  // Chart Filters
   const [showFinancialTrend, setShowFinancialTrend] = useState(false);
   const [financialTab, setFinancialTab] = useState<FinancialTab>('all');
   const [chartType, setChartType] = useState<ChartType>('area');
   const [financialYear, setFinancialYear] = useState<number | 'all'>('all');
-  const [financialMonth, setFinancialMonth] = useState('January');
-  const [selectedType, setSelectedType] = useState('');
-  const [comparisonMode, setComparisonMode] = useState<ComparisonMode>('1year');
-  const [showComparisonDropdown, setShowComparisonDropdown] = useState(false);
-  const [customStartMonth, setCustomStartMonth] = useState('January');
-  const [customEndMonth, setCustomEndMonth] = useState('December');
-  const [customYear, setCustomYear] = useState(new Date().getFullYear());
+  
+  // UI States
+  const [selectedOverview, setSelectedOverview] = useState<string>('beds');
+  const [showOverviewMenu, setShowOverviewMenu] = useState(false);
 
-  const allAvailableYears = [2024,2023,2022,2021,2020,2019,2018,2017,2016,2015,2014,2013,2012,2011,2010];
-  const allMonths = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-
-  const financialSummary: MonthlySummary = {
-    income: stats.monthlyRevenue,
-    expense: Math.round(stats.monthlyRevenue * 0.6),
-    netProfit: Math.round(stats.monthlyRevenue * 0.4),
+  const formatCurrency = (amount: number) => {
+    if (amount >= 10000000) return `₹${(amount / 10000000).toFixed(1)}Cr`;
+    if (amount >= 100000) return `₹${(amount / 100000).toFixed(1)}L`;
+    if (amount >= 1000) return `₹${(amount / 1000).toFixed(1)}k`;
+    return `₹${amount.toLocaleString()}`;
   };
 
-  // ── Calculate percentages ─────────────────────────────────────────────────
-  const roomOccupancyPercent = roomStats.total > 0 ? Math.round((roomStats.active / roomStats.total) * 100) : 0;
-  const propertyOccupancyPercent = propertyStats.total > 0 ? Math.round((propertyStats.active / propertyStats.total) * 100) : 0;
-  const tenantOccupancyPercent = tenantOverviewStats.total > 0 ? Math.round((tenantOverviewStats.active / tenantOverviewStats.total) * 100) : 0;
-  const occupancyPercent = stats.totalBeds > 0 ? Math.round((stats.occupiedBeds / stats.totalBeds) * 100) : 0;
-
-  const expenseStats = {
-    total: Math.round(stats.monthlyRevenue * 0.6),
-    fixed: Math.round(stats.monthlyRevenue * 0.3),
-    variable: Math.round(stats.monthlyRevenue * 0.3),
-    ratio: 70,
-  };
-
-  const incomeStats = {
-    total: stats.monthlyRevenue,
-    rental: Math.round(stats.monthlyRevenue * 0.85),
-    other: Math.round(stats.monthlyRevenue * 0.15),
-    ratio: 85,
-  };
-
-  const rentActivityData = [
-    { month: 'Jan', amount: 45000000 },
-    { month: 'Feb', amount: 52000000 },
-    { month: 'Mar', amount: 48000000 },
-    { month: 'Apr', amount: 61000000 },
-    { month: 'May', amount: 55000000 },
-    { month: 'Jun', amount: 68000000 },
-  ];
-
-  useEffect(() => { loadStats(); }, []);
-
-  useEffect(() => {
-    setAnimatedHeights([]);
-    const timers = rentActivityData.map((_, i) =>
-      setTimeout(() => setAnimatedHeights(prev => prev.includes(i) ? prev : [...prev, i]), i * 150)
-    );
-    return () => timers.forEach(clearTimeout);
-  }, []);
-
-  // ── Load all real data from APIs ─────────────────────────────────────────
-  const loadStats = async () => {
-    setLoading(true);
+  // Load all data
+  const loadData = useCallback(async () => {
     try {
-      const [propertiesRes, roomsRes, tenantsRes] = await Promise.allSettled([
-        listProperties({ pageSize: 1000 }),
-        listRooms(),
-        listTenants({ pageSize: 1000 }),
-      ]);
-
-      // Properties
-      let propertiesData: any[] = [];
-      if (propertiesRes.status === 'fulfilled' && propertiesRes.value?.success) {
-        propertiesData = propertiesRes.value.data?.data || propertiesRes.value.data || [];
-      }
-      const totalProperties = propertiesData.length;
-      const activeProperties = propertiesData.filter((p: any) => p.is_active === true).length;
-      const totalBeds = propertiesData.reduce((s: number, p: any) => s + (Number(p.total_beds) || 0), 0);
-      const occupiedBeds = propertiesData.reduce((s: number, p: any) => s + (Number(p.occupied_beds) || 0), 0);
-      setPropertyStats({ active: activeProperties, inactive: totalProperties - activeProperties, total: totalProperties });
-
-      // Rooms
-      let roomsData: any[] = [];
-      if (roomsRes.status === 'fulfilled') {
-        const v = roomsRes.value;
-        roomsData = Array.isArray(v) ? v : (v?.data || []);
-      }
-      const totalRooms = roomsData.length;
-      const activeRooms = roomsData.filter((r: any) => r.is_active === true).length;
-      const totalBedsFromRooms = roomsData.reduce((s: number, r: any) => s + (Number(r.total_bed) || Number(r.total_beds) || 0), 0);
-      const occupiedBedsFromRooms = roomsData.reduce((s: number, r: any) => s + (Number(r.occupied_beds) || 0), 0);
-      setRoomStats({ active: activeRooms, inactive: totalRooms - activeRooms, total: totalRooms });
-
-      // Tenants - Get active and inactive counts
-      let tenantsData: any[] = [];
-      if (tenantsRes.status === 'fulfilled' && tenantsRes.value?.success) {
-        tenantsData = tenantsRes.value.data || [];
-      }
-      const totalTenants = tenantsData.length;
-      const activeTenants = tenantsData.filter((t: any) => t.is_active === true || t.status === 'active').length;
-      const inactiveTenants = totalTenants - activeTenants;
+      setLoading(true);
       
-      // Set tenant overview stats
-      setTenantOverviewStats({
-        active: activeTenants,
-        inactive: inactiveTenants,
-        total: totalTenants
+      // Load properties
+      const propertiesRes = await listProperties({ pageSize: 1000 });
+      const propertiesData = propertiesRes.success ? (propertiesRes.data?.data || propertiesRes.data || []) : [];
+      setPropertyStats({
+        total: propertiesData.length,
+        active: propertiesData.filter((p: any) => p.is_active === true).length
       });
 
-      // Mock payment data for now
-      const monthlyRevenue = 1250000;
-
-      setStats({
-        totalProperties,
-        totalRooms,
-        totalBeds: totalBedsFromRooms || totalBeds,
-        occupiedBeds: occupiedBedsFromRooms || occupiedBeds,
-        totalTenants,
-        activeTenants,
-        inactiveTenants,
-        monthlyRevenue,
-        totalCollected: 15000000,
-        pendingAmount: 2500000,
-        totalTransactions: 245
+      // Load rooms
+      const roomsRes = await listRooms();
+      const roomsData = roomsRes.success ? (roomsRes.data || []) : [];
+      const totalBeds = roomsData.reduce((sum: number, r: any) => sum + (Number(r.total_bed) || Number(r.total_beds) || 0), 0);
+      const occupiedBeds = roomsData.reduce((sum: number, r: any) => sum + (Number(r.occupied_beds) || 0), 0);
+      setRoomStats({
+        total: roomsData.length,
+        active: roomsData.filter((r: any) => r.is_active === true).length,
+        totalBeds,
+        occupiedBeds
       });
-    } catch (err) {
-      console.error('Error loading stats:', err);
+
+      // Load tenants
+      const tenantsRes = await listTenants({ pageSize: 1000 });
+      const tenantsData = tenantsRes.success ? (tenantsRes.data || []) : [];
+      setTenantStats({
+        total: tenantsData.length,
+        active: tenantsData.filter((t: any) => t.is_active === true || t.status === 'active').length
+      });
+
+      // Load payments
+      const paymentsRes = await paymentApi.getPayments();
+      if (paymentsRes.success && paymentsRes.data) {
+        const payments = paymentsRes.data;
+        setAllPayments(payments);
+        
+        const approvedPayments = payments.filter((p: any) => p.status === 'approved' || p.status === 'paid');
+        const totalCollected = approvedPayments.reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0);
+        
+        const currentDate = new Date();
+        const currentMonthPayments = approvedPayments.filter((p: any) => {
+          const paymentDate = new Date(p.payment_date);
+          return paymentDate.getMonth() === currentDate.getMonth() && 
+                 paymentDate.getFullYear() === currentDate.getFullYear();
+        });
+        const currentMonthCollected = currentMonthPayments.reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0);
+        
+        const rentPayments = approvedPayments.filter((p: any) => p.payment_type === 'rent');
+        const rentCollected = rentPayments.reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0);
+        
+        setPaymentStats({
+          total_collected: totalCollected,
+          total_transactions: approvedPayments.length,
+          cash_payments: approvedPayments.filter((p: any) => p.payment_mode === 'cash').length,
+          online_payments: approvedPayments.filter((p: any) => p.payment_mode === 'online').length,
+          bank_transfers: approvedPayments.filter((p: any) => p.payment_mode === 'bank_transfer').length,
+          card_payments: approvedPayments.filter((p: any) => p.payment_mode === 'card').length,
+          cheque_payments: approvedPayments.filter((p: any) => p.payment_mode === 'cheque').length,
+          current_month_collected: currentMonthCollected,
+          rent_collected: rentCollected
+        });
+      }
+
+      // Load expenses
+      const expensesData = await getExpenses();
+      setExpenses(expensesData);
+      const totalExpenseAmount = expensesData.reduce((sum, e) => sum + (Number(e.total_amount) || 0), 0);
+      setExpenseTotal(totalExpenseAmount);
+
+      // Generate chart data
+      await generateChartData(paymentsRes.data || [], expensesData);
+      
+    } catch (error) {
+      console.error('Error loading data:', error);
+      toast.error('Failed to load dashboard data');
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  // Generate chart data based on date range
+  const generateChartData = useCallback(async (payments: any[], expenses: Expense[]) => {
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    const monthlyMap = new Map<string, MonthlyData>();
+    
+    const currentDate = new Date();
+    let monthsToShow = 12;
+    
+    switch (dateRange) {
+      case 'week': monthsToShow = 1; break;
+      case 'month': monthsToShow = 1; break;
+      case 'quarter': monthsToShow = 3; break;
+      case 'year': monthsToShow = 12; break;
+      case 'all': monthsToShow = 36; break;
+    }
+    
+    // Initialize months
+    for (let i = 0; i < monthsToShow; i++) {
+      const date = new Date();
+      date.setMonth(date.getMonth() - i);
+      const year = date.getFullYear();
+      const monthNum = date.getMonth();
+      const monthName = monthNames[monthNum];
+      const key = `${year}-${monthNum}`;
+      
+      monthlyMap.set(key, {
+        month: monthName,
+        year,
+        month_num: monthNum,
+        income: 0,
+        expense: 0,
+        profit: 0
+      });
+    }
+    
+    // Add payments
+    const approvedPayments = payments.filter(p => p.status === 'approved' || p.status === 'paid');
+    approvedPayments.forEach(payment => {
+      const amount = Number(payment.amount) || 0;
+      const paymentDate = new Date(payment.payment_date);
+      const year = paymentDate.getFullYear();
+      const monthNum = paymentDate.getMonth();
+      const key = `${year}-${monthNum}`;
+      
+      const existing = monthlyMap.get(key);
+      if (existing) {
+        existing.income += amount;
+        monthlyMap.set(key, existing);
+      }
+    });
+    
+    // Add expenses
+    expenses.forEach(expense => {
+      const amount = Number(expense.total_amount) || 0;
+      const expenseDate = new Date(expense.expense_date);
+      const year = expenseDate.getFullYear();
+      const monthNum = expenseDate.getMonth();
+      const key = `${year}-${monthNum}`;
+      
+      const existing = monthlyMap.get(key);
+      if (existing) {
+        existing.expense += amount;
+        monthlyMap.set(key, existing);
+      }
+    });
+    
+    // Calculate profit
+    monthlyMap.forEach((value) => {
+      value.profit = value.income - value.expense;
+    });
+    
+    // Convert to array and sort
+    const data = Array.from(monthlyMap.values());
+    data.sort((a, b) => {
+      if (a.year !== b.year) return a.year - b.year;
+      return a.month_num - b.month_num;
+    });
+    
+    setMonthlyData(data);
+  }, [dateRange]);
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  useEffect(() => {
+    if (allPayments.length > 0 || expenses.length > 0) {
+      generateChartData(allPayments, expenses);
+    }
+  }, [dateRange, allPayments, expenses]);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+    toast.success('Dashboard refreshed');
   };
 
-  // ── Stat Cards with gradient backgrounds like payment stats ──────────────
+  // Calculate metrics
+  const occupancyPercent = roomStats.totalBeds > 0 ? Math.round((roomStats.occupiedBeds / roomStats.totalBeds) * 100) : 0;
+  const propertyOccupancyPercent = propertyStats.total > 0 ? Math.round((propertyStats.active / propertyStats.total) * 100) : 0;
+  const tenantOccupancyPercent = tenantStats.total > 0 ? Math.round((tenantStats.active / tenantStats.total) * 100) : 0;
+  const netProfit = paymentStats.total_collected - expenseTotal;
+  const profitMargin = paymentStats.total_collected > 0 ? (netProfit / paymentStats.total_collected) * 100 : 0;
+
+  // Get overview data based on selection
+  const getOverviewData = () => {
+    switch (selectedOverview) {
+      case 'rooms':
+        return {
+          title: 'Rooms Overview',
+          items: [
+            { label: 'Total Rooms', value: roomStats.total, color: 'bg-blue-600', bgColor: 'bg-gradient-to-br from-blue-50 to-blue-100', icon: DoorOpen },
+            { label: 'Occupied Rooms', value: roomStats.active, color: 'bg-green-600', bgColor: 'bg-gradient-to-br from-green-50 to-green-100', icon: Home },
+            { label: 'Vacant Rooms', value: roomStats.total - roomStats.active, color: 'bg-amber-600', bgColor: 'bg-gradient-to-br from-amber-50 to-amber-100', icon: DoorOpen }
+          ],
+          percent: roomStats.total > 0 ? Math.round((roomStats.active / roomStats.total) * 100) : 0,
+          label: 'Room Occupancy'
+        };
+      case 'property':
+        return {
+          title: 'Properties Overview',
+          items: [
+            { label: 'Total Properties', value: propertyStats.total, color: 'bg-blue-600', bgColor: 'bg-gradient-to-br from-blue-50 to-blue-100', icon: Building2 },
+            { label: 'Active Properties', value: propertyStats.active, color: 'bg-green-600', bgColor: 'bg-gradient-to-br from-green-50 to-green-100', icon: Building2 }
+          ],
+          percent: propertyOccupancyPercent,
+          label: 'Active Properties'
+        };
+      case 'tenants':
+        return {
+          title: 'Tenants Overview',
+          items: [
+            { label: 'Total Tenants', value: tenantStats.total, color: 'bg-blue-600', bgColor: 'bg-gradient-to-br from-blue-50 to-blue-100', icon: Users },
+            { label: 'Active Tenants', value: tenantStats.active, color: 'bg-green-600', bgColor: 'bg-gradient-to-br from-green-50 to-green-100', icon: Users },
+            { label: 'Inactive Tenants', value: tenantStats.total - tenantStats.active, color: 'bg-amber-600', bgColor: 'bg-gradient-to-br from-amber-50 to-amber-100', icon: Users }
+          ],
+          percent: tenantOccupancyPercent,
+          label: 'Active Tenants'
+        };
+      case 'beds':
+      default:
+        return {
+          title: 'Beds Overview',
+          items: [
+            { label: 'Total Beds', value: roomStats.totalBeds, color: 'bg-blue-600', bgColor: 'bg-gradient-to-br from-blue-50 to-blue-100', icon: BedIcon },
+            { label: 'Occupied Beds', value: roomStats.occupiedBeds, color: 'bg-green-600', bgColor: 'bg-gradient-to-br from-green-50 to-green-100', icon: Users },
+            { label: 'Available Beds', value: roomStats.totalBeds - roomStats.occupiedBeds, color: 'bg-amber-600', bgColor: 'bg-gradient-to-br from-amber-50 to-amber-100', icon: BedIcon }
+          ],
+          percent: occupancyPercent,
+          label: 'Bed Occupancy'
+        };
+    }
+  };
+
+  const overviewData = getOverviewData();
+
+  // Chart data for rent activity
+  const chartData = monthlyData.slice(-6).map(d => ({
+    month: d.month.substring(0, 3),
+    amount: d.income
+  }));
+
+  const maxAmount = Math.max(...chartData.map(d => d.amount), 1);
+  
+  // Calculate month over month growth
+  const currentMonth = monthlyData[monthlyData.length - 1];
+  const previousMonth = monthlyData[monthlyData.length - 2];
+  const monthOverMonthGrowth = currentMonth && previousMonth && previousMonth.income > 0
+    ? ((currentMonth.income - previousMonth.income) / previousMonth.income) * 100
+    : 0;
+
+  // Payment methods for pie chart
+  const paymentMethods = [
+    { name: 'Cash', value: paymentStats.cash_payments, color: '#10B981', icon: Banknote },
+    { name: 'Online', value: paymentStats.online_payments, color: '#3B82F6', icon: CreditCard },
+    { name: 'Bank Transfer', value: paymentStats.bank_transfers, color: '#8B5CF6', icon: Landmark },
+    { name: 'Card', value: paymentStats.card_payments, color: '#EF4444', icon: CreditCard },
+    { name: 'Cheque', value: paymentStats.cheque_payments, color: '#F59E0B', icon: Receipt },
+  ].filter(m => m.value > 0);
+
   const statCards = [
-    { title: 'Total Properties', value: loading ? '...' : stats.totalProperties, icon: Building2, color: 'bg-blue-600', bgColor: 'bg-gradient-to-br from-blue-50 to-blue-100' },
-    { title: 'Total Rooms', value: loading ? '...' : stats.totalRooms, icon: DoorOpen, color: 'bg-purple-600', bgColor: 'bg-gradient-to-br from-purple-50 to-purple-100' },
-    { title: 'Bed Occupancy', value: loading ? '...' : `${stats.occupiedBeds}/${stats.totalBeds}`, icon: Users, color: 'bg-green-600', bgColor: 'bg-gradient-to-br from-green-50 to-green-100' },
-    { title: 'Active Tenants', value: loading ? '...' : stats.activeTenants, icon: Users, color: 'bg-orange-600', bgColor: 'bg-gradient-to-br from-orange-50 to-orange-100' },
-    { title: 'Monthly Revenue', value: loading ? '...' : `₹${stats.monthlyRevenue.toLocaleString()}`, icon: CreditCard, color: 'bg-indigo-600', bgColor: 'bg-gradient-to-br from-indigo-50 to-indigo-100' },
+    { title: 'Total Properties', value: propertyStats.total, icon: Building2, color: 'bg-blue-600', bgColor: 'bg-gradient-to-br from-blue-50 to-blue-100', trend: 'up', trendValue: '12' },
+    { title: 'Total Rooms', value: roomStats.total, icon: DoorOpen, color: 'bg-purple-600', bgColor: 'bg-gradient-to-br from-purple-50 to-purple-100', trend: 'up', trendValue: '8' },
+    { title: 'Bed Occupancy', value: `${roomStats.occupiedBeds}/${roomStats.totalBeds}`, icon: BedIcon, color: 'bg-green-600', bgColor: 'bg-gradient-to-br from-green-50 to-green-100', trend: 'up', trendValue: '5' },
+    { title: 'Active Tenants', value: tenantStats.active, icon: Users, color: 'bg-orange-600', bgColor: 'bg-gradient-to-br from-orange-50 to-orange-100', trend: 'up', trendValue: '3' },
+    { title: 'Monthly Revenue', value: formatCurrency(paymentStats.current_month_collected), icon: IndianRupee, color: 'bg-indigo-600', bgColor: 'bg-gradient-to-br from-indigo-50 to-indigo-100', trend: monthOverMonthGrowth > 0 ? 'up' : 'down', trendValue: Math.abs(monthOverMonthGrowth).toFixed(1) },
   ];
 
-  const applyRentActivityFilters = () => { setShowFilterPanel(false); setShowComparisonDropdown(false); };
-  
-  const resetAllRentFilters = () => {
-    setSelectedMonth('January'); setSelectedYear('all'); setSelectedDate(null);
-    setComparisonMode('1year'); setSelectedYear1(''); setSelectedYear2('');
-    setFirstMonth(''); setFirstYear(''); setSecondMonth(''); setSecondYear('');
-    setCustomStartMonth('January'); setCustomEndMonth('December'); setCustomYear(new Date().getFullYear());
-  };
-
-  const handleYearSelect = (year: number) => { setSelectedYear(year); setShowYearCalendar(false); setTimeout(applyRentActivityFilters, 100); };
-  const handleMonthSelect = (month: string) => { setSelectedMonth(month); setShowMonthCalendar(false); setTimeout(applyRentActivityFilters, 100); };
-  const handleDateSelect = (date: Date) => { setSelectedDate(date); setShowDateCalendar(false); setTimeout(applyRentActivityFilters, 100); };
-  const handleOccupancyFilterChange = (filter: DateFilterType) => { setOccupancyDateFilter(filter); };
-  const openFinancialTrend = () => { setFinancialYear(selectedYear); setFinancialMonth(selectedMonth); setShowFinancialTrend(true); setShowComparisonDropdown(false); };
-
-  const getComparisonData = useMemo(() => () => {
-    const cur = [
-      { month: 'Jan', amount: 45000000 },
-      { month: 'Feb', amount: 52000000 },
-      { month: 'Mar', amount: 48000000 },
-      { month: 'Apr', amount: 61000000 },
-      { month: 'May', amount: 55000000 },
-      { month: 'Jun', amount: 68000000 },
-    ];
-    const prev = [
-      { month: 'Jan', amount: 38000000 },
-      { month: 'Feb', amount: 42000000 },
-      { month: 'Mar', amount: 45000000 },
-      { month: 'Apr', amount: 52000000 },
-      { month: 'May', amount: 48000000 },
-      { month: 'Jun', amount: 60000000 },
-    ];
-    if (comparisonMode === '2year') return { labels: cur.map(d=>d.month), datasets: [{ data: cur, label: `${typeof selectedYear==='number'?selectedYear:new Date().getFullYear()}`, color: 'from-blue-600 to-blue-400' }, { data: prev, label: `${(typeof selectedYear==='number'?selectedYear:new Date().getFullYear())-1}`, color: 'from-green-600 to-green-400' }], isComparison: true };
-    if (comparisonMode === 'custom') return { labels: [customStartMonth.substring(0,3), customEndMonth.substring(0,3)], datasets: [{ data: [{ month: customStartMonth.substring(0,3), amount: 35000000 }, { month: customEndMonth.substring(0,3), amount: 62000000 }], label: `${customYear}`, color: 'from-purple-600 to-purple-400' }], isComparison: false };
-    return { labels: cur.map(d=>d.month), datasets: [{ data: cur, label: selectedYear==='all'?'All Years':`${selectedYear}`, color: 'from-blue-600 to-blue-400' }], isComparison: false };
-  }, [comparisonMode, selectedYear, customStartMonth, customEndMonth, customYear]);
-
-  const comparisonData = getComparisonData();
-  const maxAmount = Math.max(...comparisonData.datasets.flatMap(ds => ds.data.map(d => d.amount)), 1);
-
   return (
-    <div className="min-h-screen ">
+    <div className="min-h-screen bg-slate-50">
       {showFinancialTrend && (
         <FinancialTrendChart
-          summary={financialSummary} activeTab={financialTab} chartType={chartType}
-          selectedYear={financialYear} selectedMonth={financialMonth}
-          onTabChange={setFinancialTab} onChartTypeChange={setChartType}
-          onYearChange={setFinancialYear} onClose={() => setShowFinancialTrend(false)}
+          data={monthlyData}
+          activeTab={financialTab}
+          chartType={chartType}
+          selectedYear={financialYear}
+          onTabChange={setFinancialTab}
+          onChartTypeChange={setChartType}
+          onYearChange={setFinancialYear}
+          onClose={() => setShowFinancialTrend(false)}
+          loading={loading}
+          formatCurrency={formatCurrency}
         />
       )}
 
-      {/* Occupancy Calendar Modal */}
-      {showOccupancyCalendar && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm">
-            <div className="p-3 sm:p-4 border-b border-gray-200 flex items-center justify-between">
-              <h3 className="text-base sm:text-lg font-semibold text-gray-800">Select Date</h3>
-              <button onClick={() => setShowOccupancyCalendar(false)} className="p-1 hover:bg-gray-100 rounded-lg"><X className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600"/></button>
-            </div>
-            <div className="p-3 sm:p-4 border-b border-gray-200">
-              <div className="flex items-center justify-between mb-4">
-                <button onClick={() => { const d=new Date(occupancySelectedDate); d.setMonth(d.getMonth()-1); setOccupancySelectedDate(d); }} className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-lg"><ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600"/></button>
-                <div className="text-base sm:text-lg font-bold text-gray-800">{occupancySelectedDate.toLocaleDateString('en-US',{month:'long',year:'numeric'})}</div>
-                <button onClick={() => { const d=new Date(occupancySelectedDate); d.setMonth(d.getMonth()+1); setOccupancySelectedDate(d); }} className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-lg"><ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600"/></button>
-              </div>
-              <div className="grid grid-cols-7 gap-1 mb-2">{['S','M','T','W','T','F','S'].map(d=><div key={d} className="text-center text-[10px] sm:text-xs font-medium text-gray-500 py-1 sm:py-2">{d}</div>)}</div>
-              <div className="grid grid-cols-7 gap-1">
-                {Array.from({length:35}).map((_,i) => {
-                  const day = i - new Date(occupancySelectedDate.getFullYear(), occupancySelectedDate.getMonth(), 1).getDay() + 1;
-                  const date = new Date(occupancySelectedDate.getFullYear(), occupancySelectedDate.getMonth(), day);
-                  const daysInMonth = new Date(occupancySelectedDate.getFullYear(), occupancySelectedDate.getMonth()+1, 0).getDate();
-                  const isToday = date.toDateString()===new Date().toDateString();
-                  const isSelected = date.toDateString()===occupancySelectedDate.toDateString();
-                  return day>0&&day<=daysInMonth ? (
-                    <button key={i} onClick={() => { setOccupancySelectedDate(date); handleOccupancyFilterChange('custom'); setShowOccupancyCalendar(false); }} className={`h-8 sm:h-10 rounded-lg flex items-center justify-center text-xs sm:text-sm font-medium transition-all ${isSelected?'bg-blue-600 text-white':isToday?'bg-blue-100 text-blue-600':'hover:bg-gray-100 text-gray-700'}`}>{day}</button>
-                  ) : <div key={i} className="h-8 sm:h-10"/>;
-                })}
-              </div>
-            </div>
-            <div className="p-3 sm:p-4">
-              <div className="grid grid-cols-2 gap-2">
-                <button onClick={() => { setOccupancySelectedDate(new Date()); handleOccupancyFilterChange('custom'); setShowOccupancyCalendar(false); }} className="px-2 sm:px-3 py-1.5 sm:py-2 bg-blue-50 text-blue-700 rounded-lg text-xs sm:text-sm font-medium hover:bg-blue-100">Today</button>
-                <button onClick={() => { const t=new Date(); t.setDate(t.getDate()+1); setOccupancySelectedDate(t); handleOccupancyFilterChange('custom'); setShowOccupancyCalendar(false); }} className="px-2 sm:px-3 py-1.5 sm:py-2 bg-gray-50 text-gray-700 rounded-lg text-xs sm:text-sm font-medium hover:bg-gray-100">Tomorrow</button>
+      {/* Header with Refresh and Date Filter */}
+      <div className="flex justify-end items-center gap-3 mb-4">
+        <select
+          value={dateRange}
+          onChange={(e) => setDateRange(e.target.value as DateRangeType)}
+          className="text-xs border border-gray-200 rounded-lg px-3 py-1.5 bg-white shadow-sm"
+        >
+          <option value="week">Last Week</option>
+          <option value="month">Last Month</option>
+          <option value="quarter">Last Quarter</option>
+          <option value="year">Last Year</option>
+          <option value="all">All Time</option>
+        </select>
+        <button
+          onClick={handleRefresh}
+          disabled={refreshing}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs text-gray-600 hover:bg-gray-50 transition-colors"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+          Refresh
+        </button>
+      </div>
+
+      {/* Gradient Stat Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-1.5 sm:gap-2 mb-6">
+        {statCards.map((stat, index) => (
+          <GradientStatCard
+            key={index}
+            title={stat.title}
+            value={stat.value}
+            icon={stat.icon}
+            color={stat.color}
+            bgColor={stat.bgColor}
+            loading={loading}
+            trend={stat.trend}
+            trendValue={stat.trendValue}
+          />
+        ))}
+      </div>
+
+      {/* Main Charts Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mb-6">
+        {/* Rent Activity Chart */}
+        <Card className="lg:col-span-2 border-0 shadow-lg overflow-hidden">
+          <div className="bg-gradient-to-r from-[#004aad] to-[#002a7a] px-4 py-2">
+            <div className="flex items-center justify-between">
+              <h3 className="text-white text-xs font-medium flex items-center gap-1">
+                <TrendingUp className="h-3.5 w-3.5" />
+                Rent Activity
+              </h3>
+              <div className="flex items-center gap-2">
+                <Badge className="bg-white/20 text-white border-white/30 text-[8px] px-1.5 py-0 h-4">
+                  {dateRange}
+                </Badge>
+                <button
+                  onClick={() => setShowFinancialTrend(true)}
+                  className="text-white/70 hover:text-white text-[10px]"
+                >
+                  <BarChart3 className="w-3.5 h-3.5" />
+                </button>
               </div>
             </div>
           </div>
-        </div>
-      )}
+          <CardContent className="p-4">
+            {loading ? (
+              <div className="flex items-center justify-center h-52">
+                <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+              </div>
+            ) : chartData.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-52 text-gray-400">
+                <IndianRupee className="w-12 h-12 mb-2" />
+                <p className="text-sm">No payment data available</p>
+              </div>
+            ) : (
+              <>
+                <div className="flex justify-between items-center mb-4">
+                  <span className="text-xs text-gray-500">Amount (₹)</span>
+                  <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full ${monthOverMonthGrowth >= 0 ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'} text-[10px] font-medium`}>
+                    {monthOverMonthGrowth >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                    {monthOverMonthGrowth >= 0 ? '+' : ''}{monthOverMonthGrowth.toFixed(1)}% vs last month
+                  </div>
+                </div>
 
-      {/* ── Stat Cards with gradient backgrounds like payment stats ── */}
-      <div className="mb-4 sm:mb-6">
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-1.5 sm:gap-2 sticky top-16 sm:top-20 md:top-24 z-10">
-          {statCards.map((stat, index) => (
-            <StatCard
-              key={index}
-              title={stat.title}
-              value={stat.value}
-              icon={stat.icon}
-              color={stat.color}
-              bgColor={stat.bgColor}
-            />
-          ))}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mb-6">
-        {/* ── Occupancy Overview with real data from APIs ── */}
-        <Card className="border-0 shadow-lg">
-          <CardHeader className="p-3 sm:p-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <CardTitle className="text-base sm:text-xl font-bold text-slate-700">
-                {selectedType === 'rooms' ? 'Rooms' : 
-                 selectedType === 'property' ? 'Property' : 
-                 selectedType === 'tenants' ? 'Tenants' :
-                 selectedType === 'expenses' ? 'Expenses' :
-                 selectedType === 'income' ? 'Income' :
-                 'Occupancy'}
-              </CardTitle>
-              
-              <div className="flex items-center gap-1 sm:gap-2">
-                {/* Date filter */}
-                <div className="relative">
-                  <button
-                    onClick={() => {
-                      setShowFilter(!showFilter);
-                      if (showTypeMenu) setShowTypeMenu(false);
-                    }}
-                    className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 bg-white border border-blue-200 rounded-lg text-xs sm:text-sm font-medium text-blue-700 hover:bg-blue-50 transition-all duration-200 shadow-sm"
-                  >
-                    <Calendar className="w-3 h-3 sm:w-4 sm:h-4 text-blue-600" />
-                    <span className="whitespace-nowrap">
-                      {selectedMonth.substring(0, 3)} {selectedYear === 'all' ? 'All' : selectedYear}
-                    </span>
-                    <ChevronDown className={`w-2.5 h-2.5 sm:w-3 sm:h-3 text-blue-700 transition-transform duration-200 ${showFilter ? 'rotate-180' : ''}`} />
-                  </button>
+                {/* Bar Chart */}
+                <div className="relative h-44">
+                  <div className="absolute left-0 top-0 h-full flex flex-col justify-between text-[10px] text-gray-400 pr-2">
+                    <span>{formatCurrency(maxAmount)}</span>
+                    <span>{formatCurrency(maxAmount * 0.75)}</span>
+                    <span>{formatCurrency(maxAmount * 0.5)}</span>
+                    <span>{formatCurrency(maxAmount * 0.25)}</span>
+                    <span>₹0</span>
+                  </div>
                   
-                  {/* Filter Dropdown */}
-                  {showFilter && (
-                    <div className="absolute right-0 mt-1 w-64 sm:w-72 bg-white rounded-lg shadow-xl border border-gray-200 z-30">
-                      <div className="p-2 border-b border-gray-100">
-                        <h4 className="text-xs font-semibold text-gray-800">Filter Dates</h4>
-                      </div>
-
-                      <div className="p-2 space-y-3">
-                        <div className="flex items-end gap-2">
-                          <div className="flex-1">
-                            <label className="text-xs font-medium text-gray-700 mb-1 block">Start Date</label>
-                            <input
-                              type="text"
-                              placeholder="DD/MM/YYYY"
-                              value={startDateDisplay}
-                              onFocus={() => setIsSelectingStartDate(true)}
-                              className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                              size={10}
-                            />
-                          </div>
-                          
-                          <div className="pb-1">
-                            <span className="text-gray-400">→</span>
-                          </div>
-                          
-                          <div className="flex-1">
-                            <label className="text-xs font-medium text-gray-700 mb-1 block">End Date</label>
-                            <input
-                              type="text"
-                              placeholder="DD/MM/YYYY"
-                              value={endDateDisplay}
-                              onFocus={() => setIsSelectingEndDate(true)}
-                              className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded bg-white focus:border-green-500 focus:ring-1 focus:ring-green-500"
-                              size={10}
-                            />
-                          </div>
-                        </div>
-
-                        <div className="flex gap-2">
-                          <div className="flex-1">
-                            <select
-                              value={selectedMonth}
-                              onChange={(e) => {
-                                setSelectedMonth(e.target.value);
-                                setTimeout(() => {
-                                }, 100);
-                              }}
-                              className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded bg-white"
+                  <div className="absolute bottom-0 left-10 right-2 h-36 flex items-end justify-between gap-1">
+                    {chartData.map((item, index) => {
+                      const heightPercent = maxAmount > 0 ? (item.amount / maxAmount) * 85 : 0;
+                      return (
+                        <div key={index} className="flex flex-col items-center flex-1">
+                          <div className="relative w-full flex justify-center">
+                            <div 
+                              className="w-8 sm:w-10 bg-gradient-to-t from-blue-600 to-blue-400 rounded-t-lg transition-all duration-500 hover:opacity-90 cursor-pointer group"
+                              style={{ height: `${heightPercent}%`, minHeight: '4px' }}
                             >
-                              {allMonths.map(month => (
-                                <option key={month} value={month}>{month.substring(0, 3)}</option>
-                              ))}
-                            </select>
-                          </div>
-                          
-                          <div className="flex-1 relative">
-                            <select
-                              value={selectedYear}
-                              onChange={(e) => {
-                                const value = e.target.value;
-                                setSelectedYear(value === 'all' ? 'all' : parseInt(value));
-                                setTimeout(() => {
-                                }, 100);
-                              }}
-                              className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded bg-white appearance-none"
-                            >
-                              <option value="all">All</option>
-                              {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - i).map(year => (
-                                <option key={year} value={year}>{year}</option>
-                              ))}
-                            </select>
-                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-1 text-gray-700">
-                              <ChevronDown className="w-3 h-3" />
+                              <div className="absolute -top-7 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-[9px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                                {formatCurrency(item.amount)}
+                              </div>
                             </div>
                           </div>
+                          <span className="text-[10px] font-medium text-gray-600 mt-1">{item.month}</span>
                         </div>
-
-                        <div className="border border-gray-200 rounded overflow-hidden">
-                          <div className="grid grid-cols-7 bg-gray-50">
-                            {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, index) => (
-                              <div key={index} className="text-[10px] sm:text-xs font-medium text-gray-600 py-1 text-center border-r border-gray-200 last:border-r-0">
-                                {day}
-                              </div>
-                            ))}
-                          </div>
-                          
-                          <div className="grid grid-cols-7 bg-white">
-                            {(() => {
-                              const year = selectedYear === 'all' ? new Date().getFullYear() : selectedYear;
-                              const monthIndex = allMonths.indexOf(selectedMonth);
-                              const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
-                              const firstDay = new Date(year, monthIndex, 1).getDay();
-                              const firstDayAdjusted = firstDay === 0 ? 6 : firstDay - 1;
-                              const days = [];
-                              
-                              for (let i = 0; i < firstDayAdjusted; i++) {
-                                days.push(<div key={`empty-${i}`} className="h-6 sm:h-7 border-r border-b border-gray-100 bg-gray-50"></div>);
-                              }
-                              
-                              for (let day = 1; day <= daysInMonth; day++) {
-                                const currentDate = new Date(year, monthIndex, day);
-                                const dateStr = `${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                                const displayDate = `${String(day).padStart(2, '0')}/${String(monthIndex + 1).padStart(2, '0')}/${year}`;
-                                
-                                const isStartDate = startDateDisplay && startDateDisplay.replace(/-/g, '/') === displayDate;
-                                const isEndDate = endDateDisplay && endDateDisplay.replace(/-/g, '/') === displayDate;
-                                
-                                days.push(
-                                  <button 
-                                    key={day}
-                                    onClick={() => {
-                                      const formattedDate = `${String(day).padStart(2, '0')}-${String(monthIndex + 1).padStart(2, '0')}-${year}`;
-                                      
-                                      if (isSelectingStartDate) {
-                                        setStartDateDisplay(formattedDate);
-                                        setStartDate(dateStr);
-                                        setIsSelectingStartDate(false);
-                                      } else if (isSelectingEndDate) {
-                                        setEndDateDisplay(formattedDate);
-                                        setEndDate(dateStr);
-                                        setIsSelectingEndDate(false);
-                                      } else {
-                                        setIsSelectingStartDate(true);
-                                        setStartDateDisplay(formattedDate);
-                                        setStartDate(dateStr);
-                                      }
-                                    }}
-                                    className={`
-                                      h-6 sm:h-7 border-r border-b border-gray-100 text-[10px]
-                                      flex items-center justify-center transition-colors
-                                      ${isStartDate ? 'bg-blue-600 text-white' : 
-                                        isEndDate ? 'bg-green-600 text-white' : 
-                                        'hover:bg-gray-50 text-gray-700'}
-                                      ${(firstDayAdjusted + day) % 7 === 0 ? 'border-r-0' : ''}
-                                    `}
-                                  >
-                                    {day}
-                                  </button>
-                                );
-                              }
-                              
-                              return days;
-                            })()}
-                          </div>
-                        </div>
-
-                        <div className="flex gap-1.5">
-                          <button
-                            onClick={() => {
-                              const today = new Date();
-                              const todayStr = `${String(today.getDate()).padStart(2, '0')}-${String(today.getMonth() + 1).padStart(2, '0')}-${today.getFullYear()}`;
-                              const todayDateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-                              
-                              if (!startDate) {
-                                setStartDateDisplay(todayStr);
-                                setStartDate(todayDateStr);
-                              } else if (!endDate) {
-                                setEndDateDisplay(todayStr);
-                                setEndDate(todayDateStr);
-                              }
-                            }}
-                            className="flex-1 px-2 py-1.5 text-xs border border-gray-300 rounded hover:bg-gray-50"
-                          >
-                            Today
-                          </button>
-                          
-                          <button
-                            onClick={() => {
-                              setStartDateDisplay('');
-                              setEndDateDisplay('');
-                              setStartDate('');
-                              setEndDate('');
-                            }}
-                            className="flex-1 px-2 py-1.5 text-xs border border-gray-300 rounded hover:bg-gray-50"
-                          >
-                            Clear
-                          </button>
-                        </div>
-
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => {
-                              if (startDate && endDate) {
-                                handleOccupancyFilterChange('custom');
-                                setShowFilter(false);
-                              }
-                            }}
-                            className="flex-1 px-3 py-2 bg-blue-600 text-white rounded text-xs font-medium hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                            disabled={!startDate || !endDate}
-                          >
-                            Apply
-                          </button>
-
-                          <button
-                            onClick={() => {
-                              setSelectedMonth('January');
-                              setSelectedYear('all');
-                              setStartDate('');
-                              setEndDate('');
-                              setStartDateDisplay('');
-                              setEndDateDisplay('');
-                            }}
-                            className="flex-1 px-3 py-2 bg-gray-100 text-gray-700 rounded text-xs font-medium hover:bg-gray-200"
-                          >
-                            Reset
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-                
-                {/* Type Selector */}
-                <div className="flex items-center gap-1 sm:gap-2">
-                  {selectedType && (
-                    <button
-                      onClick={() => setSelectedType('')}
-                      className="flex items-center gap-1 px-2 sm:px-3 py-1 sm:py-1.5 bg-blue-600 rounded-lg text-white transition-colors shadow-sm text-xs font-medium"
-                    >
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
-                      </svg>
-                    </button>
-                  )}
-                  
-                  <div className="relative">
-                    <button
-                      onClick={() => {
-                        setShowTypeMenu(!showTypeMenu);
-                        if (showFilter) setShowFilter(false);
-                      }}
-                      className="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 bg-blue-700 border border-gray-300 rounded-lg text-white hover:bg-blue-500 transition-colors shadow-sm"
-                    >
-                      <MoreVertical className="w-4 h-3 sm:w-5 sm:h-4" />
-                    </button>
-                    
-                    {showTypeMenu && (
-                      <div className="absolute right-0 mt-2 w-48 sm:w-56 bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden">
-                        <div className="p-2">
-                          <div className="grid grid-cols-3 gap-1">
-                            {/* Rooms */}
-                            <button 
-                              className="w-full p-1 text-gray-800 hover:bg-emerald-50 rounded-lg transition-all duration-150 flex flex-col items-center gap-1 group"
-                              onClick={() => {
-                                setSelectedType('rooms');
-                                setShowTypeMenu(false);
-                              }}
-                              title="Rooms"
-                            >
-                              <div className="w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center bg-emerald-100 rounded-full group-hover:scale-110 transition-transform duration-200">
-                                <svg className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-emerald-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
-                                </svg>
-                              </div>
-                              <span className="text-[8px] sm:text-[10px] font-semibold text-gray-800">Rooms</span>
-                            </button>
-                            
-                            {/* Property */}
-                            <button 
-                              className="w-full p-1 text-gray-800 hover:bg-violet-50 rounded-lg transition-all duration-150 flex flex-col items-center gap-1 group"
-                              onClick={() => {
-                                setSelectedType('property');
-                                setShowTypeMenu(false);
-                              }}
-                              title="Property"
-                            >
-                              <div className="w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center bg-violet-100 rounded-full group-hover:scale-110 transition-transform duration-200">
-                                <svg className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-violet-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
-                                </svg>
-                              </div>
-                              <span className="text-[8px] sm:text-[10px] font-semibold text-gray-800">Property</span>
-                            </button>
-                            
-                            {/* Tenants */}
-                            <button 
-                              className="w-full p-1 text-gray-800 hover:bg-cyan-50 rounded-lg transition-all duration-150 flex flex-col items-center gap-1 group"
-                              onClick={() => {
-                                setSelectedType('tenants');
-                                setShowTypeMenu(false);
-                              }}
-                              title="Tenants"
-                            >
-                              <div className="w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center bg-cyan-100 rounded-full group-hover:scale-110 transition-transform duration-200">
-                                <Users className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-cyan-700" />
-                              </div>
-                              <span className="text-[8px] sm:text-[10px] font-semibold text-gray-800">Tenants</span>
-                            </button>
-                            
-                            {/* Expenses */}
-                            <button 
-                              className="w-full p-1 text-gray-800 hover:bg-amber-50 rounded-lg transition-all duration-150 flex flex-col items-center gap-1 group"
-                              onClick={() => {
-                                setSelectedType('expenses');
-                                setShowTypeMenu(false);
-                              }}
-                              title="Expenses"
-                            >
-                              <div className="w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center bg-amber-100 rounded-full group-hover:scale-110 transition-transform duration-200">
-                                <svg className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
-                                </svg>
-                              </div>
-                              <span className="text-[8px] sm:text-[10px] font-semibold text-gray-800">Expenses</span>
-                            </button>
-                            
-                            {/* Income */}
-                            <button 
-                              className="w-full p-1 text-gray-800 hover:bg-green-50 rounded-lg transition-all duration-150 flex flex-col items-center gap-1 group"
-                              onClick={() => {
-                                setSelectedType('income');
-                                setShowTypeMenu(false);
-                              }}
-                              title="Income"
-                            >
-                              <div className="w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center bg-green-100 rounded-full group-hover:scale-110 transition-transform duration-200">
-                                <svg className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-green-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                </svg>
-                              </div>
-                              <span className="text-[8px] sm:text-[10px] font-semibold text-gray-800">Income</span>
-                            </button>
-                            
-                            {/* Empty space - to maintain grid layout */}
-                            <div className="w-full p-1 opacity-0 cursor-default">
-                              <div className="w-6 h-6 sm:w-7 sm:h-7"></div>
-                              <span className="text-[8px]">&nbsp;</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
+                      );
+                    })}
                   </div>
                 </div>
-              </div>
-            </div>
-          </CardHeader>
 
-          <CardContent className="p-3 sm:p-4 pt-0">
-            <div className="flex flex-col items-center">
-              {/* Donut chart */}
-              <div className="relative w-32 h-32 sm:w-36 sm:h-36 md:w-40 md:h-40 mb-4 sm:mb-6">
-                {(() => {
-                  const configs: Record<string, { bg: string; fill: string; pct: number; label: string }> = {
-                    rooms:    { bg:'bg-purple-300', fill:'#8B5CF6', pct:roomOccupancyPercent,    label:'Occupied Rooms' },
-                    property: { bg:'bg-red-300',    fill:'#EF4444', pct:propertyOccupancyPercent,label:'Occupied Property' },
-                    tenants:  { bg:'bg-cyan-300',   fill:'#06b6d4', pct:tenantOccupancyPercent,   label:'Active Tenants' },
-                    expenses: { bg:'bg-orange-300', fill:'#EF4444', pct:expenseStats.ratio,       label:'Expenses Ratio' },
-                    income:   { bg:'bg-green-300',  fill:'#10B981', pct:incomeStats.ratio,        label:'Income Ratio' },
-                  };
-                  const cfg = selectedType && configs[selectedType] ? configs[selectedType] : { bg:'bg-yellow-300', fill:'#3B82F6', pct:occupancyPercent, label:'Occupied' };
-                  return (<>
-                    <div className={`absolute inset-0 rounded-full ${cfg.bg}`}></div>
-                    <div className="absolute inset-0 rounded-full"><div className="absolute inset-0 rounded-full" style={{background:`conic-gradient(${cfg.fill} ${cfg.pct*3.6}deg, transparent 0deg)`}}/></div>
-                    <div className="absolute inset-4 sm:inset-5 md:inset-6 bg-white rounded-full flex flex-col items-center justify-center shadow-lg">
-                      <span className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-800">{cfg.pct}%</span>
-                      <span className="text-[10px] sm:text-xs text-gray-500 mt-0.5 sm:mt-1 text-center px-1">{cfg.label}</span>
-                    </div>
-                  </>);
-                })()}
-              </div>
-
-              {/* Stats list with real data from APIs */}
-              {selectedType === 'rooms' ? (
-                <div className="w-full space-y-2 sm:space-y-4">
-                  <div className="flex items-center justify-between p-2 sm:p-3 bg-purple-50 rounded-xl">
-                    <div className="flex items-center gap-2 sm:gap-3">
-                      <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
-                        <div className="w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-purple-500"></div>
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-xs sm:text-sm font-medium text-gray-700 truncate">Active Rooms</p>
-                        <p className="text-[10px] sm:text-xs text-gray-500 truncate">Currently occupied</p>
-                      </div>
-                    </div>
-                    <p className="text-base sm:text-xl font-bold text-purple-600 flex-shrink-0">{roomStats.active}</p>
+                <div className="mt-4 pt-3 border-t flex justify-between">
+                  <div>
+                    <p className="text-[10px] text-gray-500">Current Month</p>
+                    <p className="text-sm font-bold text-gray-800">{formatCurrency(currentMonth?.income || 0)}</p>
                   </div>
-
-                  <div className="flex items-center justify-between p-2 sm:p-3 bg-orange-50 rounded-xl">
-                    <div className="flex items-center gap-2 sm:gap-3">
-                      <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0">
-                        <div className="w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-orange-500"></div>
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-xs sm:text-sm font-medium text-gray-700 truncate">Inactive Rooms</p>
-                        <p className="text-[10px] sm:text-xs text-gray-500 truncate">Vacant or closed</p>
-                      </div>
-                    </div>
-                    <p className="text-base sm:text-xl font-bold text-orange-600 flex-shrink-0">{roomStats.inactive}</p>
-                  </div>
-
-                  <div className="flex items-center justify-between p-2 sm:p-3 bg-gray-50 rounded-xl">
-                    <div className="flex items-center gap-2 sm:gap-3">
-                      <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
-                        <svg className="w-3 h-3 sm:w-4 sm:h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
-                        </svg>
-                      </div>
-                      <div>
-                        <p className="text-xs sm:text-sm font-medium text-gray-700">Total Rooms</p>
-                      </div>
-                    </div>
-                    <p className="text-base sm:text-xl font-bold text-gray-800">{roomStats.total}</p>
-                  </div>
-                </div>
-              ) : selectedType === 'property' ? (
-                <div className="w-full space-y-2 sm:space-y-4">
-                  <div className="flex items-center justify-between p-2 sm:p-3 bg-red-50 rounded-xl">
-                    <div className="flex items-center gap-2 sm:gap-3">
-                      <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
-                        <div className="w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-red-500"></div>
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-xs sm:text-sm font-medium text-gray-700 truncate">Active Properties</p>
-                        <p className="text-[10px] sm:text-xs text-gray-500 truncate">Currently occupied</p>
-                      </div>
-                    </div>
-                    <p className="text-base sm:text-xl font-bold text-red-600 flex-shrink-0">{propertyStats.active}</p>
-                  </div>
-
-                  <div className="flex items-center justify-between p-2 sm:p-3 bg-blue-50 rounded-xl">
-                    <div className="flex items-center gap-2 sm:gap-3">
-                      <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                        <div className="w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-blue-500"></div>
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-xs sm:text-sm font-medium text-gray-700 truncate">Inactive Properties</p>
-                        <p className="text-[10px] sm:text-xs text-gray-500 truncate">Vacant or closed</p>
-                      </div>
-                    </div>
-                    <p className="text-base sm:text-xl font-bold text-blue-600 flex-shrink-0">{propertyStats.inactive}</p>
-                  </div>
-
-                  <div className="flex items-center justify-between p-2 sm:p-3 bg-gray-50 rounded-xl">
-                    <div className="flex items-center gap-2 sm:gap-3">
-                      <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
-                        <svg className="w-3 h-3 sm:w-4 sm:h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
-                        </svg>
-                      </div>
-                      <div>
-                        <p className="text-xs sm:text-sm font-medium text-gray-700">Total Properties</p>
-                      </div>
-                    </div>
-                    <p className="text-base sm:text-xl font-bold text-gray-800">{propertyStats.total}</p>
-                  </div>
-                </div>
-              ) : selectedType === 'tenants' ? (
-                <div className="w-full space-y-2 sm:space-y-4">
-                  <div className="flex items-center justify-between p-2 sm:p-3 bg-cyan-50 rounded-xl">
-                    <div className="flex items-center gap-2 sm:gap-3">
-                      <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-cyan-100 flex items-center justify-center flex-shrink-0">
-                        <Users className="w-3 h-3 sm:w-4 sm:h-4 text-cyan-600" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-xs sm:text-sm font-medium text-gray-700 truncate">Active Tenants</p>
-                        <p className="text-[10px] sm:text-xs text-gray-500 truncate">Currently active</p>
-                      </div>
-                    </div>
-                    <p className="text-base sm:text-xl font-bold text-cyan-600 flex-shrink-0">{tenantOverviewStats.active}</p>
-                  </div>
-
-                  <div className="flex items-center justify-between p-2 sm:p-3 bg-amber-50 rounded-xl">
-                    <div className="flex items-center gap-2 sm:gap-3">
-                      <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
-                        <AlertCircle className="w-3 h-3 sm:w-4 sm:h-4 text-amber-600" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-xs sm:text-sm font-medium text-gray-700 truncate">Inactive Tenants</p>
-                        <p className="text-[10px] sm:text-xs text-gray-500 truncate">Inactive or closed</p>
-                      </div>
-                    </div>
-                    <p className="text-base sm:text-xl font-bold text-amber-600 flex-shrink-0">{tenantOverviewStats.inactive}</p>
-                  </div>
-
-                  <div className="flex items-center justify-between p-2 sm:p-3 bg-gray-50 rounded-xl">
-                    <div className="flex items-center gap-2 sm:gap-3">
-                      <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
-                        <Users className="w-3 h-3 sm:w-4 sm:h-4 text-gray-600" />
-                      </div>
-                      <div>
-                        <p className="text-xs sm:text-sm font-medium text-gray-700">Total Tenants</p>
-                      </div>
-                    </div>
-                    <p className="text-base sm:text-xl font-bold text-gray-800">{tenantOverviewStats.total}</p>
-                  </div>
-                </div>
-              ) : selectedType === 'expenses' ? (
-                <div className="w-full space-y-2 sm:space-y-4">
-                  <div className="flex items-center justify-between p-2 sm:p-3 bg-red-50 rounded-xl">
-                    <div className="flex items-center gap-2 sm:gap-3">
-                      <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
-                        <TrendingDown className="w-3 h-3 sm:w-4 sm:h-4 text-red-600"/>
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-xs sm:text-sm font-medium text-gray-700 truncate">Monthly Expenses</p>
-                        <p className="text-[10px] sm:text-xs text-gray-500 truncate">Total spent this month</p>
-                      </div>
-                    </div>
-                    <p className="text-base sm:text-xl font-bold text-red-600 flex-shrink-0">₹{expenseStats.total.toLocaleString()}</p>
-                  </div>
-                  <div className="flex items-center justify-between p-2 sm:p-3 bg-orange-50 rounded-xl">
-                    <div className="flex items-center gap-2 sm:gap-3">
-                      <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0">
-                        <FileText className="w-3 h-3 sm:w-4 sm:h-4 text-orange-600"/>
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-xs sm:text-sm font-medium text-gray-700 truncate">Fixed Costs</p>
-                        <p className="text-[10px] sm:text-xs text-gray-500 truncate">Rent, utilities, etc.</p>
-                      </div>
-                    </div>
-                    <p className="text-base sm:text-xl font-bold text-orange-600 flex-shrink-0">₹{expenseStats.fixed.toLocaleString()}</p>
-                  </div>
-                  <div className="flex items-center justify-between p-2 sm:p-3 bg-gray-50 rounded-xl">
-                    <div className="flex items-center gap-2 sm:gap-3">
-                      <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
-                        <Receipt className="w-3 h-3 sm:w-4 sm:h-4 text-gray-600"/>
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-xs sm:text-sm font-medium text-gray-700 truncate">Variable Costs</p>
-                        <p className="text-[10px] sm:text-xs text-gray-500 truncate">Maintenance, etc.</p>
-                      </div>
-                    </div>
-                    <p className="text-base sm:text-xl font-bold text-gray-800 flex-shrink-0">₹{expenseStats.variable.toLocaleString()}</p>
-                  </div>
-                </div>
-              ) : selectedType === 'income' ? (
-                <div className="w-full space-y-2 sm:space-y-4">
-                  <div className="flex items-center justify-between p-2 sm:p-3 bg-green-50 rounded-xl">
-                    <div className="flex items-center gap-2 sm:gap-3">
-                      <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
-                        <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 text-green-600"/>
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-xs sm:text-sm font-medium text-gray-700 truncate">Monthly Income</p>
-                        <p className="text-[10px] sm:text-xs text-gray-500 truncate">Total earned this month</p>
-                      </div>
-                    </div>
-                    <p className="text-base sm:text-xl font-bold text-green-600 flex-shrink-0">₹{incomeStats.total.toLocaleString()}</p>
-                  </div>
-                  <div className="flex items-center justify-between p-2 sm:p-3 bg-blue-50 rounded-xl">
-                    <div className="flex items-center gap-2 sm:gap-3">
-                      <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                        <Users className="w-3 h-3 sm:w-4 sm:h-4 text-blue-600"/>
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-xs sm:text-sm font-medium text-gray-700 truncate">Rental Income</p>
-                        <p className="text-[10px] sm:text-xs text-gray-500 truncate">From tenants</p>
-                      </div>
-                    </div>
-                    <p className="text-base sm:text-xl font-bold text-blue-600 flex-shrink-0">₹{incomeStats.rental.toLocaleString()}</p>
-                  </div>
-                  <div className="flex items-center justify-between p-2 sm:p-3 bg-purple-50 rounded-xl">
-                    <div className="flex items-center gap-2 sm:gap-3">
-                      <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
-                        <IndianRupeeIcon className="w-3 h-3 sm:w-4 sm:h-4 text-purple-600"/>
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-xs sm:text-sm font-medium text-gray-700 truncate">Other Income</p>
-                        <p className="text-[10px] sm:text-xs text-gray-500 truncate">Services, fees, etc.</p>
-                      </div>
-                    </div>
-                    <p className="text-base sm:text-xl font-bold text-purple-600 flex-shrink-0">₹{incomeStats.other.toLocaleString()}</p>
-                  </div>
-                </div>
-              ) : (
-                // Default Beds view
-                <div className="w-full space-y-2 sm:space-y-4">
-                  <div className="flex items-center justify-between p-2 sm:p-3 bg-blue-50 rounded-xl">
-                    <div className="flex items-center gap-2 sm:gap-3">
-                      <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                        <div className="w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-blue-500"></div>
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-xs sm:text-sm font-medium text-gray-700 truncate">Occupied Beds</p>
-                        <p className="text-[10px] sm:text-xs text-gray-500 truncate">Currently in use</p>
-                      </div>
-                    </div>
-                    <p className="text-base sm:text-xl font-bold text-blue-600 flex-shrink-0">{stats.occupiedBeds}</p>
-                  </div>
-
-                  <div className="flex items-center justify-between p-2 sm:p-3 bg-yellow-50 rounded-xl">
-                    <div className="flex items-center gap-2 sm:gap-3">
-                      <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-yellow-100 flex items-center justify-center flex-shrink-0">
-                        <div className="w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-yellow-500"></div>
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-xs sm:text-sm font-medium text-gray-700 truncate">Available Beds</p>
-                        <p className="text-[10px] sm:text-xs text-gray-500 truncate">Ready for occupancy</p>
-                      </div>
-                    </div>
-                    <p className="text-base sm:text-xl font-bold text-yellow-600 flex-shrink-0">
-                      {Math.max(0, stats.totalBeds - stats.occupiedBeds)}
+                  <div className="text-right">
+                    <p className="text-[10px] text-gray-500">Average Monthly</p>
+                    <p className="text-sm font-bold text-gray-800">
+                      {chartData.length > 0 
+                        ? formatCurrency(chartData.reduce((sum, d) => sum + d.amount, 0) / chartData.length)
+                        : '₹0'}
                     </p>
                   </div>
-
-                  <div className="flex items-center justify-between p-2 sm:p-3 bg-gray-50 rounded-xl">
-                    <div className="flex items-center gap-2 sm:gap-3">
-                      <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
-                        <Users className="w-3 h-3 sm:w-4 sm:h-4 text-gray-600" />
-                      </div>
-                      <div>
-                        <p className="text-xs sm:text-sm font-medium text-gray-700">Total Beds</p>
-                      </div>
-                    </div>
-                    <p className="text-base sm:text-xl font-bold text-gray-800">{stats.totalBeds}</p>
-                  </div>
                 </div>
-              )}
-            </div>
+              </>
+            )}
           </CardContent>
         </Card>
 
-        {/* ── Rent Activity Over Time with modern graph ── */}
-        <Card className="border-0 shadow-lg lg:col-span-2 relative overflow-hidden bg-gradient-to-br from-white to-blue-50/30">
-          <CardHeader className="p-3 sm:p-4 pb-2 sm:pb-3 border-b border-gray-100/50">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                <div className="relative">
-                  <button 
-                    onClick={() => setShowComparisonDropdown(!showComparisonDropdown)}
-                    className="p-1.5 sm:p-2 hover:bg-blue-100 rounded-xl transition-all duration-200 group"
-                  >
-                    <MoreVertical className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 group-hover:scale-110 transition-transform" />
-                  </button>
-                  
-                  {/* Comparison Dropdown */}
-                  {showComparisonDropdown && (
-                    <div className="absolute left-0 top-8 sm:top-10 w-64 sm:w-80 bg-white rounded-xl shadow-2xl border border-gray-200 z-50">
-                      <div className="p-2 sm:p-3 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-white">
-                        <div className="flex items-center justify-between">
-                          <div><h3 className="font-bold text-gray-800 text-xs sm:text-sm">Compare Data</h3><p className="text-[10px] sm:text-xs text-gray-500 mt-0.5">Select comparison type</p></div>
-                          <button onClick={() => setShowComparisonDropdown(false)} className="p-1 hover:bg-gray-100 rounded-lg"><X className="w-3 h-3 sm:w-4 sm:h-4 text-gray-500"/></button>
-                        </div>
-                        <div className="flex gap-2 mt-2 sm:mt-3">
-                          <button onClick={openFinancialTrend} className="flex-1 px-2 sm:px-3 py-1 sm:py-1.5 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 text-gray-700 rounded-lg text-[10px] sm:text-xs font-medium border border-blue-200 flex items-center justify-center gap-1"><LineChart className="w-3 h-3 sm:w-3.5 sm:h-3.5"/><span>Trends</span></button>
-                          <button onClick={() => { setSelectedYear1(''); setSelectedYear2(''); setFirstMonth(''); setFirstYear(''); setSecondMonth(''); setSecondYear(''); setComparisonMode('1year'); setShowComparisonDropdown(false); }} className="flex-1 px-2 sm:px-3 py-1 sm:py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-[10px] sm:text-xs font-medium border border-gray-300 flex items-center justify-center gap-1"><RefreshCw className="w-3 h-3 sm:w-3.5 sm:h-3.5"/><span>Reset</span></button>
-                        </div>
-                      </div>
-                      <div className="p-2 sm:p-3 space-y-2 sm:space-y-3 max-h-[280px] sm:max-h-[320px] overflow-y-auto">
-                        <button onClick={() => { setComparisonMode('1year'); setShowComparisonDropdown(false); }} className={`w-full text-left px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm transition-all ${comparisonMode==='1year'?'bg-blue-50 text-blue-700 border border-blue-200':'hover:bg-gray-50 text-gray-700 border border-gray-200'}`}>
-                          <div className="flex items-center justify-between"><div className="flex items-center gap-2"><div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-blue-500"/><span>Single Year</span></div>{comparisonMode==='1year'&&<Check className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-blue-500"/>}</div>
-                        </button>
-                        {/* Compare Years */}
-                        <div className="space-y-1 sm:space-y-2">
-                          <button onClick={() => setComparisonMode(comparisonMode==='2year'?null:'2year')} className={`w-full text-left px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm transition-all ${comparisonMode==='2year'?'bg-green-50 text-green-700 border border-green-200':'hover:bg-gray-50 text-gray-700 border border-gray-200'}`}>
-                            <div className="flex items-center justify-between"><div className="flex items-center gap-2"><div className="flex gap-0.5"><div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-blue-500"/><div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-green-500"/></div><span>Compare Years</span></div><ChevronDown className={`w-3 h-3 sm:w-3.5 sm:h-3.5 transition-transform ${comparisonMode==='2year'?'rotate-180':''}`}/></div>
-                          </button>
-                          {comparisonMode==='2year'&&(
-                            <div className="p-2 sm:p-3 bg-green-50/30 rounded-lg border border-green-100 space-y-2 sm:space-y-3">
-                              <div className="grid grid-cols-2 gap-2">
-                                <div><label className="text-[10px] sm:text-xs font-medium text-gray-700 mb-1 block">Year 1</label><select value={selectedYear1||''} onChange={e=>{setSelectedYear1(e.target.value);if(e.target.value&&selectedYear2) setTimeout(applyRentActivityFilters,100);}} className="w-full px-1.5 sm:px-2 py-1 sm:py-1.5 text-xs border border-gray-300 rounded bg-white appearance-none"><option value="">Choose year</option>{allAvailableYears.map(y=><option key={y} value={y}>{y}</option>)}</select></div>
-                                <div><label className="text-[10px] sm:text-xs font-medium text-gray-700 mb-1 block">Year 2</label><select value={selectedYear2||''} onChange={e=>{setSelectedYear2(e.target.value);if(e.target.value&&selectedYear1) setTimeout(applyRentActivityFilters,100);}} className="w-full px-1.5 sm:px-2 py-1 sm:py-1.5 text-xs border border-gray-300 rounded bg-white appearance-none"><option value="">Choose year</option>{allAvailableYears.map(y=><option key={y} value={y}>{y}</option>)}</select></div>
-                              </div>
-                              <button onClick={() => {if(selectedYear1&&selectedYear2) applyRentActivityFilters();}} disabled={!selectedYear1||!selectedYear2} className="w-full px-2 sm:px-3 py-1 sm:py-1.5 bg-green-600 text-white text-xs font-medium rounded hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed">Apply Filter</button>
-                            </div>
-                          )}
-                        </div>
-                        {/* Compare Months */}
-                        <div className="space-y-1 sm:space-y-2">
-                          <button onClick={() => setComparisonMode(comparisonMode==='custom'?null:'custom')} className={`w-full text-left px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm transition-all ${comparisonMode==='custom'?'bg-purple-50 text-purple-700 border border-purple-200':'hover:bg-gray-50 text-gray-700 border border-gray-200'}`}>
-                            <div className="flex items-center justify-between"><div className="flex items-center gap-2"><div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-purple-500"/><span>Compare Months</span></div><ChevronDown className={`w-3 h-3 sm:w-3.5 sm:h-3.5 transition-transform ${comparisonMode==='custom'?'rotate-180':''}`}/></div>
-                          </button>
-                          {comparisonMode==='custom'&&(
-                            <div className="bg-purple-50/30 rounded-lg border border-purple-100 p-2 sm:p-3 space-y-2 sm:space-y-3">
-                              <div className="grid grid-cols-2 gap-2 text-[10px] sm:text-xs font-medium text-gray-700"><div>Month 1</div><div>Month 2</div></div>
-                              <div className="grid grid-cols-2 gap-2">
-                                <select value={firstMonth||''} onChange={e=>setFirstMonth(e.target.value)} className="w-full px-1.5 sm:px-2 py-1 sm:py-1.5 text-xs border border-gray-300 rounded bg-white"><option value="">Select Month</option>{allMonths.map(m=><option key={`f-${m}`} value={m}>{m.substring(0,3)}</option>)}</select>
-                                <select value={secondMonth||''} onChange={e=>setSecondMonth(e.target.value)} className="w-full px-1.5 sm:px-2 py-1 sm:py-1.5 text-xs border border-gray-300 rounded bg-white"><option value="">Select Month</option>{allMonths.map(m=><option key={`s-${m}`} value={m}>{m.substring(0,3)}</option>)}</select>
-                              </div>
-                              <div className="grid grid-cols-2 gap-2">
-                                <select value={firstYear||''} onChange={e=>setFirstYear(e.target.value)} className="w-full px-1.5 sm:px-2 py-1 sm:py-1.5 text-xs border border-gray-300 rounded bg-white"><option value="">Year</option>{allAvailableYears.map(y=><option key={`fy-${y}`} value={y}>{y}</option>)}</select>
-                                <select value={secondYear||''} onChange={e=>setSecondYear(e.target.value)} className="w-full px-1.5 sm:px-2 py-1 sm:py-1.5 text-xs border border-gray-300 rounded bg-white"><option value="">Year</option>{allAvailableYears.map(y=><option key={`sy-${y}`} value={y}>{y}</option>)}</select>
-                              </div>
-                              {(firstMonth||secondMonth)&&(
-                                <div className="p-1.5 sm:p-2 bg-purple-100/30 rounded border border-purple-100 text-[10px] sm:text-xs text-center">
-                                  <span className="font-medium text-purple-700">{firstMonth&&firstYear?`${firstMonth.substring(0,3)} ${firstYear}`:'___'}</span>
-                                  <span className="mx-1 sm:mx-2 text-gray-400">vs</span>
-                                  <span className="font-medium text-purple-700">{secondMonth&&secondYear?`${secondMonth.substring(0,3)} ${secondYear}`:'___'}</span>
-                                </div>
-                              )}
-                              <div className="flex flex-wrap gap-1 sm:gap-2 pt-1 sm:pt-2">
-                                <button onClick={() => {setFirstMonth('');setFirstYear('');setSecondMonth('');setSecondYear('');}} className="flex-1 px-1 sm:px-2 py-1 sm:py-1.5 text-[10px] sm:text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded font-medium">Clear</button>
-                                <button onClick={() => {const t=new Date();const cm=allMonths[t.getMonth()];const cy=t.getFullYear().toString();setFirstMonth(cm);setFirstYear(cy);const pm=t.getMonth()===0?11:t.getMonth()-1;const pmy=t.getMonth()===0?t.getFullYear()-1:t.getFullYear();setSecondMonth(allMonths[pm]);setSecondYear(pmy.toString());setTimeout(applyRentActivityFilters,100);}} className="flex-1 px-1 sm:px-2 py-1 sm:py-1.5 text-[10px] sm:text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded font-medium">Recent</button>
-                                <button onClick={() => {if(firstMonth&&firstYear&&secondMonth&&secondYear) applyRentActivityFilters();}} disabled={!firstMonth||!firstYear||!secondMonth||!secondYear} className="flex-1 px-1 sm:px-2 py-1 sm:py-1.5 text-[10px] sm:text-xs bg-purple-600 hover:bg-purple-700 text-white rounded font-medium disabled:bg-gray-400 disabled:cursor-not-allowed">Apply</button>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <CardTitle className="text-base sm:text-xl font-semibold text-gray-800">Rent Activity</CardTitle>
-                  <div className="flex flex-wrap items-center gap-1 sm:gap-2 mt-0.5 sm:mt-1">
-                    <span className="text-[10px] sm:text-sm text-gray-500">Showing:</span>
-                    <span className="text-[10px] sm:text-sm font-medium text-blue-600 bg-blue-50 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded whitespace-nowrap">
-                      {comparisonMode==='1year'&&(selectedYear==='all'?'All':`${selectedYear}`)}
-                      {comparisonMode==='2year'&&`${selectedYear1||'Y1'} vs ${selectedYear2||'Y2'}`}
-                      {comparisonMode==='custom'&&`${firstMonth?firstMonth.substring(0,3):'M1'} ${firstYear||''} vs ${secondMonth?secondMonth.substring(0,3):'M2'} ${secondYear||''}`}
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <button onClick={() => setShowFilterPanel(!showFilterPanel)} className="p-1.5 sm:p-2 hover:bg-blue-50 rounded-lg transition-colors relative">
-                <Filter className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600"/>
-                {showFilterPanel&&<div className="absolute -top-1 -right-1 w-1.5 h-1.5 sm:w-2 sm:h-2 bg-blue-500 rounded-full"/>}
-              </button>
-            </div>
-          </CardHeader>
-
-          <div className="flex relative">
-            <div className={`transition-all duration-300 ${showFilterPanel?'w-full sm:w-3/4 pr-0 sm:pr-4':'w-full'}`}>
-              <CardContent className="p-3 sm:p-4">
-                <div className="space-y-3 sm:space-y-4">
-                  <div className="flex flex-wrap justify-between items-center gap-2">
-                    <span className="text-xs sm:text-sm font-medium text-gray-700">Amount (₹)</span>
-                    <div className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-0.5 sm:py-1 bg-green-50 rounded-full"><TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 text-green-600"/><span className="text-[10px] sm:text-sm font-medium text-green-600">+12.5%</span></div>
-                  </div>
-                  {comparisonMode==='2year'&&(
-                    <div className="flex flex-wrap items-center gap-2 sm:gap-4">
-                      {comparisonData.datasets.map((ds,idx) => (
-                        <div key={idx} className="flex items-center gap-1 sm:gap-2"><div className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full ${idx===0?'bg-blue-500':'bg-green-500'}`}/><span className="text-[10px] sm:text-xs font-medium text-gray-700">{ds.label}</span></div>
-                      ))}
-                    </div>
-                  )}
-                  <div className="relative h-40 sm:h-44 md:h-52">
-                    <div className="absolute inset-0 flex flex-col justify-between">{[0,1,2,3,4].map(i=><div key={i} className="border-t border-gray-200"/>)}</div>
-                    <div className="absolute left-0 top-0 h-full flex flex-col justify-between text-[10px] sm:text-xs text-gray-500 pr-1 sm:pr-2">
-                      <span className="font-medium">₹{(maxAmount/1000000).toFixed(1)}M</span>
-                      <span>₹{(maxAmount*0.75/1000000).toFixed(1)}M</span>
-                      <span>₹{(maxAmount*0.5/1000000).toFixed(1)}M</span>
-                      <span>₹{(maxAmount*0.25/1000000).toFixed(1)}M</span>
-                      <span className="font-medium">₹0</span>
-                    </div>
-                    <div className="absolute bottom-0 left-8 sm:left-10 right-1 sm:right-2 h-32 sm:h-36 md:h-44 flex items-end justify-between">
-                      {comparisonData.labels.map((label,index) => {
-                        if (comparisonMode==='2year') {
-                          const ds1 = comparisonData.datasets[0]; const ds2 = comparisonData.datasets[1];
-                          const h1 = (ds1.data[index].amount/maxAmount)*85;
-                          const h2 = (ds2.data[index].amount/maxAmount)*85;
-                          const isAnim = animatedHeights.includes(index);
-                          return (
-                            <div key={index} className="flex flex-col items-center flex-1 mx-0.5 sm:mx-1">
-                              <div className="relative h-32 sm:h-36 md:h-44 w-full flex items-end justify-center">
-                                <div className="flex items-end justify-center w-full gap-0.5 sm:gap-1">
-                                  <div className="w-3 sm:w-4 md:w-6 bg-gradient-to-t from-blue-600 to-blue-400 rounded-t-lg" style={{height:isAnim?`${h1}%`:'0%',minHeight:isAnim?'15px':'0px',transition:'height 0.8s cubic-bezier(0.34,1.56,0.64,1)'}}/>
-                                  <div className="w-3 sm:w-4 md:w-6 bg-gradient-to-t from-green-600 to-green-400 rounded-t-lg" style={{height:isAnim?`${h2}%`:'0%',minHeight:isAnim?'15px':'0px',transition:'height 0.8s cubic-bezier(0.34,1.56,0.64,1)'}}/>
-                                </div>
-                              </div>
-                              <span className="text-[10px] sm:text-xs font-medium text-gray-700 mt-1 sm:mt-2">{label}</span>
-                            </div>
-                          );
-                        }
-                        const ds = comparisonData.datasets[0];
-                        const h = (ds.data[index].amount/maxAmount)*85;
-                        const isAnim = animatedHeights.includes(index);
-                        return (
-                          <div key={index} className="flex flex-col items-center flex-1 mx-0.5 sm:mx-1">
-                            <div className="relative h-32 sm:h-36 md:h-44 w-full flex items-end justify-center">
-                              <div className={`w-6 sm:w-10 md:w-14 bg-gradient-to-t ${ds.color} rounded-t-lg relative group hover:opacity-90 hover:shadow-lg`} style={{height:isAnim?`${h}%`:'0%',minHeight:isAnim?'15px':'0px',transition:'height 0.8s cubic-bezier(0.34,1.56,0.64,1)'}}>
-                                <div className="absolute -top-10 sm:-top-12 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white text-[10px] sm:text-xs px-1.5 sm:px-2 py-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 shadow-xl">
-                                  <div className="font-semibold">₹{(ds.data[index].amount/1000000).toFixed(1)}M</div>
-                                  <div className="text-gray-300 text-[8px] sm:text-[10px]">{ds.data[index].month}</div>
-                                </div>
-                              </div>
-                            </div>
-                            <span className="text-[10px] sm:text-xs font-medium text-gray-700 mt-1 sm:mt-2">{label}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                  <div className="pt-2 border-t">
-                    <span className="text-xs sm:text-sm font-medium text-gray-700">Months</span>
-                    <div className="flex flex-wrap justify-between items-center mt-2 sm:mt-4 gap-2">
-                      <div>
-                        <p className="text-[10px] sm:text-sm text-gray-600">{comparisonMode==='1year'?(selectedYear==='all'?'All':'Current'):comparisonMode==='2year'?'Current':'Custom'}</p>
-                        <p className="text-sm sm:text-lg font-bold text-gray-800">₹{((comparisonData.datasets[0]?.data[comparisonData.datasets[0].data.length-1]?.amount||0)/1000000).toFixed(1)}M</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-[10px] sm:text-sm text-gray-600">Average</p>
-                        <div className="text-sm sm:text-lg font-bold text-gray-800">
-                          {comparisonData.datasets.map((ds,idx) => {
-                            const avg = ds.data.length>0?Math.round(ds.data.reduce((s,d)=>s+d.amount,0)/ds.data.length):0;
-                            return <div key={idx} className={idx>0?'mt-0.5 sm:mt-1 text-xs sm:text-sm':''}>₹{(avg/1000000).toFixed(1)}M{comparisonData.datasets.length>1&&` (${ds.label})`}</div>;
-                          })}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </div>
-
-            {/* Filter panel */}
-            <div className={`fixed sm:absolute right-0 top-0 h-full bg-white border-l border-gray-200 shadow-lg transition-all duration-300 ease-in-out ${showFilterPanel ? 'w-full sm:w-64 md:w-1/4 translate-x-0' : 'w-0 translate-x-full'} overflow-hidden`}>
-              <div className="h-full overflow-y-auto p-3 sm:p-4">
-                <div className="mb-4 pb-3 border-b border-gray-100 flex items-center justify-between">
-                  <div className="flex items-center gap-2"><div className="p-1.5 sm:p-2 bg-blue-100 rounded-lg"><Filter className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-600"/></div><div><h3 className="font-semibold text-gray-800 text-xs sm:text-sm">Filter Analytics</h3><p className="text-[10px] sm:text-xs text-gray-500">Customize your view</p></div></div>
-                </div>
-                {/* Year picker */}
-                <div className="mb-4">
-                  <h4 className="text-[10px] sm:text-xs font-semibold text-gray-700 mb-2">Year</h4>
-                  <div className="relative">
-                    <button onClick={() => setShowYearCalendar(!showYearCalendar)} className="w-full flex items-center justify-between px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-gray-300 rounded-lg bg-white hover:bg-gray-50">
-                      <span className={selectedYear==='all'?'text-[10px] sm:text-xs text-gray-600':'text-xs sm:text-sm text-gray-800 font-medium'}>{selectedYear==='all'?'All':selectedYear}</span>
-                      <ChevronDown className={`w-3 h-3 sm:w-4 sm:h-4 text-gray-500 transition-transform ${showYearCalendar?'rotate-180':''}`}/>
-                    </button>
-                    {showYearCalendar&&(
-                      <div className="absolute z-10 mt-1 w-full p-2 sm:p-3 bg-white border border-gray-200 rounded-lg shadow-lg">
-                        <div className="flex items-center justify-between mb-2 sm:mb-3">
-                          <button onClick={() => setYearRange(p=>p-6)} className="p-1 hover:bg-gray-100 rounded"><ChevronLeft className="w-3 h-3 sm:w-4 sm:h-4 text-gray-600"/></button>
-                          <span className="text-xs sm:text-sm font-medium text-gray-700">{yearRange} - {yearRange+5}</span>
-                          <button onClick={() => setYearRange(p=>p+6)} className="p-1 hover:bg-gray-100 rounded"><ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 text-gray-600"/></button>
-                        </div>
-                        <div className="grid grid-cols-3 gap-1 sm:gap-1.5">
-                          {Array.from({length:6},(_,i)=>yearRange+i).map(y=>(
-                            <button key={y} onClick={() => handleYearSelect(y)} className={`py-1 sm:py-1.5 text-[10px] sm:text-xs rounded transition-all ${selectedYear===y?'bg-blue-600 text-white':'bg-gray-50 text-gray-700 hover:bg-blue-50 hover:text-blue-600'}`}>{y}</button>
-                          ))}
-                        </div>
-                        <div className="mt-2 pt-2 border-t border-gray-200">
-                          <button onClick={() => { setSelectedYear('all'); setShowYearCalendar(false); setTimeout(applyRentActivityFilters,100); }} className={`w-full py-1 sm:py-1.5 text-[10px] sm:text-xs rounded ${selectedYear==='all'?'bg-blue-600 text-white':'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>All Years</button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                {/* Month picker */}
-                <div className="mb-4">
-                  <h4 className="text-[10px] sm:text-xs font-semibold text-gray-700 mb-2">Month</h4>
-                  <div className="relative">
-                    <button onClick={() => setShowMonthCalendar(!showMonthCalendar)} className="w-full flex items-center justify-between px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-gray-300 rounded-lg bg-white hover:bg-gray-50">
-                      <span className="text-xs sm:text-sm text-gray-800 font-medium">{selectedMonth.substring(0,3)}</span>
-                      <ChevronDown className={`w-3 h-3 sm:w-4 sm:h-4 text-gray-500 transition-transform ${showMonthCalendar?'rotate-180':''}`}/>
-                    </button>
-                    {showMonthCalendar&&(
-                      <div className="absolute z-10 mt-1 w-full p-2 sm:p-3 bg-white border border-gray-200 rounded-lg shadow-lg">
-                        <div className="grid grid-cols-3 gap-1 sm:gap-1.5">
-                          {allMonths.map(m=>(
-                            <button key={m} onClick={() => handleMonthSelect(m)} className={`py-1 sm:py-1.5 text-[10px] sm:text-xs rounded transition-all ${selectedMonth===m?'bg-blue-600 text-white':'bg-gray-50 text-gray-700 hover:bg-blue-50 hover:text-blue-600'}`}>{m.substring(0,3)}</button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                {/* Date picker */}
-                <div className="mb-4">
-                  <h4 className="text-[10px] sm:text-xs font-semibold text-gray-700 mb-2">Date</h4>
-                  <div className="relative">
-                    <button onClick={() => setShowDateCalendar(!showDateCalendar)} className="w-full flex items-center justify-between px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-gray-300 rounded-lg bg-white hover:bg-gray-50">
-                      <span className="text-xs sm:text-sm text-gray-800 font-medium">{selectedDate?format(selectedDate,'dd MMM'):'Select'}</span>
-                      <Calendar className="w-3 h-3 sm:w-4 sm:h-4 text-gray-500"/>
-                    </button>
-                    {showDateCalendar&&(
-                      <div className="absolute z-10 mt-1 w-full p-2 sm:p-3 bg-white border border-gray-200 rounded-lg shadow-lg">
-                        <div className="grid grid-cols-7 gap-0.5 mb-2">
-                          {['S','M','T','W','T','F','S'].map((d,idx)=><div key={idx} className="text-[10px] sm:text-xs font-medium text-gray-500 text-center py-1">{d}</div>)}
-                          {Array.from({length:31},(_,i)=>i+1).map(day=>(
-                            <button key={day} onClick={() => { const d=new Date(selectedYear==='all'?new Date().getFullYear():selectedYear,allMonths.indexOf(selectedMonth),day); handleDateSelect(d); }} className={`py-1 text-[10px] sm:text-xs rounded transition-all ${selectedDate&&selectedDate.getDate()===day&&selectedDate.getMonth()===allMonths.indexOf(selectedMonth)?'bg-blue-600 text-white':'bg-white text-gray-700 hover:bg-blue-50'}`}>{day}</button>
-                          ))}
-                        </div>
-                        <button onClick={() => { const t=new Date(); handleDateSelect(t); setSelectedMonth(allMonths[t.getMonth()]); setSelectedYear(t.getFullYear()); }} className="w-full py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-blue-600 hover:bg-blue-50 rounded border border-blue-200">Today</button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div className="pt-3 border-t border-gray-100">
-                  <h4 className="text-[10px] sm:text-xs font-semibold text-gray-700 mb-2">Actions</h4>
-                  <div className="space-y-2">
-                    <button onClick={applyRentActivityFilters} className="w-full px-1 sm:px-2 py-1 sm:py-1.5 bg-blue-600 text-white text-xs sm:text-sm font-medium rounded hover:bg-blue-700">Apply Filters</button>
-                    <button onClick={resetAllRentFilters} className="w-full px-1 sm:px-2 py-1 sm:py-1.5 bg-gray-100 text-gray-700 text-xs sm:text-sm font-medium rounded hover:bg-gray-200">Reset All</button>
-                  </div>
-                </div>
-                <div className="mt-4 p-2 bg-blue-50 rounded-lg border border-blue-100">
-                  <p className="text-[10px] sm:text-xs font-medium text-blue-800 mb-1">Active Filters</p>
-                  <div className="space-y-1">
-                    {[['Year', selectedYear==='all'?'All':String(selectedYear)],['Month',selectedMonth.substring(0,3)],['Date',selectedDate?format(selectedDate,'dd MMM'):'None'],['Mode',comparisonMode===null?'None':comparisonMode]].map(([k,v])=>(
-                      <div key={k} className="flex items-center justify-between"><span className="text-[8px] sm:text-[10px] text-gray-600">{k}:</span><span className="text-[8px] sm:text-[10px] font-medium text-blue-700">{v}</span></div>
+        {/* Overview Card with Donut Chart */}
+        <Card className="border-0 shadow-lg overflow-hidden">
+          <div className="bg-gradient-to-r from-[#004aad] to-[#002a7a] px-4 py-2">
+            <div className="flex items-center justify-between">
+              <h3 className="text-white text-xs font-medium flex items-center gap-1">
+                <BarChart3 className="h-3.5 w-3.5" />
+                {overviewData.title}
+              </h3>
+              <div className="relative">
+                <button
+                  onClick={() => setShowOverviewMenu(!showOverviewMenu)}
+                  className="text-white/70 hover:text-white"
+                >
+                  <MoreVertical className="w-3.5 h-3.5" />
+                </button>
+                {showOverviewMenu && (
+                  <div className="absolute right-0 mt-2 w-32 bg-white rounded-lg shadow-lg border z-10 overflow-hidden">
+                    {['beds', 'rooms', 'property', 'tenants'].map((type) => (
+                      <button
+                        key={type}
+                        onClick={() => { setSelectedOverview(type); setShowOverviewMenu(false); }}
+                        className="w-full text-left px-3 py-2 text-xs hover:bg-gray-50 capitalize"
+                      >
+                        {type}
+                      </button>
                     ))}
                   </div>
-                </div>
+                )}
               </div>
             </div>
           </div>
+          <CardContent className="p-4">
+            <div className="flex flex-col items-center">
+              {/* Donut Chart */}
+              <div className="relative w-32 h-32 mb-4">
+                <div className="absolute inset-0 rounded-full bg-gray-100"></div>
+                <div className="absolute inset-0 rounded-full">
+                  <div 
+                    className="absolute inset-0 rounded-full transition-all duration-500"
+                    style={{
+                      background: `conic-gradient(#3B82F6 ${overviewData.percent * 3.6}deg, #E5E7EB 0deg)`
+                    }}
+                  />
+                </div>
+                <div className="absolute inset-3 bg-white rounded-full flex flex-col items-center justify-center shadow-sm">
+                  <span className="text-lg font-bold text-gray-800">{overviewData.percent}%</span>
+                  <span className="text-[9px] text-gray-500 text-center px-1">{overviewData.label}</span>
+                </div>
+              </div>
+
+              {/* Stats List */}
+              <div className="w-full space-y-2">
+                {overviewData.items.map((item, idx) => (
+                  <div key={idx} className={`${item.bgColor} rounded-lg p-2 flex items-center justify-between`}>
+                    <div className="flex items-center gap-2">
+                      <div className={`${item.color} p-1 rounded-md`}>
+                        <item.icon className="w-3 h-3 text-white" />
+                      </div>
+                      <span className="text-xs font-medium text-gray-700">{item.label}</span>
+                    </div>
+                    <span className="text-sm font-bold text-gray-800">{item.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Payment Methods & Financial Summary */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+        {/* Payment Methods */}
+        <Card className="border-0 shadow-lg overflow-hidden">
+          <div className="bg-gradient-to-r from-[#004aad] to-[#002a7a] px-4 py-2">
+            <h3 className="text-white text-xs font-medium flex items-center gap-1">
+              <CreditCard className="h-3.5 w-3.5" />
+              Payment Methods
+            </h3>
+          </div>
+          <CardContent className="p-4">
+            {loading ? (
+              <div className="flex items-center justify-center h-48">
+                <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+              </div>
+            ) : paymentMethods.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-48 text-gray-400">
+                <CreditCard className="w-12 h-12 mb-2" />
+                <p className="text-sm">No payment data available</p>
+              </div>
+            ) : (
+              <div className="flex flex-col md:flex-row items-center gap-6">
+                <div className="w-40 h-40">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={paymentMethods}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={45}
+                        outerRadius={65}
+                        dataKey="value"
+                        label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
+                        labelLine={false}
+                      >
+                        {paymentMethods.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value) => [`${value} transactions`, 'Count']} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="flex-1 space-y-2">
+                  {paymentMethods.map((method) => (
+                    <div key={method.name} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: method.color }} />
+                        <span className="text-xs text-gray-700">{method.name}</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-xs font-medium text-gray-800">{method.value}</span>
+                        <span className="text-[10px] text-gray-400 ml-1">
+                          ({paymentStats.total_transactions > 0 ? Math.round((method.value / paymentStats.total_transactions) * 100) : 0}%)
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                  <div className="pt-2 border-t mt-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-medium text-gray-600">Total Transactions</span>
+                      <span className="text-sm font-bold text-gray-800">{paymentStats.total_transactions}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Financial Summary */}
+        <Card className="border-0 shadow-lg overflow-hidden">
+          <div className="bg-gradient-to-r from-[#004aad] to-[#002a7a] px-4 py-2">
+            <h3 className="text-white text-xs font-medium flex items-center gap-1">
+              <IndianRupee className="h-3.5 w-3.5" />
+              Financial Summary
+            </h3>
+          </div>
+          <CardContent className="p-4">
+            <div className="space-y-3">
+              {/* Total Revenue */}
+              <div className="bg-green-50 rounded-lg p-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 bg-green-100 rounded-lg">
+                      <TrendingUp className="w-3.5 h-3.5 text-green-600" />
+                    </div>
+                    <span className="text-xs font-medium text-gray-700">Total Revenue</span>
+                  </div>
+                  <span className="text-base font-bold text-gray-800">{formatCurrency(paymentStats.total_collected)}</span>
+                </div>
+                <div className="mt-1 text-right">
+                  <span className="text-[10px] text-gray-400">{paymentStats.total_transactions} transactions</span>
+                </div>
+              </div>
+
+              {/* Total Expenses */}
+              <div className="bg-red-50 rounded-lg p-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 bg-red-100 rounded-lg">
+                      <TrendingDown className="w-3.5 h-3.5 text-red-600" />
+                    </div>
+                    <span className="text-xs font-medium text-gray-700">Total Expenses</span>
+                  </div>
+                  <span className="text-base font-bold text-gray-800">{formatCurrency(expenseTotal)}</span>
+                </div>
+                <div className="mt-1 text-right">
+                  <span className="text-[10px] text-gray-400">{expenses.length} expense records</span>
+                </div>
+              </div>
+
+              {/* Net Profit */}
+              <div className={`rounded-lg p-3 ${netProfit >= 0 ? 'bg-blue-50' : 'bg-amber-50'}`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className={`p-1.5 rounded-lg ${netProfit >= 0 ? 'bg-blue-100' : 'bg-amber-100'}`}>
+                      <IndianRupee className={`w-3.5 h-3.5 ${netProfit >= 0 ? 'text-blue-600' : 'text-amber-600'}`} />
+                    </div>
+                    <span className="text-xs font-medium text-gray-700">Net Profit</span>
+                  </div>
+                  <span className={`text-base font-bold ${netProfit >= 0 ? 'text-blue-600' : 'text-amber-600'}`}>
+                    {formatCurrency(netProfit)}
+                  </span>
+                </div>
+                <div className="mt-1 text-right">
+                  <span className="text-[10px] text-gray-400">Margin: {profitMargin.toFixed(1)}%</span>
+                </div>
+              </div>
+
+              {/* Progress Bar */}
+              <div className="mt-2">
+                <div className="flex justify-between text-[10px] text-gray-500 mb-1">
+                  <span>Expense Ratio</span>
+                  <span>{paymentStats.total_collected > 0 ? Math.round((expenseTotal / paymentStats.total_collected) * 100) : 0}%</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-1.5">
+                  <div 
+                    className="bg-red-500 h-1.5 rounded-full transition-all"
+                    style={{ width: `${paymentStats.total_collected > 0 ? (expenseTotal / paymentStats.total_collected) * 100 : 0}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+          </CardContent>
         </Card>
       </div>
     </div>
