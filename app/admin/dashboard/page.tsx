@@ -1,15 +1,13 @@
-// app/admin/dashboard/page.tsx
-
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { format } from 'date-fns';
-import { 
-  Building2, DoorOpen, Users, CreditCard, TrendingUp, 
-  MoreVertical, Filter, ChevronDown, Calendar, X, BarChart3, 
+import {
+  Building2, DoorOpen, Users, CreditCard, TrendingUp,
+  MoreVertical, Filter, ChevronDown, Calendar, X, BarChart3,
   TrendingDown, IndianRupee, AlertCircle, Loader2, RefreshCw,
   Wallet, Banknote, Landmark, Receipt, CheckCircle2, Clock,
-  Home, Bed as BedIcon, DollarSign
+  Home, Bed as BedIcon, DollarSign, Sparkles, ArrowUpRight, ArrowDownRight, Zap
 } from 'lucide-react';
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import {
@@ -19,14 +17,12 @@ import {
 } from 'recharts';
 import { toast } from 'sonner';
 
-// Import APIs
 import * as paymentApi from '@/lib/paymentRecordApi';
 import { getExpenses, type Expense } from '@/lib/expenseApi';
 import { listProperties } from '@/lib/propertyApi';
 import { listRooms } from '@/lib/roomsApi';
 import { listTenants } from '@/lib/tenantApi';
 
-// Types
 type DateRangeType = 'week' | 'month' | 'quarter' | 'year' | 'all';
 type FinancialTab = 'all' | 'income' | 'expense' | 'profit';
 type ChartType = 'area' | 'line' | 'bar';
@@ -40,41 +36,34 @@ interface MonthlyData {
   profit: number;
 }
 
-// Badge component
-const Badge = ({ className, children }: { className?: string; children: React.ReactNode }) => (
-  <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-medium ${className}`}>
-    {children}
-  </span>
-);
-
-// Gradient Stat Card (matching your payment stats theme)
-const GradientStatCard = ({ title, value, icon: Icon, color, bgColor, loading, trend, trendValue }: any) => (
-  <div className={`${bgColor} rounded-xl p-2 sm:p-3 shadow-sm hover:shadow-md transition-all duration-300 border border-gray-100`}>
-    <div className="flex items-center gap-2 sm:gap-3">
-      <div className={`${color} p-1.5 sm:p-2 rounded-lg shadow-sm flex-shrink-0`}>
-        <Icon className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
+// ── Custom Tooltip ─────────────────────────────────────────────────────────────
+const CustomTooltip = ({ active, payload, label, formatCurrency }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div style={{
+        background: '#fff',
+        border: '1px solid #e8edf5',
+        borderRadius: '12px',
+        padding: '10px 14px',
+        boxShadow: '0 8px 32px rgba(15,23,60,0.12)',
+      }}>
+        <p style={{ color: '#94a3b8', fontSize: '10px', marginBottom: '6px', fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>{label}</p>
+        {payload.map((entry: any, i: number) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '2px' }}>
+            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: entry.color }} />
+            <span style={{ color: '#0f172a', fontSize: '12px', fontWeight: 700, fontFamily: 'DM Mono, monospace' }}>
+              {formatCurrency ? formatCurrency(entry.value) : entry.value}
+            </span>
+            <span style={{ color: '#94a3b8', fontSize: '10px', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>{entry.name}</span>
+          </div>
+        ))}
       </div>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center justify-between">
-          <p className="text-[10px] sm:text-xs font-medium text-gray-600 truncate">{title}</p>
-          {trend && (
-            <div className={`flex items-center gap-0.5 text-[9px] ${trend === 'up' ? 'text-green-600' : 'text-red-600'}`}>
-              {trend === 'up' ? <TrendingUp className="w-2.5 h-2.5" /> : <TrendingDown className="w-2.5 h-2.5" />}
-              <span>{trendValue}%</span>
-            </div>
-          )}
-        </div>
-        {loading ? (
-          <div className="h-4 sm:h-5 w-16 bg-gray-200 rounded animate-pulse mt-0.5"></div>
-        ) : (
-          <p className="text-xs sm:text-sm font-bold text-gray-800 truncate">{value}</p>
-        )}
-      </div>
-    </div>
-  </div>
-);
+    );
+  }
+  return null;
+};
 
-// Financial Trend Chart Component
+// ── Financial Trend Modal ──────────────────────────────────────────────────────
 const FinancialTrendChart: React.FC<{
   data: MonthlyData[];
   activeTab: FinancialTab;
@@ -87,30 +76,14 @@ const FinancialTrendChart: React.FC<{
   loading: boolean;
   formatCurrency: (amount: number) => string;
 }> = ({ data, activeTab, chartType, selectedYear, onTabChange, onChartTypeChange, onYearChange, onClose, loading, formatCurrency }) => {
-  const [showFilterPanel, setShowFilterPanel] = useState(false);
   const availableYears = useMemo(() => [...new Set(data.map(d => d.year))].sort((a, b) => b - a), [data]);
-
-  const filteredData = useMemo(() => {
-    if (selectedYear === 'all') return data;
-    return data.filter(d => d.year === selectedYear);
-  }, [data, selectedYear]);
+  const filteredData = useMemo(() => selectedYear === 'all' ? data : data.filter(d => d.year === selectedYear), [data, selectedYear]);
 
   const chartData = useMemo(() => {
-    if (activeTab === 'income') {
-      return filteredData.map(d => ({ month: `${d.month.substring(0,3)} ${d.year}`, value: d.income }));
-    }
-    if (activeTab === 'expense') {
-      return filteredData.map(d => ({ month: `${d.month.substring(0,3)} ${d.year}`, value: d.expense }));
-    }
-    if (activeTab === 'profit') {
-      return filteredData.map(d => ({ month: `${d.month.substring(0,3)} ${d.year}`, value: d.profit }));
-    }
-    return filteredData.map(d => ({ 
-      month: `${d.month.substring(0,3)} ${d.year}`, 
-      income: d.income, 
-      expense: d.expense, 
-      profit: d.profit 
-    }));
+    if (activeTab === 'income') return filteredData.map(d => ({ month: `${d.month.substring(0, 3)} ${d.year}`, value: d.income }));
+    if (activeTab === 'expense') return filteredData.map(d => ({ month: `${d.month.substring(0, 3)} ${d.year}`, value: d.expense }));
+    if (activeTab === 'profit') return filteredData.map(d => ({ month: `${d.month.substring(0, 3)} ${d.year}`, value: d.profit }));
+    return filteredData.map(d => ({ month: `${d.month.substring(0, 3)} ${d.year}`, income: d.income, expense: d.expense, profit: d.profit }));
   }, [filteredData, activeTab]);
 
   const totalIncome = filteredData.reduce((s, d) => s + d.income, 0);
@@ -120,261 +93,183 @@ const FinancialTrendChart: React.FC<{
   const avgExpense = filteredData.length ? Math.round(totalExpense / filteredData.length) : 0;
   const avgProfit = filteredData.length ? Math.round(totalProfit / filteredData.length) : 0;
 
-  const chartColors = {
-    income: { stroke: '#10b981', gradient: 'url(#colorIncome)', name: 'Income' },
-    expense: { stroke: '#f43f5e', gradient: 'url(#colorExpense)', name: 'Expense' },
-    profit: { stroke: '#3b82f6', gradient: 'url(#colorProfit)', name: 'Profit' }
-  };
+  const colors = { income: '#0ea5e9', expense: '#f43f5e', profit: '#8b5cf6' };
+  const axisStyle = { fill: '#94a3b8', fontSize: 10, fontFamily: 'DM Mono, monospace' };
+  const gridStyle = { stroke: '#f1f5f9', strokeDasharray: '4 4' };
 
   const renderChart = () => {
-    if (loading) {
-      return (
-        <div className="flex items-center justify-center h-full">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-        </div>
-      );
-    }
-
-    if (chartData.length === 0) {
-      return (
-        <div className="flex flex-col items-center justify-center h-full text-gray-400">
-          <CreditCard className="w-12 h-12 mb-2" />
-          <p className="text-sm">No payment data available</p>
-        </div>
-      );
-    }
+    if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}><Loader2 style={{ width: 28, height: 28, color: '#8b5cf6', animation: 'spin 1s linear infinite' }} /></div>;
+    if (!chartData.length) return <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#cbd5e1' }}><BarChart3 style={{ width: 36, height: 36, marginBottom: 8 }} /><p style={{ fontSize: 12, margin: 0 }}>No data</p></div>;
 
     const commonProps = { margin: { top: 10, right: 10, left: 0, bottom: 20 } };
 
-    if (chartType === 'area') {
-      return (
-        <AreaChart data={chartData} {...commonProps}>
-          <defs>
-            <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
-              <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+    if (chartType === 'area') return (
+      <AreaChart data={chartData} {...commonProps}>
+        <defs>
+          {(['income', 'expense', 'profit'] as const).map(k => (
+            <linearGradient key={k} id={`grad_${k}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor={colors[k]} stopOpacity={0.15} />
+              <stop offset="95%" stopColor={colors[k]} stopOpacity={0} />
             </linearGradient>
-            <linearGradient id="colorExpense" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.3}/>
-              <stop offset="95%" stopColor="#f43f5e" stopOpacity={0}/>
-            </linearGradient>
-            <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
-              <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
-            </linearGradient>
-          </defs>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-          <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fill:'#94a3b8',fontSize:10}} dy={10} />
-          <YAxis axisLine={false} tickLine={false} tick={{fill:'#94a3b8',fontSize:10}} tickFormatter={formatCurrency} width={70} />
-          <Tooltip formatter={(v: number) => [formatCurrency(v), 'Amount']} />
-          <Legend verticalAlign="top" align="right" iconType="circle" wrapperStyle={{paddingBottom:'10px',fontSize:'10px'}} />
-          {activeTab === 'all' ? (
-            <>
-              <Area type="monotone" dataKey="income" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorIncome)" name="Income" />
-              <Area type="monotone" dataKey="expense" stroke="#f43f5e" strokeWidth={2} fillOpacity={1} fill="url(#colorExpense)" name="Expense" />
-              <Area type="monotone" dataKey="profit" stroke="#3b82f6" strokeWidth={2} fillOpacity={1} fill="url(#colorProfit)" name="Profit" />
-            </>
-          ) : (
-            <Area type="monotone" dataKey="value" stroke={chartColors[activeTab].stroke} strokeWidth={2} fillOpacity={1} fill={chartColors[activeTab].gradient} name={chartColors[activeTab].name} />
-          )}
-        </AreaChart>
-      );
-    }
+          ))}
+        </defs>
+        <CartesianGrid vertical={false} {...gridStyle} />
+        <XAxis dataKey="month" axisLine={false} tickLine={false} tick={axisStyle} dy={10} />
+        <YAxis axisLine={false} tickLine={false} tick={axisStyle} tickFormatter={formatCurrency} width={72} />
+        <Tooltip content={<CustomTooltip formatCurrency={formatCurrency} />} />
+        <Legend verticalAlign="top" align="right" iconType="circle" wrapperStyle={{ paddingBottom: 10, fontSize: 10, fontFamily: 'Plus Jakarta Sans, sans-serif', color: '#64748b' }} />
+        {activeTab === 'all' ? (
+          <>
+            <Area type="monotone" dataKey="income" stroke={colors.income} strokeWidth={2.5} fill="url(#grad_income)" name="Income" />
+            <Area type="monotone" dataKey="expense" stroke={colors.expense} strokeWidth={2.5} fill="url(#grad_expense)" name="Expense" />
+            <Area type="monotone" dataKey="profit" stroke={colors.profit} strokeWidth={2.5} fill="url(#grad_profit)" name="Profit" />
+          </>
+        ) : (
+          <Area type="monotone" dataKey="value" stroke={colors[activeTab]} strokeWidth={2.5} fill={`url(#grad_${activeTab})`} name={activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} />
+        )}
+      </AreaChart>
+    );
 
-    if (chartType === 'line') {
-      return (
-        <LineChart data={chartData} {...commonProps}>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-          <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fill:'#94a3b8',fontSize:10}} dy={10} />
-          <YAxis axisLine={false} tickLine={false} tick={{fill:'#94a3b8',fontSize:10}} tickFormatter={formatCurrency} width={70} />
-          <Tooltip formatter={(v: number) => [formatCurrency(v), 'Amount']} />
-          <Legend verticalAlign="top" align="right" iconType="circle" wrapperStyle={{paddingBottom:'10px',fontSize:'10px'}} />
-          {activeTab === 'all' ? (
-            <>
-              <Line type="monotone" dataKey="income" stroke="#10b981" strokeWidth={2} dot={{r:3}} name="Income" />
-              <Line type="monotone" dataKey="expense" stroke="#f43f5e" strokeWidth={2} strokeDasharray="5 5" dot={{r:3}} name="Expense" />
-              <Line type="monotone" dataKey="profit" stroke="#3b82f6" strokeWidth={2} dot={{r:3}} name="Profit" />
-            </>
-          ) : (
-            <Line type="monotone" dataKey="value" stroke={chartColors[activeTab].stroke} strokeWidth={2} dot={{r:3}} name={chartColors[activeTab].name} />
-          )}
-        </LineChart>
-      );
-    }
+    if (chartType === 'line') return (
+      <LineChart data={chartData} {...commonProps}>
+        <CartesianGrid vertical={false} {...gridStyle} />
+        <XAxis dataKey="month" axisLine={false} tickLine={false} tick={axisStyle} dy={10} />
+        <YAxis axisLine={false} tickLine={false} tick={axisStyle} tickFormatter={formatCurrency} width={72} />
+        <Tooltip content={<CustomTooltip formatCurrency={formatCurrency} />} />
+        <Legend verticalAlign="top" align="right" iconType="circle" wrapperStyle={{ paddingBottom: 10, fontSize: 10, fontFamily: 'Plus Jakarta Sans, sans-serif', color: '#64748b' }} />
+        {activeTab === 'all' ? (
+          <>
+            <Line type="monotone" dataKey="income" stroke={colors.income} strokeWidth={2.5} dot={{ r: 3, fill: colors.income }} name="Income" />
+            <Line type="monotone" dataKey="expense" stroke={colors.expense} strokeWidth={2.5} strokeDasharray="6 3" dot={{ r: 3, fill: colors.expense }} name="Expense" />
+            <Line type="monotone" dataKey="profit" stroke={colors.profit} strokeWidth={2.5} dot={{ r: 3, fill: colors.profit }} name="Profit" />
+          </>
+        ) : (
+          <Line type="monotone" dataKey="value" stroke={colors[activeTab]} strokeWidth={2.5} dot={{ r: 3 }} name={activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} />
+        )}
+      </LineChart>
+    );
 
     return (
       <BarChart data={chartData} {...commonProps}>
-        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-        <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fill:'#94a3b8',fontSize:10}} dy={10} />
-        <YAxis axisLine={false} tickLine={false} tick={{fill:'#94a3b8',fontSize:10}} tickFormatter={formatCurrency} width={70} />
-        <Tooltip formatter={(v: number) => [formatCurrency(v), 'Amount']} />
-        <Legend verticalAlign="top" align="right" iconType="circle" wrapperStyle={{paddingBottom:'10px',fontSize:'10px'}} />
+        <CartesianGrid vertical={false} {...gridStyle} />
+        <XAxis dataKey="month" axisLine={false} tickLine={false} tick={axisStyle} dy={10} />
+        <YAxis axisLine={false} tickLine={false} tick={axisStyle} tickFormatter={formatCurrency} width={72} />
+        <Tooltip content={<CustomTooltip formatCurrency={formatCurrency} />} />
+        <Legend verticalAlign="top" align="right" iconType="circle" wrapperStyle={{ paddingBottom: 10, fontSize: 10, fontFamily: 'Plus Jakarta Sans, sans-serif', color: '#64748b' }} />
         {activeTab === 'all' ? (
           <>
-            <Bar dataKey="income" fill="#10b981" name="Income" radius={[4,4,0,0]} />
-            <Bar dataKey="expense" fill="#f43f5e" name="Expense" radius={[4,4,0,0]} />
-            <Bar dataKey="profit" fill="#3b82f6" name="Profit" radius={[4,4,0,0]} />
+            <Bar dataKey="income" fill={colors.income} name="Income" radius={[5, 5, 0, 0]} />
+            <Bar dataKey="expense" fill={colors.expense} name="Expense" radius={[5, 5, 0, 0]} />
+            <Bar dataKey="profit" fill={colors.profit} name="Profit" radius={[5, 5, 0, 0]} />
           </>
         ) : (
-          <Bar dataKey="value" fill={chartColors[activeTab].stroke} name={chartColors[activeTab].name} radius={[4,4,0,0]} />
+          <Bar dataKey="value" fill={colors[activeTab]} name={activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} radius={[5, 5, 0, 0]} />
         )}
       </BarChart>
     );
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-3">
-          <div className="flex items-center justify-between">
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.45)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 16 }}>
+      <div style={{ background: '#fff', borderRadius: '24px', width: '100%', maxWidth: 940, maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 40px 80px rgba(15,23,42,0.2), 0 0 0 1px rgba(15,23,42,0.06)' }}>
+        <div style={{ padding: '18px 24px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'linear-gradient(135deg, #fafbff 0%, #f8fafc 100%)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(139,92,246,0.3)' }}>
+              <BarChart3 style={{ width: 16, height: 16, color: '#fff' }} />
+            </div>
             <div>
-              <h2 className="text-white text-sm font-semibold">Financial Trend Analysis</h2>
-              <p className="text-blue-100 text-xs mt-0.5">{filteredData.length} months of data</p>
-            </div>
-            <button onClick={onClose} className="text-white hover:bg-white/20 p-1 rounded-lg">
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-
-        {/* Stats Summary */}
-        <div className="p-3 sm:p-4 bg-gray-50">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-            <div className="bg-white p-3 rounded-xl shadow-sm border border-green-100">
-              <div className="flex items-center gap-2">
-                <div className="p-2 bg-green-100 rounded-lg">
-                  <TrendingUp className="w-4 h-4 text-green-600" />
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">Total Income</p>
-                  <p className="text-lg font-bold text-green-600">{formatCurrency(totalIncome)}</p>
-                </div>
-              </div>
-              <p className="text-[10px] text-gray-400 mt-1">Avg: {formatCurrency(avgIncome)}</p>
-            </div>
-            <div className="bg-white p-3 rounded-xl shadow-sm border border-red-100">
-              <div className="flex items-center gap-2">
-                <div className="p-2 bg-red-100 rounded-lg">
-                  <TrendingDown className="w-4 h-4 text-red-600" />
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">Total Expense</p>
-                  <p className="text-lg font-bold text-red-600">{formatCurrency(totalExpense)}</p>
-                </div>
-              </div>
-              <p className="text-[10px] text-gray-400 mt-1">Avg: {formatCurrency(avgExpense)}</p>
-            </div>
-            <div className="bg-white p-3 rounded-xl shadow-sm border border-blue-100">
-              <div className="flex items-center gap-2">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <IndianRupee className="w-4 h-4 text-blue-600" />
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">Net Profit</p>
-                  <p className="text-lg font-bold text-blue-600">{formatCurrency(totalProfit)}</p>
-                </div>
-              </div>
-              <p className="text-[10px] text-gray-400 mt-1">Avg: {formatCurrency(avgProfit)}</p>
+              <h2 style={{ color: '#0f172a', fontSize: 14, fontWeight: 800, margin: 0, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>Financial Trend Analysis</h2>
+              <p style={{ color: '#94a3b8', fontSize: 11, margin: 0 }}>{filteredData.length} months of data</p>
             </div>
           </div>
+          <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 8, background: '#f8fafc', border: '1px solid #e8edf5', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <X style={{ width: 14, height: 14, color: '#64748b' }} />
+          </button>
         </div>
 
-        {/* Controls */}
-        <div className="p-3 border-b flex flex-wrap items-center justify-between gap-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex bg-gray-100 p-1 rounded-lg">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14, padding: '16px 24px', borderBottom: '1px solid #f1f5f9', background: '#fafbff' }}>
+          {[
+            { label: 'Total Income', val: totalIncome, avg: avgIncome, color: '#0ea5e9', bg: '#f0f9ff', border: '#bae6fd', Icon: TrendingUp },
+            { label: 'Total Expense', val: totalExpense, avg: avgExpense, color: '#f43f5e', bg: '#fff1f2', border: '#fecdd3', Icon: TrendingDown },
+            { label: 'Net Profit', val: totalProfit, avg: avgProfit, color: '#8b5cf6', bg: '#faf5ff', border: '#e9d5ff', Icon: IndianRupee },
+          ].map(({ label, val, avg, color, bg, border, Icon }) => (
+            <div key={label} style={{ background: bg, border: `1px solid ${border}`, borderRadius: 14, padding: '14px 16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                <Icon style={{ width: 13, height: 13, color }} />
+                <span style={{ color: '#64748b', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>{label}</span>
+              </div>
+              <p style={{ color, fontSize: 22, fontWeight: 800, margin: 0, fontFamily: 'DM Mono, monospace' }}>{formatCurrency(val)}</p>
+              <p style={{ color: '#94a3b8', fontSize: 10, margin: '4px 0 0' }}>Avg/month: <strong style={{ color: '#64748b', fontFamily: 'DM Mono, monospace' }}>{formatCurrency(avg)}</strong></p>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ padding: '12px 24px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ display: 'flex', background: '#f1f5f9', borderRadius: 10, padding: 3 }}>
               {(['all', 'income', 'expense', 'profit'] as FinancialTab[]).map(tab => (
-                <button
-                  key={tab}
-                  onClick={() => onTabChange(tab)}
-                  className={`px-3 py-1 rounded text-xs font-medium transition-all ${
-                    activeTab === tab ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  {tab === 'all' ? 'All' : tab.charAt(0).toUpperCase() + tab.slice(1)}
-                </button>
+                <button key={tab} onClick={() => onTabChange(tab)} style={{
+                  padding: '5px 13px', borderRadius: 7, border: 'none', cursor: 'pointer', fontSize: 11,
+                  fontWeight: 700, fontFamily: 'Plus Jakarta Sans, sans-serif', transition: 'all 0.18s',
+                  background: activeTab === tab ? '#fff' : 'transparent',
+                  color: activeTab === tab ? '#0f172a' : '#94a3b8',
+                  boxShadow: activeTab === tab ? '0 1px 4px rgba(15,23,42,0.1)' : 'none'
+                }}>{tab === 'all' ? 'All' : tab.charAt(0).toUpperCase() + tab.slice(1)}</button>
               ))}
             </div>
-            <div className="flex bg-gray-100 p-1 rounded-lg">
+            <div style={{ display: 'flex', background: '#f1f5f9', borderRadius: 10, padding: 3, gap: 2 }}>
               {(['area', 'line', 'bar'] as ChartType[]).map(type => (
-                <button
-                  key={type}
-                  onClick={() => onChartTypeChange(type)}
-                  className={`p-1.5 rounded transition-all ${
-                    chartType === type ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  {type === 'area' && <BarChart3 className="w-3.5 h-3.5" />}
-                  {type === 'line' && <TrendingUp className="w-3.5 h-3.5" />}
-                  {type === 'bar' && <BarChart3 className="w-3.5 h-3.5" />}
+                <button key={type} onClick={() => onChartTypeChange(type)} style={{
+                  width: 30, height: 30, borderRadius: 7, border: 'none', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.18s',
+                  background: chartType === type ? '#fff' : 'transparent',
+                  boxShadow: chartType === type ? '0 1px 4px rgba(15,23,42,0.1)' : 'none'
+                }}>
+                  {type === 'line' ? <TrendingUp style={{ width: 13, height: 13, color: chartType === type ? '#8b5cf6' : '#94a3b8' }} /> : <BarChart3 style={{ width: 13, height: 13, color: chartType === type ? '#8b5cf6' : '#94a3b8' }} />}
                 </button>
               ))}
             </div>
           </div>
-          <select
-            value={selectedYear}
-            onChange={(e) => onYearChange(e.target.value === 'all' ? 'all' : parseInt(e.target.value))}
-            className="text-xs border rounded-lg px-2 py-1 bg-white"
-          >
+          <select value={selectedYear} onChange={e => onYearChange(e.target.value === 'all' ? 'all' : parseInt(e.target.value))} style={{
+            background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 9, padding: '6px 12px',
+            color: '#475569', fontSize: 11, fontFamily: 'Plus Jakarta Sans, sans-serif', cursor: 'pointer', outline: 'none'
+          }}>
             <option value="all">All Years</option>
-            {availableYears.map(year => (
-              <option key={year} value={year}>{year}</option>
-            ))}
+            {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
           </select>
         </div>
 
-        {/* Chart */}
-        <div className="flex-1 p-4 min-h-[350px]">
-          <div className="h-[350px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              {renderChart()}
-            </ResponsiveContainer>
-          </div>
+        <div style={{ flex: 1, padding: '16px 24px', minHeight: 300 }}>
+          <ResponsiveContainer width="100%" height={280}>{renderChart()}</ResponsiveContainer>
         </div>
       </div>
     </div>
   );
 };
 
+// ── Main Dashboard ─────────────────────────────────────────────────────────────
 export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  
-  // Stats from APIs
+
   const [propertyStats, setPropertyStats] = useState({ total: 0, active: 0 });
   const [roomStats, setRoomStats] = useState({ total: 0, active: 0, totalBeds: 0, occupiedBeds: 0 });
   const [tenantStats, setTenantStats] = useState({ total: 0, active: 0 });
-  
-  // Payment Data
   const [allPayments, setAllPayments] = useState<any[]>([]);
   const [paymentStats, setPaymentStats] = useState({
-    total_collected: 0,
-    total_transactions: 0,
-    cash_payments: 0,
-    online_payments: 0,
-    bank_transfers: 0,
-    card_payments: 0,
-    cheque_payments: 0,
-    current_month_collected: 0,
-    rent_collected: 0
+    total_collected: 0, total_transactions: 0, cash_payments: 0,
+    online_payments: 0, bank_transfers: 0, card_payments: 0,
+    cheque_payments: 0, current_month_collected: 0, rent_collected: 0
   });
-  
-  // Expense Data
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [expenseTotal, setExpenseTotal] = useState(0);
-  
-  // Chart Data
   const [monthlyData, setMonthlyData] = useState<MonthlyData[]>([]);
   const [dateRange, setDateRange] = useState<DateRangeType>('year');
-  
-  // Chart Filters
+
   const [showFinancialTrend, setShowFinancialTrend] = useState(false);
   const [financialTab, setFinancialTab] = useState<FinancialTab>('all');
   const [chartType, setChartType] = useState<ChartType>('area');
   const [financialYear, setFinancialYear] = useState<number | 'all'>('all');
-  
-  // UI States
   const [selectedOverview, setSelectedOverview] = useState<string>('beds');
   const [showOverviewMenu, setShowOverviewMenu] = useState(false);
 
@@ -385,645 +280,562 @@ export default function AdminDashboard() {
     return `₹${amount.toLocaleString()}`;
   };
 
-  // Load all data
-  const loadData = useCallback(async () => {
-    try {
-      setLoading(true);
-      
-      // Load properties
-      const propertiesRes = await listProperties({ pageSize: 1000 });
-      const propertiesData = propertiesRes.success ? (propertiesRes.data?.data || propertiesRes.data || []) : [];
-      setPropertyStats({
-        total: propertiesData.length,
-        active: propertiesData.filter((p: any) => p.is_active === true).length
-      });
-
-      // Load rooms
-      const roomsRes = await listRooms();
-      const roomsData = roomsRes.success ? (roomsRes.data || []) : [];
-      const totalBeds = roomsData.reduce((sum: number, r: any) => sum + (Number(r.total_bed) || Number(r.total_beds) || 0), 0);
-      const occupiedBeds = roomsData.reduce((sum: number, r: any) => sum + (Number(r.occupied_beds) || 0), 0);
-      setRoomStats({
-        total: roomsData.length,
-        active: roomsData.filter((r: any) => r.is_active === true).length,
-        totalBeds,
-        occupiedBeds
-      });
-
-      // Load tenants
-      const tenantsRes = await listTenants({ pageSize: 1000 });
-      const tenantsData = tenantsRes.success ? (tenantsRes.data || []) : [];
-      setTenantStats({
-        total: tenantsData.length,
-        active: tenantsData.filter((t: any) => t.is_active === true || t.status === 'active').length
-      });
-
-      // Load payments
-      const paymentsRes = await paymentApi.getPayments();
-      if (paymentsRes.success && paymentsRes.data) {
-        const payments = paymentsRes.data;
-        setAllPayments(payments);
-        
-        const approvedPayments = payments.filter((p: any) => p.status === 'approved' || p.status === 'paid');
-        const totalCollected = approvedPayments.reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0);
-        
-        const currentDate = new Date();
-        const currentMonthPayments = approvedPayments.filter((p: any) => {
-          const paymentDate = new Date(p.payment_date);
-          return paymentDate.getMonth() === currentDate.getMonth() && 
-                 paymentDate.getFullYear() === currentDate.getFullYear();
-        });
-        const currentMonthCollected = currentMonthPayments.reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0);
-        
-        const rentPayments = approvedPayments.filter((p: any) => p.payment_type === 'rent');
-        const rentCollected = rentPayments.reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0);
-        
-        setPaymentStats({
-          total_collected: totalCollected,
-          total_transactions: approvedPayments.length,
-          cash_payments: approvedPayments.filter((p: any) => p.payment_mode === 'cash').length,
-          online_payments: approvedPayments.filter((p: any) => p.payment_mode === 'online').length,
-          bank_transfers: approvedPayments.filter((p: any) => p.payment_mode === 'bank_transfer').length,
-          card_payments: approvedPayments.filter((p: any) => p.payment_mode === 'card').length,
-          cheque_payments: approvedPayments.filter((p: any) => p.payment_mode === 'cheque').length,
-          current_month_collected: currentMonthCollected,
-          rent_collected: rentCollected
-        });
-      }
-
-      // Load expenses
-      const expensesData = await getExpenses();
-      setExpenses(expensesData);
-      const totalExpenseAmount = expensesData.reduce((sum, e) => sum + (Number(e.total_amount) || 0), 0);
-      setExpenseTotal(totalExpenseAmount);
-
-      // Generate chart data
-      await generateChartData(paymentsRes.data || [], expensesData);
-      
-    } catch (error) {
-      console.error('Error loading data:', error);
-      toast.error('Failed to load dashboard data');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  // Generate chart data based on date range
-  const generateChartData = useCallback(async (payments: any[], expenses: Expense[]) => {
+  const generateChartData = useCallback(async (payments: any[], expensesData: Expense[]) => {
     const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
     const monthlyMap = new Map<string, MonthlyData>();
-    
-    const currentDate = new Date();
     let monthsToShow = 12;
-    
     switch (dateRange) {
-      case 'week': monthsToShow = 1; break;
-      case 'month': monthsToShow = 1; break;
+      case 'week': case 'month': monthsToShow = 1; break;
       case 'quarter': monthsToShow = 3; break;
       case 'year': monthsToShow = 12; break;
       case 'all': monthsToShow = 36; break;
     }
-    
-    // Initialize months
     for (let i = 0; i < monthsToShow; i++) {
-      const date = new Date();
-      date.setMonth(date.getMonth() - i);
-      const year = date.getFullYear();
-      const monthNum = date.getMonth();
-      const monthName = monthNames[monthNum];
-      const key = `${year}-${monthNum}`;
-      
-      monthlyMap.set(key, {
-        month: monthName,
-        year,
-        month_num: monthNum,
-        income: 0,
-        expense: 0,
-        profit: 0
-      });
+      const date = new Date(); date.setMonth(date.getMonth() - i);
+      const year = date.getFullYear(), monthNum = date.getMonth();
+      monthlyMap.set(`${year}-${monthNum}`, { month: monthNames[monthNum], year, month_num: monthNum, income: 0, expense: 0, profit: 0 });
     }
-    
-    // Add payments
-    const approvedPayments = payments.filter(p => p.status === 'approved' || p.status === 'paid');
-    approvedPayments.forEach(payment => {
-      const amount = Number(payment.amount) || 0;
-      const paymentDate = new Date(payment.payment_date);
-      const year = paymentDate.getFullYear();
-      const monthNum = paymentDate.getMonth();
-      const key = `${year}-${monthNum}`;
-      
-      const existing = monthlyMap.get(key);
-      if (existing) {
-        existing.income += amount;
-        monthlyMap.set(key, existing);
-      }
+    payments.filter(p => p.status === 'approved' || p.status === 'paid').forEach(p => {
+      const d = new Date(p.payment_date), key = `${d.getFullYear()}-${d.getMonth()}`;
+      const ex = monthlyMap.get(key); if (ex) { ex.income += Number(p.amount) || 0; monthlyMap.set(key, ex); }
     });
-    
-    // Add expenses
-    expenses.forEach(expense => {
-      const amount = Number(expense.total_amount) || 0;
-      const expenseDate = new Date(expense.expense_date);
-      const year = expenseDate.getFullYear();
-      const monthNum = expenseDate.getMonth();
-      const key = `${year}-${monthNum}`;
-      
-      const existing = monthlyMap.get(key);
-      if (existing) {
-        existing.expense += amount;
-        monthlyMap.set(key, existing);
-      }
+    expensesData.forEach(e => {
+      const d = new Date(e.expense_date), key = `${d.getFullYear()}-${d.getMonth()}`;
+      const ex = monthlyMap.get(key); if (ex) { ex.expense += Number(e.total_amount) || 0; monthlyMap.set(key, ex); }
     });
-    
-    // Calculate profit
-    monthlyMap.forEach((value) => {
-      value.profit = value.income - value.expense;
-    });
-    
-    // Convert to array and sort
-    const data = Array.from(monthlyMap.values());
-    data.sort((a, b) => {
-      if (a.year !== b.year) return a.year - b.year;
-      return a.month_num - b.month_num;
-    });
-    
-    setMonthlyData(data);
+    monthlyMap.forEach(v => { v.profit = v.income - v.expense; });
+    setMonthlyData(Array.from(monthlyMap.values()).sort((a, b) => a.year !== b.year ? a.year - b.year : a.month_num - b.month_num));
   }, [dateRange]);
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  const loadData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const propertiesRes = await listProperties({ pageSize: 1000 });
+      const propertiesData = propertiesRes.success ? (propertiesRes.data?.data || propertiesRes.data || []) : [];
+      setPropertyStats({ total: propertiesData.length, active: propertiesData.filter((p: any) => p.is_active === true).length });
 
-  useEffect(() => {
-    if (allPayments.length > 0 || expenses.length > 0) {
-      generateChartData(allPayments, expenses);
-    }
-  }, [dateRange, allPayments, expenses]);
+      const roomsRes = await listRooms();
+      const roomsData = roomsRes.success ? (roomsRes.data || []) : [];
+      const totalBeds = roomsData.reduce((s: number, r: any) => s + (Number(r.total_bed) || Number(r.total_beds) || 0), 0);
+      const occupiedBeds = roomsData.reduce((s: number, r: any) => s + (Number(r.occupied_beds) || 0), 0);
+      setRoomStats({ total: roomsData.length, active: roomsData.filter((r: any) => r.is_active === true).length, totalBeds, occupiedBeds });
 
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await loadData();
-    setRefreshing(false);
-    toast.success('Dashboard refreshed');
-  };
+      const tenantsRes = await listTenants({ pageSize: 1000 });
+      const tenantsData = tenantsRes.success ? (tenantsRes.data || []) : [];
+      setTenantStats({ total: tenantsData.length, active: tenantsData.filter((t: any) => t.is_active === true || t.status === 'active').length });
 
-  // Calculate metrics
+      const paymentsRes = await paymentApi.getPayments();
+      let pmts: any[] = [];
+      if (paymentsRes.success && paymentsRes.data) {
+        pmts = paymentsRes.data; setAllPayments(pmts);
+        const ap = pmts.filter((p: any) => p.status === 'approved' || p.status === 'paid');
+        const totalCollected = ap.reduce((s: number, p: any) => s + (Number(p.amount) || 0), 0);
+        const cd = new Date();
+        const cm = ap.filter((p: any) => { const d = new Date(p.payment_date); return d.getMonth() === cd.getMonth() && d.getFullYear() === cd.getFullYear(); });
+        setPaymentStats({
+          total_collected: totalCollected, total_transactions: ap.length,
+          cash_payments: ap.filter((p: any) => p.payment_mode === 'cash').length,
+          online_payments: ap.filter((p: any) => p.payment_mode === 'online').length,
+          bank_transfers: ap.filter((p: any) => p.payment_mode === 'bank_transfer').length,
+          card_payments: ap.filter((p: any) => p.payment_mode === 'card').length,
+          cheque_payments: ap.filter((p: any) => p.payment_mode === 'cheque').length,
+          current_month_collected: cm.reduce((s: number, p: any) => s + (Number(p.amount) || 0), 0),
+          rent_collected: ap.filter((p: any) => p.payment_type === 'rent').reduce((s: number, p: any) => s + (Number(p.amount) || 0), 0)
+        });
+      }
+      const expData = await getExpenses(); setExpenses(expData);
+      setExpenseTotal(expData.reduce((s, e) => s + (Number(e.total_amount) || 0), 0));
+      await generateChartData(pmts, expData);
+    } catch (error) {
+      console.error(error); toast.error('Failed to load dashboard data');
+    } finally { setLoading(false); }
+  }, [generateChartData]);
+
+  useEffect(() => { loadData(); }, []);
+  useEffect(() => { if (allPayments.length > 0 || expenses.length > 0) generateChartData(allPayments, expenses); }, [dateRange, allPayments, expenses]);
+
+  const handleRefresh = async () => { setRefreshing(true); await loadData(); setRefreshing(false); toast.success('Dashboard refreshed'); };
+
   const occupancyPercent = roomStats.totalBeds > 0 ? Math.round((roomStats.occupiedBeds / roomStats.totalBeds) * 100) : 0;
   const propertyOccupancyPercent = propertyStats.total > 0 ? Math.round((propertyStats.active / propertyStats.total) * 100) : 0;
   const tenantOccupancyPercent = tenantStats.total > 0 ? Math.round((tenantStats.active / tenantStats.total) * 100) : 0;
   const netProfit = paymentStats.total_collected - expenseTotal;
   const profitMargin = paymentStats.total_collected > 0 ? (netProfit / paymentStats.total_collected) * 100 : 0;
-
-  // Get overview data based on selection
-  const getOverviewData = () => {
-    switch (selectedOverview) {
-      case 'rooms':
-        return {
-          title: 'Rooms Overview',
-          items: [
-            { label: 'Total Rooms', value: roomStats.total, color: 'bg-blue-600', bgColor: 'bg-gradient-to-br from-blue-50 to-blue-100', icon: DoorOpen },
-            { label: 'Occupied Rooms', value: roomStats.active, color: 'bg-green-600', bgColor: 'bg-gradient-to-br from-green-50 to-green-100', icon: Home },
-            { label: 'Vacant Rooms', value: roomStats.total - roomStats.active, color: 'bg-amber-600', bgColor: 'bg-gradient-to-br from-amber-50 to-amber-100', icon: DoorOpen }
-          ],
-          percent: roomStats.total > 0 ? Math.round((roomStats.active / roomStats.total) * 100) : 0,
-          label: 'Room Occupancy'
-        };
-      case 'property':
-        return {
-          title: 'Properties Overview',
-          items: [
-            { label: 'Total Properties', value: propertyStats.total, color: 'bg-blue-600', bgColor: 'bg-gradient-to-br from-blue-50 to-blue-100', icon: Building2 },
-            { label: 'Active Properties', value: propertyStats.active, color: 'bg-green-600', bgColor: 'bg-gradient-to-br from-green-50 to-green-100', icon: Building2 }
-          ],
-          percent: propertyOccupancyPercent,
-          label: 'Active Properties'
-        };
-      case 'tenants':
-        return {
-          title: 'Tenants Overview',
-          items: [
-            { label: 'Total Tenants', value: tenantStats.total, color: 'bg-blue-600', bgColor: 'bg-gradient-to-br from-blue-50 to-blue-100', icon: Users },
-            { label: 'Active Tenants', value: tenantStats.active, color: 'bg-green-600', bgColor: 'bg-gradient-to-br from-green-50 to-green-100', icon: Users },
-            { label: 'Inactive Tenants', value: tenantStats.total - tenantStats.active, color: 'bg-amber-600', bgColor: 'bg-gradient-to-br from-amber-50 to-amber-100', icon: Users }
-          ],
-          percent: tenantOccupancyPercent,
-          label: 'Active Tenants'
-        };
-      case 'beds':
-      default:
-        return {
-          title: 'Beds Overview',
-          items: [
-            { label: 'Total Beds', value: roomStats.totalBeds, color: 'bg-blue-600', bgColor: 'bg-gradient-to-br from-blue-50 to-blue-100', icon: BedIcon },
-            { label: 'Occupied Beds', value: roomStats.occupiedBeds, color: 'bg-green-600', bgColor: 'bg-gradient-to-br from-green-50 to-green-100', icon: Users },
-            { label: 'Available Beds', value: roomStats.totalBeds - roomStats.occupiedBeds, color: 'bg-amber-600', bgColor: 'bg-gradient-to-br from-amber-50 to-amber-100', icon: BedIcon }
-          ],
-          percent: occupancyPercent,
-          label: 'Bed Occupancy'
-        };
-    }
-  };
-
-  const overviewData = getOverviewData();
-
-  // Chart data for rent activity
-  const chartData = monthlyData.slice(-6).map(d => ({
-    month: d.month.substring(0, 3),
-    amount: d.income
-  }));
-
-  const maxAmount = Math.max(...chartData.map(d => d.amount), 1);
-  
-  // Calculate month over month growth
   const currentMonth = monthlyData[monthlyData.length - 1];
   const previousMonth = monthlyData[monthlyData.length - 2];
-  const monthOverMonthGrowth = currentMonth && previousMonth && previousMonth.income > 0
-    ? ((currentMonth.income - previousMonth.income) / previousMonth.income) * 100
-    : 0;
+  const mom = currentMonth && previousMonth && previousMonth.income > 0 ? ((currentMonth.income - previousMonth.income) / previousMonth.income) * 100 : 0;
 
-  // Payment methods for pie chart
+  const chartData = monthlyData.slice(-6).map(d => ({ month: d.month.substring(0, 3), amount: d.income }));
+  const maxAmount = Math.max(...chartData.map(d => d.amount), 1);
+
   const paymentMethods = [
-    { name: 'Cash', value: paymentStats.cash_payments, color: '#10B981', icon: Banknote },
-    { name: 'Online', value: paymentStats.online_payments, color: '#3B82F6', icon: CreditCard },
-    { name: 'Bank Transfer', value: paymentStats.bank_transfers, color: '#8B5CF6', icon: Landmark },
-    { name: 'Card', value: paymentStats.card_payments, color: '#EF4444', icon: CreditCard },
-    { name: 'Cheque', value: paymentStats.cheque_payments, color: '#F59E0B', icon: Receipt },
+    { name: 'Cash', value: paymentStats.cash_payments, color: '#10b981' },
+    { name: 'Online', value: paymentStats.online_payments, color: '#0ea5e9' },
+    { name: 'Bank Transfer', value: paymentStats.bank_transfers, color: '#8b5cf6' },
+    { name: 'Card', value: paymentStats.card_payments, color: '#f43f5e' },
+    { name: 'Cheque', value: paymentStats.cheque_payments, color: '#f59e0b' },
   ].filter(m => m.value > 0);
 
+  const getOverviewData = () => {
+    const configs: Record<string, any> = {
+      beds: { title: 'Beds', percent: occupancyPercent, label: 'Occupied', color: '#0ea5e9', items: [{ label: 'Total Beds', value: roomStats.totalBeds, color: '#0ea5e9', icon: BedIcon }, { label: 'Occupied', value: roomStats.occupiedBeds, color: '#10b981', icon: Users }, { label: 'Available', value: roomStats.totalBeds - roomStats.occupiedBeds, color: '#f59e0b', icon: BedIcon }] },
+      rooms: { title: 'Rooms', percent: roomStats.total > 0 ? Math.round((roomStats.active / roomStats.total) * 100) : 0, label: 'Occupied', color: '#8b5cf6', items: [{ label: 'Total Rooms', value: roomStats.total, color: '#8b5cf6', icon: DoorOpen }, { label: 'Occupied', value: roomStats.active, color: '#10b981', icon: Home }, { label: 'Vacant', value: roomStats.total - roomStats.active, color: '#f59e0b', icon: DoorOpen }] },
+      property: { title: 'Properties', percent: propertyOccupancyPercent, label: 'Active', color: '#f43f5e', items: [{ label: 'Total', value: propertyStats.total, color: '#f43f5e', icon: Building2 }, { label: 'Active', value: propertyStats.active, color: '#10b981', icon: Building2 }] },
+      tenants: { title: 'Tenants', percent: tenantOccupancyPercent, label: 'Active', color: '#f59e0b', items: [{ label: 'Total', value: tenantStats.total, color: '#f59e0b', icon: Users }, { label: 'Active', value: tenantStats.active, color: '#10b981', icon: Users }, { label: 'Inactive', value: tenantStats.total - tenantStats.active, color: '#f43f5e', icon: Users }] },
+    };
+    return configs[selectedOverview] || configs.beds;
+  };
+  const overviewData = getOverviewData();
+
   const statCards = [
-    { title: 'Total Properties', value: propertyStats.total, icon: Building2, color: 'bg-blue-600', bgColor: 'bg-gradient-to-br from-blue-50 to-blue-100', trend: 'up', trendValue: '12' },
-    { title: 'Total Rooms', value: roomStats.total, icon: DoorOpen, color: 'bg-purple-600', bgColor: 'bg-gradient-to-br from-purple-50 to-purple-100', trend: 'up', trendValue: '8' },
-    { title: 'Bed Occupancy', value: `${roomStats.occupiedBeds}/${roomStats.totalBeds}`, icon: BedIcon, color: 'bg-green-600', bgColor: 'bg-gradient-to-br from-green-50 to-green-100', trend: 'up', trendValue: '5' },
-    { title: 'Active Tenants', value: tenantStats.active, icon: Users, color: 'bg-orange-600', bgColor: 'bg-gradient-to-br from-orange-50 to-orange-100', trend: 'up', trendValue: '3' },
-    { title: 'Monthly Revenue', value: formatCurrency(paymentStats.current_month_collected), icon: IndianRupee, color: 'bg-indigo-600', bgColor: 'bg-gradient-to-br from-indigo-50 to-indigo-100', trend: monthOverMonthGrowth > 0 ? 'up' : 'down', trendValue: Math.abs(monthOverMonthGrowth).toFixed(1) },
+    { title: 'Properties', value: propertyStats.total, sub: `${propertyStats.active} active`, icon: Building2, grad: 'linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%)', light: '#f0f9ff', accent: '#0ea5e9', shadow: 'rgba(14,165,233,0.22)', trend: 'up', tv: '12' },
+    { title: 'Total Rooms', value: roomStats.total, sub: `${roomStats.active} occupied`, icon: DoorOpen, grad: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)', light: '#faf5ff', accent: '#8b5cf6', shadow: 'rgba(139,92,246,0.22)', trend: 'up', tv: '8' },
+    { title: 'Bed Occupancy', value: `${roomStats.occupiedBeds}/${roomStats.totalBeds}`, sub: `${occupancyPercent}% filled`, icon: BedIcon, grad: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', light: '#f0fdf4', accent: '#10b981', shadow: 'rgba(16,185,129,0.22)', trend: 'up', tv: '5' },
+    { title: 'Active Tenants', value: tenantStats.active, sub: `of ${tenantStats.total} total`, icon: Users, grad: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', light: '#fffbeb', accent: '#f59e0b', shadow: 'rgba(245,158,11,0.22)', trend: 'up', tv: '3' },
+    { title: 'Monthly Revenue', value: formatCurrency(paymentStats.current_month_collected), sub: 'vs last month', icon: IndianRupee, grad: mom >= 0 ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 'linear-gradient(135deg, #f43f5e 0%, #e11d48 100%)', light: mom >= 0 ? '#f0fdf4' : '#fff1f2', accent: mom >= 0 ? '#10b981' : '#f43f5e', shadow: mom >= 0 ? 'rgba(16,185,129,0.22)' : 'rgba(244,63,94,0.22)', trend: mom >= 0 ? 'up' : 'down', tv: Math.abs(mom).toFixed(1) },
   ];
 
+  const mono: React.CSSProperties = { fontFamily: '"DM Mono","Fira Code",monospace' };
+
   return (
-    <div className="min-h-screen bg-slate-50">
-      {showFinancialTrend && (
-        <FinancialTrendChart
-          data={monthlyData}
-          activeTab={financialTab}
-          chartType={chartType}
-          selectedYear={financialYear}
-          onTabChange={setFinancialTab}
-          onChartTypeChange={setChartType}
-          onYearChange={setFinancialYear}
-          onClose={() => setShowFinancialTrend(false)}
-          loading={loading}
-          formatCurrency={formatCurrency}
-        />
-      )}
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500;600&display=swap');
+        * { box-sizing: border-box; }
+        @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+        @keyframes fadeUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+        @keyframes scaleIn { from{opacity:0;transform:scale(0.97)} to{opacity:1;transform:scale(1)} }
+        .sc { animation: fadeUp 0.45s ease both; }
+        .sc:nth-child(1){animation-delay:.04s}.sc:nth-child(2){animation-delay:.08s}
+        .sc:nth-child(3){animation-delay:.12s}.sc:nth-child(4){animation-delay:.16s}
+        .sc:nth-child(5){animation-delay:.2s}
+        .section-card { animation: scaleIn 0.5s ease both; }
+        .hov { transition: box-shadow 0.2s ease, transform 0.2s ease; }
+        .hov:hover { box-shadow: 0 16px 48px rgba(15,23,42,0.1) !important; transform: translateY(-2px); }
+        .stat-card-hov { transition: all 0.2s ease; }
+        .stat-card-hov:hover { transform: translateY(-3px); box-shadow: 0 16px 40px var(--card-shadow) !important; }
+        .bar-wrap:hover .bar-inner { filter: brightness(1.06); }
+        select { appearance:none; -webkit-appearance:none; }
+        select option { background:#fff; color:#0f172a; }
+        ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:#f8fafc}::-webkit-scrollbar-thumb{background:#e2e8f0;border-radius:4px}
+        @media(max-width:1150px){.sg{grid-template-columns:repeat(3,1fr)!important}}
+        @media(max-width:700px){.sg{grid-template-columns:repeat(2,1fr)!important}.mg{grid-template-columns:1fr!important}.bg{grid-template-columns:1fr!important}}
+      `}</style>
 
-      {/* Header with Refresh and Date Filter */}
-      <div className="flex justify-end items-center gap-3 mb-4">
-        <select
-          value={dateRange}
-          onChange={(e) => setDateRange(e.target.value as DateRangeType)}
-          className="text-xs border border-gray-200 rounded-lg px-3 py-1.5 bg-white shadow-sm"
-        >
-          <option value="week">Last Week</option>
-          <option value="month">Last Month</option>
-          <option value="quarter">Last Quarter</option>
-          <option value="year">Last Year</option>
-          <option value="all">All Time</option>
-        </select>
-        <button
-          onClick={handleRefresh}
-          disabled={refreshing}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs text-gray-600 hover:bg-gray-50 transition-colors"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
-          Refresh
-        </button>
-      </div>
+      <div style={{ minHeight: '100vh', background: '#f4f6fb', padding: '20px 24px 32px', fontFamily: 'Plus Jakarta Sans, sans-serif', position: 'relative' }}>
 
-      {/* Gradient Stat Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-1.5 sm:gap-2 mb-6">
-        {statCards.map((stat, index) => (
-          <GradientStatCard
-            key={index}
-            title={stat.title}
-            value={stat.value}
-            icon={stat.icon}
-            color={stat.color}
-            bgColor={stat.bgColor}
-            loading={loading}
-            trend={stat.trend}
-            trendValue={stat.trendValue}
-          />
-        ))}
-      </div>
+        {/* Subtle dot grid background */}
+        <div style={{ position: 'fixed', inset: 0, zIndex: 0, backgroundImage: 'radial-gradient(#dde3ee 1.5px, transparent 1.5px)', backgroundSize: '30px 30px', opacity: 0.7, pointerEvents: 'none' }} />
 
-      {/* Main Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mb-6">
-        {/* Rent Activity Chart */}
-        <Card className="lg:col-span-2 border-0 shadow-lg overflow-hidden">
-          <div className="bg-gradient-to-r from-[#004aad] to-[#002a7a] px-4 py-2">
-            <div className="flex items-center justify-between">
-              <h3 className="text-white text-xs font-medium flex items-center gap-1">
-                <TrendingUp className="h-3.5 w-3.5" />
-                Rent Activity
-              </h3>
-              <div className="flex items-center gap-2">
-                <Badge className="bg-white/20 text-white border-white/30 text-[8px] px-1.5 py-0 h-4">
-                  {dateRange}
-                </Badge>
-                <button
-                  onClick={() => setShowFinancialTrend(true)}
-                  className="text-white/70 hover:text-white text-[10px]"
-                >
-                  <BarChart3 className="w-3.5 h-3.5" />
-                </button>
+        {/* Top rainbow stripe */}
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg, #0ea5e9 0%, #8b5cf6 40%, #10b981 70%, #f59e0b 100%)', zIndex: 200 }} />
+
+        {showFinancialTrend && (
+          <FinancialTrendChart data={monthlyData} activeTab={financialTab} chartType={chartType} selectedYear={financialYear}
+            onTabChange={setFinancialTab} onChartTypeChange={setChartType} onYearChange={setFinancialYear}
+            onClose={() => setShowFinancialTrend(false)} loading={loading} formatCurrency={formatCurrency} />
+        )}
+
+        <div style={{ position: 'relative', zIndex: 1 }}>
+
+          {/* ── Top Bar ── */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 4 }}>
+                <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 0 3px #d1fae5' }} />
+                <span style={{ color: '#64748b', fontSize: 11, fontWeight: 600, letterSpacing: '0.09em', textTransform: 'uppercase' }}>Live</span>
+              </div>
+              <h1 style={{ color: '#0f172a', fontSize: 26, fontWeight: 800, margin: 0, letterSpacing: '-0.03em' }}>
+                Admin Dashboard
+              </h1>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ position: 'relative' }}>
+                <select value={dateRange} onChange={e => setDateRange(e.target.value as DateRangeType)} style={{
+                  background: '#fff', border: '1.5px solid #e2e8f0', borderRadius: 12,
+                  padding: '8px 36px 8px 14px', color: '#374151', fontSize: 12,
+                  fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 600, cursor: 'pointer', outline: 'none',
+                  boxShadow: '0 1px 6px rgba(15,23,42,0.06)'
+                }}>
+                  <option value="week">Last Week</option>
+                  <option value="month">Last Month</option>
+                  <option value="quarter">Last Quarter</option>
+                  <option value="year">Last Year</option>
+                  <option value="all">All Time</option>
+                </select>
+                <ChevronDown style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', width: 13, height: 13, color: '#94a3b8', pointerEvents: 'none' }} />
+              </div>
+              <button onClick={handleRefresh} disabled={refreshing} style={{
+                display: 'flex', alignItems: 'center', gap: 6, background: '#fff',
+                border: '1.5px solid #e2e8f0', borderRadius: 12, padding: '8px 16px',
+                color: '#374151', fontSize: 12, fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 600,
+                cursor: 'pointer', boxShadow: '0 1px 6px rgba(15,23,42,0.06)', transition: 'all 0.18s'
+              }}>
+                <RefreshCw style={{ width: 13, height: 13, color: '#8b5cf6', ...(refreshing ? { animation: 'spin 1s linear infinite' } : {}) }} />
+                Refresh
+              </button>
+            </div>
+          </div>
+
+          {/* ── Stat Cards ── */}
+          <div className="sg" style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 14, marginBottom: 20 }}>
+            {statCards.map((card, i) => (
+              <div
+                key={i}
+                className="sc stat-card-hov"
+                style={{
+                  background: '#fff', borderRadius: 20, padding: '18px 16px',
+                  boxShadow: `0 2px 14px ${card.shadow}`,
+                  border: '1px solid rgba(255,255,255,0.9)',
+                  overflow: 'hidden', position: 'relative',
+                  '--card-shadow': card.shadow,
+                } as any}
+              >
+                {/* Colored top accent + soft bg wash */}
+                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 4, background: card.grad, borderRadius: '20px 20px 0 0' }} />
+                <div style={{ position: 'absolute', top: 0, right: 0, width: 80, height: 80, borderRadius: '0 20px 0 80px', background: card.light, opacity: 0.7 }} />
+
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14, position: 'relative' }}>
+                  <div style={{ width: 42, height: 42, borderRadius: 13, background: card.grad, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 6px 18px ${card.shadow}` }}>
+                    <card.icon style={{ width: 19, height: 19, color: '#fff' }} />
+                  </div>
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: 3, padding: '3px 9px', borderRadius: 20,
+                    fontSize: 10, fontWeight: 700,
+                    background: card.trend === 'up' ? '#f0fdf4' : '#fff1f2',
+                    color: card.trend === 'up' ? '#059669' : '#e11d48', ...mono
+                  }}>
+                    {card.trend === 'up' ? <ArrowUpRight style={{ width: 10, height: 10 }} /> : <ArrowDownRight style={{ width: 10, height: 10 }} />}
+                    {card.tv}%
+                  </div>
+                </div>
+
+                {loading
+                  ? <div style={{ height: 26, width: '65%', borderRadius: 6, background: 'linear-gradient(90deg,#f1f5f9 25%,#e8edf5 50%,#f1f5f9 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.4s infinite', marginBottom: 4 }} />
+                  : <p style={{ color: '#0f172a', fontSize: 23, fontWeight: 800, margin: '0 0 3px', letterSpacing: '-0.02em', ...mono }}>{card.value}</p>
+                }
+                <p style={{ color: '#374151', fontSize: 11, margin: '0 0 2px', fontWeight: 700 }}>{card.title}</p>
+                <p style={{ color: '#94a3b8', fontSize: 10, margin: 0 }}>{card.sub}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* ── Main Row ── */}
+          <div className="mg" style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 16, marginBottom: 16 }}>
+
+            {/* Rent Activity */}
+            <div className="hov section-card" style={{ background: '#fff', borderRadius: 20, boxShadow: '0 2px 14px rgba(15,23,42,0.07)', border: '1px solid #f1f5f9', overflow: 'hidden' }}>
+              <div style={{ padding: '16px 22px', borderBottom: '1px solid #f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'linear-gradient(135deg, #fafcff 0%, #f8fafc 100%)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 11, background: 'linear-gradient(135deg, #0ea5e9, #38bdf8)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(14,165,233,0.28)' }}>
+                    <TrendingUp style={{ width: 15, height: 15, color: '#fff' }} />
+                  </div>
+                  <div>
+                    <h3 style={{ color: '#0f172a', fontSize: 13, fontWeight: 800, margin: 0 }}>Rent Activity</h3>
+                    <p style={{ color: '#94a3b8', fontSize: 10, margin: 0 }}>Monthly income trend</p>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ padding: '3px 10px', borderRadius: 20, background: '#f0f9ff', color: '#0ea5e9', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{dateRange}</span>
+                  <button onClick={() => setShowFinancialTrend(true)} style={{ width: 32, height: 32, borderRadius: 9, background: '#f8fafc', border: '1.5px solid #e2e8f0', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.18s' }}>
+                    <BarChart3 style={{ width: 14, height: 14, color: '#64748b' }} />
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ padding: '20px 24px' }}>
+                {loading ? (
+                  <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Loader2 style={{ width: 30, height: 30, color: '#0ea5e9', animation: 'spin 1s linear infinite' }} /></div>
+                ) : chartData.length === 0 ? (
+                  <div style={{ height: 200, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#cbd5e1' }}><IndianRupee style={{ width: 36, height: 36, marginBottom: 8 }} /><p style={{ fontSize: 12, margin: 0 }}>No payment data</p></div>
+                ) : (
+                  <>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22 }}>
+                      <div>
+                        <p style={{ color: '#94a3b8', fontSize: 9, margin: '0 0 2px', textTransform: 'uppercase', letterSpacing: '0.09em', fontWeight: 700 }}>This Month</p>
+                        <p style={{ color: '#0f172a', fontSize: 28, fontWeight: 800, margin: 0, letterSpacing: '-0.03em', ...mono }}>{formatCurrency(currentMonth?.income || 0)}</p>
+                      </div>
+                      <div style={{
+                        display: 'flex', alignItems: 'center', gap: 5, padding: '7px 13px', borderRadius: 24,
+                        background: mom >= 0 ? '#f0fdf4' : '#fff1f2',
+                        border: `1.5px solid ${mom >= 0 ? '#bbf7d0' : '#fecdd3'}`,
+                        color: mom >= 0 ? '#059669' : '#e11d48', fontSize: 11, fontWeight: 700, ...mono
+                      }}>
+                        {mom >= 0 ? <ArrowUpRight style={{ width: 13, height: 13 }} /> : <ArrowDownRight style={{ width: 13, height: 13 }} />}
+                        {mom >= 0 ? '+' : ''}{mom.toFixed(1)}% vs last month
+                      </div>
+                    </div>
+
+                    {/* Custom bar chart */}
+                    <div style={{ position: 'relative', height: 170 }}>
+                      <div style={{ position: 'absolute', left: 0, top: 0, height: 140, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                        {[1, 0.5, 0].map(r => <span key={r} style={{ color: '#cbd5e1', fontSize: 9, ...mono }}>{formatCurrency(maxAmount * r)}</span>)}
+                      </div>
+                      <div style={{ position: 'absolute', bottom: 22, left: 46, right: 0, height: 140, display: 'flex', alignItems: 'flex-end', gap: 10 }}>
+                        {chartData.map((item, idx) => {
+                          const hPct = maxAmount > 0 ? Math.max((item.amount / maxAmount) * 95, 3) : 3;
+                          const isLast = idx === chartData.length - 1;
+                          return (
+                            <div key={idx} className="bar-wrap" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer', position: 'relative' }}>
+                              <div className="bar-inner" style={{
+                                width: '100%', height: `${hPct}%`, minHeight: 4,
+                                borderRadius: '8px 8px 3px 3px',
+                                background: isLast
+                                  ? 'linear-gradient(180deg, #0ea5e9 0%, #38bdf8 100%)'
+                                  : 'linear-gradient(180deg, #e0f2fe 0%, #bae6fd 100%)',
+                                transition: 'all 0.4s ease',
+                                boxShadow: isLast ? '0 4px 18px rgba(14,165,233,0.3)' : 'none',
+                                border: `1.5px solid ${isLast ? 'rgba(14,165,233,0.3)' : '#e0f2fe'}`,
+                                position: 'relative'
+                              }}>
+                                {isLast && (
+                                  <div style={{
+                                    position: 'absolute', top: -26, left: '50%', transform: 'translateX(-50%)',
+                                    background: '#0ea5e9', color: '#fff', borderRadius: 7,
+                                    padding: '3px 8px', fontSize: 9, fontWeight: 700, whiteSpace: 'nowrap', ...mono,
+                                    boxShadow: '0 3px 10px rgba(14,165,233,0.3)'
+                                  }}>{formatCurrency(item.amount)}</div>
+                                )}
+                              </div>
+                              <span style={{ color: isLast ? '#0ea5e9' : '#94a3b8', fontSize: 10, marginTop: 7, fontWeight: isLast ? 700 : 500, transition: 'all 0.18s' }}>{item.month}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Footer */}
+                    <div style={{ display: 'flex', marginTop: 14, paddingTop: 14, borderTop: '1px solid #f1f5f9', gap: 0 }}>
+                      {[
+                        { label: 'Monthly Avg', value: chartData.length > 0 ? formatCurrency(Math.round(chartData.reduce((s, d) => s + d.amount, 0) / chartData.length)) : '₹0', color: '#475569' },
+                        { label: 'Total Collected', value: formatCurrency(paymentStats.total_collected), color: '#0ea5e9' },
+                        { label: 'Transactions', value: `${paymentStats.total_transactions}`, color: '#8b5cf6' },
+                      ].map(({ label, value, color }, i) => (
+                        <div key={i} style={{ flex: 1, paddingLeft: i > 0 ? 18 : 0, borderLeft: i > 0 ? '1px solid #f1f5f9' : 'none', marginLeft: i > 0 ? 18 : 0 }}>
+                          <p style={{ color: '#94a3b8', fontSize: 9, margin: '0 0 3px', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>{label}</p>
+                          <p style={{ color, fontSize: 15, fontWeight: 800, margin: 0, ...mono }}>{value}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Overview Donut */}
+            <div className="hov section-card" style={{ background: '#fff', borderRadius: 20, boxShadow: '0 2px 14px rgba(15,23,42,0.07)', border: '1px solid #f1f5f9', overflow: 'hidden' }}>
+              <div style={{ padding: '16px 18px', borderBottom: '1px solid #f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'linear-gradient(135deg, #fafcff 0%, #f8fafc 100%)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 11, background: `linear-gradient(135deg, ${overviewData.color}, ${overviewData.color}cc)`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 4px 12px ${overviewData.color}40` }}>
+                    <BarChart3 style={{ width: 15, height: 15, color: '#fff' }} />
+                  </div>
+                  <div>
+                    <h3 style={{ color: '#0f172a', fontSize: 13, fontWeight: 800, margin: 0 }}>{overviewData.title}</h3>
+                    <p style={{ color: '#94a3b8', fontSize: 10, margin: 0 }}>Occupancy overview</p>
+                  </div>
+                </div>
+                <div style={{ position: 'relative' }}>
+                  <button onClick={() => setShowOverviewMenu(!showOverviewMenu)} style={{ width: 30, height: 30, borderRadius: 8, background: '#f8fafc', border: '1.5px solid #e2e8f0', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <MoreVertical style={{ width: 13, height: 13, color: '#64748b' }} />
+                  </button>
+                  {showOverviewMenu && (
+                    <div style={{ position: 'absolute', right: 0, top: 36, width: 128, background: '#fff', border: '1px solid #e8edf5', borderRadius: 12, overflow: 'hidden', zIndex: 20, boxShadow: '0 12px 32px rgba(15,23,42,0.12)' }}>
+                      {['beds', 'rooms', 'property', 'tenants'].map(t => (
+                        <button key={t} onClick={() => { setSelectedOverview(t); setShowOverviewMenu(false); }} style={{
+                          width: '100%', textAlign: 'left', padding: '9px 12px', border: 'none', cursor: 'pointer',
+                          background: selectedOverview === t ? '#f0fdf4' : '#fff',
+                          color: selectedOverview === t ? '#059669' : '#475569',
+                          fontSize: 11, fontFamily: 'Plus Jakarta Sans, sans-serif',
+                          fontWeight: selectedOverview === t ? 700 : 500, textTransform: 'capitalize', transition: 'all 0.15s'
+                        }}>{t}</button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div style={{ padding: '20px 18px' }}>
+                {/* SVG Donut */}
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
+                  <div style={{ position: 'relative', width: 136, height: 136 }}>
+                    <svg viewBox="0 0 136 136" style={{ width: 136, height: 136 }}>
+                      <circle cx="68" cy="68" r="54" fill="none" stroke="#f1f5f9" strokeWidth="11" />
+                      <circle cx="68" cy="68" r="54" fill="none"
+                        stroke={overviewData.color}
+                        strokeWidth="11"
+                        strokeDasharray={`${(overviewData.percent / 100) * 339.3} 339.3`}
+                        strokeLinecap="round"
+                        strokeDashoffset="84.8"
+                        style={{ transition: 'stroke-dasharray 0.9s cubic-bezier(0.4,0,0.2,1)', filter: `drop-shadow(0 0 8px ${overviewData.color}60)` }}
+                      />
+                    </svg>
+                    <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                      <span style={{ color: '#0f172a', fontSize: 26, fontWeight: 800, lineHeight: 1, ...mono }}>{overviewData.percent}%</span>
+                      <span style={{ color: '#94a3b8', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.07em', marginTop: 4, fontWeight: 700 }}>{overviewData.label}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+                  {overviewData.items.map((item: any, idx: number) => (
+                    <div key={idx} style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '10px 12px', borderRadius: 13,
+                      background: `${item.color}08`,
+                      border: `1.5px solid ${item.color}20`,
+                      transition: 'all 0.18s'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div style={{ width: 30, height: 30, borderRadius: 9, background: `${item.color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <item.icon style={{ width: 13, height: 13, color: item.color }} />
+                        </div>
+                        <span style={{ color: '#475569', fontSize: 11, fontWeight: 600 }}>{item.label}</span>
+                      </div>
+                      <span style={{ color: item.color, fontSize: 17, fontWeight: 800, ...mono }}>{item.value}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
-          <CardContent className="p-4">
-            {loading ? (
-              <div className="flex items-center justify-center h-52">
-                <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-              </div>
-            ) : chartData.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-52 text-gray-400">
-                <IndianRupee className="w-12 h-12 mb-2" />
-                <p className="text-sm">No payment data available</p>
-              </div>
-            ) : (
-              <>
-                <div className="flex justify-between items-center mb-4">
-                  <span className="text-xs text-gray-500">Amount (₹)</span>
-                  <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full ${monthOverMonthGrowth >= 0 ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'} text-[10px] font-medium`}>
-                    {monthOverMonthGrowth >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                    {monthOverMonthGrowth >= 0 ? '+' : ''}{monthOverMonthGrowth.toFixed(1)}% vs last month
+
+          {/* ── Bottom Row ── */}
+          <div className="bg" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+
+            {/* Payment Methods */}
+            <div className="hov section-card" style={{ background: '#fff', borderRadius: 20, boxShadow: '0 2px 14px rgba(15,23,42,0.07)', border: '1px solid #f1f5f9', overflow: 'hidden' }}>
+              <div style={{ padding: '16px 22px', borderBottom: '1px solid #f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'linear-gradient(135deg, #fafcff 0%, #f8fafc 100%)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 11, background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(139,92,246,0.28)' }}>
+                    <CreditCard style={{ width: 15, height: 15, color: '#fff' }} />
+                  </div>
+                  <div>
+                    <h3 style={{ color: '#0f172a', fontSize: 13, fontWeight: 800, margin: 0 }}>Payment Methods</h3>
+                    <p style={{ color: '#94a3b8', fontSize: 10, margin: 0 }}>Transaction breakdown</p>
                   </div>
                 </div>
+                <span style={{ padding: '3px 10px', borderRadius: 20, background: '#faf5ff', color: '#8b5cf6', fontSize: 10, fontWeight: 700, ...mono }}>{paymentStats.total_transactions} txns</span>
+              </div>
 
-                {/* Bar Chart */}
-                <div className="relative h-44">
-                  <div className="absolute left-0 top-0 h-full flex flex-col justify-between text-[10px] text-gray-400 pr-2">
-                    <span>{formatCurrency(maxAmount)}</span>
-                    <span>{formatCurrency(maxAmount * 0.75)}</span>
-                    <span>{formatCurrency(maxAmount * 0.5)}</span>
-                    <span>{formatCurrency(maxAmount * 0.25)}</span>
-                    <span>₹0</span>
-                  </div>
-                  
-                  <div className="absolute bottom-0 left-10 right-2 h-36 flex items-end justify-between gap-1">
-                    {chartData.map((item, index) => {
-                      const heightPercent = maxAmount > 0 ? (item.amount / maxAmount) * 85 : 0;
-                      return (
-                        <div key={index} className="flex flex-col items-center flex-1">
-                          <div className="relative w-full flex justify-center">
-                            <div 
-                              className="w-8 sm:w-10 bg-gradient-to-t from-blue-600 to-blue-400 rounded-t-lg transition-all duration-500 hover:opacity-90 cursor-pointer group"
-                              style={{ height: `${heightPercent}%`, minHeight: '4px' }}
-                            >
-                              <div className="absolute -top-7 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-[9px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-                                {formatCurrency(item.amount)}
+              <div style={{ padding: '20px 24px' }}>
+                {loading ? (
+                  <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Loader2 style={{ width: 30, height: 30, color: '#8b5cf6', animation: 'spin 1s linear infinite' }} /></div>
+                ) : paymentMethods.length === 0 ? (
+                  <div style={{ height: 200, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#cbd5e1' }}><CreditCard style={{ width: 36, height: 36, marginBottom: 8 }} /><p style={{ fontSize: 12, margin: 0 }}>No data</p></div>
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+                    <div style={{ width: 155, height: 155, flexShrink: 0 }}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie data={paymentMethods} cx="50%" cy="50%" innerRadius={48} outerRadius={68} dataKey="value"
+                            label={({ percent }) => `${(percent * 100).toFixed(0)}%`} labelLine={false} paddingAngle={2}>
+                            {paymentMethods.map((e, i) => <Cell key={i} fill={e.color} stroke="none" />)}
+                          </Pie>
+                          <Tooltip content={<CustomTooltip />} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      {paymentMethods.map(m => {
+                        const pct = paymentStats.total_transactions > 0 ? Math.round((m.value / paymentStats.total_transactions) * 100) : 0;
+                        return (
+                          <div key={m.name} style={{ marginBottom: 10 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <div style={{ width: 9, height: 9, borderRadius: '50%', background: m.color }} />
+                                <span style={{ color: '#475569', fontSize: 11, fontWeight: 600 }}>{m.name}</span>
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                                <span style={{ color: '#0f172a', fontSize: 12, fontWeight: 800, ...mono }}>{m.value}</span>
+                                <span style={{ color: '#94a3b8', fontSize: 9, ...mono }}>({pct}%)</span>
                               </div>
                             </div>
+                            <div style={{ height: 5, background: '#f1f5f9', borderRadius: 99, overflow: 'hidden' }}>
+                              <div style={{ height: '100%', width: `${pct}%`, background: m.color, borderRadius: 99, transition: 'width 0.7s ease' }} />
+                            </div>
                           </div>
-                          <span className="text-[10px] font-medium text-gray-600 mt-1">{item.month}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className="mt-4 pt-3 border-t flex justify-between">
-                  <div>
-                    <p className="text-[10px] text-gray-500">Current Month</p>
-                    <p className="text-sm font-bold text-gray-800">{formatCurrency(currentMonth?.income || 0)}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[10px] text-gray-500">Average Monthly</p>
-                    <p className="text-sm font-bold text-gray-800">
-                      {chartData.length > 0 
-                        ? formatCurrency(chartData.reduce((sum, d) => sum + d.amount, 0) / chartData.length)
-                        : '₹0'}
-                    </p>
-                  </div>
-                </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Overview Card with Donut Chart */}
-        <Card className="border-0 shadow-lg overflow-hidden">
-          <div className="bg-gradient-to-r from-[#004aad] to-[#002a7a] px-4 py-2">
-            <div className="flex items-center justify-between">
-              <h3 className="text-white text-xs font-medium flex items-center gap-1">
-                <BarChart3 className="h-3.5 w-3.5" />
-                {overviewData.title}
-              </h3>
-              <div className="relative">
-                <button
-                  onClick={() => setShowOverviewMenu(!showOverviewMenu)}
-                  className="text-white/70 hover:text-white"
-                >
-                  <MoreVertical className="w-3.5 h-3.5" />
-                </button>
-                {showOverviewMenu && (
-                  <div className="absolute right-0 mt-2 w-32 bg-white rounded-lg shadow-lg border z-10 overflow-hidden">
-                    {['beds', 'rooms', 'property', 'tenants'].map((type) => (
-                      <button
-                        key={type}
-                        onClick={() => { setSelectedOverview(type); setShowOverviewMenu(false); }}
-                        className="w-full text-left px-3 py-2 text-xs hover:bg-gray-50 capitalize"
-                      >
-                        {type}
-                      </button>
-                    ))}
+                        );
+                      })}
+                      <div style={{ paddingTop: 10, marginTop: 4, borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ color: '#94a3b8', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>Total</span>
+                        <span style={{ color: '#8b5cf6', fontSize: 17, fontWeight: 800, ...mono }}>{paymentStats.total_transactions}</span>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
             </div>
-          </div>
-          <CardContent className="p-4">
-            <div className="flex flex-col items-center">
-              {/* Donut Chart */}
-              <div className="relative w-32 h-32 mb-4">
-                <div className="absolute inset-0 rounded-full bg-gray-100"></div>
-                <div className="absolute inset-0 rounded-full">
-                  <div 
-                    className="absolute inset-0 rounded-full transition-all duration-500"
-                    style={{
-                      background: `conic-gradient(#3B82F6 ${overviewData.percent * 3.6}deg, #E5E7EB 0deg)`
-                    }}
-                  />
+
+            {/* Financial Summary */}
+            <div className="hov section-card" style={{ background: '#fff', borderRadius: 20, boxShadow: '0 2px 14px rgba(15,23,42,0.07)', border: '1px solid #f1f5f9', overflow: 'hidden' }}>
+              <div style={{ padding: '16px 22px', borderBottom: '1px solid #f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'linear-gradient(135deg, #fafcff 0%, #f8fafc 100%)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 11, background: 'linear-gradient(135deg, #f59e0b, #d97706)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(245,158,11,0.28)' }}>
+                    <IndianRupee style={{ width: 15, height: 15, color: '#fff' }} />
+                  </div>
+                  <div>
+                    <h3 style={{ color: '#0f172a', fontSize: 13, fontWeight: 800, margin: 0 }}>Financial Summary</h3>
+                    <p style={{ color: '#94a3b8', fontSize: 10, margin: 0 }}>Revenue & expenses</p>
+                  </div>
                 </div>
-                <div className="absolute inset-3 bg-white rounded-full flex flex-col items-center justify-center shadow-sm">
-                  <span className="text-lg font-bold text-gray-800">{overviewData.percent}%</span>
-                  <span className="text-[9px] text-gray-500 text-center px-1">{overviewData.label}</span>
-                </div>
+                <div style={{
+                  padding: '3px 10px', borderRadius: 20, fontSize: 10, fontWeight: 700,
+                  background: profitMargin >= 0 ? '#f0fdf4' : '#fff1f2',
+                  color: profitMargin >= 0 ? '#059669' : '#e11d48', ...mono
+                }}>{profitMargin.toFixed(1)}% margin</div>
               </div>
 
-              {/* Stats List */}
-              <div className="w-full space-y-2">
-                {overviewData.items.map((item, idx) => (
-                  <div key={idx} className={`${item.bgColor} rounded-lg p-2 flex items-center justify-between`}>
-                    <div className="flex items-center gap-2">
-                      <div className={`${item.color} p-1 rounded-md`}>
-                        <item.icon className="w-3 h-3 text-white" />
+              <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {[
+                  { label: 'Total Revenue', value: paymentStats.total_collected, sub: `${paymentStats.total_transactions} transactions`, color: '#0ea5e9', bg: '#f0f9ff', border: '#bae6fd', iconBg: '#e0f2fe', Icon: TrendingUp },
+                  { label: 'Total Expenses', value: expenseTotal, sub: `${expenses.length} expense records`, color: '#f43f5e', bg: '#fff1f2', border: '#fecdd3', iconBg: '#ffe4e6', Icon: TrendingDown },
+                  { label: 'Net Profit', value: netProfit, sub: `${profitMargin.toFixed(1)}% profit margin`, color: netProfit >= 0 ? '#8b5cf6' : '#f59e0b', bg: netProfit >= 0 ? '#faf5ff' : '#fffbeb', border: netProfit >= 0 ? '#e9d5ff' : '#fde68a', iconBg: netProfit >= 0 ? '#ede9fe' : '#fef3c7', Icon: IndianRupee },
+                ].map(({ label, value, sub, color, bg, border, iconBg, Icon }) => (
+                  <div key={label} style={{ background: bg, border: `1.5px solid ${border}`, borderRadius: 14, padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ width: 38, height: 38, borderRadius: 11, background: iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <Icon style={{ width: 16, height: 16, color }} />
                       </div>
-                      <span className="text-xs font-medium text-gray-700">{item.label}</span>
+                      <div>
+                        <p style={{ color: '#475569', fontSize: 10, margin: '0 0 2px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</p>
+                        <p style={{ color: '#94a3b8', fontSize: 10, margin: 0 }}>{sub}</p>
+                      </div>
                     </div>
-                    <span className="text-sm font-bold text-gray-800">{item.value}</span>
+                    {loading
+                      ? <div style={{ width: 72, height: 24, borderRadius: 6, background: '#f1f5f9', animation: 'shimmer 1.4s infinite', backgroundSize: '200% 100%' }} />
+                      : <span style={{ color, fontSize: 19, fontWeight: 800, ...mono, flexShrink: 0 }}>{formatCurrency(value)}</span>
+                    }
                   </div>
                 ))}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
 
-      {/* Payment Methods & Financial Summary */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-        {/* Payment Methods */}
-        <Card className="border-0 shadow-lg overflow-hidden">
-          <div className="bg-gradient-to-r from-[#004aad] to-[#002a7a] px-4 py-2">
-            <h3 className="text-white text-xs font-medium flex items-center gap-1">
-              <CreditCard className="h-3.5 w-3.5" />
-              Payment Methods
-            </h3>
-          </div>
-          <CardContent className="p-4">
-            {loading ? (
-              <div className="flex items-center justify-center h-48">
-                <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-              </div>
-            ) : paymentMethods.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-48 text-gray-400">
-                <CreditCard className="w-12 h-12 mb-2" />
-                <p className="text-sm">No payment data available</p>
-              </div>
-            ) : (
-              <div className="flex flex-col md:flex-row items-center gap-6">
-                <div className="w-40 h-40">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={paymentMethods}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={45}
-                        outerRadius={65}
-                        dataKey="value"
-                        label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
-                        labelLine={false}
-                      >
-                        {paymentMethods.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip formatter={(value) => [`${value} transactions`, 'Count']} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-                <div className="flex-1 space-y-2">
-                  {paymentMethods.map((method) => (
-                    <div key={method.name} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: method.color }} />
-                        <span className="text-xs text-gray-700">{method.name}</span>
-                      </div>
-                      <div className="text-right">
-                        <span className="text-xs font-medium text-gray-800">{method.value}</span>
-                        <span className="text-[10px] text-gray-400 ml-1">
-                          ({paymentStats.total_transactions > 0 ? Math.round((method.value / paymentStats.total_transactions) * 100) : 0}%)
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                  <div className="pt-2 border-t mt-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs font-medium text-gray-600">Total Transactions</span>
-                      <span className="text-sm font-bold text-gray-800">{paymentStats.total_transactions}</span>
-                    </div>
+                {/* Expense Ratio */}
+                <div style={{ padding: '12px 14px', background: '#f8fafc', borderRadius: 13, border: '1px solid #f1f5f9', marginTop: 2 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <span style={{ color: '#475569', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em' }}>Expense Ratio</span>
+                    <span style={{ color: '#0f172a', fontSize: 11, fontWeight: 800, ...mono }}>
+                      {paymentStats.total_collected > 0 ? Math.round((expenseTotal / paymentStats.total_collected) * 100) : 0}%
+                    </span>
                   </div>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Financial Summary */}
-        <Card className="border-0 shadow-lg overflow-hidden">
-          <div className="bg-gradient-to-r from-[#004aad] to-[#002a7a] px-4 py-2">
-            <h3 className="text-white text-xs font-medium flex items-center gap-1">
-              <IndianRupee className="h-3.5 w-3.5" />
-              Financial Summary
-            </h3>
-          </div>
-          <CardContent className="p-4">
-            <div className="space-y-3">
-              {/* Total Revenue */}
-              <div className="bg-green-50 rounded-lg p-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="p-1.5 bg-green-100 rounded-lg">
-                      <TrendingUp className="w-3.5 h-3.5 text-green-600" />
-                    </div>
-                    <span className="text-xs font-medium text-gray-700">Total Revenue</span>
+                  <div style={{ height: 8, background: '#e2e8f0', borderRadius: 99, overflow: 'hidden' }}>
+                    <div style={{
+                      height: '100%',
+                      width: `${paymentStats.total_collected > 0 ? Math.min((expenseTotal / paymentStats.total_collected) * 100, 100) : 0}%`,
+                      background: 'linear-gradient(90deg, #fbbf24, #f43f5e)',
+                      borderRadius: 99, transition: 'width 0.8s ease'
+                    }} />
                   </div>
-                  <span className="text-base font-bold text-gray-800">{formatCurrency(paymentStats.total_collected)}</span>
-                </div>
-                <div className="mt-1 text-right">
-                  <span className="text-[10px] text-gray-400">{paymentStats.total_transactions} transactions</span>
-                </div>
-              </div>
-
-              {/* Total Expenses */}
-              <div className="bg-red-50 rounded-lg p-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="p-1.5 bg-red-100 rounded-lg">
-                      <TrendingDown className="w-3.5 h-3.5 text-red-600" />
-                    </div>
-                    <span className="text-xs font-medium text-gray-700">Total Expenses</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
+                    <span style={{ color: '#94a3b8', fontSize: 9, fontWeight: 600 }}>Low risk</span>
+                    <span style={{ color: '#94a3b8', fontSize: 9, fontWeight: 600 }}>High risk</span>
                   </div>
-                  <span className="text-base font-bold text-gray-800">{formatCurrency(expenseTotal)}</span>
-                </div>
-                <div className="mt-1 text-right">
-                  <span className="text-[10px] text-gray-400">{expenses.length} expense records</span>
-                </div>
-              </div>
-
-              {/* Net Profit */}
-              <div className={`rounded-lg p-3 ${netProfit >= 0 ? 'bg-blue-50' : 'bg-amber-50'}`}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className={`p-1.5 rounded-lg ${netProfit >= 0 ? 'bg-blue-100' : 'bg-amber-100'}`}>
-                      <IndianRupee className={`w-3.5 h-3.5 ${netProfit >= 0 ? 'text-blue-600' : 'text-amber-600'}`} />
-                    </div>
-                    <span className="text-xs font-medium text-gray-700">Net Profit</span>
-                  </div>
-                  <span className={`text-base font-bold ${netProfit >= 0 ? 'text-blue-600' : 'text-amber-600'}`}>
-                    {formatCurrency(netProfit)}
-                  </span>
-                </div>
-                <div className="mt-1 text-right">
-                  <span className="text-[10px] text-gray-400">Margin: {profitMargin.toFixed(1)}%</span>
-                </div>
-              </div>
-
-              {/* Progress Bar */}
-              <div className="mt-2">
-                <div className="flex justify-between text-[10px] text-gray-500 mb-1">
-                  <span>Expense Ratio</span>
-                  <span>{paymentStats.total_collected > 0 ? Math.round((expenseTotal / paymentStats.total_collected) * 100) : 0}%</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-1.5">
-                  <div 
-                    className="bg-red-500 h-1.5 rounded-full transition-all"
-                    style={{ width: `${paymentStats.total_collected > 0 ? (expenseTotal / paymentStats.total_collected) * 100 : 0}%` }}
-                  />
                 </div>
               </div>
             </div>
-          </CardContent>
-        </Card>
+
+          </div>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
