@@ -1,13 +1,13 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { format } from 'date-fns';
 import {
   Building2, DoorOpen, Users, CreditCard, TrendingUp,
-  MoreVertical, Filter, ChevronDown, Calendar, X, BarChart3,
-  TrendingDown, IndianRupee, AlertCircle, Loader2, RefreshCw,
-  Wallet, Banknote, Landmark, Receipt, CheckCircle2, Clock,
-  Home, Bed as BedIcon, DollarSign, Sparkles, ArrowUpRight, ArrowDownRight, Zap
+  MoreVertical, ChevronDown, X, BarChart3,
+  TrendingDown, IndianRupee, Loader2, RefreshCw,
+  Bed as BedIcon, ArrowUpRight, ArrowDownRight, Home,
+  Zap, AlertCircle, CheckCircle2, Filter, Calendar,
+  Check, IndianRupeeIcon, FileText, Receipt, DollarSign
 } from 'lucide-react';
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import {
@@ -16,6 +16,7 @@ import {
   PieChart, Pie, Cell
 } from 'recharts';
 import { toast } from 'sonner';
+import { format } from 'date-fns';
 
 import * as paymentApi from '@/lib/paymentRecordApi';
 import { getExpenses, type Expense } from '@/lib/expenseApi';
@@ -26,6 +27,8 @@ import { listTenants } from '@/lib/tenantApi';
 type DateRangeType = 'week' | 'month' | 'quarter' | 'year' | 'all';
 type FinancialTab = 'all' | 'income' | 'expense' | 'profit';
 type ChartType = 'area' | 'line' | 'bar';
+type ComparisonMode = '1year' | '2year' | 'custom' | null;
+type OverviewType = 'beds' | 'rooms' | 'property' | 'tenants' | 'expenses' | 'income';
 
 interface MonthlyData {
   month: string;
@@ -36,25 +39,33 @@ interface MonthlyData {
   profit: number;
 }
 
+interface ExpenseStats {
+  total: number;
+  fixed: number;
+  variable: number;
+  ratio: number;
+}
+
+interface IncomeStats {
+  total: number;
+  rental: number;
+  other: number;
+  ratio: number;
+}
+
 // ── Custom Tooltip ─────────────────────────────────────────────────────────────
 const CustomTooltip = ({ active, payload, label, formatCurrency }: any) => {
   if (active && payload && payload.length) {
     return (
-      <div style={{
-        background: '#fff',
-        border: '1px solid #e8edf5',
-        borderRadius: '12px',
-        padding: '10px 14px',
-        boxShadow: '0 8px 32px rgba(15,23,60,0.12)',
-      }}>
-        <p style={{ color: '#94a3b8', fontSize: '10px', marginBottom: '6px', fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>{label}</p>
+      <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-xl shadow-navy-900/10">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">{label}</p>
         {payload.map((entry: any, i: number) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '2px' }}>
-            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: entry.color }} />
-            <span style={{ color: '#0f172a', fontSize: '12px', fontWeight: 700, fontFamily: 'DM Mono, monospace' }}>
+          <div key={i} className="flex items-center gap-2 mb-1">
+            <div className="w-2 h-2 rounded-full" style={{ background: entry.color }} />
+            <span className="text-[#0a1628] text-xs font-bold font-mono">
               {formatCurrency ? formatCurrency(entry.value) : entry.value}
             </span>
-            <span style={{ color: '#94a3b8', fontSize: '10px', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>{entry.name}</span>
+            <span className="text-slate-400 text-[10px]">{entry.name}</span>
           </div>
         ))}
       </div>
@@ -62,6 +73,32 @@ const CustomTooltip = ({ active, payload, label, formatCurrency }: any) => {
   }
   return null;
 };
+
+// ── Stat Card Component ──────────────────────────────────────────────────────
+const StatCard = ({ title, value, icon: Icon, color, bgColor, trend, trendValue, loading }: any) => (
+  <div className={`${bgColor} rounded-xl p-3 sm:p-4 shadow-sm hover:shadow-md transition-all duration-300 border border-gray-100 stat-hover`}>
+    <div className="flex items-start justify-between">
+      <div className={`${color} p-2 rounded-lg shadow-sm flex-shrink-0`}>
+        <Icon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+      </div>
+      {trend && (
+        <div className={`flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full
+          ${trend === 'up' ? 'text-green-700 bg-green-50' : 'text-red-600 bg-red-50'}`}>
+          {trend === 'up' ? <ArrowUpRight className="w-2.5 h-2.5" /> : <ArrowDownRight className="w-2.5 h-2.5" />}
+          {trendValue}%
+        </div>
+      )}
+    </div>
+    <div className="mt-3">
+      {loading ? (
+        <div className="shimmer h-7 w-4/5 mb-1" />
+      ) : (
+        <p className="text-xl sm:text-2xl font-bold text-gray-800">{value}</p>
+      )}
+      <p className="text-[11px] sm:text-xs font-medium text-gray-500 mt-1">{title}</p>
+    </div>
+  </div>
+);
 
 // ── Financial Trend Modal ──────────────────────────────────────────────────────
 const FinancialTrendChart: React.FC<{
@@ -76,8 +113,38 @@ const FinancialTrendChart: React.FC<{
   loading: boolean;
   formatCurrency: (amount: number) => string;
 }> = ({ data, activeTab, chartType, selectedYear, onTabChange, onChartTypeChange, onYearChange, onClose, loading, formatCurrency }) => {
+  const [showFilterPanel, setShowFilterPanel] = useState(false);
+  const [comparisonMode, setComparisonMode] = useState<ComparisonMode>('1year');
+  const [selectedYear1, setSelectedYear1] = useState<string>('');
+  const [selectedYear2, setSelectedYear2] = useState<string>('');
+  const [firstMonth, setFirstMonth] = useState<string>('');
+  const [firstYear, setFirstYear] = useState<string>('');
+  const [secondMonth, setSecondMonth] = useState<string>('');
+  const [secondYear, setSecondYear] = useState<string>('');
+
   const availableYears = useMemo(() => [...new Set(data.map(d => d.year))].sort((a, b) => b - a), [data]);
-  const filteredData = useMemo(() => selectedYear === 'all' ? data : data.filter(d => d.year === selectedYear), [data, selectedYear]);
+  const allMonths = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+  const getFilteredData = useCallback(() => {
+    let filtered = selectedYear === 'all' ? data : data.filter(d => d.year === selectedYear);
+    
+    if (comparisonMode === '2year' && selectedYear1 && selectedYear2) {
+      const y1 = parseInt(selectedYear1);
+      const y2 = parseInt(selectedYear2);
+      filtered = data.filter(d => d.year === y1 || d.year === y2);
+    } else if (comparisonMode === 'custom' && firstMonth && firstYear && secondMonth && secondYear) {
+      const m1Index = allMonths.indexOf(firstMonth);
+      const m2Index = allMonths.indexOf(secondMonth);
+      filtered = data.filter(d => 
+        (d.month_num === m1Index && d.year === parseInt(firstYear)) ||
+        (d.month_num === m2Index && d.year === parseInt(secondYear))
+      );
+    }
+    
+    return filtered;
+  }, [data, selectedYear, comparisonMode, selectedYear1, selectedYear2, firstMonth, firstYear, secondMonth, secondYear, allMonths]);
+
+  const filteredData = getFilteredData();
 
   const chartData = useMemo(() => {
     if (activeTab === 'income') return filteredData.map(d => ({ month: `${d.month.substring(0, 3)} ${d.year}`, value: d.income }));
@@ -93,13 +160,22 @@ const FinancialTrendChart: React.FC<{
   const avgExpense = filteredData.length ? Math.round(totalExpense / filteredData.length) : 0;
   const avgProfit = filteredData.length ? Math.round(totalProfit / filteredData.length) : 0;
 
-  const colors = { income: '#0ea5e9', expense: '#f43f5e', profit: '#8b5cf6' };
-  const axisStyle = { fill: '#94a3b8', fontSize: 10, fontFamily: 'DM Mono, monospace' };
+  const colors = { income: '#1e40af', expense: '#dc2626', profit: '#eab308' };
+  const axisStyle = { fill: '#94a3b8', fontSize: 10, fontFamily: 'monospace' };
   const gridStyle = { stroke: '#f1f5f9', strokeDasharray: '4 4' };
 
   const renderChart = () => {
-    if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}><Loader2 style={{ width: 28, height: 28, color: '#8b5cf6', animation: 'spin 1s linear infinite' }} /></div>;
-    if (!chartData.length) return <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#cbd5e1' }}><BarChart3 style={{ width: 36, height: 36, marginBottom: 8 }} /><p style={{ fontSize: 12, margin: 0 }}>No data</p></div>;
+    if (loading) return (
+      <div className="flex items-center justify-center h-full">
+        <Loader2 className="w-7 h-7 text-navy-700 animate-spin" style={{ color: '#1e3a5f' }} />
+      </div>
+    );
+    if (!chartData.length) return (
+      <div className="flex flex-col items-center justify-center h-full text-slate-300">
+        <BarChart3 className="w-9 h-9 mb-2" />
+        <p className="text-xs">No data available</p>
+      </div>
+    );
 
     const commonProps = { margin: { top: 10, right: 10, left: 0, bottom: 20 } };
 
@@ -108,7 +184,7 @@ const FinancialTrendChart: React.FC<{
         <defs>
           {(['income', 'expense', 'profit'] as const).map(k => (
             <linearGradient key={k} id={`grad_${k}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor={colors[k]} stopOpacity={0.15} />
+              <stop offset="5%" stopColor={colors[k]} stopOpacity={0.18} />
               <stop offset="95%" stopColor={colors[k]} stopOpacity={0} />
             </linearGradient>
           ))}
@@ -117,7 +193,7 @@ const FinancialTrendChart: React.FC<{
         <XAxis dataKey="month" axisLine={false} tickLine={false} tick={axisStyle} dy={10} />
         <YAxis axisLine={false} tickLine={false} tick={axisStyle} tickFormatter={formatCurrency} width={72} />
         <Tooltip content={<CustomTooltip formatCurrency={formatCurrency} />} />
-        <Legend verticalAlign="top" align="right" iconType="circle" wrapperStyle={{ paddingBottom: 10, fontSize: 10, fontFamily: 'Plus Jakarta Sans, sans-serif', color: '#64748b' }} />
+        <Legend verticalAlign="top" align="right" iconType="circle" wrapperStyle={{ paddingBottom: 10, fontSize: 10, color: '#64748b' }} />
         {activeTab === 'all' ? (
           <>
             <Area type="monotone" dataKey="income" stroke={colors.income} strokeWidth={2.5} fill="url(#grad_income)" name="Income" />
@@ -136,12 +212,12 @@ const FinancialTrendChart: React.FC<{
         <XAxis dataKey="month" axisLine={false} tickLine={false} tick={axisStyle} dy={10} />
         <YAxis axisLine={false} tickLine={false} tick={axisStyle} tickFormatter={formatCurrency} width={72} />
         <Tooltip content={<CustomTooltip formatCurrency={formatCurrency} />} />
-        <Legend verticalAlign="top" align="right" iconType="circle" wrapperStyle={{ paddingBottom: 10, fontSize: 10, fontFamily: 'Plus Jakarta Sans, sans-serif', color: '#64748b' }} />
+        <Legend verticalAlign="top" align="right" iconType="circle" wrapperStyle={{ paddingBottom: 10, fontSize: 10, color: '#64748b' }} />
         {activeTab === 'all' ? (
           <>
-            <Line type="monotone" dataKey="income" stroke={colors.income} strokeWidth={2.5} dot={{ r: 3, fill: colors.income }} name="Income" />
-            <Line type="monotone" dataKey="expense" stroke={colors.expense} strokeWidth={2.5} strokeDasharray="6 3" dot={{ r: 3, fill: colors.expense }} name="Expense" />
-            <Line type="monotone" dataKey="profit" stroke={colors.profit} strokeWidth={2.5} dot={{ r: 3, fill: colors.profit }} name="Profit" />
+            <Line type="monotone" dataKey="income" stroke={colors.income} strokeWidth={2.5} dot={{ r: 3 }} name="Income" />
+            <Line type="monotone" dataKey="expense" stroke={colors.expense} strokeWidth={2.5} strokeDasharray="6 3" dot={{ r: 3 }} name="Expense" />
+            <Line type="monotone" dataKey="profit" stroke={colors.profit} strokeWidth={2.5} dot={{ r: 3 }} name="Profit" />
           </>
         ) : (
           <Line type="monotone" dataKey="value" stroke={colors[activeTab]} strokeWidth={2.5} dot={{ r: 3 }} name={activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} />
@@ -155,7 +231,7 @@ const FinancialTrendChart: React.FC<{
         <XAxis dataKey="month" axisLine={false} tickLine={false} tick={axisStyle} dy={10} />
         <YAxis axisLine={false} tickLine={false} tick={axisStyle} tickFormatter={formatCurrency} width={72} />
         <Tooltip content={<CustomTooltip formatCurrency={formatCurrency} />} />
-        <Legend verticalAlign="top" align="right" iconType="circle" wrapperStyle={{ paddingBottom: 10, fontSize: 10, fontFamily: 'Plus Jakarta Sans, sans-serif', color: '#64748b' }} />
+        <Legend verticalAlign="top" align="right" iconType="circle" wrapperStyle={{ paddingBottom: 10, fontSize: 10, color: '#64748b' }} />
         {activeTab === 'all' ? (
           <>
             <Bar dataKey="income" fill={colors.income} name="Income" radius={[5, 5, 0, 0]} />
@@ -170,76 +246,84 @@ const FinancialTrendChart: React.FC<{
   };
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.45)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 16 }}>
-      <div style={{ background: '#fff', borderRadius: '24px', width: '100%', maxWidth: 940, maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 40px 80px rgba(15,23,42,0.2), 0 0 0 1px rgba(15,23,42,0.06)' }}>
-        <div style={{ padding: '18px 24px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'linear-gradient(135deg, #fafbff 0%, #f8fafc 100%)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(139,92,246,0.3)' }}>
-              <BarChart3 style={{ width: 16, height: 16, color: '#fff' }} />
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(10,22,40,0.55)', backdropFilter: 'blur(6px)' }}>
+      <div className="bg-white rounded-3xl w-full max-w-[1200px] max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
+        {/* Modal Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-[#0f2462] via-[#0d3184] to-[#133ec0]">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center"
+              style={{ background: 'rgba(234,179,8,0.2)', border: '1.5px solid rgba(234,179,8,0.4)' }}>
+              <BarChart3 className="w-4 h-4" style={{ color: '#eab308' }} />
             </div>
             <div>
-              <h2 style={{ color: '#0f172a', fontSize: 14, fontWeight: 800, margin: 0, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>Financial Trend Analysis</h2>
-              <p style={{ color: '#94a3b8', fontSize: 11, margin: 0 }}>{filteredData.length} months of data</p>
+              <h2 className="text-white text-sm font-bold">Financial Trend Analysis</h2>
+              <p className="text-slate-300 text-[10px]">{filteredData.length} months of data</p>
             </div>
           </div>
-          <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 8, background: '#f8fafc', border: '1px solid #e8edf5', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <X style={{ width: 14, height: 14, color: '#64748b' }} />
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setShowFilterPanel(!showFilterPanel)}
+              className="w-8 h-8 rounded-lg flex items-center justify-center transition-all"
+              style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)' }}>
+              <Filter className="w-3.5 h-3.5 text-slate-300" />
+            </button>
+            <button onClick={onClose}
+              className="w-8 h-8 rounded-lg flex items-center justify-center transition-all hover:opacity-80"
+              style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)' }}>
+              <X className="w-3.5 h-3.5 text-slate-300" />
+            </button>
+          </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14, padding: '16px 24px', borderBottom: '1px solid #f1f5f9', background: '#fafbff' }}>
+        {/* Summary Stats */}
+        <div className="grid grid-cols-3 gap-4 px-6 py-4 border-b border-slate-100 bg-slate-50">
           {[
-            { label: 'Total Income', val: totalIncome, avg: avgIncome, color: '#0ea5e9', bg: '#f0f9ff', border: '#bae6fd', Icon: TrendingUp },
-            { label: 'Total Expense', val: totalExpense, avg: avgExpense, color: '#f43f5e', bg: '#fff1f2', border: '#fecdd3', Icon: TrendingDown },
-            { label: 'Net Profit', val: totalProfit, avg: avgProfit, color: '#8b5cf6', bg: '#faf5ff', border: '#e9d5ff', Icon: IndianRupee },
+            { label: 'Total Income', val: totalIncome, avg: avgIncome, color: '#1e40af', bg: '#eff6ff', border: '#bfdbfe', Icon: TrendingUp },
+            { label: 'Total Expense', val: totalExpense, avg: avgExpense, color: '#dc2626', bg: '#fef2f2', border: '#fecaca', Icon: TrendingDown },
+            { label: 'Net Profit', val: totalProfit, avg: avgProfit, color: '#854d0e', bg: '#fefce8', border: '#fef08a', Icon: IndianRupee },
           ].map(({ label, val, avg, color, bg, border, Icon }) => (
-            <div key={label} style={{ background: bg, border: `1px solid ${border}`, borderRadius: 14, padding: '14px 16px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                <Icon style={{ width: 13, height: 13, color }} />
-                <span style={{ color: '#64748b', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>{label}</span>
+            <div key={label} className="rounded-2xl p-4" style={{ background: bg, border: `1.5px solid ${border}` }}>
+              <div className="flex items-center gap-1.5 mb-2">
+                <Icon className="w-3 h-3" style={{ color }} />
+                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{label}</span>
               </div>
-              <p style={{ color, fontSize: 22, fontWeight: 800, margin: 0, fontFamily: 'DM Mono, monospace' }}>{formatCurrency(val)}</p>
-              <p style={{ color: '#94a3b8', fontSize: 10, margin: '4px 0 0' }}>Avg/month: <strong style={{ color: '#64748b', fontFamily: 'DM Mono, monospace' }}>{formatCurrency(avg)}</strong></p>
+              <p className="font-bold text-2xl font-mono mb-1" style={{ color }}>{formatCurrency(val)}</p>
+              <p className="text-[10px] text-slate-400">Avg/month: <strong className="font-mono text-slate-600">{formatCurrency(avg)}</strong></p>
             </div>
           ))}
         </div>
 
-        <div style={{ padding: '12px 24px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ display: 'flex', background: '#f1f5f9', borderRadius: 10, padding: 3 }}>
+        {/* Controls */}
+        <div className="flex items-center justify-between flex-wrap gap-3 px-6 py-3 border-b border-slate-100">
+          <div className="flex items-center gap-2">
+            <div className="flex bg-slate-100 rounded-xl p-1">
               {(['all', 'income', 'expense', 'profit'] as FinancialTab[]).map(tab => (
-                <button key={tab} onClick={() => onTabChange(tab)} style={{
-                  padding: '5px 13px', borderRadius: 7, border: 'none', cursor: 'pointer', fontSize: 11,
-                  fontWeight: 700, fontFamily: 'Plus Jakarta Sans, sans-serif', transition: 'all 0.18s',
-                  background: activeTab === tab ? '#fff' : 'transparent',
-                  color: activeTab === tab ? '#0f172a' : '#94a3b8',
-                  boxShadow: activeTab === tab ? '0 1px 4px rgba(15,23,42,0.1)' : 'none'
-                }}>{tab === 'all' ? 'All' : tab.charAt(0).toUpperCase() + tab.slice(1)}</button>
+                <button key={tab} onClick={() => onTabChange(tab)}
+                  className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all ${activeTab === tab ? 'bg-white text-[#0a1628] shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>
+                  {tab === 'all' ? 'All' : tab.charAt(0).toUpperCase() + tab.slice(1)}
+                </button>
               ))}
             </div>
-            <div style={{ display: 'flex', background: '#f1f5f9', borderRadius: 10, padding: 3, gap: 2 }}>
+            <div className="flex bg-slate-100 rounded-xl p-1 gap-1">
               {(['area', 'line', 'bar'] as ChartType[]).map(type => (
-                <button key={type} onClick={() => onChartTypeChange(type)} style={{
-                  width: 30, height: 30, borderRadius: 7, border: 'none', cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.18s',
-                  background: chartType === type ? '#fff' : 'transparent',
-                  boxShadow: chartType === type ? '0 1px 4px rgba(15,23,42,0.1)' : 'none'
-                }}>
-                  {type === 'line' ? <TrendingUp style={{ width: 13, height: 13, color: chartType === type ? '#8b5cf6' : '#94a3b8' }} /> : <BarChart3 style={{ width: 13, height: 13, color: chartType === type ? '#8b5cf6' : '#94a3b8' }} />}
+                <button key={type} onClick={() => onChartTypeChange(type)}
+                  className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${chartType === type ? 'bg-white shadow-sm' : ''}`}>
+                  {type === 'area' && <BarChart3 className="w-3.5 h-3.5" style={{ color: chartType === type ? '#1e3a5f' : '#94a3b8' }} />}
+                  {type === 'line' && <TrendingUp className="w-3.5 h-3.5" style={{ color: chartType === type ? '#1e3a5f' : '#94a3b8' }} />}
+                  {type === 'bar' && <BarChart3 className="w-3.5 h-3.5" style={{ color: chartType === type ? '#1e3a5f' : '#94a3b8' }} />}
                 </button>
               ))}
             </div>
           </div>
-          <select value={selectedYear} onChange={e => onYearChange(e.target.value === 'all' ? 'all' : parseInt(e.target.value))} style={{
-            background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 9, padding: '6px 12px',
-            color: '#475569', fontSize: 11, fontFamily: 'Plus Jakarta Sans, sans-serif', cursor: 'pointer', outline: 'none'
-          }}>
+          <select value={selectedYear} onChange={e => onYearChange(e.target.value === 'all' ? 'all' : parseInt(e.target.value))}
+            className="bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-slate-600 text-[11px] font-semibold outline-none cursor-pointer">
             <option value="all">All Years</option>
             {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
           </select>
         </div>
 
-        <div style={{ flex: 1, padding: '16px 24px', minHeight: 300 }}>
+        {/* Chart */}
+        <div className="flex-1 px-6 py-4 min-h-[300px]">
           <ResponsiveContainer width="100%" height={280}>{renderChart()}</ResponsiveContainer>
         </div>
       </div>
@@ -247,31 +331,49 @@ const FinancialTrendChart: React.FC<{
   );
 };
 
+// ── Shimmer skeleton ───────────────────────────────────────────────────────────
+const Skeleton = ({ className = '' }: { className?: string }) => (
+  <div className={`animate-pulse bg-slate-200 rounded-lg ${className}`} />
+);
+
 // ── Main Dashboard ─────────────────────────────────────────────────────────────
 export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const [propertyStats, setPropertyStats] = useState({ total: 0, active: 0 });
-  const [roomStats, setRoomStats] = useState({ total: 0, active: 0, totalBeds: 0, occupiedBeds: 0 });
-  const [tenantStats, setTenantStats] = useState({ total: 0, active: 0 });
+  // State for real data
+  const [propertyStats, setPropertyStats] = useState({ total: 0, active: 0, inactive: 0 });
+  const [roomStats, setRoomStats] = useState({ total: 0, active: 0, inactive: 0, totalBeds: 0, occupiedBeds: 0 });
+  const [tenantStats, setTenantStats] = useState({ total: 0, active: 0, inactive: 0 });
   const [allPayments, setAllPayments] = useState<any[]>([]);
   const [paymentStats, setPaymentStats] = useState({
     total_collected: 0, total_transactions: 0, cash_payments: 0,
     online_payments: 0, bank_transfers: 0, card_payments: 0,
-    cheque_payments: 0, current_month_collected: 0, rent_collected: 0
+    cheque_payments: 0, current_month_collected: 0, rent_collected: 0,
+    pending_amount: 0
   });
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [expenseTotal, setExpenseTotal] = useState(0);
   const [monthlyData, setMonthlyData] = useState<MonthlyData[]>([]);
   const [dateRange, setDateRange] = useState<DateRangeType>('year');
-
+  const [selectedOverview, setSelectedOverview] = useState<OverviewType>('beds');
+  const [showOverviewMenu, setShowOverviewMenu] = useState(false);
   const [showFinancialTrend, setShowFinancialTrend] = useState(false);
   const [financialTab, setFinancialTab] = useState<FinancialTab>('all');
   const [chartType, setChartType] = useState<ChartType>('area');
   const [financialYear, setFinancialYear] = useState<number | 'all'>('all');
-  const [selectedOverview, setSelectedOverview] = useState<string>('beds');
-  const [showOverviewMenu, setShowOverviewMenu] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [showDateCalendar, setShowDateCalendar] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState('January');
+  const [selectedYear, setSelectedYear] = useState<number | 'all'>('all');
+  const [showMonthCalendar, setShowMonthCalendar] = useState(false);
+  const [showYearCalendar, setShowYearCalendar] = useState(false);
+  const [yearRange, setYearRange] = useState(2020);
+  const [comparisonMode, setComparisonMode] = useState<ComparisonMode>('1year');
+  const [animatedHeights, setAnimatedHeights] = useState<number[]>([]);
+
+  const allMonths = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const allAvailableYears = [2024, 2023, 2022, 2021, 2020];
 
   const formatCurrency = (amount: number) => {
     if (amount >= 10000000) return `₹${(amount / 10000000).toFixed(1)}Cr`;
@@ -310,52 +412,93 @@ export default function AdminDashboard() {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
+      // Load properties
       const propertiesRes = await listProperties({ pageSize: 1000 });
       const propertiesData = propertiesRes.success ? (propertiesRes.data?.data || propertiesRes.data || []) : [];
-      setPropertyStats({ total: propertiesData.length, active: propertiesData.filter((p: any) => p.is_active === true).length });
+      const totalProperties = propertiesData.length;
+      const activeProperties = propertiesData.filter((p: any) => p.is_active === true).length;
+      setPropertyStats({ total: totalProperties, active: activeProperties, inactive: totalProperties - activeProperties });
 
+      // Load rooms
       const roomsRes = await listRooms();
       const roomsData = roomsRes.success ? (roomsRes.data || []) : [];
+      const totalRooms = roomsData.length;
+      const activeRooms = roomsData.filter((r: any) => r.is_active === true).length;
       const totalBeds = roomsData.reduce((s: number, r: any) => s + (Number(r.total_bed) || Number(r.total_beds) || 0), 0);
       const occupiedBeds = roomsData.reduce((s: number, r: any) => s + (Number(r.occupied_beds) || 0), 0);
-      setRoomStats({ total: roomsData.length, active: roomsData.filter((r: any) => r.is_active === true).length, totalBeds, occupiedBeds });
+      setRoomStats({ total: totalRooms, active: activeRooms, inactive: totalRooms - activeRooms, totalBeds, occupiedBeds });
 
+      // Load tenants
       const tenantsRes = await listTenants({ pageSize: 1000 });
       const tenantsData = tenantsRes.success ? (tenantsRes.data || []) : [];
-      setTenantStats({ total: tenantsData.length, active: tenantsData.filter((t: any) => t.is_active === true || t.status === 'active').length });
+      const totalTenants = tenantsData.length;
+      const activeTenants = tenantsData.filter((t: any) => t.is_active === true || t.status === 'active').length;
+      setTenantStats({ total: totalTenants, active: activeTenants, inactive: totalTenants - activeTenants });
 
+      // Load payments
       const paymentsRes = await paymentApi.getPayments();
       let pmts: any[] = [];
       if (paymentsRes.success && paymentsRes.data) {
-        pmts = paymentsRes.data; setAllPayments(pmts);
+        pmts = paymentsRes.data;
+        setAllPayments(pmts);
         const ap = pmts.filter((p: any) => p.status === 'approved' || p.status === 'paid');
         const totalCollected = ap.reduce((s: number, p: any) => s + (Number(p.amount) || 0), 0);
         const cd = new Date();
         const cm = ap.filter((p: any) => { const d = new Date(p.payment_date); return d.getMonth() === cd.getMonth() && d.getFullYear() === cd.getFullYear(); });
+        const pending = ap.filter((p: any) => p.status === 'pending').reduce((s: number, p: any) => s + (Number(p.amount) || 0), 0);
         setPaymentStats({
-          total_collected: totalCollected, total_transactions: ap.length,
+          total_collected: totalCollected,
+          total_transactions: ap.length,
           cash_payments: ap.filter((p: any) => p.payment_mode === 'cash').length,
           online_payments: ap.filter((p: any) => p.payment_mode === 'online').length,
           bank_transfers: ap.filter((p: any) => p.payment_mode === 'bank_transfer').length,
           card_payments: ap.filter((p: any) => p.payment_mode === 'card').length,
           cheque_payments: ap.filter((p: any) => p.payment_mode === 'cheque').length,
           current_month_collected: cm.reduce((s: number, p: any) => s + (Number(p.amount) || 0), 0),
-          rent_collected: ap.filter((p: any) => p.payment_type === 'rent').reduce((s: number, p: any) => s + (Number(p.amount) || 0), 0)
+          rent_collected: ap.filter((p: any) => p.payment_type === 'rent').reduce((s: number, p: any) => s + (Number(p.amount) || 0), 0),
+          pending_amount: pending
         });
       }
-      const expData = await getExpenses(); setExpenses(expData);
+
+      // Load expenses
+      const expData = await getExpenses();
+      setExpenses(expData);
       setExpenseTotal(expData.reduce((s, e) => s + (Number(e.total_amount) || 0), 0));
+
       await generateChartData(pmts, expData);
     } catch (error) {
-      console.error(error); toast.error('Failed to load dashboard data');
-    } finally { setLoading(false); }
+      console.error(error);
+      toast.error('Failed to load dashboard data');
+    } finally {
+      setLoading(false);
+    }
   }, [generateChartData]);
 
   useEffect(() => { loadData(); }, []);
-  useEffect(() => { if (allPayments.length > 0 || expenses.length > 0) generateChartData(allPayments, expenses); }, [dateRange, allPayments, expenses]);
+  useEffect(() => { if (allPayments.length > 0 || expenses.length > 0) generateChartData(allPayments, expenses); }, [dateRange]);
 
-  const handleRefresh = async () => { setRefreshing(true); await loadData(); setRefreshing(false); toast.success('Dashboard refreshed'); };
+  // Animate bar heights
+  useEffect(() => {
+    setAnimatedHeights([]);
+    const chartData = monthlyData.slice(-6).map(d => ({ month: d.month.substring(0, 3), amount: d.income }));
+    const timers = chartData.map((_, i) =>
+      setTimeout(() => setAnimatedHeights(prev => prev.includes(i) ? prev : [...prev, i]), i * 150)
+    );
+    return () => timers.forEach(clearTimeout);
+  }, [monthlyData]);
 
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+    toast.success('Dashboard refreshed');
+  };
+
+  const handleYearSelect = (year: number) => { setSelectedYear(year); setShowYearCalendar(false); };
+  const handleMonthSelect = (month: string) => { setSelectedMonth(month); setShowMonthCalendar(false); };
+  const handleDateSelect = (date: Date) => { setSelectedDate(date); setShowDateCalendar(false); };
+
+  // Calculated values
   const occupancyPercent = roomStats.totalBeds > 0 ? Math.round((roomStats.occupiedBeds / roomStats.totalBeds) * 100) : 0;
   const propertyOccupancyPercent = propertyStats.total > 0 ? Math.round((propertyStats.active / propertyStats.total) * 100) : 0;
   const tenantOccupancyPercent = tenantStats.total > 0 ? Math.round((tenantStats.active / tenantStats.total) * 100) : 0;
@@ -363,476 +506,571 @@ export default function AdminDashboard() {
   const profitMargin = paymentStats.total_collected > 0 ? (netProfit / paymentStats.total_collected) * 100 : 0;
   const currentMonth = monthlyData[monthlyData.length - 1];
   const previousMonth = monthlyData[monthlyData.length - 2];
-  const mom = currentMonth && previousMonth && previousMonth.income > 0 ? ((currentMonth.income - previousMonth.income) / previousMonth.income) * 100 : 0;
+  const mom = currentMonth && previousMonth && previousMonth.income > 0
+    ? ((currentMonth.income - previousMonth.income) / previousMonth.income) * 100 : 0;
+
+  // Expense and Income stats for overview
+  const expenseStats: ExpenseStats = {
+    total: expenseTotal,
+    fixed: Math.round(expenseTotal * 0.6),
+    variable: Math.round(expenseTotal * 0.4),
+    ratio: paymentStats.total_collected > 0 ? Math.round((expenseTotal / paymentStats.total_collected) * 100) : 0
+  };
+
+  const incomeStats: IncomeStats = {
+    total: paymentStats.total_collected,
+    rental: paymentStats.rent_collected,
+    other: paymentStats.total_collected - paymentStats.rent_collected,
+    ratio: paymentStats.total_collected > 0 ? Math.round((paymentStats.rent_collected / paymentStats.total_collected) * 100) : 0
+  };
 
   const chartData = monthlyData.slice(-6).map(d => ({ month: d.month.substring(0, 3), amount: d.income }));
   const maxAmount = Math.max(...chartData.map(d => d.amount), 1);
 
   const paymentMethods = [
-    { name: 'Cash', value: paymentStats.cash_payments, color: '#10b981' },
-    { name: 'Online', value: paymentStats.online_payments, color: '#0ea5e9' },
-    { name: 'Bank Transfer', value: paymentStats.bank_transfers, color: '#8b5cf6' },
-    { name: 'Card', value: paymentStats.card_payments, color: '#f43f5e' },
-    { name: 'Cheque', value: paymentStats.cheque_payments, color: '#f59e0b' },
+    { name: 'Cash', value: paymentStats.cash_payments, color: '#16a34a' },
+    { name: 'Online', value: paymentStats.online_payments, color: '#1d4ed8' },
+    { name: 'Bank Transfer', value: paymentStats.bank_transfers, color: '#0a1628' },
+    { name: 'Card', value: paymentStats.card_payments, color: '#ca8a04' },
+    { name: 'Cheque', value: paymentStats.cheque_payments, color: '#7c3aed' },
   ].filter(m => m.value > 0);
 
   const getOverviewData = () => {
-    const configs: Record<string, any> = {
-      beds: { title: 'Beds', percent: occupancyPercent, label: 'Occupied', color: '#0ea5e9', items: [{ label: 'Total Beds', value: roomStats.totalBeds, color: '#0ea5e9', icon: BedIcon }, { label: 'Occupied', value: roomStats.occupiedBeds, color: '#10b981', icon: Users }, { label: 'Available', value: roomStats.totalBeds - roomStats.occupiedBeds, color: '#f59e0b', icon: BedIcon }] },
-      rooms: { title: 'Rooms', percent: roomStats.total > 0 ? Math.round((roomStats.active / roomStats.total) * 100) : 0, label: 'Occupied', color: '#8b5cf6', items: [{ label: 'Total Rooms', value: roomStats.total, color: '#8b5cf6', icon: DoorOpen }, { label: 'Occupied', value: roomStats.active, color: '#10b981', icon: Home }, { label: 'Vacant', value: roomStats.total - roomStats.active, color: '#f59e0b', icon: DoorOpen }] },
-      property: { title: 'Properties', percent: propertyOccupancyPercent, label: 'Active', color: '#f43f5e', items: [{ label: 'Total', value: propertyStats.total, color: '#f43f5e', icon: Building2 }, { label: 'Active', value: propertyStats.active, color: '#10b981', icon: Building2 }] },
-      tenants: { title: 'Tenants', percent: tenantOccupancyPercent, label: 'Active', color: '#f59e0b', items: [{ label: 'Total', value: tenantStats.total, color: '#f59e0b', icon: Users }, { label: 'Active', value: tenantStats.active, color: '#10b981', icon: Users }, { label: 'Inactive', value: tenantStats.total - tenantStats.active, color: '#f43f5e', icon: Users }] },
+    const configs: Record<OverviewType, any> = {
+      beds: {
+        title: 'Beds', percent: occupancyPercent, label: 'Occupied', color: '#1e3a5f',
+        items: [
+          { label: 'Total Beds', value: roomStats.totalBeds, color: '#1e40af', bg: '#eff6ff', icon: BedIcon },
+          { label: 'Occupied', value: roomStats.occupiedBeds, color: '#15803d', bg: '#f0fdf4', icon: Users },
+          { label: 'Available', value: roomStats.totalBeds - roomStats.occupiedBeds, color: '#b45309', bg: '#fefce8', icon: BedIcon }
+        ]
+      },
+      rooms: {
+        title: 'Rooms', percent: roomStats.total > 0 ? Math.round((roomStats.active / roomStats.total) * 100) : 0, label: 'Occupied', color: '#1e3a5f',
+        items: [
+          { label: 'Total Rooms', value: roomStats.total, color: '#1e40af', bg: '#eff6ff', icon: DoorOpen },
+          { label: 'Occupied', value: roomStats.active, color: '#15803d', bg: '#f0fdf4', icon: Home },
+          { label: 'Vacant', value: roomStats.inactive, color: '#b45309', bg: '#fefce8', icon: DoorOpen }
+        ]
+      },
+      property: {
+        title: 'Properties', percent: propertyOccupancyPercent, label: 'Active', color: '#1e3a5f',
+        items: [
+          { label: 'Total', value: propertyStats.total, color: '#1e40af', bg: '#eff6ff', icon: Building2 },
+          { label: 'Active', value: propertyStats.active, color: '#15803d', bg: '#f0fdf4', icon: Building2 },
+          { label: 'Inactive', value: propertyStats.inactive, color: '#dc2626', bg: '#fef2f2', icon: Building2 }
+        ]
+      },
+      tenants: {
+        title: 'Tenants', percent: tenantOccupancyPercent, label: 'Active', color: '#1e3a5f',
+        items: [
+          { label: 'Total', value: tenantStats.total, color: '#1e40af', bg: '#eff6ff', icon: Users },
+          { label: 'Active', value: tenantStats.active, color: '#15803d', bg: '#f0fdf4', icon: Users },
+          { label: 'Inactive', value: tenantStats.inactive, color: '#dc2626', bg: '#fef2f2', icon: Users }
+        ]
+      },
+      expenses: {
+        title: 'Expenses', percent: expenseStats.ratio, label: 'Ratio', color: '#dc2626',
+        items: [
+          { label: 'Total Expenses', value: formatCurrency(expenseStats.total), color: '#dc2626', bg: '#fef2f2', icon: TrendingDown },
+          { label: 'Fixed Costs', value: formatCurrency(expenseStats.fixed), color: '#ea580c', bg: '#fff7ed', icon: FileText },
+          { label: 'Variable Costs', value: formatCurrency(expenseStats.variable), color: '#9333ea', bg: '#faf5ff', icon: Receipt }
+        ]
+      },
+      income: {
+        title: 'Income', percent: incomeStats.ratio, label: 'Rental %', color: '#10b981',
+        items: [
+          { label: 'Total Income', value: formatCurrency(incomeStats.total), color: '#10b981', bg: '#f0fdf4', icon: TrendingUp },
+          { label: 'Rental Income', value: formatCurrency(incomeStats.rental), color: '#1d4ed8', bg: '#eff6ff', icon: Users },
+          { label: 'Other Income', value: formatCurrency(incomeStats.other), color: '#854d0e', bg: '#fefce8', icon: DollarSign }
+        ]
+      },
     };
     return configs[selectedOverview] || configs.beds;
   };
   const overviewData = getOverviewData();
 
+  // Stat cards configuration
   const statCards = [
-    { title: 'Properties', value: propertyStats.total, sub: `${propertyStats.active} active`, icon: Building2, grad: 'linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%)', light: '#f0f9ff', accent: '#0ea5e9', shadow: 'rgba(14,165,233,0.22)', trend: 'up', tv: '12' },
-    { title: 'Total Rooms', value: roomStats.total, sub: `${roomStats.active} occupied`, icon: DoorOpen, grad: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)', light: '#faf5ff', accent: '#8b5cf6', shadow: 'rgba(139,92,246,0.22)', trend: 'up', tv: '8' },
-    { title: 'Bed Occupancy', value: `${roomStats.occupiedBeds}/${roomStats.totalBeds}`, sub: `${occupancyPercent}% filled`, icon: BedIcon, grad: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', light: '#f0fdf4', accent: '#10b981', shadow: 'rgba(16,185,129,0.22)', trend: 'up', tv: '5' },
-    { title: 'Active Tenants', value: tenantStats.active, sub: `of ${tenantStats.total} total`, icon: Users, grad: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', light: '#fffbeb', accent: '#f59e0b', shadow: 'rgba(245,158,11,0.22)', trend: 'up', tv: '3' },
-    { title: 'Monthly Revenue', value: formatCurrency(paymentStats.current_month_collected), sub: 'vs last month', icon: IndianRupee, grad: mom >= 0 ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 'linear-gradient(135deg, #f43f5e 0%, #e11d48 100%)', light: mom >= 0 ? '#f0fdf4' : '#fff1f2', accent: mom >= 0 ? '#10b981' : '#f43f5e', shadow: mom >= 0 ? 'rgba(16,185,129,0.22)' : 'rgba(244,63,94,0.22)', trend: mom >= 0 ? 'up' : 'down', tv: Math.abs(mom).toFixed(1) },
+    { title: 'Total Properties', value: propertyStats.total, icon: Building2, color: 'bg-blue-600', bgColor: 'bg-gradient-to-br from-blue-50 to-blue-100', trend: null, trendValue: null },
+    { title: 'Total Rooms', value: roomStats.total, icon: DoorOpen, color: 'bg-purple-600', bgColor: 'bg-gradient-to-br from-purple-50 to-purple-100', trend: null, trendValue: null },
+    { title: 'Bed Occupancy', value: `${roomStats.occupiedBeds}/${roomStats.totalBeds}`, icon: BedIcon, color: 'bg-green-600', bgColor: 'bg-gradient-to-br from-green-50 to-green-100', trend: null, trendValue: null },
+    { title: 'Active Tenants', value: tenantStats.active, icon: Users, color: 'bg-orange-600', bgColor: 'bg-gradient-to-br from-orange-50 to-orange-100', trend: null, trendValue: null },
+    { title: 'Monthly Revenue', value: formatCurrency(paymentStats.current_month_collected), icon: CreditCard, color: 'bg-indigo-600', bgColor: 'bg-gradient-to-br from-indigo-50 to-indigo-100', trend: mom >= 0 ? 'up' : 'down', trendValue: Math.abs(mom).toFixed(1) },
   ];
-
-  const mono: React.CSSProperties = { fontFamily: '"DM Mono","Fira Code",monospace' };
 
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500;600&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
         * { box-sizing: border-box; }
-        @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
-        @keyframes fadeUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
-        @keyframes scaleIn { from{opacity:0;transform:scale(0.97)} to{opacity:1;transform:scale(1)} }
-        .sc { animation: fadeUp 0.45s ease both; }
-        .sc:nth-child(1){animation-delay:.04s}.sc:nth-child(2){animation-delay:.08s}
-        .sc:nth-child(3){animation-delay:.12s}.sc:nth-child(4){animation-delay:.16s}
-        .sc:nth-child(5){animation-delay:.2s}
-        .section-card { animation: scaleIn 0.5s ease both; }
-        .hov { transition: box-shadow 0.2s ease, transform 0.2s ease; }
-        .hov:hover { box-shadow: 0 16px 48px rgba(15,23,42,0.1) !important; transform: translateY(-2px); }
-        .stat-card-hov { transition: all 0.2s ease; }
-        .stat-card-hov:hover { transform: translateY(-3px); box-shadow: 0 16px 40px var(--card-shadow) !important; }
-        .bar-wrap:hover .bar-inner { filter: brightness(1.06); }
-        select { appearance:none; -webkit-appearance:none; }
-        select option { background:#fff; color:#0f172a; }
-        ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:#f8fafc}::-webkit-scrollbar-thumb{background:#e2e8f0;border-radius:4px}
-        @media(max-width:1150px){.sg{grid-template-columns:repeat(3,1fr)!important}}
-        @media(max-width:700px){.sg{grid-template-columns:repeat(2,1fr)!important}.mg{grid-template-columns:1fr!important}.bg{grid-template-columns:1fr!important}}
+        body { font-family: 'Sora', sans-serif; }
+        .dash-mono { font-family: 'JetBrains Mono', monospace; }
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes scaleIn { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
+        @keyframes shimmerAnim { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+        .fade-card { animation: fadeUp 0.4s ease both; }
+        .fade-card:nth-child(1) { animation-delay: .04s; }
+        .fade-card:nth-child(2) { animation-delay: .09s; }
+        .fade-card:nth-child(3) { animation-delay: .14s; }
+        .fade-card:nth-child(4) { animation-delay: .19s; }
+        .fade-card:nth-child(5) { animation-delay: .24s; }
+        .section-card { animation: scaleIn 0.45s ease both; }
+        .shimmer {
+          background: linear-gradient(90deg, #e8edf7 25%, #d4dced 50%, #e8edf7 75%);
+          background-size: 200% 100%;
+          animation: shimmerAnim 1.5s infinite;
+          border-radius: 8px;
+        }
+        .stat-hover {
+          transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .stat-hover:hover {
+          transform: translateY(-3px);
+          box-shadow: 0 16px 40px rgba(10,22,40,0.12) !important;
+        }
+        .bar-hover:hover .bar-fill {
+          filter: brightness(1.08);
+        }
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
       `}</style>
 
-      <div style={{ minHeight: '100vh', background: '#f4f6fb', padding: '20px 24px 32px', fontFamily: 'Plus Jakarta Sans, sans-serif', position: 'relative' }}>
+      <div className="min-h-screen font-['Sora',sans-serif] relative" style={{ background: '#f0f4fb' }}>
 
-        {/* Subtle dot grid background */}
-        <div style={{ position: 'fixed', inset: 0, zIndex: 0, backgroundImage: 'radial-gradient(#dde3ee 1.5px, transparent 1.5px)', backgroundSize: '30px 30px', opacity: 0.7, pointerEvents: 'none' }} />
-
-        {/* Top rainbow stripe */}
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg, #0ea5e9 0%, #8b5cf6 40%, #10b981 70%, #f59e0b 100%)', zIndex: 200 }} />
+        {/* Subtle grid pattern */}
+        <div className="fixed inset-0 z-0 pointer-events-none" style={{
+          backgroundImage: `linear-gradient(#c7d4e8 1px, transparent 1px), linear-gradient(90deg, #c7d4e8 1px, transparent 1px)`,
+          backgroundSize: '48px 48px',
+          opacity: 0.25
+        }} />
 
         {showFinancialTrend && (
-          <FinancialTrendChart data={monthlyData} activeTab={financialTab} chartType={chartType} selectedYear={financialYear}
-            onTabChange={setFinancialTab} onChartTypeChange={setChartType} onYearChange={setFinancialYear}
-            onClose={() => setShowFinancialTrend(false)} loading={loading} formatCurrency={formatCurrency} />
+          <FinancialTrendChart
+            data={monthlyData}
+            activeTab={financialTab}
+            chartType={chartType}
+            selectedYear={financialYear}
+            onTabChange={setFinancialTab}
+            onChartTypeChange={setChartType}
+            onYearChange={setFinancialYear}
+            onClose={() => setShowFinancialTrend(false)}
+            loading={loading}
+            formatCurrency={formatCurrency}
+          />
         )}
 
-        <div style={{ position: 'relative', zIndex: 1 }}>
+        <div className="relative z-10 px-4 pt-4 pb-8">
 
-          {/* ── Top Bar ── */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 4 }}>
-                <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 0 3px #d1fae5' }} />
-                <span style={{ color: '#64748b', fontSize: 11, fontWeight: 600, letterSpacing: '0.09em', textTransform: 'uppercase' }}>Live</span>
-              </div>
-              <h1 style={{ color: '#0f172a', fontSize: 26, fontWeight: 800, margin: 0, letterSpacing: '-0.03em' }}>
-                Admin Dashboard
-              </h1>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ position: 'relative' }}>
-                <select value={dateRange} onChange={e => setDateRange(e.target.value as DateRangeType)} style={{
-                  background: '#fff', border: '1.5px solid #e2e8f0', borderRadius: 12,
-                  padding: '8px 36px 8px 14px', color: '#374151', fontSize: 12,
-                  fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 600, cursor: 'pointer', outline: 'none',
-                  boxShadow: '0 1px 6px rgba(15,23,42,0.06)'
-                }}>
-                  <option value="week">Last Week</option>
-                  <option value="month">Last Month</option>
-                  <option value="quarter">Last Quarter</option>
-                  <option value="year">Last Year</option>
-                  <option value="all">All Time</option>
-                </select>
-                <ChevronDown style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', width: 13, height: 13, color: '#94a3b8', pointerEvents: 'none' }} />
-              </div>
-              <button onClick={handleRefresh} disabled={refreshing} style={{
-                display: 'flex', alignItems: 'center', gap: 6, background: '#fff',
-                border: '1.5px solid #e2e8f0', borderRadius: 12, padding: '8px 16px',
-                color: '#374151', fontSize: 12, fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 600,
-                cursor: 'pointer', boxShadow: '0 1px 6px rgba(15,23,42,0.06)', transition: 'all 0.18s'
-              }}>
-                <RefreshCw style={{ width: 13, height: 13, color: '#8b5cf6', ...(refreshing ? { animation: 'spin 1s linear infinite' } : {}) }} />
+          {/* Top Bar */}
+          <div className="flex items-center justify-end mb-4 flex-wrap gap-4">
+            <div className="flex items-center gap-3">
+              <select
+                value={dateRange}
+                onChange={e => setDateRange(e.target.value as DateRangeType)}
+                className="bg-white border font-semibold text-xs rounded-xl px-4 py-2.5 pr-9 outline-none cursor-pointer"
+                style={{ border: '1.5px solid #e2e8f0', color: '#1e3a5f', fontFamily: 'Sora, sans-serif' }}>
+                <option value="week">Last Week</option>
+                <option value="month">Last Month</option>
+                <option value="quarter">Last Quarter</option>
+                <option value="year">Last Year</option>
+                <option value="all">All Time</option>
+              </select>
+              <button
+                onClick={handleRefresh}
+                disabled={refreshing}
+                className="flex items-center gap-2 text-xs font-semibold rounded-xl px-4 py-2.5 bg-white transition-all hover:shadow-md disabled:opacity-60"
+                style={{ border: '1.5px solid #e2e8f0', color: '#1e3a5f' }}>
+                <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} style={{ color: '#eab308' }} />
                 Refresh
               </button>
             </div>
           </div>
 
-          {/* ── Stat Cards ── */}
-          <div className="sg" style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 14, marginBottom: 20 }}>
-            {statCards.map((card, i) => (
-              <div
-                key={i}
-                className="sc stat-card-hov"
-                style={{
-                  background: '#fff', borderRadius: 20, padding: '18px 16px',
-                  boxShadow: `0 2px 14px ${card.shadow}`,
-                  border: '1px solid rgba(255,255,255,0.9)',
-                  overflow: 'hidden', position: 'relative',
-                  '--card-shadow': card.shadow,
-                } as any}
-              >
-                {/* Colored top accent + soft bg wash */}
-                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 4, background: card.grad, borderRadius: '20px 20px 0 0' }} />
-                <div style={{ position: 'absolute', top: 0, right: 0, width: 80, height: 80, borderRadius: '0 20px 0 80px', background: card.light, opacity: 0.7 }} />
-
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14, position: 'relative' }}>
-                  <div style={{ width: 42, height: 42, borderRadius: 13, background: card.grad, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 6px 18px ${card.shadow}` }}>
-                    <card.icon style={{ width: 19, height: 19, color: '#fff' }} />
-                  </div>
-                  <div style={{
-                    display: 'flex', alignItems: 'center', gap: 3, padding: '3px 9px', borderRadius: 20,
-                    fontSize: 10, fontWeight: 700,
-                    background: card.trend === 'up' ? '#f0fdf4' : '#fff1f2',
-                    color: card.trend === 'up' ? '#059669' : '#e11d48', ...mono
-                  }}>
-                    {card.trend === 'up' ? <ArrowUpRight style={{ width: 10, height: 10 }} /> : <ArrowDownRight style={{ width: 10, height: 10 }} />}
-                    {card.tv}%
-                  </div>
-                </div>
-
-                {loading
-                  ? <div style={{ height: 26, width: '65%', borderRadius: 6, background: 'linear-gradient(90deg,#f1f5f9 25%,#e8edf5 50%,#f1f5f9 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.4s infinite', marginBottom: 4 }} />
-                  : <p style={{ color: '#0f172a', fontSize: 23, fontWeight: 800, margin: '0 0 3px', letterSpacing: '-0.02em', ...mono }}>{card.value}</p>
-                }
-                <p style={{ color: '#374151', fontSize: 11, margin: '0 0 2px', fontWeight: 700 }}>{card.title}</p>
-                <p style={{ color: '#94a3b8', fontSize: 10, margin: 0 }}>{card.sub}</p>
-              </div>
+          {/* Stat Cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
+            {statCards.map((stat, index) => (
+              <StatCard
+                key={index}
+                title={stat.title}
+                value={stat.value}
+                icon={stat.icon}
+                color={stat.color}
+                bgColor={stat.bgColor}
+                trend={stat.trend}
+                trendValue={stat.trendValue}
+                loading={loading}
+              />
             ))}
           </div>
 
-          {/* ── Main Row ── */}
-          <div className="mg" style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 16, marginBottom: 16 }}>
+          {/* Main Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+            {/* Occupancy Overview */}
+            <Card className="border-0 shadow-lg overflow-hidden">
+              <CardHeader className="p-4 border-b border-gray-100">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-lg font-bold text-slate-800">{overviewData.title}</CardTitle>
+                    <p className="text-xs text-gray-500">Current overview</p>
+                  </div>
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowOverviewMenu(!showOverviewMenu)}
+                      className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                      <MoreVertical className="w-4 h-4 text-gray-500" />
+                    </button>
+                    {showOverviewMenu && (
+                      <div className="absolute right-0 top-10 w-36 bg-white rounded-xl shadow-lg border border-gray-200 z-20 overflow-hidden">
+                        {(['beds', 'rooms', 'property', 'tenants', 'expenses', 'income'] as OverviewType[]).map(t => (
+                          <button
+                            key={t}
+                            onClick={() => { setSelectedOverview(t); setShowOverviewMenu(false); }}
+                            className={`w-full text-left px-3 py-2 text-xs font-medium capitalize transition-colors
+                              ${selectedOverview === t ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'}`}>
+                            {t}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="p-4">
+                <div className="flex flex-col items-center">
+                  {/* Donut Chart */}
+                  <div className="relative w-36 h-36 mb-6">
+                    <svg viewBox="0 0 136 136" className="w-36 h-36">
+                      <circle cx="68" cy="68" r="54" fill="none" stroke="#f1f5f9" strokeWidth="12" />
+                      <circle cx="68" cy="68" r="54" fill="none"
+                        stroke={overviewData.color || '#1e3a5f'}
+                        strokeWidth="12"
+                        strokeDasharray={`${(overviewData.percent / 100) * 339.3} 339.3`}
+                        strokeLinecap="round"
+                        strokeDashoffset="84.8"
+                        style={{ transition: 'stroke-dasharray 0.9s cubic-bezier(0.4,0,0.2,1)' }}
+                      />
+                    </svg>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                      <span className="text-2xl font-black dash-mono" style={{ color: '#0a1628' }}>{overviewData.percent}%</span>
+                      <span className="text-[10px] uppercase tracking-wider font-bold mt-0.5 text-gray-500">{overviewData.label}</span>
+                    </div>
+                  </div>
+
+                  {/* Stats List */}
+                  <div className="w-full space-y-3">
+                    {overviewData.items.map((item: any, idx: number) => (
+                      <div key={idx} className="flex items-center justify-between p-3 rounded-xl transition-all"
+                        style={{ background: item.bg, border: `1.5px solid ${item.color}20` }}>
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg flex items-center justify-center"
+                            style={{ background: `${item.color}18` }}>
+                            <item.icon className="w-4 h-4" style={{ color: item.color }} />
+                          </div>
+                          <span className="text-sm font-medium text-gray-700">{item.label}</span>
+                        </div>
+                        <span className="text-lg font-black dash-mono" style={{ color: item.color }}>{item.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
             {/* Rent Activity */}
-            <div className="hov section-card" style={{ background: '#fff', borderRadius: 20, boxShadow: '0 2px 14px rgba(15,23,42,0.07)', border: '1px solid #f1f5f9', overflow: 'hidden' }}>
-              <div style={{ padding: '16px 22px', borderBottom: '1px solid #f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'linear-gradient(135deg, #fafcff 0%, #f8fafc 100%)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div style={{ width: 36, height: 36, borderRadius: 11, background: 'linear-gradient(135deg, #0ea5e9, #38bdf8)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(14,165,233,0.28)' }}>
-                    <TrendingUp style={{ width: 15, height: 15, color: '#fff' }} />
+            <Card className="border-0 shadow-lg lg:col-span-2 overflow-hidden">
+              <CardHeader className="p-4 border-b border-gray-100 bg-gradient-to-r from-[#0f2462] via-[#0d3184] to-[#133ec0]"
+                >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+                      style={{ background: 'rgba(234,179,8,0.2)', border: '1.5px solid rgba(234,179,8,0.35)' }}>
+                      <TrendingUp className="w-5 h-5" style={{ color: '#fbbf24' }} />
+                    </div>
+                    <div>
+                      <CardTitle className="text-white text-base font-bold">Rent Activity</CardTitle>
+                      <p className="text-xs text-slate-300">Monthly income trend</p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 style={{ color: '#0f172a', fontSize: 13, fontWeight: 800, margin: 0 }}>Rent Activity</h3>
-                    <p style={{ color: '#94a3b8', fontSize: 10, margin: 0 }}>Monthly income trend</p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setShowFinancialTrend(true)}
+                      className="w-9 h-9 rounded-lg flex items-center justify-center transition-all hover:opacity-80"
+                      style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)' }}>
+                      <BarChart3 className="w-4 h-4 text-slate-200" />
+                    </button>
                   </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ padding: '3px 10px', borderRadius: 20, background: '#f0f9ff', color: '#0ea5e9', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{dateRange}</span>
-                  <button onClick={() => setShowFinancialTrend(true)} style={{ width: 32, height: 32, borderRadius: 9, background: '#f8fafc', border: '1.5px solid #e2e8f0', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.18s' }}>
-                    <BarChart3 style={{ width: 14, height: 14, color: '#64748b' }} />
-                  </button>
-                </div>
-              </div>
-
-              <div style={{ padding: '20px 24px' }}>
+              </CardHeader>
+              <CardContent className="p-5">
                 {loading ? (
-                  <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Loader2 style={{ width: 30, height: 30, color: '#0ea5e9', animation: 'spin 1s linear infinite' }} /></div>
+                  <div className="h-64 flex items-center justify-center">
+                    <Loader2 className="w-8 h-8 animate-spin" style={{ color: '#1e40af' }} />
+                  </div>
                 ) : chartData.length === 0 ? (
-                  <div style={{ height: 200, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#cbd5e1' }}><IndianRupee style={{ width: 36, height: 36, marginBottom: 8 }} /><p style={{ fontSize: 12, margin: 0 }}>No payment data</p></div>
+                  <div className="h-64 flex flex-col items-center justify-center text-slate-300">
+                    <IndianRupee className="w-12 h-12 mb-3" />
+                    <p className="text-sm">No payment data available</p>
+                  </div>
                 ) : (
                   <>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22 }}>
+                    {/* Summary */}
+                    <div className="flex items-center justify-between mb-6">
                       <div>
-                        <p style={{ color: '#94a3b8', fontSize: 9, margin: '0 0 2px', textTransform: 'uppercase', letterSpacing: '0.09em', fontWeight: 700 }}>This Month</p>
-                        <p style={{ color: '#0f172a', fontSize: 28, fontWeight: 800, margin: 0, letterSpacing: '-0.03em', ...mono }}>{formatCurrency(currentMonth?.income || 0)}</p>
+                        <p className="text-[10px] uppercase tracking-wider font-bold mb-1 text-gray-500">This Month</p>
+                        <p className="text-3xl font-black dash-mono" style={{ color: '#0a1628' }}>
+                          {formatCurrency(currentMonth?.income || 0)}
+                        </p>
                       </div>
-                      <div style={{
-                        display: 'flex', alignItems: 'center', gap: 5, padding: '7px 13px', borderRadius: 24,
-                        background: mom >= 0 ? '#f0fdf4' : '#fff1f2',
-                        border: `1.5px solid ${mom >= 0 ? '#bbf7d0' : '#fecdd3'}`,
-                        color: mom >= 0 ? '#059669' : '#e11d48', fontSize: 11, fontWeight: 700, ...mono
-                      }}>
-                        {mom >= 0 ? <ArrowUpRight style={{ width: 13, height: 13 }} /> : <ArrowDownRight style={{ width: 13, height: 13 }} />}
+                      <div className={`flex items-center gap-1.5 px-3 py-2 rounded-2xl text-xs font-bold dash-mono border
+                        ${mom >= 0 ? 'text-green-700 bg-green-50 border-green-200' : 'text-red-600 bg-red-50 border-red-200'}`}>
+                        {mom >= 0 ? <ArrowUpRight className="w-3.5 h-3.5" /> : <ArrowDownRight className="w-3.5 h-3.5" />}
                         {mom >= 0 ? '+' : ''}{mom.toFixed(1)}% vs last month
                       </div>
                     </div>
 
-                    {/* Custom bar chart */}
-                    <div style={{ position: 'relative', height: 170 }}>
-                      <div style={{ position: 'absolute', left: 0, top: 0, height: 140, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                        {[1, 0.5, 0].map(r => <span key={r} style={{ color: '#cbd5e1', fontSize: 9, ...mono }}>{formatCurrency(maxAmount * r)}</span>)}
+                    {/* Bar Chart */}
+                    <div className="relative h-48">
+                      <div className="absolute left-0 top-0 h-40 flex flex-col justify-between text-xs text-gray-400">
+                        {[1, 0.75, 0.5, 0.25, 0].map(r => (
+                          <span key={r} className="dash-mono text-[10px]">{formatCurrency(maxAmount * r)}</span>
+                        ))}
                       </div>
-                      <div style={{ position: 'absolute', bottom: 22, left: 46, right: 0, height: 140, display: 'flex', alignItems: 'flex-end', gap: 10 }}>
+                      <div className="absolute bottom-5 left-16 right-0 h-40 flex items-end gap-3">
                         {chartData.map((item, idx) => {
                           const hPct = maxAmount > 0 ? Math.max((item.amount / maxAmount) * 95, 3) : 3;
                           const isLast = idx === chartData.length - 1;
+                          const isAnim = animatedHeights.includes(idx);
                           return (
-                            <div key={idx} className="bar-wrap" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer', position: 'relative' }}>
-                              <div className="bar-inner" style={{
-                                width: '100%', height: `${hPct}%`, minHeight: 4,
-                                borderRadius: '8px 8px 3px 3px',
-                                background: isLast
-                                  ? 'linear-gradient(180deg, #0ea5e9 0%, #38bdf8 100%)'
-                                  : 'linear-gradient(180deg, #e0f2fe 0%, #bae6fd 100%)',
-                                transition: 'all 0.4s ease',
-                                boxShadow: isLast ? '0 4px 18px rgba(14,165,233,0.3)' : 'none',
-                                border: `1.5px solid ${isLast ? 'rgba(14,165,233,0.3)' : '#e0f2fe'}`,
-                                position: 'relative'
-                              }}>
+                            <div key={idx} className="bar-hover flex-1 flex flex-col items-center cursor-pointer">
+                              <div
+                                className="bar-fill w-full rounded-t-lg transition-all duration-500 relative"
+                                style={{
+                                  height: isAnim ? `${hPct}%` : '0%',
+                                  minHeight: 4,
+                                  background: isLast
+                                    ? 'linear-gradient(180deg, #1e40af 0%, #3b82f6 100%)'
+                                    : 'linear-gradient(180deg, #dbeafe 0%, #bfdbfe 100%)',
+                                  border: `1.5px solid ${isLast ? 'rgba(30,64,175,0.3)' : '#dbeafe'}`,
+                                  boxShadow: isLast ? '0 4px 16px rgba(30,64,175,0.25)' : 'none',
+                                  transition: 'height 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)'
+                                }}>
                                 {isLast && (
-                                  <div style={{
-                                    position: 'absolute', top: -26, left: '50%', transform: 'translateX(-50%)',
-                                    background: '#0ea5e9', color: '#fff', borderRadius: 7,
-                                    padding: '3px 8px', fontSize: 9, fontWeight: 700, whiteSpace: 'nowrap', ...mono,
-                                    boxShadow: '0 3px 10px rgba(14,165,233,0.3)'
-                                  }}>{formatCurrency(item.amount)}</div>
+                                  <div className="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] font-bold dash-mono px-2 py-1 rounded-lg text-white"
+                                    style={{ background: '#1e40af', boxShadow: '0 2px 8px rgba(30,64,175,0.3)' }}>
+                                    {formatCurrency(item.amount)}
+                                  </div>
                                 )}
                               </div>
-                              <span style={{ color: isLast ? '#0ea5e9' : '#94a3b8', fontSize: 10, marginTop: 7, fontWeight: isLast ? 700 : 500, transition: 'all 0.18s' }}>{item.month}</span>
+                              <span className={`text-[11px] mt-2 font-semibold ${isLast ? 'text-blue-700' : 'text-gray-500'}`}>
+                                {item.month}
+                              </span>
                             </div>
                           );
                         })}
                       </div>
                     </div>
 
-                    {/* Footer */}
-                    <div style={{ display: 'flex', marginTop: 14, paddingTop: 14, borderTop: '1px solid #f1f5f9', gap: 0 }}>
-                      {[
-                        { label: 'Monthly Avg', value: chartData.length > 0 ? formatCurrency(Math.round(chartData.reduce((s, d) => s + d.amount, 0) / chartData.length)) : '₹0', color: '#475569' },
-                        { label: 'Total Collected', value: formatCurrency(paymentStats.total_collected), color: '#0ea5e9' },
-                        { label: 'Transactions', value: `${paymentStats.total_transactions}`, color: '#8b5cf6' },
-                      ].map(({ label, value, color }, i) => (
-                        <div key={i} style={{ flex: 1, paddingLeft: i > 0 ? 18 : 0, borderLeft: i > 0 ? '1px solid #f1f5f9' : 'none', marginLeft: i > 0 ? 18 : 0 }}>
-                          <p style={{ color: '#94a3b8', fontSize: 9, margin: '0 0 3px', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>{label}</p>
-                          <p style={{ color, fontSize: 15, fontWeight: 800, margin: 0, ...mono }}>{value}</p>
-                        </div>
-                      ))}
+                    {/* Footer Stats */}
+                    <div className="flex mt-6 pt-4 border-t border-gray-100 gap-6">
+                      <div className="flex-1">
+                        <p className="text-[10px] uppercase tracking-wider font-bold text-gray-500 mb-1">Monthly Avg</p>
+                        <p className="text-base font-black dash-mono text-gray-800">
+                          {chartData.length > 0 ? formatCurrency(Math.round(chartData.reduce((s, d) => s + d.amount, 0) / chartData.length)) : '₹0'}
+                        </p>
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-[10px] uppercase tracking-wider font-bold text-gray-500 mb-1">Total Collected</p>
+                        <p className="text-base font-black dash-mono text-blue-700">{formatCurrency(paymentStats.total_collected)}</p>
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-[10px] uppercase tracking-wider font-bold text-gray-500 mb-1">Transactions</p>
+                        <p className="text-base font-black dash-mono text-amber-700">{paymentStats.total_transactions}</p>
+                      </div>
                     </div>
                   </>
                 )}
-              </div>
-            </div>
-
-            {/* Overview Donut */}
-            <div className="hov section-card" style={{ background: '#fff', borderRadius: 20, boxShadow: '0 2px 14px rgba(15,23,42,0.07)', border: '1px solid #f1f5f9', overflow: 'hidden' }}>
-              <div style={{ padding: '16px 18px', borderBottom: '1px solid #f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'linear-gradient(135deg, #fafcff 0%, #f8fafc 100%)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <div style={{ width: 36, height: 36, borderRadius: 11, background: `linear-gradient(135deg, ${overviewData.color}, ${overviewData.color}cc)`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 4px 12px ${overviewData.color}40` }}>
-                    <BarChart3 style={{ width: 15, height: 15, color: '#fff' }} />
-                  </div>
-                  <div>
-                    <h3 style={{ color: '#0f172a', fontSize: 13, fontWeight: 800, margin: 0 }}>{overviewData.title}</h3>
-                    <p style={{ color: '#94a3b8', fontSize: 10, margin: 0 }}>Occupancy overview</p>
-                  </div>
-                </div>
-                <div style={{ position: 'relative' }}>
-                  <button onClick={() => setShowOverviewMenu(!showOverviewMenu)} style={{ width: 30, height: 30, borderRadius: 8, background: '#f8fafc', border: '1.5px solid #e2e8f0', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <MoreVertical style={{ width: 13, height: 13, color: '#64748b' }} />
-                  </button>
-                  {showOverviewMenu && (
-                    <div style={{ position: 'absolute', right: 0, top: 36, width: 128, background: '#fff', border: '1px solid #e8edf5', borderRadius: 12, overflow: 'hidden', zIndex: 20, boxShadow: '0 12px 32px rgba(15,23,42,0.12)' }}>
-                      {['beds', 'rooms', 'property', 'tenants'].map(t => (
-                        <button key={t} onClick={() => { setSelectedOverview(t); setShowOverviewMenu(false); }} style={{
-                          width: '100%', textAlign: 'left', padding: '9px 12px', border: 'none', cursor: 'pointer',
-                          background: selectedOverview === t ? '#f0fdf4' : '#fff',
-                          color: selectedOverview === t ? '#059669' : '#475569',
-                          fontSize: 11, fontFamily: 'Plus Jakarta Sans, sans-serif',
-                          fontWeight: selectedOverview === t ? 700 : 500, textTransform: 'capitalize', transition: 'all 0.15s'
-                        }}>{t}</button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div style={{ padding: '20px 18px' }}>
-                {/* SVG Donut */}
-                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
-                  <div style={{ position: 'relative', width: 136, height: 136 }}>
-                    <svg viewBox="0 0 136 136" style={{ width: 136, height: 136 }}>
-                      <circle cx="68" cy="68" r="54" fill="none" stroke="#f1f5f9" strokeWidth="11" />
-                      <circle cx="68" cy="68" r="54" fill="none"
-                        stroke={overviewData.color}
-                        strokeWidth="11"
-                        strokeDasharray={`${(overviewData.percent / 100) * 339.3} 339.3`}
-                        strokeLinecap="round"
-                        strokeDashoffset="84.8"
-                        style={{ transition: 'stroke-dasharray 0.9s cubic-bezier(0.4,0,0.2,1)', filter: `drop-shadow(0 0 8px ${overviewData.color}60)` }}
-                      />
-                    </svg>
-                    <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                      <span style={{ color: '#0f172a', fontSize: 26, fontWeight: 800, lineHeight: 1, ...mono }}>{overviewData.percent}%</span>
-                      <span style={{ color: '#94a3b8', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.07em', marginTop: 4, fontWeight: 700 }}>{overviewData.label}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-                  {overviewData.items.map((item: any, idx: number) => (
-                    <div key={idx} style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      padding: '10px 12px', borderRadius: 13,
-                      background: `${item.color}08`,
-                      border: `1.5px solid ${item.color}20`,
-                      transition: 'all 0.18s'
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <div style={{ width: 30, height: 30, borderRadius: 9, background: `${item.color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <item.icon style={{ width: 13, height: 13, color: item.color }} />
-                        </div>
-                        <span style={{ color: '#475569', fontSize: 11, fontWeight: 600 }}>{item.label}</span>
-                      </div>
-                      <span style={{ color: item.color, fontSize: 17, fontWeight: 800, ...mono }}>{item.value}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
           </div>
 
-          {/* ── Bottom Row ── */}
-          <div className="bg" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-
+          {/* Bottom Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Payment Methods */}
-            <div className="hov section-card" style={{ background: '#fff', borderRadius: 20, boxShadow: '0 2px 14px rgba(15,23,42,0.07)', border: '1px solid #f1f5f9', overflow: 'hidden' }}>
-              <div style={{ padding: '16px 22px', borderBottom: '1px solid #f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'linear-gradient(135deg, #fafcff 0%, #f8fafc 100%)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div style={{ width: 36, height: 36, borderRadius: 11, background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(139,92,246,0.28)' }}>
-                    <CreditCard style={{ width: 15, height: 15, color: '#fff' }} />
+            <Card className="border-0 shadow-lg overflow-hidden">
+              <CardHeader className="p-4 border-b border-gray-100 bg-gradient-to-r from-[#0f2462] via-[#0d3184] to-[#133ec0]">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+                      style={{ background: 'rgba(234,179,8,0.2)', border: '1.5px solid rgba(234,179,8,0.35)' }}>
+                      <CreditCard className="w-5 h-5" style={{ color: '#fbbf24' }} />
+                    </div>
+                    <div>
+                      <CardTitle className="text-white text-base font-bold">Payment Methods</CardTitle>
+                      <p className="text-xs text-slate-300">Transaction breakdown</p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 style={{ color: '#0f172a', fontSize: 13, fontWeight: 800, margin: 0 }}>Payment Methods</h3>
-                    <p style={{ color: '#94a3b8', fontSize: 10, margin: 0 }}>Transaction breakdown</p>
-                  </div>
+                  <span className="dash-mono px-3 py-1 rounded-full text-[11px] font-bold"
+                    style={{ background: 'rgba(234,179,8,0.15)', color: '#fbbf24', border: '1px solid rgba(234,179,8,0.25)' }}>
+                    {paymentStats.total_transactions} txns
+                  </span>
                 </div>
-                <span style={{ padding: '3px 10px', borderRadius: 20, background: '#faf5ff', color: '#8b5cf6', fontSize: 10, fontWeight: 700, ...mono }}>{paymentStats.total_transactions} txns</span>
-              </div>
-
-              <div style={{ padding: '20px 24px' }}>
+              </CardHeader>
+              <CardContent className="p-5">
                 {loading ? (
-                  <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Loader2 style={{ width: 30, height: 30, color: '#8b5cf6', animation: 'spin 1s linear infinite' }} /></div>
+                  <div className="h-64 flex items-center justify-center">
+                    <Loader2 className="w-8 h-8 animate-spin" style={{ color: '#1e40af' }} />
+                  </div>
                 ) : paymentMethods.length === 0 ? (
-                  <div style={{ height: 200, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#cbd5e1' }}><CreditCard style={{ width: 36, height: 36, marginBottom: 8 }} /><p style={{ fontSize: 12, margin: 0 }}>No data</p></div>
+                  <div className="h-64 flex flex-col items-center justify-center text-slate-300">
+                    <CreditCard className="w-12 h-12 mb-3" />
+                    <p className="text-sm">No payment data available</p>
+                  </div>
                 ) : (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
-                    <div style={{ width: 155, height: 155, flexShrink: 0 }}>
+                  <div className="flex flex-col md:flex-row items-center gap-6">
+                    {/* Donut Chart */}
+                    <div className="w-40 h-40 flex-shrink-0">
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
-                          <Pie data={paymentMethods} cx="50%" cy="50%" innerRadius={48} outerRadius={68} dataKey="value"
-                            label={({ percent }) => `${(percent * 100).toFixed(0)}%`} labelLine={false} paddingAngle={2}>
+                          <Pie
+                            data={paymentMethods}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={50}
+                            outerRadius={70}
+                            dataKey="value"
+                            label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
+                            labelLine={false}
+                            paddingAngle={2}>
                             {paymentMethods.map((e, i) => <Cell key={i} fill={e.color} stroke="none" />)}
                           </Pie>
                           <Tooltip content={<CustomTooltip />} />
                         </PieChart>
                       </ResponsiveContainer>
                     </div>
-                    <div style={{ flex: 1 }}>
+                    {/* Legend */}
+                    <div className="flex-1">
                       {paymentMethods.map(m => {
-                        const pct = paymentStats.total_transactions > 0 ? Math.round((m.value / paymentStats.total_transactions) * 100) : 0;
+                        const pct = paymentStats.total_transactions > 0
+                          ? Math.round((m.value / paymentStats.total_transactions) * 100) : 0;
                         return (
-                          <div key={m.name} style={{ marginBottom: 10 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <div style={{ width: 9, height: 9, borderRadius: '50%', background: m.color }} />
-                                <span style={{ color: '#475569', fontSize: 11, fontWeight: 600 }}>{m.name}</span>
+                          <div key={m.name} className="mb-4">
+                            <div className="flex items-center justify-between mb-1.5">
+                              <div className="flex items-center gap-2">
+                                <div className="w-2.5 h-2.5 rounded-full" style={{ background: m.color }} />
+                                <span className="text-sm font-medium text-gray-700">{m.name}</span>
                               </div>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                                <span style={{ color: '#0f172a', fontSize: 12, fontWeight: 800, ...mono }}>{m.value}</span>
-                                <span style={{ color: '#94a3b8', fontSize: 9, ...mono }}>({pct}%)</span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-black dash-mono text-gray-800">{m.value}</span>
+                                <span className="text-[11px] dash-mono text-gray-400">({pct}%)</span>
                               </div>
                             </div>
-                            <div style={{ height: 5, background: '#f1f5f9', borderRadius: 99, overflow: 'hidden' }}>
-                              <div style={{ height: '100%', width: `${pct}%`, background: m.color, borderRadius: 99, transition: 'width 0.7s ease' }} />
+                            <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
+                              <div className="h-full rounded-full transition-all duration-700"
+                                style={{ width: `${pct}%`, background: m.color }} />
                             </div>
                           </div>
                         );
                       })}
-                      <div style={{ paddingTop: 10, marginTop: 4, borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ color: '#94a3b8', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>Total</span>
-                        <span style={{ color: '#8b5cf6', fontSize: 17, fontWeight: 800, ...mono }}>{paymentStats.total_transactions}</span>
+                      <div className="pt-3 mt-1 border-t border-gray-100 flex justify-between items-center">
+                        <span className="text-[10px] uppercase tracking-wider font-bold text-gray-500">Total</span>
+                        <span className="text-lg font-black dash-mono text-gray-800">{paymentStats.total_transactions}</span>
                       </div>
                     </div>
                   </div>
                 )}
-              </div>
-            </div>
+              </CardContent>
+            </Card>
 
             {/* Financial Summary */}
-            <div className="hov section-card" style={{ background: '#fff', borderRadius: 20, boxShadow: '0 2px 14px rgba(15,23,42,0.07)', border: '1px solid #f1f5f9', overflow: 'hidden' }}>
-              <div style={{ padding: '16px 22px', borderBottom: '1px solid #f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'linear-gradient(135deg, #fafcff 0%, #f8fafc 100%)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div style={{ width: 36, height: 36, borderRadius: 11, background: 'linear-gradient(135deg, #f59e0b, #d97706)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(245,158,11,0.28)' }}>
-                    <IndianRupee style={{ width: 15, height: 15, color: '#fff' }} />
-                  </div>
-                  <div>
-                    <h3 style={{ color: '#0f172a', fontSize: 13, fontWeight: 800, margin: 0 }}>Financial Summary</h3>
-                    <p style={{ color: '#94a3b8', fontSize: 10, margin: 0 }}>Revenue & expenses</p>
-                  </div>
-                </div>
-                <div style={{
-                  padding: '3px 10px', borderRadius: 20, fontSize: 10, fontWeight: 700,
-                  background: profitMargin >= 0 ? '#f0fdf4' : '#fff1f2',
-                  color: profitMargin >= 0 ? '#059669' : '#e11d48', ...mono
-                }}>{profitMargin.toFixed(1)}% margin</div>
-              </div>
-
-              <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-                {[
-                  { label: 'Total Revenue', value: paymentStats.total_collected, sub: `${paymentStats.total_transactions} transactions`, color: '#0ea5e9', bg: '#f0f9ff', border: '#bae6fd', iconBg: '#e0f2fe', Icon: TrendingUp },
-                  { label: 'Total Expenses', value: expenseTotal, sub: `${expenses.length} expense records`, color: '#f43f5e', bg: '#fff1f2', border: '#fecdd3', iconBg: '#ffe4e6', Icon: TrendingDown },
-                  { label: 'Net Profit', value: netProfit, sub: `${profitMargin.toFixed(1)}% profit margin`, color: netProfit >= 0 ? '#8b5cf6' : '#f59e0b', bg: netProfit >= 0 ? '#faf5ff' : '#fffbeb', border: netProfit >= 0 ? '#e9d5ff' : '#fde68a', iconBg: netProfit >= 0 ? '#ede9fe' : '#fef3c7', Icon: IndianRupee },
-                ].map(({ label, value, sub, color, bg, border, iconBg, Icon }) => (
-                  <div key={label} style={{ background: bg, border: `1.5px solid ${border}`, borderRadius: 14, padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <div style={{ width: 38, height: 38, borderRadius: 11, background: iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <Icon style={{ width: 16, height: 16, color }} />
-                      </div>
-                      <div>
-                        <p style={{ color: '#475569', fontSize: 10, margin: '0 0 2px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</p>
-                        <p style={{ color: '#94a3b8', fontSize: 10, margin: 0 }}>{sub}</p>
-                      </div>
+            <Card className="border-0 shadow-lg overflow-hidden">
+              <CardHeader className="p-4 border-b border-gray-100"
+                style={{ background: 'linear-gradient(135deg, #fefce8 0%, #fffbeb 100%)' }}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-gradient-to-r from-[#0f2462] via-[#0d3184] to-[#133ec0]">
+                      <IndianRupee className="w-5 h-5" style={{ color: '#eab308' }} />
                     </div>
-                    {loading
-                      ? <div style={{ width: 72, height: 24, borderRadius: 6, background: '#f1f5f9', animation: 'shimmer 1.4s infinite', backgroundSize: '200% 100%' }} />
-                      : <span style={{ color, fontSize: 19, fontWeight: 800, ...mono, flexShrink: 0 }}>{formatCurrency(value)}</span>
-                    }
+                    <div>
+                      <CardTitle className="text-base font-bold text-gray-800">Financial Summary</CardTitle>
+                      <p className="text-xs text-gray-500">Revenue & expenses</p>
+                    </div>
                   </div>
-                ))}
-
-                {/* Expense Ratio */}
-                <div style={{ padding: '12px 14px', background: '#f8fafc', borderRadius: 13, border: '1px solid #f1f5f9', marginTop: 2 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                    <span style={{ color: '#475569', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em' }}>Expense Ratio</span>
-                    <span style={{ color: '#0f172a', fontSize: 11, fontWeight: 800, ...mono }}>
-                      {paymentStats.total_collected > 0 ? Math.round((expenseTotal / paymentStats.total_collected) * 100) : 0}%
-                    </span>
-                  </div>
-                  <div style={{ height: 8, background: '#e2e8f0', borderRadius: 99, overflow: 'hidden' }}>
-                    <div style={{
-                      height: '100%',
-                      width: `${paymentStats.total_collected > 0 ? Math.min((expenseTotal / paymentStats.total_collected) * 100, 100) : 0}%`,
-                      background: 'linear-gradient(90deg, #fbbf24, #f43f5e)',
-                      borderRadius: 99, transition: 'width 0.8s ease'
-                    }} />
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
-                    <span style={{ color: '#94a3b8', fontSize: 9, fontWeight: 600 }}>Low risk</span>
-                    <span style={{ color: '#94a3b8', fontSize: 9, fontWeight: 600 }}>High risk</span>
+                  <div className={`px-3 py-1.5 rounded-full text-xs font-bold dash-mono
+                    ${profitMargin >= 0 ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}
+                    style={{ border: `1px solid ${profitMargin >= 0 ? '#bbf7d0' : '#fecaca'}` }}>
+                    {profitMargin.toFixed(1)}% margin
                   </div>
                 </div>
-              </div>
-            </div>
+              </CardHeader>
+              <CardContent className="p-5">
+                <div className="space-y-3">
+                  {[
+                    {
+                      label: 'Total Revenue', value: paymentStats.total_collected,
+                      sub: `${paymentStats.total_transactions} transactions`,
+                      color: '#1e40af', bg: '#eff6ff', border: '#bfdbfe', iconBg: '#dbeafe', Icon: TrendingUp
+                    },
+                    {
+                      label: 'Total Expenses', value: expenseTotal,
+                      sub: `${expenses.length} expense records`,
+                      color: '#dc2626', bg: '#fef2f2', border: '#fecaca', iconBg: '#fee2e2', Icon: TrendingDown
+                    },
+                    {
+                      label: 'Net Profit', value: netProfit,
+                      sub: `${profitMargin.toFixed(1)}% profit margin`,
+                      color: netProfit >= 0 ? '#854d0e' : '#dc2626',
+                      bg: netProfit >= 0 ? '#fefce8' : '#fef2f2',
+                      border: netProfit >= 0 ? '#fde68a' : '#fecaca',
+                      iconBg: netProfit >= 0 ? '#fef9c3' : '#fee2e2',
+                      Icon: IndianRupee
+                    },
+                  ].map(({ label, value, sub, color, bg, border, iconBg, Icon }) => (
+                    <div key={label}
+                      className="flex items-center justify-between gap-3 rounded-xl p-3.5"
+                      style={{ background: bg, border: `1.5px solid ${border}` }}>
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                          style={{ background: iconBg }}>
+                          <Icon className="w-4 h-4" style={{ color }} />
+                        </div>
+                        <div>
+                          <p className="text-[11px] font-bold uppercase tracking-wider mb-0.5 text-gray-600">{label}</p>
+                          <p className="text-[11px] text-gray-500">{sub}</p>
+                        </div>
+                      </div>
+                      {loading
+                        ? <div className="shimmer w-20 h-6" />
+                        : <span className="text-xl font-black dash-mono flex-shrink-0" style={{ color }}>{formatCurrency(value)}</span>
+                      }
+                    </div>
+                  ))}
 
+                  {/* Expense Ratio */}
+                  <div className="p-4 rounded-xl mt-2" style={{ background: '#f8fafc', border: '1.5px solid #e2e8f0' }}>
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-gray-600">Expense Ratio</span>
+                      <span className="text-sm font-black dash-mono text-gray-800">
+                        {paymentStats.total_collected > 0 ? Math.round((expenseTotal / paymentStats.total_collected) * 100) : 0}%
+                      </span>
+                    </div>
+                    <div className="h-2 rounded-full overflow-hidden bg-gray-200">
+                      <div
+                        className="h-full rounded-full transition-all duration-700"
+                        style={{
+                          width: `${paymentStats.total_collected > 0 ? Math.min((expenseTotal / paymentStats.total_collected) * 100, 100) : 0}%`,
+                          background: 'linear-gradient(90deg, #eab308 0%, #dc2626 100%)'
+                        }} />
+                    </div>
+                    <div className="flex justify-between mt-1.5">
+                      <span className="text-[9px] font-semibold text-gray-400">Low risk</span>
+                      <span className="text-[9px] font-semibold text-gray-400">High risk</span>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </div>
