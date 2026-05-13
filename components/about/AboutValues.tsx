@@ -5,10 +5,10 @@ import { Card } from '@/components/ui/card';
 import { Home, Eye, Users, Shield } from 'lucide-react';
 
 // ✅ IMPORT YOUR IMAGES
-import studentsImg from "@/app/src/assets/images/students.jpg";
-import corporateImg from '@/app/src/assets/images/pexels-mikhail copy.jpg';
-import professionalsImg from '@/app/src/assets/images/professionals.jpg';
-import cottonbroImg from '@/app/src/assets/images/corporate copy.jpg';
+import BedImg from '@/app/src/assets/images/bed.png';
+import shakesImg from '@/app/src/assets/images/shakehand.png';
+import aboutvaluesImg from '@/app/src/assets/images/aboutvalueImg.png';
+import profeesionalsImg from '@/app/src/assets/images/professionalImg.png';
 
 interface ValueItem {
   iconComponent: React.ComponentType<any>;
@@ -25,28 +25,28 @@ export default function AboutValues() {
       title: "Comfort First",
       description:
         "We prioritize your comfort in every design decision, creating spaces that feel as good as they look.",
-      image: studentsImg,
+      image: BedImg,
     },
     {
       iconComponent: Eye,
       title: "Transparent & Fair",
       description:
         "Clear communication, honest pricing, and no hidden surprises. What you see is what you get.",
-      image: corporateImg,
+      image: shakesImg,
     },
     {
       iconComponent: Users,
       title: "Community Focused",
       description:
         "Building spaces that bring people together and strengthen the fabric of our communities.",
-      image: cottonbroImg,
+      image: aboutvaluesImg,
     },
     {
       iconComponent: Shield,
       title: "Quality Assurance",
       description:
         "Rigorous quality checks and premium materials ensure lasting beauty and functionality.",
-      image: professionalsImg,
+      image:profeesionalsImg,
     },
   ];
 

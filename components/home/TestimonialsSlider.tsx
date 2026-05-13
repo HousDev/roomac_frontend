@@ -3,13 +3,13 @@
 import { useState, useEffect } from 'react';
 import { Quote } from 'lucide-react';
 import ScrollAnimation from './ScrollAnimation';
+import feedbackImg from '@/app/src/assets/images/aboutsec2.png';
 
 export default function TestimonialsSlider() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isAutoPlay, setIsAutoPlay] = useState(true);
 
   // Fixed image for left side - same people looking at tablet
-  const leftSideImage = "https://images.pexels.com/photos/3184291/pexels-photo-3184291.jpeg?auto=compress&cs=tinysrgb&w=800";
 
   const testimonials = [
     {
@@ -62,7 +62,7 @@ export default function TestimonialsSlider() {
               <div className="hidden lg:block order-2 lg:order-1">
                 <div className="relative rounded-3xl overflow-hidden shadow-2xl h-[450px] xl:h-[500px]">
                   <img
-                    src={leftSideImage}
+                    src={feedbackImg}
                     alt="Happy ROOMAC residents"
                     className="w-full h-full object-cover"
                   />

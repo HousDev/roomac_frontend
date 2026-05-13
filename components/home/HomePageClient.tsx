@@ -25,6 +25,13 @@ import { FaFacebookF, FaTwitter, FaLinkedinIn, FaTelegramPlane } from 'react-ico
 import { MdEmail } from 'react-icons/md';
 import { useRouter } from 'next/navigation';
 import { generatePropertySlug } from '@/lib/slugUtils';
+import studentImg from '@/app/src/assets/images/student.png';
+import CorporateImg from '@/app/src/assets/images/corporate.png';
+import CoupleImg from '@/app/src/assets/images/couple.png';
+import CorporateImg2 from '@/app/src/assets/images/corporateteam.png';
+import buildingImg from '@/app/src/assets/images/building.png';
+import aboutImg from '@/app/src/assets/images/aboutsec.png';
+
 // ─── Animation variants ───────────────────────────────────────────────────────
 const fadeInUp = {
   hidden: { opacity: 0, y: 30 },
@@ -1065,10 +1072,14 @@ function AboutUsSection() {
   };
 
   const categories = [
-    { title: "Students", description: "Affordable PGs near colleges with food, WiFi & a safe environment.", image: "https://images.pexels.com/photos/1595391/pexels-photo-1595391.jpeg?auto=compress&cs=tinysrgb&w=900" },
-    { title: "Working Professionals", description: "Premium stays near IT parks with power backup & housekeeping.", image: "https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=900" },
-    { title: "Couples", description: "Private & comfortable couple-friendly rooms with full privacy.", image: "https://images.unsplash.com/photo-1600585154526-990dced4db0d?auto=format&fit=crop&w=900&q=80" },
-    { title: "Corporate Stays", description: "Short & long-term stays for teams with complete support.", image: "https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=900&q=80" },
+{ 
+    title: "Students", 
+    description: "Affordable PGs near colleges with food, WiFi & a safe environment.", 
+    image: studentImg  // ✅ Use the imported variable
+  },    
+  { title: "Working Professionals", description: "Premium stays near IT parks with power backup & housekeeping.",  image:CorporateImg },
+    { title: "Couples", description: "Private & comfortable couple-friendly rooms with full privacy.", image: CoupleImg },
+    { title: "Corporate Stays", description: "Short & long-term stays for teams with complete support.", image:CorporateImg2 },
   ];
 
   const currentContent = tabContent[activeTab];
@@ -1105,8 +1116,8 @@ function AboutUsSection() {
             </div>
             <div className="relative">
               <div className="relative h-[600px] xl:h-[650px]">
-                <div className="absolute top-0 right-0 w-[90%] h-[48%] rounded-3xl overflow-hidden shadow-2xl z-10"><img src="https://images.unsplash.com/photo-1600585154526-990dced4db0d?auto=format&fit=crop&w=900&q=80" alt="Luxury Living Space" className="w-full h-full object-cover hover:scale-105 transition-transform duration-700" /></div>
-                <div className="absolute bottom-0 left-0 w-[75%] h-[58%] rounded-3xl overflow-hidden shadow-2xl"><img src="https://images.pexels.com/photos/1595391/pexels-photo-1595391.jpeg?auto=compress&cs=tinysrgb&w=900" alt="Premium Amenities" className="w-full h-full object-cover hover:scale-105 transition-transform duration-700" /></div>
+                <div className="absolute top-0 right-0 w-[90%] h-[48%] rounded-3xl overflow-hidden shadow-2xl z-10"><img src={buildingImg} alt="Luxury Living Space" className="w-full h-full object-cover hover:scale-105 transition-transform duration-700" /></div>
+                <div className="absolute bottom-0 left-0 w-[75%] h-[58%] rounded-3xl overflow-hidden shadow-2xl"><img src={aboutImg} alt="Premium Amenities" className="w-full h-full object-cover hover:scale-105 transition-transform duration-700" /></div>
                 <div className="absolute top-1/3 right-1/4 w-40 h-40 bg-[#0249a8]/5 rounded-full blur-3xl -z-10" />
                 <div className="absolute bottom-1/4 left-1/3 w-32 h-32 bg-blue-400/5 rounded-full blur-2xl -z-10" />
               </div>

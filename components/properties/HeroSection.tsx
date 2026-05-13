@@ -81,7 +81,6 @@ export default function PropertyHeroSection({
               <Badge 
                 className="bg-white/15 backdrop-blur-md border-white/30 text-white hover:text-white hover:bg-white/25 hover:border-white/40 px-4 py-1.5 text-xs transition-all duration-300 hover:scale-105"
               >
-                <Sparkles className="h-3 w-3 mr-1.5" />
                 Premium PG Accommodations
               </Badge>
             </div>

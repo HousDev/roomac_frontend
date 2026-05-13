@@ -4,10 +4,11 @@ import { CheckCircle2 } from 'lucide-react';
 interface HeroSectionProps {
   id: string;
   visible: boolean;
+  onApplyClick: () => void;
 }
 
 export const HeroSection = forwardRef<HTMLElement, HeroSectionProps>(
-  ({ id, visible }, ref) => (
+  ({ id, visible, onApplyClick}, ref) => (
     <section
       ref={ref}
       id={id}
@@ -58,9 +59,12 @@ export const HeroSection = forwardRef<HTMLElement, HeroSectionProps>(
   
   {/* CTA Button */}
   <div className="mt-8 animate-slide-in-left opacity-0 [animation-delay:500ms]">
-    <button className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-8 py-3 rounded-lg transition-colors duration-300 shadow-lg">
-      Get Started Today
-    </button>
+    <button 
+  onClick={onApplyClick}  // ← ADD THIS LINE
+  className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-8 py-3 rounded-lg transition-colors duration-300 shadow-lg"
+>
+  Get Started Today
+</button>
   </div>
 </div>
       </div>

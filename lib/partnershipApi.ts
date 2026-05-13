@@ -21,6 +21,10 @@ export interface PartnershipEnquiry {
     property_count: number;
     location: string;
     message: string;
+    no_of_buildings?: number;  
+    no_of_rooms?: number;      
+    city?: string;             
+    locality?: string;  
     status: 'new' | 'contacted' | 'in_review' | 'approved' | 'rejected';
     remark: string;
     created_at: string;

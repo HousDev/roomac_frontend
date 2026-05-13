@@ -47,20 +47,29 @@ async function getContactData(): Promise<ContactPageData> {
       },
      
     ],
-    faqs: [
-      {
-        question: "How quickly will I get a response?",
-        answer: "We respond to all inquiries within 2-4 hours during business hours, and within 24 hours otherwise."
-      },
-      {
-        question: "Can I schedule a property visit?",
-        answer: "Yes! Fill out the form mentioning your preferred property and time, and we'll arrange a visit for you."
-      },
-      {
-        question: "Do you offer virtual tours?",
-        answer: "Absolutely! We provide video call tours for all our properties if you can't visit in person."
-      }
-    ]
+faqs: [
+  {
+    question: "How quickly will I get a response?",
+    answer: "We respond to all inquiries within 2-4 hours during business hours, and within 24 hours otherwise."
+  },
+  {
+    question: "Can I schedule a property visit?",
+    answer: "Yes! Fill out the form mentioning your preferred property and time, and we'll arrange a visit for you."
+  },
+  {
+    question: "Do you offer virtual tours?",
+    answer: "Absolutely! We provide video call tours for all our properties if you can't visit in person."
+  },
+  // ADD MORE FAQs:
+  {
+    question: "What are your business hours?",
+    answer: "Our support team is available Monday to Saturday, 9 AM to 7 PM IST. For emergencies, you can reach us via WhatsApp 24/7."
+  },
+  {
+    question: "Do you charge any service fees?",
+    answer: "We charge a nominal service fee only when we successfully help you find and book a property. There are no hidden charges."
+  }
+]
   };
 }
 

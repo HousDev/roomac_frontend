@@ -573,71 +573,77 @@ const dlReceipt = (id: number) => {
       {/* Main Content */}
       <main className="max-w-9xl mx-auto px-0 md:px-0 py-6 space-y-6">
         {/* Enhanced Stat Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 sticky top-16 z-10">
-          <StatCard
-            title="Member Since"
-            value={
-              tenant.created_at
-                ? new Date(tenant.created_at).toLocaleDateString("en-IN", {
-                    day: "numeric",
-                    month: "short",
-                    year: "numeric",
-                  })
-                : "N/A"
-            }
-            icon={CalendarDays}
-            color="bg-blue-600"
-            bgColor="bg-gradient-to-br from-blue-50 to-blue-100"
-          />
-          <StatCard
-            title="Monthly Rent"
-            value={rentVal}
-            icon={IndianRupee}
-            color="bg-green-600"
-            bgColor="bg-gradient-to-br from-green-50 to-green-100"
-          />
-          <StatCard
-            title="Room / Bed"
-            value={roomVal}
-            icon={Bed}
-            color="bg-purple-600"
-            bgColor="bg-gradient-to-br from-purple-50 to-purple-100"
-          />
-          <StatCard
-            title="Property"
-            value={
-              assignment?.property?.name ||
-              tenant.assigned_property_name ||
-              "Not Assigned"
-            }
-            icon={Building}
-            color="bg-amber-600"
-            bgColor="bg-gradient-to-br from-amber-50 to-amber-100"
-          />
-
-          {(() => {
+    {/* Enhanced Stat Cards - 5 columns when vacated, 4 columns normally */}
+<div className={`grid grid-cols-2 sm:grid-cols-4 ${(() => {
   const vacateRecord = tenant.vacate_records && tenant.vacate_records.length > 0 
     ? tenant.vacate_records[0] 
     : null;
-  
-  if (vacateRecord) {
-    return (
-      <StatCard
-        title="Vacated On"
-        value={new Date(vacateRecord.requested_vacate_date).toLocaleDateString("en-IN", {
-          day: "numeric",
-          month: "short",
-          year: "numeric",
-        })}
-        icon={Calendar}
-        color="bg-red-600"
-        bgColor="bg-gradient-to-br from-red-50 to-red-100"
-      />
-    );
-  }
-  return null;
-})()}
-        </div>
+  return vacateRecord ? 'lg:grid-cols-5' : '';
+})()} gap-1.5 sm:gap-2 sticky top-16 z-10`}>
+  <StatCard
+    title="Member Since"
+    value={
+      tenant.created_at
+        ? new Date(tenant.created_at).toLocaleDateString("en-IN", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+          })
+        : "N/A"
+    }
+    icon={CalendarDays}
+    color="bg-blue-600"
+    bgColor="bg-gradient-to-br from-blue-50 to-blue-100"
+  />
+  <StatCard
+    title="Monthly Rent"
+    value={rentVal}
+    icon={IndianRupee}
+    color="bg-green-600"
+    bgColor="bg-gradient-to-br from-green-50 to-green-100"
+  />
+  <StatCard
+    title="Room / Bed"
+    value={roomVal}
+    icon={Bed}
+    color="bg-purple-600"
+    bgColor="bg-gradient-to-br from-purple-50 to-purple-100"
+  />
+  <StatCard
+    title="Property"
+    value={
+      assignment?.property?.name ||
+      tenant.assigned_property_name ||
+      "Not Assigned"
+    }
+    icon={Building}
+    color="bg-amber-600"
+    bgColor="bg-gradient-to-br from-amber-50 to-amber-100"
+  />
+
+  {(() => {
+    const vacateRecord = tenant.vacate_records && tenant.vacate_records.length > 0 
+      ? tenant.vacate_records[0] 
+      : null;
+    
+    if (vacateRecord) {
+      return (
+        <StatCard
+          title="Vacated On"
+          value={new Date(vacateRecord.requested_vacate_date).toLocaleDateString("en-IN", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+          })}
+          icon={Calendar}
+          color="bg-red-600"
+          bgColor="bg-gradient-to-br from-red-50 to-red-100"
+        />
+      );
+    }
+    return null;
+  })()}
+</div>
 
         {/* Main Card with Modern Tabs */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
@@ -960,116 +966,121 @@ const dlReceipt = (id: number) => {
                   </div>
                 </div>
 
-                {/* Check-in Date & Preferred Options */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Check-in Information */}
-                  <div className="bg-gradient-to-br from-white to-slate-50/50 rounded-xl border border-slate-200 p-5">
-                    <div className="flex items-center gap-3 mb-4 pb-3 border-b border-slate-200">
-                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-teal-500 to-teal-600 text-white flex items-center justify-center shadow-sm">
-                        <Calendar className="w-4 h-4" />
-                      </div>
-                      <h3 className="font-lexend font-semibold text-slate-900">
-                        Move-in Information
-                      </h3>
-                    </div>
-                    <div className="space-y-3">
-                      <div>
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                          Check-in Date
-                        </p>
-                        <p className="text-sm font-medium text-slate-900">
-                          {tenant.check_in_date
-                            ? new Date(tenant.check_in_date).toLocaleDateString(
-                                "en-IN",
-                                {
-                                  day: "numeric",
-                                  month: "long",
-                                  year: "numeric",
-                                },
-                              )
-                            : "Not specified"}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Vacate Information - Only show if tenant has vacated */}
-{(() => {
-  // Find the most recent vacate record
-  const vacateRecord = tenant.vacate_records && tenant.vacate_records.length > 0 
-    ? tenant.vacate_records[0] 
-    : null;
-  
-  if (!vacateRecord) return null;
-  
-  return (
-    <div className="bg-gradient-to-br from-red-50 to-red-100/50 rounded-xl border border-red-200 p-5">
-      <div className="flex items-center gap-3 mb-4 pb-3 border-b border-red-200">
-        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-500 to-red-600 text-white flex items-center justify-center shadow-sm">
-          <Calendar className="w-4 h-4" />
-        </div>
-        <h3 className="font-lexend font-semibold text-red-800">
-          Vacate Information
-        </h3>
+             {/* Check-in Date & Vacate Information Grid - Vacate card ONLY for vacated tenants */}
+<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+  {/* Move-in Information (Left Side) - Always visible */}
+  <div className="bg-gradient-to-br from-white to-slate-50/50 rounded-xl border border-slate-200 p-5">
+    <div className="flex items-center gap-3 mb-4 pb-3 border-b border-slate-200">
+      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-teal-500 to-teal-600 text-white flex items-center justify-center shadow-sm">
+        <Calendar className="w-4 h-4" />
       </div>
-      <div className="space-y-3">
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-wider text-red-600 mb-1">
-            Vacate Date
-          </p>
-          <p className="text-sm font-medium text-red-900">
-            {vacateRecord.requested_vacate_date
-              ? new Date(vacateRecord.requested_vacate_date).toLocaleDateString("en-IN", {
-                  day: "numeric",
-                  month: "long",
-                  year: "numeric",
-                })
-              : "Not specified"}
-          </p>
+      <h3 className="font-lexend font-semibold text-slate-900">
+        Move-in Information
+      </h3>
+    </div>
+    <div className="space-y-3">
+      <div>
+        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+          Check-in Date
+        </p>
+        <p className="text-sm font-medium text-slate-900">
+          {tenant.check_in_date
+            ? new Date(tenant.check_in_date).toLocaleDateString("en-IN", {
+                day: "numeric",
+                month: "long",
+                year: "numeric",
+              })
+            : "Not specified"}
+        </p>
+      </div>
+    </div>
+  </div>
+
+  {/* Vacate Information (Right Side) - ONLY for vacated tenants */}
+  {(() => {
+    const vacateRecord = tenant.vacate_records && tenant.vacate_records.length > 0 
+      ? tenant.vacate_records[0] 
+      : null;
+    
+    // ONLY show if tenant has vacated
+    if (!vacateRecord) return null;
+    
+    return (
+      <div className="bg-gradient-to-br from-red-50 to-red-100/50 rounded-xl border border-red-200 p-3">
+        <div className="flex items-center gap-2 mb-2 pb-2 border-b border-red-200">
+          <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-red-500 to-red-600 text-white flex items-center justify-center shadow-sm">
+            <Calendar className="w-3 h-3" />
+          </div>
+          <h3 className="font-lexend font-semibold text-xs text-red-800">
+            Vacate Information
+          </h3>
         </div>
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-wider text-red-600 mb-1">
-            Vacate Reason
-          </p>
-          <p className="text-sm font-medium text-red-900">
-            {vacateRecord.vacate_reason_value || "Not specified"}
-          </p>
-        </div>
-        <div className="grid grid-cols-2 gap-3 pt-2 border-t border-red-200">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-red-600 mb-1">
-              Total Penalty
+        
+        <div className="grid grid-cols-3 gap-2">
+          {/* Item 1 - Vacate Date */}
+          <div className="flex items-center justify-between gap-1 bg-white/50 rounded-md px-2 py-1.5">
+            <p className="text-[9px] font-bold uppercase tracking-wider text-red-600">
+              Vacate Date
             </p>
-            <p className="text-sm font-semibold text-red-700">
+            <p className="text-[10px] font-medium text-red-900 truncate">
+              {vacateRecord.requested_vacate_date
+                ? new Date(vacateRecord.requested_vacate_date).toLocaleDateString("en-IN", {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                  })
+                : "N/A"}
+            </p>
+          </div>
+
+          {/* Item 2 - Status */}
+          <div className="flex items-center justify-between gap-1 bg-white/50 rounded-md px-2 py-1.5">
+            <p className="text-[9px] font-bold uppercase tracking-wider text-red-600">
+              Status
+            </p>
+            <Badge className={`text-[9px] px-1.5 py-0 ${
+              vacateRecord.status === 'approved' 
+                ? 'bg-green-100 text-green-700 border-green-200' 
+                : 'bg-yellow-100 text-yellow-700 border-yellow-200'
+            } border`}>
+              {vacateRecord.status === 'approved' ? 'Approved' : vacateRecord.status}
+            </Badge>
+          </div>
+
+          {/* Item 3 - Penalty */}
+          <div className="flex items-center justify-between gap-1 bg-white/50 rounded-md px-2 py-1.5">
+            <p className="text-[9px] font-bold uppercase tracking-wider text-red-600">
+              Penalty
+            </p>
+            <p className="text-[10px] font-semibold text-red-700">
               ₹{Number(vacateRecord.total_penalty_amount || 0).toLocaleString()}
             </p>
           </div>
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-red-600 mb-1">
-              Refund Amount
+
+          {/* Item 4 - Vacate Reason (spans 2 columns) */}
+          <div className="col-span-2 flex items-center justify-between gap-1 bg-white/50 rounded-md px-2 py-1.5">
+            <p className="text-[9px] font-bold uppercase tracking-wider text-red-600">
+              Vacate Reason
             </p>
-            <p className="text-sm font-semibold text-green-700">
+            <p className="text-[10px] font-medium text-red-900 truncate flex-1 text-right">
+              {vacateRecord.vacate_reason_value || "Not specified"}
+            </p>
+          </div>
+
+          {/* Item 5 - Refund Amount */}
+          <div className="flex items-center justify-between gap-1 bg-white/50 rounded-md px-2 py-1.5">
+            <p className="text-[9px] font-bold uppercase tracking-wider text-red-600">
+              Refund
+            </p>
+            <p className="text-[10px] font-semibold text-green-700">
               ₹{Number(vacateRecord.refundable_amount || 0).toLocaleString()}
             </p>
           </div>
         </div>
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-wider text-red-600 mb-1">
-            Vacate Status
-          </p>
-          <Badge className={`text-[10px] px-2 py-0.5 ${
-            vacateRecord.status === 'approved' 
-              ? 'bg-green-100 text-green-700 border-green-200' 
-              : 'bg-yellow-100 text-yellow-700 border-yellow-200'
-          } border`}>
-            {vacateRecord.status === 'approved' ? 'Approved' : vacateRecord.status}
-          </Badge>
-        </div>
       </div>
-    </div>
-  );
-})()}
+    );
+  })()}
+</div>
               </TabsContent>
 
               {/* Occupation Tab - Enhanced with all fields */}
@@ -1334,7 +1345,7 @@ const dlReceipt = (id: number) => {
   ) : (
     <div className="space-y-4">
       {/* Show Vacated Banner if tenant is vacated */}
-      {paymentSummary?.is_vacated && (
+      {/* {paymentSummary?.is_vacated && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
           <div className="flex items-start gap-3">
             <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5" />
@@ -1367,7 +1378,7 @@ const dlReceipt = (id: number) => {
             </div>
           </div>
         </div>
-      )}
+      )} */}
 
       {/* Payment Summary Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

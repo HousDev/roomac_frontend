@@ -27,7 +27,7 @@ export const HowItWorksSection = forwardRef<HTMLElement, HowItWorksSectionProps>
       <section
         ref={ref}
         id={id}
-        className={`py-16 md:py-20 bg-white transition-all duration-700 ${
+        className={`py-2 md:py-2 bg-white transition-all duration-700 ${
           visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'
         }`}
       >

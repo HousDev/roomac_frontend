@@ -570,6 +570,8 @@ const confirmDeleteEnquiry = async () => {
                     <TableHead>Contact Info</TableHead>
                     <TableHead>Property Details</TableHead>
                     <TableHead>Location</TableHead>
+                    <TableHead>Buildings/Rooms</TableHead>
+<TableHead>City/Locality</TableHead>
                     <TableHead className="cursor-pointer" onClick={() => handleSort('status')}>
                       <div className="flex items-center gap-1">
                         Status <ArrowUpDown className="h-3 w-3" />
@@ -626,6 +628,14 @@ const confirmDeleteEnquiry = async () => {
                         </div>
                       </TableCell>
                       <TableCell className="text-sm">{enquiry.location || 'Not specified'}</TableCell>
+                      <TableCell className="text-sm">
+  <div>{enquiry.no_of_buildings ?? '-'} Buildings</div>
+  <div className="text-xs text-gray-500">{enquiry.no_of_rooms ?? '-'} Rooms</div>
+</TableCell>
+<TableCell className="text-sm">
+  <div>{enquiry.city || '-'}</div>
+  <div className="text-xs text-gray-500">{enquiry.locality || '-'}</div>
+</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
                           {getStatusIcon(enquiry.status)}
@@ -799,6 +809,22 @@ const confirmDeleteEnquiry = async () => {
                           </p>
                           <p className="text-sm text-gray-800">{selectedEnquiry.location || 'Not specified'}</p>
                         </div>
+                        <div>
+  <p className="text-[10px] text-gray-400">Buildings</p>
+  <p className="text-sm text-gray-800">{selectedEnquiry.no_of_buildings ?? 'Not specified'}</p>
+</div>
+<div>
+  <p className="text-[10px] text-gray-400">Rooms</p>
+  <p className="text-sm text-gray-800">{selectedEnquiry.no_of_rooms ?? 'Not specified'}</p>
+</div>
+<div>
+  <p className="text-[10px] text-gray-400">City</p>
+  <p className="text-sm text-gray-800">{selectedEnquiry.city || 'Not specified'}</p>
+</div>
+<div>
+  <p className="text-[10px] text-gray-400">Locality</p>
+  <p className="text-sm text-gray-800">{selectedEnquiry.locality || 'Not specified'}</p>
+</div>
                       </div>
                     </div>
 
