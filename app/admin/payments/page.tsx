@@ -171,7 +171,6 @@ interface DemandPayment {
   property_name?: string;
 }
 
-
 export default function PaymentsPage() {
   const [payments, setPayments] = useState<paymentApi.Payment[]>([]);
   const [receipts, setReceipts] = useState<paymentApi.Receipt[]>([]);
@@ -228,7 +227,7 @@ export default function PaymentsPage() {
   const [selectedLedgerTenant, setSelectedLedgerTenant] = useState<any>(null);
 
   const propertySearchInputRef = useRef<HTMLInputElement>(null);
-const roomSearchInputRef = useRef<HTMLInputElement>(null);
+  const roomSearchInputRef = useRef<HTMLInputElement>(null);
 
   // Add this with your other useState declarations
   const [expandedRows, setExpandedRows] = useState<number[]>([]);
@@ -247,11 +246,13 @@ const roomSearchInputRef = useRef<HTMLInputElement>(null);
     useState(false);
   const [showDemandFilterSidebar, setShowDemandFilterSidebar] = useState(false);
   // Add this with your other useState declarations
-const [bankNames, setBankNames] = useState<Array<{ id: number; name: string }>>([]);
-const [loadingBankNames, setLoadingBankNames] = useState(false);
-const [customBankName, setCustomBankName] = useState("");
-const [showCustomBankInput, setShowCustomBankInput] = useState(false);
-const { on, connected } = useSocketIO();
+  const [bankNames, setBankNames] = useState<
+    Array<{ id: number; name: string }>
+  >([]);
+  const [loadingBankNames, setLoadingBankNames] = useState(false);
+  const [customBankName, setCustomBankName] = useState("");
+  const [showCustomBankInput, setShowCustomBankInput] = useState(false);
+  const { on, connected } = useSocketIO();
   const [lastUpdateTime, setLastUpdateTime] = useState<Date | null>(null);
 
   const [columnFilters, setColumnFilters] = useState({
@@ -327,40 +328,39 @@ const { on, connected } = useSocketIO();
     loadData();
   }, []);
 
-   // Listen for new payment events
+  // Listen for new payment events
   useEffect(() => {
     if (!connected) return;
 
     // Listen for new payment notification
-    const unsubscribeNewPayment = on('new_payment', (data) => {
+    const unsubscribeNewPayment = on("new_payment", (data) => {
       // Refresh all data
       loadData();
       setLastUpdateTime(new Date());
     });
 
     // Listen for payment status updates (approved/rejected)
-    const unsubscribePaymentUpdate = on('payment_updated', (data) => {
+    const unsubscribePaymentUpdate = on("payment_updated", (data) => {
       loadData();
       setLastUpdateTime(new Date());
     });
 
     // Listen for demand payment created
-    const unsubscribeDemandCreated = on('demand_created', (data) => {
+    const unsubscribeDemandCreated = on("demand_created", (data) => {
       loadDemands();
       setLastUpdateTime(new Date());
     });
 
-    
-const unsubscribePaymentFailed = on('payment_failed', (data) => {
-  loadData(); // Refresh to show failed payment
-  setLastUpdateTime(new Date());
-});
+    const unsubscribePaymentFailed = on("payment_failed", (data) => {
+      loadData(); // Refresh to show failed payment
+      setLastUpdateTime(new Date());
+    });
 
-// Also add listener for payment_pending (when payment is initiated but not completed)
-const unsubscribePaymentPending = on('payment_pending', (data) => {
-  loadData();
-  setLastUpdateTime(new Date());
-});
+    // Also add listener for payment_pending (when payment is initiated but not completed)
+    const unsubscribePaymentPending = on("payment_pending", (data) => {
+      loadData();
+      setLastUpdateTime(new Date());
+    });
 
     return () => {
       unsubscribeNewPayment();
@@ -372,30 +372,33 @@ const unsubscribePaymentPending = on('payment_pending', (data) => {
   }, [connected, on]);
 
   // Fetch bank names from masters
-const fetchBankNames = async () => {
-  setLoadingBankNames(true);
-  try {
-    // Fetch from Common tab for "Bank Names" master item
-    const response = await consumeMasters({ tab: "Common", type: "Bank Names" });
-    
-    if (response?.success && response.data) {
-      const banks = response.data.map((item: any) => ({
-        id: item.value_id,
-        name: item.value_name
-      }));
-      setBankNames(banks);
-    } 
-  } catch (error) {
-    console.error("Error fetching bank names:", error);
-  } finally {
-    setLoadingBankNames(false);
-  }
-};
+  const fetchBankNames = async () => {
+    setLoadingBankNames(true);
+    try {
+      // Fetch from Common tab for "Bank Names" master item
+      const response = await consumeMasters({
+        tab: "Common",
+        type: "Bank Names",
+      });
 
-// Call fetchBankNames when component mounts
-useEffect(() => {
-  fetchBankNames();
-}, []);
+      if (response?.success && response.data) {
+        const banks = response.data.map((item: any) => ({
+          id: item.value_id,
+          name: item.value_name,
+        }));
+        setBankNames(banks);
+      }
+    } catch (error) {
+      console.error("Error fetching bank names:", error);
+    } finally {
+      setLoadingBankNames(false);
+    }
+  };
+
+  // Call fetchBankNames when component mounts
+  useEffect(() => {
+    fetchBankNames();
+  }, []);
 
   const loadData = async () => {
     setLoading(true);
@@ -508,50 +511,51 @@ useEffect(() => {
     }
   };
 
-// Replace the existing handleLedgerReport with this:
-const handleLedgerReport = (tenantId: number, tenantData: any) => {
-  // Find the complete tenant object
-  const completeTenant = tenants.find(t => t.id === tenantId);
-  
-  // Get original monthly rent from bed_assignments
-  let monthlyRent = tenantData?.monthly_rent || completeTenant?.monthly_rent || 0;
-  
-  // If still 0, try to get from current_assignment
-  if (monthlyRent === 0 && completeTenant?.current_assignment?.tenant_rent) {
-    monthlyRent = completeTenant.current_assignment.tenant_rent;
-  }
-  
-  setSelectedLedgerTenant({
-    id: tenantId,
-    name: completeTenant?.full_name || getTenantName(tenantId),
-    phone: completeTenant?.phone || getTenantPhone(tenantId),
-    email: completeTenant?.email || '',
-    salutation: completeTenant?.salutation || getTenantSalutation(tenantId),
-    country_code: completeTenant?.country_code || getTenantCountryCode(tenantId),
-    room_number: tenantData?.room_number || completeTenant?.room_number,
-    bed_number: tenantData?.bed_number || completeTenant?.bed_number,
-    property_name: tenantData?.property_name || completeTenant?.property_name,
-    monthly_rent: monthlyRent, // ✅ Original monthly rent
-    check_in_date: tenantData?.check_in_date || completeTenant?.check_in_date,
-    security_deposit: completeTenant?.security_deposit || 0,
-  });
-  
-  setIsLedgerReportOpen(true); // ✅ Opens modal, NOT new tab
-};
+  // Replace the existing handleLedgerReport with this:
+  const handleLedgerReport = (tenantId: number, tenantData: any) => {
+    // Find the complete tenant object
+    const completeTenant = tenants.find((t) => t.id === tenantId);
 
-// Or for download directly:
-const handleDownloadLedger = (tenantId: number) => {
-  const downloadUrl = `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/payments/ledger/${tenantId}/download`;
-  window.open(downloadUrl, '_blank');
-  toast.success('PDF download started');
-};
+    // Get original monthly rent from bed_assignments
+    let monthlyRent =
+      tenantData?.monthly_rent || completeTenant?.monthly_rent || 0;
 
+    // If still 0, try to get from current_assignment
+    if (monthlyRent === 0 && completeTenant?.current_assignment?.tenant_rent) {
+      monthlyRent = completeTenant.current_assignment.tenant_rent;
+    }
 
-// Add this helper function
-const formatCurrency = (amount: number) => {
-  if (isNaN(amount) || amount === 0) return '₹0';
-  return `₹${amount.toLocaleString('en-IN')}`;
-};
+    setSelectedLedgerTenant({
+      id: tenantId,
+      name: completeTenant?.full_name || getTenantName(tenantId),
+      phone: completeTenant?.phone || getTenantPhone(tenantId),
+      email: completeTenant?.email || "",
+      salutation: completeTenant?.salutation || getTenantSalutation(tenantId),
+      country_code:
+        completeTenant?.country_code || getTenantCountryCode(tenantId),
+      room_number: tenantData?.room_number || completeTenant?.room_number,
+      bed_number: tenantData?.bed_number || completeTenant?.bed_number,
+      property_name: tenantData?.property_name || completeTenant?.property_name,
+      monthly_rent: monthlyRent, // ✅ Original monthly rent
+      check_in_date: tenantData?.check_in_date || completeTenant?.check_in_date,
+      security_deposit: completeTenant?.security_deposit || 0,
+    });
+
+    setIsLedgerReportOpen(true); // ✅ Opens modal, NOT new tab
+  };
+
+  // Or for download directly:
+  const handleDownloadLedger = (tenantId: number) => {
+    const downloadUrl = `${import.meta.env.VITE_API_URL || "http://localhost:3001"}/api/payments/ledger/${tenantId}/download`;
+    window.open(downloadUrl, "_blank");
+    toast.success("PDF download started");
+  };
+
+  // Add this helper function
+  const formatCurrency = (amount: number) => {
+    if (isNaN(amount) || amount === 0) return "₹0";
+    return `₹${amount.toLocaleString("en-IN")}`;
+  };
 
   // Fetch all properties
   const fetchProperties = async () => {
@@ -571,35 +575,37 @@ const formatCurrency = (amount: number) => {
   };
 
   // Fetch rooms by property
-const fetchRoomsByProperty = async (propertyId: string) => {
-  if (!propertyId) {
-    setRooms([]);
-    setFilteredRooms([]);
-    return;
-  }
-
-  setLoadingRooms(true);
-  try {
-    const response = await fetch(`/api/rooms/property/${propertyId}`);
-    const data = await response.json();
-    if (data.success) {
-      setRooms(data.data);
-      // Filter rooms based on roomSearch state
-      const filtered = data.data.filter((room: any) =>
-        room.room_number
-          .toString()
-          .toLowerCase()
-          .includes(roomSearch.toLowerCase()),
-      );
-      setFilteredRooms(filtered);
-      console.log(`✅ Loaded ${data.data.length} rooms for property ${propertyId}`);
+  const fetchRoomsByProperty = async (propertyId: string) => {
+    if (!propertyId) {
+      setRooms([]);
+      setFilteredRooms([]);
+      return;
     }
-  } catch (error) {
-    console.error("Error fetching rooms:", error);
-  } finally {
-    setLoadingRooms(false);
-  }
-};
+
+    setLoadingRooms(true);
+    try {
+      const response = await fetch(`/api/rooms/property/${propertyId}`);
+      const data = await response.json();
+      if (data.success) {
+        setRooms(data.data);
+        // Filter rooms based on roomSearch state
+        const filtered = data.data.filter((room: any) =>
+          room.room_number
+            .toString()
+            .toLowerCase()
+            .includes(roomSearch.toLowerCase()),
+        );
+        setFilteredRooms(filtered);
+        console.log(
+          `✅ Loaded ${data.data.length} rooms for property ${propertyId}`,
+        );
+      }
+    } catch (error) {
+      console.error("Error fetching rooms:", error);
+    } finally {
+      setLoadingRooms(false);
+    }
+  };
 
   // Then use it in fetchTenantsByRoom:
   const fetchTenantsByRoom = async (roomId: string) => {
@@ -668,24 +674,27 @@ const fetchRoomsByProperty = async (propertyId: string) => {
   }, []);
 
   const loadTenants = async () => {
-  try {
-    // Use listTenantsOptimized or listTenantsWithAssignments to get full tenant data
-    const response = await listTenants({ is_active: true, pageSize: 500 });
-    if (response.success && response.data) {
-      setTenants(response.data);
-      console.log("Loaded tenants:", response.data.map(t => ({ 
-        id: t.id, 
-        name: t.full_name,
-        property_id: t.current_assignment?.property_id,
-        room_id: t.current_assignment?.room_id,
-        property_name: t.current_assignment?.property_name,
-        room_number: t.current_assignment?.room_number
-      })));
+    try {
+      // Use listTenantsOptimized or listTenantsWithAssignments to get full tenant data
+      const response = await listTenants({ is_active: true, pageSize: 500 });
+      if (response.success && response.data) {
+        setTenants(response.data);
+        console.log(
+          "Loaded tenants:",
+          response.data.map((t) => ({
+            id: t.id,
+            name: t.full_name,
+            property_id: t.current_assignment?.property_id,
+            room_id: t.current_assignment?.room_id,
+            property_name: t.current_assignment?.property_name,
+            room_number: t.current_assignment?.room_number,
+          })),
+        );
+      }
+    } catch (error) {
+      console.error("Error loading tenants:", error);
     }
-  } catch (error) {
-    console.error("Error loading tenants:", error);
-  }
-};
+  };
 
   const loadStats = async () => {
     try {
@@ -698,15 +707,31 @@ const fetchRoomsByProperty = async (propertyId: string) => {
     }
   };
 
-// In page.tsx - Update fetchSecurityDepositInfo
+  // In page.tsx - Update fetchSecurityDepositInfo
 
-const fetchSecurityDepositInfo = async (tenantId: number) => {
-  try {
-    const response = await paymentApi.getSecurityDepositInfo(tenantId);
-    if (response.success) {
-      setSecurityDepositInfo(response.data);
-    } else {
-      // Set default values if endpoint returns error
+  const fetchSecurityDepositInfo = async (tenantId: number) => {
+    try {
+      const response = await paymentApi.getSecurityDepositInfo(tenantId);
+      if (response.success) {
+        setSecurityDepositInfo(response.data);
+      } else {
+        // Set default values if endpoint returns error
+        setSecurityDepositInfo({
+          property_name: "N/A",
+          room_number: "N/A",
+          bed_number: null,
+          bed_type: null,
+          security_deposit: 0,
+          paid_amount: 0,
+          pending_amount: 0,
+          is_fully_paid: true,
+          last_payment_date: null,
+          payments: [],
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching security deposit info:", error);
+      // Set default values instead of failing
       setSecurityDepositInfo({
         property_name: "N/A",
         room_number: "N/A",
@@ -720,23 +745,7 @@ const fetchSecurityDepositInfo = async (tenantId: number) => {
         payments: [],
       });
     }
-  } catch (error) {
-    console.error("Error fetching security deposit info:", error);
-    // Set default values instead of failing
-    setSecurityDepositInfo({
-      property_name: "N/A",
-      room_number: "N/A",
-      bed_number: null,
-      bed_type: null,
-      security_deposit: 0,
-      paid_amount: 0,
-      pending_amount: 0,
-      is_fully_paid: true,
-      last_payment_date: null,
-      payments: [],
-    });
-  }
-};
+  };
 
   // Update handleTenantSelect to fetch deposit info
   const handleTenantSelect = async (tenantId: string) => {
@@ -805,217 +814,241 @@ const fetchSecurityDepositInfo = async (tenantId: number) => {
   };
 
   // Add this handler for demand payment type change
-// Update handleDemandPaymentTypeChange to auto-fill amount when type changes
-const handleDemandPaymentTypeChange = async (value: string) => {
-  setDemandPayment((prev) => ({ ...prev, payment_type: value }));
+  // Update handleDemandPaymentTypeChange to auto-fill amount when type changes
+  const handleDemandPaymentTypeChange = async (value: string) => {
+    setDemandPayment((prev) => ({ ...prev, payment_type: value }));
 
-  if (value === "security_deposit" && demandPayment.tenant_id) {
-    try {
-      const response = await paymentApi.getSecurityDepositInfo(
-        parseInt(demandPayment.tenant_id),
-      );
-      if (response.success) {
-        setSecurityDepositInfo(response.data);
-        // ✅ Auto-fill amount with pending amount
-        setDemandPayment((prev) => ({
-          ...prev,
-          amount: response.data.pending_amount,
-        }));
-      }
-    } catch (error) {
-      console.error("Error fetching security deposit info:", error);
-    }
-  } else if (value === "rent" && demandPayment.tenant_id) {
-    try {
-      const formResponse = await paymentApi.getTenantPaymentFormData(
-        parseInt(demandPayment.tenant_id),
-      );
-      if (formResponse.success && formResponse.data?.total_pending) {
-        setPaymentFormData(formResponse.data);
-        // ✅ Auto-fill amount with total pending amount
-        setDemandPayment((prev) => ({
-          ...prev,
-          amount: formResponse.data.total_pending,
-        }));
-      }
-    } catch (error) {
-      console.error("Error fetching rent pending amount:", error);
-    }
-  }
-};
-
-// Update handleDemandTenantSelect to fetch and set pending amount correctly
-const handleDemandTenantSelect = async (tenantId: string) => {
-  setDemandPayment((prev) => ({ ...prev, tenant_id: tenantId }));
-  setPaymentFormData(null);
-  setSecurityDepositInfo(null);
-
-  if (!tenantId) return;
-
-  setBookingLoading(true);
-  try {
-    // Fetch rent payment data using existing function
-    const formResponse = await paymentApi.getTenantPaymentFormData(
-      parseInt(tenantId),
-    );
-    if (formResponse.success) {
-      setPaymentFormData(formResponse.data);
-      
-      // ✅ Auto-fill amount with total pending amount for rent
-      if (demandPayment.payment_type === "rent" && formResponse.data?.total_pending) {
-        setDemandPayment((prev) => ({
-          ...prev,
-          amount: formResponse.data.total_pending,
-        }));
-      }
-    }
-
-    // Fetch security deposit info
-    const depositResponse = await paymentApi.getSecurityDepositInfo(
-      parseInt(tenantId),
-    );
-    if (depositResponse.success) {
-      setSecurityDepositInfo(depositResponse.data);
-      
-      // ✅ Auto-fill amount with pending amount for security deposit
-      if (demandPayment.payment_type === "security_deposit" && depositResponse.data?.pending_amount) {
-        setDemandPayment((prev) => ({
-          ...prev,
-          amount: depositResponse.data.pending_amount,
-        }));
-      }
-    }
-  } catch (error) {
-    console.error("Error loading tenant details:", error);
-    toast.error("Failed to load tenant details");
-  } finally {
-    setBookingLoading(false);
-  }
-};
-
-const handleEditPayment = async (payment: any) => {
-  setSelectedPayment(payment);
-  
-  setBookingLoading(true);
-  try {
-    // Fetch tenant payment form data for this tenant
-    const formResponse = await paymentApi.getTenantPaymentFormData(payment.tenant_id);
-    if (formResponse.success) {
-      setPaymentFormData(formResponse.data);
-      
-      // ✅ Set the month from the payment data AFTER formData is loaded
-      if (payment.month && payment.year) {
-        // Find matching month in formData
-        const matchingMonth = formResponse.data?.month_wise_history?.find(
-          (month: any) => month.month === payment.month && month.year === payment.year
+    if (value === "security_deposit" && demandPayment.tenant_id) {
+      try {
+        const response = await paymentApi.getSecurityDepositInfo(
+          parseInt(demandPayment.tenant_id),
         );
-        
-        if (matchingMonth) {
-          setSelectedPaymentMonth(matchingMonth.month_key);
-        } else {
-          // Fallback: create month key
-          const monthNumber = new Date(Date.parse(payment.month + " 1, " + payment.year)).getMonth() + 1;
-          const monthKey = `${payment.year}-${String(monthNumber).padStart(2, '0')}`;
-          setSelectedPaymentMonth(monthKey);
+        if (response.success) {
+          setSecurityDepositInfo(response.data);
+          // ✅ Auto-fill amount with pending amount
+          setDemandPayment((prev) => ({
+            ...prev,
+            amount: response.data.pending_amount,
+          }));
+        }
+      } catch (error) {
+        console.error("Error fetching security deposit info:", error);
+      }
+    } else if (value === "rent" && demandPayment.tenant_id) {
+      try {
+        const formResponse = await paymentApi.getTenantPaymentFormData(
+          parseInt(demandPayment.tenant_id),
+        );
+        if (formResponse.success && formResponse.data?.total_pending) {
+          setPaymentFormData(formResponse.data);
+          // ✅ Auto-fill amount with total pending amount
+          setDemandPayment((prev) => ({
+            ...prev,
+            amount: formResponse.data.total_pending,
+          }));
+        }
+      } catch (error) {
+        console.error("Error fetching rent pending amount:", error);
+      }
+    }
+  };
+
+  // Update handleDemandTenantSelect to fetch and set pending amount correctly
+  const handleDemandTenantSelect = async (tenantId: string) => {
+    setDemandPayment((prev) => ({ ...prev, tenant_id: tenantId }));
+    setPaymentFormData(null);
+    setSecurityDepositInfo(null);
+
+    if (!tenantId) return;
+
+    setBookingLoading(true);
+    try {
+      // Fetch rent payment data using existing function
+      const formResponse = await paymentApi.getTenantPaymentFormData(
+        parseInt(tenantId),
+      );
+      if (formResponse.success) {
+        setPaymentFormData(formResponse.data);
+
+        // ✅ Auto-fill amount with total pending amount for rent
+        if (
+          demandPayment.payment_type === "rent" &&
+          formResponse.data?.total_pending
+        ) {
+          setDemandPayment((prev) => ({
+            ...prev,
+            amount: formResponse.data.total_pending,
+          }));
         }
       }
-    }
-    
-    // Fetch security deposit info
-    const depositResponse = await paymentApi.getSecurityDepositInfo(payment.tenant_id);
-    if (depositResponse.success) {
-      setSecurityDepositInfo(depositResponse.data);
-    }
 
-    // ✅ Check if bank name exists in bankNames list, if not, set as "Other" and show custom input
-    const bankNameValue = payment.bank_name || "";
-    const isBankInList = bankNames.some(bank => bank.name === bankNameValue);
-    
-    if (bankNameValue && !isBankInList) {
-      setShowCustomBankInput(true);
-      setCustomBankName(bankNameValue);
-    } else {
-      setShowCustomBankInput(false);
-      setCustomBankName("");
-    }
-    
-    // Set form data with existing payment values
-    setNewPayment({
-      tenant_id: payment.tenant_id.toString(),
-      booking_id: payment.booking_id,
-      payment_type: payment.payment_type,
-      amount: payment.amount.toString(),
-      payment_mode: payment.payment_mode,
-       bank_name: bankNameValue,
-      transaction_id: payment.transaction_id || "",
-      payment_date: payment.payment_date.split("T")[0],
-      remark: payment.remark || "",
-    });
-    
-    // Set property and room
-    const tenant = tenants.find(t => t.id === payment.tenant_id);
-    if (tenant) {
-      const propertyId = tenant.current_assignment?.property_id;
-      const roomId = tenant.current_assignment?.room_id;
-      if (propertyId) {
-        setSelectedPropertyId(propertyId.toString());
-        await fetchRoomsByProperty(propertyId.toString());
+      // Fetch security deposit info
+      const depositResponse = await paymentApi.getSecurityDepositInfo(
+        parseInt(tenantId),
+      );
+      if (depositResponse.success) {
+        setSecurityDepositInfo(depositResponse.data);
+
+        // ✅ Auto-fill amount with pending amount for security deposit
+        if (
+          demandPayment.payment_type === "security_deposit" &&
+          depositResponse.data?.pending_amount
+        ) {
+          setDemandPayment((prev) => ({
+            ...prev,
+            amount: depositResponse.data.pending_amount,
+          }));
+        }
       }
-      if (roomId) {
-        setSelectedRoomId(roomId.toString());
-        await fetchTenantsByRoom(roomId.toString());
+    } catch (error) {
+      console.error("Error loading tenant details:", error);
+      toast.error("Failed to load tenant details");
+    } finally {
+      setBookingLoading(false);
+    }
+  };
+
+  const handleEditPayment = async (payment: any) => {
+    setSelectedPayment(payment);
+
+    setBookingLoading(true);
+    try {
+      // Fetch tenant payment form data for this tenant
+      const formResponse = await paymentApi.getTenantPaymentFormData(
+        payment.tenant_id,
+      );
+      if (formResponse.success) {
+        setPaymentFormData(formResponse.data);
+
+        // ✅ Set the month from the payment data AFTER formData is loaded
+        if (payment.month && payment.year) {
+          // Find matching month in formData
+          const matchingMonth = formResponse.data?.month_wise_history?.find(
+            (month: any) =>
+              month.month === payment.month && month.year === payment.year,
+          );
+
+          if (matchingMonth) {
+            setSelectedPaymentMonth(matchingMonth.month_key);
+          } else {
+            // Fallback: create month key
+            const monthNumber =
+              new Date(
+                Date.parse(payment.month + " 1, " + payment.year),
+              ).getMonth() + 1;
+            const monthKey = `${payment.year}-${String(monthNumber).padStart(2, "0")}`;
+            setSelectedPaymentMonth(monthKey);
+          }
+        }
+      }
+
+      // Fetch security deposit info
+      const depositResponse = await paymentApi.getSecurityDepositInfo(
+        payment.tenant_id,
+      );
+      if (depositResponse.success) {
+        setSecurityDepositInfo(depositResponse.data);
+      }
+
+      // ✅ Check if bank name exists in bankNames list, if not, set as "Other" and show custom input
+      const bankNameValue = payment.bank_name || "";
+      const isBankInList = bankNames.some(
+        (bank) => bank.name === bankNameValue,
+      );
+
+      if (bankNameValue && !isBankInList) {
+        setShowCustomBankInput(true);
+        setCustomBankName(bankNameValue);
+      } else {
+        setShowCustomBankInput(false);
+        setCustomBankName("");
+      }
+
+      // Set form data with existing payment values
+      setNewPayment({
+        tenant_id: payment.tenant_id.toString(),
+        booking_id: payment.booking_id,
+        payment_type: payment.payment_type,
+        amount: payment.amount.toString(),
+        payment_mode: payment.payment_mode,
+        bank_name: bankNameValue,
+        transaction_id: payment.transaction_id || "",
+        payment_date: payment.payment_date.split("T")[0],
+        remark: payment.remark || "",
+      });
+
+      // Set property and room
+      const tenant = tenants.find((t) => t.id === payment.tenant_id);
+      if (tenant) {
+        const propertyId = tenant.current_assignment?.property_id;
+        const roomId = tenant.current_assignment?.room_id;
+        if (propertyId) {
+          setSelectedPropertyId(propertyId.toString());
+          await fetchRoomsByProperty(propertyId.toString());
+        }
+        if (roomId) {
+          setSelectedRoomId(roomId.toString());
+          await fetchTenantsByRoom(roomId.toString());
+        }
+      }
+
+      setIsEditDialogOpen(true);
+    } catch (error) {
+      console.error("Error loading payment edit data:", error);
+      toast.error("Failed to load payment details for editing");
+    } finally {
+      setBookingLoading(false);
+    }
+  };
+
+  // Add this useEffect to set the month when paymentFormData is loaded during edit
+  useEffect(() => {
+    if (selectedPayment && paymentFormData && isEditDialogOpen) {
+      // Find the month in paymentFormData that matches the payment's month/year
+      const matchingMonth = paymentFormData.month_wise_history?.find(
+        (month: any) =>
+          month.month === selectedPayment.month &&
+          month.year === selectedPayment.year,
+      );
+
+      if (matchingMonth) {
+        setSelectedPaymentMonth(matchingMonth.month_key);
+      } else if (selectedPayment.month && selectedPayment.year) {
+        // Fallback: create month key from payment data
+        const monthNumber =
+          new Date(
+            Date.parse(selectedPayment.month + " 1, " + selectedPayment.year),
+          ).getMonth() + 1;
+        const monthKey = `${selectedPayment.year}-${String(monthNumber).padStart(2, "0")}`;
+        setSelectedPaymentMonth(monthKey);
       }
     }
-    
-    setIsEditDialogOpen(true);
-  } catch (error) {
-    console.error("Error loading payment edit data:", error);
-    toast.error("Failed to load payment details for editing");
-  } finally {
-    setBookingLoading(false);
-  }
-};
+  }, [selectedPayment, paymentFormData, isEditDialogOpen]);
 
-// Add this useEffect to set the month when paymentFormData is loaded during edit
-useEffect(() => {
-  if (selectedPayment && paymentFormData && isEditDialogOpen) {
-    // Find the month in paymentFormData that matches the payment's month/year
-    const matchingMonth = paymentFormData.month_wise_history?.find(
-      (month: any) => month.month === selectedPayment.month && month.year === selectedPayment.year
-    );
-    
-    if (matchingMonth) {
-      setSelectedPaymentMonth(matchingMonth.month_key);
-    } else if (selectedPayment.month && selectedPayment.year) {
-      // Fallback: create month key from payment data
-      const monthNumber = new Date(Date.parse(selectedPayment.month + " 1, " + selectedPayment.year)).getMonth() + 1;
-      const monthKey = `${selectedPayment.year}-${String(monthNumber).padStart(2, '0')}`;
-      setSelectedPaymentMonth(monthKey);
-    }
-  }
-}, [selectedPayment, paymentFormData, isEditDialogOpen]);
+  const handlePreviewReceipt = async (receiptId: number) => {
+    try {
+      toast.loading("Loading receipt...", { id: "receipt-preview" });
 
-const handlePreviewReceipt = async (receiptId: number) => {
-  try {
-    toast.loading("Loading receipt...", { id: "receipt-preview" });
-    
-    const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/payments/receipts/${receiptId}/preview-pdf`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/pdf',
-      },
-    });
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL || "http://localhost:3001"}/api/payments/receipts/${receiptId}/preview-pdf`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/pdf",
+          },
+        },
+      );
 
-    if (!response.ok) {
-      throw new Error('Failed to load receipt');
-    }
+      if (!response.ok) {
+        throw new Error("Failed to load receipt");
+      }
 
-    const blob = await response.blob();
-    const url = URL.createObjectURL(blob);
-    
-    // Create modal with smaller width
-    const modal = document.createElement('div');
-    modal.style.cssText = `
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+
+      // Create modal with smaller width
+      const modal = document.createElement("div");
+      modal.style.cssText = `
       position: fixed;
       top: 0;
       left: 0;
@@ -1028,9 +1061,9 @@ const handlePreviewReceipt = async (receiptId: number) => {
       justify-content: center;
       flex-direction: column;
     `;
-    
-    const modalContent = document.createElement('div');
-    modalContent.style.cssText = `
+
+      const modalContent = document.createElement("div");
+      modalContent.style.cssText = `
       width: 720px;
       max-width: 90vw;
       height: 90vh;
@@ -1042,9 +1075,9 @@ const handlePreviewReceipt = async (receiptId: number) => {
       overflow: hidden;
       box-shadow: 0 20px 40px rgba(0,0,0,0.2);
     `;
-    
-    const headerBar = document.createElement('div');
-    headerBar.style.cssText = `
+
+      const headerBar = document.createElement("div");
+      headerBar.style.cssText = `
       padding: 12px 20px;
       background: #1a3c6e;
       color: white;
@@ -1053,28 +1086,28 @@ const handlePreviewReceipt = async (receiptId: number) => {
       align-items: center;
       flex-shrink: 0;
     `;
-    headerBar.innerHTML = `
+      headerBar.innerHTML = `
       <span style="font-weight: 600; font-size: 14px;">Payment Receipt</span>
       <button id="closePreviewBtn" style="background: none; border: none; color: white; cursor: pointer; font-size: 20px;">&times;</button>
     `;
-    
-    const pdfViewer = document.createElement('iframe');
-    pdfViewer.style.cssText = `
+
+      const pdfViewer = document.createElement("iframe");
+      pdfViewer.style.cssText = `
       width: 100%;
       flex: 1;
       border: none;
     `;
-    pdfViewer.src = url;
-    
-    modalContent.appendChild(headerBar);
-    modalContent.appendChild(pdfViewer);
-    modal.appendChild(modalContent);
-    document.body.appendChild(modal);
-    
-    // Add download button outside
-    const downloadBtn = document.createElement('button');
-    downloadBtn.innerHTML = 'Download PDF';
-    downloadBtn.style.cssText = `
+      pdfViewer.src = url;
+
+      modalContent.appendChild(headerBar);
+      modalContent.appendChild(pdfViewer);
+      modal.appendChild(modalContent);
+      document.body.appendChild(modal);
+
+      // Add download button outside
+      const downloadBtn = document.createElement("button");
+      downloadBtn.innerHTML = "Download PDF";
+      downloadBtn.style.cssText = `
       margin-top: 16px;
       padding: 8px 20px;
       background: #1a3c6e;
@@ -1085,38 +1118,37 @@ const handlePreviewReceipt = async (receiptId: number) => {
       font-size: 12px;
       font-weight: 500;
     `;
-    downloadBtn.onclick = () => {
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `receipt-${receiptId}.pdf`;
-      link.click();
-    };
-    modal.appendChild(downloadBtn);
-    
-    const closeBtn = headerBar.querySelector('#closePreviewBtn');
-    closeBtn?.addEventListener('click', () => {
-      URL.revokeObjectURL(url);
-      modal.remove();
-      toast.dismiss("receipt-preview");
-    });
-    
-    modal.onclick = (e) => {
-      if (e.target === modal) {
+      downloadBtn.onclick = () => {
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `receipt-${receiptId}.pdf`;
+        link.click();
+      };
+      modal.appendChild(downloadBtn);
+
+      const closeBtn = headerBar.querySelector("#closePreviewBtn");
+      closeBtn?.addEventListener("click", () => {
         URL.revokeObjectURL(url);
         modal.remove();
         toast.dismiss("receipt-preview");
-      }
-    };
-    
-    toast.dismiss("receipt-preview");
-    toast.success("Receipt loaded");
-    
-  } catch (error) {
-    console.error("Error previewing receipt:", error);
-    toast.dismiss("receipt-preview");
-    toast.error("Failed to load receipt preview");
-  }
-};
+      });
+
+      modal.onclick = (e) => {
+        if (e.target === modal) {
+          URL.revokeObjectURL(url);
+          modal.remove();
+          toast.dismiss("receipt-preview");
+        }
+      };
+
+      toast.dismiss("receipt-preview");
+      toast.success("Receipt loaded");
+    } catch (error) {
+      console.error("Error previewing receipt:", error);
+      toast.dismiss("receipt-preview");
+      toast.error("Failed to load receipt preview");
+    }
+  };
 
   // In your PaymentsPage component - Simplified handleAddPayment
 
@@ -1140,37 +1172,53 @@ const handlePreviewReceipt = async (receiptId: number) => {
         transaction_id: newPayment.transaction_id || null,
         payment_date: newPayment.payment_date,
         remark: newPayment.remark || null,
-        source: "admin", 
+        source: "admin",
       };
 
-       // ✅ FIX: Use selectedPaymentMonth instead of current date for rent payments
-    if (newPayment.payment_type === "rent") {
-      if (selectedPaymentMonth && selectedPaymentMonth !== "current") {
-        // Selected a specific month from dropdown
-        const [year, month] = selectedPaymentMonth.split("-");
-        const monthNames = [
-          "January", "February", "March", "April", "May", "June",
-          "July", "August", "September", "October", "November", "December"
-        ];
-        paymentData.month = monthNames[parseInt(month) - 1];
-        paymentData.year = parseInt(year);
-      } else if (selectedPaymentMonth === "current") {
-        // Current month
-        const currentDate = new Date();
-        paymentData.month = currentDate.toLocaleString("default", { month: "long" });
-        paymentData.year = currentDate.getFullYear();
+      // ✅ FIX: Use selectedPaymentMonth instead of current date for rent payments
+      if (newPayment.payment_type === "rent") {
+        if (selectedPaymentMonth && selectedPaymentMonth !== "current") {
+          // Selected a specific month from dropdown
+          const [year, month] = selectedPaymentMonth.split("-");
+          const monthNames = [
+            "January",
+            "February",
+            "March",
+            "April",
+            "May",
+            "June",
+            "July",
+            "August",
+            "September",
+            "October",
+            "November",
+            "December",
+          ];
+          paymentData.month = monthNames[parseInt(month) - 1];
+          paymentData.year = parseInt(year);
+        } else if (selectedPaymentMonth === "current") {
+          // Current month
+          const currentDate = new Date();
+          paymentData.month = currentDate.toLocaleString("default", {
+            month: "long",
+          });
+          paymentData.year = currentDate.getFullYear();
+        } else {
+          // Fallback to current month
+          const currentDate = new Date();
+          paymentData.month = currentDate.toLocaleString("default", {
+            month: "long",
+          });
+          paymentData.year = currentDate.getFullYear();
+        }
       } else {
-        // Fallback to current month
+        // For security deposit or other payment types, use current date
         const currentDate = new Date();
-        paymentData.month = currentDate.toLocaleString("default", { month: "long" });
+        paymentData.month = currentDate.toLocaleString("default", {
+          month: "long",
+        });
         paymentData.year = currentDate.getFullYear();
       }
-    } else {
-      // For security deposit or other payment types, use current date
-      const currentDate = new Date();
-      paymentData.month = currentDate.toLocaleString("default", { month: "long" });
-      paymentData.year = currentDate.getFullYear();
-    }
 
       console.log("Sending payment data:", paymentData);
 
@@ -1258,45 +1306,44 @@ const handlePreviewReceipt = async (receiptId: number) => {
     }
   };
 
-const resetPaymentForm = () => {
-  // Reset form data
-  setPaymentFormData(null);
-  setSecurityDepositInfo(null);
-  setProofFile(null);
-  setProofPreview(null);
-  setSelectedPaymentMonth("");
+  const resetPaymentForm = () => {
+    // Reset form data
+    setPaymentFormData(null);
+    setSecurityDepositInfo(null);
+    setProofFile(null);
+    setProofPreview(null);
+    setSelectedPaymentMonth("");
 
-  // ✅ Reset custom bank input states
-  setShowCustomBankInput(false);
-  setCustomBankName("");
-  
-  // ✅ RESET ALL SELECTION STATES
-  setSelectedPropertyId("");
-  setSelectedRoomId("");
-  setFilteredTenants([]);
-  setPropertySearch("");
-  setRoomSearch("");
-  
-  
-  // Reset newPayment to default
-  setNewPayment({
-    tenant_id: "",
-    booking_id: null,
-    payment_type: "rent",
-    amount: "",
-    payment_mode: "cash",
-    bank_name: "",
-    transaction_id: "",
-    payment_date: new Date().toISOString().split("T")[0],
-    remark: "",
-  });
-};
+    // ✅ Reset custom bank input states
+    setShowCustomBankInput(false);
+    setCustomBankName("");
 
-useEffect(() => {
-  if (isDemandPaymentOpen && properties.length === 0) {
-    fetchProperties();
-  }
-}, [isDemandPaymentOpen, properties.length]);
+    // ✅ RESET ALL SELECTION STATES
+    setSelectedPropertyId("");
+    setSelectedRoomId("");
+    setFilteredTenants([]);
+    setPropertySearch("");
+    setRoomSearch("");
+
+    // Reset newPayment to default
+    setNewPayment({
+      tenant_id: "",
+      booking_id: null,
+      payment_type: "rent",
+      amount: "",
+      payment_mode: "cash",
+      bank_name: "",
+      transaction_id: "",
+      payment_date: new Date().toISOString().split("T")[0],
+      remark: "",
+    });
+  };
+
+  useEffect(() => {
+    if (isDemandPaymentOpen && properties.length === 0) {
+      fetchProperties();
+    }
+  }, [isDemandPaymentOpen, properties.length]);
 
   // Reset demand payment form
   const resetDemandPaymentForm = () => {
@@ -1313,15 +1360,15 @@ useEffect(() => {
       send_email: true,
       send_sms: false,
     });
-     // ✅ Reset selection states
-  setSelectedPropertyId("");
-  setSelectedRoomId("");
-  setFilteredTenants([]);
-  setPropertySearch("");
-  setRoomSearch("");
-  
-  // ✅ Reset loading states
-  setBookingLoading(false);
+    // ✅ Reset selection states
+    setSelectedPropertyId("");
+    setSelectedRoomId("");
+    setFilteredTenants([]);
+    setPropertySearch("");
+    setRoomSearch("");
+
+    // ✅ Reset loading states
+    setBookingLoading(false);
   };
   // Payment action handlers
   // Add this handler
@@ -1351,56 +1398,58 @@ useEffect(() => {
     }
   };
 
-const prefillAndOpenPaymentForm = async (tenantId: number, propertyId: number, roomId: number) => {
-  try {
-    toast.loading("Loading payment form...", { id: "prefill-loading" });
-    
-    console.log("Prefill started with:", { tenantId, propertyId, roomId });
-    console.log("Current properties length:", properties.length);
-    
-    // ✅ First, fetch properties if they are empty
-    if (properties.length === 0) {
-      console.log("Fetching properties...");
-      await fetchProperties();
-      await new Promise(resolve => setTimeout(resolve, 500));
+  const prefillAndOpenPaymentForm = async (
+    tenantId: number,
+    propertyId: number,
+    roomId: number,
+  ) => {
+    try {
+      toast.loading("Loading payment form...", { id: "prefill-loading" });
+
+      console.log("Prefill started with:", { tenantId, propertyId, roomId });
+      console.log("Current properties length:", properties.length);
+
+      // ✅ First, fetch properties if they are empty
+      if (properties.length === 0) {
+        console.log("Fetching properties...");
+        await fetchProperties();
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+
+      // ✅ Set selections
+      setSelectedPropertyId(propertyId.toString());
+      setSelectedRoomId(roomId.toString());
+      setNewPayment((prev) => ({ ...prev, tenant_id: tenantId.toString() }));
+
+      // ✅ Load rooms for this property
+      console.log("Fetching rooms for property:", propertyId);
+      await fetchRoomsByProperty(propertyId.toString());
+
+      // ✅ Load tenants for this room
+      console.log("Fetching tenants for room:", roomId);
+      await fetchTenantsByRoom(roomId.toString());
+
+      // ✅ Wait for state to update
+      await new Promise((resolve) => setTimeout(resolve, 300));
+
+      // ✅ Load tenant payment data
+      console.log("Loading tenant payment data for:", tenantId);
+      await handleTenantSelect(tenantId.toString());
+
+      toast.dismiss("prefill-loading");
+      setIsAddPaymentOpen(true);
+    } catch (error) {
+      console.error("Error pre-filling payment form:", error);
+      toast.dismiss("prefill-loading");
+      toast.error("Failed to load tenant data");
+      setIsAddPaymentOpen(true);
     }
-    
-    // ✅ Set selections
-    setSelectedPropertyId(propertyId.toString());
-    setSelectedRoomId(roomId.toString());
-    setNewPayment(prev => ({ ...prev, tenant_id: tenantId.toString() }));
-    
-    // ✅ Load rooms for this property
-    console.log("Fetching rooms for property:", propertyId);
-    await fetchRoomsByProperty(propertyId.toString());
-    
-    // ✅ Load tenants for this room
-    console.log("Fetching tenants for room:", roomId);
-    await fetchTenantsByRoom(roomId.toString());
-    
-    // ✅ Wait for state to update
-    await new Promise(resolve => setTimeout(resolve, 300));
-    
-    // ✅ Load tenant payment data
-    console.log("Loading tenant payment data for:", tenantId);
-    await handleTenantSelect(tenantId.toString());
-    
-    toast.dismiss("prefill-loading");
-    setIsAddPaymentOpen(true);
-    
-  } catch (error) {
-    console.error("Error pre-filling payment form:", error);
-    toast.dismiss("prefill-loading");
-    toast.error("Failed to load tenant data");
-    setIsAddPaymentOpen(true);
-  }
-};
+  };
 
   // Add useEffect to fetch rejection reasons
   useEffect(() => {
     fetchRejectionReasons();
   }, []);
-
 
   // Function to fetch rejection reasons
   const fetchRejectionReasons = async () => {
@@ -1465,150 +1514,182 @@ const prefillAndOpenPaymentForm = async (tenantId: number, propertyId: number, r
     }
   };
 
-const handleUpdatePayment = async (updatedData: any) => {
-  setActionLoading(true);
-  try {
-    // Prepare payment data with month/year from selectedPaymentMonth
-    const paymentData = { ...updatedData };
-    
-    // ✅ FIX: Use selectedPaymentMonth instead of current date for rent payments
-    if (paymentData.payment_type === "rent") {
-      if (selectedPaymentMonth && selectedPaymentMonth !== "current") {
-        // Selected a specific month from dropdown
-        const [year, month] = selectedPaymentMonth.split("-");
-        const monthNames = [
-          "January", "February", "March", "April", "May", "June",
-          "July", "August", "September", "October", "November", "December"
-        ];
-        paymentData.month = monthNames[parseInt(month) - 1];
-        paymentData.year = parseInt(year);
-      } else if (selectedPaymentMonth === "current") {
-        // Current month
-        const currentDate = new Date();
-        paymentData.month = currentDate.toLocaleString("default", { month: "long" });
-        paymentData.year = currentDate.getFullYear();
+  const handleUpdatePayment = async (updatedData: any) => {
+    setActionLoading(true);
+    try {
+      // Prepare payment data with month/year from selectedPaymentMonth
+      const paymentData = { ...updatedData };
+
+      // ✅ FIX: Use selectedPaymentMonth instead of current date for rent payments
+      if (paymentData.payment_type === "rent") {
+        if (selectedPaymentMonth && selectedPaymentMonth !== "current") {
+          // Selected a specific month from dropdown
+          const [year, month] = selectedPaymentMonth.split("-");
+          const monthNames = [
+            "January",
+            "February",
+            "March",
+            "April",
+            "May",
+            "June",
+            "July",
+            "August",
+            "September",
+            "October",
+            "November",
+            "December",
+          ];
+          paymentData.month = monthNames[parseInt(month) - 1];
+          paymentData.year = parseInt(year);
+        } else if (selectedPaymentMonth === "current") {
+          // Current month
+          const currentDate = new Date();
+          paymentData.month = currentDate.toLocaleString("default", {
+            month: "long",
+          });
+          paymentData.year = currentDate.getFullYear();
+        }
       }
+
+      const response = await paymentApi.updatePayment(
+        selectedPayment.id,
+        paymentData,
+      );
+
+      if (response.success) {
+        toast.success("Payment updated successfully");
+        setIsEditDialogOpen(false);
+        setSelectedPayment(null);
+        resetPaymentForm();
+        await loadData(); // Refresh data
+      } else {
+        toast.error(response.message || "Failed to update payment");
+      }
+    } catch (error: any) {
+      console.error("Error updating payment:", error);
+      toast.error(error.message || "Failed to update payment");
+    } finally {
+      setActionLoading(false);
     }
-    
-    const response = await paymentApi.updatePayment(selectedPayment.id, paymentData);
-    
-    if (response.success) {
-      toast.success("Payment updated successfully");
-      setIsEditDialogOpen(false);
-      setSelectedPayment(null);
-      resetPaymentForm();
-      await loadData(); // Refresh data
-    } else {
-      toast.error(response.message || "Failed to update payment");
-    }
-  } catch (error: any) {
-    console.error("Error updating payment:", error);
-    toast.error(error.message || "Failed to update payment");
-  } finally {
-    setActionLoading(false);
-  }
-};
+  };
 
-const groupPaymentsByTenant = (payments: any[]) => {
-  const grouped: { [key: string]: any } = {};
+  const groupPaymentsByTenant = (payments: any[]) => {
+    const grouped: { [key: string]: any } = {};
 
-  payments.forEach((payment) => {
-    const tenantId = payment.tenant_id;
-    const tenantName = getTenantName(tenantId);
-    const tenantPhone = getTenantPhone(tenantId);
-    
-    // Find the complete tenant object
-    const completeTenant = tenants.find(t => t.id === tenantId);
+    payments.forEach((payment) => {
+      const tenantId = payment.tenant_id;
+      const tenantName = getTenantName(tenantId);
+      const tenantPhone = getTenantPhone(tenantId);
 
-    if (!grouped[tenantId]) {
-      grouped[tenantId] = {
-        tenant_id: tenantId,
-        tenant_name: tenantName,
-        tenant_phone: tenantPhone,
-        tenant_email: completeTenant?.email || '',
-        tenant_salutation: completeTenant?.salutation || getTenantSalutation(tenantId),
-        tenant_country_code: completeTenant?.country_code || getTenantCountryCode(tenantId),
-        total_amount: 0,
-          total_paid_amount: 0,        // ✅ NEW: Sum of approved payments
-        total_rejected_amount: 0,    // ✅ NEW: Sum of rejected payments
-        payment_count: 0,
-        last_payment_date: null,
-        payments: [],
-        approved_count: 0,
-        pending_count: 0,
-        rejected_count: 0,
-        has_online_booking: false,
-        has_manual_payment: false,
-        // ✅ ADD ROOM AND BED INFO
-        room_number: completeTenant?.room_number || payment.room_number || completeTenant?.current_assignment?.room_number,
-        bed_number: completeTenant?.bed_number || payment.bed_number || completeTenant?.current_assignment?.bed_number,
-        property_name: completeTenant?.property_name || payment.property_name || completeTenant?.current_assignment?.property_name,
-        monthly_rent: completeTenant?.monthly_rent || payment.monthly_rent,
-        check_in_date: completeTenant?.check_in_date,
-        security_deposit: completeTenant?.security_deposit || 0,
-        room_info: completeTenant?.room_info,
-        email: completeTenant?.email,
-         property_id: completeTenant?.current_assignment?.property_id || completeTenant?.property_id,
-        room_id: completeTenant?.current_assignment?.room_id || completeTenant?.room_id,
-      };
-    }
+      // Find the complete tenant object
+      const completeTenant = tenants.find((t) => t.id === tenantId);
 
-    // Add payment to array
-    grouped[tenantId].payments.push(payment);
+      if (!grouped[tenantId]) {
+        grouped[tenantId] = {
+          tenant_id: tenantId,
+          tenant_name: tenantName,
+          tenant_phone: tenantPhone,
+          tenant_email: completeTenant?.email || "",
+          tenant_salutation:
+            completeTenant?.salutation || getTenantSalutation(tenantId),
+          tenant_country_code:
+            completeTenant?.country_code || getTenantCountryCode(tenantId),
+          total_amount: 0,
+          total_paid_amount: 0, // ✅ NEW: Sum of approved payments
+          total_rejected_amount: 0, // ✅ NEW: Sum of rejected payments
+          payment_count: 0,
+          last_payment_date: null,
+          payments: [],
+          approved_count: 0,
+          pending_count: 0,
+          rejected_count: 0,
+          has_online_booking: false,
+          has_manual_payment: false,
+          // ✅ ADD ROOM AND BED INFO
+          room_number:
+            completeTenant?.room_number ||
+            payment.room_number ||
+            completeTenant?.current_assignment?.room_number,
+          bed_number:
+            completeTenant?.bed_number ||
+            payment.bed_number ||
+            completeTenant?.current_assignment?.bed_number,
+          property_name:
+            completeTenant?.property_name ||
+            payment.property_name ||
+            completeTenant?.current_assignment?.property_name,
+          monthly_rent: completeTenant?.monthly_rent || payment.monthly_rent,
+          check_in_date: completeTenant?.check_in_date,
+          security_deposit: completeTenant?.security_deposit || 0,
+          room_info: completeTenant?.room_info,
+          email: completeTenant?.email,
+          property_id:
+            completeTenant?.current_assignment?.property_id ||
+            completeTenant?.property_id,
+          room_id:
+            completeTenant?.current_assignment?.room_id ||
+            completeTenant?.room_id,
+        };
+      }
 
-    // SUM the amount correctly (convert to number)
-    const amount = Number(payment.amount) || 0;
-    grouped[tenantId].total_amount += amount;
-    
-    // ✅ NEW: Separate sums based on payment status
-    if (payment.status === "approved") {
-      grouped[tenantId].total_paid_amount += amount;
-    } else if (payment.status === "rejected") {
-      grouped[tenantId].total_rejected_amount += amount;
-    }
-    // Increment payment count
-    grouped[tenantId].payment_count += 1;
+      // Add payment to array
+      grouped[tenantId].payments.push(payment);
 
-    // Count by status
-    if (payment.status === "approved") grouped[tenantId].approved_count += 1;
-    else if (payment.status === "pending") grouped[tenantId].pending_count += 1;
-    else if (payment.status === "rejected") grouped[tenantId].rejected_count += 1;
+      // SUM the amount correctly (convert to number)
+      const amount = Number(payment.amount) || 0;
+      grouped[tenantId].total_amount += amount;
 
-    // Check if payment came from online booking
-    if (payment.booking_id && payment.payment_mode === "online") {
-      grouped[tenantId].has_online_booking = true;
-    }
+      // ✅ NEW: Separate sums based on payment status
+      if (payment.status === "approved") {
+        grouped[tenantId].total_paid_amount += amount;
+      } else if (payment.status === "rejected") {
+        grouped[tenantId].total_rejected_amount += amount;
+      }
+      // Increment payment count
+      grouped[tenantId].payment_count += 1;
 
-    // Check if payment is manual admin payment
-    if (!payment.booking_id || payment.payment_mode !== "online") {
-      grouped[tenantId].has_manual_payment = true;
-    }
+      // Count by status
+      if (payment.status === "approved") grouped[tenantId].approved_count += 1;
+      else if (payment.status === "pending")
+        grouped[tenantId].pending_count += 1;
+      else if (payment.status === "rejected")
+        grouped[tenantId].rejected_count += 1;
 
-    // Track last payment date
-    const paymentDate = new Date(payment.payment_date);
-    if (
-      !grouped[tenantId].last_payment_date ||
-      paymentDate > new Date(grouped[tenantId].last_payment_date)
-    ) {
-      grouped[tenantId].last_payment_date = payment.payment_date;
-    }
-  });
-  // ✅ SORT: Most recent payment first (descending order by last_payment_date)
-  const groupedArray = Object.values(grouped);
-  
-  groupedArray.sort((a: any, b: any) => {
-    // If one has no payment date, put it at the bottom
-    if (!a.last_payment_date) return 1;
-    if (!b.last_payment_date) return -1;
-    
-    // Sort by last_payment_date descending (newest first)
-    const dateA = new Date(a.last_payment_date);
-    const dateB = new Date(b.last_payment_date);
-    return dateB.getTime() - dateA.getTime();
-  });
+      // Check if payment came from online booking
+      if (payment.booking_id && payment.payment_mode === "online") {
+        grouped[tenantId].has_online_booking = true;
+      }
 
-  return groupedArray;
-};
+      // Check if payment is manual admin payment
+      if (!payment.booking_id || payment.payment_mode !== "online") {
+        grouped[tenantId].has_manual_payment = true;
+      }
+
+      // Track last payment date
+      const paymentDate = new Date(payment.payment_date);
+      if (
+        !grouped[tenantId].last_payment_date ||
+        paymentDate > new Date(grouped[tenantId].last_payment_date)
+      ) {
+        grouped[tenantId].last_payment_date = payment.payment_date;
+      }
+    });
+    // ✅ SORT: Most recent payment first (descending order by last_payment_date)
+    const groupedArray = Object.values(grouped);
+
+    groupedArray.sort((a: any, b: any) => {
+      // If one has no payment date, put it at the bottom
+      if (!a.last_payment_date) return 1;
+      if (!b.last_payment_date) return -1;
+
+      // Sort by last_payment_date descending (newest first)
+      const dateA = new Date(a.last_payment_date);
+      const dateB = new Date(b.last_payment_date);
+      return dateB.getTime() - dateA.getTime();
+    });
+
+    return groupedArray;
+  };
 
   // Add this function to fetch settings
   const fetchSettings = async () => {
@@ -1865,240 +1946,279 @@ const groupPaymentsByTenant = (payments: any[]) => {
 
   // Rent Summary Table Component
 
-// In RentSummaryTable component
-const RentSummaryTable = ({ formData }: { formData: any }) => {
-  if (!formData) return null;
-  
-  const months = formData.month_wise_history || [];
-  const originalMonthlyRent = formData.monthly_rent || 0;
-  const firstMonthProrated = formData.first_month_prorated;
+  // In RentSummaryTable component
+  const RentSummaryTable = ({ formData }: { formData: any }) => {
+    if (!formData) return null;
 
-  return (
-    <div className="bg-white rounded-lg border border-slate-200 mb-4 overflow-hidden">
-      <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
-        <div className="flex items-center justify-between">
-          <h4 className="text-xs font-semibold text-slate-700 flex items-center gap-2">
-            <IndianRupee className="h-3.5 w-3.5" />
-            Rent History Since Joining
-          </h4>
-          {firstMonthProrated && (
-            <Badge variant="outline" className="text-[9px] bg-amber-50 text-amber-700 border-amber-200">
-              <Clock className="h-2.5 w-2.5 mr-1" />
-              First month: {firstMonthProrated.days} days @ ₹{firstMonthProrated.daily_rate}/day
-            </Badge>
-          )}
+    const months = formData.month_wise_history || [];
+    const originalMonthlyRent = formData.monthly_rent || 0;
+    const firstMonthProrated = formData.first_month_prorated;
+
+    return (
+      <div className="bg-white rounded-lg border border-slate-200 mb-4 overflow-hidden">
+        <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
+          <div className="flex items-center justify-between">
+            <h4 className="text-xs font-semibold text-slate-700 flex items-center gap-2">
+              <IndianRupee className="h-3.5 w-3.5" />
+              Rent History Since Joining
+            </h4>
+            {firstMonthProrated && (
+              <Badge
+                variant="outline"
+                className="text-[9px] bg-amber-50 text-amber-700 border-amber-200"
+              >
+                <Clock className="h-2.5 w-2.5 mr-1" />
+                First month: {firstMonthProrated.days} days @ ₹
+                {firstMonthProrated.daily_rate}/day
+              </Badge>
+            )}
+          </div>
+          <p className="text-xs text-slate-500 mt-1">
+            {months.length > 0
+              ? `Showing from ${months[0]?.month} ${months[0]?.year} to ${months[months.length - 1]?.month} ${months[months.length - 1]?.year}`
+              : "No history available"}
+          </p>
         </div>
-        <p className="text-xs text-slate-500 mt-1">
-          {months.length > 0
-            ? `Showing from ${months[0]?.month} ${months[0]?.year} to ${months[months.length - 1]?.month} ${months[months.length - 1]?.year}`
-            : "No history available"}
-        </p>
-      </div>
 
-      <div className="p-4 max-h-[300px] overflow-y-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50 sticky top-0">
-            <tr>
-              <th className="text-left p-2 text-xs font-medium text-slate-600">Month</th>
-              <th className="text-right p-2 text-xs font-medium text-slate-600">Rent</th>
-              <th className="text-right p-2 text-xs font-medium text-slate-600">Paid</th>
-              <th className="text-right p-2 text-xs font-medium text-slate-600">Discount</th>
-              <th className="text-right p-2 text-xs font-medium text-slate-600">Pending</th>
-              <th className="text-center p-2 text-xs font-medium text-slate-600">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {months.map((month: any, index: number) => {
-              const isCurrentMonth = (() => {
-                const now = new Date();
-                return month.month_num === now.getMonth() + 1 && month.year === now.getFullYear();
-              })();
-              
-              // For prorated month, show calculation in tooltip
-              const proratedTooltip = month.is_prorated 
-                ? `Prorated: ${month.prorated_days} days × ₹${month.prorated_daily_rate}/day = ₹${month.rent.toLocaleString()} (was ₹${month.original_rent?.toLocaleString()}/month)`
-                : '';
-              
-              return (
-                <tr
-                  key={`${month.month_key || index}-${index}`}
-                  className={`border-t border-slate-200 ${
-                    isCurrentMonth ? "bg-blue-50" : ""
-                  } ${month.has_discount ? "bg-green-50" : ""} ${month.is_prorated ? "bg-amber-50/30" : ""}`}
-                  title={proratedTooltip}
-                >
-                  <td className="p-2 text-sm font-medium">
-                    {month.month} {month.year}
-                    {month.has_discount && (
-                      <span className="ml-2 text-[10px] text-green-600">(Discounted)</span>
-                    )}
-                    {month.is_prorated && !month.has_discount && (
-                      <span className="ml-2 text-[10px] text-amber-600">
-                        (Prorated - {month.prorated_days} days)
+        <div className="p-4 max-h-[300px] overflow-y-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 sticky top-0">
+              <tr>
+                <th className="text-left p-2 text-xs font-medium text-slate-600">
+                  Month
+                </th>
+                <th className="text-right p-2 text-xs font-medium text-slate-600">
+                  Rent
+                </th>
+                <th className="text-right p-2 text-xs font-medium text-slate-600">
+                  Paid
+                </th>
+                <th className="text-right p-2 text-xs font-medium text-slate-600">
+                  Discount
+                </th>
+                <th className="text-right p-2 text-xs font-medium text-slate-600">
+                  Pending
+                </th>
+                <th className="text-center p-2 text-xs font-medium text-slate-600">
+                  Status
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {months.map((month: any, index: number) => {
+                const isCurrentMonth = (() => {
+                  const now = new Date();
+                  return (
+                    month.month_num === now.getMonth() + 1 &&
+                    month.year === now.getFullYear()
+                  );
+                })();
+
+                // For prorated month, show calculation in tooltip
+                const proratedTooltip = month.is_prorated
+                  ? `Prorated: ${month.prorated_days} days × ₹${month.prorated_daily_rate}/day = ₹${month.rent.toLocaleString()} (was ₹${month.original_rent?.toLocaleString()}/month)`
+                  : "";
+
+                return (
+                  <tr
+                    key={`${month.month_key || index}-${index}`}
+                    className={`border-t border-slate-200 ${
+                      isCurrentMonth ? "bg-blue-50" : ""
+                    } ${month.has_discount ? "bg-green-50" : ""} ${month.is_prorated ? "bg-amber-50/30" : ""}`}
+                    title={proratedTooltip}
+                  >
+                    <td className="p-2 text-sm font-medium">
+                      {month.month} {month.year}
+                      {month.has_discount && (
+                        <span className="ml-2 text-[10px] text-green-600">
+                          (Discounted)
+                        </span>
+                      )}
+                      {month.is_prorated && !month.has_discount && (
+                        <span className="ml-2 text-[10px] text-amber-600">
+                          (Prorated - {month.prorated_days} days)
+                        </span>
+                      )}
+                    </td>
+                    <td className="p-2 text-right">
+                      ₹{month.rent?.toLocaleString()}
+                      {month.original_rent &&
+                        month.original_rent > month.rent && (
+                          <span className="text-[10px] text-slate-400 line-through ml-1">
+                            ₹{month.original_rent?.toLocaleString()}
+                          </span>
+                        )}
+                    </td>
+                    <td className="p-2 text-right text-green-600 font-medium">
+                      ₹{month.paid?.toLocaleString()}
+                    </td>
+                    <td className="p-2 text-right text-red-500">
+                      ₹{month.discount_applied?.toLocaleString() || 0}
+                    </td>
+                    <td className="p-2 text-right font-medium">
+                      <span
+                        className={
+                          month.pending > 0
+                            ? "text-amber-600"
+                            : "text-green-600"
+                        }
+                      >
+                        ₹{month.pending?.toLocaleString()}
                       </span>
-                    )}
-                  </td>
-                  <td className="p-2 text-right">
-                    ₹{month.rent?.toLocaleString()}
-                    {month.original_rent && month.original_rent > month.rent && (
-                      <span className="text-[10px] text-slate-400 line-through ml-1">
-                        ₹{month.original_rent?.toLocaleString()}
+                    </td>
+                    <td className="p-2 text-center">
+                      <span
+                        className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                          month.status === "paid"
+                            ? "bg-green-100 text-green-800"
+                            : month.status === "partial"
+                              ? "bg-yellow-100 text-yellow-800"
+                              : "bg-red-100 text-red-800"
+                        }`}
+                      >
+                        {month.status}
                       </span>
-                    )}
-                  </td>
-                  <td className="p-2 text-right text-green-600 font-medium">
-                    ₹{month.paid?.toLocaleString()}
-                  </td>
-                  <td className="p-2 text-right text-red-500">
-                    ₹{month.discount_applied?.toLocaleString() || 0}
-                  </td>
-                  <td className="p-2 text-right font-medium">
-                    <span className={month.pending > 0 ? "text-amber-600" : "text-green-600"}>
-                      ₹{month.pending?.toLocaleString()}
-                    </span>
-                  </td>
-                  <td className="p-2 text-center">
-                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                      month.status === "paid"
-                        ? "bg-green-100 text-green-800"
-                        : month.status === "partial"
-                        ? "bg-yellow-100 text-yellow-800"
-                        : "bg-red-100 text-red-800"
-                    }`}>
-                      {month.status}
-                    </span>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-4 gap-2 p-4 bg-slate-50 border-t border-slate-200">
-        <div className="bg-white p-2 rounded border border-slate-200">
-          <p className="text-xs text-slate-500">Months Since Joining</p>
-          <p className="text-lg font-bold text-slate-700">{months.length}</p>
-        </div>
-        <div className="bg-white p-2 rounded border border-slate-200">
-          <p className="text-xs text-slate-500">Monthly Rent</p>
-          <p className="text-lg font-bold text-green-600">
-            ₹{originalMonthlyRent?.toLocaleString()}
-          </p>
-        </div>
-        <div className="bg-white p-2 rounded border border-slate-200">
-          <p className="text-xs text-slate-500">Total Paid</p>
-          <p className="text-lg font-bold text-blue-600">
-            ₹{formData.total_paid?.toLocaleString()}
-          </p>
-        </div>
-        <div className="bg-white p-2 rounded border border-slate-200">
-          <p className="text-xs text-slate-500">Total Pending</p>
-          <p className="text-lg font-bold text-amber-600">
-            ₹{formData.total_pending?.toLocaleString()}
-          </p>
+        {/* Summary Cards */}
+        <div className="grid grid-cols-4 gap-2 p-4 bg-slate-50 border-t border-slate-200">
+          <div className="bg-white p-2 rounded border border-slate-200">
+            <p className="text-xs text-slate-500">Months Since Joining</p>
+            <p className="text-lg font-bold text-slate-700">{months.length}</p>
+          </div>
+          <div className="bg-white p-2 rounded border border-slate-200">
+            <p className="text-xs text-slate-500">Monthly Rent</p>
+            <p className="text-lg font-bold text-green-600">
+              ₹{originalMonthlyRent?.toLocaleString()}
+            </p>
+          </div>
+          <div className="bg-white p-2 rounded border border-slate-200">
+            <p className="text-xs text-slate-500">Total Paid</p>
+            <p className="text-lg font-bold text-blue-600">
+              ₹{formData.total_paid?.toLocaleString()}
+            </p>
+          </div>
+          <div className="bg-white p-2 rounded border border-slate-200">
+            <p className="text-xs text-slate-500">Total Pending</p>
+            <p className="text-lg font-bold text-amber-600">
+              ₹{formData.total_pending?.toLocaleString()}
+            </p>
+          </div>
         </div>
       </div>
-    </div>
-  );
-};
+    );
+  };
 
   {
     /* Security Deposit Info - Show when payment type is security_deposit */
   }
-{/* In the Add Payment Dialog - Security Deposit section */}
-{newPayment.payment_type === "security_deposit" && securityDepositInfo && (
-  <div className="bg-white rounded-lg border border-slate-200 mb-4 overflow-hidden">
-    <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
-      <h4 className="text-xs font-semibold text-slate-700 flex items-center gap-2">
-        <IndianRupee className="h-3.5 w-3.5" />
-        Security Deposit Information
-      </h4>
-    </div>
-    <div className="p-4">
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <p className="text-xs text-slate-500">Property</p>
-          <p className="text-sm font-medium">
-            {securityDepositInfo.property_name}
-          </p>
+  {
+    /* In the Add Payment Dialog - Security Deposit section */
+  }
+  {
+    newPayment.payment_type === "security_deposit" && securityDepositInfo && (
+      <div className="bg-white rounded-lg border border-slate-200 mb-4 overflow-hidden">
+        <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
+          <h4 className="text-xs font-semibold text-slate-700 flex items-center gap-2">
+            <IndianRupee className="h-3.5 w-3.5" />
+            Security Deposit Information
+          </h4>
         </div>
-        <div>
-          <p className="text-xs text-slate-500">Room/Bed</p>
-          <p className="text-sm font-medium">
-            Room {securityDepositInfo.room_number || "N/A"}
-            {securityDepositInfo.bed_number && ` • Bed #${securityDepositInfo.bed_number}`}
-          </p>
-        </div>
-        <div>
-          <p className="text-xs text-slate-500">Total Security Deposit</p>
-          <p className="text-sm font-bold text-blue-600">
-            ₹{(securityDepositInfo.security_deposit || 0).toLocaleString()}
-          </p>
-        </div>
-        <div>
-          <p className="text-xs text-slate-500">Already Paid</p>
-          <p className="text-sm font-medium text-green-600">
-            ₹{(securityDepositInfo.paid_amount || 0).toLocaleString()}
-          </p>
-        </div>
-        <div>
-          <p className="text-xs text-slate-500">Pending Amount</p>
-          <p className="text-sm font-bold text-amber-600">
-            ₹{(securityDepositInfo.pending_amount || 0).toLocaleString()}
-          </p>
+        <div className="p-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-xs text-slate-500">Property</p>
+              <p className="text-sm font-medium">
+                {securityDepositInfo.property_name}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-500">Room/Bed</p>
+              <p className="text-sm font-medium">
+                Room {securityDepositInfo.room_number || "N/A"}
+                {securityDepositInfo.bed_number &&
+                  ` • Bed #${securityDepositInfo.bed_number}`}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-500">Total Security Deposit</p>
+              <p className="text-sm font-bold text-blue-600">
+                ₹{(securityDepositInfo.security_deposit || 0).toLocaleString()}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-500">Already Paid</p>
+              <p className="text-sm font-medium text-green-600">
+                ₹{(securityDepositInfo.paid_amount || 0).toLocaleString()}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-500">Pending Amount</p>
+              <p className="text-sm font-bold text-amber-600">
+                ₹{(securityDepositInfo.pending_amount || 0).toLocaleString()}
+              </p>
+            </div>
+          </div>
+
+          {/* Progress Bar */}
+          {(securityDepositInfo.security_deposit || 0) > 0 && (
+            <div className="mt-3">
+              <div className="flex justify-between text-xs text-slate-500 mb-1">
+                <span>Payment Progress</span>
+                <span>
+                  {Math.round(
+                    ((securityDepositInfo.paid_amount || 0) /
+                      (securityDepositInfo.security_deposit || 1)) *
+                      100,
+                  )}
+                  %
+                </span>
+              </div>
+              <div className="w-full bg-slate-200 rounded-full h-2">
+                <div
+                  className="bg-blue-600 rounded-full h-2 transition-all duration-500"
+                  style={{
+                    width: `${
+                      ((securityDepositInfo.paid_amount || 0) /
+                        (securityDepositInfo.security_deposit || 1)) *
+                      100
+                    }%`,
+                  }}
+                />
+              </div>
+            </div>
+          )}
+
+          {securityDepositInfo.is_fully_paid && (
+            <div className="mt-3 p-2 bg-green-50 border border-green-200 rounded-lg">
+              <p className="text-xs text-green-700 text-center flex items-center justify-center gap-1">
+                <span>✅</span> Security deposit is fully paid!
+              </p>
+            </div>
+          )}
+
+          {securityDepositInfo.last_payment_date && (
+            <p className="text-xs text-slate-400 mt-2">
+              Last payment:{" "}
+              {new Date(
+                securityDepositInfo.last_payment_date,
+              ).toLocaleDateString("en-IN", {
+                day: "numeric",
+                month: "short",
+                year: "numeric",
+              })}
+            </p>
+          )}
         </div>
       </div>
-
-      {/* Progress Bar */}
-      {(securityDepositInfo.security_deposit || 0) > 0 && (
-        <div className="mt-3">
-          <div className="flex justify-between text-xs text-slate-500 mb-1">
-            <span>Payment Progress</span>
-            <span>
-              {Math.round(
-                ((securityDepositInfo.paid_amount || 0) / 
-                 (securityDepositInfo.security_deposit || 1)) * 100
-              )}
-              %
-            </span>
-          </div>
-          <div className="w-full bg-slate-200 rounded-full h-2">
-            <div
-              className="bg-blue-600 rounded-full h-2 transition-all duration-500"
-              style={{
-                width: `${((securityDepositInfo.paid_amount || 0) / 
-                         (securityDepositInfo.security_deposit || 1)) * 100}%`,
-              }}
-            />
-          </div>
-        </div>
-      )}
-
-      {securityDepositInfo.is_fully_paid && (
-        <div className="mt-3 p-2 bg-green-50 border border-green-200 rounded-lg">
-          <p className="text-xs text-green-700 text-center flex items-center justify-center gap-1">
-            <span>✅</span> Security deposit is fully paid!
-          </p>
-        </div>
-      )}
-
-      {securityDepositInfo.last_payment_date && (
-        <p className="text-xs text-slate-400 mt-2">
-          Last payment:{" "}
-          {new Date(
-            securityDepositInfo.last_payment_date,
-          ).toLocaleDateString("en-IN", {
-            day: "numeric",
-            month: "short",
-            year: "numeric",
-          })}
-        </p>
-      )}
-    </div>
-  </div>
-)}
+    );
+  }
 
   // Filtered payments
   const filteredPayments = payments.filter((payment) => {
@@ -2279,30 +2399,30 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
             <div className="flex justify-end gap-2">
               {can("create_payments") && (
                 <Button
-  size="sm"
-  className="h-8 bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white shadow-sm flex-1 sm:flex-none"
-  onClick={async () => {
-    // ✅ If properties are empty, fetch them first
-    if (properties.length === 0) {
-      await fetchProperties();
-    }
-    resetPaymentForm();
-    setIsAddPaymentOpen(true);
-  }}
->
-  <Plus className="h-3.5 w-3.5 mr-1" />
-  <span className="text-xs">Add Payment</span>
-</Button>
+                  size="sm"
+                  className="h-8 bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white shadow-sm flex-1 sm:flex-none"
+                  onClick={async () => {
+                    // ✅ If properties are empty, fetch them first
+                    if (properties.length === 0) {
+                      await fetchProperties();
+                    }
+                    resetPaymentForm();
+                    setIsAddPaymentOpen(true);
+                  }}
+                >
+                  <Plus className="h-3.5 w-3.5 mr-1" />
+                  <span className="text-xs">Add Payment</span>
+                </Button>
               )}
               {can("send_demand_payment") && (
                 <Button
                   size="sm"
                   variant="outline"
                   className="h-8 border-orange-500 text-orange-600 hover:bg-orange-500 hover:text-white flex-1 sm:flex-none"
-                  onClick={() =>  {
-    resetDemandPaymentForm();  // ✅ Reset before opening
-    setIsDemandPaymentOpen(true);
-  }}
+                  onClick={() => {
+                    resetDemandPaymentForm(); // ✅ Reset before opening
+                    setIsDemandPaymentOpen(true);
+                  }}
                 >
                   <Bell className="h-3.5 w-3.5 mr-1" />
                   <span className="text-xs">Demand Payment</span>
@@ -2356,14 +2476,14 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
               setShowFilterSidebar={setShowPaymentFilterSidebar}
               onLedgerReport={handleLedgerReport}
               fetchRoomsByProperty={fetchRoomsByProperty}
-              fetchTenantsByRoom={fetchTenantsByRoom}  
-  handleTenantSelect={handleTenantSelect}
-  setSelectedPropertyId={setSelectedPropertyId}
-  setSelectedRoomId={setSelectedRoomId}
-  setNewPayment={setNewPayment}
-  fetchProperties={fetchProperties}
-  properties={properties}
-  prefillAndOpenPaymentForm={prefillAndOpenPaymentForm}
+              fetchTenantsByRoom={fetchTenantsByRoom}
+              handleTenantSelect={handleTenantSelect}
+              setSelectedPropertyId={setSelectedPropertyId}
+              setSelectedRoomId={setSelectedRoomId}
+              setNewPayment={setNewPayment}
+              fetchProperties={fetchProperties}
+              properties={properties}
+              prefillAndOpenPaymentForm={prefillAndOpenPaymentForm}
             />
           </TabsContent>
 
@@ -2372,8 +2492,8 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
           {/* Demands Tab Content */}
           <TabsContent value="demands" className="mt-0">
             <Card
-              className="border-0 shadow-sm overflow-hidden flex flex-col"
-              style={{ height: "calc(100vh - 280px)" }}
+              className="border-0 shadow-sm overflow-y-auto flex flex-col max-h-[400px] sm:max-h-[490px]"
+              
             >
               <CardContent className="p-0 flex flex-col flex-1 min-h-0 overflow-hidden">
                 <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
@@ -2922,13 +3042,16 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
       </div>
 
       {/* Add Payment Dialog - Your existing code with horizontal layout */}
-      <Dialog open={isAddPaymentOpen} onOpenChange={(open) => {
-  setIsAddPaymentOpen(open);
-  if (!open) {
-    // Reset everything when dialog closes
-    resetPaymentForm();
-  }
-}}>
+      <Dialog
+        open={isAddPaymentOpen}
+        onOpenChange={(open) => {
+          setIsAddPaymentOpen(open);
+          if (!open) {
+            // Reset everything when dialog closes
+            resetPaymentForm();
+          }
+        }}
+      >
         <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] sm:max-h-[85vh] p-0 gap-0 flex flex-col overflow-hidden">
           {/* Header - Fixed */}
           <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-3 rounded-t-lg flex-shrink-0">
@@ -2968,16 +3091,16 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
                 <Select
                   value={selectedPropertyId}
                   onValueChange={handlePropertyChange}
-                   onOpenChange={(open) => {
-      if (open) {
-        // Focus the property search input when dropdown opens
-        setTimeout(() => {
-          if (propertySearchInputRef.current) {
-            propertySearchInputRef.current.focus();
-          }
-        }, 50);
-      }
-    }}
+                  onOpenChange={(open) => {
+                    if (open) {
+                      // Focus the property search input when dropdown opens
+                      setTimeout(() => {
+                        if (propertySearchInputRef.current) {
+                          propertySearchInputRef.current.focus();
+                        }
+                      }, 50);
+                    }
+                  }}
                 >
                   <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
                     <SelectValue placeholder="Select property..." />
@@ -2993,8 +3116,8 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
                       onPointerDown={(e) => e.stopPropagation()}
                     >
                       <Input
-                      ref={propertySearchInputRef}  
-                       onKeyDown={(e) => e.stopPropagation()}
+                        ref={propertySearchInputRef}
+                        onKeyDown={(e) => e.stopPropagation()}
                         placeholder="Search property..."
                         value={propertySearch}
                         onChange={(e) => handlePropertySearch(e.target.value)}
@@ -3043,16 +3166,16 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
                   value={selectedRoomId}
                   onValueChange={handleRoomChange}
                   disabled={!selectedPropertyId || loadingRooms}
-                     onOpenChange={(open) => {
-      if (open && selectedPropertyId) {
-        // Focus the room search input when dropdown opens
-        setTimeout(() => {
-          if (roomSearchInputRef.current) {
-            roomSearchInputRef.current.focus();
-          }
-        }, 50);
-      }
-    }}
+                  onOpenChange={(open) => {
+                    if (open && selectedPropertyId) {
+                      // Focus the room search input when dropdown opens
+                      setTimeout(() => {
+                        if (roomSearchInputRef.current) {
+                          roomSearchInputRef.current.focus();
+                        }
+                      }, 50);
+                    }
+                  }}
                 >
                   <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
                     <SelectValue
@@ -3074,7 +3197,7 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
                       onPointerDown={(e) => e.stopPropagation()}
                     >
                       <Input
-                       ref={roomSearchInputRef}
+                        ref={roomSearchInputRef}
                         placeholder="Search room..."
                         onKeyDown={(e) => e.stopPropagation()}
                         value={roomSearch}
@@ -3205,7 +3328,6 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
                 </Select>
               </div>
             </div>{" "}
-
             {/* Rest of your existing form fields... */}
             {newPayment.payment_type === "rent" ? (
               <div className="space-y-2">
@@ -3245,28 +3367,35 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
                     Pay For Month
                   </Label>
                   <Select
-  value={selectedPaymentMonth}
-  onValueChange={(value) => {
-    setSelectedPaymentMonth(value);
-    if (value && value !== "current" && paymentFormData?.unpaid_months) {
-      const selectedMonth = paymentFormData.unpaid_months.find(
-        (m: any) => m.month_key === value,
-      );
-      if (selectedMonth) {
-        setNewPayment((prev) => ({
-          ...prev,
-          amount: selectedMonth.pending.toString(),
-        }));
-      }
-    } else if (value === "current") {
-      const monthlyRent = Number(tenant?.tenant_rent || tenant?.monthly_rent || 0);
-      setNewPayment((prev) => ({
-        ...prev,
-        amount: monthlyRent.toString(),
-      }));
-    }
-  }}
->
+                    value={selectedPaymentMonth}
+                    onValueChange={(value) => {
+                      setSelectedPaymentMonth(value);
+                      if (
+                        value &&
+                        value !== "current" &&
+                        paymentFormData?.unpaid_months
+                      ) {
+                        const selectedMonth =
+                          paymentFormData.unpaid_months.find(
+                            (m: any) => m.month_key === value,
+                          );
+                        if (selectedMonth) {
+                          setNewPayment((prev) => ({
+                            ...prev,
+                            amount: selectedMonth.pending.toString(),
+                          }));
+                        }
+                      } else if (value === "current") {
+                        const monthlyRent = Number(
+                          tenant?.tenant_rent || tenant?.monthly_rent || 0,
+                        );
+                        setNewPayment((prev) => ({
+                          ...prev,
+                          amount: monthlyRent.toString(),
+                        }));
+                      }
+                    }}
+                  >
                     <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
                       <SelectValue placeholder="Select month..." />
                     </SelectTrigger>
@@ -3443,23 +3572,23 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
 
               {/* Date */}
               <div className="space-y-1">
-  <Label className="text-[11px] font-medium text-slate-600">
-    Transaction Date
-  </Label>
+                <Label className="text-[11px] font-medium text-slate-600">
+                  Transaction Date
+                </Label>
 
-  <Input
-    type="date"
-    value={newPayment.payment_date}
-    max={new Date().toISOString().split("T")[0]}   // 👈 key line
-    onChange={(e) =>
-      setNewPayment({
-        ...newPayment,
-        payment_date: e.target.value,
-      })
-    }
-    className="h-8 text-xs"
-  />
-</div>
+                <Input
+                  type="date"
+                  value={newPayment.payment_date}
+                  max={new Date().toISOString().split("T")[0]} // 👈 key line
+                  onChange={(e) =>
+                    setNewPayment({
+                      ...newPayment,
+                      payment_date: e.target.value,
+                    })
+                  }
+                  className="h-8 text-xs"
+                />
+              </div>
 
               {/* Bank Name - conditional */}
               {(newPayment.payment_mode === "bank_transfer" ||
@@ -3469,44 +3598,50 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
                     Bank Name
                   </Label>
                   <Select
-      value={newPayment.bank_name}
-      onValueChange={(value) => {
-        if (value === "Other") {
-          setShowCustomBankInput(true);
-          setNewPayment({ ...newPayment, bank_name: "Other" });
-        } else {
-          setShowCustomBankInput(false);
-          setNewPayment({ ...newPayment, bank_name: value });
-        }
-      }}
-    >
-      <SelectTrigger className="h-8 text-xs">
-        <SelectValue placeholder="Select bank" />
-      </SelectTrigger>
-      <SelectContent>
-        {bankNames.map((bank) => (
-          <SelectItem key={bank.id} value={bank.name} className="text-xs">
-            {bank.name}
-          </SelectItem>
-        ))}
-        
-      </SelectContent>
-    </Select>
-    
-    {/* Custom Bank Name Input */}
-    {showCustomBankInput && (
-      <div className="mt-2">
-        <Input
-          placeholder="Enter bank name"
-          value={customBankName}
-          onChange={(e) => {
-            setCustomBankName(e.target.value);
-            setNewPayment({ ...newPayment, bank_name: e.target.value });
-          }}
-          className="h-8 text-xs"
-        />
-      </div>
-    )}
+                    value={newPayment.bank_name}
+                    onValueChange={(value) => {
+                      if (value === "Other") {
+                        setShowCustomBankInput(true);
+                        setNewPayment({ ...newPayment, bank_name: "Other" });
+                      } else {
+                        setShowCustomBankInput(false);
+                        setNewPayment({ ...newPayment, bank_name: value });
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Select bank" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {bankNames.map((bank) => (
+                        <SelectItem
+                          key={bank.id}
+                          value={bank.name}
+                          className="text-xs"
+                        >
+                          {bank.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  {/* Custom Bank Name Input */}
+                  {showCustomBankInput && (
+                    <div className="mt-2">
+                      <Input
+                        placeholder="Enter bank name"
+                        value={customBankName}
+                        onChange={(e) => {
+                          setCustomBankName(e.target.value);
+                          setNewPayment({
+                            ...newPayment,
+                            bank_name: e.target.value,
+                          });
+                        }}
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -3629,415 +3764,492 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
       </Dialog>
 
       {/* Demand Payment Dialog */}
-<Dialog open={isDemandPaymentOpen} onOpenChange={(open) => {
-  setIsDemandPaymentOpen(open);
-  if (!open) {
-    // ✅ Reset form when dialog closes
-    resetDemandPaymentForm();
-  }
-}}>
-  <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] sm:max-h-[85vh] p-0 gap-0 flex flex-col overflow-hidden">
-    {/* Header - Fixed */}
-    <div className="bg-gradient-to-r from-orange-500 to-red-500 px-4 py-3 rounded-t-lg flex-shrink-0">
-      <div className="flex items-center justify-between">
-        <div>
-          <DialogTitle className="text-white text-sm font-semibold flex items-center gap-2">
-            <div className="p-1 bg-white/20 rounded-md">
-              <Bell className="h-3.5 w-3.5" />
-            </div>
-            Demand Payment
-          </DialogTitle>
-          <DialogDescription className="text-orange-100 text-xs mt-0.5">
-            Create a payment request and notify the tenant
-          </DialogDescription>
-        </div>
-        <DialogClose asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-white hover:bg-white/20 h-7 w-7"
-          >
-            <X className="h-3.5 w-3.5" />
-          </Button>
-        </DialogClose>
-      </div>
-    </div>
-
-    {/* Scrollable Body */}
-    <div className="flex-1 overflow-y-auto p-4 space-y-3">
-      {/* Row 1: Property + Room Selection */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {/* Property Selection */}
-        <div className="space-y-1">
-          <Label className="text-[11px] font-medium text-slate-600">
-            Property <span className="text-red-500">*</span>
-          </Label>
-          <Select
-  value={selectedPropertyId}
-  onValueChange={handlePropertyChange}
->
-  <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
-    <SelectValue placeholder="Select property..." />
-  </SelectTrigger>
-  <SelectContent className="max-h-[300px]" position="popper" sideOffset={5}>
-    {/* Search Input */}
-    <div
-      className="sticky top-0 bg-white p-2 border-b z-10"
-      onPointerDown={(e) => e.stopPropagation()}
-    >
-      <Input
-        ref={propertySearchInputRef}
-        onKeyDown={(e) => e.stopPropagation()}
-        placeholder="Search property..."
-        value={propertySearch}
-        onChange={(e) => handlePropertySearch(e.target.value)}
-        className="h-7 text-xs"
-        onClick={(e) => e.stopPropagation()}
-      />
-    </div>
-
-    {/* Properties List */}
-    <div className="max-h-[250px] overflow-y-auto">
-      {loadingProperties ? (
-        <div className="px-2 py-4 text-center text-xs text-slate-500">
-          <Loader2 className="h-3 w-3 animate-spin inline mr-1" />
-          Loading properties...
-        </div>
-      ) : filteredProperties.length === 0 ? (
-        <div className="px-2 py-4 text-center text-xs text-slate-500">
-          {propertySearch
-            ? "No matching properties found"
-            : properties.length === 0 
-              ? "No properties available" 
-              : "Select a property"}
-        </div>
-      ) : (
-        filteredProperties.map((property) => (
-          <SelectItem key={property.id} value={property.id.toString()}>
-            <div className="flex items-center gap-2">
-              <Building className="h-3 w-3 text-slate-400" />
-              <span className="text-xs">{property.name}</span>
-            </div>
-          </SelectItem>
-        ))
-      )}
-    </div>
-  </SelectContent>
-</Select>
-        </div>
-
-        {/* Room Selection */}
-        <div className="space-y-1">
-          <Label className="text-[11px] font-medium text-slate-600">
-            Room <span className="text-red-500">*</span>
-          </Label>
-          <Select
-            value={selectedRoomId}
-            onValueChange={handleRoomChange}
-            disabled={!selectedPropertyId || loadingRooms}
-          >
-            <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
-              <SelectValue placeholder={!selectedPropertyId ? "Select property first" : "Select room..."} />
-            </SelectTrigger>
-            <SelectContent className="max-h-[300px]" position="popper" sideOffset={5}>
-              <div className="sticky top-0 bg-white p-2 border-b z-10" onPointerDown={(e) => e.stopPropagation()}>
-                <Input
-                  ref={roomSearchInputRef}
-                  placeholder="Search room..."
-                  onKeyDown={(e) => e.stopPropagation()}
-                  value={roomSearch}
-                  onChange={(e) => handleRoomSearch(e.target.value)}
-                  className="h-7 text-xs"
-                  disabled={!selectedPropertyId}
-                  onClick={(e) => e.stopPropagation()}
-                />
+      <Dialog
+        open={isDemandPaymentOpen}
+        onOpenChange={(open) => {
+          setIsDemandPaymentOpen(open);
+          if (!open) {
+            // ✅ Reset form when dialog closes
+            resetDemandPaymentForm();
+          }
+        }}
+      >
+        <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] sm:max-h-[85vh] p-0 gap-0 flex flex-col overflow-hidden">
+          {/* Header - Fixed */}
+          <div className="bg-gradient-to-r from-orange-500 to-red-500 px-4 py-3 rounded-t-lg flex-shrink-0">
+            <div className="flex items-center justify-between">
+              <div>
+                <DialogTitle className="text-white text-sm font-semibold flex items-center gap-2">
+                  <div className="p-1 bg-white/20 rounded-md">
+                    <Bell className="h-3.5 w-3.5" />
+                  </div>
+                  Demand Payment
+                </DialogTitle>
+                <DialogDescription className="text-orange-100 text-xs mt-0.5">
+                  Create a payment request and notify the tenant
+                </DialogDescription>
               </div>
-              <div className="max-h-[250px] overflow-y-auto">
-                {loadingRooms ? (
-                  <div className="px-2 py-4 text-center text-xs text-slate-500">
-                    <Loader2 className="h-3 w-3 animate-spin inline mr-1" />
-                    Loading rooms...
+              <DialogClose asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-white hover:bg-white/20 h-7 w-7"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </DialogClose>
+            </div>
+          </div>
+
+          {/* Scrollable Body */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            {/* Row 1: Property + Room Selection */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Property Selection */}
+              <div className="space-y-1">
+                <Label className="text-[11px] font-medium text-slate-600">
+                  Property <span className="text-red-500">*</span>
+                </Label>
+                <Select
+                  value={selectedPropertyId}
+                  onValueChange={handlePropertyChange}
+                >
+                  <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
+                    <SelectValue placeholder="Select property..." />
+                  </SelectTrigger>
+                  <SelectContent
+                    className="max-h-[300px]"
+                    position="popper"
+                    sideOffset={5}
+                  >
+                    {/* Search Input */}
+                    <div
+                      className="sticky top-0 bg-white p-2 border-b z-10"
+                      onPointerDown={(e) => e.stopPropagation()}
+                    >
+                      <Input
+                        ref={propertySearchInputRef}
+                        onKeyDown={(e) => e.stopPropagation()}
+                        placeholder="Search property..."
+                        value={propertySearch}
+                        onChange={(e) => handlePropertySearch(e.target.value)}
+                        className="h-7 text-xs"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+
+                    {/* Properties List */}
+                    <div className="max-h-[250px] overflow-y-auto">
+                      {loadingProperties ? (
+                        <div className="px-2 py-4 text-center text-xs text-slate-500">
+                          <Loader2 className="h-3 w-3 animate-spin inline mr-1" />
+                          Loading properties...
+                        </div>
+                      ) : filteredProperties.length === 0 ? (
+                        <div className="px-2 py-4 text-center text-xs text-slate-500">
+                          {propertySearch
+                            ? "No matching properties found"
+                            : properties.length === 0
+                              ? "No properties available"
+                              : "Select a property"}
+                        </div>
+                      ) : (
+                        filteredProperties.map((property) => (
+                          <SelectItem
+                            key={property.id}
+                            value={property.id.toString()}
+                          >
+                            <div className="flex items-center gap-2">
+                              <Building className="h-3 w-3 text-slate-400" />
+                              <span className="text-xs">{property.name}</span>
+                            </div>
+                          </SelectItem>
+                        ))
+                      )}
+                    </div>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Room Selection */}
+              <div className="space-y-1">
+                <Label className="text-[11px] font-medium text-slate-600">
+                  Room <span className="text-red-500">*</span>
+                </Label>
+                <Select
+                  value={selectedRoomId}
+                  onValueChange={handleRoomChange}
+                  disabled={!selectedPropertyId || loadingRooms}
+                >
+                  <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
+                    <SelectValue
+                      placeholder={
+                        !selectedPropertyId
+                          ? "Select property first"
+                          : "Select room..."
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent
+                    className="max-h-[300px]"
+                    position="popper"
+                    sideOffset={5}
+                  >
+                    <div
+                      className="sticky top-0 bg-white p-2 border-b z-10"
+                      onPointerDown={(e) => e.stopPropagation()}
+                    >
+                      <Input
+                        ref={roomSearchInputRef}
+                        placeholder="Search room..."
+                        onKeyDown={(e) => e.stopPropagation()}
+                        value={roomSearch}
+                        onChange={(e) => handleRoomSearch(e.target.value)}
+                        className="h-7 text-xs"
+                        disabled={!selectedPropertyId}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+                    <div className="max-h-[250px] overflow-y-auto">
+                      {loadingRooms ? (
+                        <div className="px-2 py-4 text-center text-xs text-slate-500">
+                          <Loader2 className="h-3 w-3 animate-spin inline mr-1" />
+                          Loading rooms...
+                        </div>
+                      ) : filteredRooms.length === 0 ? (
+                        <div className="px-2 py-4 text-center text-xs text-slate-500">
+                          {roomSearch
+                            ? "No matching rooms found"
+                            : "No rooms available"}
+                        </div>
+                      ) : (
+                        filteredRooms.map((room) => (
+                          <SelectItem key={room.id} value={room.id.toString()}>
+                            <div className="flex items-center gap-2">
+                              <Home className="h-3 w-3 text-slate-400" />
+                              <span className="text-xs">
+                                Room {room.room_number}
+                              </span>
+                              <span className="text-[10px] text-slate-400">
+                                ({room.sharing_type})
+                              </span>
+                            </div>
+                          </SelectItem>
+                        ))
+                      )}
+                    </div>
+                  </SelectContent>
+                </Select>
+                {loadingRooms && (
+                  <div className="flex items-center gap-1 text-blue-600">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    <span className="text-[10px]">Loading rooms...</span>
                   </div>
-                ) : filteredRooms.length === 0 ? (
-                  <div className="px-2 py-4 text-center text-xs text-slate-500">
-                    {roomSearch ? "No matching rooms found" : "No rooms available"}
-                  </div>
-                ) : (
-                  filteredRooms.map((room) => (
-                    <SelectItem key={room.id} value={room.id.toString()}>
-                      <div className="flex items-center gap-2">
-                        <Home className="h-3 w-3 text-slate-400" />
-                        <span className="text-xs">Room {room.room_number}</span>
-                        <span className="text-[10px] text-slate-400">({room.sharing_type})</span>
-                      </div>
-                    </SelectItem>
-                  ))
                 )}
               </div>
-            </SelectContent>
-          </Select>
-          {loadingRooms && (
-            <div className="flex items-center gap-1 text-blue-600">
-              <Loader2 className="h-3 w-3 animate-spin" />
-              <span className="text-[10px]">Loading rooms...</span>
             </div>
-          )}
-        </div>
-      </div>
 
-      {/* Row 2: Tenant Selection + Payment Type - USE demandPayment state */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {/* Tenant Selection */}
-        <div className="space-y-1">
-          <Label className="text-[11px] font-medium text-slate-600">
-            Tenant <span className="text-red-500">*</span>
-          </Label>
-          <Select
-            value={demandPayment.tenant_id}  // ✅ USE demandPayment
-            onValueChange={handleDemandTenantSelect}
-            disabled={!selectedRoomId}
-          >
-            <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
-              <SelectValue placeholder={!selectedRoomId ? "Select room first" : "Choose a tenant..."} />
-            </SelectTrigger>
-            <SelectContent className="max-h-[300px]">
-              {filteredTenants.length === 0 && selectedRoomId ? (
-                <div className="px-2 py-4 text-center text-xs text-slate-500">
-                  No tenants assigned to this room
-                </div>
-              ) : (
-                filteredTenants.map((tenant) => (
-                  <SelectItem key={tenant.id} value={tenant.id.toString()}>
-                    <div className="flex items-center gap-2">
-                      <User className="h-3 w-3 text-slate-400" />
-                      <div className="flex flex-col">
-                        <span className="text-xs font-medium">{tenant.full_name}</span>
-                        <span className="text-[10px] text-slate-400">{tenant.phone}</span>
+            {/* Row 2: Tenant Selection + Payment Type - USE demandPayment state */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Tenant Selection */}
+              <div className="space-y-1">
+                <Label className="text-[11px] font-medium text-slate-600">
+                  Tenant <span className="text-red-500">*</span>
+                </Label>
+                <Select
+                  value={demandPayment.tenant_id} // ✅ USE demandPayment
+                  onValueChange={handleDemandTenantSelect}
+                  disabled={!selectedRoomId}
+                >
+                  <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
+                    <SelectValue
+                      placeholder={
+                        !selectedRoomId
+                          ? "Select room first"
+                          : "Choose a tenant..."
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[300px]">
+                    {filteredTenants.length === 0 && selectedRoomId ? (
+                      <div className="px-2 py-4 text-center text-xs text-slate-500">
+                        No tenants assigned to this room
                       </div>
-                    </div>
-                  </SelectItem>
-                ))
-              )}
-            </SelectContent>
-          </Select>
-          {bookingLoading && (
-            <div className="flex items-center gap-1 text-blue-600">
-              <Loader2 className="h-3 w-3 animate-spin" />
-              <span className="text-[10px]">Loading tenant details...</span>
+                    ) : (
+                      filteredTenants.map((tenant) => (
+                        <SelectItem
+                          key={tenant.id}
+                          value={tenant.id.toString()}
+                        >
+                          <div className="flex items-center gap-2">
+                            <User className="h-3 w-3 text-slate-400" />
+                            <div className="flex flex-col">
+                              <span className="text-xs font-medium">
+                                {tenant.full_name}
+                              </span>
+                              <span className="text-[10px] text-slate-400">
+                                {tenant.phone}
+                              </span>
+                            </div>
+                          </div>
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+                {bookingLoading && (
+                  <div className="flex items-center gap-1 text-blue-600">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    <span className="text-[10px]">
+                      Loading tenant details...
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Payment Type - USE demandPayment */}
+              <div className="space-y-1">
+                <Label className="text-[11px] font-medium text-slate-600">
+                  Payment Type
+                </Label>
+                <Select
+                  value={demandPayment.payment_type} // ✅ USE demandPayment
+                  onValueChange={handleDemandPaymentTypeChange}
+                >
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="rent" className="text-xs">
+                      Rent
+                    </SelectItem>
+                    <SelectItem value="security_deposit" className="text-xs">
+                      Security Deposit
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-          )}
-        </div>
 
-        {/* Payment Type - USE demandPayment */}
-        <div className="space-y-1">
-          <Label className="text-[11px] font-medium text-slate-600">
-            Payment Type
-          </Label>
-          <Select
-            value={demandPayment.payment_type}  // ✅ USE demandPayment
-            onValueChange={handleDemandPaymentTypeChange}
-          >
-            <SelectTrigger className="h-8 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="rent" className="text-xs">Rent</SelectItem>
-              <SelectItem value="security_deposit" className="text-xs">Security Deposit</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+            {/* Bed Assignment */}
+            {paymentFormData && (
+              <BedAssignmentTable formData={paymentFormData} />
+            )}
 
-      {/* Bed Assignment */}
-      {paymentFormData && <BedAssignmentTable formData={paymentFormData} />}
+            {/* Conditional Sections */}
+            {demandPayment.payment_type === "rent" ? (
+              <div className="space-y-2">
+                {paymentFormData && (
+                  <RentSummaryTable formData={paymentFormData} />
+                )}
+              </div>
+            ) : demandPayment.payment_type === "security_deposit" &&
+              securityDepositInfo ? (
+              <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+                <div className="bg-slate-50 px-3 py-1.5 border-b border-slate-200">
+                  <h4 className="text-[11px] font-semibold text-slate-700 flex items-center gap-1.5">
+                    <IndianRupee className="h-3 w-3" />
+                    Security Deposit Info
+                  </h4>
+                </div>
+                <div className="p-3 grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div>
+                    <p className="text-[10px] text-slate-500">Property</p>
+                    <p className="text-xs font-medium">
+                      {securityDepositInfo.property_name}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-slate-500">Total</p>
+                    <p className="text-xs font-bold text-blue-600">
+                      ₹{securityDepositInfo.security_deposit?.toLocaleString()}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-slate-500">Paid</p>
+                    <p className="text-xs font-medium text-green-600">
+                      ₹{securityDepositInfo.paid_amount?.toLocaleString()}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-slate-500">Pending</p>
+                    <p className="text-xs font-bold text-amber-600">
+                      ₹{securityDepositInfo.pending_amount?.toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+                <div className="px-3 pb-3">
+                  <div className="flex justify-between text-[10px] text-slate-500 mb-1">
+                    <span>Progress</span>
+                    <span>
+                      {Math.round(
+                        ((securityDepositInfo.paid_amount || 0) /
+                          (securityDepositInfo.security_deposit || 1)) *
+                          100,
+                      )}
+                      %
+                    </span>
+                  </div>
+                  <div className="w-full bg-slate-200 rounded-full h-1.5">
+                    <div
+                      className="bg-blue-600 rounded-full h-1.5 transition-all duration-500"
+                      style={{
+                        width: `${((securityDepositInfo.paid_amount || 0) / (securityDepositInfo.security_deposit || 1)) * 100}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            ) : null}
 
-      {/* Conditional Sections */}
-      {demandPayment.payment_type === "rent" ? (
-        <div className="space-y-2">
-          {paymentFormData && <RentSummaryTable formData={paymentFormData} />}
-        </div>
-      ) : demandPayment.payment_type === "security_deposit" && securityDepositInfo ? (
-        <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
-          <div className="bg-slate-50 px-3 py-1.5 border-b border-slate-200">
-            <h4 className="text-[11px] font-semibold text-slate-700 flex items-center gap-1.5">
-              <IndianRupee className="h-3 w-3" />
-              Security Deposit Info
-            </h4>
+            {/* 3-col grid: Amount + Due Date + Description - USE demandPayment */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="space-y-1">
+                <Label className="text-[11px] font-medium text-slate-600">
+                  Amount (₹) *
+                </Label>
+                <Input
+                  type="number"
+                  placeholder="Enter amount"
+                  value={demandPayment.amount || ""}
+                  onChange={(e) =>
+                    setDemandPayment({
+                      ...demandPayment,
+                      amount: parseFloat(e.target.value) || 0,
+                    })
+                  }
+                  className="h-8 text-xs"
+                />
+                {demandPayment.payment_type === "rent" &&
+                  paymentFormData?.total_pending > 0 && (
+                    <p className="text-[10px] text-blue-600 mt-1">
+                      Total Pending: ₹
+                      {paymentFormData.total_pending.toLocaleString()}
+                    </p>
+                  )}
+                {demandPayment.payment_type === "security_deposit" &&
+                  securityDepositInfo?.pending_amount > 0 && (
+                    <p className="text-[10px] text-blue-600">
+                      Pending: ₹
+                      {securityDepositInfo.pending_amount.toLocaleString()}
+                    </p>
+                  )}
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-[11px] font-medium text-slate-600">
+                  Due Date *
+                </Label>
+                <Input
+                  type="date"
+                  value={demandPayment.due_date}
+                  onChange={(e) =>
+                    setDemandPayment({
+                      ...demandPayment,
+                      due_date: e.target.value,
+                    })
+                  }
+                  className="h-8 text-xs"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-[11px] font-medium text-slate-600">
+                  Description
+                </Label>
+                <Input
+                  placeholder="Payment description"
+                  value={demandPayment.description}
+                  onChange={(e) =>
+                    setDemandPayment({
+                      ...demandPayment,
+                      description: e.target.value,
+                    })
+                  }
+                  className="h-8 text-xs"
+                />
+              </div>
+            </div>
+
+            {/* Notifications - USE demandPayment */}
+            <div className="bg-slate-50 px-3 py-2.5 rounded-lg border border-slate-200">
+              <Label className="text-[11px] font-medium text-slate-600 block mb-2">
+                Send Notifications
+              </Label>
+              <div className="flex gap-5">
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={demandPayment.send_email}
+                    onChange={(e) =>
+                      setDemandPayment({
+                        ...demandPayment,
+                        send_email: e.target.checked,
+                      })
+                    }
+                    className="w-3.5 h-3.5 accent-orange-500"
+                  />
+                  <span className="text-xs text-slate-600">Email</span>
+                </label>
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={demandPayment.send_sms}
+                    onChange={(e) =>
+                      setDemandPayment({
+                        ...demandPayment,
+                        send_sms: e.target.checked,
+                      })
+                    }
+                    className="w-3.5 h-3.5 accent-orange-500"
+                  />
+                  <span className="text-xs text-slate-600">SMS</span>
+                </label>
+              </div>
+            </div>
           </div>
-          <div className="p-3 grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div>
-              <p className="text-[10px] text-slate-500">Property</p>
-              <p className="text-xs font-medium">{securityDepositInfo.property_name}</p>
-            </div>
-            <div>
-              <p className="text-[10px] text-slate-500">Total</p>
-              <p className="text-xs font-bold text-blue-600">₹{securityDepositInfo.security_deposit?.toLocaleString()}</p>
-            </div>
-            <div>
-              <p className="text-[10px] text-slate-500">Paid</p>
-              <p className="text-xs font-medium text-green-600">₹{securityDepositInfo.paid_amount?.toLocaleString()}</p>
-            </div>
-            <div>
-              <p className="text-[10px] text-slate-500">Pending</p>
-              <p className="text-xs font-bold text-amber-600">₹{securityDepositInfo.pending_amount?.toLocaleString()}</p>
+
+          {/* Footer - Fixed */}
+          <div className="px-4 py-3 bg-slate-50 border-t border-slate-200 rounded-b-lg flex-shrink-0">
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setIsDemandPaymentOpen(false);
+                  resetDemandPaymentForm();
+                }}
+                className="text-xs h-8 px-4"
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleDemandPayment}
+                disabled={
+                  bookingLoading ||
+                  !demandPayment.tenant_id ||
+                  !demandPayment.amount ||
+                  !demandPayment.due_date
+                }
+                className="text-xs h-8 px-4 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white"
+              >
+                {bookingLoading ? (
+                  <>
+                    <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-3 w-3 mr-1.5" />
+                    Send Demand
+                  </>
+                )}
+              </Button>
             </div>
           </div>
-          <div className="px-3 pb-3">
-            <div className="flex justify-between text-[10px] text-slate-500 mb-1">
-              <span>Progress</span>
-              <span>{Math.round(((securityDepositInfo.paid_amount || 0) / (securityDepositInfo.security_deposit || 1)) * 100)}%</span>
-            </div>
-            <div className="w-full bg-slate-200 rounded-full h-1.5">
-              <div className="bg-blue-600 rounded-full h-1.5 transition-all duration-500" style={{ width: `${((securityDepositInfo.paid_amount || 0) / (securityDepositInfo.security_deposit || 1)) * 100}%` }} />
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {/* 3-col grid: Amount + Due Date + Description - USE demandPayment */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div className="space-y-1">
-          <Label className="text-[11px] font-medium text-slate-600">
-            Amount (₹) *
-          </Label>
-          <Input
-            type="number"
-            placeholder="Enter amount"
-            value={demandPayment.amount || ""}
-            onChange={(e) =>
-              setDemandPayment({
-                ...demandPayment,
-                amount: parseFloat(e.target.value) || 0,
-              })
-            }
-            className="h-8 text-xs"
-          />
-          {demandPayment.payment_type === "rent" && paymentFormData?.total_pending > 0 && (
-      <p className="text-[10px] text-blue-600 mt-1">
-        Total Pending: ₹{paymentFormData.total_pending.toLocaleString()}
-      </p>
-    )}
-          {demandPayment.payment_type === "security_deposit" && securityDepositInfo?.pending_amount > 0 && (
-            <p className="text-[10px] text-blue-600">
-              Pending: ₹{securityDepositInfo.pending_amount.toLocaleString()}
-            </p>
-          )}
-        </div>
-
-        <div className="space-y-1">
-          <Label className="text-[11px] font-medium text-slate-600">
-            Due Date *
-          </Label>
-          <Input
-            type="date"
-            value={demandPayment.due_date}
-            onChange={(e) =>
-              setDemandPayment({
-                ...demandPayment,
-                due_date: e.target.value,
-              })
-            }
-            className="h-8 text-xs"
-          />
-        </div>
-
-        <div className="space-y-1">
-          <Label className="text-[11px] font-medium text-slate-600">
-            Description
-          </Label>
-          <Input
-            placeholder="Payment description"
-            value={demandPayment.description}
-            onChange={(e) =>
-              setDemandPayment({
-                ...demandPayment,
-                description: e.target.value,
-              })
-            }
-            className="h-8 text-xs"
-          />
-        </div>
-      </div>
-
-      {/* Notifications - USE demandPayment */}
-      <div className="bg-slate-50 px-3 py-2.5 rounded-lg border border-slate-200">
-        <Label className="text-[11px] font-medium text-slate-600 block mb-2">
-          Send Notifications
-        </Label>
-        <div className="flex gap-5">
-          <label className="flex items-center gap-1.5 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={demandPayment.send_email}
-              onChange={(e) =>
-                setDemandPayment({
-                  ...demandPayment,
-                  send_email: e.target.checked,
-                })
-              }
-              className="w-3.5 h-3.5 accent-orange-500"
-            />
-            <span className="text-xs text-slate-600">Email</span>
-          </label>
-          <label className="flex items-center gap-1.5 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={demandPayment.send_sms}
-              onChange={(e) =>
-                setDemandPayment({
-                  ...demandPayment,
-                  send_sms: e.target.checked,
-                })
-              }
-              className="w-3.5 h-3.5 accent-orange-500"
-            />
-            <span className="text-xs text-slate-600">SMS</span>
-          </label>
-        </div>
-      </div>
-    </div>
-
-    {/* Footer - Fixed */}
-    <div className="px-4 py-3 bg-slate-50 border-t border-slate-200 rounded-b-lg flex-shrink-0">
-      <div className="flex justify-end gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            setIsDemandPaymentOpen(false);
-            resetDemandPaymentForm();
-          }}
-          className="text-xs h-8 px-4"
-        >
-          Cancel
-        </Button>
-        <Button
-          size="sm"
-          onClick={handleDemandPayment}
-          disabled={
-            bookingLoading ||
-            !demandPayment.tenant_id ||
-            !demandPayment.amount ||
-            !demandPayment.due_date
-          }
-          className="text-xs h-8 px-4 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white"
-        >
-          {bookingLoading ? (
-            <>
-              <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
-              Sending...
-            </>
-          ) : (
-            <>
-              <Send className="h-3 w-3 mr-1.5" />
-              Send Demand
-            </>
-          )}
-        </Button>
-      </div>
-    </div>
-  </DialogContent>
-</Dialog>
+        </DialogContent>
+      </Dialog>
 
       {/* Approve Payment Dialog */}
       <Dialog open={isApproveDialogOpen} onOpenChange={setIsApproveDialogOpen}>
@@ -4261,137 +4473,159 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isEditDialogOpen} onOpenChange={(open) => {
-  setIsEditDialogOpen(open);
-  if (!open) {
-    resetPaymentForm();
-    setSelectedPayment(null);
-  }
-}}>
-  <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] sm:max-h-[85vh] p-0 gap-0 flex flex-col overflow-hidden">
-    {/* Header - Fixed */}
-    <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-3 rounded-t-lg flex-shrink-0">
-      <div className="flex items-center justify-between">
-        <div>
-          <DialogTitle className="text-white text-sm font-semibold flex items-center gap-2">
-            <div className="p-1 bg-white/20 rounded-md">
-              <Pencil className="h-3.5 w-3.5" />
+      <Dialog
+        open={isEditDialogOpen}
+        onOpenChange={(open) => {
+          setIsEditDialogOpen(open);
+          if (!open) {
+            resetPaymentForm();
+            setSelectedPayment(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] sm:max-h-[85vh] p-0 gap-0 flex flex-col overflow-hidden">
+          {/* Header - Fixed */}
+          <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-3 rounded-t-lg flex-shrink-0">
+            <div className="flex items-center justify-between">
+              <div>
+                <DialogTitle className="text-white text-sm font-semibold flex items-center gap-2">
+                  <div className="p-1 bg-white/20 rounded-md">
+                    <Pencil className="h-3.5 w-3.5" />
+                  </div>
+                  Edit Payment
+                </DialogTitle>
+                <DialogDescription className="text-blue-100 text-xs mt-0.5">
+                  Update payment details for this tenant
+                </DialogDescription>
+              </div>
+              <DialogClose asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-white hover:bg-white/20 h-7 w-7"
+                  onClick={() => {
+                    setIsEditDialogOpen(false);
+                    resetPaymentForm();
+                    setSelectedPayment(null);
+                  }}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </DialogClose>
             </div>
-            Edit Payment
-          </DialogTitle>
-          <DialogDescription className="text-blue-100 text-xs mt-0.5">
-            Update payment details for this tenant
-          </DialogDescription>
-        </div>
-        <DialogClose asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-white hover:bg-white/20 h-7 w-7"
-            onClick={() => {
-              setIsEditDialogOpen(false);
-              resetPaymentForm();
-              setSelectedPayment(null);
-            }}
-          >
-            <X className="h-3.5 w-3.5" />
-          </Button>
-        </DialogClose>
-      </div>
-    </div>
+          </div>
 
-    {/* Scrollable Body - Same as Add Payment Dialog */}
-    <div className="flex-1 overflow-y-auto p-4 space-y-3">
-      {/* Property + Room Selection (Read-only for edit) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {/* Property Selection - Disabled in edit mode */}
-        <div className="space-y-1">
-          <Label className="text-[11px] font-medium text-slate-600">
-            Property
-          </Label>
-          <Input
-            value={properties.find(p => p.id === parseInt(selectedPropertyId))?.name || "Loading..."}
-            disabled
-            className="h-8 text-xs bg-slate-50"
-          />
-        </div>
+          {/* Scrollable Body - Same as Add Payment Dialog */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            {/* Property + Room Selection (Read-only for edit) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Property Selection - Disabled in edit mode */}
+              <div className="space-y-1">
+                <Label className="text-[11px] font-medium text-slate-600">
+                  Property
+                </Label>
+                <Input
+                  value={
+                    properties.find(
+                      (p) => p.id === parseInt(selectedPropertyId),
+                    )?.name || "Loading..."
+                  }
+                  disabled
+                  className="h-8 text-xs bg-slate-50"
+                />
+              </div>
 
-        {/* Room Selection - Disabled in edit mode */}
-        <div className="space-y-1">
-          <Label className="text-[11px] font-medium text-slate-600">
-            Room
-          </Label>
-          <Input
-            value={rooms.find(r => r.id === parseInt(selectedRoomId))?.room_number || "Loading..."}
-            disabled
-            className="h-8 text-xs bg-slate-50"
-          />
-        </div>
-      </div>
-
-      {/* Tenant Selection - Disabled in edit mode */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div className="space-y-1">
-          <Label className="text-[11px] font-medium text-slate-600">
-            Tenant
-          </Label>
-          <Input
-            value={getTenantName(parseInt(newPayment.tenant_id))}
-            disabled
-            className="h-8 text-xs bg-slate-50"
-          />
-        </div>
-
-        {/* Payment Type */}
-        <div className="space-y-1">
-          <Label className="text-[11px] font-medium text-slate-600">
-            Payment Type
-          </Label>
-          <Select
-            value={newPayment.payment_type}
-            onValueChange={handlePaymentTypeChange}
-          >
-            <SelectTrigger className="h-8 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="rent" className="text-xs">Rent</SelectItem>
-              <SelectItem value="security_deposit" className="text-xs">Security Deposit</SelectItem>
-              <SelectItem value="maintenance" className="text-xs">Maintenance</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      {/* Rent Payment Specific Fields */}
-      {newPayment.payment_type === "rent" && (
-        <div className="space-y-2">
-          {/* Bed Assignment Table */}
-          {paymentFormData && <BedAssignmentTable formData={paymentFormData} />}
-
-          {/* Offer Banner */}
-          {paymentFormData?.offer_info && (
-            <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-3 rounded-lg border border-green-200">
-              <div className="flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-green-600" />
-                <div className="flex-1">
-                  <p className="text-xs font-semibold text-green-800">
-                    🎉 Offer Applied: {paymentFormData.offer_info.code}
-                  </p>
-                  <p className="text-[10px] text-green-700">
-                    First month rent: ₹{paymentFormData.discounted_first_month_rent?.toLocaleString()}{" "}
-                    (was ₹{paymentFormData.monthly_rent?.toLocaleString()})
-                  </p>
-                </div>
+              {/* Room Selection - Disabled in edit mode */}
+              <div className="space-y-1">
+                <Label className="text-[11px] font-medium text-slate-600">
+                  Room
+                </Label>
+                <Input
+                  value={
+                    rooms.find((r) => r.id === parseInt(selectedRoomId))
+                      ?.room_number || "Loading..."
+                  }
+                  disabled
+                  className="h-8 text-xs bg-slate-50"
+                />
               </div>
             </div>
-          )}
 
-          {/* Rent Summary Table */}
-          {paymentFormData && <RentSummaryTable formData={paymentFormData} />}
+            {/* Tenant Selection - Disabled in edit mode */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-[11px] font-medium text-slate-600">
+                  Tenant
+                </Label>
+                <Input
+                  value={getTenantName(parseInt(newPayment.tenant_id))}
+                  disabled
+                  className="h-8 text-xs bg-slate-50"
+                />
+              </div>
 
-          {/* Pay For Month */}
-          {/* <div className="space-y-1">
+              {/* Payment Type */}
+              <div className="space-y-1">
+                <Label className="text-[11px] font-medium text-slate-600">
+                  Payment Type
+                </Label>
+                <Select
+                  value={newPayment.payment_type}
+                  onValueChange={handlePaymentTypeChange}
+                >
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="rent" className="text-xs">
+                      Rent
+                    </SelectItem>
+                    <SelectItem value="security_deposit" className="text-xs">
+                      Security Deposit
+                    </SelectItem>
+                    <SelectItem value="maintenance" className="text-xs">
+                      Maintenance
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Rent Payment Specific Fields */}
+            {newPayment.payment_type === "rent" && (
+              <div className="space-y-2">
+                {/* Bed Assignment Table */}
+                {paymentFormData && (
+                  <BedAssignmentTable formData={paymentFormData} />
+                )}
+
+                {/* Offer Banner */}
+                {paymentFormData?.offer_info && (
+                  <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-3 rounded-lg border border-green-200">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="h-4 w-4 text-green-600" />
+                      <div className="flex-1">
+                        <p className="text-xs font-semibold text-green-800">
+                          🎉 Offer Applied: {paymentFormData.offer_info.code}
+                        </p>
+                        <p className="text-[10px] text-green-700">
+                          First month rent: ₹
+                          {paymentFormData.discounted_first_month_rent?.toLocaleString()}{" "}
+                          (was ₹{paymentFormData.monthly_rent?.toLocaleString()}
+                          )
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Rent Summary Table */}
+                {paymentFormData && (
+                  <RentSummaryTable formData={paymentFormData} />
+                )}
+
+                {/* Pay For Month */}
+                {/* <div className="space-y-1">
             <Label className="text-[11px] font-medium text-slate-600">
               Pay For Month
             </Label>
@@ -4434,300 +4668,356 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
               </SelectContent>
             </Select>
           </div> */}
-          {/* Pay For Month - in the edit dialog - UPDATED CODE */}
-<div className="space-y-1">
-  <Label className="text-[11px] font-medium text-slate-600">
-    Pay For Month
-  </Label>
-  <Select
-    value={selectedPaymentMonth}
-    onValueChange={(value) => {
-      setSelectedPaymentMonth(value);
-      
-      // For edit mode, we don't auto-fill amount when changing month
-      // The amount should remain as the original payment amount
-      if (value && value !== "current" && paymentFormData?.month_wise_history) {
-        const selectedMonthData = paymentFormData.month_wise_history.find(
-          (m: any) => m.month_key === value,
-        );
-        if (selectedMonthData && selectedMonthData.rent) {
-          // Don't auto-fill amount in edit mode - keep original payment amount
-          // Just update the month selection
-        }
-      }
-    }}
-  >
-    <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
-      <SelectValue placeholder="Select month..." />
-    </SelectTrigger>
-    <SelectContent>
-      {/* Show ALL months from paymentFormData, not just unpaid months */}
-      {paymentFormData?.month_wise_history?.map((month: any) => {
-        const isMonthMatch = selectedPaymentMonth === month.month_key;
-        const isPaidMonth = month.status === 'paid';
-        const isPartialMonth = month.status === 'partial';
-        
-        return (
-          <SelectItem
-            key={month.month_key}
-            value={month.month_key}
-            className="text-xs"
-          >
-            <div className="flex items-center justify-between w-full gap-4">
-              <div className="flex items-center gap-2">
-                <span>{month.month} {month.year}</span>
-                {isMonthMatch && (
-                  <span className="text-[9px] text-blue-500">(Current)</span>
-                )}
+                {/* Pay For Month - in the edit dialog - UPDATED CODE */}
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-medium text-slate-600">
+                    Pay For Month
+                  </Label>
+                  <Select
+                    value={selectedPaymentMonth}
+                    onValueChange={(value) => {
+                      setSelectedPaymentMonth(value);
+
+                      // For edit mode, we don't auto-fill amount when changing month
+                      // The amount should remain as the original payment amount
+                      if (
+                        value &&
+                        value !== "current" &&
+                        paymentFormData?.month_wise_history
+                      ) {
+                        const selectedMonthData =
+                          paymentFormData.month_wise_history.find(
+                            (m: any) => m.month_key === value,
+                          );
+                        if (selectedMonthData && selectedMonthData.rent) {
+                          // Don't auto-fill amount in edit mode - keep original payment amount
+                          // Just update the month selection
+                        }
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
+                      <SelectValue placeholder="Select month..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {/* Show ALL months from paymentFormData, not just unpaid months */}
+                      {paymentFormData?.month_wise_history?.map(
+                        (month: any) => {
+                          const isMonthMatch =
+                            selectedPaymentMonth === month.month_key;
+                          const isPaidMonth = month.status === "paid";
+                          const isPartialMonth = month.status === "partial";
+
+                          return (
+                            <SelectItem
+                              key={month.month_key}
+                              value={month.month_key}
+                              className="text-xs"
+                            >
+                              <div className="flex items-center justify-between w-full gap-4">
+                                <div className="flex items-center gap-2">
+                                  <span>
+                                    {month.month} {month.year}
+                                  </span>
+                                  {isMonthMatch && (
+                                    <span className="text-[9px] text-blue-500">
+                                      (Current)
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  {isPaidMonth && (
+                                    <span className="text-[9px] text-green-600">
+                                      ✓ Paid
+                                    </span>
+                                  )}
+                                  {isPartialMonth && month.pending > 0 && (
+                                    <span className="text-[9px] text-amber-600">
+                                      Pending: ₹{month.pending.toLocaleString()}
+                                    </span>
+                                  )}
+                                  <span
+                                    className={`text-xs font-medium ${isPaidMonth ? "text-green-600" : "text-gray-600"}`}
+                                  >
+                                    Rent: ₹{month.rent.toLocaleString()}
+                                  </span>
+                                </div>
+                              </div>
+                            </SelectItem>
+                          );
+                        },
+                      )}
+                    </SelectContent>
+                  </Select>
+
+                  {/* Show a note if editing a payment for a paid month */}
+                  {selectedPaymentMonth &&
+                    paymentFormData?.month_wise_history &&
+                    (() => {
+                      const selectedMonthData =
+                        paymentFormData.month_wise_history.find(
+                          (m: any) => m.month_key === selectedPaymentMonth,
+                        );
+                      if (selectedMonthData?.status === "paid") {
+                        return (
+                          <p className="text-[10px] text-green-600 mt-1">
+                            This month is fully paid. Editing this payment will
+                            affect the paid amount.
+                          </p>
+                        );
+                      }
+                      return null;
+                    })()}
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                {isPaidMonth && (
-                  <span className="text-[9px] text-green-600">✓ Paid</span>
-                )}
-                {isPartialMonth && month.pending > 0 && (
-                  <span className="text-[9px] text-amber-600">
-                    Pending: ₹{month.pending.toLocaleString()}
+            )}
+
+            {/* Security Deposit Specific Fields */}
+            {newPayment.payment_type === "security_deposit" &&
+              securityDepositInfo && (
+                <div className="space-y-2">
+                  {paymentFormData && (
+                    <BedAssignmentTable formData={paymentFormData} />
+                  )}
+                  <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+                    <div className="bg-slate-50 px-3 py-1.5 border-b border-slate-200">
+                      <h4 className="text-[11px] font-semibold text-slate-700 flex items-center gap-1.5">
+                        <IndianRupee className="h-3 w-3" />
+                        Security Deposit Info
+                      </h4>
+                    </div>
+                    <div className="p-3 grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <div>
+                        <p className="text-[10px] text-slate-500">Property</p>
+                        <p className="text-xs font-medium">
+                          {securityDepositInfo.property_name}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-slate-500">Total</p>
+                        <p className="text-xs font-bold text-blue-600">
+                          ₹
+                          {securityDepositInfo.security_deposit?.toLocaleString()}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-slate-500">Paid</p>
+                        <p className="text-xs font-medium text-green-600">
+                          ₹{securityDepositInfo.paid_amount?.toLocaleString()}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-slate-500">Pending</p>
+                        <p className="text-xs font-bold text-amber-600">
+                          ₹
+                          {securityDepositInfo.pending_amount?.toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+            {/* Payment Details Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {/* Amount */}
+              <div className="space-y-1">
+                <Label className="text-[11px] font-medium text-slate-600">
+                  Amount (₹) *
+                </Label>
+                <div className="relative">
+                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs">
+                    ₹
                   </span>
-                )}
-                <span className={`text-xs font-medium ${isPaidMonth ? 'text-green-600' : 'text-gray-600'}`}>
-                  Rent: ₹{month.rent.toLocaleString()}
-                </span>
+                  <Input
+                    type="text"
+                    placeholder="0.00"
+                    value={newPayment.amount}
+                    onChange={(e) =>
+                      setNewPayment({ ...newPayment, amount: e.target.value })
+                    }
+                    className="pl-7 h-8 text-xs"
+                  />
+                </div>
               </div>
-            </div>
-          </SelectItem>
-        );
-      })}
-    </SelectContent>
-  </Select>
-  
-  {/* Show a note if editing a payment for a paid month */}
-  {selectedPaymentMonth && paymentFormData?.month_wise_history && (
-    (() => {
-      const selectedMonthData = paymentFormData.month_wise_history.find(
-        (m: any) => m.month_key === selectedPaymentMonth
-      );
-      if (selectedMonthData?.status === 'paid') {
-        return (
-          <p className="text-[10px] text-green-600 mt-1">
-            This month is fully paid. Editing this payment will affect the paid amount.
-          </p>
-        );
-      }
-      return null;
-    })()
-  )}
-</div>
-        </div>
-      )}
 
-      {/* Security Deposit Specific Fields */}
-      {newPayment.payment_type === "security_deposit" && securityDepositInfo && (
-        <div className="space-y-2">
-          {paymentFormData && <BedAssignmentTable formData={paymentFormData} />}
-          <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
-            <div className="bg-slate-50 px-3 py-1.5 border-b border-slate-200">
-              <h4 className="text-[11px] font-semibold text-slate-700 flex items-center gap-1.5">
-                <IndianRupee className="h-3 w-3" />
-                Security Deposit Info
-              </h4>
-            </div>
-            <div className="p-3 grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div>
-                <p className="text-[10px] text-slate-500">Property</p>
-                <p className="text-xs font-medium">{securityDepositInfo.property_name}</p>
+              {/* Payment Mode */}
+              <div className="space-y-1">
+                <Label className="text-[11px] font-medium text-slate-600">
+                  Payment Mode *
+                </Label>
+                <Select
+                  value={newPayment.payment_mode}
+                  onValueChange={(value) =>
+                    setNewPayment({
+                      ...newPayment,
+                      payment_mode: value,
+                      bank_name: "",
+                    })
+                  }
+                >
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cash" className="text-xs">
+                      💵 Cash
+                    </SelectItem>
+                    <SelectItem value="online" className="text-xs">
+                      🌐 Online
+                    </SelectItem>
+                    <SelectItem value="bank_transfer" className="text-xs">
+                      🏦 Bank Transfer
+                    </SelectItem>
+                    <SelectItem value="cheque" className="text-xs">
+                      📝 Cheque
+                    </SelectItem>
+                    <SelectItem value="card" className="text-xs">
+                      💳 Card
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-              <div>
-                <p className="text-[10px] text-slate-500">Total</p>
-                <p className="text-xs font-bold text-blue-600">
-                  ₹{securityDepositInfo.security_deposit?.toLocaleString()}
-                </p>
+
+              {/* Date */}
+              <div className="space-y-1">
+                <Label className="text-[11px] font-medium text-slate-600">
+                  Transaction Date
+                </Label>
+                <Input
+                  type="date"
+                  value={newPayment.payment_date}
+                  max={new Date().toISOString().split("T")[0]}
+                  onChange={(e) =>
+                    setNewPayment({
+                      ...newPayment,
+                      payment_date: e.target.value,
+                    })
+                  }
+                  className="h-8 text-xs"
+                />
               </div>
-              <div>
-                <p className="text-[10px] text-slate-500">Paid</p>
-                <p className="text-xs font-medium text-green-600">
-                  ₹{securityDepositInfo.paid_amount?.toLocaleString()}
-                </p>
-              </div>
-              <div>
-                <p className="text-[10px] text-slate-500">Pending</p>
-                <p className="text-xs font-bold text-amber-600">
-                  ₹{securityDepositInfo.pending_amount?.toLocaleString()}
-                </p>
+
+              {(newPayment.payment_mode === "bank_transfer" ||
+                newPayment.payment_mode === "online") && (
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-medium text-slate-600">
+                    Bank Name
+                  </Label>
+                  <Select
+                    value={newPayment.bank_name}
+                    onValueChange={(value) => {
+                      if (value === "Other") {
+                        setShowCustomBankInput(true);
+                        setNewPayment({ ...newPayment, bank_name: "Other" });
+                      } else {
+                        setShowCustomBankInput(false);
+                        setNewPayment({ ...newPayment, bank_name: value });
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Select bank" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {bankNames.map((bank) => (
+                        <SelectItem
+                          key={bank.id}
+                          value={bank.name}
+                          className="text-xs"
+                        >
+                          {bank.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  {/* Custom Bank Name Input */}
+                  {showCustomBankInput && (
+                    <div className="mt-2">
+                      <Input
+                        placeholder="Enter bank name"
+                        value={customBankName}
+                        onChange={(e) => {
+                          setCustomBankName(e.target.value);
+                          setNewPayment({
+                            ...newPayment,
+                            bank_name: e.target.value,
+                          });
+                        }}
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Transaction ID - conditional */}
+              {(newPayment.payment_mode === "online" ||
+                newPayment.payment_mode === "bank_transfer" ||
+                newPayment.payment_mode === "cheque") && (
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-medium text-slate-600">
+                    Transaction ID
+                  </Label>
+                  <Input
+                    placeholder="Optional"
+                    value={newPayment.transaction_id}
+                    onChange={(e) =>
+                      setNewPayment({
+                        ...newPayment,
+                        transaction_id: e.target.value,
+                      })
+                    }
+                    className="h-8 text-xs"
+                  />
+                </div>
+              )}
+
+              {/* Remark - full width */}
+              <div className="space-y-1 col-span-2 sm:col-span-3">
+                <Label className="text-[11px] font-medium text-slate-600">
+                  Remark
+                </Label>
+                <Input
+                  placeholder="Add notes"
+                  value={newPayment.remark}
+                  onChange={(e) =>
+                    setNewPayment({ ...newPayment, remark: e.target.value })
+                  }
+                  className="h-8 text-xs"
+                />
               </div>
             </div>
           </div>
-        </div>
-      )}
 
-      {/* Payment Details Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        {/* Amount */}
-        <div className="space-y-1">
-          <Label className="text-[11px] font-medium text-slate-600">
-            Amount (₹) *
-          </Label>
-          <div className="relative">
-            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs">₹</span>
-            <Input
-              type="text"
-              placeholder="0.00"
-              value={newPayment.amount}
-              onChange={(e) => setNewPayment({ ...newPayment, amount: e.target.value })}
-              className="pl-7 h-8 text-xs"
-            />
+          {/* Footer */}
+          <div className="px-4 py-3 bg-slate-50 border-t border-slate-200 rounded-b-lg flex-shrink-0">
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setIsEditDialogOpen(false);
+                  resetPaymentForm();
+                  setSelectedPayment(null);
+                }}
+                className="text-xs h-8 px-4"
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => handleUpdatePayment(newPayment)}
+                className="text-xs h-8 px-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white"
+              >
+                <Pencil className="h-3 w-3 mr-1.5" />
+                Update Payment
+              </Button>
+            </div>
           </div>
-        </div>
-
-        {/* Payment Mode */}
-        <div className="space-y-1">
-          <Label className="text-[11px] font-medium text-slate-600">
-            Payment Mode *
-          </Label>
-          <Select
-            value={newPayment.payment_mode}
-            onValueChange={(value) =>
-              setNewPayment({
-                ...newPayment,
-                payment_mode: value,
-                bank_name: "",
-              })
-            }
-          >
-            <SelectTrigger className="h-8 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="cash" className="text-xs">💵 Cash</SelectItem>
-              <SelectItem value="online" className="text-xs">🌐 Online</SelectItem>
-              <SelectItem value="bank_transfer" className="text-xs">🏦 Bank Transfer</SelectItem>
-              <SelectItem value="cheque" className="text-xs">📝 Cheque</SelectItem>
-              <SelectItem value="card" className="text-xs">💳 Card</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Date */}
-        <div className="space-y-1">
-          <Label className="text-[11px] font-medium text-slate-600">
-            Transaction Date
-          </Label>
-          <Input
-            type="date"
-            value={newPayment.payment_date}
-            max={new Date().toISOString().split("T")[0]}
-            onChange={(e) =>
-              setNewPayment({
-                ...newPayment,
-                payment_date: e.target.value,
-              })
-            }
-            className="h-8 text-xs"
-          />
-        </div>
-
-        {(newPayment.payment_mode === "bank_transfer" || newPayment.payment_mode === "online") && (
-  <div className="space-y-1">
-    <Label className="text-[11px] font-medium text-slate-600">
-      Bank Name
-    </Label>
-    <Select
-      value={newPayment.bank_name}
-      onValueChange={(value) => {
-        if (value === "Other") {
-          setShowCustomBankInput(true);
-          setNewPayment({ ...newPayment, bank_name: "Other" });
-        } else {
-          setShowCustomBankInput(false);
-          setNewPayment({ ...newPayment, bank_name: value });
-        }
-      }}
-    >
-      <SelectTrigger className="h-8 text-xs">
-        <SelectValue placeholder="Select bank" />
-      </SelectTrigger>
-      <SelectContent>
-        {bankNames.map((bank) => (
-          <SelectItem key={bank.id} value={bank.name} className="text-xs">
-            {bank.name}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-    
-    {/* Custom Bank Name Input */}
-    {showCustomBankInput && (
-      <div className="mt-2">
-        <Input
-          placeholder="Enter bank name"
-          value={customBankName}
-          onChange={(e) => {
-            setCustomBankName(e.target.value);
-            setNewPayment({ ...newPayment, bank_name: e.target.value });
-          }}
-          className="h-8 text-xs"
-        />
-      </div>
-    )}
-  </div>
-)}
-
-        {/* Transaction ID - conditional */}
-        {(newPayment.payment_mode === "online" || newPayment.payment_mode === "bank_transfer" || newPayment.payment_mode === "cheque") && (
-          <div className="space-y-1">
-            <Label className="text-[11px] font-medium text-slate-600">
-              Transaction ID
-            </Label>
-            <Input
-              placeholder="Optional"
-              value={newPayment.transaction_id}
-              onChange={(e) => setNewPayment({ ...newPayment, transaction_id: e.target.value })}
-              className="h-8 text-xs"
-            />
-          </div>
-        )}
-
-        {/* Remark - full width */}
-        <div className="space-y-1 col-span-2 sm:col-span-3">
-          <Label className="text-[11px] font-medium text-slate-600">
-            Remark
-          </Label>
-          <Input
-            placeholder="Add notes"
-            value={newPayment.remark}
-            onChange={(e) => setNewPayment({ ...newPayment, remark: e.target.value })}
-            className="h-8 text-xs"
-          />
-        </div>
-      </div>
-    </div>
-
-    {/* Footer */}
-    <div className="px-4 py-3 bg-slate-50 border-t border-slate-200 rounded-b-lg flex-shrink-0">
-      <div className="flex justify-end gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            setIsEditDialogOpen(false);
-            resetPaymentForm();
-            setSelectedPayment(null);
-          }}
-          className="text-xs h-8 px-4"
-        >
-          Cancel
-        </Button>
-        <Button
-          size="sm"
-          onClick={() => handleUpdatePayment(newPayment)}
-          className="text-xs h-8 px-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white"
-        >
-          <Pencil className="h-3 w-3 mr-1.5" />
-          Update Payment
-        </Button>
-      </div>
-    </div>
-  </DialogContent>
-</Dialog>
+        </DialogContent>
+      </Dialog>
 
       {/* Receipt Preview Dialog */}
       <Dialog
@@ -4944,7 +5234,9 @@ const RentSummaryTable = ({ formData }: { formData: any }) => {
         open={isLedgerReportOpen}
         onOpenChange={setIsLedgerReportOpen}
         tenant={selectedLedgerTenant}
-        payments={payments.filter(p => p.tenant_id === selectedLedgerTenant?.id)}
+        payments={payments.filter(
+          (p) => p.tenant_id === selectedLedgerTenant?.id,
+        )}
         siteName={siteName}
         siteTagline={siteTagline}
         contactAddress={contactAddress}
@@ -5064,8 +5356,8 @@ const PaymentsTable = ({
   showFilterSidebar,
   setShowFilterSidebar,
   onLedgerReport,
-   fetchRoomsByProperty,
-   fetchTenantsByRoom, 
+  fetchRoomsByProperty,
+  fetchTenantsByRoom,
   handleTenantSelect,
   setSelectedPropertyId,
   setSelectedRoomId,
@@ -5156,12 +5448,10 @@ const PaymentsTable = ({
     return true;
   });
 
-
-
   return (
     <Card
-      className="border-0 overflow-hidden flex flex-col"
-      style={{ height: "calc(100vh - 280px)" }}
+      className="border-0 overflow-y-auto flex flex-col max-h-[400px] sm:max-h-[490px] "
+    
     >
       <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
         {/* Single overflow-x for both header + body */}
@@ -5247,35 +5537,34 @@ const PaymentsTable = ({
                         />
                       </div>
                     </TableHead>
-                       {/* ✅ NEW: Paid Amount Column (Approved) */}
-    <TableHead className="w-[100px] py-2 px-2 bg-gray-200 text-right">
-      <div className="flex flex-col gap-1 items-end">
-        <span className="font-semibold text-green-700 text-[10px] uppercase tracking-wide">
-          Paid (₹)
-        </span>
-      </div>
-     <Input
-                          placeholder="Search amount..."
-                          type="number"
-                          className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 text-left font-normal w-full"
-                          value={columnFilters?.total_paid_amount || ""}
-                          onChange={(e) =>
-                            setColumnFilters?.({
-                              ...columnFilters,
-                              total_paid_amount: e.target.value,
-                            })
-                          }
-                        />
+                    {/* ✅ NEW: Paid Amount Column (Approved) */}
+                    <TableHead className="w-[100px] py-2 px-2 bg-gray-200 text-right">
+                      <div className="flex flex-col gap-1 items-end">
+                        <span className="font-semibold text-green-700 text-[10px] uppercase tracking-wide">
+                          Paid (₹)
+                        </span>
+                      </div>
+                      <Input
+                        placeholder="Search amount..."
+                        type="number"
+                        className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 text-left font-normal w-full"
+                        value={columnFilters?.total_paid_amount || ""}
+                        onChange={(e) =>
+                          setColumnFilters?.({
+                            ...columnFilters,
+                            total_paid_amount: e.target.value,
+                          })
+                        }
+                      />
+                    </TableHead>
 
-    </TableHead>
-
-    {/* ✅ NEW: Rejected Amount Column */}
-    <TableHead className="w-[100px] py-2 px-2 bg-gray-200 text-right">
-      <div className="flex flex-col gap-1 items-end">
-        <span className="font-semibold text-red-700 text-[10px] uppercase tracking-wide">
-          Rejected (₹)
-        </span>
-        <Input
+                    {/* ✅ NEW: Rejected Amount Column */}
+                    <TableHead className="w-[100px] py-2 px-2 bg-gray-200 text-right">
+                      <div className="flex flex-col gap-1 items-end">
+                        <span className="font-semibold text-red-700 text-[10px] uppercase tracking-wide">
+                          Rejected (₹)
+                        </span>
+                        <Input
                           placeholder="Search amount..."
                           type="number"
                           className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 text-left font-normal w-full"
@@ -5287,9 +5576,8 @@ const PaymentsTable = ({
                             })
                           }
                         />
-      </div>
-
-    </TableHead>
+                      </div>
+                    </TableHead>
 
                     {/* Status Column */}
                     <TableHead className="w-[100px] py-2 px-2 bg-gray-200">
@@ -5483,27 +5771,27 @@ const PaymentsTable = ({
                                     {group.tenant_phone}
                                   </p>
                                   {/* ✅ ADD ROOM AND BED NUMBER HERE */}
-     {(group.room_number || group.bed_number) && (
-  <div className="flex flex-wrap sm:flex-nowrap items-center gap-1.5 mt-0.5">
-    {group.room_number && (
-      <span className="text-[10px] text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-full inline-flex items-center gap-0.5 whitespace-nowrap">
-        <DoorOpen className="h-2.5 w-2.5" />
-        Room {group.room_number}
-      </span>
-    )}
-    {group.bed_number && (
-      <span className="text-[10px] text-green-600 bg-green-50 px-1.5 py-0.5 rounded-full inline-flex items-center gap-0.5 whitespace-nowrap">
-        <Bed className="h-2.5 w-2.5" />
-        Bed #{group.bed_number}
-      </span>
-    )}
-    {group.property_name && (
-      <span className="text-[10px] text-slate-500 truncate max-w-[100px] sm:max-w-[120px] flex-shrink-0">
-        • {group.property_name}
-      </span>
-    )}
-  </div>
-)}
+                                  {(group.room_number || group.bed_number) && (
+                                    <div className="flex flex-wrap sm:flex-nowrap items-center gap-1.5 mt-0.5">
+                                      {group.room_number && (
+                                        <span className="text-[10px] text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-full inline-flex items-center gap-0.5 whitespace-nowrap">
+                                          <DoorOpen className="h-2.5 w-2.5" />
+                                          Room {group.room_number}
+                                        </span>
+                                      )}
+                                      {group.bed_number && (
+                                        <span className="text-[10px] text-green-600 bg-green-50 px-1.5 py-0.5 rounded-full inline-flex items-center gap-0.5 whitespace-nowrap">
+                                          <Bed className="h-2.5 w-2.5" />
+                                          Bed #{group.bed_number}
+                                        </span>
+                                      )}
+                                      {group.property_name && (
+                                        <span className="text-[10px] text-slate-500 truncate max-w-[100px] sm:max-w-[120px] flex-shrink-0">
+                                          • {group.property_name}
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             </TableCell>
@@ -5523,26 +5811,28 @@ const PaymentsTable = ({
                               </span>
                             </TableCell>
 
-                             {/* ✅ NEW: Paid Amount Column (Approved) */}
-  <TableCell className="py-3 text-right">
-    <span className="text-sm font-bold text-green-600">
-      ₹{group.total_paid_amount?.toLocaleString() || 0}
-    </span>
-    {/* {group.approved_count > 0 && (
+                            {/* ✅ NEW: Paid Amount Column (Approved) */}
+                            <TableCell className="py-3 text-right">
+                              <span className="text-sm font-bold text-green-600">
+                                ₹
+                                {group.total_paid_amount?.toLocaleString() || 0}
+                              </span>
+                              {/* {group.approved_count > 0 && (
       <span className="text-[9px] text-green-500 block">({group.approved_count})</span>
     )} */}
-  </TableCell>
+                            </TableCell>
 
-  {/* ✅ NEW: Rejected Amount Column */}
-  <TableCell className="py-3 text-right">
-    <span className="text-sm font-bold text-red-600">
-      ₹{group.total_rejected_amount?.toLocaleString() || 0}
-    </span>
-    {/* {group.rejected_count > 0 && (
+                            {/* ✅ NEW: Rejected Amount Column */}
+                            <TableCell className="py-3 text-right">
+                              <span className="text-sm font-bold text-red-600">
+                                ₹
+                                {group.total_rejected_amount?.toLocaleString() ||
+                                  0}
+                              </span>
+                              {/* {group.rejected_count > 0 && (
       <span className="text-[9px] text-red-500 block">({group.rejected_count})</span>
     )} */}
-  </TableCell>
-
+                            </TableCell>
 
                             <TableCell className="py-3">
                               <div className="flex items-center justify-center gap-1">
@@ -5581,23 +5871,23 @@ const PaymentsTable = ({
                             >
                               <div className="flex items-center justify-center gap-1">
                                 {/* Print/Ledger Button */}
-<Button
-  size="sm"
-  variant="ghost"
-  className="h-7 w-7 p-0 text-gray-600 hover:text-gray-700 hover:bg-gray-50 rounded-full"
-  onClick={() => {
-    onLedgerReport?.(group.tenant_id, {
-      room_number: group.room_number,
-      bed_number: group.bed_number,
-      property_name: group.property_name,
-      monthly_rent: group.monthly_rent,
-      check_in_date: group.check_in_date,
-    });
-  }}
-  title="View Ledger Report"
->
-  <FileText className="h-3.5 w-3.5" />
-</Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 w-7 p-0 text-gray-600 hover:text-gray-700 hover:bg-gray-50 rounded-full"
+                                  onClick={() => {
+                                    onLedgerReport?.(group.tenant_id, {
+                                      room_number: group.room_number,
+                                      bed_number: group.bed_number,
+                                      property_name: group.property_name,
+                                      monthly_rent: group.monthly_rent,
+                                      check_in_date: group.check_in_date,
+                                    });
+                                  }}
+                                  title="View Ledger Report"
+                                >
+                                  <FileText className="h-3.5 w-3.5" />
+                                </Button>
                                 <Button
                                   size="sm"
                                   variant="ghost"
@@ -5609,346 +5899,506 @@ const PaymentsTable = ({
                                 >
                                   <Eye className="h-3.5 w-3.5" />
                                 </Button>
-<Button
-  size="sm"
-  variant="ghost"
-  className="h-7 w-7 p-0 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-full"
-  onClick={async () => {
-    const tenant = tenants.find(t => t.id === group.tenant_id);
-    
-    const propertyId = tenant?.current_assignment?.property_id || group.property_id;
-    const roomId = tenant?.current_assignment?.room_id || group.room_id;
-    
-    if (tenant && propertyId && roomId) {
-      await prefillAndOpenPaymentForm(group.tenant_id, propertyId, roomId);
-    } else {
-      toast.error("Tenant missing property or room information");
-      setIsAddPaymentOpen(true);
-    }
-  }}
-  title="Add Payment"
->
-  <Plus className="h-3.5 w-3.5" />
-</Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 w-7 p-0 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-full"
+                                  onClick={async () => {
+                                    const tenant = tenants.find(
+                                      (t) => t.id === group.tenant_id,
+                                    );
+
+                                    const propertyId =
+                                      tenant?.current_assignment?.property_id ||
+                                      group.property_id;
+                                    const roomId =
+                                      tenant?.current_assignment?.room_id ||
+                                      group.room_id;
+
+                                    if (tenant && propertyId && roomId) {
+                                      await prefillAndOpenPaymentForm(
+                                        group.tenant_id,
+                                        propertyId,
+                                        roomId,
+                                      );
+                                    } else {
+                                      toast.error(
+                                        "Tenant missing property or room information",
+                                      );
+                                      setIsAddPaymentOpen(true);
+                                    }
+                                  }}
+                                  title="Add Payment"
+                                >
+                                  <Plus className="h-3.5 w-3.5" />
+                                </Button>
                               </div>
                             </TableCell>
                           </TableRow>
 
                           {/* Expanded Child Row - Payment Details */}
-{isExpanded && (
-  <TableRow className="bg-blue-50/30">
-    <TableCell colSpan={9} className="p-0 border-t-0">
-      <div className="animate-in slide-in-from-top-1 duration-200">
-        <div className="p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h4 className="text-xs font-semibold text-slate-700 flex items-center gap-2">
-              <CreditCard className="h-3.5 w-3.5 text-blue-600" />
-              Payment History • {group.payments.length} transactions
-            </h4>
-          </div>
+                          {isExpanded && (
+                            <TableRow className="bg-blue-50/30">
+                              <TableCell colSpan={9} className="p-0 border-t-0">
+                                <div className="animate-in slide-in-from-top-1 duration-200">
+                                  <div className="p-4">
+                                    <div className="flex items-center justify-between mb-3">
+                                      <h4 className="text-xs font-semibold text-slate-700 flex items-center gap-2">
+                                        <CreditCard className="h-3.5 w-3.5 text-blue-600" />
+                                        Payment History •{" "}
+                                        {group.payments.length} transactions
+                                      </h4>
+                                    </div>
 
-         <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300">
-  <div className="overflow-x-auto">
-    <table className="w-full text-sm border-collapse">
-      <thead>
-        <tr className="bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200">
-          <th className="text-left py-3.5 px-3 font-semibold text-slate-700 text-[11px] uppercase tracking-wider border-r border-slate-300">Transaction Date</th>
-          <th className="text-left py-3.5 px-3 font-semibold text-slate-700 text-[11px] uppercase tracking-wider border-r border-slate-300">Amount</th>
-          <th className="text-left py-3.5 px-3 font-semibold text-slate-700 text-[11px] uppercase tracking-wider border-r border-slate-300">Transaction ID</th>
-          <th className="text-left py-3.5 px-3 font-semibold text-slate-700 text-[11px] uppercase tracking-wider border-r border-slate-300">Mode</th>
-          <th className="text-left py-3.5 px-3 font-semibold text-slate-700 text-[11px] uppercase tracking-wider border-r border-slate-300">Mode Type</th>
-          <th className="text-left py-3.5 px-3 font-semibold text-slate-700 text-[11px] uppercase tracking-wider border-r border-slate-300">Payment Type</th>
-          <th className="text-left py-3.5 px-3 font-semibold text-slate-700 text-[11px] uppercase tracking-wider border-r border-slate-300">Period</th>
-          <th className="text-left py-3.5 px-3 font-semibold text-slate-700 text-[11px] uppercase tracking-wider border-r border-slate-300">Remark</th>
-          <th className="text-left py-3.5 px-3 font-semibold text-slate-700 text-[11px] uppercase tracking-wider border-r border-slate-300">Proof</th>
-          <th className="text-left py-3.5 px-3 font-semibold text-slate-700 text-[11px] uppercase tracking-wider border-r border-slate-300">Status</th>
-          <th className="text-left py-3.5 px-3 font-semibold text-slate-700 text-[11px] uppercase tracking-wider border-r border-slate-300">Source</th>
-          <th className="text-center py-3.5 px-3 font-semibold text-slate-700 text-[11px] uppercase tracking-wider">Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {group.payments.map((payment: any, index: number) => {
-          // Parse payment_mode_type JSON to get detailed payment info
-          let modeTypeDisplay = '';
-          let modeTypeTooltip = '';
-          
-          if (payment.payment_mode_type) {
-            try {
-              const modeTypeData = typeof payment.payment_mode_type === 'string' 
-                ? JSON.parse(payment.payment_mode_type) 
-                : payment.payment_mode_type;
-              
-              if (payment.payment_mode === 'card' && modeTypeData) {
-                modeTypeDisplay = `${modeTypeData.network || 'Card'} •••• ${modeTypeData.last4 || '****'}`;
-                modeTypeTooltip = `${modeTypeData.type || 'Card'} - ${modeTypeData.bank || 'Unknown Bank'}`;
-              } else if (payment.payment_mode === 'upi' && modeTypeData?.vpa) {
-                modeTypeDisplay = modeTypeData.vpa;
-                modeTypeTooltip = modeTypeData.vpa;
-              } else if ((payment.payment_mode === 'netbanking' || payment.payment_mode === 'bank_transfer') && modeTypeData?.bank) {
-                modeTypeDisplay = modeTypeData.bank;
-                modeTypeTooltip = modeTypeData.bank;
-              } else if (payment.payment_mode === 'wallet' && modeTypeData?.wallet) {
-                modeTypeDisplay = modeTypeData.wallet;
-                modeTypeTooltip = modeTypeData.wallet;
-              } else {
-                modeTypeDisplay = '-';
-              }
-            } catch (e) {
-              modeTypeDisplay = '-';
-            }
-          } else {
-            modeTypeDisplay = '-';
-          }
-          
-          const isEven = index % 2 === 0;
-          
-          return (
-            <tr 
-              key={payment.id}
-              className={`${isEven ? 'bg-white' : 'bg-slate-50/30'} border-b border-slate-100 hover:bg-blue-50/30 transition-colors duration-200 group`}
-            >
-              {/* Transaction Date */}
-              <td className="py-1 px-3 border-r border-slate-200">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
-                    <Calendar className="w-3.5 h-3.5 text-blue-600" />
-                  </div>
-                  <span className="text-[12px] font-medium text-slate-700 whitespace-nowrap">
-                    {format(new Date(payment.payment_date), "dd MMM yyyy")}
-                  </span>
-                </div>
-              </td>
-              
-              {/* Amount */}
-              <td className="py-1 px-3 border-r border-slate-200">
-                <div className="flex items-center gap-1">
-                  <span className="text-[13px] font-bold text-slate-900">
-                    ₹{Number(payment.amount).toLocaleString()}
-                  </span>
-                </div>
-              </td>
-              
-              {/* Transaction ID */}
-              <td className="py-1 px-3 border-r border-slate-200">
-                {payment.transaction_id ? (
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[11px] font-mono text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
-                      {payment.transaction_id.substring(0, 8)}...
-                    </span>
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(payment.transaction_id);
-                        toast.success("Transaction ID copied");
-                      }}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <Copy className="w-3 h-3 text-slate-400 hover:text-slate-600" />
-                    </button>
-                  </div>
-                ) : (
-                  <span className="text-[11px] text-slate-400">—</span>
-                )}
-               </td>
-              
-              {/* Payment Mode - Mode and Bank Name in SAME ROW (horizontal) */}
-              <td className="py-1 px-1 border-r border-slate-200">
-                <div className="flex items-center gap-1 flex-wrap">
-                  {payment.payment_mode === 'card' && <CreditCard className="w-3.5 h-3.5 text-blue-500" />}
-                  {payment.payment_mode === 'upi' && <Smartphone className="w-3.5 h-3.5 text-green-500" />}
-                  {payment.payment_mode === 'cash' && <IndianRupee className="w-3.5 h-3.5 text-emerald-500" />}
-                  {payment.payment_mode === 'bank_transfer' }
-                  <span className="text-[10px] font-medium text-slate-700 capitalize">
-                    {payment.payment_mode === 'bank_transfer' ? 'Bank Transfer' : payment.payment_mode}
-                  </span>
-                  {payment.bank_name && (
-                    <>
-                      <span className="text-slate-300"></span>
-                      <span className="text-[9px] text-slate-500">
-                        {payment.bank_name}
-                      </span>
-                    </>
-                  )}
-                </div>
-               </td>
-              
-              {/* Payment Mode Type */}
-              <td className="py-1 px-3 border-r border-slate-200">
-                {modeTypeDisplay !== '-' ? (
-                  <div className="flex items-center gap-1">
-                    <span 
-                      className="text-[11px] text-slate-600 cursor-help bg-slate-100 px-1.5 py-0.5 rounded"
-                      title={modeTypeTooltip || modeTypeDisplay}
-                    >
-                      {modeTypeDisplay.length > 20 ? modeTypeDisplay.substring(0, 20) + '...' : modeTypeDisplay}
-                    </span>
-                  </div>
-                ) : (
-                  <span className="text-[11px] text-slate-400">—</span>
-                )}
-                </td>
-              
-              {/* Payment Type */}
-              <td className="py-1 px-3 border-r border-slate-200">
-                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                  payment.payment_type === 'rent' 
-                    ? 'bg-blue-100 text-blue-700'
-                    : payment.payment_type === 'security_deposit'
-                    ? 'bg-purple-100 text-purple-700'
-                    : 'bg-slate-100 text-slate-600'
-                }`}>
-                  {payment.payment_type === 'rent' 
-                    ? 'Rent' 
-                    : payment.payment_type === 'security_deposit'
-                    ? 'Security Deposit'
-                    : payment.payment_type || 'Other'}
-                </span>
-                </td>
-              
-              {/* Month/Year */}
-              <td className="py-1 px-3 border-r border-slate-200">
-                <span className="text-[12px] text-slate-600 whitespace-nowrap">
-                  {payment.month} {payment.year}
-                </span>
-                </td>
-              
-              {/* Remark */}
-              <td className="py-1 px-3 border-r border-slate-200 max-w-[150px]">
-                {payment.remark ? (
-                  <div className="group relative">
-                    <p className="text-[11px] text-slate-500 truncate cursor-help" title={payment.remark}>
-                      {payment.remark}
-                    </p>
-                  </div>
-                ) : (
-                  <span className="text-[11px] text-slate-400">—</span>
-                )}
-                </td>
-              
-              {/* Proof Column with Thumbnail */}
-              <td className="py-1 px-3 border-r border-slate-200">
-                {payment.payment_proof ? (
-                  <button
-                    className="flex items-center gap-1.5 group/proof"
-                    onClick={() => {
-                      window.open(
-                        `${import.meta.env.VITE_API_URL || "http://localhost:3001"}${payment.payment_proof}`,
-                        "_blank",
-                      );
-                    }}
-                  >
-                    {payment.payment_proof.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
-                      <div className="relative">
-                        <img
-                          src={`${import.meta.env.VITE_API_URL || "http://localhost:3001"}${payment.payment_proof}`}
-                          alt="Proof"
-                          className="h-8 w-8 rounded-lg object-cover border border-slate-200 shadow-sm hover:shadow-md transition-all cursor-pointer hover:scale-105"
-                        />
-                        <div className="absolute inset-0 bg-black/0 hover:bg-black/10 rounded-lg transition-colors" />
-                      </div>
-                    ) : (
-                      <div className="h-8 w-8 rounded-lg bg-blue-50 flex items-center justify-center border border-blue-200 hover:bg-blue-100 transition-colors">
-                        <FileText className="h-4 w-4 text-blue-600" />
-                      </div>
-                    )}
-                  </button>
-                ) : (
-                  <div className="h-8 w-8 rounded-lg bg-slate-50 flex items-center justify-center border border-slate-200">
-                    <span className="text-[10px] text-slate-400">—</span>
-                  </div>
-                )}
-                </td>
-              
-              {/* Status */}
-              <td className="py-1 px-3 border-r border-slate-200">
-                <PaymentStatusBadge status={payment.status || "pending"} />
-                </td>
-              
-              {/* Source */}
-              <td className="py-1 px-3 border-r border-slate-200">
-                {payment.booking_id ? (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-[10px] font-medium">
-                    <Globe className="h-2.5 w-2.5" />
-                    Online Booking
-                  </span>
-                ) : payment.source === "tenant" ? (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-medium">
-                    <Globe className="h-2.5 w-2.5" />
-                    Online Payment
-                  </span>
-                ) : payment.payment_mode === "online" ? (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 text-[10px] font-medium">
-                    <User className="h-2.5 w-2.5" />
-                    Manual Entry
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 text-[10px] font-medium">
-                    <User className="h-2.5 w-2.5" />
-                    Manual Entry
-                  </span>
-                )}
-                </td>
-              
-              {/* Actions */}
-              <td className="py-1 px-3">
-                <div className="flex items-center gap-1 justify-end">
-                  {/* Approve Button */}
-                  {(payment.status === "pending" || payment.status === "paid" || payment.status === "partial") && canApprove && (
-                    <button
-                      className="h-7 w-7 rounded-lg text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 flex items-center justify-center transition-all duration-200"
-                      onClick={() => onApprove(payment)}
-                      title="Approve"
-                    >
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                  
-                  {/* Reject Button */}
-                  {(payment.status === "pending" || payment.status === "paid" || payment.status === "partial") && canReject && (
-                    <button
-                      className="h-7 w-7 rounded-lg text-red-600 hover:text-red-700 hover:bg-red-50 flex items-center justify-center transition-all duration-200"
-                      onClick={() => onReject(payment)}
-                      title="Reject"
-                    >
-                      <XCircle className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                  
-                  {/* Edit Button */}
-                  {payment.source !== 'tenant' && (payment.status === "pending" || payment.status === "paid") && canEdit && (
-                    <button
-                      className="h-7 w-7 rounded-lg text-blue-600 hover:text-blue-700 hover:bg-blue-50 flex items-center justify-center transition-all duration-200"
-                      onClick={() => onEdit(payment)}
-                      title="Edit"
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                  
-                  {/* Delete Button */}
-                  {canDelete && (
-                    <button
-                      className="h-7 w-7 rounded-lg text-red-600 hover:text-red-700 hover:bg-red-50 flex items-center justify-center transition-all duration-200"
-                      onClick={() => onDelete(payment)}
-                      title="Delete"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                </div>
-                </td>
-              
-            </tr>
-          );
-        })}
-      </tbody>
-    </table>
-  </div>
-</div>
-        </div>
-      </div>
-    </TableCell>
-  </TableRow>
-)}
+                                    <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300">
+                                      <div className="overflow-x-auto overflow-y-auto max-h-[250px] sm:max-h-[300px] ">
+                                        <table className="w-full text-sm border-collapse "> 
+                                          <thead className="sticky top-0 z-10">
+                                            <tr className="bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200">
+                                              <th className="text-left py-3.5 px-1 font-semibold text-slate-700 text-[11px] uppercase tracking-wider border-r border-slate-300 ">
+                                                Transaction Date
+                                              </th>
+                                              <th className="text-left py-3.5 px-1 font-semibold text-slate-700 text-[11px] uppercase tracking-wider border-r border-slate-300">
+                                                Amount
+                                              </th>
+                                              <th className="text-left py-3.5 px-1 font-semibold text-slate-700 text-[11px] uppercase tracking-wider border-r border-slate-300">
+                                                Transaction ID
+                                              </th>
+                                              <th className="text-left py-3.5 px-1 font-semibold text-slate-700 text-[11px] uppercase tracking-wider border-r border-slate-300">
+                                                Mode
+                                              </th>
+                                              <th className="text-left py-3.5 px-1 font-semibold text-slate-700 text-[11px] uppercase tracking-wider border-r border-slate-300 whitespace-nowrap">
+                                                Mode Type
+                                              </th>
+                                              <th className="text-left py-3.5 px-1 font-semibold text-slate-700 text-[11px] uppercase tracking-wider border-r border-slate-300">
+                                                Payment Type
+                                              </th>
+                                              <th className="text-left py-3.5 px-1 font-semibold text-slate-700 text-[11px] uppercase tracking-wider border-r border-slate-300">
+                                                Period
+                                              </th>
+                                              <th className="text-left py-3.5 px-1 font-semibold text-slate-700 text-[11px] uppercase tracking-wider border-r border-slate-300">
+                                                Remark
+                                              </th>
+                                              <th className="text-left py-3.5 px-1 font-semibold text-slate-700 text-[11px] uppercase tracking-wider border-r border-slate-300">
+                                                Proof
+                                              </th>
+                                              <th className="text-left py-3.5 px-1 font-semibold text-slate-700 text-[11px] uppercase tracking-wider border-r border-slate-300">
+                                                Status
+                                              </th>
+                                              <th className="text-left py-3.5 px-1 font-semibold text-slate-700 text-[11px] uppercase tracking-wider border-r border-slate-300">
+                                                Source
+                                              </th>
+                                              <th className="text-center py-3.5 px-1 font-semibold text-slate-700 text-[11px] uppercase tracking-wider">
+                                                Actions
+                                              </th>
+                                            </tr>
+                                          </thead>
+                                          <tbody>
+                                            {group.payments.map(
+                                              (payment: any, index: number) => {
+                                                // Parse payment_mode_type JSON to get detailed payment info
+                                                let modeTypeDisplay = "";
+                                                let modeTypeTooltip = "";
+
+                                                if (payment.payment_mode_type) {
+                                                  try {
+                                                    const modeTypeData =
+                                                      typeof payment.payment_mode_type ===
+                                                      "string"
+                                                        ? JSON.parse(
+                                                            payment.payment_mode_type,
+                                                          )
+                                                        : payment.payment_mode_type;
+
+                                                    if (
+                                                      payment.payment_mode ===
+                                                        "card" &&
+                                                      modeTypeData
+                                                    ) {
+                                                      modeTypeDisplay = `${modeTypeData.network || "Card"} •••• ${modeTypeData.last4 || "****"}`;
+                                                      modeTypeTooltip = `${modeTypeData.type || "Card"} - ${modeTypeData.bank || "Unknown Bank"}`;
+                                                    } else if (
+                                                      payment.payment_mode ===
+                                                        "upi" &&
+                                                      modeTypeData?.vpa
+                                                    ) {
+                                                      modeTypeDisplay =
+                                                        modeTypeData.vpa;
+                                                      modeTypeTooltip =
+                                                        modeTypeData.vpa;
+                                                    } else if (
+                                                      (payment.payment_mode ===
+                                                        "netbanking" ||
+                                                        payment.payment_mode ===
+                                                          "bank_transfer") &&
+                                                      modeTypeData?.bank
+                                                    ) {
+                                                      modeTypeDisplay =
+                                                        modeTypeData.bank;
+                                                      modeTypeTooltip =
+                                                        modeTypeData.bank;
+                                                    } else if (
+                                                      payment.payment_mode ===
+                                                        "wallet" &&
+                                                      modeTypeData?.wallet
+                                                    ) {
+                                                      modeTypeDisplay =
+                                                        modeTypeData.wallet;
+                                                      modeTypeTooltip =
+                                                        modeTypeData.wallet;
+                                                    } else {
+                                                      modeTypeDisplay = "-";
+                                                    }
+                                                  } catch (e) {
+                                                    modeTypeDisplay = "-";
+                                                  }
+                                                } else {
+                                                  modeTypeDisplay = "-";
+                                                }
+
+                                                const isEven = index % 2 === 0;
+
+                                                return (
+                                                  <tr
+                                                    key={payment.id}
+                                                    className={`${isEven ? "bg-white" : "bg-slate-50/30"} border-b border-slate-100 hover:bg-blue-50/30 transition-colors duration-200 group`}
+                                                  >
+                                                    {/* Transaction Date */}
+                                                    <td className="py-1 px-3 border-r border-slate-200">
+                                                      <div className="flex items-center gap-2">
+                                                        <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
+                                                          <Calendar className="w-3.5 h-3.5 text-blue-600" />
+                                                        </div>
+                                                        <span className="text-[12px] font-medium text-slate-700 whitespace-nowrap">
+                                                          {format(
+                                                            new Date(
+                                                              payment.payment_date,
+                                                            ),
+                                                            "dd MMM yyyy",
+                                                          )}
+                                                        </span>
+                                                      </div>
+                                                    </td>
+
+                                                    {/* Amount */}
+                                                    <td className="py-1 px-3 border-r border-slate-200">
+                                                      <div className="flex items-center gap-1">
+                                                        <span className="text-[13px] font-bold text-slate-900">
+                                                          ₹
+                                                          {Number(
+                                                            payment.amount,
+                                                          ).toLocaleString()}
+                                                        </span>
+                                                      </div>
+                                                    </td>
+
+                                                    {/* Transaction ID */}
+                                                    <td className="py-1 px-3 border-r border-slate-200">
+                                                      {payment.transaction_id ? (
+                                                        <div className="flex items-center gap-1.5">
+                                                          <span className="text-[11px] font-mono text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                                                            {payment.transaction_id.substring(
+                                                              0,
+                                                              8,
+                                                            )}
+                                                            ...
+                                                          </span>
+                                                          <button
+                                                            onClick={() => {
+                                                              navigator.clipboard.writeText(
+                                                                payment.transaction_id,
+                                                              );
+                                                              toast.success(
+                                                                "Transaction ID copied",
+                                                              );
+                                                            }}
+                                                            className="opacity-0 group-hover:opacity-100 transition-opacity"
+                                                          >
+                                                            <Copy className="w-3 h-3 text-slate-400 hover:text-slate-600" />
+                                                          </button>
+                                                        </div>
+                                                      ) : (
+                                                        <span className="text-[11px] text-slate-400">
+                                                          —
+                                                        </span>
+                                                      )}
+                                                    </td>
+
+                                                    {/* Payment Mode - Mode and Bank Name in SAME ROW (horizontal) */}
+                                                    <td className="py-1 px-1 border-r border-slate-200">
+                                                      <div className="flex items-center gap-1 flex-wrap whitespace-nowrap">
+                                                        {payment.payment_mode ===
+                                                          "card" && (
+                                                          <CreditCard className="w-3.5 h-3.5 text-blue-500" />
+                                                        )}
+                                                        {payment.payment_mode ===
+                                                          "upi" && (
+                                                          <Smartphone className="w-3.5 h-3.5 text-green-500" />
+                                                        )}
+                                                        {payment.payment_mode ===
+                                                          "cash" && (
+                                                          <IndianRupee className="w-3.5 h-3.5 text-emerald-500" />
+                                                        )}
+                                                        {payment.payment_mode ===
+                                                          "bank_transfer"}
+                                                        <span className="text-[10px] font-medium text-slate-900 capitalize">
+                                                          {payment.payment_mode ===
+                                                          "bank_transfer"
+                                                            ? "Bank Transfer"
+                                                            : payment.payment_mode}
+                                                        </span>
+                                                      </div>
+                                                    </td>
+
+                                                    {/* Payment Mode Type */}
+<td className="py-1 px-1 border-r border-slate-200">
+  {modeTypeDisplay !== "-" || payment.bank_name ? (
+    <div className="flex flex-col gap-0.5">
+      
+      {/* Mode Type */}
+      {modeTypeDisplay !== "-" && (
+        <span
+          className="text-[10px] text-slate-600 cursor-help bg-slate-100 px-1.5 py-0.5 rounded w-fit whitespace-nowrap"
+          title={modeTypeTooltip || modeTypeDisplay}
+        >
+          {modeTypeDisplay.length > 20
+            ? modeTypeDisplay.substring(0, 20) + "..."
+            : modeTypeDisplay}
+        </span>
+      )}
+
+      {/* Bank Name */}
+      {payment.bank_name && (
+        <span className="text-[10px] text-slate-600 cursor-help bg-slate-100 px-1.5 py-0.5 rounded w-fit whitespace-nowrap">
+          {payment.bank_name}
+        </span>
+      )}
+    </div>
+  ) : (
+    <span className="text-[11px] text-slate-400">
+      —
+    </span>
+  )}
+</td>
+
+                                                    {/* Payment Type */}
+                                                    <td className="py-1 px-3 border-r border-slate-200">
+                                                      <span
+                                                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap ${
+                                                          payment.payment_type ===
+                                                          "rent"
+                                                            ? "bg-blue-100 text-blue-700"
+                                                            : payment.payment_type ===
+                                                                "security_deposit"
+                                                              ? "bg-purple-100 text-purple-700"
+                                                              : "bg-slate-100 text-slate-600"
+                                                        }`}
+                                                      >
+                                                        {payment.payment_type ===
+                                                        "rent"
+                                                          ? "Rent"
+                                                          : payment.payment_type ===
+                                                              "security_deposit"
+                                                            ? "Security Deposit"
+                                                            : payment.payment_type ||
+                                                              "Other"}
+                                                      </span>
+                                                    </td>
+
+                                                    {/* Month/Year */}
+                                                    <td className="py-1 px-3 border-r border-slate-200">
+                                                      <span className="text-[12px] text-slate-600 whitespace-nowrap">
+                                                        {payment.month}{" "}
+                                                        {payment.year}
+                                                      </span>
+                                                    </td>
+
+                                                    {/* Remark */}
+                                                    <td className="py-1 px-3 border-r border-slate-200 max-w-[150px]">
+                                                      {payment.remark ? (
+                                                        <div className="group relative">
+                                                          <p
+                                                            className="text-[11px] text-slate-500 truncate cursor-help"
+                                                            title={
+                                                              payment.remark
+                                                            }
+                                                          >
+                                                            {payment.remark}
+                                                          </p>
+                                                        </div>
+                                                      ) : (
+                                                        <span className="text-[11px] text-slate-400">
+                                                          —
+                                                        </span>
+                                                      )}
+                                                    </td>
+
+                                                    {/* Proof Column with Thumbnail */}
+                                                    <td className="py-1 px-3 border-r border-slate-200">
+                                                      {payment.payment_proof ? (
+                                                        <button
+                                                          className="flex items-center gap-1.5 group/proof"
+                                                          onClick={() => {
+                                                            window.open(
+                                                              `${import.meta.env.VITE_API_URL || "http://localhost:3001"}${payment.payment_proof}`,
+                                                              "_blank",
+                                                            );
+                                                          }}
+                                                        >
+                                                          {payment.payment_proof.match(
+                                                            /\.(jpg|jpeg|png|gif|webp)$/i,
+                                                          ) ? (
+                                                            <div className="relative">
+                                                              <img
+                                                                src={`${import.meta.env.VITE_API_URL || "http://localhost:3001"}${payment.payment_proof}`}
+                                                                alt="Proof"
+                                                                className="h-8 w-8 rounded-lg object-cover border border-slate-200 shadow-sm hover:shadow-md transition-all cursor-pointer hover:scale-105"
+                                                              />
+                                                              <div className="absolute inset-0 bg-black/0 hover:bg-black/10 rounded-lg transition-colors" />
+                                                            </div>
+                                                          ) : (
+                                                            <div className="h-8 w-8 rounded-lg bg-blue-50 flex items-center justify-center border border-blue-200 hover:bg-blue-100 transition-colors">
+                                                              <FileText className="h-4 w-4 text-blue-600" />
+                                                            </div>
+                                                          )}
+                                                        </button>
+                                                      ) : (
+                                                        <div className="h-8 w-8 rounded-lg bg-slate-50 flex items-center justify-center border border-slate-200">
+                                                          <span className="text-[10px] text-slate-400">
+                                                            —
+                                                          </span>
+                                                        </div>
+                                                      )}
+                                                    </td>
+
+                                                    {/* Status */}
+                                                    <td className="py-1 px-3 border-r border-slate-200">
+                                                      <PaymentStatusBadge
+                                                        status={
+                                                          payment.status ||
+                                                          "pending"
+                                                        }
+                                                      />
+                                                    </td>
+
+                                                    {/* Source */}
+                                                    <td className="py-1 px-3 border-r border-slate-200">
+                                                      {payment.booking_id ? (
+                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-[10px] font-medium whitespace-nowrap">
+                                                          <Globe className="h-2.5 w-2.5" />
+                                                          Online Booking
+                                                        </span>
+                                                      ) : payment.source ===
+                                                        "tenant" ? (
+                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-medium whitespace-nowrap">
+                                                          <Globe className="h-2.5 w-2.5" />
+                                                          Online Payment
+                                                        </span>
+                                                      ) : payment.payment_mode ===
+                                                        "online" ? (
+                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 text-[10px] font-medium whitespace-nowrap">
+                                                          <User className="h-2.5 w-2.5" />
+                                                          Manual Entry
+                                                        </span>
+                                                      ) : (
+                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 text-[10px] font-medium whitespace-nowrap">
+                                                          <User className="h-2.5 w-2.5" />
+                                                          Manual Entry
+                                                        </span>
+                                                      )}
+                                                    </td>
+
+                                                    {/* Actions */}
+                                                    <td className="py-1 px-3">
+                                                      <div className="flex items-center gap-1 justify-end">
+                                                        {/* Approve Button */}
+                                                        {(payment.status ===
+                                                          "pending" ||
+                                                          payment.status ===
+                                                            "paid" ||
+                                                          payment.status ===
+                                                            "partial") &&
+                                                          canApprove && (
+                                                            <button
+                                                              className="h-7 w-7 rounded-lg text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 flex items-center justify-center transition-all duration-200"
+                                                              onClick={() =>
+                                                                onApprove(
+                                                                  payment,
+                                                                )
+                                                              }
+                                                              title="Approve"
+                                                            >
+                                                              <CheckCircle2 className="h-3.5 w-3.5" />
+                                                            </button>
+                                                          )}
+
+                                                        {/* Reject Button */}
+                                                        {(payment.status ===
+                                                          "pending" ||
+                                                          payment.status ===
+                                                            "paid" ||
+                                                          payment.status ===
+                                                            "partial") &&
+                                                          canReject && (
+                                                            <button
+                                                              className="h-7 w-7 rounded-lg text-red-600 hover:text-red-700 hover:bg-red-50 flex items-center justify-center transition-all duration-200"
+                                                              onClick={() =>
+                                                                onReject(
+                                                                  payment,
+                                                                )
+                                                              }
+                                                              title="Reject"
+                                                            >
+                                                              <XCircle className="h-3.5 w-3.5" />
+                                                            </button>
+                                                          )}
+
+                                                        {/* Edit Button */}
+                                                        {payment.source !==
+                                                          "tenant" &&
+                                                          (payment.status ===
+                                                            "pending" ||
+                                                            payment.status ===
+                                                              "paid") &&
+                                                          canEdit && (
+                                                            <button
+                                                              className="h-7 w-7 rounded-lg text-blue-600 hover:text-blue-700 hover:bg-blue-50 flex items-center justify-center transition-all duration-200"
+                                                              onClick={() =>
+                                                                onEdit(payment)
+                                                              }
+                                                              title="Edit"
+                                                            >
+                                                              <Pencil className="h-3.5 w-3.5" />
+                                                            </button>
+                                                          )}
+
+                                                        {/* Delete Button */}
+                                                        {canDelete && (
+                                                          <button
+                                                            className="h-7 w-7 rounded-lg text-red-600 hover:text-red-700 hover:bg-red-50 flex items-center justify-center transition-all duration-200"
+                                                            onClick={() =>
+                                                              onDelete(payment)
+                                                            }
+                                                            title="Delete"
+                                                          >
+                                                            <Trash2 className="h-3.5 w-3.5" />
+                                                          </button>
+                                                        )}
+                                                      </div>
+                                                    </td>
+                                                  </tr>
+                                                );
+                                              },
+                                            )}
+                                          </tbody>
+                                        </table>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          )}
                         </Fragment>
                       );
                     })
@@ -6206,8 +6656,8 @@ const ReceiptsTable = ({
 
   return (
     <Card
-      className="border-0 overflow-hidden flex flex-col"
-      style={{ height: "calc(100vh - 280px)" }}
+      className="border-0 overflow-y-auto flex flex-col max-h-[400px] sm:max-h-[490px]"
+      
     >
       <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
         <div className="overflow-x-auto flex-1 min-h-0 flex flex-col min-w-0">
@@ -6344,7 +6794,7 @@ const ReceiptsTable = ({
               <Table>
                 <colgroup>
                   <col style={{ width: "120px" }} />
-<col style={{ width: "80px" }} />
+                  <col style={{ width: "80px" }} />
                   <col style={{ width: "80px" }} />
                   <col style={{ width: "120px" }} />
                   <col style={{ width: "100px" }} />
