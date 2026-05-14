@@ -1151,8 +1151,8 @@ function AboutUsSection() {
               <Link href="/about"><button className="px-6 sm:px-8 py-3 sm:py-3.5 bg-[#0249a8] hover:bg-[#023a88] text-white text-sm font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5 inline-flex items-center gap-2 w-full sm:w-auto justify-center">More About Us <ArrowRight className="h-4 w-4" /></button></Link>
             </div>
             <div className="relative h-[350px] sm:h-[450px] md:h-[500px]">
-              <div className="absolute top-0 right-0 w-[85%] sm:w-[90%] h-[48%] rounded-2xl sm:rounded-3xl overflow-hidden shadow-xl sm:shadow-2xl z-10"><img src="https://images.unsplash.com/photo-1600585154526-990dced4db0d?auto=format&fit=crop&w=900&q=80" alt="Luxury Living Space" className="w-full h-full object-cover" /></div>
-              <div className="absolute bottom-0 left-0 w-[75%] sm:w-[75%] h-[58%] rounded-2xl sm:rounded-3xl overflow-hidden shadow-xl sm:shadow-2xl"><img src="https://images.pexels.com/photos/1595391/pexels-photo-1595391.jpeg?auto=compress&cs=tinysrgb&w=900" alt="Premium Amenities" className="w-full h-full object-cover" /></div>
+              <div className="absolute top-0 right-0 w-[85%] sm:w-[90%] h-[48%] rounded-2xl sm:rounded-3xl overflow-hidden shadow-xl sm:shadow-2xl z-10"><img src={buildingImg}  /></div>
+              <div className="absolute bottom-0 left-0 w-[75%] sm:w-[75%] h-[58%] rounded-2xl sm:rounded-3xl overflow-hidden shadow-xl sm:shadow-2xl"><img src={aboutImg} /></div>
             </div>
           </div>
 

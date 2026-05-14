@@ -120,10 +120,10 @@ export const BenefitsSection = forwardRef<HTMLElement, BenefitsSectionProps>(
 
     {/* IMAGE NODES */}
     {[
-      { top: 'top-20', left: 'left-20', src: partnerImg },
-      { top: 'top-20', right: 'right-20', src: partnerImg2 },
-      { bottom: 'bottom-20', left: 'left-20', src: partnerImg3 },
-      { bottom: 'bottom-20', right: 'right-14', src: partnerImg4 },
+      { top: 'top-10', left: 'left-20', src: partnerImg },
+      { top: 'top-10', right: 'right-20', src: partnerImg2 },
+      { bottom: 'bottom-10', left: 'left-20', src: partnerImg3 },
+      { bottom: 'bottom-10', right: 'right-20', src: partnerImg4 },
     ].map((img, idx) => (
       <div
         key={idx}
@@ -135,11 +135,11 @@ export const BenefitsSection = forwardRef<HTMLElement, BenefitsSectionProps>(
   </div>
 
   {/* Mobile View - Exact same layout, just scaled */}
-  <div className="md:hidden relative w-[372px] h-[300px] flex items-center justify-center -mt-10">
+  <div className="md:hidden relative w-[400px] h-[330px] flex items-center justify-center mt-8">
     
     {/* CENTER CIRCLE */}
     <div className="absolute w-[175px] h-[175px] flex items-center justify-center z-[5]">
-      <div className="absolute w-[130px] h-[130px] rounded-full border-[3px] border-white"></div>
+      <div className="absolute w-[140px] h-[130px] rounded-full border-[3px] border-white"></div>
       <div className="relative w-[115px] h-[115px] rounded-full border-[3px] border-[#5b9ce8] bg-white flex items-center justify-center">
         <div className="text-center px-1">
           <div className="text-[9px] font-bold text-[#4a90e2] tracking-wide">
@@ -162,16 +162,16 @@ export const BenefitsSection = forwardRef<HTMLElement, BenefitsSectionProps>(
 
     {/* IMAGE NODES - Same positions, scaled */}
     {[
-      { top: 'top-[10px]', left: 'left-[35px]', src: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=400&h=400&fit=crop' },
-      { top: 'top-[10px]', right: 'right-[45px]', src: 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=400&h=400&fit=crop' },
-      { bottom: 'bottom-[10px]', left: 'left-[35px]', src: 'https://images.unsplash.com/photo-1600880292203-757bb62b4baf?w=400&h=400&fit=crop' },
-      { bottom: 'bottom-[10px]', right: 'right-[45px]', src: 'https://images.unsplash.com/photo-1556761175-b413da4baf72?w=400&h=400&fit=crop' },
+      { top: 'top-[20px]', left: 'left-[25px]', src: partnerImg },
+      { top: 'top-[20px]', right: 'right-[25px]', src: partnerImg2 },
+      { bottom: 'bottom-[20px]', left: 'left-[25px]', src: partnerImg3 },
+      { bottom: 'bottom-[20px]', right: 'right-[25px]', src: partnerImg4 },
     ].map((img, idx) => (
       <div
         key={idx}
         className={`absolute ${img.top || ''} ${img.bottom || ''} ${img.left || ''} ${img.right || ''} w-[131px] h-[131px] rounded-full border-[3px] border-[#5b9ce8] overflow-hidden bg-white transition-transform duration-300 hover:scale-110 hover:shadow-xl active:scale-105`}
       >
-<img src={img.src} alt={`Network ${idx}`} className="w-full h-full object-contain" />
+<img src={img.src} alt={`Network ${idx}`} className="w-full h-full object-cover" />
       </div>
     ))}
   </div>

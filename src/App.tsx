@@ -189,10 +189,7 @@ console.log(user)
           </Route>
 
         </Route>
-        {/* <Route element={<PublicRoute />}>
-          <Route index element={<Navigate to="login" replace />} />
-          <Route path="login" element={<TenantLoginPage />} />
-        </Route> */}
+       
         <Route path="/login" element={<PublicRoute />}>
   <Route index element={<TenantLoginPage />} />
 </Route>

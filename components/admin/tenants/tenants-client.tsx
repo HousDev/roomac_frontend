@@ -1409,7 +1409,7 @@ const columns = useMemo(() => [
   </button>
 </div>
 
-<Card className="flex flex-col max-h-[520px] md:max-h-[560px] overflow-y-auto rounded-xl shadow-sm border-gray-200 mt-8">      <CardHeader className="sticky top-0 z-20 p-0 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] shadow-md">
+<Card className="flex flex-col max-h-[550px] md:max-h-[560px] overflow-y-auto rounded-xl shadow-sm border-gray-200 mt-8">      <CardHeader className="sticky top-0 z-20 p-0 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8] shadow-md">
 
         {/* Desktop View (lg and above) */}
         <div className="hidden lg:flex items-center gap-2 px-4 py-2.5">
@@ -2014,9 +2014,9 @@ const columns = useMemo(() => [
 
       {/* ── TABLE CONTAINER WITH SINGLE HORIZONTAL SCROLL ── */}
 <div className="flex-1 overflow-auto min-h-0 max-h-full">
-  <div className="overflow-x-auto overflow-y-auto h-full">        <table className="w-full border-collapse" style={{ minWidth: '780px' }}>
+  <div className="overflow-x-auto overflow-y-auto h-full ">        <table className="w-full border-collapse" style={{ minWidth: '780px' }}>
           {/* Column Headers */}
-          <thead className="sticky top-0 z-10 bg-gray-50 border-b border-gray-200">
+          <thead className=" bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
             {/* Column Titles Row */}
             <tr>
               {/* SELECT - tight, no excess padding */}
