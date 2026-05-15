@@ -1,7 +1,7 @@
 // app/admin/notice-period-requests/page.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ChevronDown } from "lucide-react";
 import { 
   Eye, 
   AlertCircle, 
@@ -28,7 +29,8 @@ import {
   FileText,
   X,
   Bell,
-  Plus
+  Plus,
+  Search
 } from "lucide-react";
 import {
   getAdminNoticePeriodRequests,
@@ -87,11 +89,38 @@ export default function NoticePeriodRequestsPage() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [noticeDate, setNoticeDate] = useState("");
+  const [tenantSearch, setTenantSearch] = useState("");
+  const [isTenantDropdownOpen, setIsTenantDropdownOpen] = useState(false);
+  const tenantSearchRef = useRef<HTMLInputElement>(null);
+  const tenantDropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadRequests();
     loadTenants();
   }, []);
+
+  // Handle click outside to close dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (tenantDropdownRef.current && !tenantDropdownRef.current.contains(event.target as Node)) {
+        setIsTenantDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Filter tenants based on search (computed, not state)
+  const getFilteredTenants = () => {
+    if (!tenantSearch.trim()) return tenants;
+    const query = tenantSearch.toLowerCase();
+    return tenants.filter(tenant => 
+      tenant.full_name.toLowerCase().includes(query) ||
+      tenant.email?.toLowerCase().includes(query) ||
+      tenant.phone?.includes(query) ||
+      tenant.property_name?.toLowerCase().includes(query)
+    );
+  };
 
   const loadRequests = async () => {
     try {
@@ -176,6 +205,7 @@ export default function NoticePeriodRequestsPage() {
 
   const resetForm = () => {
     setSelectedTenant("");
+    setTenantSearch("");
     setTitle("");
     setDescription("");
     setNoticeDate("");
@@ -218,7 +248,6 @@ export default function NoticePeriodRequestsPage() {
     try {
       setBulkActionLoading(true);
       
-      // Delete only the selected requests
       const deletePromises = Array.from(selectedRequests).map(id => deleteNoticePeriodRequest(id));
       await Promise.all(deletePromises);
       
@@ -316,21 +345,20 @@ export default function NoticePeriodRequestsPage() {
     <div className="p-0 bg-gradient-to-br from-blue-50/50 to-cyan-50/50">
 
       {/* Header with Title and Create Button */}
-      <div className=" sticky top-28 z-10 flex justify-end items-end mb-4">
-       {can('manage_notice_period') && (
-
-        <Button 
-          onClick={() => setShowCreateDialog(true)}
-          className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Notice Period
-        </Button>
-       )}
+      <div className="sticky top-28 z-10 flex justify-end items-end mb-4">
+        {can('manage_notice_period') && (
+          <Button 
+            onClick={() => setShowCreateDialog(true)}
+            className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Notice Period
+          </Button>
+        )}
       </div>
 
       {/* Stats Cards */}
-      <div className=" sticky top-36 z-10 grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 mb-4">
+      <div className="sticky top-36 z-10 grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 mb-4">
         {stats.map((stat, index) => (
           <Card key={index} className={`bg-gradient-to-br from-${stat.bgColor.split('-')[1]}-50 to-${stat.bgColor.split('-')[1]}-100 border-0 shadow-sm`}>
             <CardContent className="p-2 sm:p-3">
@@ -353,7 +381,7 @@ export default function NoticePeriodRequestsPage() {
       </div>
 
       {/* Bulk Actions Bar */}
-{can('delete_requests') && selectedRequests.size > 0 && (
+      {can('delete_requests') && selectedRequests.size > 0 && (
         <div className="sticky top-20 z-10 mb-4 bg-white rounded-lg shadow-lg border border-blue-200 p-3 flex items-center justify-between animate-in slide-in-from-top-2">
           <div className="flex items-center gap-3">
             <Badge variant="secondary" className="bg-blue-100 text-blue-700">
@@ -403,29 +431,26 @@ export default function NoticePeriodRequestsPage() {
             </div>
           ) : (
             <div className="relative">
-              {/* Table with Sticky Header */}
-<div className={`overflow-y-auto rounded-b-lg transition-all duration-300 ${
-  selectedRequests.size > 0
-    ? 'max-h-[170px] md:max-h-[350px]'
-    : 'max-h-[310px] md:max-h-[410px]'
-}`}>                  <Table className="relative">
+              <div className={`overflow-y-auto rounded-b-lg transition-all duration-300 ${
+                selectedRequests.size > 0
+                  ? 'max-h-[170px] md:max-h-[350px]'
+                  : 'max-h-[310px] md:max-h-[410px]'
+              }`}>
+                <Table className="relative">
                   <TableHeader className="sticky top-0 z-10 bg-gradient-to-r from-gray-50 to-white shadow-sm">
                     <TableRow className="hover:bg-transparent">
-                      {/* Checkbox Column */}
                       <TableHead className="w-[50px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
-                          {can('delete_requests') && (
-
-                        <div className="py-2 flex justify-center">
-                          <Checkbox 
-                            checked={selectedRequests.size === filteredRequests.length && filteredRequests.length > 0}
-                            onCheckedChange={handleSelectAll}
-                            aria-label="Select all"
-                          />
-                        </div>
-                          )}
+                        {can('delete_requests') && (
+                          <div className="py-2 flex justify-center">
+                            <Checkbox 
+                              checked={selectedRequests.size === filteredRequests.length && filteredRequests.length > 0}
+                              onCheckedChange={handleSelectAll}
+                              aria-label="Select all"
+                            />
+                          </div>
+                        )}
                       </TableHead>
 
-                      {/* ID Column with Search */}
                       <TableHead className="min-w-[100px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
                         <div className="space-y-2 py-2">
                           <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('id')}>
@@ -441,7 +466,6 @@ export default function NoticePeriodRequestsPage() {
                         </div>
                       </TableHead>
                       
-                      {/* Tenant Column with Search */}
                       <TableHead className="min-w-[200px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
                         <div className="space-y-2 py-2">
                           <span className="font-semibold text-gray-700">Tenant</span>
@@ -454,7 +478,6 @@ export default function NoticePeriodRequestsPage() {
                         </div>
                       </TableHead>
                       
-                      {/* Title Column with Search */}
                       <TableHead className="min-w-[250px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
                         <div className="space-y-2 py-2">
                           <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('title')}>
@@ -470,7 +493,6 @@ export default function NoticePeriodRequestsPage() {
                         </div>
                       </TableHead>
                       
-                      {/* Status Column with Select Filter */}
                       <TableHead className="min-w-[140px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
                         <div className="space-y-2 py-2">
                           <span className="font-semibold text-gray-700">Status</span>
@@ -490,7 +512,6 @@ export default function NoticePeriodRequestsPage() {
                         </div>
                       </TableHead>
                       
-                      {/* Notice Date Column */}
                       <TableHead className="min-w-[150px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
                         <div className="space-y-2 py-2">
                           <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('notice_period_date')}>
@@ -500,7 +521,6 @@ export default function NoticePeriodRequestsPage() {
                         </div>
                       </TableHead>
                       
-                      {/* Created Date Column with Search */}
                       <TableHead className="min-w-[150px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
                         <div className="space-y-2 py-2">
                           <div className="flex items-center gap-1 cursor-pointer" onClick={() => handleSort('created_at')}>
@@ -517,7 +537,6 @@ export default function NoticePeriodRequestsPage() {
                         </div>
                       </TableHead>
                       
-                      {/* Actions Column */}
                       <TableHead className="min-w-[100px] bg-white/95 backdrop-blur-sm border-b-2 border-blue-200">
                         <span className="font-semibold text-gray-700">Actions</span>
                       </TableHead>
@@ -530,18 +549,17 @@ export default function NoticePeriodRequestsPage() {
                         key={request.id} 
                         className={`hover:bg-gradient-to-r hover:from-blue-50/50 hover:to-cyan-50/50 transition-all duration-200 ${
                           index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'
-                        } ${!request.is_seen ? '' : ''}`}
+                        }`}
                       >
-                        {/* Checkbox Cell */}
                         <TableCell className="w-[50px]">
                           {can('delete_requests') && (
-                          <div className="flex justify-center">
-                            <Checkbox 
-                              checked={selectedRequests.has(request.id)}
-                              onCheckedChange={() => handleSelectRequest(request.id)}
-                              aria-label={`Select request ${request.id}`}
-                            />
-                          </div>
+                            <div className="flex justify-center">
+                              <Checkbox 
+                                checked={selectedRequests.has(request.id)}
+                                onCheckedChange={() => handleSelectRequest(request.id)}
+                                aria-label={`Select request ${request.id}`}
+                              />
+                            </div>
                           )}
                         </TableCell>
 
@@ -629,7 +647,6 @@ export default function NoticePeriodRequestsPage() {
                           </div>
                         </TableCell>
                         
-                        {/* Actions Column */}
                         <TableCell>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -652,16 +669,15 @@ export default function NoticePeriodRequestsPage() {
                                 <Eye className="h-4 w-4 mr-2 text-blue-500" />
                                 View Details
                               </DropdownMenuItem>
-                                {can('delete_requests') && (
-
-                              <DropdownMenuItem 
-                                onClick={() => handleDelete(request.id)}
-                                className="cursor-pointer hover:bg-red-50 text-red-600 focus:text-red-600"
-                              >
-                                <XCircle className="h-4 w-4 mr-2 text-red-500" />
-                                Delete
-                              </DropdownMenuItem>
-                                )}
+                              {can('delete_requests') && (
+                                <DropdownMenuItem 
+                                  onClick={() => handleDelete(request.id)}
+                                  className="cursor-pointer hover:bg-red-50 text-red-600 focus:text-red-600"
+                                >
+                                  <XCircle className="h-4 w-4 mr-2 text-red-500" />
+                                  Delete
+                                </DropdownMenuItem>
+                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>
@@ -676,7 +692,20 @@ export default function NoticePeriodRequestsPage() {
       </Card>
 
       {/* Create Request Dialog */}
-      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+      <Dialog open={showCreateDialog} onOpenChange={(open) => {
+        setShowCreateDialog(open);
+        if (!open) {
+          resetForm();
+          setTenantSearch("");
+          setIsTenantDropdownOpen(false);
+        } else {
+          setTimeout(() => {
+            if (tenantSearchRef.current) {
+              tenantSearchRef.current.focus();
+            }
+          }, 100);
+        }
+      }}>
         <DialogContent className="max-w-2xl w-[95vw] p-0 gap-0 rounded-xl overflow-hidden">
           
           {/* Header */}
@@ -692,6 +721,8 @@ export default function NoticePeriodRequestsPage() {
                 onClick={() => {
                   setShowCreateDialog(false);
                   resetForm();
+                  setTenantSearch("");
+                  setIsTenantDropdownOpen(false);
                 }}
                 className="h-7 w-7 text-white hover:bg-white/20"
               >
@@ -706,37 +737,108 @@ export default function NoticePeriodRequestsPage() {
           {/* Form */}
           <form onSubmit={handleCreateRequest} className="p-4 sm:p-5 space-y-4 max-h-[80vh] overflow-y-auto">
             
-            {/* Tenant Selection */}
+            {/* Tenant Selection with Search */}
             <div className="border rounded-md p-3">
               <h4 className="text-xs font-semibold flex items-center gap-1 mb-3 text-blue-600">
                 <User className="h-3 w-3" />
                 Select Tenant
               </h4>
               
-              <Select value={selectedTenant} onValueChange={setSelectedTenant} required>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Choose a tenant">
-                    {selectedTenant && (
-                      <div className="flex items-center gap-2">
-                        <User className="h-3.5 w-3.5 text-gray-400" />
-                        <span>{tenants.find(t => t.id.toString() === selectedTenant)?.full_name}</span>
-                      </div>
+              <div className="relative" ref={tenantDropdownRef}>
+                {/* Selected Tenant Display */}
+                <div
+                  className="w-full border rounded-md px-3 py-2 cursor-pointer flex items-center justify-between bg-white hover:border-blue-400 transition-colors"
+                  onClick={() => {
+                    setIsTenantDropdownOpen(!isTenantDropdownOpen);
+                    setTimeout(() => {
+                      if (tenantSearchRef.current && !isTenantDropdownOpen) {
+                        tenantSearchRef.current.focus();
+                      }
+                    }, 50);
+                  }}
+                >
+                  <div className="flex items-center gap-2">
+                    {selectedTenant ? (
+                      <>
+                        <User className="h-4 w-4 text-blue-500" />
+                        <span className="text-sm">
+                          {tenants.find(t => t.id.toString() === selectedTenant)?.full_name}
+                        </span>
+                        <span className="text-xs text-gray-400">
+                          ({tenants.find(t => t.id.toString() === selectedTenant)?.email})
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-sm text-gray-400">Select a tenant...</span>
                     )}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {tenants.map((tenant) => (
-                    <SelectItem key={tenant.id} value={tenant.id.toString()} className="py-2">
-                      <div className="flex flex-col">
-                        <span className="font-medium">{tenant.full_name}</span>
-                        {/* <span className="text-xs text-gray-500">
-                          {tenant.property_name || 'No Property'} {tenant.room_number ? `• Room ${tenant.room_number}` : ''}
-                        </span> */}
+                  </div>
+                  <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${isTenantDropdownOpen ? 'rotate-180' : ''}`} />
+                </div>
+
+                {/* Dropdown with Search */}
+                {isTenantDropdownOpen && (
+                  <div className="absolute z-50 w-full mt-1 bg-white border rounded-md shadow-lg max-h-80 overflow-hidden">
+                    {/* Search Input */}
+                    <div className="p-2 border-b sticky top-0 bg-white">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <input
+                          ref={tenantSearchRef}
+                          type="text"
+                          placeholder="Search by name, email or phone..."
+                          value={tenantSearch}
+                          onChange={(e) => setTenantSearch(e.target.value)}
+                          className="w-full pl-9 pr-3 py-2 border rounded-md text-sm focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+                          autoFocus
+                        />
                       </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                    </div>
+                    
+                    {/* Tenants List */}
+                    <div className="max-h-64 overflow-y-auto">
+                      {getFilteredTenants().length === 0 ? (
+                        <div className="p-4 text-center text-sm text-gray-500">
+                          No tenants found
+                        </div>
+                      ) : (
+                        getFilteredTenants().map((tenant) => (
+                          <div
+                            key={tenant.id}
+                            className={`p-3 cursor-pointer hover:bg-blue-50 transition-colors ${
+                              selectedTenant === tenant.id.toString() ? 'bg-blue-50 border-l-4 border-blue-500' : ''
+                            }`}
+                            onClick={() => {
+                              setSelectedTenant(tenant.id.toString());
+                              setIsTenantDropdownOpen(false);
+                              setTenantSearch("");
+                            }}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="font-medium text-sm text-gray-900">{tenant.full_name}</p>
+                                <p className="text-xs text-gray-500 flex items-center gap-2 mt-1">
+                                  <Mail className="h-3 w-3" />
+                                  {tenant.email}
+                                </p>
+                                {tenant.phone && (
+                                  <p className="text-xs text-gray-500 flex items-center gap-2 mt-0.5">
+                                    📞 {tenant.phone}
+                                  </p>
+                                )}
+                              </div>
+                              {tenant.property_name && (
+                                <Badge variant="outline" className="text-xs bg-gray-50">
+                                  {tenant.property_name}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Request Details */}
@@ -803,6 +905,8 @@ export default function NoticePeriodRequestsPage() {
                 onClick={() => {
                   setShowCreateDialog(false);
                   resetForm();
+                  setTenantSearch("");
+                  setIsTenantDropdownOpen(false);
                 }}
                 className="px-6"
               >

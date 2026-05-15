@@ -30,7 +30,7 @@ import { getAllRequestCounts, type RequestCounts } from '@/lib/adminRequestCount
 import { getSupportTicketCounts } from '@/lib/supportTicketsApi';
 import { NotificationRedirectHandler } from './notifications/notification-utils';
 import { io, Socket } from 'socket.io-client';
-import { initNotificationSound, playNotificationSound, preloadNotificationSound } from "../../app/utils/notificationSound";
+import { forceUnlockAudio, initNotificationSound, playNotificationSound, preloadNotificationSound } from "../../app/utils/notificationSound";
 
 interface AdminHeaderProps {
   title: string;
@@ -203,6 +203,8 @@ export function AdminHeader({
     socket.on('connect', () => {
       console.log('✅ Admin Socket connected:', socket.id);
       socket.emit('join_admin');
+      // Force unlock audio when socket connects
+  forceUnlockAudio();
     });
 
     socket.on('new_notification', (data) => {
