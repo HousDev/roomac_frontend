@@ -52,6 +52,7 @@ import { useAuth } from "@/context/authContext";
 import { markNoticePeriodAsSeen } from "@/lib/noticePeriodApi";
 import { number } from "framer-motion";
 import { initNotificationSound, playNotificationSound, preloadNotificationSound } from "../../utils/notificationSound";
+import { toast } from "sonner";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -894,6 +895,7 @@ function TenantHeader({
   </Badge>
 )}
         </Button>
+        
 
         {notificationsOpen && (
           <NotificationPopup
@@ -1106,19 +1108,29 @@ useEffect(() => {
       });
       
       socket.on('connect', () => {
-        console.log('✅ Tenant Socket connected:', socket.id);
-        // Join tenant room with proper ID
-        socket.emit('join_tenant_room', { tenantId: parseInt(tenantId) });
-      });
+  console.log('✅ Tenant Socket connected:', socket.id);
+  console.log('📡 Sending join_tenant_room with tenantId:', parseInt(tenantId));
+  // Send as direct value instead of object
+  socket.emit('join_tenant_room', parseInt(tenantId));
+});
+
+// Also add this to confirm room join:
+socket.on('joined_room', (data: any) => {
+  console.log('✅ Successfully joined room:', data);
+});
       
       // Listen for new notifications
       socket.on('new_notification', (notification: any) => {
         if (!mounted) return;
         
-        console.log("🔔 New notification received for tenant:", notification);
+        console.log("🔔 New notification received for tenant:", notification); console.log("🔔🔔🔔 TENANT RECEIVED NOTIFICATION:", notification);
+  console.log("Notification title:", notification.title);
+  console.log("Notification type:", notification.type);
         
-        // Play sound
-        playNotificationSound();
+        // Play sound with a small delay to ensure everything is ready
+
+    playNotificationSound();
+  
         
         // Show toast for important notifications
         if (notification.priority === 'high' || notification.priority === 'urgent') {

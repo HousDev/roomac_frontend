@@ -1,3 +1,5 @@
+
+// components/admin/rooms/ChangeBedWizard.tsx
 "use client";
 
 import { useState, useEffect } from 'react';

@@ -1,17 +1,14 @@
-// app/admin/reports/page.tsx
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { useState, useEffect, useRef } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Progress } from '@/components/ui/progress';
 import {
   Download,
   Printer,
@@ -25,2059 +22,1387 @@ import {
   BarChart3,
   Loader2,
   Building2,
+  Calendar,
   RefreshCw,
   CreditCard,
+  Receipt,
   Clock,
   CheckCircle,
   Activity,
-  PieChart as PieChartIcon,
+  PieChart,
+  TrendingUp as TrendUp,
   Wallet,
   DoorOpen,
   AlertCircle,
   UserPlus,
-  ArrowUpRight,
-  ArrowDownRight,
-  Minus,
-  Eye,
-  ChevronLeft,
-  ChevronRight,
-  Search,
-  X,
-  LayoutGrid,
-  List,
-  Minimize2,
-  Maximize2,
-  Receipt,
-  ChevronDown,
-  BarChart2,
-  LineChart as LineChartIcon,
-  Layers,
-} from "lucide-react";
-import {
-  format,
-  subDays,
-  startOfMonth,
-  endOfMonth,
-  startOfYear,
-  endOfYear,
-} from "date-fns";
-import { toast } from "sonner";
-import {
-  AreaChart,
-  Area,
-  BarChart,
-  Bar,
-  LineChart,
-  Line,
-  PieChart,
-  Pie,
-  Cell,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-  ComposedChart,
-} from "recharts";
+  Bed,
+  Phone,
+  Mail,
+  MapPin,
+  CalendarDays,
+  CheckCircle2,
+  XCircle,
+  AlertTriangle,
+  Sparkles,
+  Target,
+  Zap,
+  Heart,
+  Briefcase,
+  GraduationCap,
+  Landmark,
+  Store,
+  Laptop
+} from 'lucide-react';
+import { format, startOfMonth, endOfMonth, startOfYear, endOfYear, subDays } from 'date-fns';
+import { toast } from 'sonner';
+import * as reportApi from '@/lib/reportApi';
+import * as XLSX from 'xlsx';
 
-import * as reportApi from "@/lib/reportApi";
-
-type DateRangeType =
-  | "today"
-  | "week"
-  | "month"
-  | "quarter"
-  | "year"
-  | "custom";
-type ChartType = "area" | "bar" | "line" | "pie";
-type ViewMode = "grid" | "list";
-type ReportType =
-  | "revenue"
-  | "payments"
-  | "tenants"
-  | "occupancy"
-  | "expenses"
-  | "requests";
-
-interface DateRange {
-  start: Date;
-  end: Date;
-}
-
-// ── Theme tokens ─────────────────────────────────────────────────────────────
-const NAVY = "#0a1628";
-const NAVY2 = "#1e3a5f";
-const YELLOW = "#eab308";
-const YELLOW_LIGHT = "#fefce8";
-const YELLOW_BORDER = "#fde68a";
-
-const CHART_COLORS = [
-  "#1e40af",
-  "#eab308",
-  "#0a1628",
-  "#16a34a",
-  "#dc2626",
-  "#7c3aed",
-  "#0891b2",
-  "#ea580c",
-];
-
-// ── Custom Tooltip ────────────────────────────────────────────────────────────
-const CustomTooltip = ({ active, payload, label, formatCurrency }: any) => {
-  if (!active || !payload?.length) return null;
-  return (
-    <div
-      className="bg-white border rounded-xl p-3 shadow-2xl"
-      style={{ borderColor: "#e2e8f0" }}
-    >
-      <p
-        className="text-[10px] font-bold uppercase tracking-widest mb-2"
-        style={{ color: "#94a3b8" }}
-      >
-        {label}
-      </p>
-      {payload.map((entry: any, i: number) => (
-        <div key={i} className="flex items-center gap-2 mb-1">
-          <div
-            className="w-2 h-2 rounded-full flex-shrink-0"
-            style={{ background: entry.color }}
-          />
-          <span
-            className="text-xs font-bold font-mono"
-            style={{ color: NAVY }}
-          >
-            {formatCurrency ? formatCurrency(entry.value) : entry.value}
-          </span>
-          <span className="text-[10px]" style={{ color: "#94a3b8" }}>
-            {entry.name}
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-};
-
-// ── Stat Card ─────────────────────────────────────────────────────────────────
-const StatCard = ({
-  title,
-  value,
-  subtitle,
-  icon: Icon,
-  trend,
-  trendValue,
-  accent = NAVY,
-  loading,
-}: {
-  title: string;
-  value: string | number;
-  subtitle?: string;
-  icon: any;
-  trend?: "up" | "down" | "neutral";
-  trendValue?: number;
-  accent?: string;
-  loading?: boolean;
-}) => {
-  if (loading) {
-    return (
-      <div className="bg-white rounded-2xl p-4 animate-pulse border border-slate-100">
-        <div className="flex items-center justify-between mb-3">
-          <div className="h-3 w-20 bg-slate-200 rounded" />
-          <div className="w-9 h-9 bg-slate-200 rounded-xl" />
-        </div>
-        <div className="h-7 w-28 bg-slate-300 rounded mb-1" />
-        <div className="h-3 w-16 bg-slate-200 rounded" />
-      </div>
-    );
-  }
-
-  return (
-    <div
-      className="bg-white rounded-2xl p-4 relative overflow-hidden group transition-all duration-200 hover:-translate-y-1"
-      style={{
-        border: `1.5px solid #e8edf7`,
-        boxShadow: "0 2px 12px rgba(10,22,40,0.06)",
-      }}
-    >
-      <div
-        className="absolute top-0 left-0 right-0 h-[3px] rounded-t-2xl"
-        style={{ background: accent }}
-      />
-      <div className="flex items-start justify-between mb-3">
-        <p
-          className="text-[10px] font-bold uppercase tracking-[0.1em] pt-1"
-          style={{ color: "#94a3b8" }}
-        >
-          {title}
-        </p>
-        <div
-          className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-          style={{ background: `${accent}14`, border: `1.5px solid ${accent}22` }}
-        >
-          <Icon className="w-4 h-4" style={{ color: accent }} />
-        </div>
-      </div>
-      <p
-        className="text-2xl font-black tracking-tight font-mono mb-0.5"
-        style={{ color: NAVY }}
-      >
-        {value}
-      </p>
-      {subtitle && (
-        <p className="text-[10px]" style={{ color: "#94a3b8" }}>
-          {subtitle}
-        </p>
-      )}
-      {trend !== undefined && (
-        <div
-          className={`flex items-center gap-1 text-[10px] font-bold mt-1 font-mono ${
-            trend === "up"
-              ? "text-green-600"
-              : trend === "down"
-              ? "text-red-500"
-              : "text-slate-400"
-          }`}
-        >
-          {trend === "up" ? (
-            <ArrowUpRight className="w-3 h-3" />
-          ) : trend === "down" ? (
-            <ArrowDownRight className="w-3 h-3" />
-          ) : (
-            <Minus className="w-3 h-3" />
-          )}
-          {Math.abs(trendValue || 0).toFixed(1)}% vs last period
-        </div>
-      )}
-    </div>
-  );
-};
-
-// ── Section Card ─────────────────────────────────────────────────────────────
-const SectionCard = ({
-  title,
-  subtitle,
-  icon: Icon,
-  iconColor = NAVY,
-  children,
-  action,
-  dark = false,
-}: {
-  title: string;
-  subtitle?: string;
-  icon: any;
-  iconColor?: string;
-  children: React.ReactNode;
-  action?: React.ReactNode;
-  dark?: boolean;
-}) => (
-  <div
-    className="rounded-2xl overflow-hidden"
-    style={{
-      border: "1.5px solid #e2e8f0",
-      boxShadow: "0 2px 12px rgba(10,22,40,0.07)",
-    }}
-  >
-    <div
-      className="flex items-center justify-between px-5 py-4 border-b"
-      style={{
-        borderColor: dark ? "rgba(255,255,255,0.1)" : "#f1f5f9",
-        background: dark
-          ? `linear-gradient(135deg, ${NAVY} 0%, ${NAVY2} 100%)`
-          : `linear-gradient(135deg, #fafbff 0%, #f8fafc 100%)`,
-      }}
-    >
-      <div className="flex items-center gap-3">
-        <div
-          className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-          style={{
-            background: dark
-              ? "rgba(234,179,8,0.2)"
-              : `${iconColor}14`,
-            border: dark
-              ? "1.5px solid rgba(234,179,8,0.35)"
-              : `1.5px solid ${iconColor}22`,
-          }}
-        >
-          <Icon
-            className="w-4 h-4"
-            style={{ color: dark ? YELLOW : iconColor }}
-          />
-        </div>
-        <div>
-          <h3
-            className="text-sm font-bold"
-            style={{ color: dark ? "#fff" : NAVY }}
-          >
-            {title}
-          </h3>
-          {subtitle && (
-            <p
-              className="text-[10px]"
-              style={{ color: dark ? "rgba(255,255,255,0.5)" : "#94a3b8" }}
-            >
-              {subtitle}
-            </p>
-          )}
-        </div>
-      </div>
-      {action}
-    </div>
-    <div className="bg-white">{children}</div>
-  </div>
-);
-
-// ── Data Table ────────────────────────────────────────────────────────────────
-const DataTable = ({
-  columns,
-  data,
-  onExport,
-  onPrint,
-}: {
-  columns: {
-    key: string;
-    label: string;
-    render?: (value: any, row: any) => React.ReactNode;
-  }[];
-  data: any[];
-  onExport?: () => void;
-  onPrint?: () => void;
-}) => {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
-
-  const filtered = useMemo(() => {
-    if (!searchTerm) return data;
-    return data.filter((row) =>
-      columns.some((col) =>
-        row[col.key]?.toString().toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    );
-  }, [data, searchTerm, columns]);
-
-  const paginated = useMemo(() => {
-    const start = (currentPage - 1) * rowsPerPage;
-    return filtered.slice(start, start + rowsPerPage);
-  }, [filtered, currentPage, rowsPerPage]);
-
-  const totalPages = Math.ceil(filtered.length / rowsPerPage);
-
-  return (
-    <div className="space-y-3">
-      {/* Table controls */}
-      <div className="flex flex-wrap items-center justify-between gap-3 px-5 pt-4">
-        <div className="flex items-center gap-2">
-          <div className="relative">
-            <Search
-              className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5"
-              style={{ color: "#94a3b8" }}
-            />
-            <Input
-              placeholder="Search records..."
-              value={searchTerm}
-              onChange={(e) => {
-                setSearchTerm(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="pl-9 h-8 text-xs w-52 border-slate-200 focus:border-blue-400"
-            />
-          </div>
-          <Select
-            value={rowsPerPage.toString()}
-            onValueChange={(v) => setRowsPerPage(parseInt(v))}
-          >
-            <SelectTrigger className="h-8 text-xs w-20 border-slate-200">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {[10, 25, 50, 100].map((s) => (
-                <SelectItem key={s} value={s.toString()} className="text-xs">
-                  {s} rows
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex items-center gap-2">
-          <p className="text-[10px] font-mono" style={{ color: "#94a3b8" }}>
-            {filtered.length} records
-          </p>
-          {onExport && (
-            <button
-              onClick={onExport}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:opacity-80"
-              style={{
-                background: NAVY,
-                color: "#fff",
-              }}
-            >
-              <Download className="w-3 h-3" />
-              Export
-            </button>
-          )}
-          {onPrint && (
-            <button
-              onClick={onPrint}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all hover:bg-slate-50"
-              style={{ borderColor: "#e2e8f0", color: NAVY2 }}
-            >
-              <Printer className="w-3 h-3" />
-              Print
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Table */}
-      <div className="overflow-x-auto">
-        <table className="w-full text-xs">
-          <thead>
-            <tr style={{ background: "#f8fafc", borderTop: "1px solid #f1f5f9", borderBottom: "1px solid #f1f5f9" }}>
-              {columns.map((col) => (
-                <th
-                  key={col.key}
-                  className="px-5 py-3 text-left font-bold uppercase tracking-wider"
-                  style={{ color: "#64748b", fontSize: "10px", letterSpacing: "0.08em" }}
-                >
-                  {col.label}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {paginated.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={columns.length}
-                  className="px-5 py-12 text-center"
-                  style={{ color: "#cbd5e1" }}
-                >
-                  <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                  <p>No records found</p>
-                </td>
-              </tr>
-            ) : (
-              paginated.map((row, idx) => (
-                <tr
-                  key={idx}
-                  className="border-b transition-colors hover:bg-slate-50"
-                  style={{ borderColor: "#f1f5f9" }}
-                >
-                  {columns.map((col) => (
-                    <td
-                      key={col.key}
-                      className="px-5 py-2.5"
-                      style={{ color: "#334155" }}
-                    >
-                      {col.render
-                        ? col.render(row[col.key], row)
-                        : row[col.key] || "—"}
-                    </td>
-                  ))}
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div
-          className="flex items-center justify-between px-5 py-3 border-t"
-          style={{ borderColor: "#f1f5f9" }}
-        >
-          <p className="text-[10px] font-mono" style={{ color: "#94a3b8" }}>
-            Showing {(currentPage - 1) * rowsPerPage + 1}–
-            {Math.min(currentPage * rowsPerPage, filtered.length)} of{" "}
-            {filtered.length}
-          </p>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              className="w-7 h-7 rounded-lg border flex items-center justify-center transition-all disabled:opacity-40 hover:bg-slate-50"
-              style={{ borderColor: "#e2e8f0" }}
-            >
-              <ChevronLeft className="w-3.5 h-3.5" style={{ color: NAVY2 }} />
-            </button>
-            {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => i + 1).map(
-              (p) => (
-                <button
-                  key={p}
-                  onClick={() => setCurrentPage(p)}
-                  className="w-7 h-7 rounded-lg text-[11px] font-bold transition-all"
-                  style={{
-                    background: currentPage === p ? NAVY : "transparent",
-                    color: currentPage === p ? "#fff" : "#64748b",
-                    border: `1px solid ${currentPage === p ? NAVY : "#e2e8f0"}`,
-                  }}
-                >
-                  {p}
-                </button>
-              )
-            )}
-            <button
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
-              className="w-7 h-7 rounded-lg border flex items-center justify-center transition-all disabled:opacity-40 hover:bg-slate-50"
-              style={{ borderColor: "#e2e8f0" }}
-            >
-              <ChevronRight className="w-3.5 h-3.5" style={{ color: NAVY2 }} />
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-// ── Status Badge ──────────────────────────────────────────────────────────────
-const StatusBadge = ({ status }: { status: string }) => {
-  const cfg: Record<string, { bg: string; color: string; label: string }> = {
-    approved: { bg: "#dcfce7", color: "#15803d", label: "Approved" },
-    paid: { bg: "#dcfce7", color: "#15803d", label: "Paid" },
-    pending: { bg: "#fefce8", color: "#854d0e", label: "Pending" },
-    rejected: { bg: "#fee2e2", color: "#dc2626", label: "Rejected" },
-    active: { bg: "#eff6ff", color: "#1d4ed8", label: "Active" },
-    inactive: { bg: "#f1f5f9", color: "#64748b", label: "Inactive" },
-    full: { bg: "#dcfce7", color: "#15803d", label: "Full" },
-    partial: { bg: "#fefce8", color: "#854d0e", label: "Partial" },
-    vacant: { bg: "#f1f5f9", color: "#64748b", label: "Vacant" },
-    resolved: { bg: "#dcfce7", color: "#15803d", label: "Resolved" },
-    in_progress: { bg: "#fefce8", color: "#854d0e", label: "In Progress" },
-    Paid: { bg: "#dcfce7", color: "#15803d", label: "Paid" },
-    Partial: { bg: "#fefce8", color: "#854d0e", label: "Partial" },
-    Unpaid: { bg: "#fee2e2", color: "#dc2626", label: "Unpaid" },
-  };
-  const c = cfg[status] || { bg: "#f1f5f9", color: "#64748b", label: status };
-  return (
-    <span
-      className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold"
-      style={{ background: c.bg, color: c.color }}
-    >
-      {c.label}
-    </span>
-  );
-};
-
-// ── Report Type Config ────────────────────────────────────────────────────────
-const REPORT_TYPES = [
-  { value: "revenue", label: "Revenue", icon: IndianRupee, color: "#15803d" },
-  { value: "payments", label: "Payments", icon: CreditCard, color: "#1e40af" },
-  { value: "tenants", label: "Tenants", icon: Users, color: NAVY },
-  { value: "occupancy", label: "Occupancy", icon: Home, color: "#0891b2" },
-  { value: "expenses", label: "Expenses", icon: Wallet, color: "#dc2626" },
-  { value: "requests", label: "Requests", icon: FileText, color: "#7c3aed" },
-] as const;
-
-// ── Main Page ─────────────────────────────────────────────────────────────────
 export default function ReportsPage() {
-  const [loading, setLoading] = useState(true);
-  const [generating, setGenerating] = useState(false);
-  const [dashboardStats, setDashboardStats] =
-    useState<reportApi.DashboardStats | null>(null);
-  const [reportData, setReportData] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [dashboardLoading, setDashboardLoading] = useState(true);
   const [properties, setProperties] = useState<reportApi.PropertyOption[]>([]);
-  const [filterOptions, setFilterOptions] =
-    useState<reportApi.FilterOptions | null>(null);
-
-  const [activeTab, setActiveTab] = useState<"overview" | "reports">(
-    "overview"
-  );
-  const [reportType, setReportType] = useState<ReportType>("revenue");
-  const [dateRange, setDateRange] = useState<DateRangeType>("month");
-  const [customDateRange, setCustomDateRange] = useState<DateRange>({
-    start: startOfMonth(new Date()),
-    end: endOfMonth(new Date()),
+  const [selectedProperty, setSelectedProperty] = useState<reportApi.PropertyOption | null>(null);
+  const [dashboardStats, setDashboardStats] = useState<reportApi.DashboardStats>({
+    totalProperties: 0,
+    totalRooms: 0,
+    totalBeds: 0,
+    occupiedBeds: 0,
+    activeTenants: 0,
+    monthlyRevenue: 0,
+    revenueGrowth: 0,
+    occupationGrowth: 0,
+    occupancyRate: 0,
+    collectionRate: 0,
+    pendingPayments: 0,
+    pendingAmount: 0,
+    upcomingCheckouts: 0,
+    maintenanceRequests: 0
   });
-  const [selectedProperty, setSelectedProperty] = useState("all");
-  const [selectedStatus, setSelectedStatus] = useState("all");
-  const [selectedCategory, setSelectedCategory] = useState("all");
-  const [selectedRequestType, setSelectedRequestType] = useState("all");
-  const [chartType, setChartType] = useState<ChartType>("area");
-  const [viewMode, setViewMode] = useState<ViewMode>("grid");
-  const [fullscreen, setFullscreen] = useState(false);
-  const [showFilters, setShowFilters] = useState(true);
+  
+  const [propertyDetails, setPropertyDetails] = useState<any[]>([]);
+  const [roomDetails, setRoomDetails] = useState<any[]>([]);
+  const [tenantDetails, setTenantDetails] = useState<any[]>([]);
+  const [paymentDetails, setPaymentDetails] = useState<any[]>([]);
+  
+  const [filters, setFilters] = useState<reportApi.ReportFilters>({
+    reportType: 'revenue',
+    startDate: format(startOfMonth(new Date()), 'yyyy-MM-dd'),
+    endDate: format(endOfMonth(new Date()), 'yyyy-MM-dd'),
+    propertyId: 'all'
+  });
 
   const reportSectionRef = useRef<HTMLDivElement>(null);
+  const [dateRange, setDateRange] = useState<'today' | 'week' | 'month' | 'year' | 'custom'>('month');
+  const [reportData, setReportData] = useState<reportApi.ReportData | null>(null);
+  const [summaryStats, setSummaryStats] = useState({
+    totalRevenue: 0,
+    totalPayments: 0,
+    totalTenants: 0,
+    occupancyRate: 0,
+    collectionRate: 0
+  });
+  const [activeTab, setActiveTab] = useState('overview');
 
+  // Load properties on mount
   useEffect(() => {
-    loadInitialData();
+    loadProperties();
   }, []);
 
+  // Load dashboard stats when filters change
   useEffect(() => {
-    if (activeTab === "overview") loadDashboardStats();
-  }, [dateRange, selectedProperty]);
+    if (dateRange !== 'custom') {
+      updateDateRangeAutomatically();
+    }
+    loadDashboardStats();
+    loadPropertyDetails();
+    loadRoomDetails();
+    loadTenantDetails();
+    loadPaymentDetails();
+  }, [dateRange, filters.propertyId]);
 
-  useEffect(() => {
-    if (activeTab === "reports") generateReport();
-  }, [
-    reportType,
-    dateRange,
-    selectedProperty,
-    selectedStatus,
-    selectedCategory,
-    selectedRequestType,
-  ]);
-
-  const getDateRangeValues = (): DateRange => {
-    const today = new Date();
-    if (dateRange === "custom") return customDateRange;
-    switch (dateRange) {
-      case "today":
-        return { start: today, end: today };
-      case "week":
-        return { start: subDays(today, 7), end: today };
-      case "month":
-        return { start: startOfMonth(today), end: endOfMonth(today) };
-      case "quarter":
-        return { start: subDays(today, 90), end: today };
-      case "year":
-        return { start: startOfYear(today), end: endOfYear(today) };
-      default:
-        return { start: startOfMonth(today), end: endOfMonth(today) };
+  const loadProperties = async () => {
+    try {
+      const props = await reportApi.fetchProperties();
+      setProperties(props);
+      
+      if (filters.propertyId && filters.propertyId !== 'all') {
+        const selected = props.find(p => p.id === filters.propertyId);
+        setSelectedProperty(selected || null);
+      }
+    } catch (err) {
+      console.error('Error loading properties:', err);
+      toast.error('Failed to load properties');
     }
   };
 
-  const loadInitialData = async () => {
-    setLoading(true);
+  const loadPropertyDetails = async () => {
     try {
-      const [props, filters] = await Promise.all([
-        reportApi.fetchProperties(),
-        reportApi.getReportFilters(),
-      ]);
-      setProperties(props);
-      setFilterOptions(filters);
-      await loadDashboardStats();
-    } catch (e) {
-      toast.error("Failed to load report data");
-    } finally {
-      setLoading(false);
+      const response = await fetch(`/api/properties?pageSize=100`);
+      const data = await response.json();
+      if (data.success) {
+        const propertiesData = data.data?.data || data.data || [];
+        setPropertyDetails(propertiesData);
+      }
+    } catch (error) {
+      console.error('Error loading property details:', error);
+    }
+  };
+
+  const loadRoomDetails = async () => {
+    try {
+      const response = await fetch(`/api/rooms`);
+      const data = await response.json();
+      const rooms = Array.isArray(data) ? data : (data.data || []);
+      setRoomDetails(rooms);
+    } catch (error) {
+      console.error('Error loading room details:', error);
+    }
+  };
+
+  const loadTenantDetails = async () => {
+    try {
+      const response = await fetch(`/api/tenants?pageSize=1000`);
+      const data = await response.json();
+      const tenants = data.data || [];
+      setTenantDetails(tenants);
+    } catch (error) {
+      console.error('Error loading tenant details:', error);
+    }
+  };
+
+  const loadPaymentDetails = async () => {
+    try {
+      const response = await fetch(`/api/payments`);
+      const data = await response.json();
+      const payments = data.data || [];
+      setPaymentDetails(payments);
+    } catch (error) {
+      console.error('Error loading payment details:', error);
     }
   };
 
   const loadDashboardStats = async () => {
     try {
-      const { start, end } = getDateRangeValues();
+      setDashboardLoading(true);
       const stats = await reportApi.getDashboardStats({
-        startDate: format(start, "yyyy-MM-dd"),
-        endDate: format(end, "yyyy-MM-dd"),
-        propertyId: selectedProperty,
+        startDate: filters.startDate,
+        endDate: filters.endDate,
+        propertyId: filters.propertyId
       });
       setDashboardStats(stats);
-    } catch (e) {
-      console.error(e);
+    } catch (err) {
+      console.error('Error loading dashboard stats:', err);
+    } finally {
+      setDashboardLoading(false);
     }
+  };
+
+  const updateDateRangeAutomatically = () => {
+    const today = new Date();
+    let start = '';
+    let end = '';
+
+    switch (dateRange) {
+      case 'today':
+        start = end = format(today, 'yyyy-MM-dd');
+        break;
+      case 'week':
+        start = format(subDays(today, 7), 'yyyy-MM-dd');
+        end = format(today, 'yyyy-MM-dd');
+        break;
+      case 'month':
+        start = format(startOfMonth(today), 'yyyy-MM-dd');
+        end = format(endOfMonth(today), 'yyyy-MM-dd');
+        break;
+      case 'year':
+        start = format(startOfYear(today), 'yyyy-MM-dd');
+        end = format(endOfYear(today), 'yyyy-MM-dd');
+        break;
+      default:
+        return;
+    }
+
+    setFilters(prev => ({ ...prev, startDate: start, endDate: end }));
+  };
+
+  const handlePropertyChange = (value: string) => {
+    setFilters(prev => ({ ...prev, propertyId: value }));
+    const selected = properties.find(p => p.id === value);
+    setSelectedProperty(selected || null);
   };
 
   const generateReport = async () => {
-    setGenerating(true);
+    setLoading(true);
+    setReportData(null);
+    
     try {
-      const { start, end } = getDateRangeValues();
-      const filters = {
-        startDate: format(start, "yyyy-MM-dd"),
-        endDate: format(end, "yyyy-MM-dd"),
-        propertyId: selectedProperty,
-        status: selectedStatus !== "all" ? selectedStatus : undefined,
-        categoryId: selectedCategory !== "all" ? selectedCategory : undefined,
-        requestType:
-          selectedRequestType !== "all" ? selectedRequestType : undefined,
-      } as reportApi.ReportFilters;
-
       let response;
-      switch (reportType) {
-        case "revenue":
+      switch (filters.reportType) {
+        case 'revenue':
           response = await reportApi.generateRevenueReport(filters);
+          setSummaryStats({
+            totalRevenue: response.summary.totalRevenue,
+            totalPayments: response.summary.paymentCount,
+            totalTenants: 0,
+            occupancyRate: 0,
+            collectionRate: 100
+          });
           break;
-        case "payments":
+        case 'payments':
           response = await reportApi.generatePaymentsReport(filters);
+          const completed = (response.summary as reportApi.PaymentSummary).completedPayments;
+          const total = response.payments?.length || 1;
+          setSummaryStats({
+            totalRevenue: response.summary.totalAmount,
+            totalPayments: response.payments?.length || 0,
+            totalTenants: 0,
+            occupancyRate: 0,
+            collectionRate: (completed / total) * 100
+          });
           break;
-        case "tenants":
+        case 'tenants':
           response = await reportApi.generateTenantsReport(filters);
+          const summary = response.summary as reportApi.TenantSummary;
+          setSummaryStats({
+            totalRevenue: 0,
+            totalPayments: 0,
+            totalTenants: summary.totalTenants,
+            occupancyRate: summary.totalTenants ? (summary.withActiveBookings / summary.totalTenants) * 100 : 0,
+            collectionRate: 0
+          });
           break;
-        case "occupancy":
+        case 'occupancy':
           response = await reportApi.generateOccupancyReport(filters);
-          break;
-        case "expenses":
-          response = await reportApi.generateExpenseReport(filters);
-          break;
-        case "requests":
-          response = await reportApi.generateRequestReport(filters);
+          setSummaryStats({
+            totalRevenue: 0,
+            totalPayments: 0,
+            totalTenants: 0,
+            occupancyRate: parseFloat((response.summary as reportApi.OccupancySummary).occupancyRate),
+            collectionRate: 0
+          });
           break;
       }
+      
       setReportData(response);
-      setActiveTab("reports");
-    } catch (e) {
-      toast.error("Failed to generate report");
+      setActiveTab('report');
+      toast.success(`${filters.reportType} report generated successfully`);
+      
+      setTimeout(() => {
+        reportSectionRef.current?.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'start' 
+        });
+      }, 100);
+    } catch (error) {
+      console.error('Error generating report:', error);
+      toast.error('Failed to generate report');
     } finally {
-      setGenerating(false);
+      setLoading(false);
     }
+  };
+
+  const exportToExcel = async () => {
+    if (!reportData) {
+      toast.error('No data to export');
+      return;
+    }
+
+    try {
+      let exportData: any[] = [];
+      let worksheetName = '';
+      let summaryData: any[] = [];
+
+      switch (filters.reportType) {
+        case 'revenue':
+        case 'payments':
+          worksheetName = 'Payments';
+          exportData = reportData.payments?.map((payment: any) => ({
+            'Payment #': payment.payment_number || payment.id,
+            'Date': payment.payment_date ? new Date(payment.payment_date).toLocaleDateString('en-IN') : '-',
+            'Tenant Name': payment.tenant_name || 'N/A',
+            'Property': payment.property_name || 'N/A',
+            'Payment Type': payment.payment_type || '-',
+            'Amount (₹)': payment.amount || 0,
+            'Payment Method': payment.payment_method || '-',
+            'Status': payment.status || 'unknown'
+          })) || [];
+          summaryData = [{
+            'Metric': 'Total Revenue',
+            'Value': `₹${(reportData.summary as any).totalRevenue?.toLocaleString('en-IN') || 0}`
+          }, {
+            'Metric': 'Total Payments',
+            'Value': (reportData.summary as any).paymentCount || 0
+          }];
+          break;
+        case 'tenants':
+          worksheetName = 'Tenants';
+          exportData = reportData.tenants?.map((tenant: any) => ({
+            'Name': tenant.full_name || '-',
+            'Email': tenant.email || '-',
+            'Phone': tenant.phone || '-',
+            'Gender': tenant.gender || 'N/A',
+            'Occupation': tenant.occupation || 'N/A',
+            'Status': tenant.is_active ? 'Active' : 'Inactive',
+            'Property': tenant.property_name || 'N/A',
+            'Created Date': tenant.created_at ? new Date(tenant.created_at).toLocaleDateString('en-IN') : '-'
+          })) || [];
+          const tenantSummary = reportData.summary as any;
+          summaryData = [{
+            'Metric': 'Total Tenants',
+            'Value': tenantSummary.totalTenants || 0
+          }, {
+            'Metric': 'Active Tenants',
+            'Value': tenantSummary.activeTenants || 0
+          }];
+          break;
+        case 'occupancy':
+          worksheetName = 'Rooms';
+          exportData = reportData.rooms?.map((room: any) => ({
+            'Property': room.property_name || 'N/A',
+            'Room Number': room.room_number || '-',
+            'Room Type': room.room_type || '-',
+            'Status': room.status || 'unknown',
+            'Occupied Beds': room.occupied_beds || 0,
+            'Total Beds': room.total_bed || 0,
+            'Available Beds': (room.total_bed || 0) - (room.occupied_beds || 0)
+          })) || [];
+          const occupancySummary = reportData.summary as any;
+          summaryData = [{
+            'Metric': 'Occupancy Rate',
+            'Value': `${occupancySummary.occupancyRate || 0}%`
+          }];
+          break;
+      }
+
+      const wb = XLSX.utils.book_new();
+      
+      if (summaryData.length > 0) {
+        const summaryWs = XLSX.utils.json_to_sheet(summaryData);
+        XLSX.utils.book_append_sheet(wb, summaryWs, 'Summary');
+      }
+      
+      if (exportData.length > 0) {
+        const dataWs = XLSX.utils.json_to_sheet(exportData);
+        XLSX.utils.book_append_sheet(wb, dataWs, worksheetName);
+      }
+      
+      const filename = `${filters.reportType}_report_${format(new Date(), 'yyyy-MM-dd_HH-mm')}.xlsx`;
+      XLSX.writeFile(wb, filename);
+      toast.success('Report exported successfully as Excel');
+    } catch (error) {
+      console.error('Error exporting report:', error);
+      toast.error('Failed to export report');
+    }
+  };
+
+  const handlePrint = () => {
+    if (!reportData) {
+      toast.error('No data to print');
+      return;
+    }
+    
+    const propertyName = selectedProperty?.name;
+    reportApi.printReport(filters.reportType, reportData, filters, propertyName);
+    toast.success('Opening print dialog...');
   };
 
   const formatCurrency = (amount: number) => {
-    if (!amount && amount !== 0) return "₹0";
-    return new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency: "INR",
+    if (!amount || isNaN(amount)) return '₹0';
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
       minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
+      maximumFractionDigits: 0
     }).format(amount);
   };
 
-const handleExport = async () => {
-  if (!reportData) return;
-  try {
-    const { start, end } = getDateRangeValues();
-    const propertyName = selectedProperty !== "all"
-      ? properties.find((p) => p.id === selectedProperty)?.name
-      : "All Properties";
-    
-    const blob = await reportApi.exportReportToExcel(reportType, reportData, {
-      startDate: format(start, "yyyy-MM-dd"),
-      endDate: format(end, "yyyy-MM-dd"),
-      propertyName,
-    });
-    
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${reportType}_report_${format(new Date(), "yyyy-MM-dd_HH-mm")}.xlsx`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success("Report exported successfully as Excel");
-  } catch (error: any) {
-    console.error("Export error:", error);
-    toast.error(error.message || "Failed to export report");
-  }
-};
-
-  const handlePrint = () => {
-    if (!reportData) return;
-    const { start, end } = getDateRangeValues();
-    const propertyName =
-      selectedProperty !== "all"
-        ? properties.find((p) => p.id === selectedProperty)?.name
-        : "All Properties";
-    reportApi.printReport(
-      reportType,
-      reportData,
-      {
-        startDate: format(start, "yyyy-MM-dd"),
-        endDate: format(end, "yyyy-MM-dd"),
-        reportType,
-        propertyId: selectedProperty,
-      } as reportApi.ReportFilters,
-      propertyName
-    );
+  const getPropertyDisplay = () => {
+    if (filters.propertyId === 'all') return 'All Properties';
+    return selectedProperty?.name || 'Loading...';
   };
 
-  // ── Derived chart data ──────────────────────────────────────────────────────
-  const revenueChartData = useMemo(() => {
-    if (!reportData?.summary?.timeSeries) return [];
-    return reportData.summary.timeSeries.map((item: any) => ({
-      date: item.date,
-      revenue: item.revenue,
-      transactions: item.count,
-    }));
-  }, [reportData]);
+  // Calculate metrics from loaded data
+  const totalProperties = propertyDetails.length;
+  const activeProperties = propertyDetails.filter((p: any) => p.is_active).length;
+  const totalRooms = roomDetails.length;
+  const occupiedRooms = roomDetails.filter((r: any) => r.occupied_beds > 0).length;
+  const vacantRooms = totalRooms - occupiedRooms;
+  const totalBeds = roomDetails.reduce((sum: number, r: any) => sum + (r.total_bed || 0), 0);
+  const occupiedBeds = roomDetails.reduce((sum: number, r: any) => sum + (r.occupied_beds || 0), 0);
+  const availableBeds = totalBeds - occupiedBeds;
+  const bedOccupancyRate = totalBeds > 0 ? (occupiedBeds / totalBeds) * 100 : 0;
+  const roomOccupancyRate = totalRooms > 0 ? (occupiedRooms / totalRooms) * 100 : 0;
+  
+  const totalTenants = tenantDetails.length;
+  const activeTenants = tenantDetails.filter((t: any) => t.is_active).length;
+  const coupleBookings = tenantDetails.filter((t: any) => t.is_couple_booking).length;
+  
+  const totalPaymentsAmount = paymentDetails.reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+  const approvedPayments = paymentDetails.filter((p: any) => p.status === 'approved' || p.status === 'paid');
+  const pendingPayments = paymentDetails.filter((p: any) => p.status === 'pending');
+  const pendingAmount = pendingPayments.reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+  const collectionRate = totalPaymentsAmount > 0 ? (approvedPayments.reduce((sum, p) => sum + (p.amount || 0), 0) / totalPaymentsAmount) * 100 : 0;
 
-  const paymentsChartData = useMemo(() => {
-    if (!reportData?.summary?.statusSummary) return [];
-    return Object.entries(reportData.summary.statusSummary).map(
-      ([status, data]: [string, any]) => ({
-        name: status.charAt(0).toUpperCase() + status.slice(1),
-        value: data.amount,
-        count: data.count,
-      })
-    );
-  }, [reportData]);
+  // Gender distribution
+  const maleTenants = tenantDetails.filter((t: any) => t.gender === 'Male').length;
+  const femaleTenants = tenantDetails.filter((t: any) => t.gender === 'Female').length;
 
-  const occupancyChartData = useMemo(() => {
-    if (!reportData?.rooms) return [];
-    const rt: Record<string, { total: number; occupied: number }> = {};
-    reportData.rooms.forEach((room: any) => {
-      const type = room.room_type || "Standard";
-      if (!rt[type]) rt[type] = { total: 0, occupied: 0 };
-      rt[type].total++;
-      if (room.status !== "vacant") rt[type].occupied++;
-    });
-    return Object.entries(rt).map(([name, d]) => ({
-      name,
-      total: d.total,
-      occupied: d.occupied,
-      vacant: d.total - d.occupied,
-    }));
-  }, [reportData]);
-
-  const expenseChartData = useMemo(() => {
-    if (!reportData?.summary?.categoryBreakdown) return [];
-    return Object.entries(reportData.summary.categoryBreakdown).map(
-      ([name, data]: [string, any]) => ({ name, amount: data.amount })
-    );
-  }, [reportData]);
-
-  const requestChartData = useMemo(() => {
-    if (!reportData?.summary?.typeBreakdown) return [];
-    return Object.entries(reportData.summary.typeBreakdown).map(
-      ([name, count]) => ({
-        name: name
-          .replace(/_/g, " ")
-          .replace(/\b\w/g, (l) => l.toUpperCase()),
-        count,
-      })
-    );
-  }, [reportData]);
-
-  const tenantChartData = useMemo(() => {
-    if (!reportData?.summary?.occupationDistribution) return [];
-    return Object.entries(reportData.summary.occupationDistribution).map(
-      ([name, count]) => ({ name, count })
-    );
-  }, [reportData]);
-
-  // ── Overview stat cards ─────────────────────────────────────────────────────
-  const overviewStats = [
-    {
-      title: "Total Revenue",
-      value: formatCurrency(dashboardStats?.totalRevenue || 0),
-      icon: IndianRupee,
-      accent: "#15803d",
-      trend:
-        (dashboardStats?.revenueGrowth || 0) > 0
-          ? ("up" as const)
-          : (dashboardStats?.revenueGrowth || 0) < 0
-          ? ("down" as const)
-          : ("neutral" as const),
-      trendValue: Math.abs(dashboardStats?.revenueGrowth || 0),
-      subtitle: "Total collected",
-    },
-    {
-      title: "Total Properties",
-      value: dashboardStats?.totalProperties || 0,
-      icon: Building2,
-      accent: NAVY,
-      subtitle: `${dashboardStats?.totalRooms || 0} rooms`,
-    },
-    {
-      title: "Active Tenants",
-      value: dashboardStats?.activeTenants || 0,
-      icon: Users,
-      accent: "#1d4ed8",
-      subtitle: `of ${dashboardStats?.totalTenants || 0} total`,
-    },
-    {
-      title: "Occupancy Rate",
-      value: `${dashboardStats?.occupancyRate || 0}%`,
-      icon: Home,
-      accent: "#0891b2",
-      subtitle: `${dashboardStats?.occupiedBeds || 0}/${dashboardStats?.totalBeds || 0} beds`,
-    },
-    {
-      title: "Collection Rate",
-      value: `${dashboardStats?.collectionRate || 0}%`,
-      icon: CheckCircle,
-      accent: "#15803d",
-      subtitle: `${dashboardStats?.completedPayments || 0} completed`,
-    },
-    {
-      title: "Pending Amount",
-      value: formatCurrency(dashboardStats?.pendingAmount || 0),
-      icon: Clock,
-      accent: "#dc2626",
-      subtitle: `${dashboardStats?.pendingPayments || 0} pending`,
-    },
-  ];
-
-  // ── Report summary stat cards ───────────────────────────────────────────────
-  const reportSummaryCards = useMemo(() => {
-    if (!reportData) return [];
-    switch (reportType) {
-      case "revenue":
-        return [
-          {
-            title: "Total Revenue",
-            value: formatCurrency(reportData.summary?.totalRevenue || 0),
-            icon: IndianRupee,
-            accent: "#15803d",
-          },
-          {
-            title: "Transactions",
-            value: reportData.summary?.totalTransactions || 0,
-            icon: CreditCard,
-            accent: NAVY,
-          },
-          {
-            title: "Avg Transaction",
-            value: formatCurrency(reportData.summary?.avgTransactionValue || 0),
-            icon: BarChart3,
-            accent: "#1d4ed8",
-          },
-          {
-            title: "Rent Revenue",
-            value: formatCurrency(reportData.summary?.revenueByType?.rent || 0),
-            icon: Home,
-            accent: "#854d0e",
-          },
-        ];
-      case "payments":
-        return [
-          {
-            title: "Total Amount",
-            value: formatCurrency(reportData.summary?.totalAmount || 0),
-            icon: IndianRupee,
-            accent: "#15803d",
-          },
-          {
-            title: "Collection Rate",
-            value: `${reportData.summary?.collectionRate || 0}%`,
-            icon: CheckCircle,
-            accent: "#0891b2",
-          },
-          {
-            title: "Completed",
-            value: reportData.summary?.completedTransactions || 0,
-            icon: CheckCircle,
-            accent: "#15803d",
-          },
-          {
-            title: "Pending",
-            value: reportData.summary?.pendingTransactions || 0,
-            icon: Clock,
-            accent: "#854d0e",
-          },
-        ];
-      case "tenants":
-        return [
-          {
-            title: "Total Tenants",
-            value: reportData.summary?.totalTenants || 0,
-            icon: Users,
-            accent: NAVY,
-          },
-          {
-            title: "Active",
-            value: reportData.summary?.activeTenants || 0,
-            icon: UserPlus,
-            accent: "#15803d",
-          },
-          {
-            title: "With Bookings",
-            value: reportData.summary?.tenantsWithAssignments || 0,
-            icon: Home,
-            accent: "#1d4ed8",
-          },
-          {
-            title: "Total Paid",
-            value: formatCurrency(reportData.summary?.totalPaid || 0),
-            icon: Wallet,
-            accent: "#854d0e",
-          },
-        ];
-      case "occupancy":
-        return [
-          {
-            title: "Occupancy Rate",
-            value: `${reportData.summary?.occupancyRate || 0}%`,
-            icon: Home,
-            accent: "#0891b2",
-          },
-          {
-            title: "Total Rooms",
-            value: reportData.summary?.totalRooms || 0,
-            icon: DoorOpen,
-            accent: NAVY,
-          },
-          {
-            title: "Occupied",
-            value: reportData.summary?.occupiedRooms || 0,
-            icon: CheckCircle,
-            accent: "#15803d",
-          },
-          {
-            title: "Vacant",
-            value: reportData.summary?.vacantRooms || 0,
-            icon: AlertCircle,
-            accent: "#854d0e",
-          },
-        ];
-      case "expenses":
-        return [
-          {
-            title: "Total Expenses",
-            value: formatCurrency(reportData.summary?.totalAmount || 0),
-            icon: Wallet,
-            accent: "#dc2626",
-          },
-          {
-            title: "Total Paid",
-            value: formatCurrency(reportData.summary?.totalPaid || 0),
-            icon: CheckCircle,
-            accent: "#15803d",
-          },
-          {
-            title: "Pending Balance",
-            value: formatCurrency(reportData.summary?.totalBalance || 0),
-            icon: Clock,
-            accent: "#854d0e",
-          },
-          {
-            title: "Transactions",
-            value: reportData.summary?.totalTransactions || 0,
-            icon: Receipt,
-            accent: NAVY,
-          },
-        ];
-      case "requests":
-        return [
-          {
-            title: "Total Requests",
-            value: reportData.summary?.totalRequests || 0,
-            icon: FileText,
-            accent: NAVY,
-          },
-          {
-            title: "Pending",
-            value: reportData.summary?.pendingCount || 0,
-            icon: Clock,
-            accent: "#854d0e",
-          },
-          {
-            title: "In Progress",
-            value: reportData.summary?.inProgressCount || 0,
-            icon: Activity,
-            accent: "#1d4ed8",
-          },
-          {
-            title: "Resolved",
-            value: reportData.summary?.resolvedCount || 0,
-            icon: CheckCircle,
-            accent: "#15803d",
-          },
-        ];
-      default:
-        return [];
-    }
-  }, [reportData, reportType]);
-
-  const activeReportConfig = REPORT_TYPES.find((r) => r.value === reportType)!;
-
-  // ── Table columns per report ────────────────────────────────────────────────
-  const tableColumns = useMemo(() => {
-    switch (reportType) {
-      case "revenue":
-        return [
-          { key: "payment_date", label: "Date" },
-          { key: "tenant_name", label: "Tenant" },
-          { key: "property_name", label: "Property" },
-          { key: "payment_type", label: "Type" },
-          {
-            key: "amount",
-            label: "Amount",
-            render: (v: any) => (
-              <span className="font-mono font-bold" style={{ color: "#15803d" }}>
-                {formatCurrency(v)}
-              </span>
-            ),
-          },
-          { key: "payment_mode", label: "Mode" },
-          {
-            key: "status",
-            label: "Status",
-            render: (v: any) => <StatusBadge status={v} />,
-          },
-        ];
-      case "payments":
-        return [
-          { key: "payment_date", label: "Date" },
-          { key: "tenant_name", label: "Tenant" },
-          { key: "property_name", label: "Property" },
-          {
-            key: "amount",
-            label: "Amount",
-            render: (v: any) => (
-              <span className="font-mono font-bold" style={{ color: NAVY }}>
-                {formatCurrency(v)}
-              </span>
-            ),
-          },
-          { key: "payment_mode", label: "Mode" },
-          {
-            key: "status",
-            label: "Status",
-            render: (v: any) => <StatusBadge status={v} />,
-          },
-          { key: "transaction_id", label: "Transaction ID" },
-        ];
-      case "tenants":
-        return [
-          { key: "full_name", label: "Name" },
-          { key: "email", label: "Email" },
-          { key: "phone", label: "Phone" },
-          { key: "gender", label: "Gender" },
-          { key: "occupation_category", label: "Occupation" },
-          { key: "property_name", label: "Property" },
-          { key: "room_number", label: "Room" },
-          {
-            key: "is_active",
-            label: "Status",
-            render: (v: any) => <StatusBadge status={v ? "active" : "inactive"} />,
-          },
-        ];
-      case "occupancy":
-        return [
-          { key: "property_name", label: "Property" },
-          { key: "room_number", label: "Room #" },
-          { key: "room_type", label: "Type" },
-          {
-            key: "rent_per_bed",
-            label: "Rent/Bed",
-            render: (v: any) => (
-              <span className="font-mono">{formatCurrency(v)}</span>
-            ),
-          },
-          {
-            key: "occupied_beds",
-            label: "Occupancy",
-            render: (v: any, row: any) => (
-              <span className="font-mono">
-                {v}/{row.total_bed}
-              </span>
-            ),
-          },
-          {
-            key: "status",
-            label: "Status",
-            render: (v: any) => <StatusBadge status={v} />,
-          },
-        ];
-      case "expenses":
-        return [
-          { key: "expense_date", label: "Date" },
-          { key: "property_name", label: "Property" },
-          { key: "category_name", label: "Category" },
-          { key: "vendor_name", label: "Vendor" },
-          {
-            key: "total_amount",
-            label: "Amount",
-            render: (v: any) => (
-              <span className="font-mono font-bold" style={{ color: "#dc2626" }}>
-                {formatCurrency(v)}
-              </span>
-            ),
-          },
-          {
-            key: "total_paid",
-            label: "Paid",
-            render: (v: any) => (
-              <span className="font-mono">{formatCurrency(v)}</span>
-            ),
-          },
-          {
-            key: "status",
-            label: "Status",
-            render: (v: any) => <StatusBadge status={v} />,
-          },
-        ];
-      case "requests":
-        return [
-          { key: "created_at", label: "Date" },
-          { key: "tenant_name", label: "Tenant" },
-          {
-            key: "request_type",
-            label: "Type",
-            render: (v: any) => (
-              <span className="capitalize">
-                {v?.replace(/_/g, " ")}
-              </span>
-            ),
-          },
-          { key: "title", label: "Title" },
-          {
-            key: "status",
-            label: "Status",
-            render: (v: any) => <StatusBadge status={v} />,
-          },
-          { key: "priority", label: "Priority" },
-        ];
-      default:
-        return [];
-    }
-  }, [reportType]);
-
-  const renderChart = () => {
-    const axisStyle = {
-      fill: "#94a3b8",
-      fontSize: 10,
-      fontFamily: "monospace",
-    };
-    const gridStyle = { stroke: "#f1f5f9", strokeDasharray: "4 4" };
-
-    // Revenue / Payments chart
-    if (
-      (reportType === "revenue" || reportType === "payments") &&
-      revenueChartData.length > 0
-    ) {
-      if (chartType === "area")
-        return (
-          <AreaChart data={revenueChartData}>
-            <defs>
-              <linearGradient id="rev_grad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor={NAVY2} stopOpacity={0.18} />
-                <stop offset="95%" stopColor={NAVY2} stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid vertical={false} {...gridStyle} />
-            <XAxis dataKey="date" axisLine={false} tickLine={false} tick={axisStyle} dy={8} />
-            <YAxis axisLine={false} tickLine={false} tick={axisStyle} tickFormatter={(v) => `₹${v / 1000}k`} width={60} />
-            <Tooltip content={<CustomTooltip formatCurrency={formatCurrency} />} />
-            <Area type="monotone" dataKey="revenue" name="Revenue" stroke={NAVY2} strokeWidth={2.5} fill="url(#rev_grad)" />
-          </AreaChart>
-        );
-      if (chartType === "line")
-        return (
-          <LineChart data={revenueChartData}>
-            <CartesianGrid vertical={false} {...gridStyle} />
-            <XAxis dataKey="date" axisLine={false} tickLine={false} tick={axisStyle} dy={8} />
-            <YAxis axisLine={false} tickLine={false} tick={axisStyle} tickFormatter={(v) => `₹${v / 1000}k`} width={60} />
-            <Tooltip content={<CustomTooltip formatCurrency={formatCurrency} />} />
-            <Line type="monotone" dataKey="revenue" name="Revenue" stroke={NAVY2} strokeWidth={2.5} dot={{ r: 3, fill: NAVY2 }} />
-          </LineChart>
-        );
-      return (
-        <BarChart data={revenueChartData}>
-          <CartesianGrid vertical={false} {...gridStyle} />
-          <XAxis dataKey="date" axisLine={false} tickLine={false} tick={axisStyle} dy={8} />
-          <YAxis axisLine={false} tickLine={false} tick={axisStyle} tickFormatter={(v) => `₹${v / 1000}k`} width={60} />
-          <Tooltip content={<CustomTooltip formatCurrency={formatCurrency} />} />
-          <Bar dataKey="revenue" name="Revenue" fill={NAVY2} radius={[5, 5, 0, 0]} />
-        </BarChart>
-      );
-    }
-
-    // Payments pie
-    if (reportType === "payments" && paymentsChartData.length > 0)
-      return (
-        <PieChart>
-          <Pie data={paymentsChartData} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={4} dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
-            {paymentsChartData.map((_: any, i: number) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} stroke="none" />)}
-          </Pie>
-          <Tooltip formatter={(v: number) => formatCurrency(v)} />
-          <Legend />
-        </PieChart>
-      );
-
-    // Occupancy
-    if (reportType === "occupancy" && occupancyChartData.length > 0)
-      return (
-        <BarChart data={occupancyChartData}>
-          <CartesianGrid vertical={false} {...gridStyle} />
-          <XAxis dataKey="name" axisLine={false} tickLine={false} tick={axisStyle} />
-          <YAxis axisLine={false} tickLine={false} tick={axisStyle} />
-          <Tooltip />
-          <Legend />
-          <Bar dataKey="occupied" name="Occupied" fill={NAVY2} radius={[5, 5, 0, 0]} />
-          <Bar dataKey="vacant" name="Vacant" fill={YELLOW} radius={[5, 5, 0, 0]} />
-        </BarChart>
-      );
-
-    // Tenants
-    if (reportType === "tenants" && tenantChartData.length > 0)
-      return (
-        <PieChart>
-          <Pie data={tenantChartData} cx="50%" cy="50%" outerRadius={90} dataKey="count" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
-            {tenantChartData.map((_: any, i: number) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} stroke="none" />)}
-          </Pie>
-          <Tooltip />
-          <Legend />
-        </PieChart>
-      );
-
-    // Expenses
-    if (reportType === "expenses" && expenseChartData.length > 0)
-      return (
-        <BarChart data={expenseChartData} layout="vertical">
-          <CartesianGrid horizontal={false} {...gridStyle} />
-          <XAxis type="number" axisLine={false} tickLine={false} tick={axisStyle} tickFormatter={(v) => `₹${v / 1000}k`} />
-          <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} tick={axisStyle} width={100} />
-          <Tooltip formatter={(v: number) => formatCurrency(v)} />
-          <Bar dataKey="amount" name="Amount" fill="#dc2626" radius={[0, 5, 5, 0]} />
-        </BarChart>
-      );
-
-    // Requests
-    if (reportType === "requests" && requestChartData.length > 0)
-      return (
-        <BarChart data={requestChartData}>
-          <CartesianGrid vertical={false} {...gridStyle} />
-          <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ ...axisStyle, angle: -30, textAnchor: "end", height: 50 }} />
-          <YAxis axisLine={false} tickLine={false} tick={axisStyle} />
-          <Tooltip />
-          <Bar dataKey="count" name="Count" fill="#7c3aed" radius={[5, 5, 0, 0]} />
-        </BarChart>
-      );
-
-    return null;
-  };
-
-  const chart = renderChart();
+  // Occupation distribution
+  const occupationCounts: Record<string, number> = {};
+  tenantDetails.forEach((t: any) => {
+    const occ = t.occupation_category || 'Other';
+    occupationCounts[occ] = (occupationCounts[occ] || 0) + 1;
+  });
 
   return (
-    <>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
-        * { box-sizing: border-box; }
-        body { font-family: 'Sora', sans-serif; }
-        .rp-mono { font-family: 'JetBrains Mono', monospace; }
-        @keyframes rp-fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes rp-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
-        .rp-fade { animation: rp-fadeUp 0.35s ease both; }
-        .rp-fade:nth-child(1) { animation-delay: .04s; }
-        .rp-fade:nth-child(2) { animation-delay: .08s; }
-        .rp-fade:nth-child(3) { animation-delay: .12s; }
-        .rp-fade:nth-child(4) { animation-delay: .16s; }
-        .rp-fade:nth-child(5) { animation-delay: .20s; }
-        .rp-fade:nth-child(6) { animation-delay: .24s; }
-        select { appearance: none; -webkit-appearance: none; }
-        ::-webkit-scrollbar { width: 5px; height: 5px; }
-        ::-webkit-scrollbar-track { background: #f8fafc; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-      `}</style>
+    <div className="p-1 sm:p-4 md:p-4 space-y-3 sm:space-y-4 md:space-y-6 max-w-full overflow-x-hidden -mt-7">
 
-      <div
-        className="min-h-screen font-['Sora',sans-serif]"
-        style={{ background: "#f0f4fb" }}
-      >
-
-        {/* ── Sticky Header ── */}
-        <div
-          className="sticky top-0 z-30 border-b bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]"
-        >
-          <div className="px-6 py-4 flex items-center justify-between gap-4 flex-wrap">
-            <div className="flex items-center gap-4">
-              <div
-                className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                style={{ background: "rgba(234,179,8,0.2)", border: "1.5px solid rgba(234,179,8,0.35)" }}
-              >
-                <BarChart3 className="w-5 h-5" style={{ color: YELLOW }} />
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 flex-wrap">
-              {/* Tab switcher */}
-              <div
-                className="flex rounded-xl p-1"
-                style={{ background: "rgba(255,255,255,0.1)" }}
-              >
-                {(["overview", "reports"] as const).map((tab) => (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    className="px-4 py-1.5 rounded-lg text-xs font-bold capitalize transition-all"
-                    style={{
-                      background:
-                        activeTab === tab ? "#fff" : "transparent",
-                      color:
-                        activeTab === tab ? NAVY : "rgba(255,255,255,0.6)",
-                    }}
-                  >
-                    {tab === "overview" ? (
-                      <span className="flex items-center gap-1.5">
-                        <Activity className="w-3.5 h-3.5" />
-                        Overview
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-1.5">
-                        <BarChart3 className="w-3.5 h-3.5" />
-                        Reports
-                      </span>
-                    )}
-                  </button>
-                ))}
-              </div>
-
-              {/* Date range */}
-              <div className="relative">
-                <select
-                  value={dateRange}
-                  onChange={(e) =>
-                    setDateRange(e.target.value as DateRangeType)
-                  }
-                  className="appearance-none text-xs font-semibold rounded-xl px-3 py-2 pr-7 outline-none cursor-pointer"
-                  style={{
-                    background: "rgba(255,255,255,0.12)",
-                    border: "1.5px solid rgba(255,255,255,0.2)",
-                    color: "#fff",
-                    fontFamily: "Sora, sans-serif",
-                  }}
-                >
-                  <option value="today" style={{ color: NAVY, background: "#fff" }}>Today</option>
-                  <option value="week" style={{ color: NAVY, background: "#fff" }}>Last 7 Days</option>
-                  <option value="month" style={{ color: NAVY, background: "#fff" }}>This Month</option>
-                  <option value="quarter" style={{ color: NAVY, background: "#fff" }}>Last 3 Months</option>
-                  <option value="year" style={{ color: NAVY, background: "#fff" }}>This Year</option>
-                  <option value="custom" style={{ color: NAVY, background: "#fff" }}>Custom</option>
-                </select>
-                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none" style={{ color: "rgba(255,255,255,0.5)" }} />
-              </div>
-
-              {/* Property */}
-              <div className="relative">
-                <select
-                  value={selectedProperty}
-                  onChange={(e) => setSelectedProperty(e.target.value)}
-                  className="appearance-none text-xs font-semibold rounded-xl px-3 py-2 pr-7 outline-none cursor-pointer max-w-[160px]"
-                  style={{
-                    background: "rgba(255,255,255,0.12)",
-                    border: "1.5px solid rgba(255,255,255,0.2)",
-                    color: "#fff",
-                    fontFamily: "Sora, sans-serif",
-                  }}
-                >
-                  <option value="all" style={{ color: NAVY, background: "#fff" }}>All Properties</option>
-                  {properties.map((p) => (
-                    <option key={p.id} value={p.id} style={{ color: NAVY, background: "#fff" }}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none" style={{ color: "rgba(255,255,255,0.5)" }} />
-              </div>
-
-              <button
-                onClick={loadDashboardStats}
-                disabled={loading}
-                className="flex items-center gap-1.5 text-xs font-semibold rounded-xl px-3 py-2 transition-all"
-                style={{
-                  background: "rgba(255,255,255,0.1)",
-                  border: "1.5px solid rgba(255,255,255,0.2)",
-                  color: "#fff",
-                }}
-              >
-                <RefreshCw
-                  className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`}
-                />
-                Refresh
-              </button>
-            </div>
-          </div>
-
-          {/* Custom date range row */}
-          {dateRange === "custom" && (
-            <div
-              className="px-6 pb-3 flex items-center gap-3"
-              style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}
-            >
-              <p className="text-xs" style={{ color: "rgba(255,255,255,0.5)" }}>
-                Custom range:
-              </p>
-              <input
-                type="date"
-                value={format(customDateRange.start, "yyyy-MM-dd")}
-                onChange={(e) =>
-                  setCustomDateRange({
-                    ...customDateRange,
-                    start: new Date(e.target.value),
-                  })
-                }
-                className="text-xs rounded-lg px-3 py-1.5 outline-none"
-                style={{
-                  background: "rgba(255,255,255,0.12)",
-                  border: "1px solid rgba(255,255,255,0.2)",
-                  color: "#fff",
-                }}
-              />
-              <span style={{ color: "rgba(255,255,255,0.3)" }}>→</span>
-              <input
-                type="date"
-                value={format(customDateRange.end, "yyyy-MM-dd")}
-                onChange={(e) =>
-                  setCustomDateRange({
-                    ...customDateRange,
-                    end: new Date(e.target.value),
-                  })
-                }
-                className="text-xs rounded-lg px-3 py-1.5 outline-none"
-                style={{
-                  background: "rgba(255,255,255,0.12)",
-                  border: "1px solid rgba(255,255,255,0.2)",
-                  color: "#fff",
-                }}
-              />
-            </div>
-          )}
-        </div>
-
-        {/* ── Reports sub-header (only on reports tab) ── */}
-        {activeTab === "reports" && (
-          <div
-            className="sticky z-20 border-b px-6 py-3"
-            style={{
-              top: "73px",
-              background: YELLOW_LIGHT,
-              borderColor: YELLOW_BORDER,
-            }}
-          >
-            <div className="flex items-center justify-between gap-3 flex-wrap">
-              {/* Report type tabs */}
-              <div className="flex items-center gap-2 flex-wrap">
-                {REPORT_TYPES.map((rt) => (
-                  <button
-                    key={rt.value}
-                    onClick={() => setReportType(rt.value as ReportType)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all"
-                    style={{
-                      background:
-                        reportType === rt.value ? NAVY : "rgba(10,22,40,0.06)",
-                      color:
-                        reportType === rt.value ? "#fff" : "#475569",
-                      border: `1.5px solid ${reportType === rt.value ? NAVY : "transparent"}`,
-                    }}
-                  >
-                    <rt.icon className="w-3.5 h-3.5" />
-                    {rt.label}
-                  </button>
-                ))}
-              </div>
-
-              <div className="flex items-center gap-2">
-                {/* Status filter */}
-                {(reportType === "payments" ||
-                  reportType === "tenants" ||
-                  reportType === "requests") && (
-                  <div className="relative">
-                    <select
-                      value={selectedStatus}
-                      onChange={(e) => setSelectedStatus(e.target.value)}
-                      className="appearance-none text-xs font-semibold rounded-xl px-3 py-2 pr-7 outline-none cursor-pointer border"
-                      style={{
-                        background: "#fff",
-                        borderColor: YELLOW_BORDER,
-                        color: NAVY,
-                        fontFamily: "Sora, sans-serif",
-                      }}
-                    >
-                      <option value="all">All Status</option>
-                      {reportType === "payments" &&
-                        filterOptions?.paymentStatuses?.map((s) => (
-                          <option key={s} value={s}>
-                            {s.charAt(0).toUpperCase() + s.slice(1)}
-                          </option>
-                        ))}
-                      {reportType === "tenants" && (
-                        <>
-                          <option value="active">Active</option>
-                          <option value="inactive">Inactive</option>
-                        </>
-                      )}
-                      {reportType === "requests" &&
-                        filterOptions?.requestStatuses?.map((s) => (
-                          <option key={s} value={s}>
-                            {s.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())}
-                          </option>
-                        ))}
-                    </select>
-                    <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 pointer-events-none" style={{ color: "#94a3b8" }} />
-                  </div>
-                )}
-
-                {/* Chart type toggle */}
-                <div
-                  className="flex rounded-xl p-0.5"
-                  style={{
-                    background: "rgba(10,22,40,0.06)",
-                    border: `1px solid ${YELLOW_BORDER}`,
-                  }}
-                >
-                  {(
-                    [
-                      { t: "area", Icon: BarChart2 },
-                      { t: "bar", Icon: BarChart3 },
-                      { t: "line", Icon: LineChartIcon },
-                      { t: "pie", Icon: PieChartIcon },
-                    ] as const
-                  ).map(({ t, Icon }) => (
-                    <button
-                      key={t}
-                      onClick={() => setChartType(t as ChartType)}
-                      className="w-8 h-7 rounded-lg flex items-center justify-center transition-all"
-                      style={{
-                        background: chartType === t ? NAVY : "transparent",
-                      }}
-                    >
-                      <Icon
-                        className="w-3.5 h-3.5"
-                        style={{
-                          color: chartType === t ? "#fff" : "#94a3b8",
-                        }}
-                      />
-                    </button>
-                  ))}
-                </div>
-
-                <div
-                  className="flex rounded-xl p-0.5"
-                  style={{ background: "rgba(10,22,40,0.06)", border: `1px solid ${YELLOW_BORDER}` }}
-                >
-                  {([{ v: "grid", Icon: LayoutGrid }, { v: "list", Icon: List }] as const).map(({ v, Icon }) => (
-                    <button
-                      key={v}
-                      onClick={() => setViewMode(v)}
-                      className="w-8 h-7 rounded-lg flex items-center justify-center transition-all"
-                      style={{ background: viewMode === v ? NAVY : "transparent" }}
-                    >
-                      <Icon className="w-3.5 h-3.5" style={{ color: viewMode === v ? "#fff" : "#94a3b8" }} />
-                    </button>
-                  ))}
-                </div>
-
-                <button
-                  onClick={generateReport}
-                  disabled={generating}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all"
-                  style={{ background: NAVY, color: "#fff" }}
-                >
-                  {generating ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <BarChart3 className="w-3.5 h-3.5" />
-                  )}
-                  Generate
-                </button>
-
-                <button
-                  onClick={handleExport}
-                  disabled={!reportData}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-all disabled:opacity-40"
-                  style={{ borderColor: YELLOW_BORDER, color: "#854d0e", background: "#fff" }}
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  Export
-                </button>
-
-                <button
-                  onClick={handlePrint}
-                  disabled={!reportData}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-all disabled:opacity-40"
-                  style={{ borderColor: "#e2e8f0", color: NAVY2, background: "#fff" }}
-                >
-                  <Printer className="w-3.5 h-3.5" />
-                  Print
-                </button>
-
-                <button
-                  onClick={() => setFullscreen(!fullscreen)}
-                  className="w-9 h-9 rounded-xl border flex items-center justify-center transition-all"
-                  style={{ borderColor: "#e2e8f0", background: "#fff" }}
-                >
-                  {fullscreen ? (
-                    <Minimize2 className="w-3.5 h-3.5" style={{ color: NAVY }} />
-                  ) : (
-                    <Maximize2 className="w-3.5 h-3.5" style={{ color: NAVY }} />
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ── Main Content ── */}
-        <div
-          className={`px-6 py-6 ${fullscreen ? "fixed inset-0 z-50 overflow-auto" : ""}`}
-          style={{ background: fullscreen ? "#f0f4fb" : undefined }}
-          ref={reportSectionRef}
-        >
-          {/* ═══════════════ OVERVIEW TAB ═══════════════ */}
-          {activeTab === "overview" && (
-            <div className="space-y-6">
-              {/* Stat cards */}
-              <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-                {overviewStats.map((s, i) => (
-                  <div key={i} className="rp-fade">
-                    <StatCard {...s} loading={loading} />
-                  </div>
-                ))}
-              </div>
-
-              {/* Revenue trend */}
-              <SectionCard
-                title="Revenue Trend"
-                subtitle="Monthly revenue & transaction analysis"
-                icon={TrendingUp}
-                iconColor={NAVY2}
-                dark
-                action={
-                  <button
-                    onClick={() => {
-                      setReportType("revenue");
-                      setActiveTab("reports");
-                    }}
-                    className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg transition-all"
-                    style={{ background: "rgba(234,179,8,0.2)", color: YELLOW, border: "1px solid rgba(234,179,8,0.35)" }}
-                  >
-                    <Eye className="w-3 h-3" />
-                    Full Report
-                  </button>
-                }
-              >
-                <div className="p-5 h-80">
-                  {loading ? (
-                    <div className="flex items-center justify-center h-full">
-                      <Loader2 className="w-8 h-8 animate-spin" style={{ color: NAVY2 }} />
-                    </div>
-                  ) : revenueChartData.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-full" style={{ color: "#cbd5e1" }}>
-                      <BarChart3 className="w-10 h-10 mb-2" />
-                      <p className="text-xs">No revenue data for this period</p>
-                    </div>
-                  ) : (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <ComposedChart data={revenueChartData} margin={{ top: 10, right: 10, left: 0, bottom: 20 }}>
-                        <defs>
-                          <linearGradient id="ov_rev" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor={NAVY2} stopOpacity={0.18} />
-                            <stop offset="95%" stopColor={NAVY2} stopOpacity={0} />
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid vertical={false} stroke="#f1f5f9" strokeDasharray="4 4" />
-                        <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 10, fontFamily: "monospace" }} dy={8} />
-                        <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 10, fontFamily: "monospace" }} tickFormatter={(v) => `₹${v / 1000}k`} width={60} />
-                        <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 10, fontFamily: "monospace" }} />
-                        <Tooltip content={<CustomTooltip formatCurrency={formatCurrency} />} />
-                        <Legend wrapperStyle={{ fontSize: 11, color: "#64748b", paddingTop: 8 }} />
-                        <Area yAxisId="left" type="monotone" dataKey="revenue" name="Revenue" stroke={NAVY2} strokeWidth={2.5} fill="url(#ov_rev)" />
-                        <Bar yAxisId="right" dataKey="transactions" name="Transactions" fill={YELLOW} radius={[4, 4, 0, 0]} opacity={0.8} />
-                      </ComposedChart>
-                    </ResponsiveContainer>
-                  )}
-                </div>
-              </SectionCard>
-
-              {/* Two column charts */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Payment status */}
-                <SectionCard
-                  title="Payment Status"
-                  subtitle="Distribution by payment status"
-                  icon={CreditCard}
-                  iconColor={NAVY}
-                >
-                  <div className="p-5 h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={[
-                            { name: "Completed", value: dashboardStats?.completedAmount || 0 },
-                            { name: "Pending", value: dashboardStats?.pendingAmount || 0 },
-                            { name: "Rejected", value: dashboardStats?.rejectedPayments || 0 },
-                          ]}
-                          cx="50%" cy="50%" innerRadius={55} outerRadius={80} paddingAngle={4} dataKey="value"
-                        >
-                          {[NAVY2, YELLOW, "#dc2626"].map((c, i) => (
-                            <Cell key={i} fill={c} stroke="none" />
-                          ))}
-                        </Pie>
-                        <Tooltip formatter={(v: number) => formatCurrency(v)} />
-                        <Legend wrapperStyle={{ fontSize: 11 }} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                </SectionCard>
-
-                {/* Request breakdown */}
-                <SectionCard
-                  title="Request Breakdown"
-                  subtitle="Open requests by type"
-                  icon={FileText}
-                  iconColor={NAVY}
-                >
-                  <div className="p-5 h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart
-                        data={[
-                          { name: "Complaints", value: dashboardStats?.complaints || 0 },
-                          { name: "Maintenance", value: dashboardStats?.maintenanceRequests || 0 },
-                          { name: "Vacate", value: dashboardStats?.vacateRequests || 0 },
-                          { name: "Change Bed", value: dashboardStats?.changeBedRequests || 0 },
-                        ]}
-                        layout="vertical"
-                        margin={{ left: 10, right: 10 }}
-                      >
-                        <CartesianGrid horizontal={false} stroke="#f1f5f9" strokeDasharray="4 4" />
-                        <XAxis type="number" axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 10, fontFamily: "monospace" }} />
-                        <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 10 }} width={80} />
-                        <Tooltip />
-                        <Bar dataKey="value" fill={NAVY} radius={[0, 5, 5, 0]}>
-                          {[NAVY, NAVY2, "#1d4ed8", "#0891b2"].map((c, i) => (
-                            <Cell key={i} fill={c} />
-                          ))}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </SectionCard>
-              </div>
-
-              {/* KPI summary row */}
-              <div
-                className="rounded-2xl overflow-hidden"
-                style={{ border: "1.5px solid #e2e8f0", boxShadow: "0 2px 12px rgba(10,22,40,0.07)" }}
-              >
-                <div
-                  className="px-5 py-3 border-b flex items-center gap-2 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]">
-                  <Layers className="w-4 h-4" style={{ color: YELLOW }} />
-                  <h3 className="text-sm font-bold text-white">Key Performance Indicators</h3>
-                </div>
-                <div className="bg-white grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0" style={{ divideColor: "#f1f5f9" }}>
-                  {[
-                    { label: "Revenue Growth", value: `${dashboardStats?.revenueGrowth?.toFixed(1) || 0}%`, positive: (dashboardStats?.revenueGrowth || 0) >= 0, Icon: TrendingUp },
-                    { label: "Collection Rate", value: `${dashboardStats?.collectionRate || 0}%`, positive: (dashboardStats?.collectionRate || 0) >= 80, Icon: CheckCircle },
-                    { label: "Bed Occupancy", value: `${dashboardStats?.occupancyRate || 0}%`, positive: (dashboardStats?.occupancyRate || 0) >= 70, Icon: Home },
-                    { label: "Pending Payments", value: dashboardStats?.pendingPayments || 0, positive: (dashboardStats?.pendingPayments || 0) < 5, Icon: Clock },
-                  ].map(({ label, value, positive, Icon }, i) => (
-                    <div key={i} className="p-5 flex items-center gap-3">
-                      <div
-                        className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                        style={{ background: positive ? "#dcfce7" : "#fee2e2" }}
-                      >
-                        <Icon className="w-5 h-5" style={{ color: positive ? "#15803d" : "#dc2626" }} />
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: "#94a3b8" }}>{label}</p>
-                        <p className="text-xl font-black font-mono" style={{ color: NAVY }}>{value}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ═══════════════ REPORTS TAB ═══════════════ */}
-          {activeTab === "reports" && (
-            <div className="space-y-6">
-              {generating ? (
-                <div className="flex flex-col items-center justify-center py-24">
-                  <div
-                    className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4 bg-gradient-to-r from-[#0A1F5C] via-[#123A9A] to-[#1E4ED8]"
-                  >
-                    <Loader2 className="w-8 h-8 animate-spin" style={{ color: NAVY }} />
-                  </div>
-                  <p className="font-bold" style={{ color: NAVY }}>
-                    Generating report...
-                  </p>
-                  <p className="text-xs mt-1" style={{ color: "#94a3b8" }}>
-                    Fetching and processing data
-                  </p>
-                </div>
-              ) : !reportData ? (
-                <div
-                  className="rounded-2xl overflow-hidden"
-                  style={{ border: "1.5px solid #e2e8f0" }}
-                >
-                  <div className="bg-white flex flex-col items-center justify-center py-20">
-                    <div
-                      className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4"
-                      style={{ background: `${NAVY}08`, border: `1.5px solid #e2e8f0` }}
-                    >
-                      <BarChart3 className="w-8 h-8" style={{ color: "#cbd5e1" }} />
-                    </div>
-                    <h3 className="font-bold mb-1" style={{ color: NAVY }}>
-                      No Report Generated
-                    </h3>
-                    <p className="text-xs mb-5" style={{ color: "#94a3b8" }}>
-                      Select filters and click Generate to view data
-                    </p>
-                    <button
-                      onClick={generateReport}
-                      className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90"
-                      style={{ background: NAVY }}
-                    >
-                      <BarChart3 className="w-4 h-4" />
-                      Generate Report
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  {/* Report header banner */}
-                  <div
-                    className="rounded-2xl px-5 py-4 flex items-center justify-between flex-wrap gap-3"
-                    style={{
-                      background: `linear-gradient(135deg, ${NAVY} 0%, ${NAVY2} 100%)`,
-                      border: "1.5px solid rgba(255,255,255,0.1)",
-                    }}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className="w-10 h-10 rounded-xl flex items-center justify-center"
-                        style={{ background: "rgba(234,179,8,0.2)", border: "1.5px solid rgba(234,179,8,0.35)" }}
-                      >
-                        <activeReportConfig.icon className="w-5 h-5" style={{ color: YELLOW }} />
-                      </div>
-                      <div>
-                        <h2 className="text-sm font-black text-white">
-                          {activeReportConfig.label} Report
-                        </h2>
-                        <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.45)" }}>
-                          {reportData.meta?.dateRange?.start} → {reportData.meta?.dateRange?.end}
-                          {reportData.meta?.property ? ` · ${reportData.meta.property.name}` : " · All Properties"}
-                        </p>
-                      </div>
-                    </div>
-                    <p className="text-[10px] font-mono" style={{ color: "rgba(255,255,255,0.4)" }}>
-                      Generated {new Date(reportData.meta?.generatedAt || Date.now()).toLocaleString()}
-                    </p>
-                  </div>
-
-                  {/* Summary stat cards */}
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                    {reportSummaryCards.map((s, i) => (
-                      <div key={i} className="rp-fade">
-                        <StatCard {...s} />
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Chart */}
-                  {chart && (
-                    <SectionCard
-                      title={`${activeReportConfig.label} Analysis`}
-                      subtitle="Visual breakdown of report data"
-                      icon={activeReportConfig.icon}
-                      iconColor={activeReportConfig.color}
-                      dark
-                    >
-                      <div className="p-5 h-80">
-                        <ResponsiveContainer width="100%" height="100%">
-                          {chart}
-                        </ResponsiveContainer>
-                      </div>
-                    </SectionCard>
-                  )}
-
-                  {/* Additional charts for payments & occupancy */}
-                  {reportType === "payments" && paymentsChartData.length > 0 && (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      <SectionCard
-                        title="Payment Mode Breakdown"
-                        subtitle="Transactions by payment method"
-                        icon={CreditCard}
-                        iconColor={NAVY}
-                      >
-                        <div className="p-5">
-                          {reportData.summary?.modeSummary &&
-                            Object.entries(reportData.summary.modeSummary).map(
-                              ([mode, data]: [string, any], i) => {
-                                const pct =
-                                  reportData.summary.totalTransactions > 0
-                                    ? (data.count / reportData.summary.totalTransactions) * 100
-                                    : 0;
-                                return (
-                                  <div key={i} className="mb-4">
-                                    <div className="flex items-center justify-between mb-1.5">
-                                      <span className="text-xs font-semibold capitalize" style={{ color: "#475569" }}>
-                                        {mode.replace(/_/g, " ")}
-                                      </span>
-                                      <div className="flex items-center gap-2">
-                                        <span className="text-xs font-black font-mono" style={{ color: NAVY }}>
-                                          {formatCurrency(data.amount)}
-                                        </span>
-                                        <span className="text-[10px] font-mono" style={{ color: "#94a3b8" }}>
-                                          ({pct.toFixed(0)}%)
-                                        </span>
-                                      </div>
-                                    </div>
-                                    <div className="h-2 rounded-full overflow-hidden" style={{ background: "#f1f5f9" }}>
-                                      <div
-                                        className="h-full rounded-full transition-all duration-700"
-                                        style={{
-                                          width: `${pct}%`,
-                                          background: CHART_COLORS[i % CHART_COLORS.length],
-                                        }}
-                                      />
-                                    </div>
-                                  </div>
-                                );
-                              }
-                            )}
-                        </div>
-                      </SectionCard>
-
-                      <SectionCard
-                        title="Status Distribution"
-                        subtitle="Breakdown by payment status"
-                        icon={Activity}
-                        iconColor={NAVY}
-                      >
-                        <div className="p-5 h-56">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                              <Pie data={paymentsChartData} cx="50%" cy="50%" innerRadius={50} outerRadius={75} paddingAngle={4} dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false}>
-                                {paymentsChartData.map((_: any, i: number) => (
-                                  <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} stroke="none" />
-                                ))}
-                              </Pie>
-                              <Tooltip formatter={(v: number) => formatCurrency(v)} />
-                            </PieChart>
-                          </ResponsiveContainer>
-                        </div>
-                      </SectionCard>
-                    </div>
-                  )}
-
-                  {/* Occupancy extras */}
-                  {reportType === "occupancy" && reportData.summary && (
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                      {[
-                        { label: "Potential Revenue", value: formatCurrency(reportData.summary.potentialRevenue || 0), color: NAVY2 },
-                        { label: "Actual Revenue", value: formatCurrency(reportData.summary.actualRevenue || 0), color: "#15803d" },
-                        { label: "Revenue Loss", value: formatCurrency(reportData.summary.revenueLoss || 0), color: "#dc2626" },
-                        { label: "Full Rooms", value: reportData.summary.fullRooms || 0, color: "#0891b2" },
-                      ].map(({ label, value, color }, i) => (
-                        <div
-                          key={i}
-                          className="bg-white rounded-2xl p-4"
-                          style={{ border: "1.5px solid #e2e8f0" }}
-                        >
-                          <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: "#94a3b8" }}>
-                            {label}
-                          </p>
-                          <p className="text-xl font-black font-mono" style={{ color }}>
-                            {value}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Data Table */}
-                  <SectionCard
-                    title="Detailed Records"
-                    subtitle={`${(reportData.payments || reportData.tenants || reportData.rooms || reportData.expenses || reportData.requests || []).length} total records`}
-                    icon={FileText}
-                    iconColor={NAVY}
-                  >
-                    <DataTable
-                      columns={tableColumns}
-                      data={
-                        reportData.payments ||
-                        reportData.tenants ||
-                        reportData.rooms ||
-                        reportData.expenses ||
-                        reportData.requests ||
-                        []
-                      }
-                      onExport={handleExport}
-                      onPrint={handlePrint}
-                    />
-                  </SectionCard>
-                </>
-              )}
-            </div>
-          )}
-        </div>
+      {/* Stats Cards Row - KEEP EXISTING UI */}
+      <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 sm:gap-2">
+        <StatCard
+          title="Total Properties"
+          value={dashboardStats.totalProperties}
+          icon={<Building2 className="h-3 w-3 sm:h-4 sm:w-4 text-[#0A1F5C]" />}
+          loading={dashboardLoading}
+        />
+        <StatCard
+          title="Total Rooms"
+          value={dashboardStats.totalRooms}
+          icon={<DoorOpen className="h-3 w-3 sm:h-4 sm:w-4 text-[#123A9A]" />}
+          loading={dashboardLoading}
+        />
+        <StatCard
+          title="Bed Occupancy"
+          value={`${dashboardStats.occupiedBeds}/${dashboardStats.totalBeds}`}
+          icon={<Home className="h-3 w-3 sm:h-4 sm:w-4 text-[#1E4ED8]" />}
+          loading={dashboardLoading}
+        />
+        <StatCard
+          title="Active Tenants"
+          value={dashboardStats.activeTenants}
+          icon={<Users className="h-3 w-3 sm:h-4 sm:w-4 text-[#2563eb]" />}
+          loading={dashboardLoading}
+        />
+        <StatCard
+          title="Monthly Revenue"
+          value={formatCurrency(dashboardStats.monthlyRevenue)}
+          icon={<IndianRupee className="h-3 w-3 sm:h-4 sm:w-4 text-[#16a34a]" />}
+          loading={dashboardLoading}
+        />
+        <StatCard
+          title="Occupancy Rate"
+          value={`${dashboardStats.occupancyRate?.toFixed(1) || 0}%`}
+          icon={<Activity className="h-3 w-3 sm:h-4 sm:w-4 text-[#ea580c]" />}
+          loading={dashboardLoading}
+        />
       </div>
-    </>
+
+      {/* Extended Stats Cards - KEEP EXISTING UI */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2">
+        <ExtendedStatCard
+          title="Collection Rate"
+          value={`${dashboardStats.collectionRate?.toFixed(1) || 0}%`}
+          icon={<TrendUp className="h-3 w-3 sm:h-4 sm:w-4" />}
+          loading={dashboardLoading}
+          color="green"
+        />
+        <ExtendedStatCard
+          title="Pending"
+          value={dashboardStats.pendingPayments || 0}
+          subtitle={formatCurrency(dashboardStats.pendingAmount || 0)}
+          icon={<Clock className="h-3 w-3 sm:h-4 sm:w-4" />}
+          loading={dashboardLoading}
+          color="yellow"
+        />
+        <ExtendedStatCard
+          title="Checkouts"
+          value={dashboardStats.upcomingCheckouts || 0}
+          icon={<Users className="h-3 w-3 sm:h-4 sm:w-4" />}
+          loading={dashboardLoading}
+          color="blue"
+        />
+        <ExtendedStatCard
+          title="Maintenance"
+          value={dashboardStats.maintenanceRequests || 0}
+          icon={<AlertCircle className="h-3 w-3 sm:h-4 sm:w-4" />}
+          loading={dashboardLoading}
+          color="red"
+        />
+      </div>
+
+      {/* Filters Card - KEEP EXISTING UI */}
+      <Card className="border-0 shadow-sm">
+        <CardHeader className="pb-2 sm:pb-4 px-3 sm:px-6">
+          <CardTitle className="flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base">
+            <Filter className="h-4 w-4 sm:h-5 sm:w-5 text-[#0A1F5C]" />
+            Report Filters
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="px-3 sm:px-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2 sm:gap-3">
+            {/* Report Type */}
+            <div className="space-y-1 sm:space-y-2">
+              <Label className="text-xs">Report Type</Label>
+              <Select
+                value={filters.reportType}
+                onValueChange={(value: any) => setFilters({ ...filters, reportType: value })}
+              >
+                <SelectTrigger className="h-8 sm:h-9 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="revenue" className="text-xs">📊 Revenue Report</SelectItem>
+                  <SelectItem value="payments" className="text-xs">💰 Payments Report</SelectItem>
+                  <SelectItem value="tenants" className="text-xs">👥 Tenants Report</SelectItem>
+                  <SelectItem value="occupancy" className="text-xs">🏠 Occupancy Report</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Date Range */}
+            <div className="space-y-1 sm:space-y-2">
+              <Label className="text-xs">Date Range</Label>
+              <Select value={dateRange} onValueChange={(value: any) => setDateRange(value)}>
+                <SelectTrigger className="h-8 sm:h-9 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="today" className="text-xs">Today</SelectItem>
+                  <SelectItem value="week" className="text-xs">Last 7 Days</SelectItem>
+                  <SelectItem value="month" className="text-xs">This Month</SelectItem>
+                  <SelectItem value="year" className="text-xs">This Year</SelectItem>
+                  <SelectItem value="custom" className="text-xs">Custom Range</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Start Date */}
+            <div className="space-y-1 sm:space-y-2">
+              <Label className="text-xs">Start Date</Label>
+              <Input
+                type="date"
+                value={filters.startDate}
+                onChange={(e) => {
+                  setFilters({ ...filters, startDate: e.target.value });
+                  setDateRange('custom');
+                }}
+                className="h-8 sm:h-9 text-xs"
+              />
+            </div>
+
+            {/* End Date */}
+            <div className="space-y-1 sm:space-y-2">
+              <Label className="text-xs">End Date</Label>
+              <Input
+                type="date"
+                value={filters.endDate}
+                onChange={(e) => {
+                  setFilters({ ...filters, endDate: e.target.value });
+                  setDateRange('custom');
+                }}
+                className="h-8 sm:h-9 text-xs"
+              />
+            </div>
+
+            {/* Property */}
+            <div className="space-y-1 sm:space-y-2">
+              <Label className="text-xs">Property</Label>
+              <Select value={filters.propertyId} onValueChange={handlePropertyChange}>
+                <SelectTrigger className="h-8 sm:h-9 text-xs">
+                  <SelectValue placeholder="Select property" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all" className="text-xs">🏢 All Properties</SelectItem>
+                  {properties.map(property => (
+                    <SelectItem key={property.id} value={property.id} className="text-xs">
+                      <span>{property.name}</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Generate Button */}
+            <div className="flex items-end">
+              <Button 
+                onClick={generateReport} 
+                disabled={loading} 
+                className="w-full h-8 sm:h-9 text-xs bg-gradient-to-r from-[#0A1F5C] to-[#1E4ED8] hover:from-[#0A1F5C] hover:to-[#2563eb]"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <BarChart3 className="h-3 w-3 mr-1" />
+                    Generate
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+
+          {/* Active Filters Display */}
+          <div className="mt-2 sm:mt-3 flex flex-wrap gap-1 sm:gap-1.5">
+            <Badge variant="outline" className="px-2 py-0.5 text-[10px] sm:text-xs">
+              <Calendar className="h-2.5 w-2.5 mr-1" />
+              {filters.startDate} to {filters.endDate}
+            </Badge>
+            <Badge variant="outline" className="px-2 py-0.5 text-[10px] sm:text-xs">
+              <Building2 className="h-2.5 w-2.5 mr-1" />
+              {getPropertyDisplay()}
+            </Badge>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Report Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="w-full sm:w-auto grid grid-cols-2 sm:inline-flex h-9">
+          <TabsTrigger value="overview" className="text-xs sm:text-sm">Quick Actions</TabsTrigger>
+          <TabsTrigger value="report" disabled={!reportData} className="text-xs sm:text-sm">
+            Generated Report
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="overview" className="mt-3 sm:mt-4">
+          <Card className="border-0 shadow-sm">
+            <CardHeader className="pb-2 px-3 sm:px-6">
+              <CardTitle className="text-sm sm:text-base">Generate Reports Quickly</CardTitle>
+            </CardHeader>
+            <CardContent className="px-3 sm:px-6">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <QuickActionButton
+                  icon={<IndianRupee className="h-4 w-4 sm:h-5 sm:w-5" />}
+                  label="Revenue Report"
+                  onClick={() => {
+                    setFilters({ ...filters, reportType: 'revenue' });
+                    generateReport();
+                  }}
+                  color="blue"
+                />
+                <QuickActionButton
+                  icon={<Users className="h-4 w-4 sm:h-5 sm:w-5" />}
+                  label="Tenants Report"
+                  onClick={() => {
+                    setFilters({ ...filters, reportType: 'tenants' });
+                    generateReport();
+                  }}
+                  color="purple"
+                />
+                <QuickActionButton
+                  icon={<Home className="h-4 w-4 sm:h-5 sm:w-5" />}
+                  label="Occupancy Report"
+                  onClick={() => {
+                    setFilters({ ...filters, reportType: 'occupancy' });
+                    generateReport();
+                  }}
+                  color="orange"
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="report" className="mt-3 sm:mt-4" ref={reportSectionRef}>
+          {reportData && (
+            <>
+              {/* Report Actions */}
+              <div className="flex justify-end gap-1.5 sm:gap-2 mb-3 sm:mb-4">
+                <Button variant="outline" size="sm" onClick={exportToExcel} className="h-7 sm:h-8 text-xs">
+                  <Download className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                  Export Excel
+                </Button>
+                <Button variant="outline" size="sm" onClick={handlePrint} className="h-7 sm:h-8 text-xs">
+                  <Printer className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                  Print
+                </Button>
+              </div>
+
+              {/* Summary Stats */}
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 sm:gap-2 mb-3 sm:mb-4">
+                <SummaryStatCard title="Revenue" value={formatCurrency(summaryStats.totalRevenue)} icon={<IndianRupee className="h-3 w-3 sm:h-4 sm:w-4" />} />
+                <SummaryStatCard title="Payments" value={summaryStats.totalPayments.toString()} icon={<CreditCard className="h-3 w-3 sm:h-4 sm:w-4" />} />
+                <SummaryStatCard title="Tenants" value={summaryStats.totalTenants.toString()} icon={<Users className="h-3 w-3 sm:h-4 sm:w-4" />} />
+                <SummaryStatCard title="Occupancy" value={`${summaryStats.occupancyRate.toFixed(1)}%`} icon={<Activity className="h-3 w-3 sm:h-4 sm:w-4" />} />
+                <SummaryStatCard title="Collection" value={`${summaryStats.collectionRate.toFixed(1)}%`} icon={<CheckCircle className="h-3 w-3 sm:h-4 sm:w-4" />} />
+              </div>
+
+              {/* Detailed Report - KEEP EXISTING */}
+              <Card className="border-0 shadow-sm">
+                <CardHeader className="pb-2 px-3 sm:px-6">
+                  <CardTitle className="text-sm sm:text-base flex items-center gap-2">
+                    <PieChart className="h-4 w-4 text-[#0A1F5C]" />
+                    Detailed Report Data
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="px-3 sm:px-6 overflow-x-auto">
+                  {filters.reportType === 'revenue' && (
+                    <RevenueReportDetails data={reportData} formatCurrency={formatCurrency} />
+                  )}
+                  {filters.reportType === 'payments' && (
+                    <PaymentsReportDetails data={reportData} formatCurrency={formatCurrency} />
+                  )}
+                  {filters.reportType === 'tenants' && (
+                    <TenantsReportDetails data={reportData} />
+                  )}
+                  {filters.reportType === 'occupancy' && (
+                    <OccupancyReportDetails data={reportData} formatCurrency={formatCurrency} />
+                  )}
+                </CardContent>
+              </Card>
+            </>
+          )}
+        </TabsContent>
+      </Tabs>
+
+      {/* ===== ADDED DETAILED MODULE INSIGHTS SECTION - NEW ===== */}
+      <div className="mt-6 space-y-4">
+        <h2 className="text-lg font-bold text-gray-800 px-1">📊 Module-wise Detailed Analysis</h2>
+        
+        {/* Property Module Insights */}
+        <Card className="border-0 shadow-sm">
+          <CardHeader className="pb-2 px-3 sm:px-6 bg-gradient-to-r from-blue-50 to-white">
+            <CardTitle className="text-sm sm:text-base flex items-center gap-2">
+              <Building2 className="h-4 w-4 text-blue-600" />
+              Property Module Insights
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-3 sm:px-6 pt-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
+              <div className="bg-blue-50 rounded-lg p-3 text-center">
+                <p className="text-2xl font-bold text-blue-700">{totalProperties}</p>
+                <p className="text-xs text-gray-600">Total Properties</p>
+              </div>
+              <div className="bg-green-50 rounded-lg p-3 text-center">
+                <p className="text-2xl font-bold text-green-700">{activeProperties}</p>
+                <p className="text-xs text-gray-600">Active Properties</p>
+              </div>
+              <div className="bg-yellow-50 rounded-lg p-3 text-center">
+                <p className="text-2xl font-bold text-yellow-700">{totalProperties - activeProperties}</p>
+                <p className="text-xs text-gray-600">Inactive Properties</p>
+              </div>
+              <div className="bg-purple-50 rounded-lg p-3 text-center">
+                <p className="text-2xl font-bold text-purple-700">{((activeProperties / totalProperties) * 100).toFixed(1)}%</p>
+                <p className="text-xs text-gray-600">Property Occupancy Rate</p>
+              </div>
+            </div>
+            <div className="text-xs text-gray-500 mt-2">
+              {activeProperties === totalProperties ? 
+                '✅ All properties are active and operational' : 
+                `⚠️ ${totalProperties - activeProperties} propert${totalProperties - activeProperties !== 1 ? 'ies are' : 'y is'} inactive`
+              }
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Rooms Module Insights */}
+        <Card className="border-0 shadow-sm">
+          <CardHeader className="pb-2 px-3 sm:px-6 bg-gradient-to-r from-purple-50 to-white">
+            <CardTitle className="text-sm sm:text-base flex items-center gap-2">
+              <DoorOpen className="h-4 w-4 text-purple-600" />
+              Rooms Module Insights
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-3 sm:px-6 pt-4">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-4">
+              <div className="bg-purple-50 rounded-lg p-3 text-center">
+                <p className="text-2xl font-bold text-purple-700">{totalRooms}</p>
+                <p className="text-xs text-gray-600">Total Rooms</p>
+              </div>
+              <div className="bg-green-50 rounded-lg p-3 text-center">
+                <p className="text-2xl font-bold text-green-700">{occupiedRooms}</p>
+                <p className="text-xs text-gray-600">Occupied Rooms</p>
+              </div>
+              <div className="bg-yellow-50 rounded-lg p-3 text-center">
+                <p className="text-2xl font-bold text-yellow-700">{vacantRooms}</p>
+                <p className="text-xs text-gray-600">Vacant Rooms</p>
+              </div>
+              <div className="bg-red-50 rounded-lg p-3 text-center">
+                <p className="text-2xl font-bold text-red-700">{totalRooms - occupiedRooms - vacantRooms}</p>
+                <p className="text-xs text-gray-600">Maintenance Rooms</p>
+              </div>
+              <div className="bg-indigo-50 rounded-lg p-3 text-center">
+                <p className="text-2xl font-bold text-indigo-700">{roomOccupancyRate.toFixed(1)}%</p>
+                <p className="text-xs text-gray-600">Room Occupancy</p>
+              </div>
+            </div>
+            <Progress value={roomOccupancyRate} className="h-2 mb-2" />
+            <div className="text-xs text-gray-500">
+              {roomOccupancyRate >= 80 ? '✅ Good room occupancy rate' : roomOccupancyRate >= 50 ? '⚠️ Room for improvement' : '❌ Low room occupancy - focus on marketing'}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Beds Module Insights */}
+        <Card className="border-0 shadow-sm">
+          <CardHeader className="pb-2 px-3 sm:px-6 bg-gradient-to-r from-teal-50 to-white">
+            <CardTitle className="text-sm sm:text-base flex items-center gap-2">
+              <Bed className="h-4 w-4 text-teal-600" />
+              Beds Module Insights
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-3 sm:px-6 pt-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
+              <div className="bg-teal-50 rounded-lg p-3 text-center">
+                <p className="text-2xl font-bold text-teal-700">{totalBeds}</p>
+                <p className="text-xs text-gray-600">Total Beds</p>
+              </div>
+              <div className="bg-green-50 rounded-lg p-3 text-center">
+                <p className="text-2xl font-bold text-green-700">{occupiedBeds}</p>
+                <p className="text-xs text-gray-600">Occupied Beds</p>
+              </div>
+              <div className="bg-yellow-50 rounded-lg p-3 text-center">
+                <p className="text-2xl font-bold text-yellow-700">{availableBeds}</p>
+                <p className="text-xs text-gray-600">Available Beds</p>
+              </div>
+              <div className="bg-indigo-50 rounded-lg p-3 text-center">
+                <p className="text-2xl font-bold text-indigo-700">{bedOccupancyRate.toFixed(1)}%</p>
+                <p className="text-xs text-gray-600">Bed Occupancy</p>
+              </div>
+            </div>
+            <Progress value={bedOccupancyRate} className="h-2 mb-2" />
+            <div className="text-xs text-gray-500">
+              {bedOccupancyRate >= 85 ? '🎯 Excellent bed utilization' : bedOccupancyRate >= 60 ? '📈 Room for improvement' : '⚠️ Low bed occupancy - consider promotions'}
+              {availableBeds > 0 && ` (${availableBeds} beds available for new tenants)`}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Tenants Module Insights */}
+        <Card className="border-0 shadow-sm">
+          <CardHeader className="pb-2 px-3 sm:px-6 bg-gradient-to-r from-pink-50 to-white">
+            <CardTitle className="text-sm sm:text-base flex items-center gap-2">
+              <Users className="h-4 w-4 text-pink-600" />
+              Tenants Module Insights
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-3 sm:px-6 pt-4">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-4">
+              <div className="bg-pink-50 rounded-lg p-3 text-center">
+                <p className="text-2xl font-bold text-pink-700">{totalTenants}</p>
+                <p className="text-xs text-gray-600">Total Tenants</p>
+              </div>
+              <div className="bg-green-50 rounded-lg p-3 text-center">
+                <p className="text-2xl font-bold text-green-700">{activeTenants}</p>
+                <p className="text-xs text-gray-600">Active Tenants</p>
+              </div>
+              <div className="bg-gray-50 rounded-lg p-3 text-center">
+                <p className="text-2xl font-bold text-gray-700">{totalTenants - activeTenants}</p>
+                <p className="text-xs text-gray-600">Inactive Tenants</p>
+              </div>
+              <div className="bg-rose-50 rounded-lg p-3 text-center">
+                <p className="text-2xl font-bold text-rose-700">{coupleBookings}</p>
+                <p className="text-xs text-gray-600">Couple Bookings</p>
+              </div>
+              <div className="bg-indigo-50 rounded-lg p-3 text-center">
+                <p className="text-2xl font-bold text-indigo-700">{((activeTenants / totalTenants) * 100).toFixed(1)}%</p>
+                <p className="text-xs text-gray-600">Active Rate</p>
+              </div>
+            </div>
+            
+            {/* Gender Distribution */}
+            <div className="mt-3 pt-3 border-t">
+              <p className="text-xs font-semibold text-gray-700 mb-2">Gender Distribution:</p>
+              <div className="flex gap-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                  <span className="text-xs">Male: {maleTenants}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-pink-500"></div>
+                  <span className="text-xs">Female: {femaleTenants}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Occupation Distribution */}
+            {Object.keys(occupationCounts).length > 0 && (
+              <div className="mt-3 pt-3 border-t">
+                <p className="text-xs font-semibold text-gray-700 mb-2">Occupation Distribution:</p>
+                <div className="flex flex-wrap gap-2">
+                  {Object.entries(occupationCounts).slice(0, 5).map(([occ, count]) => (
+                    <Badge key={occ} variant="outline" className="text-[10px]">
+                      {occ}: {count}
+                    </Badge>
+                  ))}
+                  {Object.keys(occupationCounts).length > 5 && (
+                    <Badge variant="outline" className="text-[10px]">
+                      +{Object.keys(occupationCounts).length - 5} more
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Payments Module Insights */}
+        <Card className="border-0 shadow-sm">
+          <CardHeader className="pb-2 px-3 sm:px-6 bg-gradient-to-r from-green-50 to-white">
+            <CardTitle className="text-sm sm:text-base flex items-center gap-2">
+              <CreditCard className="h-4 w-4 text-green-600" />
+              Payments Module Insights
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-3 sm:px-6 pt-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
+              <div className="bg-green-50 rounded-lg p-3 text-center">
+                <p className="text-xl font-bold text-green-700">{formatCurrency(totalPaymentsAmount)}</p>
+                <p className="text-xs text-gray-600">Total Revenue</p>
+              </div>
+              <div className="bg-emerald-50 rounded-lg p-3 text-center">
+                <p className="text-xl font-bold text-emerald-700">{paymentDetails.length}</p>
+                <p className="text-xs text-gray-600">Total Transactions</p>
+              </div>
+              <div className="bg-yellow-50 rounded-lg p-3 text-center">
+                <p className="text-xl font-bold text-yellow-700">{formatCurrency(pendingAmount)}</p>
+                <p className="text-xs text-gray-600">Pending Amount</p>
+              </div>
+              <div className="bg-indigo-50 rounded-lg p-3 text-center">
+                <p className="text-xl font-bold text-indigo-700">{collectionRate.toFixed(1)}%</p>
+                <p className="text-xs text-gray-600">Collection Rate</p>
+              </div>
+            </div>
+            
+            {/* Payment Status Breakdown */}
+            <div className="mt-3 pt-3 border-t">
+              <p className="text-xs font-semibold text-gray-700 mb-2">Payment Status:</p>
+              <div className="flex flex-wrap gap-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                  <span className="text-xs">Approved: {approvedPayments.length}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                  <span className="text-xs">Pending: {pendingPayments.length}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                  <span className="text-xs">Rejected: {paymentDetails.length - approvedPayments.length - pendingPayments.length}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Recommendation */}
+            <div className="mt-3 p-2 bg-amber-50 rounded-lg">
+              <p className="text-[10px] text-amber-700">
+                {pendingAmount > 100000 ? 
+                  '⚠️ High pending amount - follow up on pending payments immediately' : 
+                  pendingAmount > 0 ? 
+                  '📋 Pending payments need attention' : 
+                  '✅ No pending payments - great collection rate'}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Performance Recommendations */}
+        <Card className="border-0 shadow-sm bg-gradient-to-r from-blue-50 to-indigo-50">
+          <CardHeader className="pb-2 px-3 sm:px-6">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Target className="h-4 w-4 text-blue-700" />
+              Performance Recommendations
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-3 sm:px-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="bg-white rounded-lg p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <Building2 className="h-4 w-4 text-blue-600" />
+                  <span className="font-semibold text-sm">Property Actions</span>
+                </div>
+                <ul className="space-y-1 text-xs text-gray-600">
+                  <li className="flex items-center gap-2">
+                    {activeProperties === totalProperties ? 
+                      <CheckCircle2 className="h-3 w-3 text-green-500" /> : 
+                      <AlertCircle className="h-3 w-3 text-yellow-500" />
+                    }
+                    {activeProperties}/{totalProperties} properties active
+                  </li>
+                  {totalProperties - activeProperties > 0 && (
+                    <li className="text-blue-600 ml-5">🔧 Review inactive properties</li>
+                  )}
+                </ul>
+              </div>
+              <div className="bg-white rounded-lg p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <Bed className="h-4 w-4 text-purple-600" />
+                  <span className="font-semibold text-sm">Bed Occupancy Actions</span>
+                </div>
+                <ul className="space-y-1 text-xs text-gray-600">
+                  <li className="flex items-center gap-2">
+                    {bedOccupancyRate >= 85 ? <CheckCircle2 className="h-3 w-3 text-green-500" /> : bedOccupancyRate >= 60 ? <AlertCircle className="h-3 w-3 text-yellow-500" /> : <AlertTriangle className="h-3 w-3 text-red-500" />}
+                    {bedOccupancyRate.toFixed(0)}% bed occupancy rate
+                  </li>
+                  {availableBeds > 10 && (
+                    <li className="text-blue-600 ml-5">🎯 Focus on marketing to fill {availableBeds} available beds</li>
+                  )}
+                </ul>
+              </div>
+              <div className="bg-white rounded-lg p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <CreditCard className="h-4 w-4 text-green-600" />
+                  <span className="font-semibold text-sm">Financial Actions</span>
+                </div>
+                <ul className="space-y-1 text-xs text-gray-600">
+                  <li className="flex items-center gap-2">
+                    {collectionRate >= 90 ? <CheckCircle2 className="h-3 w-3 text-green-500" /> : collectionRate >= 70 ? <AlertCircle className="h-3 w-3 text-yellow-500" /> : <AlertTriangle className="h-3 w-3 text-red-500" />}
+                    {collectionRate.toFixed(0)}% collection rate
+                  </li>
+                  {pendingAmount > 100000 && (
+                    <li className="text-red-600 ml-5">⚠️ High pending amount - follow up on {pendingPayments.length} pending payments</li>
+                  )}
+                </ul>
+              </div>
+              <div className="bg-white rounded-lg p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <Users className="h-4 w-4 text-orange-600" />
+                  <span className="font-semibold text-sm">Tenant Actions</span>
+                </div>
+                <ul className="space-y-1 text-xs text-gray-600">
+                  <li className="flex items-center gap-2">
+                    {coupleBookings > 0 ? <Heart className="h-3 w-3 text-pink-500" /> : <AlertCircle className="h-3 w-3 text-gray-400" />}
+                    {coupleBookings} couple booking{coupleBookings !== 1 ? 's' : ''}
+                  </li>
+                  {totalTenants - activeTenants > 5 && (
+                    <li className="text-yellow-600 ml-5">📞 Reach out to inactive tenants</li>
+                  )}
+                </ul>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+// Helper Components - KEEP EXISTING ONES
+function StatCard({ title, value, icon, loading }: any) {
+  if (loading) {
+    return (
+      <Card className="border-0 shadow-sm bg-white">
+        <CardContent className="p-2 sm:p-3">
+          <div className="animate-pulse flex items-center justify-between">
+            <div className="space-y-1">
+              <div className="h-2 w-12 bg-gray-200 rounded"></div>
+              <div className="h-4 w-8 bg-gray-300 rounded"></div>
+            </div>
+            <div className="h-6 w-6 bg-gray-200 rounded-lg"></div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="bg-white border-0 shadow-sm">
+      <CardContent className="p-2 sm:p-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-[10px] sm:text-xs text-gray-500 font-medium uppercase tracking-wider">
+              {title}
+            </p>
+            <p className="text-sm sm:text-base font-bold text-gray-900">
+              {value}
+            </p>
+          </div>
+          <div className="p-1.5 sm:p-2 rounded-lg bg-gray-100">
+            {icon}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ExtendedStatCard({ title, value, subtitle, icon, loading, color }: any) {
+  const colors = {
+    green: 'from-green-50 to-emerald-50 text-green-600',
+    yellow: 'from-yellow-50 to-amber-50 text-yellow-600',
+    blue: 'from-blue-50 to-cyan-50 text-blue-600',
+    red: 'from-red-50 to-rose-50 text-red-600',
+  };
+
+  if (loading) {
+    return (
+      <Card className="border-0 shadow-sm">
+        <CardContent className="p-2 sm:p-3">
+          <div className="animate-pulse flex items-center gap-2">
+            <div className="rounded-full bg-gray-200 h-6 w-6"></div>
+            <div className="flex-1">
+              <div className="h-2 bg-gray-200 rounded w-12 mb-1"></div>
+              <div className="h-3 bg-gray-300 rounded w-16"></div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className={`border-0 shadow-sm bg-gradient-to-br ${colors[color]}`}>
+      <CardContent className="p-2 sm:p-3">
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          <div className={`p-1 rounded-lg bg-white/50`}>
+            {icon}
+          </div>
+          <div>
+            <p className="text-[10px] sm:text-xs text-gray-600">{title}</p>
+            <p className="text-xs sm:text-sm font-bold">{value}</p>
+            {subtitle && <p className="text-[8px] sm:text-[10px] text-gray-500">{subtitle}</p>}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function QuickActionButton({ icon, label, onClick, color }: any) {
+  const colors = {
+    blue: 'from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 text-blue-600',
+    purple: 'from-purple-50 to-purple-100 hover:from-purple-100 hover:to-purple-200 text-purple-600',
+    orange: 'from-orange-50 to-orange-100 hover:from-orange-100 hover:to-orange-200 text-orange-600',
+  };
+
+  return (
+    <Button
+      variant="ghost"
+      className={`w-full h-auto py-2 sm:py-3 px-2 sm:px-3 flex flex-col items-center justify-center gap-1 sm:gap-1.5 bg-gradient-to-br ${colors[color]} border-0`}
+      onClick={onClick}
+    >
+      {icon}
+      <span className="text-[10px] sm:text-xs font-medium">{label}</span>
+    </Button>
+  );
+}
+
+function SummaryStatCard({ title, value, icon }: any) {
+  const getBgColor = (title: string) => {
+    switch(title) {
+      case 'Revenue': return 'bg-emerald-50';
+      case 'Payments': return 'bg-blue-50';
+      case 'Tenants': return 'bg-purple-50';
+      case 'Occupancy': return 'bg-orange-50';
+      case 'Collection': return 'bg-indigo-50';
+      default: return 'bg-gray-50';
+    }
+  };
+
+  const getIconColor = (title: string) => {
+    switch(title) {
+      case 'Revenue': return 'text-emerald-600';
+      case 'Payments': return 'text-blue-600';
+      case 'Tenants': return 'text-purple-600';
+      case 'Occupancy': return 'text-orange-600';
+      case 'Collection': return 'text-indigo-600';
+      default: return 'text-gray-600';
+    }
+  };
+
+  return (
+    <Card className={`${getBgColor(title)} border-0 shadow-sm`}>
+      <CardContent className="p-2 sm:p-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-[8px] sm:text-[10px] text-gray-600 font-medium uppercase tracking-wider">
+              {title}
+            </p>
+            <p className="text-xs sm:text-sm font-bold text-gray-900">
+              {value}
+            </p>
+          </div>
+          <div className={`p-1.5 rounded-lg bg-white/70 ${getIconColor(title)}`}>
+            {icon}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// Report Detail Components - KEEP EXISTING
+function RevenueReportDetails({ data, formatCurrency }: any) {
+  const summary = data.summary;
+  
+  return (
+    <div className="space-y-3 sm:space-y-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2">
+        <SummaryCard title="Rent Revenue" value={formatCurrency(summary.rentRevenue || 0)} subtitle={`${summary.rentCount || 0} payments`} bgColor="bg-rose-50" />
+        <SummaryCard title="Deposit Revenue" value={formatCurrency(summary.depositRevenue || 0)} subtitle={`${summary.depositCount || 0} payments`} bgColor="bg-teal-50" />
+        <SummaryCard title="Addon Revenue" value={formatCurrency(summary.addonRevenue || 0)} subtitle={`${summary.addonCount || 0} payments`} bgColor="bg-amber-50" />
+        <SummaryCard title="Total Revenue" value={formatCurrency(summary.totalRevenue || 0)} subtitle={`${summary.paymentCount || 0} payments`} bgColor="bg-indigo-50" />
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-gray-200 text-xs">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-2 py-2 text-left">Payment #</th>
+              <th className="px-2 py-2 text-left">Date</th>
+              <th className="px-2 py-2 text-left">Tenant</th>
+              <th className="px-2 py-2 text-left">Type</th>
+              <th className="px-2 py-2 text-left">Amount</th>
+              <th className="px-2 py-2 text-left">Status</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200">
+            {data.payments?.slice(0, 10).map((payment: any) => (
+              <tr key={payment.id} className="hover:bg-gray-50">
+                <td className="px-2 py-1.5">{payment.payment_number || payment.id}</td>
+                <td className="px-2 py-1.5">{payment.payment_date ? new Date(payment.payment_date).toLocaleDateString() : '-'}</td>
+                <td className="px-2 py-1.5 font-medium">{payment.tenant_name || 'N/A'}</td>
+                <td className="px-2 py-1.5"><Badge variant="outline" className="text-[10px]">{payment.payment_type || 'N/A'}</Badge></td>
+                <td className="px-2 py-1.5 font-semibold">{formatCurrency(payment.amount || 0)}</td>
+                <td className="px-2 py-1.5"><Badge variant={payment.status === 'completed' ? 'default' : 'secondary'} className="text-[10px]">{payment.status || 'N/A'}</Badge></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {data.payments?.length > 10 && <p className="text-center text-xs text-gray-500 mt-2">Showing 10 of {data.payments.length} payments</p>}
+      </div>
+    </div>
+  );
+}
+
+function PaymentsReportDetails({ data, formatCurrency }: any) {
+  const summary = data.summary;
+  
+  return (
+    <div className="space-y-3 sm:space-y-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2">
+        <SummaryCard title="Completed" value={summary.completedPayments?.toString() || '0'} subtitle={formatCurrency(summary.completedAmount || 0)} bgColor="bg-blue-50" />
+        <SummaryCard title="Pending" value={summary.pendingPayments?.toString() || '0'} subtitle={formatCurrency(summary.pendingAmount || 0)} bgColor="bg-orange-50" />
+        <SummaryCard title="Failed" value={summary.failedPayments?.toString() || '0'} subtitle={formatCurrency(summary.failedAmount || 0)} bgColor="bg-red-50" />
+        <SummaryCard title="Collection Rate" value={`${((summary.completedAmount / (summary.totalAmount || 1)) * 100).toFixed(1)}%`} subtitle={`Total: ${formatCurrency(summary.totalAmount || 0)}`} bgColor="bg-green-50" />
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-gray-200 text-xs">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-2 py-2 text-left">Payment #</th>
+              <th className="px-2 py-2 text-left">Date</th>
+              <th className="px-2 py-2 text-left">Tenant</th>
+              <th className="px-2 py-2 text-left">Amount</th>
+              <th className="px-2 py-2 text-left">Method</th>
+              <th className="px-2 py-2 text-left">Status</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200">
+            {data.payments?.slice(0, 10).map((payment: any) => (
+              <tr key={payment.id} className="hover:bg-gray-50">
+                <td className="px-2 py-1.5">{payment.payment_number || payment.id}</td>
+                <td className="px-2 py-1.5">{payment.payment_date ? new Date(payment.payment_date).toLocaleDateString() : '-'}</td>
+                <td className="px-2 py-1.5 font-medium">{payment.tenant_name || 'N/A'}</td>
+                <td className="px-2 py-1.5 font-semibold">{formatCurrency(payment.amount || 0)}</td>
+                <td className="px-2 py-1.5">{payment.payment_method || 'N/A'}</td>
+                <td className="px-2 py-1.5"><Badge variant={payment.status === 'completed' ? 'default' : 'secondary'} className="text-[10px]">{payment.status || 'N/A'}</Badge></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {data.payments?.length > 10 && <p className="text-center text-xs text-gray-500 mt-2">Showing 10 of {data.payments.length} payments</p>}
+      </div>
+    </div>
+  );
+}
+
+function TenantsReportDetails({ data }: any) {
+  const summary = data.summary;
+  
+  return (
+    <div className="space-y-3 sm:space-y-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2">
+        <SummaryCard title="Active Tenants" value={summary.activeTenants?.toString() || '0'} bgColor="bg-blue-50" />
+        <SummaryCard title="Inactive" value={summary.inactiveTenants?.toString() || '0'} bgColor="bg-gray-50" />
+        <SummaryCard title="With Bookings" value={summary.withActiveBookings?.toString() || '0'} bgColor="bg-green-50" />
+        <SummaryCard title="New This Month" value={summary.newTenantsThisMonth?.toString() || '0'} bgColor="bg-purple-50" />
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-gray-200 text-xs">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-2 py-2 text-left">Name</th>
+              <th className="px-2 py-2 text-left">Phone</th>
+              <th className="px-2 py-2 text-left">Gender</th>
+              <th className="px-2 py-2 text-left">Occupation</th>
+              <th className="px-2 py-2 text-left">Status</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200">
+            {data.tenants?.slice(0, 10).map((tenant: any) => (
+              <tr key={tenant.id} className="hover:bg-gray-50">
+                <td className="px-2 py-1.5 font-medium">{tenant.full_name}</td>
+                <td className="px-2 py-1.5">{tenant.phone || '-'}</td>
+                <td className="px-2 py-1.5">{tenant.gender || 'N/A'}</td>
+                <td className="px-2 py-1.5">{tenant.occupation || 'N/A'}</td>
+                <td className="px-2 py-1.5"><Badge variant={tenant.is_active ? 'default' : 'secondary'} className="text-[10px]">{tenant.is_active ? 'Active' : 'Inactive'}</Badge></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {data.tenants?.length > 10 && <p className="text-center text-xs text-gray-500 mt-2">Showing 10 of {data.tenants.length} tenants</p>}
+      </div>
+    </div>
+  );
+}
+
+function OccupancyReportDetails({ data, formatCurrency }: any) {
+  const summary = data.summary;
+  
+  return (
+    <div className="space-y-3 sm:space-y-4">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 sm:gap-2">
+        <SummaryCard title="Total Rooms" value={summary.totalRooms?.toString() || '0'} bgColor="bg-blue-50" />
+        <SummaryCard title="Occupied" value={summary.occupiedRooms?.toString() || '0'} bgColor="bg-green-50" />
+        <SummaryCard title="Vacant" value={summary.vacantRooms?.toString() || '0'} bgColor="bg-orange-50" />
+        <SummaryCard title="Maintenance" value={summary.maintenanceRooms?.toString() || '0'} bgColor="bg-red-50" />
+        <SummaryCard title="Occupancy Rate" value={`${summary.occupancyRate || 0}%`} bgColor="bg-purple-50" />
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-gray-200 text-xs">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-2 py-2 text-left">Property</th>
+              <th className="px-2 py-2 text-left">Room #</th>
+              <th className="px-2 py-2 text-left">Type</th>
+              <th className="px-2 py-2 text-left">Rent</th>
+              <th className="px-2 py-2 text-left">Status</th>
+              <th className="px-2 py-2 text-left">Occupancy</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200">
+            {data.rooms?.slice(0, 10).map((room: any) => (
+              <tr key={room.id} className="hover:bg-gray-50">
+                <td className="px-2 py-1.5">{room.property_name || 'N/A'}</td>
+                <td className="px-2 py-1.5 font-medium">{room.room_number}</td>
+                <td className="px-2 py-1.5">{room.room_type || 'Standard'}</td>
+                <td className="px-2 py-1.5 font-semibold">{formatCurrency(room.rent_amount || 0)}</td>
+                <td className="px-2 py-1.5"><Badge variant={room.status === 'occupied' ? 'default' : room.status === 'vacant' ? 'secondary' : 'destructive'} className="text-[10px]">{room.status || 'N/A'}</Badge></td>
+                <td className="px-2 py-1.5">{room.occupied_beds || 0} / {room.total_bed || 0}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {data.rooms?.length > 10 && <p className="text-center text-xs text-gray-500 mt-2">Showing 10 of {data.rooms.length} rooms</p>}
+      </div>
+    </div>
+  );
+}
+
+function SummaryCard({ title, value, subtitle, bgColor }: any) {
+  return (
+    <div className={`${bgColor} p-2 rounded-lg shadow-sm`}>
+      <p className="text-[10px] text-gray-600 font-medium">{title}</p>
+      <p className="text-sm font-bold text-gray-900">{value}</p>
+      {subtitle && <p className="text-[8px] text-gray-500">{subtitle}</p>}
+    </div>
   );
 }
