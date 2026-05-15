@@ -1199,7 +1199,7 @@ useEffect(() => {
 
       {/* STICKY HEADER + COMPACT STATS */}
       <div style={{ position: "sticky", top: 16, zIndex: 10, background: "#F4F6FB" }}>
-        <div style={{ background: "#fff", borderBottom: "1px solid #E8ECF4", padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8 }}>
+        <div style={{ background: "#fff", borderBottom: "1px solid #E8ECF4", padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8}}>
           {can("create_expenses") && (
             <button onClick={openAdd} style={{ background: "linear-gradient(135deg,#1A2B6D,#3B5BDB)", color: "#fff", border: "none", borderRadius: 8, padding: "7px 14px", fontWeight: 700, fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, boxShadow: "0 3px 10px rgba(59,91,219,0.3)", whiteSpace: "nowrap" }}>
               <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
@@ -1232,37 +1232,251 @@ useEffect(() => {
         {/* TABLE CARD */}
         <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #E8ECF4", overflow: "hidden", boxShadow: "0 2px 12px rgba(0,0,0,0.04)" }}>
           {/* Filters bar */}
-          <div style={{ padding: "12px 14px", borderBottom: "1px solid #F0F3FA", display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-            <div style={{ position: "relative", flex: "1 1 200px", minWidth: 0 }}>
-              <svg style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} width="13" height="13" fill="none" stroke="#8892A4" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
-              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search expenses…" style={{ width: "100%", padding: "9px 12px 9px 32px", border: "1px solid #E8ECF4", borderRadius: 9, fontSize: 12, background: "#F8FAFF", outline: "none", color: "#374151" }} />
-            </div>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", flex: "1 1 auto" }}>
-              <select value={filterProp} onChange={(e) => setFilterProp(e.target.value)} style={{ padding: "9px 12px", border: "1px solid #E8ECF4", borderRadius: 9, fontSize: 12, background: "#F8FAFF", color: "#374151", outline: "none", cursor: "pointer", flex: "1 1 120px", minWidth: 110 }}>
-                <option value="All">All Properties</option>
-                {[...new Set(expenses.map((e) => e.property_name))].map((p) => <option key={p} value={p}>{p}</option>)}
-              </select>
-              <select value={filterCat} onChange={(e) => setFilterCat(e.target.value)} style={{ padding: "9px 12px", border: "1px solid #E8ECF4", borderRadius: 9, fontSize: 12, background: "#F8FAFF", color: "#374151", outline: "none", cursor: "pointer", flex: "1 1 120px", minWidth: 110 }}>
-                <option value="All">All Categories</option>
-                {[...new Set(expenses.map((e) => e.category_name))].map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
-              <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} style={{ padding: "9px 12px", border: "1px solid #E8ECF4", borderRadius: 9, fontSize: 12, background: "#F8FAFF", color: "#374151", outline: "none", cursor: "pointer", flex: "1 1 110px", minWidth: 100 }}>
-                <option value="All">All Statuses</option>
-                <option value="Paid">Paid</option>
-                <option value="Partial">Partial</option>
-                <option value="Pending">Pending</option>
-              </select>
-            </div>
-            <div style={{ fontSize: 11, color: "#8892A4", fontWeight: 500, background: "#EEF1FB", padding: "5px 12px", borderRadius: 20, whiteSpace: "nowrap" }}>{filtered.length} results</div>
-          </div>
+        <div
+  style={{
+    padding: "12px 14px",
+    borderBottom: "1px solid #F0F3FA",
+  }}
+>
+  {/* Desktop View */}
+  {window.innerWidth >= 768 && (
+    <div
+      style={{
+        display: "flex",
+        gap: 8,
+        alignItems: "center",
+      }}
+    >
+      <div
+        style={{
+          position: "relative",
+          flex: "1 1 260px",
+          minWidth: 220,
+        }}
+      >
+        <svg
+          style={{
+            position: "absolute",
+            left: 10,
+            top: "50%",
+            transform: "translateY(-50%)",
+            pointerEvents: "none",
+          }}
+          width="13"
+          height="13"
+          fill="none"
+          stroke="#8892A4"
+          strokeWidth="2"
+          viewBox="0 0 24 24"
+        >
+          <circle cx="11" cy="11" r="8" />
+          <line x1="21" y1="21" x2="16.65" y2="16.65" />
+        </svg>
+
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search expenses…"
+          style={{
+            width: "100%",
+            padding: "9px 12px 9px 32px",
+            border: "1px solid #E8ECF4",
+            borderRadius: 9,
+            fontSize: 12,
+            background: "#F8FAFF",
+            outline: "none",
+            color: "#374151",
+          }}
+        />
+      </div>
+
+      <select
+        value={filterProp}
+        onChange={(e) => setFilterProp(e.target.value)}
+        style={{
+          padding: "9px 12px",
+          border: "1px solid #E8ECF4",
+          borderRadius: 9,
+          fontSize: 12,
+          background: "#F8FAFF",
+          color: "#374151",
+          outline: "none",
+          cursor: "pointer",
+          minWidth: 140,
+        }}
+      >
+        <option value="All">All Properties</option>
+        {[...new Set(expenses.map((e) => e.property_name))].map((p) => (
+          <option key={p} value={p}>
+            {p}
+          </option>
+        ))}
+      </select>
+
+      <select
+        value={filterCat}
+        onChange={(e) => setFilterCat(e.target.value)}
+        style={{
+          padding: "9px 12px",
+          border: "1px solid #E8ECF4",
+          borderRadius: 9,
+          fontSize: 12,
+          background: "#F8FAFF",
+          color: "#374151",
+          outline: "none",
+          cursor: "pointer",
+          minWidth: 140,
+        }}
+      >
+        <option value="All">All Categories</option>
+        {[...new Set(expenses.map((e) => e.category_name))].map((c) => (
+          <option key={c} value={c}>
+            {c}
+          </option>
+        ))}
+      </select>
+
+      <select
+        value={filterStatus}
+        onChange={(e) => setFilterStatus(e.target.value)}
+        style={{
+          padding: "9px 12px",
+          border: "1px solid #E8ECF4",
+          borderRadius: 9,
+          fontSize: 12,
+          background: "#F8FAFF",
+          color: "#374151",
+          outline: "none",
+          cursor: "pointer",
+          minWidth: 130,
+        }}
+      >
+        <option value="All">All Statuses</option>
+        <option value="Paid">Paid</option>
+        <option value="Partial">Partial</option>
+        <option value="Pending">Pending</option>
+      </select>
+    </div>
+  )}
+
+  {/* Mobile View */}
+  {window.innerWidth < 768 && (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <div style={{ position: "relative", width: "100%" }}>
+        <svg
+          style={{
+            position: "absolute",
+            left: 10,
+            top: "50%",
+            transform: "translateY(-50%)",
+            pointerEvents: "none",
+          }}
+          width="13"
+          height="13"
+          fill="none"
+          stroke="#8892A4"
+          strokeWidth="2"
+          viewBox="0 0 24 24"
+        >
+          <circle cx="11" cy="11" r="8" />
+          <line x1="21" y1="21" x2="16.65" y2="16.65" />
+        </svg>
+
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search expenses…"
+          style={{
+            width: "100%",
+            padding: "9px 12px 9px 32px",
+            border: "1px solid #E8ECF4",
+            borderRadius: 9,
+            fontSize: 12,
+            background: "#F8FAFF",
+            outline: "none",
+            color: "#374151",
+          }}
+        />
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          gap: 6,
+          width: "100%",
+        }}
+      >
+        <select
+          value={filterProp}
+          onChange={(e) => setFilterProp(e.target.value)}
+          style={{
+            flex: 1,
+            minWidth: 0,
+            padding: "8px 6px",
+            border: "1px solid #E8ECF4",
+            borderRadius: 9,
+            fontSize: 10,
+            background: "#F8FAFF",
+          }}
+        >
+          <option value="All">All Properties</option>
+          {[...new Set(expenses.map((e) => e.property_name))].map((p) => (
+            <option key={p} value={p}>
+              {p}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={filterCat}
+          onChange={(e) => setFilterCat(e.target.value)}
+          style={{
+            flex: 1,
+            minWidth: 0,
+            padding: "8px 6px",
+            border: "1px solid #E8ECF4",
+            borderRadius: 9,
+            fontSize: 10,
+            background: "#F8FAFF",
+          }}
+        >
+          <option value="All">All Categories</option>
+          {[...new Set(expenses.map((e) => e.category_name))].map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={filterStatus}
+          onChange={(e) => setFilterStatus(e.target.value)}
+          style={{
+            flex: 1,
+            minWidth: 0,
+            padding: "8px 6px",
+            border: "1px solid #E8ECF4",
+            borderRadius: 9,
+            fontSize: 10,
+            background: "#F8FAFF",
+          }}
+        >
+          <option value="All">All Statuses</option>
+          <option value="Paid">Paid</option>
+          <option value="Partial">Partial</option>
+          <option value="Pending">Pending</option>
+        </select>
+      </div>
+    </div>
+  )}
+</div>
 
           {/* Table */}
-          <div style={{ overflowX: "auto" }}>
-            {loading ? (
+<div className={`overflow-y-auto ${filtered.length > 0 ? 'max-h-[210px] sm:max-h-[390px]' : ''}`}>            {loading ? (
               <div style={{ padding: 60, textAlign: "center", color: "#8892A4", fontSize: 14 }}>Loading expenses…</div>
             ) : (
-              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 900, tableLayout: "fixed" }}>
-                <thead>
+              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 900, tableLayout: "fixed" }} >
+                <thead className="sticky top-0 z-10">
                   <tr style={{ background: "#F8FAFF" }}>
                    {["Property", "Category", "Vendor", "Amount", "Paid By", "Receipt", "Date", "Status", "Added By", "Created", "Actions"].map((h, index) => (
   <th key={h} style={{ padding: "12px 8px", textAlign: "left", fontSize: 11, fontWeight: 700, color: "#475569", letterSpacing: 0.5, textTransform: "uppercase", borderBottom: "1.5px solid #E2E8F0", whiteSpace: "nowrap", width: index === 0 ? "12%" : index === 1 ? "10%" : index === 2 ? "10%" : index === 3 ? "8%" : index === 4 ? "10%" : index === 5 ? "6%" : index === 6 ? "8%" : index === 7 ? "8%" : index === 8 ? "8%" : index === 9 ? "10%" : "10%" }}>{h}</th>
@@ -1350,7 +1564,7 @@ useEffect(() => {
       : "⏳ Unpaid"}
   </span>
 </td>
-                          <td style={{ padding: "10px 8px", fontSize: 11, color: "#475569" }}>{exp.added_by_name || "—"}</td>
+<td style={{ padding: "10px 8px", fontSize: 11, color: "#475569" }}>{exp.added_by_name || "—"}</td>
 <td style={{ padding: "10px 8px", fontSize: 10, color: "#94A3B8" }}>
   <div>{new Date(exp.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</div>
   <div style={{ fontSize: 9, color: "#B0BAC9", marginTop: 2 }}>{new Date(exp.created_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</div>
@@ -1430,8 +1644,15 @@ useEffect(() => {
           {/* Table footer */}
           <div style={{ padding: "12px 14px", background: "#F8FAFF", borderTop: "1px solid #F0F3FA", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
             <div style={{ fontSize: 11, color: "#8892A4" }}>Showing <span style={{ fontWeight: 600, color: "#1A2B6D" }}>{filtered.length}</span> of <span style={{ fontWeight: 600, color: "#1A2B6D" }}>{expenses.length}</span></div>
-            <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-              <span style={{ fontSize: 12, color: "#1B7A4E", fontWeight: 700 }}>Paid: {fmt(filtered.filter((e) => e.status === "Paid").reduce((s: number, e: any) => s + Number(e.total_paid || 0), 0))}</span>
+<div
+  style={{
+    display: "flex",
+    gap: 16,
+    flexWrap: window.innerWidth < 768 ? "nowrap" : "wrap",
+    overflowX: "auto",
+    alignItems: "center",
+  }}
+>              <span style={{ fontSize: 12, color: "#1B7A4E", fontWeight: 700 }}>Paid: {fmt(filtered.filter((e) => e.status === "Paid").reduce((s: number, e: any) => s + Number(e.total_paid || 0), 0))}</span>
               <span style={{ fontSize: 12, color: "#B45309", fontWeight: 700 }}>Balance: {fmt(filtered.reduce((s: number, e: any) => s + Number(e.balance || 0), 0))}</span>
               <span style={{ fontSize: 13, color: "#1A2B6D", fontWeight: 800 }}>Total: {fmt(filtered.reduce((s: number, e: any) => s + Number(e.total_amount || e.amount || 0), 0))}</span>
             </div>

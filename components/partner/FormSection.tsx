@@ -212,11 +212,13 @@ onClosePopup();
                 </div>
 
                 {/* ================= SCROLLABLE FORM BODY - More compact on mobile ================= */}
-               <form onSubmit={handleFormSubmit} className="flex-1 flex flex-col overflow-hidden">
-  <div className="flex-1 overflow-y-auto px-3 sm:px-6 py-3 sm:py-5 space-y-2.5 sm:space-y-4">
+         <form onSubmit={handleFormSubmit} className="flex-1 flex flex-col overflow-hidden">
+  <div className="flex-1 overflow-y-auto px-3 sm:px-6 py-3 sm:py-5">
     
-    {/* Row 1 - Company Name, Contact Person, Phone */}
+    {/* All fields in one unified grid - 2 cols mobile, 3 cols desktop */}
     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-4">
+      
+      {/* Company Name */}
       <div className="space-y-0.5 sm:space-y-1">
         <Label className="text-[11px] sm:text-xs font-medium text-slate-600">
           Company Name *
@@ -230,6 +232,7 @@ onClosePopup();
         />
       </div>
 
+      {/* Contact Person */}
       <div className="space-y-0.5 sm:space-y-1">
         <Label className="text-[11px] sm:text-xs font-medium text-slate-600">
           Contact Person *
@@ -243,40 +246,30 @@ onClosePopup();
         />
       </div>
 
+      {/* Phone */}
       <div className="space-y-0.5 sm:space-y-1">
-  <Label className="text-[11px] sm:text-xs font-medium text-slate-600">
-    Phone No*
-  </Label>
+        <Label className="text-[11px] sm:text-xs font-medium text-slate-600">
+          Phone No*
+        </Label>
+        <Input
+          type="tel"
+          name="phone"
+          value={formData.phone}
+          onChange={(e) => {
+            const value = e.target.value.replace(/\D/g, "");
+            if (value.length <= 10) {
+              onChange({ target: { name: "phone", value } });
+            }
+          }}
+          inputMode="numeric"
+          pattern="[0-9]*"
+          maxLength={10}
+          required
+          className="h-8 sm:h-9 text-xs sm:text-sm px-2 sm:px-3"
+        />
+      </div>
 
-  <Input
-    type="tel"
-    name="phone"
-    value={formData.phone}
-    onChange={(e) => {
-      // Sirf numbers allow
-      const value = e.target.value.replace(/\D/g, "");
-
-      // Max 10 digits
-      if (value.length <= 10) {
-        onChange({
-          target: {
-            name: "phone",
-            value,
-          },
-        });
-      }
-    }}
-    inputMode="numeric"
-    pattern="[0-9]*"
-    maxLength={10}
-    required
-    className="h-8 sm:h-9 text-xs sm:text-sm px-2 sm:px-3"
-  />
-</div>
-    </div>
-
-    {/* Row 2 - Email, Property Type, Number of Properties */}
-    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-4">
+      {/* Email */}
       <div className="space-y-0.5 sm:space-y-1">
         <Label className="text-[11px] sm:text-xs font-medium text-slate-600">
           Email *
@@ -291,6 +284,7 @@ onClosePopup();
         />
       </div>
 
+      {/* Property Type */}
       <div className="space-y-0.5 sm:space-y-1">
         <Label className="text-[11px] sm:text-xs font-medium text-slate-600">
           Property Type *
@@ -313,6 +307,7 @@ onClosePopup();
         </Select>
       </div>
 
+      {/* Number of Properties */}
       <div className="space-y-0.5 sm:space-y-1">
         <Label className="text-[11px] sm:text-xs font-medium text-slate-600">
           Number of Properties *
@@ -327,10 +322,8 @@ onClosePopup();
           className="h-8 sm:h-9 text-xs sm:text-sm px-2 sm:px-3"
         />
       </div>
-    </div>
 
-    {/* Row 3 - No of Buildings, No of Rooms, City */}
-    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-4">
+      {/* No. of Buildings */}
       <div className="space-y-0.5 sm:space-y-1">
         <Label className="text-[11px] sm:text-xs font-medium text-slate-600">
           No. of Buildings *
@@ -346,6 +339,7 @@ onClosePopup();
         />
       </div>
 
+      {/* No. of Rooms */}
       <div className="space-y-0.5 sm:space-y-1">
         <Label className="text-[11px] sm:text-xs font-medium text-slate-600">
           No. of Rooms *
@@ -361,6 +355,7 @@ onClosePopup();
         />
       </div>
 
+      {/* City */}
       <div className="space-y-0.5 sm:space-y-1">
         <Label className="text-[11px] sm:text-xs font-medium text-slate-600">
           City *
@@ -373,10 +368,8 @@ onClosePopup();
           className="h-8 sm:h-9 text-xs sm:text-sm px-2 sm:px-3"
         />
       </div>
-    </div>
 
-    {/* Row 4 - Locality, Primary Location */}
-    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-4">
+      {/* Locality */}
       <div className="space-y-0.5 sm:space-y-1">
         <Label className="text-[11px] sm:text-xs font-medium text-slate-600">
           Locality *
@@ -390,6 +383,7 @@ onClosePopup();
         />
       </div>
 
+      {/* Primary Location - spans 2 cols on desktop, full row on mobile */}
       <div className="space-y-0.5 sm:space-y-1 col-span-1 sm:col-span-2">
         <Label className="text-[11px] sm:text-xs font-medium text-slate-600">
           Primary Location *
@@ -402,54 +396,47 @@ onClosePopup();
           className="h-8 sm:h-9 text-xs sm:text-sm px-2 sm:px-3"
         />
       </div>
-    </div>
 
-    {/* Message - Full width */}
-    <div className="space-y-0.5 sm:space-y-1">
-      <Label className="text-[11px] sm:text-xs font-medium text-slate-600">
-        Additional Information
-      </Label>
-      <Textarea
-        name="message"
-        value={formData.message}
-        onChange={onChange}
-        rows={2}
-        className="text-xs sm:text-sm px-2 sm:px-3 min-h-[60px] sm:min-h-[80px]"
-      />
+      {/* Additional Information - full width always */}
+      <div className="space-y-0.5 sm:space-y-1 col-span-2 sm:col-span-3">
+        <Label className="text-[11px] sm:text-xs font-medium text-slate-600">
+          Additional Information
+        </Label>
+        <Textarea
+          name="message"
+          value={formData.message}
+          onChange={onChange}
+          rows={2}
+          className="text-xs sm:text-sm px-2 sm:px-3 min-h-[60px] sm:min-h-[80px]"
+        />
+      </div>
+
     </div>
   </div>
 
   {/* ================= STICKY FOOTER ================= */}
-  {/* ================= STICKY FOOTER ================= */}
-<div className="sticky bottom-0 bg-white border-t border-slate-200 px-3 sm:px-6 py-2 sm:py-4">
-  <div className="flex items-center justify-between gap-3">
-    
-
-     <Button
-      type="submit"
-      className="w-1/2 bg-slate-900 hover:bg-slate-800 text-white h-9 sm:h-11 text-xs sm:text-sm font-semibold"
-      disabled={localSubmitting}
-    >
-      {localSubmitting ? "Submitting..." : "Submit Partnership Inquiry"}
-    </Button>
-    {/* LEFT - Cancel Button */}
-    <Button
-      type="button"
-      onClick={onClosePopup}
-      className="w-1/2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 h-9 sm:h-11 text-xs sm:text-sm font-semibold"
-    >
-      Cancel
-    </Button>
-
-    {/* RIGHT - Submit Button */}
-   
-
+  <div className="sticky bottom-0 bg-white border-t border-slate-200 px-3 sm:px-6 py-2 sm:py-4">
+    <div className="flex items-center justify-between gap-3">
+      
+      <Button
+        type="button"
+        onClick={onClosePopup}
+        className="w-1/2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 h-9 sm:h-11 text-xs sm:text-sm font-semibold"
+      >
+        Cancel
+      </Button>
+      <Button
+        type="submit"
+        className="w-1/2 bg-slate-900 hover:bg-slate-800 text-white h-9 sm:h-8 text-[10px] sm:text-sm font-semibold"
+        disabled={localSubmitting}
+      >
+        {localSubmitting ? "Submitting..." : "Submit Partnership Inquiry"}
+      </Button>
+    </div>
+    <p className="text-[9px] sm:text-[11px] text-center text-slate-500 mt-1 sm:mt-2">
+      By submitting, you agree to our Terms & Privacy Policy.
+    </p>
   </div>
-
-  <p className="text-[9px] sm:text-[11px] text-center text-slate-500 mt-1 sm:mt-2">
-    By submitting, you agree to our Terms & Privacy Policy.
-  </p>
-</div>
 </form>
               </div>
             </div>
