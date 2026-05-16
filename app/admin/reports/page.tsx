@@ -51,7 +51,10 @@ import {
   GraduationCap,
   Landmark,
   Store,
-  Laptop
+  Laptop,
+  User,
+  Search,
+  ChevronDown
 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, startOfYear, endOfYear, subDays } from 'date-fns';
 import { toast } from 'sonner';
@@ -62,7 +65,9 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState(false);
   const [dashboardLoading, setDashboardLoading] = useState(true);
   const [properties, setProperties] = useState<reportApi.PropertyOption[]>([]);
+  const [tenantsList, setTenantsList] = useState<any[]>([]);
   const [selectedProperty, setSelectedProperty] = useState<reportApi.PropertyOption | null>(null);
+  const [selectedTenant, setSelectedTenant] = useState<any>(null);
   const [dashboardStats, setDashboardStats] = useState<reportApi.DashboardStats>({
     totalProperties: 0,
     totalRooms: 0,
@@ -84,6 +89,10 @@ export default function ReportsPage() {
   const [roomDetails, setRoomDetails] = useState<any[]>([]);
   const [tenantDetails, setTenantDetails] = useState<any[]>([]);
   const [paymentDetails, setPaymentDetails] = useState<any[]>([]);
+  const [tenantPaymentReport, setTenantPaymentReport] = useState<any>(null);
+  const [propertyPaymentReport, setPropertyPaymentReport] = useState<any>(null);
+  const [tenantSearchOpen, setTenantSearchOpen] = useState(false);
+  const [tenantSearchTerm, setTenantSearchTerm] = useState('');
   
   const [filters, setFilters] = useState<reportApi.ReportFilters>({
     reportType: 'revenue',
@@ -107,6 +116,7 @@ export default function ReportsPage() {
   // Load properties on mount
   useEffect(() => {
     loadProperties();
+    loadTenantsList();
   }, []);
 
   // Load dashboard stats when filters change
@@ -133,6 +143,18 @@ export default function ReportsPage() {
     } catch (err) {
       console.error('Error loading properties:', err);
       toast.error('Failed to load properties');
+    }
+  };
+
+  const loadTenantsList = async () => {
+    try {
+      const response = await fetch(`/api/reports/tenants-list`);
+      const data = await response.json();
+      if (data.success) {
+        setTenantsList(data.data);
+      }
+    } catch (err) {
+      console.error('Error loading tenants list:', err);
     }
   };
 
@@ -232,9 +254,89 @@ export default function ReportsPage() {
     setSelectedProperty(selected || null);
   };
 
+  const handleTenantSelect = (tenant: any) => {
+    setSelectedTenant(tenant);
+    setTenantSearchOpen(false);
+    setTenantSearchTerm('');
+  };
+
+  const generateTenantPaymentReport = async () => {
+    if (!selectedTenant) {
+      toast.error('Please select a tenant');
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      const url = `/api/reports/tenant-payment-report?tenantId=${selectedTenant.id}&startDate=${filters.startDate}&endDate=${filters.endDate}`;
+      const response = await fetch(url);
+      const data = await response.json();
+      
+      if (data.success) {
+        setTenantPaymentReport(data.data);
+        setPropertyPaymentReport(null);
+        setActiveTab('report');
+        toast.success(`Payment report generated for ${selectedTenant.full_name}`);
+        
+        setTimeout(() => {
+          reportSectionRef.current?.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'start' 
+          });
+        }, 100);
+      } else {
+        toast.error(data.message || 'Failed to generate report');
+      }
+    } catch (error) {
+      console.error('Error generating tenant payment report:', error);
+      toast.error('Failed to generate report');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+// In the generatePropertyPaymentReport function, update:
+const generatePropertyPaymentReport = async () => {
+  if (!selectedProperty || filters.propertyId === 'all') {
+    toast.error('Please select a property');
+    return;
+  }
+  
+  setLoading(true);
+  try {
+    const url = `/api/reports/property-payment-report?propertyId=${selectedProperty.id}&startDate=${filters.startDate}&endDate=${filters.endDate}`;
+    const response = await fetch(url);
+    const data = await response.json();
+    
+    if (data.success) {
+      // Store the data from data.data
+      setPropertyPaymentReport(data.data);
+      setTenantPaymentReport(null);
+      setActiveTab('report');
+      toast.success(`Payment report generated for ${selectedProperty.name}`);
+      
+      setTimeout(() => {
+        reportSectionRef.current?.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'start' 
+        });
+      }, 100);
+    } else {
+      toast.error(data.message || 'Failed to generate report');
+    }
+  } catch (error) {
+    console.error('Error generating property payment report:', error);
+    toast.error('Failed to generate report');
+  } finally {
+    setLoading(false);
+  }
+};
+
   const generateReport = async () => {
     setLoading(true);
     setReportData(null);
+    setTenantPaymentReport(null);
+    setPropertyPaymentReport(null);
     
     try {
       let response;
@@ -282,6 +384,14 @@ export default function ReportsPage() {
             collectionRate: 0
           });
           break;
+        case 'tenant_payment':
+          await generateTenantPaymentReport();
+          setLoading(false);
+          return;
+        case 'property_payment':
+          await generatePropertyPaymentReport();
+          setLoading(false);
+          return;
       }
       
       setReportData(response);
@@ -303,12 +413,182 @@ export default function ReportsPage() {
   };
 
   const exportToExcel = async () => {
-    if (!reportData) {
-      toast.error('No data to export');
-      return;
-    }
-
-    try {
+    if (tenantPaymentReport) {
+      // Export tenant payment report
+      const wb = XLSX.utils.book_new();
+      
+      // Tenant Info Sheet
+      const tenantInfoData = [{
+        'Tenant Name': tenantPaymentReport.tenant.name,
+        'Email': tenantPaymentReport.tenant.email,
+        'Phone': tenantPaymentReport.tenant.phone,
+        'Property': tenantPaymentReport.tenant.property_name,
+        'Room': tenantPaymentReport.tenant.room_number,
+        'Bed': tenantPaymentReport.tenant.bed_number,
+        'Monthly Rent': tenantPaymentReport.tenant.monthly_rent,
+        'Check-in Date': tenantPaymentReport.tenant.check_in_date,
+        'Months Completed': tenantPaymentReport.tenant.months_since_joining
+      }];
+      const tenantInfoWs = XLSX.utils.json_to_sheet(tenantInfoData);
+      XLSX.utils.book_append_sheet(wb, tenantInfoWs, 'Tenant Info');
+      
+      // Summary Sheet
+      const summaryData = [{
+        'Metric': 'Expected Rent',
+        'Value': tenantPaymentReport.summary.expected_rent
+      }, {
+        'Metric': 'Paid Rent',
+        'Value': tenantPaymentReport.summary.paid_rent
+      }, {
+        'Metric': 'Pending Rent',
+        'Value': tenantPaymentReport.summary.pending_rent
+      }, {
+        'Metric': 'Collection Rate',
+        'Value': `${tenantPaymentReport.summary.collection_rate.toFixed(1)}%`
+      }, {
+        'Metric': 'Security Deposit Total',
+        'Value': tenantPaymentReport.summary.security_deposit_total
+      }, {
+        'Metric': 'Security Deposit Paid',
+        'Value': tenantPaymentReport.summary.security_deposit_paid
+      }, {
+        'Metric': 'Security Deposit Pending',
+        'Value': tenantPaymentReport.summary.security_deposit_pending
+      }];
+      const summaryWs = XLSX.utils.json_to_sheet(summaryData);
+      XLSX.utils.book_append_sheet(wb, summaryWs, 'Summary');
+      
+      // Rent Payments Sheet
+      if (tenantPaymentReport.rent_payments?.length > 0) {
+        const rentData = tenantPaymentReport.rent_payments.map((p: any) => ({
+          'Date': new Date(p.payment_date).toLocaleDateString('en-IN'),
+          'Amount': p.amount,
+          'Mode': p.payment_mode,
+          'Month': p.month,
+          'Year': p.year,
+          'Status': p.status,
+          'Transaction ID': p.transaction_id || '-'
+        }));
+        const rentWs = XLSX.utils.json_to_sheet(rentData);
+        XLSX.utils.book_append_sheet(wb, rentWs, 'Rent Payments');
+      }
+      
+      // Month-wise Rent Sheet
+      if (tenantPaymentReport.month_wise_rent?.length > 0) {
+        const monthData = tenantPaymentReport.month_wise_rent.map((m: any) => ({
+          'Month': `${m.month} ${m.year}`,
+          'Expected Rent': m.expected,
+          'Paid Rent': m.paid,
+          'Pending Rent': m.pending,
+          'Status': m.pending === 0 ? 'Paid' : m.paid > 0 ? 'Partial' : 'Pending'
+        }));
+        const monthWs = XLSX.utils.json_to_sheet(monthData);
+        XLSX.utils.book_append_sheet(wb, monthWs, 'Month-wise Rent');
+      }
+      
+      // Deposit Payments Sheet
+      if (tenantPaymentReport.deposit_payments?.length > 0) {
+        const depositData = tenantPaymentReport.deposit_payments.map((p: any) => ({
+          'Date': new Date(p.payment_date).toLocaleDateString('en-IN'),
+          'Amount': p.amount,
+          'Mode': p.payment_mode,
+          'Status': p.status,
+          'Transaction ID': p.transaction_id || '-'
+        }));
+        const depositWs = XLSX.utils.json_to_sheet(depositData);
+        XLSX.utils.book_append_sheet(wb, depositWs, 'Security Deposit Payments');
+      }
+      
+      const filename = `tenant_payment_report_${tenantPaymentReport.tenant.name.replace(/\s/g, '_')}_${format(new Date(), 'yyyy-MM-dd')}.xlsx`;
+      XLSX.writeFile(wb, filename);
+      toast.success('Report exported successfully');
+      
+    } else if (propertyPaymentReport) {
+      // Export property payment report
+      const wb = XLSX.utils.book_new();
+      
+      // Property Info Sheet
+      const propertyInfoData = [{
+        'Property Name': propertyPaymentReport.summary.property.name,
+        'Address': propertyPaymentReport.summary.property.address,
+        'Total Rooms': propertyPaymentReport.summary.property.total_rooms,
+        'Total Beds': propertyPaymentReport.summary.property.total_beds,
+        'Occupied Beds': propertyPaymentReport.summary.property.occupied_beds,
+        'Available Beds': propertyPaymentReport.summary.property.available_beds,
+        'Occupancy Rate': `${propertyPaymentReport.summary.property.occupancy_rate.toFixed(1)}%`,
+        'Total Tenants': propertyPaymentReport.summary.financial_summary.total_tenants,
+        'Active Tenants': propertyPaymentReport.summary.financial_summary.active_tenants
+      }];
+      const propertyInfoWs = XLSX.utils.json_to_sheet(propertyInfoData);
+      XLSX.utils.book_append_sheet(wb, propertyInfoWs, 'Property Info');
+      
+      // Financial Summary Sheet
+      const financialData = [{
+        'Metric': 'Total Rent to be Collected',
+        'Value': propertyPaymentReport.summary.financial_summary.total_rent_to_be_collected
+      }, {
+        'Metric': 'Total Rent Collected',
+        'Value': propertyPaymentReport.summary.financial_summary.total_rent_collected
+      }, {
+        'Metric': 'Total Rent Pending',
+        'Value': propertyPaymentReport.summary.financial_summary.total_rent_pending
+      }, {
+        'Metric': 'Rent Collection Rate',
+        'Value': `${propertyPaymentReport.summary.financial_summary.total_rent_collection_rate.toFixed(1)}%`
+      }, {
+        'Metric': 'Total Security Deposit to be Collected',
+        'Value': propertyPaymentReport.summary.financial_summary.total_security_deposit_to_be_collected
+      }, {
+        'Metric': 'Total Security Deposit Collected',
+        'Value': propertyPaymentReport.summary.financial_summary.total_security_deposit_collected
+      }, {
+        'Metric': 'Total Security Deposit Pending',
+        'Value': propertyPaymentReport.summary.financial_summary.total_security_deposit_pending
+      }];
+      const financialWs = XLSX.utils.json_to_sheet(financialData);
+      XLSX.utils.book_append_sheet(wb, financialWs, 'Financial Summary');
+      
+      // Floor Stats Sheet
+      if (propertyPaymentReport.summary.floor_stats?.length > 0) {
+        const floorData = propertyPaymentReport.summary.floor_stats.map((f: any) => ({
+          'Floor': f.floor,
+          'Total Rooms': f.total_rooms,
+          'Total Beds': f.total_beds,
+          'Occupied Beds': f.occupied_beds,
+          'Available Beds': f.available_beds
+        }));
+        const floorWs = XLSX.utils.json_to_sheet(floorData);
+        XLSX.utils.book_append_sheet(wb, floorWs, 'Floor-wise Stats');
+      }
+      
+      // Tenant-wise Report Sheet
+      if (propertyPaymentReport.summary.tenant_reports?.length > 0) {
+        const tenantData = propertyPaymentReport.summary.tenant_reports.map((t: any) => ({
+          'Tenant Name': t.tenant_name,
+          'Phone': t.tenant_phone,
+          'Room': t.room_number,
+          'Bed': t.bed_number,
+          'Monthly Rent': t.monthly_rent,
+          'Months Completed': t.months_completed,
+          'Expected Rent': t.expected_rent,
+          'Paid Rent': t.paid_rent,
+          'Pending Rent': t.pending_rent,
+          'Collection Rate': `${t.rent_collection_rate.toFixed(1)}%`,
+          'Security Deposit': t.security_deposit,
+          'Deposit Paid': t.paid_deposit,
+          'Deposit Pending': t.pending_deposit,
+          'Status': t.is_active ? 'Active' : 'Inactive'
+        }));
+        const tenantWs = XLSX.utils.json_to_sheet(tenantData);
+        XLSX.utils.book_append_sheet(wb, tenantWs, 'Tenant-wise Report');
+      }
+      
+      const filename = `property_payment_report_${propertyPaymentReport.summary.property.name.replace(/\s/g, '_')}_${format(new Date(), 'yyyy-MM-dd')}.xlsx`;
+      XLSX.writeFile(wb, filename);
+      toast.success('Report exported successfully');
+      
+    } else if (reportData) {
+      // Existing export logic for other reports
       let exportData: any[] = [];
       let worksheetName = '';
       let summaryData: any[] = [];
@@ -389,21 +669,16 @@ export default function ReportsPage() {
       
       const filename = `${filters.reportType}_report_${format(new Date(), 'yyyy-MM-dd_HH-mm')}.xlsx`;
       XLSX.writeFile(wb, filename);
-      toast.success('Report exported successfully as Excel');
-    } catch (error) {
-      console.error('Error exporting report:', error);
-      toast.error('Failed to export report');
+      toast.success('Report exported successfully');
     }
   };
 
   const handlePrint = () => {
-    if (!reportData) {
+    if (!reportData && !tenantPaymentReport && !propertyPaymentReport) {
       toast.error('No data to print');
       return;
     }
-    
-    const propertyName = selectedProperty?.name;
-    reportApi.printReport(filters.reportType, reportData, filters, propertyName);
+    window.print();
     toast.success('Opening print dialog...');
   };
 
@@ -422,43 +697,17 @@ export default function ReportsPage() {
     return selectedProperty?.name || 'Loading...';
   };
 
-  // Calculate metrics from loaded data
-  const totalProperties = propertyDetails.length;
-  const activeProperties = propertyDetails.filter((p: any) => p.is_active).length;
-  const totalRooms = roomDetails.length;
-  const occupiedRooms = roomDetails.filter((r: any) => r.occupied_beds > 0).length;
-  const vacantRooms = totalRooms - occupiedRooms;
-  const totalBeds = roomDetails.reduce((sum: number, r: any) => sum + (r.total_bed || 0), 0);
-  const occupiedBeds = roomDetails.reduce((sum: number, r: any) => sum + (r.occupied_beds || 0), 0);
-  const availableBeds = totalBeds - occupiedBeds;
-  const bedOccupancyRate = totalBeds > 0 ? (occupiedBeds / totalBeds) * 100 : 0;
-  const roomOccupancyRate = totalRooms > 0 ? (occupiedRooms / totalRooms) * 100 : 0;
-  
-  const totalTenants = tenantDetails.length;
-  const activeTenants = tenantDetails.filter((t: any) => t.is_active).length;
-  const coupleBookings = tenantDetails.filter((t: any) => t.is_couple_booking).length;
-  
-  const totalPaymentsAmount = paymentDetails.reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
-  const approvedPayments = paymentDetails.filter((p: any) => p.status === 'approved' || p.status === 'paid');
-  const pendingPayments = paymentDetails.filter((p: any) => p.status === 'pending');
-  const pendingAmount = pendingPayments.reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
-  const collectionRate = totalPaymentsAmount > 0 ? (approvedPayments.reduce((sum, p) => sum + (p.amount || 0), 0) / totalPaymentsAmount) * 100 : 0;
-
-  // Gender distribution
-  const maleTenants = tenantDetails.filter((t: any) => t.gender === 'Male').length;
-  const femaleTenants = tenantDetails.filter((t: any) => t.gender === 'Female').length;
-
-  // Occupation distribution
-  const occupationCounts: Record<string, number> = {};
-  tenantDetails.forEach((t: any) => {
-    const occ = t.occupation_category || 'Other';
-    occupationCounts[occ] = (occupationCounts[occ] || 0) + 1;
-  });
+  // Filtered tenants for search
+  const filteredTenants = tenantsList.filter(tenant =>
+    tenant.full_name?.toLowerCase().includes(tenantSearchTerm.toLowerCase()) ||
+    tenant.phone?.includes(tenantSearchTerm) ||
+    tenant.email?.toLowerCase().includes(tenantSearchTerm.toLowerCase())
+  );
 
   return (
     <div className="p-1 sm:p-4 md:p-4 space-y-3 sm:space-y-4 md:space-y-6 max-w-full overflow-x-hidden -mt-7">
 
-      {/* Stats Cards Row - KEEP EXISTING UI */}
+      {/* Stats Cards Row */}
       <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 sm:gap-2">
         <StatCard
           title="Total Properties"
@@ -498,7 +747,7 @@ export default function ReportsPage() {
         />
       </div>
 
-      {/* Extended Stats Cards - KEEP EXISTING UI */}
+      {/* Extended Stats Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2">
         <ExtendedStatCard
           title="Collection Rate"
@@ -531,7 +780,7 @@ export default function ReportsPage() {
         />
       </div>
 
-      {/* Filters Card - KEEP EXISTING UI */}
+      {/* Filters Card */}
       <Card className="border-0 shadow-sm">
         <CardHeader className="pb-2 sm:pb-4 px-3 sm:px-6">
           <CardTitle className="flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base">
@@ -556,6 +805,8 @@ export default function ReportsPage() {
                   <SelectItem value="payments" className="text-xs">💰 Payments Report</SelectItem>
                   <SelectItem value="tenants" className="text-xs">👥 Tenants Report</SelectItem>
                   <SelectItem value="occupancy" className="text-xs">🏠 Occupancy Report</SelectItem>
+                  <SelectItem value="tenant_payment" className="text-xs">👤 Tenant Payment Report</SelectItem>
+                  <SelectItem value="property_payment" className="text-xs">🏢 Property Payment Report</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -605,29 +856,96 @@ export default function ReportsPage() {
               />
             </div>
 
-            {/* Property */}
-            <div className="space-y-1 sm:space-y-2">
-              <Label className="text-xs">Property</Label>
-              <Select value={filters.propertyId} onValueChange={handlePropertyChange}>
-                <SelectTrigger className="h-8 sm:h-9 text-xs">
-                  <SelectValue placeholder="Select property" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all" className="text-xs">🏢 All Properties</SelectItem>
-                  {properties.map(property => (
-                    <SelectItem key={property.id} value={property.id} className="text-xs">
-                      <span>{property.name}</span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Property - Only show for property-specific reports */}
+            {(filters.reportType === 'property_payment' || filters.reportType === 'occupancy') && (
+              <div className="space-y-1 sm:space-y-2">
+                <Label className="text-xs">Property</Label>
+                <Select value={filters.propertyId} onValueChange={handlePropertyChange}>
+                  <SelectTrigger className="h-8 sm:h-9 text-xs">
+                    <SelectValue placeholder="Select property" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all" className="text-xs">🏢 All Properties</SelectItem>
+                    {properties.map(property => (
+                      <SelectItem key={property.id} value={property.id} className="text-xs">
+                        <span>{property.name}</span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Tenant Selection - Only for tenant payment report */}
+            {filters.reportType === 'tenant_payment' && (
+              <div className="space-y-1 sm:space-y-2 relative">
+                <Label className="text-xs">Select Tenant</Label>
+                <div className="relative">
+                  <button
+                    onClick={() => setTenantSearchOpen(!tenantSearchOpen)}
+                    className="w-full h-8 sm:h-9 px-3 text-xs border rounded-md bg-white flex items-center justify-between hover:border-blue-400 transition-colors"
+                  >
+                    <span className={selectedTenant ? 'text-gray-900' : 'text-gray-400'}>
+                      {selectedTenant ? selectedTenant.full_name : 'Search and select tenant...'}
+                    </span>
+                    <ChevronDown className="h-3 w-3 text-gray-400" />
+                  </button>
+                  
+                  {tenantSearchOpen && (
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border rounded-md shadow-lg z-50 max-h-60 overflow-y-auto">
+                      <div className="sticky top-0 bg-white p-2 border-b">
+                        <div className="relative">
+                          <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-gray-400" />
+                          <input
+                            type="text"
+                            placeholder="Search by name, phone or email..."
+                            value={tenantSearchTerm}
+                            onChange={(e) => setTenantSearchTerm(e.target.value)}
+                            className="w-full pl-7 pr-2 py-1 text-xs border rounded-md focus:outline-none focus:border-blue-400"
+                            autoFocus
+                          />
+                        </div>
+                      </div>
+                      <div className="divide-y">
+                        {filteredTenants.length === 0 ? (
+                          <div className="p-3 text-center text-xs text-gray-500">No tenants found</div>
+                        ) : (
+                          filteredTenants.map(tenant => (
+                            <div
+                              key={tenant.id}
+                              className="p-2 hover:bg-gray-50 cursor-pointer transition-colors"
+                              onClick={() => handleTenantSelect(tenant)}
+                            >
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <p className="text-xs font-medium">{tenant.full_name}</p>
+                                  <p className="text-[10px] text-gray-500">{tenant.phone}</p>
+                                </div>
+                                <Badge variant="outline" className="text-[9px]">
+                                  {tenant.property_name || 'No Property'}
+                                </Badge>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                {selectedTenant && (
+                  <div className="mt-1 text-[10px] text-green-600 flex items-center gap-1">
+                    <CheckCircle2 className="h-3 w-3" />
+                    Tenant selected: {selectedTenant.full_name} ({selectedTenant.property_name || 'No property'})
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Generate Button */}
             <div className="flex items-end">
               <Button 
                 onClick={generateReport} 
-                disabled={loading} 
+                disabled={loading || (filters.reportType === 'tenant_payment' && !selectedTenant) || (filters.reportType === 'property_payment' && filters.propertyId === 'all')} 
                 className="w-full h-8 sm:h-9 text-xs bg-gradient-to-r from-[#0A1F5C] to-[#1E4ED8] hover:from-[#0A1F5C] hover:to-[#2563eb]"
               >
                 {loading ? (
@@ -651,10 +969,18 @@ export default function ReportsPage() {
               <Calendar className="h-2.5 w-2.5 mr-1" />
               {filters.startDate} to {filters.endDate}
             </Badge>
-            <Badge variant="outline" className="px-2 py-0.5 text-[10px] sm:text-xs">
-              <Building2 className="h-2.5 w-2.5 mr-1" />
-              {getPropertyDisplay()}
-            </Badge>
+            {(filters.reportType === 'property_payment' || filters.reportType === 'occupancy') && filters.propertyId !== 'all' && (
+              <Badge variant="outline" className="px-2 py-0.5 text-[10px] sm:text-xs">
+                <Building2 className="h-2.5 w-2.5 mr-1" />
+                {getPropertyDisplay()}
+              </Badge>
+            )}
+            {filters.reportType === 'tenant_payment' && selectedTenant && (
+              <Badge variant="outline" className="px-2 py-0.5 text-[10px] sm:text-xs">
+                <User className="h-2.5 w-2.5 mr-1" />
+                {selectedTenant.full_name}
+              </Badge>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -663,7 +989,7 @@ export default function ReportsPage() {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="w-full sm:w-auto grid grid-cols-2 sm:inline-flex h-9">
           <TabsTrigger value="overview" className="text-xs sm:text-sm">Quick Actions</TabsTrigger>
-          <TabsTrigger value="report" disabled={!reportData} className="text-xs sm:text-sm">
+          <TabsTrigger value="report" disabled={!reportData && !tenantPaymentReport && !propertyPaymentReport} className="text-xs sm:text-sm">
             Generated Report
           </TabsTrigger>
         </TabsList>
@@ -674,7 +1000,7 @@ export default function ReportsPage() {
               <CardTitle className="text-sm sm:text-base">Generate Reports Quickly</CardTitle>
             </CardHeader>
             <CardContent className="px-3 sm:px-6">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-5 gap-2">
                 <QuickActionButton
                   icon={<IndianRupee className="h-4 w-4 sm:h-5 sm:w-5" />}
                   label="Revenue Report"
@@ -702,13 +1028,405 @@ export default function ReportsPage() {
                   }}
                   color="orange"
                 />
+                <QuickActionButton
+                  icon={<User className="h-4 w-4 sm:h-5 sm:w-5" />}
+                  label="Tenant Payment"
+                  onClick={() => {
+                    setFilters({ ...filters, reportType: 'tenant_payment' });
+                    generateReport();
+                  }}
+                  color="green"
+                />
+                <QuickActionButton
+                  icon={<Building2 className="h-4 w-4 sm:h-5 sm:w-5" />}
+                  label="Property Payment"
+                  onClick={() => {
+                    setFilters({ ...filters, reportType: 'property_payment' });
+                    generateReport();
+                  }}
+                  color="cyan"
+                />
               </div>
             </CardContent>
           </Card>
         </TabsContent>
 
         <TabsContent value="report" className="mt-3 sm:mt-4" ref={reportSectionRef}>
-          {reportData && (
+          {/* Tenant Payment Report */}
+          {tenantPaymentReport && (
+            <div className="space-y-4">
+              {/* Report Actions */}
+              <div className="flex justify-end gap-1.5 sm:gap-2 mb-3 sm:mb-4">
+                <Button variant="outline" size="sm" onClick={exportToExcel} className="h-7 sm:h-8 text-xs">
+                  <Download className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                  Export Excel
+                </Button>
+                <Button variant="outline" size="sm" onClick={handlePrint} className="h-7 sm:h-8 text-xs">
+                  <Printer className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                  Print
+                </Button>
+              </div>
+
+              {/* Tenant Information Card */}
+              <Card className="border-0 shadow-sm">
+                <CardHeader className="pb-2 px-3 sm:px-6 bg-gradient-to-r from-blue-50 to-white">
+                  <CardTitle className="text-sm sm:text-base flex items-center gap-2">
+                    <User className="h-4 w-4 text-blue-600" />
+                    Tenant Information
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="px-3 sm:px-6 pt-4">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div>
+                      <p className="text-[10px] text-gray-500">Tenant Name</p>
+                      <p className="text-sm font-semibold">{tenantPaymentReport.tenant.name}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-gray-500">Phone / Email</p>
+                      <p className="text-xs">{tenantPaymentReport.tenant.phone} / {tenantPaymentReport.tenant.email}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-gray-500">Property & Room</p>
+                      <p className="text-xs">{tenantPaymentReport.tenant.property_name} - Room {tenantPaymentReport.tenant.room_number}, Bed {tenantPaymentReport.tenant.bed_number}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-gray-500">Monthly Rent</p>
+                      <p className="text-sm font-semibold text-green-600">{formatCurrency(tenantPaymentReport.tenant.monthly_rent)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-gray-500">Check-in Date</p>
+                      <p className="text-xs">{tenantPaymentReport.tenant.check_in_date}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-gray-500">Months Completed</p>
+                      <p className="text-sm font-semibold">{tenantPaymentReport.tenant.months_since_joining} months</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-gray-500">Security Deposit</p>
+                      <p className="text-xs">Total: {formatCurrency(tenantPaymentReport.tenant.security_deposit)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-gray-500">Gender / Occupation</p>
+                      <p className="text-xs">{tenantPaymentReport.tenant.gender} / {tenantPaymentReport.tenant.occupation || 'N/A'}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Rent Summary Card */}
+              <Card className="border-0 shadow-sm">
+                <CardHeader className="pb-2 px-3 sm:px-6 bg-gradient-to-r from-green-50 to-white">
+                  <CardTitle className="text-sm sm:text-base flex items-center gap-2">
+                    <CreditCard className="h-4 w-4 text-green-600" />
+                    Rent Summary
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="px-3 sm:px-6 pt-4">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                    <div className="bg-blue-50 rounded-lg p-3 text-center">
+                      <p className="text-[10px] text-gray-600">Expected Rent</p>
+                      <p className="text-lg font-bold text-blue-700">{formatCurrency(tenantPaymentReport.summary.expected_rent)}</p>
+                      <p className="text-[10px] text-gray-500">{tenantPaymentReport.tenant.months_since_joining} months × {formatCurrency(tenantPaymentReport.tenant.monthly_rent)}</p>
+                    </div>
+                    <div className="bg-green-50 rounded-lg p-3 text-center">
+                      <p className="text-[10px] text-gray-600">Paid Rent</p>
+                      <p className="text-lg font-bold text-green-700">{formatCurrency(tenantPaymentReport.summary.paid_rent)}</p>
+                      <p className="text-[10px] text-gray-500">{tenantPaymentReport.rent_payments?.length || 0} payments</p>
+                    </div>
+                    <div className="bg-yellow-50 rounded-lg p-3 text-center">
+                      <p className="text-[10px] text-gray-600">Pending Rent</p>
+                      <p className="text-lg font-bold text-yellow-700">{formatCurrency(tenantPaymentReport.summary.pending_rent)}</p>
+                      <p className="text-[10px] text-gray-500">{tenantPaymentReport.summary.collection_rate.toFixed(1)}% collected</p>
+                    </div>
+                    <div className="bg-indigo-50 rounded-lg p-3 text-center">
+                      <p className="text-[10px] text-gray-600">Collection Rate</p>
+                      <p className="text-2xl font-bold text-indigo-700">{tenantPaymentReport.summary.collection_rate.toFixed(1)}%</p>
+                    </div>
+                  </div>
+
+                  {/* Month-wise Rent Table */}
+                  <div className="mt-4">
+                    <p className="text-xs font-semibold text-gray-700 mb-2">Month-wise Rent Details</p>
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200 text-xs">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-3 py-2 text-left">Month</th>
+                            <th className="px-3 py-2 text-right">Expected Rent</th>
+                            <th className="px-3 py-2 text-right">Paid Rent</th>
+                            <th className="px-3 py-2 text-right">Pending Rent</th>
+                            <th className="px-3 py-2 text-center">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200">
+                          {tenantPaymentReport.month_wise_rent?.map((month: any, idx: number) => (
+                            <tr key={idx} className="hover:bg-gray-50">
+                              <td className="px-3 py-2 font-medium">{month.month} {month.year}</td>
+                              <td className="px-3 py-2 text-right">{formatCurrency(month.expected)}</td>
+                              <td className="px-3 py-2 text-right text-green-600">{formatCurrency(month.paid)}</td>
+                              <td className="px-3 py-2 text-right text-yellow-600">{formatCurrency(month.pending)}</td>
+                              <td className="px-3 py-2 text-center">
+                                <Badge className={month.pending === 0 ? 'bg-green-100 text-green-700' : month.paid > 0 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}>
+                                  {month.pending === 0 ? 'Paid' : month.paid > 0 ? 'Partial' : 'Pending'}
+                                </Badge>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Security Deposit Summary */}
+              <Card className="border-0 shadow-sm">
+                <CardHeader className="pb-2 px-3 sm:px-6 bg-gradient-to-r from-purple-50 to-white">
+                  <CardTitle className="text-sm sm:text-base flex items-center gap-2">
+                    <Wallet className="h-4 w-4 text-purple-600" />
+                    Security Deposit Summary
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="px-3 sm:px-6 pt-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+                    <div className="bg-purple-50 rounded-lg p-3 text-center">
+                      <p className="text-[10px] text-gray-600">Total Deposit</p>
+                      <p className="text-lg font-bold text-purple-700">{formatCurrency(tenantPaymentReport.summary.security_deposit_total)}</p>
+                    </div>
+                    <div className="bg-green-50 rounded-lg p-3 text-center">
+                      <p className="text-[10px] text-gray-600">Deposit Paid</p>
+                      <p className="text-lg font-bold text-green-700">{formatCurrency(tenantPaymentReport.summary.security_deposit_paid)}</p>
+                    </div>
+                    <div className="bg-yellow-50 rounded-lg p-3 text-center">
+                      <p className="text-[10px] text-gray-600">Deposit Pending</p>
+                      <p className="text-lg font-bold text-yellow-700">{formatCurrency(tenantPaymentReport.summary.security_deposit_pending)}</p>
+                    </div>
+                  </div>
+                  
+                  {/* Deposit Payments Table */}
+                  {tenantPaymentReport.deposit_payments?.length > 0 && (
+                    <div className="mt-3">
+                      <p className="text-xs font-semibold text-gray-700 mb-2">Deposit Payment History</p>
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200 text-xs">
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th className="px-3 py-2 text-left">Date</th>
+                              <th className="px-3 py-2 text-right">Amount</th>
+                              <th className="px-3 py-2 text-left">Mode</th>
+                              <th className="px-3 py-2 text-left">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-200">
+                            {tenantPaymentReport.deposit_payments.map((payment: any) => (
+                              <tr key={payment.id} className="hover:bg-gray-50">
+                                <td className="px-3 py-2">{new Date(payment.payment_date).toLocaleDateString('en-IN')}</td>
+                                <td className="px-3 py-2 text-right font-semibold">{formatCurrency(payment.amount)}</td>
+                                <td className="px-3 py-2 capitalize">{payment.payment_mode}</td>
+                                <td className="px-3 py-2">
+                                  <Badge className={payment.status === 'approved' || payment.status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}>
+                                    {payment.status === 'approved' || payment.status === 'paid' ? 'Paid' : payment.status}
+                                  </Badge>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+{/* Property Payment Report */}
+{propertyPaymentReport && (
+  <div className="space-y-4">
+    {/* Report Actions */}
+    <div className="flex justify-end gap-1.5 sm:gap-2 mb-3 sm:mb-4">
+      <Button variant="outline" size="sm" onClick={exportToExcel} className="h-7 sm:h-8 text-xs">
+        <Download className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+        Export Excel
+      </Button>
+      <Button variant="outline" size="sm" onClick={handlePrint} className="h-7 sm:h-8 text-xs">
+        <Printer className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+        Print
+      </Button>
+    </div>
+
+    {/* Property Information Card */}
+    <Card className="border-0 shadow-sm">
+      <CardHeader className="pb-2 px-3 sm:px-6 bg-gradient-to-r from-blue-50 to-white">
+        <CardTitle className="text-sm sm:text-base flex items-center gap-2">
+          <Building2 className="h-4 w-4 text-blue-600" />
+          Property Information
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="px-3 sm:px-6 pt-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+          <div>
+            <p className="text-[10px] text-gray-500">Property Name</p>
+            <p className="text-sm font-semibold">{propertyPaymentReport.property?.name || 'N/A'}</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-gray-500">Address</p>
+            <p className="text-xs">{propertyPaymentReport.property?.address || 'N/A'}</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-gray-500">Total Rooms / Beds</p>
+            <p className="text-sm">{propertyPaymentReport.property?.total_rooms || 0} rooms / {propertyPaymentReport.property?.total_beds || 0} beds</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-gray-500">Occupancy Rate</p>
+            <p className="text-sm font-semibold text-green-600">{propertyPaymentReport.property?.occupancy_rate?.toFixed(1) || 0}%</p>
+          </div>
+        </div>
+
+        {/* Floor-wise Statistics */}
+        {propertyPaymentReport.floor_stats?.length > 0 && (
+          <div className="mt-3">
+            <p className="text-xs font-semibold text-gray-700 mb-2">Floor-wise Statistics</p>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200 text-xs">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-3 py-2 text-left">Floor</th>
+                    <th className="px-3 py-2 text-center">Rooms</th>
+                    <th className="px-3 py-2 text-center">Total Beds</th>
+                    <th className="px-3 py-2 text-center">Occupied Beds</th>
+                    <th className="px-3 py-2 text-center">Available Beds</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {propertyPaymentReport.floor_stats.map((floor: any, idx: number) => (
+                    <tr key={idx} className="hover:bg-gray-50">
+                      <td className="px-3 py-2 font-medium">Floor {floor.floor}</td>
+                      <td className="px-3 py-2 text-center">{floor.total_rooms}</td>
+                      <td className="px-3 py-2 text-center">{floor.total_beds}</td>
+                      <td className="px-3 py-2 text-center text-green-600">{floor.occupied_beds}</td>
+                      <td className="px-3 py-2 text-center text-yellow-600">{floor.available_beds}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+
+    {/* Financial Summary Card */}
+    <Card className="border-0 shadow-sm">
+      <CardHeader className="pb-2 px-3 sm:px-6 bg-gradient-to-r from-green-50 to-white">
+        <CardTitle className="text-sm sm:text-base flex items-center gap-2">
+          <CreditCard className="h-4 w-4 text-green-600" />
+          Financial Summary
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="px-3 sm:px-6 pt-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
+          <div className="bg-blue-50 rounded-lg p-3 text-center">
+            <p className="text-[10px] text-gray-600">Total Rent to Collect</p>
+            <p className="text-lg font-bold text-blue-700">{formatCurrency(propertyPaymentReport.financial_summary?.total_rent_to_be_collected || 0)}</p>
+          </div>
+          <div className="bg-green-50 rounded-lg p-3 text-center">
+            <p className="text-[10px] text-gray-600">Rent Collected</p>
+            <p className="text-lg font-bold text-green-700">{formatCurrency(propertyPaymentReport.financial_summary?.total_rent_collected || 0)}</p>
+          </div>
+          <div className="bg-yellow-50 rounded-lg p-3 text-center">
+            <p className="text-[10px] text-gray-600">Rent Pending</p>
+            <p className="text-lg font-bold text-yellow-700">{formatCurrency(propertyPaymentReport.financial_summary?.total_rent_pending || 0)}</p>
+          </div>
+          <div className="bg-indigo-50 rounded-lg p-3 text-center">
+            <p className="text-[10px] text-gray-600">Collection Rate</p>
+            <p className="text-2xl font-bold text-indigo-700">{propertyPaymentReport.financial_summary?.total_rent_collection_rate?.toFixed(1) || 0}%</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="bg-purple-50 rounded-lg p-3 text-center">
+            <p className="text-[10px] text-gray-600">Security Deposit to Collect</p>
+            <p className="text-lg font-bold text-purple-700">{formatCurrency(propertyPaymentReport.financial_summary?.total_security_deposit_to_be_collected || 0)}</p>
+          </div>
+          <div className="bg-emerald-50 rounded-lg p-3 text-center">
+            <p className="text-[10px] text-gray-600">Deposit Collected</p>
+            <p className="text-lg font-bold text-emerald-700">{formatCurrency(propertyPaymentReport.financial_summary?.total_security_deposit_collected || 0)}</p>
+          </div>
+          <div className="bg-amber-50 rounded-lg p-3 text-center">
+            <p className="text-[10px] text-gray-600">Deposit Pending</p>
+            <p className="text-lg font-bold text-amber-700">{formatCurrency(propertyPaymentReport.financial_summary?.total_security_deposit_pending || 0)}</p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+
+    {/* Tenant-wise Payment Report Table */}
+    <Card className="border-0 shadow-sm">
+      <CardHeader className="pb-2 px-3 sm:px-6 bg-gradient-to-r from-orange-50 to-white">
+        <CardTitle className="text-sm sm:text-base flex items-center gap-2">
+          <Users className="h-4 w-4 text-orange-600" />
+          Tenant-wise Payment Report
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="px-3 sm:px-6 pt-4">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200 text-xs">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-3 py-2 text-left">Tenant Name</th>
+                <th className="px-3 py-2 text-center">Room/Bed</th>
+                <th className="px-3 py-2 text-center">Monthly Rent</th>
+                <th className="px-3 py-2 text-center">Months</th>
+                <th className="px-3 py-2 text-right">Expected Rent</th>
+                <th className="px-3 py-2 text-right">Paid Rent</th>
+                <th className="px-3 py-2 text-right">Pending Rent</th>
+                <th className="px-3 py-2 text-center">Collection %</th>
+                <th className="px-3 py-2 text-right">Deposit</th>
+                <th className="px-3 py-2 text-right">Deposit Paid</th>
+                <th className="px-3 py-2 text-right">Deposit Pending</th>
+                <th className="px-3 py-2 text-center">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {propertyPaymentReport.tenant_reports?.map((tenant: any, idx: number) => (
+                <tr key={idx} className="hover:bg-gray-50">
+                  <td className="px-3 py-2 font-medium">{tenant.tenant_name}</td>
+                  <td className="px-3 py-2 text-center">R{tenant.room_number}/B{tenant.bed_number}</td>
+                  <td className="px-3 py-2 text-center">{formatCurrency(tenant.monthly_rent)}</td>
+                  <td className="px-3 py-2 text-center">{tenant.months_completed}</td>
+                  <td className="px-3 py-2 text-right">{formatCurrency(tenant.expected_rent)}</td>
+                  <td className="px-3 py-2 text-right text-green-600">{formatCurrency(tenant.paid_rent)}</td>
+                  <td className="px-3 py-2 text-right text-yellow-600">{formatCurrency(tenant.pending_rent)}</td>
+                  <td className="px-3 py-2 text-center">
+                    <div className="flex items-center gap-1">
+                      <Progress value={tenant.rent_collection_rate} className="h-1.5 w-12" />
+                      <span className="text-[10px]">{tenant.rent_collection_rate?.toFixed(0) || 0}%</span>
+                    </div>
+                  </td>
+                  <td className="px-3 py-2 text-right">{formatCurrency(tenant.security_deposit)}</td>
+                  <td className="px-3 py-2 text-right text-green-600">{formatCurrency(tenant.paid_deposit)}</td>
+                  <td className="px-3 py-2 text-right text-yellow-600">{formatCurrency(tenant.pending_deposit)}</td>
+                  <td className="px-3 py-2 text-center">
+                    <Badge className={tenant.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}>
+                      {tenant.is_active ? 'Active' : 'Inactive'}
+                    </Badge>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="mt-3 text-right text-xs text-gray-500">
+          Total Tenants: {propertyPaymentReport.financial_summary?.total_tenants || 0} | 
+          Active: {propertyPaymentReport.financial_summary?.active_tenants || 0}
+        </div>
+      </CardContent>
+    </Card>
+  </div>
+)}
+
+          {/* Existing Report Data Display */}
+          {reportData && !tenantPaymentReport && !propertyPaymentReport && (
             <>
               {/* Report Actions */}
               <div className="flex justify-end gap-1.5 sm:gap-2 mb-3 sm:mb-4">
@@ -731,7 +1449,7 @@ export default function ReportsPage() {
                 <SummaryStatCard title="Collection" value={`${summaryStats.collectionRate.toFixed(1)}%`} icon={<CheckCircle className="h-3 w-3 sm:h-4 sm:w-4" />} />
               </div>
 
-              {/* Detailed Report - KEEP EXISTING */}
+              {/* Detailed Report */}
               <Card className="border-0 shadow-sm">
                 <CardHeader className="pb-2 px-3 sm:px-6">
                   <CardTitle className="text-sm sm:text-base flex items-center gap-2">
@@ -758,328 +1476,12 @@ export default function ReportsPage() {
           )}
         </TabsContent>
       </Tabs>
-
-      {/* ===== ADDED DETAILED MODULE INSIGHTS SECTION - NEW ===== */}
-      <div className="mt-6 space-y-4">
-        <h2 className="text-lg font-bold text-gray-800 px-1">📊 Module-wise Detailed Analysis</h2>
-        
-        {/* Property Module Insights */}
-        <Card className="border-0 shadow-sm">
-          <CardHeader className="pb-2 px-3 sm:px-6 bg-gradient-to-r from-blue-50 to-white">
-            <CardTitle className="text-sm sm:text-base flex items-center gap-2">
-              <Building2 className="h-4 w-4 text-blue-600" />
-              Property Module Insights
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="px-3 sm:px-6 pt-4">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
-              <div className="bg-blue-50 rounded-lg p-3 text-center">
-                <p className="text-2xl font-bold text-blue-700">{totalProperties}</p>
-                <p className="text-xs text-gray-600">Total Properties</p>
-              </div>
-              <div className="bg-green-50 rounded-lg p-3 text-center">
-                <p className="text-2xl font-bold text-green-700">{activeProperties}</p>
-                <p className="text-xs text-gray-600">Active Properties</p>
-              </div>
-              <div className="bg-yellow-50 rounded-lg p-3 text-center">
-                <p className="text-2xl font-bold text-yellow-700">{totalProperties - activeProperties}</p>
-                <p className="text-xs text-gray-600">Inactive Properties</p>
-              </div>
-              <div className="bg-purple-50 rounded-lg p-3 text-center">
-                <p className="text-2xl font-bold text-purple-700">{((activeProperties / totalProperties) * 100).toFixed(1)}%</p>
-                <p className="text-xs text-gray-600">Property Occupancy Rate</p>
-              </div>
-            </div>
-            <div className="text-xs text-gray-500 mt-2">
-              {activeProperties === totalProperties ? 
-                '✅ All properties are active and operational' : 
-                `⚠️ ${totalProperties - activeProperties} propert${totalProperties - activeProperties !== 1 ? 'ies are' : 'y is'} inactive`
-              }
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Rooms Module Insights */}
-        <Card className="border-0 shadow-sm">
-          <CardHeader className="pb-2 px-3 sm:px-6 bg-gradient-to-r from-purple-50 to-white">
-            <CardTitle className="text-sm sm:text-base flex items-center gap-2">
-              <DoorOpen className="h-4 w-4 text-purple-600" />
-              Rooms Module Insights
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="px-3 sm:px-6 pt-4">
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-4">
-              <div className="bg-purple-50 rounded-lg p-3 text-center">
-                <p className="text-2xl font-bold text-purple-700">{totalRooms}</p>
-                <p className="text-xs text-gray-600">Total Rooms</p>
-              </div>
-              <div className="bg-green-50 rounded-lg p-3 text-center">
-                <p className="text-2xl font-bold text-green-700">{occupiedRooms}</p>
-                <p className="text-xs text-gray-600">Occupied Rooms</p>
-              </div>
-              <div className="bg-yellow-50 rounded-lg p-3 text-center">
-                <p className="text-2xl font-bold text-yellow-700">{vacantRooms}</p>
-                <p className="text-xs text-gray-600">Vacant Rooms</p>
-              </div>
-              <div className="bg-red-50 rounded-lg p-3 text-center">
-                <p className="text-2xl font-bold text-red-700">{totalRooms - occupiedRooms - vacantRooms}</p>
-                <p className="text-xs text-gray-600">Maintenance Rooms</p>
-              </div>
-              <div className="bg-indigo-50 rounded-lg p-3 text-center">
-                <p className="text-2xl font-bold text-indigo-700">{roomOccupancyRate.toFixed(1)}%</p>
-                <p className="text-xs text-gray-600">Room Occupancy</p>
-              </div>
-            </div>
-            <Progress value={roomOccupancyRate} className="h-2 mb-2" />
-            <div className="text-xs text-gray-500">
-              {roomOccupancyRate >= 80 ? '✅ Good room occupancy rate' : roomOccupancyRate >= 50 ? '⚠️ Room for improvement' : '❌ Low room occupancy - focus on marketing'}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Beds Module Insights */}
-        <Card className="border-0 shadow-sm">
-          <CardHeader className="pb-2 px-3 sm:px-6 bg-gradient-to-r from-teal-50 to-white">
-            <CardTitle className="text-sm sm:text-base flex items-center gap-2">
-              <Bed className="h-4 w-4 text-teal-600" />
-              Beds Module Insights
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="px-3 sm:px-6 pt-4">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
-              <div className="bg-teal-50 rounded-lg p-3 text-center">
-                <p className="text-2xl font-bold text-teal-700">{totalBeds}</p>
-                <p className="text-xs text-gray-600">Total Beds</p>
-              </div>
-              <div className="bg-green-50 rounded-lg p-3 text-center">
-                <p className="text-2xl font-bold text-green-700">{occupiedBeds}</p>
-                <p className="text-xs text-gray-600">Occupied Beds</p>
-              </div>
-              <div className="bg-yellow-50 rounded-lg p-3 text-center">
-                <p className="text-2xl font-bold text-yellow-700">{availableBeds}</p>
-                <p className="text-xs text-gray-600">Available Beds</p>
-              </div>
-              <div className="bg-indigo-50 rounded-lg p-3 text-center">
-                <p className="text-2xl font-bold text-indigo-700">{bedOccupancyRate.toFixed(1)}%</p>
-                <p className="text-xs text-gray-600">Bed Occupancy</p>
-              </div>
-            </div>
-            <Progress value={bedOccupancyRate} className="h-2 mb-2" />
-            <div className="text-xs text-gray-500">
-              {bedOccupancyRate >= 85 ? '🎯 Excellent bed utilization' : bedOccupancyRate >= 60 ? '📈 Room for improvement' : '⚠️ Low bed occupancy - consider promotions'}
-              {availableBeds > 0 && ` (${availableBeds} beds available for new tenants)`}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Tenants Module Insights */}
-        <Card className="border-0 shadow-sm">
-          <CardHeader className="pb-2 px-3 sm:px-6 bg-gradient-to-r from-pink-50 to-white">
-            <CardTitle className="text-sm sm:text-base flex items-center gap-2">
-              <Users className="h-4 w-4 text-pink-600" />
-              Tenants Module Insights
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="px-3 sm:px-6 pt-4">
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-4">
-              <div className="bg-pink-50 rounded-lg p-3 text-center">
-                <p className="text-2xl font-bold text-pink-700">{totalTenants}</p>
-                <p className="text-xs text-gray-600">Total Tenants</p>
-              </div>
-              <div className="bg-green-50 rounded-lg p-3 text-center">
-                <p className="text-2xl font-bold text-green-700">{activeTenants}</p>
-                <p className="text-xs text-gray-600">Active Tenants</p>
-              </div>
-              <div className="bg-gray-50 rounded-lg p-3 text-center">
-                <p className="text-2xl font-bold text-gray-700">{totalTenants - activeTenants}</p>
-                <p className="text-xs text-gray-600">Inactive Tenants</p>
-              </div>
-              <div className="bg-rose-50 rounded-lg p-3 text-center">
-                <p className="text-2xl font-bold text-rose-700">{coupleBookings}</p>
-                <p className="text-xs text-gray-600">Couple Bookings</p>
-              </div>
-              <div className="bg-indigo-50 rounded-lg p-3 text-center">
-                <p className="text-2xl font-bold text-indigo-700">{((activeTenants / totalTenants) * 100).toFixed(1)}%</p>
-                <p className="text-xs text-gray-600">Active Rate</p>
-              </div>
-            </div>
-            
-            {/* Gender Distribution */}
-            <div className="mt-3 pt-3 border-t">
-              <p className="text-xs font-semibold text-gray-700 mb-2">Gender Distribution:</p>
-              <div className="flex gap-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                  <span className="text-xs">Male: {maleTenants}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-pink-500"></div>
-                  <span className="text-xs">Female: {femaleTenants}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Occupation Distribution */}
-            {Object.keys(occupationCounts).length > 0 && (
-              <div className="mt-3 pt-3 border-t">
-                <p className="text-xs font-semibold text-gray-700 mb-2">Occupation Distribution:</p>
-                <div className="flex flex-wrap gap-2">
-                  {Object.entries(occupationCounts).slice(0, 5).map(([occ, count]) => (
-                    <Badge key={occ} variant="outline" className="text-[10px]">
-                      {occ}: {count}
-                    </Badge>
-                  ))}
-                  {Object.keys(occupationCounts).length > 5 && (
-                    <Badge variant="outline" className="text-[10px]">
-                      +{Object.keys(occupationCounts).length - 5} more
-                    </Badge>
-                  )}
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Payments Module Insights */}
-        <Card className="border-0 shadow-sm">
-          <CardHeader className="pb-2 px-3 sm:px-6 bg-gradient-to-r from-green-50 to-white">
-            <CardTitle className="text-sm sm:text-base flex items-center gap-2">
-              <CreditCard className="h-4 w-4 text-green-600" />
-              Payments Module Insights
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="px-3 sm:px-6 pt-4">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
-              <div className="bg-green-50 rounded-lg p-3 text-center">
-                <p className="text-xl font-bold text-green-700">{formatCurrency(totalPaymentsAmount)}</p>
-                <p className="text-xs text-gray-600">Total Revenue</p>
-              </div>
-              <div className="bg-emerald-50 rounded-lg p-3 text-center">
-                <p className="text-xl font-bold text-emerald-700">{paymentDetails.length}</p>
-                <p className="text-xs text-gray-600">Total Transactions</p>
-              </div>
-              <div className="bg-yellow-50 rounded-lg p-3 text-center">
-                <p className="text-xl font-bold text-yellow-700">{formatCurrency(pendingAmount)}</p>
-                <p className="text-xs text-gray-600">Pending Amount</p>
-              </div>
-              <div className="bg-indigo-50 rounded-lg p-3 text-center">
-                <p className="text-xl font-bold text-indigo-700">{collectionRate.toFixed(1)}%</p>
-                <p className="text-xs text-gray-600">Collection Rate</p>
-              </div>
-            </div>
-            
-            {/* Payment Status Breakdown */}
-            <div className="mt-3 pt-3 border-t">
-              <p className="text-xs font-semibold text-gray-700 mb-2">Payment Status:</p>
-              <div className="flex flex-wrap gap-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                  <span className="text-xs">Approved: {approvedPayments.length}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-                  <span className="text-xs">Pending: {pendingPayments.length}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                  <span className="text-xs">Rejected: {paymentDetails.length - approvedPayments.length - pendingPayments.length}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Recommendation */}
-            <div className="mt-3 p-2 bg-amber-50 rounded-lg">
-              <p className="text-[10px] text-amber-700">
-                {pendingAmount > 100000 ? 
-                  '⚠️ High pending amount - follow up on pending payments immediately' : 
-                  pendingAmount > 0 ? 
-                  '📋 Pending payments need attention' : 
-                  '✅ No pending payments - great collection rate'}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Performance Recommendations */}
-        <Card className="border-0 shadow-sm bg-gradient-to-r from-blue-50 to-indigo-50">
-          <CardHeader className="pb-2 px-3 sm:px-6">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Target className="h-4 w-4 text-blue-700" />
-              Performance Recommendations
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="px-3 sm:px-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div className="bg-white rounded-lg p-3">
-                <div className="flex items-center gap-2 mb-2">
-                  <Building2 className="h-4 w-4 text-blue-600" />
-                  <span className="font-semibold text-sm">Property Actions</span>
-                </div>
-                <ul className="space-y-1 text-xs text-gray-600">
-                  <li className="flex items-center gap-2">
-                    {activeProperties === totalProperties ? 
-                      <CheckCircle2 className="h-3 w-3 text-green-500" /> : 
-                      <AlertCircle className="h-3 w-3 text-yellow-500" />
-                    }
-                    {activeProperties}/{totalProperties} properties active
-                  </li>
-                  {totalProperties - activeProperties > 0 && (
-                    <li className="text-blue-600 ml-5">🔧 Review inactive properties</li>
-                  )}
-                </ul>
-              </div>
-              <div className="bg-white rounded-lg p-3">
-                <div className="flex items-center gap-2 mb-2">
-                  <Bed className="h-4 w-4 text-purple-600" />
-                  <span className="font-semibold text-sm">Bed Occupancy Actions</span>
-                </div>
-                <ul className="space-y-1 text-xs text-gray-600">
-                  <li className="flex items-center gap-2">
-                    {bedOccupancyRate >= 85 ? <CheckCircle2 className="h-3 w-3 text-green-500" /> : bedOccupancyRate >= 60 ? <AlertCircle className="h-3 w-3 text-yellow-500" /> : <AlertTriangle className="h-3 w-3 text-red-500" />}
-                    {bedOccupancyRate.toFixed(0)}% bed occupancy rate
-                  </li>
-                  {availableBeds > 10 && (
-                    <li className="text-blue-600 ml-5">🎯 Focus on marketing to fill {availableBeds} available beds</li>
-                  )}
-                </ul>
-              </div>
-              <div className="bg-white rounded-lg p-3">
-                <div className="flex items-center gap-2 mb-2">
-                  <CreditCard className="h-4 w-4 text-green-600" />
-                  <span className="font-semibold text-sm">Financial Actions</span>
-                </div>
-                <ul className="space-y-1 text-xs text-gray-600">
-                  <li className="flex items-center gap-2">
-                    {collectionRate >= 90 ? <CheckCircle2 className="h-3 w-3 text-green-500" /> : collectionRate >= 70 ? <AlertCircle className="h-3 w-3 text-yellow-500" /> : <AlertTriangle className="h-3 w-3 text-red-500" />}
-                    {collectionRate.toFixed(0)}% collection rate
-                  </li>
-                  {pendingAmount > 100000 && (
-                    <li className="text-red-600 ml-5">⚠️ High pending amount - follow up on {pendingPayments.length} pending payments</li>
-                  )}
-                </ul>
-              </div>
-              <div className="bg-white rounded-lg p-3">
-                <div className="flex items-center gap-2 mb-2">
-                  <Users className="h-4 w-4 text-orange-600" />
-                  <span className="font-semibold text-sm">Tenant Actions</span>
-                </div>
-                <ul className="space-y-1 text-xs text-gray-600">
-                  <li className="flex items-center gap-2">
-                    {coupleBookings > 0 ? <Heart className="h-3 w-3 text-pink-500" /> : <AlertCircle className="h-3 w-3 text-gray-400" />}
-                    {coupleBookings} couple booking{coupleBookings !== 1 ? 's' : ''}
-                  </li>
-                  {totalTenants - activeTenants > 5 && (
-                    <li className="text-yellow-600 ml-5">📞 Reach out to inactive tenants</li>
-                  )}
-                </ul>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
     </div>
   );
 }
+
+// Helper Components (keep all existing helper components - StatCard, ExtendedStatCard, QuickActionButton, SummaryStatCard, and all Report Detail components)
+// ... (include all the existing helper components from your original file)
 
 // Helper Components - KEEP EXISTING ONES
 function StatCard({ title, value, icon, loading }: any) {

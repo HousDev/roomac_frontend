@@ -51,7 +51,7 @@ import roomacLogo from "@/app/src/assets/images/image.png";
 import { useAuth } from "@/context/authContext";
 import { markNoticePeriodAsSeen } from "@/lib/noticePeriodApi";
 import { number } from "framer-motion";
-import { initNotificationSound, playNotificationSound, preloadNotificationSound } from "../../utils/notificationSound";
+import { forceUnlockAudio, initNotificationSound, playNotificationSound, preloadNotificationSound } from "../../utils/notificationSound";
 import { toast } from "sonner";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -1112,6 +1112,8 @@ useEffect(() => {
   console.log('📡 Sending join_tenant_room with tenantId:', parseInt(tenantId));
   // Send as direct value instead of object
   socket.emit('join_tenant_room', parseInt(tenantId));
+   // Force unlock audio when socket connects
+  forceUnlockAudio();
 });
 
 // Also add this to confirm room join:
@@ -1131,14 +1133,6 @@ socket.on('joined_room', (data: any) => {
 
     playNotificationSound();
   
-        
-        // Show toast for important notifications
-        if (notification.priority === 'high' || notification.priority === 'urgent') {
-          toast.info(`🔔 ${notification.title || 'New Notification'}`, {
-            description: notification.message?.substring(0, 100),
-            duration: 5000,
-          });
-        }
         
         // Immediately refresh notifications
         loadNotifications(false);

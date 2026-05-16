@@ -111,6 +111,7 @@ export default function AccountDeletionRequestsPage() {
 const [selectedRequests, setSelectedRequests] = useState<Set<number>>(new Set());
 const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
 const [bulkActionLoading, setBulkActionLoading] = useState(false);
+const [statusFilter, setStatusFilter] = useState<string>("pending");
   // Dialog states
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [approveDialogOpen, setApproveDialogOpen] = useState(false);
@@ -160,24 +161,35 @@ const { can } = useAuth();
   };
 
   // Load deletion requests
-  const loadDeletionRequests = async () => {
-    try {
-      setLoading(true);
-      const result = await adminDeletionApi.getPendingRequests();
-      
-      if (result.success && result.data) {
-        setRequests(result.data);
-        setFilteredRequests(result.data);
-      } else {
-        toast.error(result.message || "Failed to load requests");
-      }
-    } catch (error: any) {
-      console.error("Error loading deletion requests:", error);
-      // toast.error(error.message || "Failed to load deletion requests");
-    } finally {
-      setLoading(false);
+// Modify loadDeletionRequests to use the new endpoint
+const loadDeletionRequests = async () => {
+  try {
+    setLoading(true);
+    let result;
+    
+    if (statusFilter === "pending") {
+      result = await adminDeletionApi.getPendingRequests();
+    } else {
+      result = await adminDeletionApi.getAllRequests(statusFilter);
     }
-  };
+    
+    if (result.success && result.data) {
+      setRequests(result.data);
+      setFilteredRequests(result.data);
+    } else {
+      toast.error(result.message || "Failed to load requests");
+    }
+  } catch (error: any) {
+    console.error("Error loading deletion requests:", error);
+  } finally {
+    setLoading(false);
+  }
+};
+
+// Add useEffect to reload when status filter changes
+useEffect(() => {
+  loadDeletionRequests();
+}, [statusFilter]);
 
   // Load stats
   const loadStats = async () => {

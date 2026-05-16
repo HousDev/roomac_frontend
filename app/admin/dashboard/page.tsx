@@ -1157,8 +1157,56 @@ export default function AdminDashboard() {
         </Card> */}
       </div>
 
+      {/* Financial Summary Bar */}
+      <div className="mt-6 grid grid-cols-1 sm:grid-cols-4 gap-3">
+        <div className="bg-white rounded-xl p-3 shadow-sm border border-gray-100">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[10px] text-gray-500">Total Collected</p>
+              <p className="text-base font-bold text-green-600">{formatCurrency(stats.totalCollected)}</p>
+            </div>
+            <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
+              <CheckCircle className="h-4 w-4 text-green-600" />
+            </div>
+          </div>
+        </div>
+        <div className="bg-white rounded-xl p-3 shadow-sm border border-gray-100">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[10px] text-gray-500">Pending Amount</p>
+              <p className="text-base font-bold text-amber-600">{formatCurrency(stats.pendingAmount)}</p>
+            </div>
+            <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center">
+              <Clock className="h-4 w-4 text-amber-600" />
+            </div>
+          </div>
+        </div>
+        <div className="bg-white rounded-xl p-3 shadow-sm border border-gray-100">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[10px] text-gray-500">Monthly Revenue</p>
+              <p className="text-base font-bold text-blue-600">{formatCurrency(stats.monthlyRevenue)}</p>
+            </div>
+            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+              <TrendingUp className="h-4 w-4 text-blue-600" />
+            </div>
+          </div>
+        </div>
+        <div className="bg-white rounded-xl p-3 shadow-sm border border-gray-100">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[10px] text-gray-500">Monthly Expenses</p>
+              <p className="text-base font-bold text-red-600">{formatCurrency(stats.monthlyExpenses)}</p>
+            </div>
+            <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
+              <Receipt className="h-4 w-4 text-red-600" />
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mt-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mt-4 mb-6">
         {/* Payment Mode Distribution */}
         {paymentModeData.length > 0 && (
           <Card className="border-0 shadow-lg">
@@ -1232,53 +1280,7 @@ export default function AdminDashboard() {
         )}
       </div>
 
-      {/* Financial Summary Bar */}
-      <div className="mt-6 grid grid-cols-1 sm:grid-cols-4 gap-3 mb-4">
-        <div className="bg-white rounded-xl p-3 shadow-sm border border-gray-100">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[10px] text-gray-500">Total Collected</p>
-              <p className="text-base font-bold text-green-600">{formatCurrency(stats.totalCollected)}</p>
-            </div>
-            <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
-              <CheckCircle className="h-4 w-4 text-green-600" />
-            </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-xl p-3 shadow-sm border border-gray-100">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[10px] text-gray-500">Pending Amount</p>
-              <p className="text-base font-bold text-amber-600">{formatCurrency(stats.pendingAmount)}</p>
-            </div>
-            <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center">
-              <Clock className="h-4 w-4 text-amber-600" />
-            </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-xl p-3 shadow-sm border border-gray-100">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[10px] text-gray-500">Monthly Revenue</p>
-              <p className="text-base font-bold text-blue-600">{formatCurrency(stats.monthlyRevenue)}</p>
-            </div>
-            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-              <TrendingUp className="h-4 w-4 text-blue-600" />
-            </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-xl p-3 shadow-sm border border-gray-100">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[10px] text-gray-500">Monthly Expenses</p>
-              <p className="text-base font-bold text-red-600">{formatCurrency(stats.monthlyExpenses)}</p>
-            </div>
-            <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
-              <Receipt className="h-4 w-4 text-red-600" />
-            </div>
-          </div>
-        </div>
-      </div>
+      
     </div>
   );
 }

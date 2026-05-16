@@ -2336,7 +2336,6 @@ style={{ width: `${((getStepIndex() + 1) / stepTitles.length) * 100}%` }}
                     type="date"
                     value={formData.requestedVacateDate}
                     onChange={(e) => handleInputChange("requestedVacateDate", e.target.value)}
-                    min={currentDate}
                     required
                     className="h-9"
                   />
