@@ -93,6 +93,9 @@ export default function ReportsPage() {
   const [propertyPaymentReport, setPropertyPaymentReport] = useState<any>(null);
   const [tenantSearchOpen, setTenantSearchOpen] = useState(false);
   const [tenantSearchTerm, setTenantSearchTerm] = useState('');
+  const [pgRevenueReport, setPgRevenueReport] = useState<any>(null);
+const [pgRevenuePeriodType, setPgRevenuePeriodType] = useState<'month_wise' | 'year_wise'>('month_wise');
+const [pgRevenueYear, setPgRevenueYear] = useState(new Date().getFullYear());
   
   const [filters, setFilters] = useState<reportApi.ReportFilters>({
     reportType: 'revenue',
@@ -337,6 +340,7 @@ const generatePropertyPaymentReport = async () => {
     setReportData(null);
     setTenantPaymentReport(null);
     setPropertyPaymentReport(null);
+    setPgRevenueReport(null);
     
     try {
       let response;
@@ -392,6 +396,10 @@ const generatePropertyPaymentReport = async () => {
           await generatePropertyPaymentReport();
           setLoading(false);
           return;
+        case 'pg_revenue':
+        await generatePGRevenueReport(); // Call the new function
+        setLoading(false);
+        return;
       }
       
       setReportData(response);
@@ -801,6 +809,7 @@ const generatePropertyPaymentReport = async () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="pg_revenue" className="text-xs">🏢 PG Revenue Report</SelectItem>
                   <SelectItem value="revenue" className="text-xs">📊 Revenue Report</SelectItem>
                   <SelectItem value="payments" className="text-xs">💰 Payments Report</SelectItem>
                   <SelectItem value="tenants" className="text-xs">👥 Tenants Report</SelectItem>
@@ -1046,6 +1055,16 @@ const generatePropertyPaymentReport = async () => {
                   }}
                   color="cyan"
                 />
+                {/* ADD THIS NEW BUTTON */}
+  <QuickActionButton
+    icon={<Building2 className="h-4 w-4 sm:h-5 sm:w-5" />}
+    label="PG Revenue"
+    onClick={() => {
+      setFilters({ ...filters, reportType: 'pg_revenue' });
+      generateReport();
+    }}
+    color="cyan"
+  />
               </div>
             </CardContent>
           </Card>
