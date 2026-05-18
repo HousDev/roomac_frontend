@@ -14,7 +14,8 @@ import {
   Refrigerator, Fan, Lamp, Utensils, 
   Mountain, Snowflake, CookingPot, Gamepad, Music, Headphones, BookOpen,
   Cigarette, Dog, Speaker,
-  Sunset
+  Sunset,
+  Briefcase
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { request } from '@/lib/api';

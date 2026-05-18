@@ -69,6 +69,8 @@ export interface AvailableBed {
   tenant_name: string | null;
   tenant_gender: string | null;
   status: 'available' | 'occupied';
+  tenant_rent?: number | null; 
+  bed_rent?: number | null; 
 }
 
 export interface BedsResponse {
@@ -204,13 +206,33 @@ export const getAvailableBeds = async (
 };
 
 /* 6️⃣ RENT DIFFERENCE */
+// lib/changeBedApi.ts - Update calculateRentDifference
+
 export const calculateRentDifference = async (
   oldRoomId: number,
-  newRoomId: number
+  newRoomId: number,
+  oldCustomRent?: number,
+  newCustomRent?: number,
+  newBedNumber?: number
 ): Promise<RentDifference | null> => {
   try {
+    const queryParams = new URLSearchParams({
+      oldRoomId: oldRoomId.toString(),
+      newRoomId: newRoomId.toString()
+    });
+    
+    if (oldCustomRent !== undefined) {
+      queryParams.append('oldCustomRent', oldCustomRent.toString());
+    }
+    if (newCustomRent !== undefined) {
+      queryParams.append('newCustomRent', newCustomRent.toString());
+    }
+    if (newBedNumber !== undefined) {
+      queryParams.append('newBedNumber', newBedNumber.toString());
+    }
+    
     const response = await request<{ success: boolean; data: RentDifference }>(
-      `/api/change-bed/rent-difference?oldRoomId=${oldRoomId}&newRoomId=${newRoomId}`
+      `/api/change-bed/rent-difference?${queryParams.toString()}`
     );
     
     return response.data || null;

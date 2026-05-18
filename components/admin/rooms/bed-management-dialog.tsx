@@ -48,6 +48,7 @@ import {
   Loader2,
   Shield,
   Trash2,
+  Pencil 
 } from "lucide-react";
 import {
   getAvailableBeds,
@@ -65,6 +66,7 @@ import type {
 import { VacateBedWizard } from "@/components/admin/rooms/VacateBedWizard";
 import { ChangeBedWizard } from "@/components/admin/rooms/ChangeBedWizard";
 import { getAdminVacateRequests } from "@/lib/tenantRequestsApi";
+import { EditBedModal } from "@/components/admin/rooms/EditBedModal";
 import Swal from "sweetalert2";
 import MySwal from "@/app/utils/swal";
 import React from "react";
@@ -755,6 +757,8 @@ function BedCard({
   securityDeposit,
   onSecurityDepositChange,
   customSecurityDeposit,
+   onEditClick,  // ADD THIS
+  onEditSuccess, // ADD THIS
 }: {
   bedNumber: number;
   assignment: any;
@@ -767,7 +771,10 @@ function BedCard({
     customRent?: string,
     isCouple?: boolean,
     customSecurityDeposit?: string,
+    
   ) => void;
+  onEditClick: (assignment: any, tenantDetails: any) => void;
+  onEditSuccess: () => void;
   onDeleteClick?: () => void;
   onVacateClick: () => void;
   onChangeBedClick: () => void;
@@ -792,6 +799,8 @@ function BedCard({
   );
   const [customSecurityDepositLocal, setCustomSecurityDepositLocal] =
     useState<string>("");
+
+    
 
   // Reset form when assigning state changes
   useEffect(() => {
@@ -1013,13 +1022,22 @@ function BedCard({
                 <>
                   <div className="grid grid-cols-2 gap-2">
                     <Button
+          variant="outline"
+          className="border-blue-200 text-blue-600 hover:bg-blue-50 hover:text-blue-900 h-8 md:h-9 text-[10px] md:text-xs"
+          onClick={() => onEditClick(assignment, tenantDetails)}
+          disabled={isSaving}
+        >
+          <Pencil className="h-3 w-3 md:h-4 md:w-4 mr-1" />
+          Edit
+        </Button>
+                    <Button
                       variant="outline"
-                      className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-900 h-8 md:h-9 text-[10px] md:text-xs col-span-2"
+                      className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-900 h-8 md:h-9 text-[10px] md:text-xs"
                       onClick={onDeleteClick}
                       disabled={isSaving}
                     >
                       <Trash2 className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
-                      Delete Assignment
+                      Delete
                     </Button>
                     <Button
                       variant="outline"
@@ -1129,6 +1147,7 @@ function BedCard({
             </div>
           )}
         </div>
+
       </CardContent>
     </Card>
   );
@@ -1174,11 +1193,15 @@ export function BedManagementDialog({
     isCouple: undefined,
   });
   const [transferReason, setTransferReason] = useState("");
+  const [editModalOpen, setEditModalOpen] = useState(false);
+const [selectedBedForEdit, setSelectedBedForEdit] = useState<any>(null);
+const [selectedTenantForEdit, setSelectedTenantForEdit] = useState<any>(null);
 
   // State for Change Bed wizard
   const [changeBedWizardOpen, setChangeBedWizardOpen] = useState(false);
   const [selectedTenantForChange, setSelectedTenantForChange] =
     useState<Tenant | null>(null);
+   
 
   const roomGenderPreferences = Array.isArray(room.room_gender_preference)
     ? room.room_gender_preference
@@ -1228,6 +1251,18 @@ useEffect(() => {
       setAssigningBed(null);
     }
   }, [open, room]);
+
+  const handleEditClick = (bedAssignment: any, tenantDetails: any) => {
+  setSelectedBedForEdit(bedAssignment);
+  setSelectedTenantForEdit(tenantDetails);
+  setEditModalOpen(true);
+};
+
+const handleEditSuccess = () => {
+  refreshRoomData();
+  loadTenantsBasedOnPreferences();
+  if (onRefresh) onRefresh();
+};
 
 const checkIfTenantVacated = async (tenantId: number): Promise<boolean> => {
   try {
@@ -1618,6 +1653,7 @@ const getCorrectPartnerDetails = (tenant: Tenant) => {
     }
   };
 
+
   // Handle Change Bed Click
   const handleChangeBedClick = (bedAssignment: BedAssignment) => {
     const tenantDetails = findTenantDetails(bedAssignment.tenant_id);
@@ -1626,6 +1662,9 @@ const getCorrectPartnerDetails = (tenant: Tenant) => {
       setChangeBedWizardOpen(true);
     }
   };
+
+
+  
 
   // Add this useEffect to reset all states when dialog closes
   useEffect(() => {
@@ -2346,8 +2385,17 @@ const handleVacateClick = async (bedAssignment: BedAssignment) => {
   };
 
   const handleChangeBedSuccess = () => {
-    loadTenantsBasedOnPreferences();
-    if (onRefresh) onRefresh();
+     // Refresh data
+  refreshRoomData();
+  loadTenantsBasedOnPreferences();
+  if (onRefresh) onRefresh();
+  
+  // ✅ Close the ChangeBedWizard (already handled by onOpenChange)
+  setChangeBedWizardOpen(false);
+  setSelectedTenantForChange(null);
+  
+  // ✅ ALSO CLOSE THE PARENT BedManagementDialog
+  onOpenChange(false);
   };
 
   const totalBeds = room.total_bed;
@@ -2644,6 +2692,8 @@ const handleVacateClick = async (bedAssignment: BedAssignment) => {
                           securityDeposit={securityDeposit} // ← ADD THIS
                           onSecurityDepositChange={(val) => {}} // ← ADD THIS (or pass a handler)
                           customSecurityDeposit=""
+                           onEditClick={handleEditClick}
+  onEditSuccess={handleEditSuccess}
                         />
                       );
                     },
@@ -2684,6 +2734,18 @@ const handleVacateClick = async (bedAssignment: BedAssignment) => {
           onSuccess={handleChangeBedSuccess}
         />
       )}
+
+      {selectedBedForEdit && selectedTenantForEdit && (
+  <EditBedModal
+    open={editModalOpen}
+    onOpenChange={setEditModalOpen}
+    bedAssignment={selectedBedForEdit}
+    tenantName={selectedTenantForEdit?.full_name}
+    onSuccess={handleEditSuccess}
+  />
+)}
+
+      
 
       <Dialog open={transferDialogOpen} onOpenChange={setTransferDialogOpen}>
         <DialogContent className="max-w-md">

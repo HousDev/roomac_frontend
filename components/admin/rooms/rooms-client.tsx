@@ -89,8 +89,6 @@ const [importing, setImporting] = useState(false);
 const { can } = useAuth();
 
 
-
-
   // Form state
   const [formData, setFormData] = useState({
     property_id: '',
@@ -136,52 +134,7 @@ const { can } = useAuth();
     };
   }, [rooms]);
 
-  // Fetch rooms with advanced filters
-  const fetchFilteredRooms = useCallback(async (filters: FilterState) => {
-    try {
-      setLoading(true);
-      
-      const processedFilters = {
-        ...filters,
-        min_rent: Number(filters.min_rent),
-        max_rent: Number(filters.max_rent),
-        min_capacity: Number(filters.min_capacity),
-        max_capacity: Number(filters.max_capacity),
-        page: currentPage,
-        limit: itemsPerPage
-      };
-      
-      const response = await fetch('/api/rooms/filter', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(processedFilters)
-      });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Server error response:', errorText);
-        throw new Error(`Server responded with status ${response.status}`);
-      }
-
-      const result = await response.json();
-      
-      if (result.success) {
-        setRooms(result.data);
-        const totalPages = Math.ceil(result.pagination.total / itemsPerPage);
-        if (currentPage > totalPages && totalPages > 0) {
-          setCurrentPage(totalPages);
-        }
-        setSelectedRooms([]);
-      } else {
-        toast.error('Failed to load rooms: ' + (result.message || 'Unknown error'));
-      }
-    } catch (error:any) {
-      console.error('Error fetching filtered rooms:', error);
-      toast.error('Failed to load rooms: ' + (error.message || 'Network error'));
-    } finally {
-      setLoading(false);
-    }
-  }, [currentPage, itemsPerPage]);
 
   const handleImportClick = useCallback(() => {
   setShowImportModal(true);
@@ -243,16 +196,23 @@ const handleImportFile = async (file: File) => {
   }
 };
 
-  // Handle filter changes
-  const handleFilterChange = useCallback((filters: FilterState) => {
-    setAdvancedFilters(filters);
-    setCurrentPage(1);
-    fetchFilteredRooms(filters);
-  }, [fetchFilteredRooms]);
-
   // Memoized filtered rooms
-  const filteredRooms = useMemo(() => {
+// Memoized filtered rooms
+const filteredRooms = useMemo(() => {
   const safeRooms = Array.isArray(rooms) ? rooms : [];
+  
+  if (searchQuery) {
+    // Check first room for tenant data
+    const firstRoom = safeRooms[0];
+    if (firstRoom && firstRoom.bed_assignments) {
+      // console.log("📊 Sample bed assignment from first room:", firstRoom.bed_assignments.map(b => ({
+      //   bed_number: b.bed_number,
+      //   tenant_id: b.tenant_id,
+      //   tenant_name: b.tenant_name,
+      //   is_available: b.is_available
+      // })));
+    }
+  }
 
   return safeRooms.filter(room => {
     if (!room) return false;
@@ -265,7 +225,7 @@ const handleImportFile = async (file: File) => {
       if (!match) return false;
     }
 
-    // ── Local search ───────────────────────────────────────────────
+    // ── Local search (searches both room details AND tenant names) ──
     const searchLower = searchQuery.toLowerCase();
     const roomNumberStr = room.room_number ? room.room_number.toString() : '';
     const propertyName = (room.property_name || '').toLowerCase();
@@ -273,13 +233,37 @@ const handleImportFile = async (file: File) => {
     const sharingType = room.sharing_type || '';
     const totalBeds = room.total_bed || 0;
 
-    const matchesSearch =
-      !searchQuery ||
+    // ✅ Search by tenant names in bed assignments
+    let matchesTenantSearch = false;
+    const bedAssignments = room.bed_assignments || [];
+    
+    if (searchQuery && bedAssignments.length > 0) {
+      console.log(`  Checking room ${room.room_number} for tenant search...`);
+    }
+    
+    matchesTenantSearch = bedAssignments.some((assignment: any) => {
+      if (!assignment.is_available && assignment.tenant_id) {
+        const tenantName = assignment.tenant_name || '';
+        const matches = tenantName.toLowerCase().includes(searchLower);
+        if (matches && searchQuery) {
+          console.log(`    ✅ Found tenant "${tenantName}" in room ${room.room_number} bed ${assignment.bed_number}`);
+        }
+        return matches;
+      }
+      return false;
+    });
+
+    // Regular room search
+    const matchesRoomSearch = 
       roomNumberStr.toLowerCase().includes(searchLower) ||
       propertyName.includes(searchLower) ||
       propertyAddress.includes(searchLower) ||
       sharingType.toLowerCase().includes(searchLower);
 
+    // ✅ Combined search - searches both room details AND tenant names
+    const matchesSearch = !searchQuery || matchesRoomSearch || matchesTenantSearch;
+
+    // ... rest of filters remain the same
     let matchesRoomType = false;
     if (selectedRoomType === 'all') {
       matchesRoomType = true;
@@ -318,6 +302,7 @@ const handleImportFile = async (file: File) => {
   });
 }, [rooms, searchQuery, selectedRoomType, selectedGenderPref, advancedFilters]);
 
+
   // Memoized paginated rooms
   const paginatedRooms = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
@@ -343,7 +328,127 @@ const handleImportFile = async (file: File) => {
     setSelectedRooms([]);
   }, []);
 
-  // Handle bulk action completion - FROM YOUR ORIGINAL CODE
+  
+
+const enrichRoomsWithTenantNames = useCallback(async (roomsData: RoomResponse[]) => {
+  
+  // If no rooms, return early
+  if (!roomsData || roomsData.length === 0) {
+    return roomsData;
+  }
+  
+  const enrichedRooms = await Promise.all(
+    roomsData.map(async (room) => {
+      const bedAssignments = room.bed_assignments || [];
+      
+      const enrichedBeds = await Promise.all(
+        bedAssignments.map(async (bed) => {
+          if (bed.tenant_id && !bed.tenant_name) {
+            try {
+            
+              const token = localStorage.getItem('admin_token');
+              const response = await fetch(`/api/tenants/${bed.tenant_id}`, {
+                headers: {
+                  'Authorization': token ? `Bearer ${token}` : '',
+                }
+              });
+              const result = await response.json();
+              if (result.success && result.data) {
+                return { ...bed, tenant_name: result.data.full_name };
+              }
+            } catch (error) {
+              console.error(`      ❌ Error:`, error);
+            }
+          }
+          return bed;
+        })
+      );
+      return { ...room, bed_assignments: enrichedBeds };
+    })
+  );
+  return enrichedRooms;
+}, []);
+
+// Fetch rooms with advanced filters
+const fetchFilteredRooms = useCallback(async (filters: FilterState) => {
+  try {
+    setLoading(true);
+    
+    const processedFilters = {
+      ...filters,
+      min_rent: Number(filters.min_rent),
+      max_rent: Number(filters.max_rent),
+      min_capacity: Number(filters.min_capacity),
+      max_capacity: Number(filters.max_capacity),
+      page: currentPage,
+      limit: itemsPerPage
+    };
+    
+    const response = await fetch('/api/rooms/filter', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(processedFilters)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Server error response:', errorText);
+      throw new Error(`Server responded with status ${response.status}`);
+    }
+
+    const result = await response.json();
+    
+    if (result.success) {
+      // ✅ Enrich filtered rooms with tenant names
+      const roomsWithTenants = await enrichRoomsWithTenantNames(result.data);
+      setRooms(roomsWithTenants);
+      const totalPages = Math.ceil(result.pagination.total / itemsPerPage);
+      if (currentPage > totalPages && totalPages > 0) {
+        setCurrentPage(totalPages);
+      }
+      setSelectedRooms([]);
+    } else {
+      toast.error('Failed to load rooms: ' + (result.message || 'Unknown error'));
+    }
+  } catch (error: any) {
+    console.error('Error fetching filtered rooms:', error);
+    toast.error('Failed to load rooms: ' + (error.message || 'Network error'));
+  } finally {
+    setLoading(false);
+  }
+}, [currentPage, itemsPerPage, enrichRoomsWithTenantNames]);
+
+// Refresh handler
+const handleRefresh = useCallback(async () => {
+  try {
+    setLoading(true);
+    const { listRooms } = await import('@/lib/roomsApi');
+    const response: any = await listRooms();
+    let roomsData = response && Array.isArray(response) ? response : (response?.data && Array.isArray(response.data) ? response.data : []);
+    
+    // Sort rooms numerically
+    roomsData = roomsData.sort((a: RoomResponse, b: RoomResponse) => {
+      const numA = parseInt(String(a.room_number).replace(/[^0-9]/g, ''), 10);
+      const numB = parseInt(String(b.room_number).replace(/[^0-9]/g, ''), 10);
+      if (!isNaN(numA) && !isNaN(numB)) {
+        return numA - numB;
+      }
+      return String(a.room_number).localeCompare(String(b.room_number), undefined, { numeric: true });
+    });
+    
+    // ✅ Enrich rooms with tenant names
+    const roomsWithTenants = await enrichRoomsWithTenantNames(roomsData);
+    setRooms(roomsWithTenants);
+  } catch (error) {
+    console.error('Error refreshing rooms:', error);
+    toast.error("Failed to refresh rooms");
+  } finally {
+    setLoading(false);
+  }
+}, [enrichRoomsWithTenantNames]);
+
+
+// Handle bulk action completion - FROM YOUR ORIGINAL CODE
   const handleBulkActionComplete = useCallback((updatedRooms?: RoomResponse[]) => {
     if (updatedRooms) {
       setRooms(updatedRooms);
@@ -357,34 +462,12 @@ const handleImportFile = async (file: File) => {
     setSelectedRooms([]);
   }, [fetchFilteredRooms, advancedFilters]);
 
-  // Refresh handler
-  const handleRefresh = useCallback(async () => {
-  try {
-    setLoading(true);
-    const { listRooms } = await import('@/lib/roomsApi');
-    const response:any = await listRooms();
-    let roomsData = response && Array.isArray(response) ? response : (response?.data && Array.isArray(response.data) ? response.data : []);
-    
-    // Sort rooms numerically
-    roomsData = roomsData.sort((a: RoomResponse, b: RoomResponse) => {
-      const numA = parseInt(String(a.room_number).replace(/[^0-9]/g, ''), 10);
-      const numB = parseInt(String(b.room_number).replace(/[^0-9]/g, ''), 10);
-      if (!isNaN(numA) && !isNaN(numB)) {
-        return numA - numB;
-      }
-      return String(a.room_number).localeCompare(String(b.room_number), undefined, { numeric: true });
-    });
-    
-    setRooms(roomsData);
-  } catch (error) {
-    console.error('Error refreshing rooms:', error);
-    toast.error("Failed to refresh rooms");
-  } finally {
-    setLoading(false);
-  }
-}, []);
-
-
+    // Handle filter changes
+  const handleFilterChange = useCallback((filters: FilterState) => {
+    setAdvancedFilters(filters);
+    setCurrentPage(1);
+    fetchFilteredRooms(filters);
+  }, [fetchFilteredRooms]);
 
 // Inside your RoomsClient component, replace the handleExport function:
 
@@ -800,14 +883,14 @@ setRooms(roomsData);
     return items;
   }, [selectedGalleryRoom]);
 
-  // Load data on component mount if initialRooms is empty
-  useEffect(() => {
+// Load data on component mount if initialRooms is empty
+useEffect(() => {
   const loadData = async () => {
     if (rooms.length === 0) {
       try {
         setLoading(true);
         const { listRooms } = await import('@/lib/roomsApi');
-        const response:any = await listRooms();
+        const response: any = await listRooms();
         let roomsData = response && Array.isArray(response) ? response : (response?.data && Array.isArray(response.data) ? response.data : []);
         
         // Sort rooms numerically
@@ -820,7 +903,8 @@ setRooms(roomsData);
           return String(a.room_number).localeCompare(String(b.room_number), undefined, { numeric: true });
         });
         
-        setRooms(roomsData);
+        const roomsWithTenants = await enrichRoomsWithTenantNames(roomsData);
+        setRooms(roomsWithTenants);
       } catch (error) {
         console.error('Error loading rooms:', error);
         toast.error("Failed to load rooms");
@@ -829,9 +913,18 @@ setRooms(roomsData);
       }
     }
   };
-
   loadData();
-}, [rooms.length]);
+}, [rooms.length, enrichRoomsWithTenantNames]);
+
+useEffect(() => {
+  const enrichInitialRooms = async () => {
+    if (rooms.length > 0 && rooms[0]?.bed_assignments?.[0]?.tenant_name === undefined) {
+      const enrichedRooms = await enrichRoomsWithTenantNames(rooms);
+      setRooms(enrichedRooms);
+    }
+  };
+  enrichInitialRooms();
+}, [rooms.length]); // Run when rooms are first loaded
 
   return (
     <div className=" ">
@@ -911,18 +1004,18 @@ setRooms(roomsData);
 
                   {/* Search */}
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-blue-200" />
-                    <input
-                      type="text"
-                      placeholder="Search rooms..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-[420px] pl-9 pr-3 py-1.5 text-sm rounded-lg
-                               bg-white/20 text-white placeholder-blue-100
-                               backdrop-blur-md border border-white/30
-                               shadow-sm focus:outline-none focus:ring-1 focus:ring-white/50"
-                    />
-                  </div>
+  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-blue-200" />
+  <input
+    type="text"
+    placeholder="Search by room number, property, or tenant name..."
+    value={searchQuery}
+    onChange={(e) => setSearchQuery(e.target.value)}
+    className="w-[420px] pl-9 pr-3 py-1.5 text-sm rounded-lg
+             bg-white/20 text-white placeholder-blue-100
+             backdrop-blur-md border border-white/30
+             shadow-sm focus:outline-none focus:ring-1 focus:ring-white/50"
+  />
+</div>
                 </div>
 
                 {/* RIGHT: Buttons */}
@@ -1090,19 +1183,19 @@ setRooms(roomsData);
             </div>
 
             {/* Compact Search Bar */}
-            <div className="relative py-1">
-              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-blue-200" />
-              <input
-                type="text"
-                placeholder="Search rooms..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-7 pr-2 py-1.5 text-xs rounded-md
-                         bg-white/20 text-white placeholder-blue-100
-                         backdrop-blur-md border border-white/30
-                         shadow-sm focus:outline-none focus:ring-1 focus:ring-white/50"
-              />
-            </div>
+<div className="relative py-1">
+  <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-blue-200" />
+  <input
+    type="text"
+    placeholder="Search room, property, or tenant..."
+    value={searchQuery}
+    onChange={(e) => setSearchQuery(e.target.value)}
+    className="w-full pl-7 pr-2 py-1.5 text-xs rounded-md
+             bg-white/20 text-white placeholder-blue-100
+             backdrop-blur-md border border-white/30
+             shadow-sm focus:outline-none focus:ring-1 focus:ring-white/50"
+  />
+</div>
           </div>
         </CardHeader>
 

@@ -1,3 +1,4 @@
+// vacateApi.ts
 import { request } from '@/lib/api';
 
 // Export interfaces

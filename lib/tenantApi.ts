@@ -1097,18 +1097,41 @@ export async function getTenantPayments(tenantId: string | number): Promise<ApiR
   }
 }
 
-// Get tenant payment summary with month-wise history
 export async function getTenantPaymentFormData(tenantId: string | number): Promise<ApiResult<any>> {
   try {
-    const response = await request<ApiResult<any>>(`/api/payments/tenant/${tenantId}/payment-form`, {
+    // ✅ Use direct fetch instead of request to see the error
+    const token = localStorage.getItem('admin_token');
+    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+    
+    const response = await fetch(`${baseUrl}/api/payments/tenant/${tenantId}/payment-form`, {
       method: "GET",
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': token ? `Bearer ${token}` : '',
+      },
+      credentials: 'include',
     });
-    return response;
+    
+    const data = await response.json();
+    
+    if (!response.ok) {
+      console.error("Payment form API error:", {
+        status: response.status,
+        data
+      });
+      return {
+        success: false,
+        message: data.message || `HTTP ${response.status}`,
+        data: null,
+      };
+    }
+    
+    return data;
   } catch (error) {
     console.error("Error fetching tenant payment form data:", error);
     return {
       success: false,
-      message: "Failed to fetch tenant payment data",
+      message: error instanceof Error ? error.message : "Failed to fetch tenant payment data",
       data: null,
     };
   }

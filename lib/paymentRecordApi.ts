@@ -1,7 +1,3 @@
-
-
-
-
 // lib/paymentRecordApi.ts
 import { ApiResult, request } from "@/lib/api";
 
@@ -139,6 +135,18 @@ export type PaymentStats = {
   deposit_collected: number;
   maintenance_collected: number;
 };
+
+
+export interface DetailedPaymentStats {
+  total_collected: number;
+  total_rent_collected: number;
+  total_deposit_collected: number;
+  total_refunded: number;
+   this_month_rent: number;      // ✅ NEW
+  total_transactions: number;
+  total_refunds_count: number;
+}
+
 
 export type MonthRent = {
   month: string;
@@ -478,17 +486,28 @@ export async function uploadPaymentProof(paymentId: number, file: File): Promise
 }
 
 
+
 export async function getVacatedTenantPaymentFormData(tenantId: number): Promise<ApiResult<any>> {
   try {
-    const response = await request<ApiResult<any>>(`/api/payments/tenant/${tenantId}/vacated-payment-form`, {
+    const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/payments/tenant/${tenantId}/vacated-payment-form`, {
       method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
     });
-    return response;
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    return data;
   } catch (error) {
     console.error("Error fetching vacated tenant payment form data:", error);
     return {
       success: false,
-      message: "Failed to fetch vacated tenant payment data",
+      message: error instanceof Error ? error.message : "Failed to fetch vacated tenant payment data",
       data: null,
     };
   }
@@ -664,4 +683,18 @@ export async function getSecurityDepositInfo(tenantId: number): Promise<{ succes
   
   return response.json();
 }
-
+export const getDetailedPaymentStats = async (params?: {
+  propertyId?: string;
+  tenantId?: string;
+}): Promise<ApiResponse<DetailedPaymentStats>> => {
+  let url = '/api/payments/stats/detailed';
+  if (params) {
+    const queryParams = new URLSearchParams();
+    if (params.propertyId) queryParams.append('propertyId', params.propertyId);
+    if (params.tenantId) queryParams.append('tenantId', params.tenantId);
+    if (queryParams.toString()) url += `?${queryParams.toString()}`;
+  }
+  // ✅ FIX: Use request() instead of api.get()
+  const response = await request(url);
+  return response;
+};

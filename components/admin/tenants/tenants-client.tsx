@@ -599,11 +599,55 @@ useEffect(() => {
   };
 }, [selectedTenant]);
 
-  // Export to Excel
-  const handleExportToExcel = useCallback(async () => {
+// Export to Excel - Exports based on current tab
+const handleExportToExcel = useCallback(async () => {
   try {
-    // Prepare data for export
-    const exportData = tenants.map(tenant => ({
+    let exportData = [];
+    
+    // If on vacated tab, fetch vacated tenants directly from API
+    if (activeTab === 'vacated') {
+      // Show loading toast
+      toast.loading("Fetching vacated tenants...", { id: "export-loading" });
+      
+      // Fetch vacated tenants from API
+      const response = await listTenants({ vacate_status: 'vacated', pageSize: 1000 });
+      
+      toast.dismiss("export-loading");
+      
+      if (response?.success && Array.isArray(response.data)) {
+        exportData = response.data;
+        toast.success(`Found ${exportData.length} vacated tenants to export`);
+      } else {
+        toast.error("Failed to fetch vacated tenants");
+        return;
+      }
+    } else if (activeTab === 'deleted') {
+      // For deleted tab, fetch deleted tenants
+      toast.loading("Fetching deleted tenants...", { id: "export-loading" });
+      
+      const response = await listTenants({ include_deleted: true, vacate_status: 'vacated', pageSize: 1000 });
+      
+      toast.dismiss("export-loading");
+      
+      if (response?.success && Array.isArray(response.data)) {
+        exportData = response.data;
+        toast.success(`Found ${exportData.length} deleted tenants to export`);
+      } else {
+        toast.error("Failed to fetch deleted tenants");
+        return;
+      }
+    } else {
+      // For All Tenants tab, use current tenants state
+      exportData = tenants;
+    }
+    
+    if (exportData.length === 0) {
+      toast.warning("No data to export");
+      return;
+    }
+    
+    // Prepare data for Excel
+    const excelData = exportData.map(tenant => ({
       'ID': tenant.id,
       'Salutation': tenant.salutation || '',
       'Full Name': tenant.full_name,
@@ -632,19 +676,24 @@ useEffect(() => {
       'Has Login': tenant.has_credentials ? 'Yes' : 'No',
       'Property': tenant.property_name || '',
       'Room Assignment': tenant.current_assignment ? 
-        `Room ${tenant.current_assignment.room_number}, Bed ${tenant.current_assignment.bed_number}` : 'Not assigned'
+        `Room ${tenant.current_assignment.room_number}, Bed ${tenant.current_assignment.bed_number}` : 'Not assigned',
+      // Add vacate information if available
+      'Vacated Date': tenant.vacate_records?.[0]?.requested_vacate_date || '',
+      'Vacate Reason': tenant.vacate_records?.[0]?.vacate_reason_value || '',
+      'Refund Amount': tenant.vacate_records?.[0]?.refundable_amount || 0,
+      'Penalty Amount': tenant.vacate_records?.[0]?.total_penalty_amount || 0,
     }));
 
     // Create worksheet
-    const ws = XLSX.utils.json_to_sheet(exportData);
+    const ws = XLSX.utils.json_to_sheet(excelData);
     
     // Auto-size columns
     const colWidths = [];
-    const headers = Object.keys(exportData[0] || {});
+    const headers = Object.keys(excelData[0] || {});
     headers.forEach(header => {
       const maxLength = Math.max(
         header.length,
-        ...exportData.map(row => String(row[header] || '').length)
+        ...excelData.map(row => String(row[header] || '').length)
       );
       colWidths.push({ wch: Math.min(maxLength + 2, 50) });
     });
@@ -652,40 +701,48 @@ useEffect(() => {
 
     // Create workbook
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Tenants");
     
-    // Add summary sheet (optional)
+    // Add sheet name based on active tab
+    const sheetName = activeTab === 'vacated' ? 'Vacated Tenants' : 
+                      activeTab === 'deleted' ? 'Deleted Vacated Tenants' : 'All Tenants';
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    
+    // Add summary sheet
     const summaryData = [{
       'Metric': 'Total Tenants',
-      'Value': tenants.length
+      'Value': excelData.length
     }, {
       'Metric': 'Active Tenants',
-      'Value': tenants.filter(t => t.is_active).length
+      'Value': excelData.filter(t => t.is_active).length
     }, {
       'Metric': 'Inactive Tenants',
-      'Value': tenants.filter(t => !t.is_active).length
+      'Value': excelData.filter(t => !t.is_active).length
     }, {
       'Metric': 'Portal Access Enabled',
-      'Value': tenants.filter(t => t.portal_access_enabled).length
+      'Value': excelData.filter(t => t.portal_access_enabled).length
     }, {
       'Metric': 'Export Date',
       'Value': new Date().toLocaleString()
+    }, {
+      'Metric': 'Export Type',
+      'Value': activeTab === 'vacated' ? 'Vacated Tenants Only' : 
+               activeTab === 'deleted' ? 'Deleted Vacated Tenants Only' : 'All Tenants'
     }];
     
     const summaryWs = XLSX.utils.json_to_sheet(summaryData);
     XLSX.utils.book_append_sheet(wb, summaryWs, "Summary");
     
     // Generate Excel file
-    const fileName = `tenants_export_${new Date().toISOString().split('T')[0]}.xlsx`;
+    const fileName = `tenants_${activeTab}_export_${new Date().toISOString().split('T')[0]}.xlsx`;
     XLSX.writeFile(wb, fileName);
     
-    toast.success(`Exported ${exportData.length} tenants successfully!`);
+    toast.success(`Exported ${excelData.length} ${sheetName} successfully!`);
     
   } catch (error: any) {
     console.error('Export error:', error);
     toast.error(error.message || "Failed to export tenants");
   }
-}, [tenants]);
+}, [tenants, activeTab]);
 
   // Handle credential creation/reset
   const handleCredentialSubmit = useCallback(async () => {
