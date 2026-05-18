@@ -638,7 +638,7 @@ function TenantSelectDropdown({
                   )
                     return;
                   onSecurityDepositChange?.(e.target.value);
-                  onCustomRentChange?.(e.target.value);
+                  
                 }}
                 className="pl-7 md:pl-9 h-8 md:h-10 text-xs md:text-sm"
               />

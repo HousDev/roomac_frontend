@@ -5303,6 +5303,11 @@ const PaymentStatusBadge = ({ status }: { status: string }) => {
       icon: Clock,
       label: "Partial",
     },
+    refund: {
+      className: "bg-purple-100 text-purple-800 border-purple-200",
+      icon: CheckCircle2,
+      label: "Refund",
+    },
   };
 
   // Normalize status to lowercase for matching
@@ -6283,7 +6288,12 @@ const PaymentsTable = ({
 
                                                     {/* Source */}
                                                     <td className="py-1 px-3 border-r border-slate-200">
-                                                      {payment.booking_id ? (
+                                                       {payment.payment_type === 'deposit_refund' ? (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-[10px] font-medium whitespace-nowrap">
+      <ReceiptIndianRupee className="h-2.5 w-2.5" />
+      Deposit Refund
+    </span>
+  ) : payment.booking_id ? (
                                                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-[10px] font-medium whitespace-nowrap">
                                                           <Globe className="h-2.5 w-2.5" />
                                                           Online Booking
