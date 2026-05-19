@@ -832,23 +832,14 @@ const handleNext = async () => {
 const handleBack = () => {
   if (step > 1) {
     if (!isCoupleBooking) {
-      // Non-couple mapping: 1:Reason, 2:Lock-in, 3:Notice, 4:Inspection, 5:Date, 6:Summary, 7:Result
-      if (step === 2) setStep(1);      // Lock-in → Reason
-      else if (step === 3) setStep(2); // Notice → Lock-in
-      else if (step === 4) setStep(3); // Inspection → Notice
-      else if (step === 5) setStep(4); // Date → Inspection
-      else if (step === 6) setStep(5); // Summary → Date
-      else if (step === 7) setStep(6); // Result → Summary
-      else setStep(step - 1);
-    } else {
-      // Couple mapping: 1:Reason, 2:Select Tenants, 3:Lock-in, 4:Notice, 5:Inspection, 6:Date, 7:Summary, 8:Result
-      if (step === 3) setStep(2);      // Lock-in → Select Tenants
+      if (step === 3) setStep(1);      // Lock-in → Reason
       else if (step === 4) setStep(3); // Notice → Lock-in
       else if (step === 5) setStep(4); // Inspection → Notice
       else if (step === 6) setStep(5); // Date → Inspection
       else if (step === 7) setStep(6); // Summary → Date
       else if (step === 8) setStep(7); // Result → Summary
-      else setStep(step - 1);
+    } else {
+      setStep(step - 1); // Couple: all sequential 1-8
     }
   }
 };
@@ -1469,6 +1460,7 @@ finalInspectionPenaltyAmount = isPartialVacateSelected
           noticePeriodDays: initialData?.bedAssignment?.notice_period_days || 0,
           noticePenaltyType: initialData?.bedAssignment?.notice_penalty_type || '',
           noticePenaltyAmount: finalNoticePenaltyAmount,
+          inspectionPenaltyAmount: finalInspectionPenaltyAmount,
           securityDepositAmount: initialData?.bedAssignment?.security_deposit || securityDeposit || 0,
           totalPenaltyAmount: finalTotalPenaltyAmount,
           refundableAmount: safeRefundableAmount,
@@ -1625,24 +1617,17 @@ finalInspectionPenaltyAmount = isPartialVacateSelected
   };
 const getStepIndex = () => {
   if (isCoupleBooking) {
-    // Steps: 1:Reason, 2:Select Tenants, 3:Lock-in, 4:Notice, 5:Inspection, 6:Date, 7:Summary, 8:Result
-    if (step === 1) return 0;
-    if (step === 2) return 1;
-    if (step === 3) return 2;
-    if (step === 4) return 3;
-    if (step === 5) return 4;
-    if (step === 6) return 5;
-    if (step === 7) return 6;
-    return 7; // step 8
+    return step - 1; // steps 1-8 → index 0-7, direct mapping
   } else {
-    // Steps: 1:Reason, 2:Lock-in, 3:Notice, 4:Inspection, 5:Date, 6:Summary, 7:Result
-    if (step === 1) return 0;
-    if (step === 2) return 1;  // Lock-in
-    if (step === 3) return 2;  // Notice
-    if (step === 4) return 3;  // Inspection
-    if (step === 5) return 4;  // Date
-    if (step === 6) return 5;  // Summary
-    return 6; // step 7: Result
+    // Non-couple steps: 1, 3, 4, 5, 6, 7, 8 (step 2 is skipped)
+    if (step === 1) return 0; // Reason
+    if (step === 3) return 1; // Lock-in
+    if (step === 4) return 2; // Notice
+    if (step === 5) return 3; // Inspection
+    if (step === 6) return 4; // Date
+    if (step === 7) return 5; // Summary
+    if (step === 8) return 6; // Result
+    return 0;
   }
 };
 
@@ -2545,7 +2530,6 @@ style={{ width: `${((getStepIndex() + 1) / stepTitles.length) * 100}%` }}
               </div>
             )}
 
-{/* STEP 6: SUMMARY */}
 {step === 7 && calculation && (
   <div className="space-y-4 p-2">
     <div className="bg-blue-50 p-3 rounded-lg">
@@ -2632,29 +2616,67 @@ style={{ width: `${((getStepIndex() + 1) / stepTitles.length) * 100}%` }}
             </div>
           )}
 
-          {/* Total Penalties - Show correct total */}
-          <div className="flex justify-between items-center pt-2 border-t">
-            <div className="text-sm font-medium">Total Penalties</div>
-            <div className="font-medium text-sm text-red-600">
-              - {formatCurrency(calculation.financials.totalPenalty)}
-            </div>
-          </div>
+          {/* Inspection Penalty - Show separately */}
+{calculation?.inspectionPenalty?.amount > 0 && (
+  <div className="flex justify-between items-center pt-2 border-t">
+    <div>
+      <div className="text-sm text-gray-600">
+        Inspection Penalty
+      </div>
+      <div className="text-xs text-gray-500">
+        Move-out inspection damages
+      </div>
+    </div>
+    <div className="font-medium text-sm text-red-600">
+      - {formatCurrency(calculation.inspectionPenalty.amount)}
+    </div>
+  </div>
+)}
 
-          {/* Refundable Amount - Show correct refund */}
-          <div className="flex justify-between items-center pt-2 border-t">
-            <div className="font-medium">Refundable Amount</div>
-            <div className={`font-bold ${calculation.financials.refundableAmount > 0 ? "text-green-600" : "text-red-600"}`}>
-              {formatCurrency(calculation.financials.refundableAmount)}
+          {/* Total Penalties - Show correct total including inspection */}
+<div className="flex justify-between items-center pt-2 border-t">
+  <div className="text-sm font-medium">Total Penalties</div>
+  <div className="font-medium text-sm text-red-600">
+    - {formatCurrency(
+      (calculation.financials.lockinPenalty || 0) + 
+      (calculation.financials.noticePenalty || 0) + 
+      (calculation?.inspectionPenalty?.amount || 0)
+    )}
+  </div>
+</div>
+
+{/* Refundable Amount - Show correct refund including inspection deduction */}
+<div className="flex justify-between items-center pt-2 border-t">
+  <div className="font-medium">Refundable Amount</div>
+  <div className={`font-bold ${(calculation.financials.refundableAmount - (calculation?.inspectionPenalty?.amount || 0)) > 0 ? "text-green-600" : "text-red-600"}`}>
+    {formatCurrency(Math.max(0, calculation.financials.refundableAmount - (calculation?.inspectionPenalty?.amount || 0)))}
+  </div>
+</div>
+
+          {/* ✅ ADD REFUND MESSAGE */}
+          {calculation.financials.refundableAmount > 0 && (
+            <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <div className="flex items-start gap-2">
+                <Info className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-amber-800">
+                    Refund Processing
+                  </p>
+                  <p className="text-xs text-amber-700 mt-0.5">
+                    The refund amount of <span className="font-semibold">{formatCurrency(calculation.financials.refundableAmount)}</span> will be processed and sent to the tenant's registered bank account within <span className="font-semibold">15 working days</span> after vacate confirmation.
+                  </p>
+                </div>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </CardContent>
     </Card>
 
+    {/* Rest of the summary card remains the same */}
     <Card className="border">
       <CardContent className="p-3">
         <div className="space-y-3">
-          {/* ✅ Admin Approval - SHOW ONLY when tenant has request AND no admin override active */}
           {existingVacateRequest && !isAdminOverrideLockin && !isAdminOverrideNotice && (
             <div className="flex items-start gap-2">
               <input
@@ -2677,7 +2699,6 @@ style={{ width: `${((getStepIndex() + 1) / stepTitles.length) * 100}%` }}
             </div>
           )}
 
-          {/* ✅ For admin override or no tenant request - show info message */}
           {(!existingVacateRequest || isAdminOverrideLockin || isAdminOverrideNotice) && (
             <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
               <div className="flex items-start gap-2">
@@ -2698,7 +2719,6 @@ style={{ width: `${((getStepIndex() + 1) / stepTitles.length) * 100}%` }}
             </div>
           )}
 
-          {/* Override Status Summary */}
           {(isAdminOverrideLockin || isAdminOverrideNotice) && (
             <div className="p-2 rounded text-xs bg-purple-50 border border-purple-200 text-purple-800">
               <div className="flex items-center gap-1.5">
@@ -2713,7 +2733,6 @@ style={{ width: `${((getStepIndex() + 1) / stepTitles.length) * 100}%` }}
             </div>
           )}
 
-          {/* Tenant Request Info - Show when tenant has request but no override */}
           {existingVacateRequest && !isAdminOverrideLockin && !isAdminOverrideNotice && (
             <div className="p-2 rounded text-xs bg-yellow-50 border border-yellow-200 text-yellow-800">
               <div className="flex items-center gap-1.5">
@@ -2731,24 +2750,62 @@ style={{ width: `${((getStepIndex() + 1) / stepTitles.length) * 100}%` }}
 )}
 
             {/* STEP 7: RESULT */}
-            {step === 8 && (
-              <div className="space-y-4 p-2">
-                <div className="bg-green-50 p-4 rounded-lg text-center">
-                  <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-green-100 mb-3">
-                    <Check className="h-6 w-6 text-green-600" />
-                  </div>
-                  <h3 className="font-medium text-green-800 text-lg mb-1">
-                    Vacate Request Processed Successfully!
-                  </h3>
-                  <p className="text-green-700">
-                    The bed has been marked as vacated.
-                  </p>
-                  <p className="text-sm text-green-600 mt-2">
-                    Closing dialog...
-                  </p>
-                </div>
-              </div>
-            )}
+{/* STEP 8: RESULT */}
+{step === 8 && (
+  <div className="space-y-4 p-2">
+    <div className="bg-green-50 p-4 rounded-lg text-center">
+      <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-green-100 mb-3">
+        <Check className="h-6 w-6 text-green-600" />
+      </div>
+      <h3 className="font-medium text-green-800 text-lg mb-1">
+        Vacate Request Processed Successfully!
+      </h3>
+      <p className="text-green-700">
+        The bed has been marked as vacated.
+      </p>
+      
+      {/* ✅ ADD REFUND MESSAGE IN RESULT STEP */}
+      {calculation?.financials?.refundableAmount > 0 && (
+        <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-left">
+          <div className="flex items-start gap-2">
+            <Info className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-amber-800">
+                Refund Status
+              </p>
+              <p className="text-xs text-amber-700 mt-0.5">
+                The refund amount of <span className="font-semibold">{formatCurrency(calculation.financials.refundableAmount)}</span> will be processed and sent to the tenant's registered bank account within <span className="font-semibold">15 working days</span>.
+              </p>
+              <p className="text-xs text-amber-600 mt-2">
+                The tenant will receive an email notification once the refund is processed.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {calculation?.financials?.refundableAmount === 0 && calculation?.financials?.totalPenalty > 0 && (
+        <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-left">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-red-800">
+                No Refund Due
+              </p>
+              <p className="text-xs text-red-700 mt-0.5">
+                Total penalties of <span className="font-semibold">{formatCurrency(calculation.financials.totalPenalty)}</span> have fully deducted the security deposit of <span className="font-semibold">{formatCurrency(calculation.financials.securityDeposit)}</span>. No refund amount is due.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      <p className="text-sm text-green-600 mt-3">
+        Closing dialog...
+      </p>
+    </div>
+  </div>
+)}
           </div>
         </div>
 

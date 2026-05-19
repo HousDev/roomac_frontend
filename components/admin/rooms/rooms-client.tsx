@@ -236,18 +236,12 @@ const filteredRooms = useMemo(() => {
     // ✅ Search by tenant names in bed assignments
     let matchesTenantSearch = false;
     const bedAssignments = room.bed_assignments || [];
-    
-    if (searchQuery && bedAssignments.length > 0) {
-      console.log(`  Checking room ${room.room_number} for tenant search...`);
-    }
+  
     
     matchesTenantSearch = bedAssignments.some((assignment: any) => {
       if (!assignment.is_available && assignment.tenant_id) {
         const tenantName = assignment.tenant_name || '';
         const matches = tenantName.toLowerCase().includes(searchLower);
-        if (matches && searchQuery) {
-          console.log(`    ✅ Found tenant "${tenantName}" in room ${room.room_number} bed ${assignment.bed_number}`);
-        }
         return matches;
       }
       return false;

@@ -132,6 +132,7 @@ original_id?: number;
     room_number: string;
     property_name: string;
     property_id: number;
+    
   };
   assigned_room_id?: number;
   assigned_bed_number?: number;
@@ -1194,4 +1195,53 @@ export async function getTenantsByRoom(roomId: string | number): Promise<ApiResu
       data: [],
     };
   }
+}
+
+// Add to lib/tenantApi.ts
+
+// Get vacated tenant payment info (to determine if refund or payment is needed)
+export async function getVacatedTenantPaymentInfo(tenantId: string | number): Promise<ApiResult<any>> {
+  return enhancedFetch<ApiResult<any>>(`/api/payments/vacated-tenant/${tenantId}/payment-info`, { 
+    method: "GET" 
+  });
+}
+
+// Process refund for vacated tenant
+
+export async function processVacatedTenantRefund(
+  tenantId: string | number, 
+  data: {
+    amount: number;
+    payment_mode: string;
+    bank_name?: string;
+    transaction_id?: string;
+    remark?: string;
+  }
+): Promise<ApiResult<any>> {
+  return enhancedFetch<ApiResult<any>>(`/api/payments/vacated-tenant/${tenantId}/refund`, {
+    method: "POST",
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(data),
+  });
+}
+
+export async function processVacatedTenantPayment(
+  tenantId: string | number,
+  data: {
+    amount: number;
+    payment_mode: string;
+    bank_name?: string;
+    transaction_id?: string;
+    remark?: string;
+  }
+): Promise<ApiResult<any>> {
+  return enhancedFetch<ApiResult<any>>(`/api/payments/vacated-tenant/${tenantId}/payment`, {
+    method: "POST",
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(data),
+  });
 }

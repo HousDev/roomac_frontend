@@ -1324,7 +1324,7 @@ const loadTenantsBasedOnPreferences = async () => {
     setLoadingTenants(true);
 
     const response: any = await request<Tenant[]>(
-      "/api/tenants?is_active=true&portal_access_enabled=true",
+      "/api/tenants?is_active=true&pageSize=1000",
     );
 
     let tenantsList: Tenant[] = [];
