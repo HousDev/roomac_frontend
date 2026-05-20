@@ -2364,23 +2364,21 @@ const columns = useMemo(() => [
 <td className="px-2 py-2.5">
   {(() => {
     const payments = tenant.payments || [];
-    const paid = payments.filter(p => p.status === 'paid').reduce((sum, p) => sum + (p.amount || 0), 0);
-    const pending = payments.filter(p => p.status === 'pending').reduce((sum, p) => sum + (p.amount || 0), 0);
+   const paid = payments.filter(p => p.status === 'paid' || p.status === 'approved').reduce((sum, p) => sum + (p.amount || 0), 0);
     
     const isVacated = tenant.has_vacated === true;
     const vacateRecord = tenant.vacate_records?.[0];
     const refundableAmount = vacateRecord?.refundable_amount || 0;
-    const needsRefund = isVacated && refundableAmount > 0;
-    const needsPayment = isVacated && refundableAmount < 0;
+    const totalRefunded = tenant.total_refunded || 0;
+    const remainingRefund = refundableAmount - totalRefunded;
+    const needsRefund = isVacated && remainingRefund > 0;
+    const isFullyRefunded = isVacated && remainingRefund <= 0;
     
     return (
       <div className="space-y-0.5">
         <div className="text-[10px] font-semibold text-green-600 flex items-center gap-0.5">
           <span>₹{paid.toLocaleString()}</span>
         </div>
-        {pending > 0 && (
-          <div className="text-[10px] text-red-500">₹{pending.toLocaleString()}</div>
-        )}
         <div className="text-[9px] text-gray-400">{payments.length} txn</div>
         
         {isVacated && (
@@ -2390,22 +2388,16 @@ const columns = useMemo(() => [
                 variant="outline"
                 size="sm"
                 className="h-6 text-[9px] px-2 bg-green-50 text-green-700 border-green-200 hover:bg-green-100 w-full"
-                onClick={() => handleVacatedTenantRefund(tenant, refundableAmount)}
+                onClick={() => handleVacatedTenantRefund(tenant, remainingRefund)}
               >
                 <Shield className="w-2.5 h-2.5 mr-1" />
-                Pay Refund ₹{refundableAmount.toLocaleString()}
+                Pay Refund ₹{remainingRefund.toLocaleString()}
               </Button>
             )}
-            {needsPayment && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-6 text-[9px] px-2 bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100 w-full"
-                onClick={() => handleVacatedTenantPayment(tenant, Math.abs(refundableAmount))}
-              >
-                <IndianRupee className="w-2.5 h-2.5 mr-1" />
-                Receive Payment ₹{Math.abs(refundableAmount).toLocaleString()}
-              </Button>
+            {isFullyRefunded && (
+              <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-5 bg-green-100 text-green-700 border-green-200 w-full text-center">
+                Settled
+              </Badge>
             )}
           </div>
         )}

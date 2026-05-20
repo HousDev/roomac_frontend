@@ -149,8 +149,14 @@ original_id?: number;
     status: string;
     refundable_amount: number;
     total_penalty_amount: number;
+    security_deposit_amount: number;
+    rent_amount: number;  // ✅ ADD THIS LINE
+    inspection_penalty_amount?: number;
+    lockin_penalty_amount?: number;
+    notice_penalty_amount?: number;
     created_at: string;
   }>;
+   total_refunded?: number;  
 };
 
 // Add to Property type

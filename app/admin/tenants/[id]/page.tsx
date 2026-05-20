@@ -123,6 +123,7 @@ export default function TenantDetailPage() {
   const [partnerDetails, setPartnerDetails] = useState<PartnerDetails | null>(
     null,
   );
+  const [effectiveTenantIdForPayments, setEffectiveTenantIdForPayments] = useState<string | number | null>(null);
 
   const tid = params.id as string;
 
@@ -135,6 +136,214 @@ export default function TenantDetailPage() {
   useEffect(() => {
     if (activeTab === "payments" && tid) loadPayments();
   }, [activeTab, tid]);
+
+// const loadTenant = async () => {
+//   console.log(`🔍 Loading tenant details for ID: `);
+//   try {
+//     setLoading(true);
+//     const r: any = await getTenantById(tid);
+    
+//     if (r?.success && r.data) {
+//       let tenantData = r.data;
+      
+//       // WORKAROUND for partner swapping (keep existing code)
+//       const requestedId = parseInt(tid);
+//       const returnedId = tenantData.id;
+      
+//       if (tenantData.is_couple_booking && requestedId !== returnedId) {
+//         tenantData = {
+//           ...tenantData,
+//           id: requestedId,
+//           salutation: tenantData.partner_salutation,
+//           full_name: tenantData.partner_full_name,
+//           email: tenantData.partner_email,
+//           phone: tenantData.partner_phone,
+//           country_code: tenantData.partner_country_code,
+//           gender: tenantData.partner_gender,
+//           date_of_birth: tenantData.partner_date_of_birth,
+//           address: tenantData.partner_address,
+//           occupation: tenantData.partner_occupation,
+//           organization: tenantData.partner_organization,
+//           partner_salutation: tenantData.salutation,
+//           partner_full_name: tenantData.full_name,
+//           partner_email: tenantData.email,
+//           partner_phone: tenantData.phone,
+//           partner_country_code: tenantData.country_code,
+//           partner_gender: tenantData.gender,
+//           partner_date_of_birth: tenantData.date_of_birth,
+//           partner_address: tenantData.address,
+//           partner_occupation: tenantData.occupation,
+//           partner_organization: tenantData.organization,
+//           partner_relationship: tenantData.partner_relationship || "Spouse",
+//           id_proof_url: tenantData.partner_id_proof_url,
+//           address_proof_url: tenantData.partner_address_proof_url,
+//           photo_url: tenantData.partner_photo_url,
+//           partner_id_proof_url: tenantData.id_proof_url,
+//           partner_address_proof_url: tenantData.address_proof_url,
+//           partner_photo_url: tenantData.photo_url,
+//           additional_documents: tenantData.partner_additional_documents || [],
+//           partner_additional_documents: tenantData.additional_documents || [],
+//         };
+//       }
+      
+//       console.log("✅ Tenant data loaded:", tenantData);
+      
+//       // ✅ FIX: Determine which tenant ID to use for assignment lookup
+//       let assignmentTenantId = tenantData.id;
+//       let isPartnerTenant = false;
+      
+//       // If this is a partner tenant (not primary), use the primary tenant ID for assignment
+//       if (tenantData.is_couple_booking === 1 && tenantData.is_primary_tenant === 0) {
+//         isPartnerTenant = true;
+//         if (tenantData.partner_tenant_id) {
+//           assignmentTenantId = tenantData.partner_tenant_id;
+//           console.log(`📊 Partner tenant - using primary tenant ID for assignment: ${assignmentTenantId}`);
+//         } else if (tenantData.couple_id) {
+//           // Try to find primary by couple_id
+//           try {
+//             const response = await fetch(`/api/tenants/couple/${tenantData.couple_id}/primary`);
+//             const result = await response.json();
+//             if (result.success && result.data) {
+//               assignmentTenantId = result.data.id;
+//               console.log(`📊 Found primary tenant via couple_id: ${assignmentTenantId}`);
+//             }
+//           } catch (error) {
+//             console.error("Error finding primary tenant:", error);
+//           }
+//         }
+//       }
+      
+//       // ✅ Check if tenant has vacate records using the effective tenant ID
+//       const vacateRecord = tenantData.vacate_records && tenantData.vacate_records.length > 0 
+//         ? tenantData.vacate_records[0] 
+//         : null;
+
+//         // If vacated, add rent_amount from vacate record to tenantData
+//       if (vacateRecord && vacateRecord.rent_amount) {
+//         tenantData.vacate_rent_amount = vacateRecord.rent_amount;
+//         console.log("✅ Using rent from vacate record:", vacateRecord.rent_amount);
+//       }
+      
+//       let assignmentData = null;
+      
+//       if (vacateRecord) {
+//         // For vacated tenants, fetch bed assignment using bed_assignment_id from vacate record
+//         try {
+//           const bedId = vacateRecord.bed_assignment_id;
+//           console.log(`🔍 Fetching vacated bed assignment with ID: ${bedId}`);
+          
+//           // Fetch the bed assignment details
+//           const bedResponse = await fetch(`/api/rooms/bed-assignments/${bedId}`);
+//           const bedResult = await bedResponse.json();
+          
+//           if (bedResult.success && bedResult.data) {
+//             const bedData = bedResult.data;
+            
+//             // Fetch room details
+//             const roomResponse = await fetch(`/api/rooms/${bedData.room_id}`);
+//             const roomResult = await roomResponse.json();
+            
+//             if (roomResult.success && roomResult.data) {
+//               const roomData = roomResult.data;
+              
+//               // Fetch property details
+//               const propResponse = await fetch(`/api/properties/${roomData.property_id}`);
+//               const propResult = await propResponse.json();
+              
+//               assignmentData = {
+//                 id: bedData.id,
+//                 bed_number: bedData.bed_number,
+//                 bed_type: bedData.bed_type,
+//                 tenant_rent: bedData.tenant_rent,
+//                 is_couple: bedData.is_couple === 1,
+//                 is_vacated: true,
+//                 vacated_date: vacateRecord.requested_vacate_date,
+//                 room: {
+//                   id: roomData.id,
+//                   room_number: roomData.room_number,
+//                   floor: roomData.floor,
+//                   sharing_type: roomData.sharing_type,
+//                   has_ac: roomData.has_ac === 1,
+//                   has_attached_bathroom: roomData.has_attached_bathroom === 1,
+//                   has_balcony: roomData.has_balcony === 1,
+//                 },
+//                 property: {
+//                   id: propResult.data.id,
+//                   name: propResult.data.name,
+//                   address: propResult.data.address,
+//                 }
+//               };
+//               console.log("✅ Vacated assignment loaded:", assignmentData);
+//             }
+//           }
+//         } catch (error) {
+//           console.error("Error fetching vacated bed assignment:", error);
+//         }
+//       } else {
+//         // For active tenants, use the regular assignment API with the effective tenant ID
+//         const assignmentResult = await getTenantAssignment(assignmentTenantId);
+//         if (assignmentResult.success && assignmentResult.data) {
+//           assignmentData = assignmentResult.data;
+//           console.log("✅ Active assignment loaded:", assignmentData);
+          
+//           // ✅ If this is a partner tenant, also update the monthly_rent value in tenant data for display
+//           if (isPartnerTenant && assignmentData && assignmentData.tenant_rent) {
+//             tenantData.monthly_rent = assignmentData.tenant_rent;
+//           }
+//         } else {
+//           console.log("⚠️ No active assignment found for tenant:", assignmentTenantId);
+//         }
+//       }
+      
+//       // ✅ For partner tenants, also fetch the primary tenant's rent to display in stats
+//       if (isPartnerTenant && !assignmentData) {
+//         // Try one more time with the primary tenant ID
+//         const primaryAssignmentResult = await getTenantAssignment(assignmentTenantId);
+//         if (primaryAssignmentResult.success && primaryAssignmentResult.data) {
+//           assignmentData = primaryAssignmentResult.data;
+//           tenantData.monthly_rent = primaryAssignmentResult.data.tenant_rent;
+//           console.log("✅ Partner tenant - using primary tenant's assignment for stats:", assignmentData);
+//         }
+//       }
+      
+      
+//       setAssignment(assignmentData);
+//       setTenant(tenantData);
+      
+//       // Load partner details if they exist (keep existing code)
+//       if (tenantData.partner_full_name) {
+//         setPartnerDetails({
+//           salutation: tenantData.partner_salutation || "Mr.",
+//           full_name: tenantData.partner_full_name || "",
+//           country_code: tenantData.partner_country_code || "",
+//           phone: tenantData.partner_phone || "",
+//           email: tenantData.partner_email || "",
+//           gender: tenantData.partner_gender || "",
+//           date_of_birth: tenantData.partner_date_of_birth || "",
+//           address: tenantData.partner_address || "",
+//           occupation: tenantData.partner_occupation || "",
+//           organization: tenantData.partner_organization || "",
+//           relationship: tenantData.partner_relationship || "Spouse",
+//           id_proof_type: tenantData.partner_id_proof_type || "",
+//           id_proof_number: tenantData.partner_id_proof_number || "",
+//           id_proof_url: tenantData.partner_id_proof_url || null,
+//           address_proof_type: tenantData.partner_address_proof_type || "",
+//           address_proof_number: tenantData.partner_address_proof_number || "",
+//           address_proof_url: tenantData.partner_address_proof_url || null,
+//           photo_url: tenantData.partner_photo_url || null,
+//         });
+//       }
+//     } else {
+//       setError("Failed to load tenant details");
+//     }
+//   } catch (err) {
+//     console.error(err);
+//     setError("An error occurred while fetching tenant details");
+//   } finally {
+//     setLoading(false);
+//   }
+// };
+
 
 const loadTenant = async () => {
   console.log(`🔍 Loading tenant details for ID: `);
@@ -187,123 +396,131 @@ const loadTenant = async () => {
       
       console.log("✅ Tenant data loaded:", tenantData);
       
-      // ✅ FIX: Determine which tenant ID to use for assignment lookup
-      let assignmentTenantId = tenantData.id;
+      // ✅ CRITICAL: Determine the effective tenant ID for fetching assignment and payments
+      let effectiveTenantId = tenantData.id;
       let isPartnerTenant = false;
+      let primaryTenantData = null;
       
-      // If this is a partner tenant (not primary), use the primary tenant ID for assignment
-      if (tenantData.is_couple_booking === 1 && tenantData.is_primary_tenant === 0) {
-        isPartnerTenant = true;
-        if (tenantData.partner_tenant_id) {
-          assignmentTenantId = tenantData.partner_tenant_id;
-          console.log(`📊 Partner tenant - using primary tenant ID for assignment: ${assignmentTenantId}`);
-        } else if (tenantData.couple_id) {
-          // Try to find primary by couple_id
-          try {
-            const response = await fetch(`/api/tenants/couple/${tenantData.couple_id}/primary`);
-            const result = await response.json();
-            if (result.success && result.data) {
-              assignmentTenantId = result.data.id;
-              console.log(`📊 Found primary tenant via couple_id: ${assignmentTenantId}`);
+      // If this is a partner tenant (not primary), use the primary tenant ID for assignment and payments
+      if (tenantData.is_couple_booking === 1 || tenantData.is_couple_booking === true) {
+        if (tenantData.is_primary_tenant === 0 || tenantData.is_primary_tenant === false) {
+          isPartnerTenant = true;
+          
+          // Try to get primary tenant from partner_tenant_id
+          if (tenantData.partner_tenant_id) {
+            effectiveTenantId = tenantData.partner_tenant_id;
+            console.log(`📊 Partner tenant - using primary tenant ID: ${effectiveTenantId}`);
+            
+            // Fetch primary tenant details to get rent, deposit, etc.
+            try {
+              const primaryResponse = await fetch(`/api/tenants/${effectiveTenantId}`);
+              const primaryResult = await primaryResponse.json();
+              if (primaryResult.success && primaryResult.data) {
+                primaryTenantData = primaryResult.data;
+                console.log("✅ Primary tenant data fetched:", primaryTenantData);
+                
+                // Copy relevant fields from primary tenant to display
+                tenantData.monthly_rent = primaryTenantData.monthly_rent;
+                tenantData.security_deposit = primaryTenantData.security_deposit;
+                tenantData.property_id = primaryTenantData.property_id;
+                tenantData.property_name = primaryTenantData.property_name;
+                tenantData.check_in_date = primaryTenantData.check_in_date;
+              }
+            } catch (error) {
+              console.error("Error fetching primary tenant:", error);
             }
-          } catch (error) {
-            console.error("Error finding primary tenant:", error);
+          } else if (tenantData.couple_id) {
+            // Try to find primary by couple_id
+            try {
+              const response = await fetch(`/api/tenants/couple/${tenantData.couple_id}/primary`);
+              const result = await response.json();
+              if (result.success && result.data) {
+                effectiveTenantId = result.data.id;
+                primaryTenantData = result.data;
+                console.log(`📊 Found primary tenant via couple_id: ${effectiveTenantId}`);
+                
+                // Copy relevant fields from primary tenant
+                tenantData.monthly_rent = primaryTenantData.monthly_rent;
+                tenantData.security_deposit = primaryTenantData.security_deposit;
+                tenantData.property_id = primaryTenantData.property_id;
+                tenantData.property_name = primaryTenantData.property_name;
+                tenantData.check_in_date = primaryTenantData.check_in_date;
+              }
+            } catch (error) {
+              console.error("Error finding primary tenant:", error);
+            }
           }
         }
       }
       
-      // ✅ Check if tenant has vacate records using the effective tenant ID
+      // ✅ Check if tenant has vacate records
       const vacateRecord = tenantData.vacate_records && tenantData.vacate_records.length > 0 
         ? tenantData.vacate_records[0] 
         : null;
+
+      // If vacated, add rent_amount from vacate record to tenantData
+      if (vacateRecord && vacateRecord.rent_amount) {
+        tenantData.vacate_rent_amount = vacateRecord.rent_amount;
+        console.log("✅ Using rent from vacate record:", vacateRecord.rent_amount);
+      }
       
       let assignmentData = null;
-      
-      if (vacateRecord) {
-        // For vacated tenants, fetch bed assignment using bed_assignment_id from vacate record
-        try {
-          const bedId = vacateRecord.bed_assignment_id;
-          console.log(`🔍 Fetching vacated bed assignment with ID: ${bedId}`);
-          
-          // Fetch the bed assignment details
-          const bedResponse = await fetch(`/api/rooms/bed-assignments/${bedId}`);
-          const bedResult = await bedResponse.json();
-          
-          if (bedResult.success && bedResult.data) {
-            const bedData = bedResult.data;
-            
-            // Fetch room details
-            const roomResponse = await fetch(`/api/rooms/${bedData.room_id}`);
-            const roomResult = await roomResponse.json();
-            
-            if (roomResult.success && roomResult.data) {
-              const roomData = roomResult.data;
-              
-              // Fetch property details
-              const propResponse = await fetch(`/api/properties/${roomData.property_id}`);
-              const propResult = await propResponse.json();
-              
-              assignmentData = {
-                id: bedData.id,
-                bed_number: bedData.bed_number,
-                bed_type: bedData.bed_type,
-                tenant_rent: bedData.tenant_rent,
-                is_couple: bedData.is_couple === 1,
-                is_vacated: true,
-                vacated_date: vacateRecord.requested_vacate_date,
-                room: {
-                  id: roomData.id,
-                  room_number: roomData.room_number,
-                  floor: roomData.floor,
-                  sharing_type: roomData.sharing_type,
-                  has_ac: roomData.has_ac === 1,
-                  has_attached_bathroom: roomData.has_attached_bathroom === 1,
-                  has_balcony: roomData.has_balcony === 1,
-                },
-                property: {
-                  id: propResult.data.id,
-                  name: propResult.data.name,
-                  address: propResult.data.address,
-                }
-              };
-              console.log("✅ Vacated assignment loaded:", assignmentData);
-            }
-          }
-        } catch (error) {
-          console.error("Error fetching vacated bed assignment:", error);
-        }
-      } else {
-        // For active tenants, use the regular assignment API with the effective tenant ID
-        const assignmentResult = await getTenantAssignment(assignmentTenantId);
-        if (assignmentResult.success && assignmentResult.data) {
-          assignmentData = assignmentResult.data;
-          console.log("✅ Active assignment loaded:", assignmentData);
-          
-          // ✅ If this is a partner tenant, also update the monthly_rent value in tenant data for display
-          if (isPartnerTenant && assignmentData && assignmentData.tenant_rent) {
-            tenantData.monthly_rent = assignmentData.tenant_rent;
-          }
-        } else {
-          console.log("⚠️ No active assignment found for tenant:", assignmentTenantId);
-        }
+let effectiveTenantIdForAssignment = tenantData.id;
+
+// If this is a couple booking, find which tenant has the bed assignment
+if (tenantData.is_couple_booking === 1 || tenantData.is_couple_booking === true) {
+  try {
+    // Fetch all assignments for both tenants in the couple
+    const coupleTenantIds = [tenantData.id];
+    if (tenantData.partner_tenant_id) {
+      coupleTenantIds.push(tenantData.partner_tenant_id);
+    }
+    
+    for (const checkId of coupleTenantIds) {
+      const assignmentResult = await getTenantAssignment(checkId);
+      if (assignmentResult.success && assignmentResult.data) {
+        effectiveTenantIdForAssignment = checkId;
+        console.log(`✅ Found bed assignment for tenant ${checkId}`);
+        break;
       }
-      
-      // ✅ For partner tenants, also fetch the primary tenant's rent to display in stats
-      if (isPartnerTenant && !assignmentData) {
-        // Try one more time with the primary tenant ID
-        const primaryAssignmentResult = await getTenantAssignment(assignmentTenantId);
-        if (primaryAssignmentResult.success && primaryAssignmentResult.data) {
-          assignmentData = primaryAssignmentResult.data;
-          tenantData.monthly_rent = primaryAssignmentResult.data.tenant_rent;
-          console.log("✅ Partner tenant - using primary tenant's assignment for stats:", assignmentData);
-        }
-      }
-      
+    }
+  } catch (err) {
+    console.error("Error checking assignments for couple:", err);
+  }
+}
+
+// Now fetch the assignment using the effective tenant ID
+if (vacateRecord) {
+  // For vacated tenants, fetch bed assignment using bed_assignment_id from vacate record
+  try {
+    const bedId = vacateRecord.bed_assignment_id;
+    // ... rest of vacated assignment code ...
+  } catch (error) {
+    console.error("Error fetching vacated bed assignment:", error);
+  }
+} else {
+  // For active tenants, use the effective tenant ID we found
+  const assignmentResult = await getTenantAssignment(effectiveTenantIdForAssignment);
+  if (assignmentResult.success && assignmentResult.data) {
+    assignmentData = assignmentResult.data;
+    console.log("✅ Active assignment loaded:", assignmentData);
+    
+    // For partner tenants, also update the monthly_rent value for display
+    if (tenantData.is_primary_tenant === 0 && assignmentData && assignmentData.tenant_rent) {
+      tenantData.monthly_rent = assignmentData.tenant_rent;
+    }
+  } else {
+    console.log("⚠️ No active assignment found for tenant:", effectiveTenantIdForAssignment);
+  }
+}
       
       setAssignment(assignmentData);
       setTenant(tenantData);
       
-      // Load partner details if they exist (keep existing code)
+      // Store effective tenant ID for payments
+      setEffectiveTenantIdForPayments(effectiveTenantId);
+      
+      // Load partner details if they exist
       if (tenantData.partner_full_name) {
         setPartnerDetails({
           salutation: tenantData.partner_salutation || "Mr.",
@@ -348,64 +565,39 @@ const loadPayments = async () => {
   setLoadingPayments(true);
   try {
     console.log("📊 Loading payments for tenant ID:", tid);
-    console.log("📊 Tenant object:", tenant);
+    console.log("📊 Effective tenant ID for payments:", effectiveTenantIdForPayments);
 
-    // Check if tenant exists
-    if (!tenant) {
-      console.error("Tenant not loaded yet");
-      setLoadingPayments(false);
-      return;
-    }
+    // Use the effective tenant ID (primary tenant for partners)
+    let paymentTenantId = effectiveTenantIdForPayments || tenant?.id || tid;
     
-    // ✅ FIX: For partner tenants, use the primary tenant ID for payments
-    let effectiveTenantId = tenant.id;
-    
-    // Check if this tenant is a partner (has partner_tenant_id or is_couple_booking)
-    if (tenant.is_couple_booking === 1 || tenant.is_couple_booking === true) {
-      // If this is not the primary tenant, find the primary tenant ID
-      if (tenant.is_primary_tenant === 0 || tenant.is_primary_tenant === false) {
-        // Try to get primary tenant from partner_tenant_id
+     // For couple bookings, also try the partner if primary doesn't have payments
+    if (tenant?.is_couple_booking) {
+      // Check if the current tenant has payments, if not try the partner
+      const checkPaymentsResult = await getTenantPayments(paymentTenantId.toString());
+      if (!checkPaymentsResult.success || !checkPaymentsResult.data || checkPaymentsResult.data.length === 0) {
         if (tenant.partner_tenant_id) {
-          effectiveTenantId = tenant.partner_tenant_id;
-          console.log(`📊 This is a partner tenant. Using primary tenant ID: ${effectiveTenantId}`);
-        } else {
-          // Try to find primary by couple_id
-          try {
-            const coupleId = tenant.couple_id;
-            if (coupleId) {
-              const response = await fetch(`/api/tenants/couple/${coupleId}/primary`);
-              const result = await response.json();
-              if (result.success && result.data) {
-                effectiveTenantId = result.data.id;
-                console.log(`📊 Found primary tenant via couple_id: ${effectiveTenantId}`);
-              }
-            }
-          } catch (error) {
-            console.error("Error finding primary tenant:", error);
-          }
+          paymentTenantId = tenant.partner_tenant_id;
+          console.log(`📊 No payments for primary, trying partner: ${paymentTenantId}`);
         }
       }
     }
     
-    console.log("📊 Using effective tenant ID for payments:", effectiveTenantId);
+    console.log("📊 Using tenant ID for payments:", paymentTenantId);
     
-    const paymentFormResult = await paymentApi.getTenantPaymentFormData(effectiveTenantId);
+    const paymentFormResult = await paymentApi.getTenantPaymentFormData(paymentTenantId.toString());
     console.log("📊 Payment form result:", paymentFormResult);
     
     if (paymentFormResult.success && paymentFormResult.data) {
       // Check if this is a vacated tenant response
       if (paymentFormResult.data.is_vacated) {
-        // Vacated tenant
         setPaymentSummary(paymentFormResult.data);
         
-        // Get all payments from the response
         const allPayments = [
           ...(paymentFormResult.data.payments || []),
           ...(paymentFormResult.data.rent_payments || []),
           ...(paymentFormResult.data.security_deposit_payments || [])
         ];
         
-        // Remove duplicates by id
         const uniqueMap = new Map();
         for (const p of allPayments) {
           if (p && p.id && !uniqueMap.has(p.id)) {
@@ -414,11 +606,9 @@ const loadPayments = async () => {
         }
         setPayments(Array.from(uniqueMap.values()));
       } else {
-        // Active tenant
         setPaymentSummary(paymentFormResult.data);
         
-        // Also fetch payments separately for active tenants
-        const paymentsResult = await getTenantPayments(effectiveTenantId.toString());
+        const paymentsResult = await getTenantPayments(paymentTenantId.toString());
         if (paymentsResult.success && paymentsResult.data) {
           setPayments(paymentsResult.data);
         }
@@ -628,11 +818,25 @@ const roomVal = assignment
     ? `Room ${tenant.assigned_room_number}`
     : "Not Assigned";
 
-const rentVal = assignment?.tenant_rent
-  ? `₹${Number(assignment.tenant_rent).toLocaleString()}`
-  : tenant.payments?.[0]?.amount
-    ? `₹${tenant.payments[0].amount.toLocaleString()}`
-    : "N/A";
+// Update the rentVal calculation (around line 380 in your component)
+const rentVal = (() => {
+  // For vacated tenants, use rent from vacate record first
+  const vacateRecord = tenant?.vacate_records?.[0];
+  if (vacateRecord?.rent_amount) {
+    return `₹${Number(vacateRecord.rent_amount).toLocaleString()}`;
+  }
+  // For active tenants
+  if (assignment?.tenant_rent) {
+    return `₹${Number(assignment.tenant_rent).toLocaleString()}`;
+  }
+  if (tenant?.payments?.[0]?.amount) {
+    return `₹${tenant.payments[0].amount.toLocaleString()}`;
+  }
+  if (tenant?.monthly_rent) {
+    return `₹${Number(tenant.monthly_rent).toLocaleString()}`;
+  }
+  return "N/A";
+})();
 
   // Helper function to get occupation icon
   const getOccupationIcon = (category: string) => {
@@ -739,12 +943,18 @@ const rentVal = assignment?.tenant_rent
     bgColor="bg-gradient-to-br from-blue-50 to-blue-100"
   />
   <StatCard
-    title="Monthly Rent"
-    value={rentVal}
-    icon={IndianRupee}
-    color="bg-green-600"
-    bgColor="bg-gradient-to-br from-green-50 to-green-100"
-  />
+  title="Monthly Rent"
+  value={(() => {
+    const vacateRecord = tenant.vacate_records?.[0];
+    if (vacateRecord?.rent_amount) {
+      return `₹${Number(vacateRecord.rent_amount).toLocaleString()}`;
+    }
+    return rentVal;
+  })()}
+  icon={IndianRupee}
+  color="bg-green-600"
+  bgColor="bg-gradient-to-br from-green-50 to-green-100"
+/>
   <StatCard
     title="Room / Bed"
     value={roomVal}
@@ -1488,41 +1698,127 @@ const rentVal = assignment?.tenant_rent
     </div>
   ) : (
     <div className="space-y-4">
-      {/* Show Vacated Banner if tenant is vacated */}
-      {/* {paymentSummary?.is_vacated && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-          <div className="flex items-start gap-3">
-            <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5" />
-            <div className="flex-1">
-              <h4 className="font-semibold text-amber-800 text-sm">Vacated Tenant</h4>
-              <p className="text-xs text-amber-700 mt-0.5">
-                This tenant vacated on {paymentSummary.vacate_info?.vacate_date 
-                  ? new Date(paymentSummary.vacate_info.vacate_date).toLocaleDateString("en-IN") 
-                  : "N/A"}
-              </p>
-              {paymentSummary.vacate_info?.vacate_reason && (
-                <p className="text-xs text-amber-600 mt-1">
-                  Reason: {paymentSummary.vacate_info.vacate_reason}
-                </p>
-              )}
-              <div className="grid grid-cols-2 gap-3 mt-3 pt-2 border-t border-amber-200">
-                <div>
-                  <p className="text-[10px] font-bold uppercase text-amber-600">Total Penalty</p>
-                  <p className="text-sm font-semibold text-red-600">
-                    ₹{(paymentSummary.vacate_info.total_penalty || 0).toLocaleString()}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[10px] font-bold uppercase text-amber-600">Refund Amount</p>
-                  <p className="text-sm font-semibold text-green-600">
-                    ₹{(paymentSummary.vacate_info.refundable_amount || 0).toLocaleString()}
-                  </p>
-                </div>
-              </div>
-            </div>
+     {/* Penalty Details Accordion - Only for vacated tenants */}
+{paymentSummary?.is_vacated && (
+  <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+    <Collapsible
+      open={expandedMonths.includes('penalty-details')}
+      onOpenChange={() => toggleMonth('penalty-details')}
+      className="w-full"
+    >
+      <CollapsibleTrigger className="flex items-center justify-between w-full p-4 hover:bg-slate-50 transition-colors">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-500 to-red-600 text-white flex items-center justify-center shadow-sm">
+            <FileWarning className="w-4 h-4" />
+          </div>
+          <div className="text-left">
+            <h3 className="font-lexend font-semibold text-slate-900">
+              Penalty Breakdown
+            </h3>
+            <p className="text-xs text-slate-500">
+              Detailed penalty calculation for vacated tenant
+            </p>
           </div>
         </div>
-      )} */}
+        {expandedMonths.includes('penalty-details') ? (
+          <ChevronUp className="w-4 h-4 text-slate-400" />
+        ) : (
+          <ChevronDown className="w-4 h-4 text-slate-400" />
+        )}
+      </CollapsibleTrigger>
+      
+      <CollapsibleContent className="px-4 pb-4">
+        <div className="space-y-3">
+          {/* Lock-in Penalty */}
+          {paymentSummary.vacate_info?.lockin_penalty_amount > 0 && (
+            <div className="bg-blue-50/50 rounded-lg p-3 border border-blue-100">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-blue-600" />
+                  <span className="text-sm font-medium text-blue-800">
+                    Lock-in Penalty
+                  </span>
+                </div>
+                <Badge className="bg-blue-100 text-blue-700">
+                  ₹{Number(paymentSummary.vacate_info.lockin_penalty_amount).toLocaleString()}
+                </Badge>
+              </div>
+              <p className="text-xs text-blue-600 mt-1 ml-6">
+                {paymentSummary.vacate_info.lockin_penalty_description || 
+                 `Lock-in period: ${paymentSummary.vacate_info.lockin_period_months || 0} months`}
+              </p>
+            </div>
+          )}
+
+          {/* Notice Penalty */}
+          {paymentSummary.vacate_info?.notice_penalty_amount > 0 && (
+            <div className="bg-amber-50/50 rounded-lg p-3 border border-amber-100">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-amber-600" />
+                  <span className="text-sm font-medium text-amber-800">
+                    Notice Penalty
+                  </span>
+                </div>
+                <Badge className="bg-amber-100 text-amber-700">
+                  ₹{Number(paymentSummary.vacate_info.notice_penalty_amount).toLocaleString()}
+                </Badge>
+              </div>
+              <p className="text-xs text-amber-600 mt-1 ml-6">
+                {paymentSummary.vacate_info.notice_penalty_description ||
+                 `Notice period: ${paymentSummary.vacate_info.notice_period_days || 0} days`}
+              </p>
+            </div>
+          )}
+
+          {/* Inspection Penalty */}
+          {paymentSummary.vacate_info?.inspection_penalty_amount > 0 && (
+            <div className="bg-red-50/50 rounded-lg p-3 border border-red-100">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-red-600" />
+                  <span className="text-sm font-medium text-red-800">
+                    Inspection Penalty
+                  </span>
+                </div>
+                <Badge className="bg-red-100 text-red-700">
+                  ₹{Number(paymentSummary.vacate_info.inspection_penalty_amount).toLocaleString()}
+                </Badge>
+              </div>
+              <p className="text-xs text-red-600 mt-1 ml-6">
+                Move-out inspection damages
+              </p>
+            </div>
+          )}
+
+          {/* Total Penalty */}
+          {(paymentSummary.vacate_info?.total_penalty > 0 || paymentSummary.vacate_info?.total_penalty_amount > 0) && (
+            <div className="bg-slate-100 rounded-lg p-3 border border-slate-200 mt-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-slate-800">
+                  Total Penalty
+                </span>
+                <span className="text-base font-bold text-red-600">
+                  ₹{Number(paymentSummary.vacate_info.total_penalty || paymentSummary.vacate_info.total_penalty_amount).toLocaleString()}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* No penalties message */}
+          {(!paymentSummary.vacate_info?.lockin_penalty_amount && 
+            !paymentSummary.vacate_info?.notice_penalty_amount && 
+            !paymentSummary.vacate_info?.inspection_penalty_amount) && (
+            <div className="text-center py-4">
+              <CheckCircle className="w-8 h-8 text-green-500 mx-auto mb-2" />
+              <p className="text-sm text-slate-500">No penalties applied</p>
+            </div>
+          )}
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  </div>
+)}
 
       {/* Payment Summary Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -1733,21 +2029,36 @@ const rentVal = assignment?.tenant_rent
                   } else if (p.status === "paid") {
                     statusClass = "bg-green-100 text-green-700";
                     amountClass = "text-emerald-600";
-                  }
+                  } else if (p.status === "failed") {
+                    statusClass = "bg-red-100 text-red-700";
+                    amountClass = "text-red-400 line-through";
+                  }  else if (p.status === "refund") {
+  statusClass = "bg-green-300 text-green-700";
+  amountClass = "text-emerald-600";
+}
                   
                   let paymentTypeDisplay = "—";
-                  let paymentTypeClass = "bg-gray-100 text-gray-700";
-                  
-                  if (p.payment_type === "rent") {
-                    paymentTypeDisplay = "Rent";
-                    paymentTypeClass = "bg-blue-100 text-blue-700";
-                  } else if (p.payment_type === "security_deposit") {
-                    paymentTypeDisplay = "Security Deposit";
-                    paymentTypeClass = "bg-purple-100 text-purple-700";
-                  } else if (p.payment_type === "maintenance") {
-                    paymentTypeDisplay = "Maintenance";
-                    paymentTypeClass = "bg-orange-100 text-orange-700";
-                  }
+let paymentTypeClass = "bg-gray-100 text-gray-700";
+
+if (p.payment_type === "rent") {
+  paymentTypeDisplay = "Rent";
+  paymentTypeClass = "bg-blue-100 text-blue-700";
+} else if (p.payment_type === "security_deposit") {
+  paymentTypeDisplay = "Security Deposit";
+  paymentTypeClass = "bg-purple-100 text-purple-700";
+} else if (p.payment_type === "maintenance") {
+  paymentTypeDisplay = "Maintenance";
+  paymentTypeClass = "bg-orange-100 text-orange-700";
+} else if (p.payment_type === "deposit_refund") {
+  paymentTypeDisplay = "Deposit Refund";
+  paymentTypeClass = "bg-green-100 text-green-700";
+} else if (p.payment_type === "penalty_payment") {
+  paymentTypeDisplay = "Penalty Payment";
+  paymentTypeClass = "bg-red-100 text-red-700";
+} else if (p.payment_type === "deposit_refund") {
+  paymentTypeDisplay = "Deposit Refund";
+  paymentTypeClass = "bg-green-100 text-green-700";
+}
                   
                   return (
                     <tr key={p.id} className="border-b border-slate-100 hover:bg-slate-50/50">
