@@ -7,9 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, RefreshCw, Download, CheckCircle, XCircle, UserX, Trash2, Filter, SlidersHorizontal, MoreVertical, Eye, Edit, Key, Mail, Phone, Building, Bed, MapPin, Users, FileText, IndianRupee, CheckSquare, Square, Search, X, Briefcase, Building2, Globe, LogIn, ShieldCheck, Users2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Upload, AlertTriangle, Calendar, Clock, User, } from "lucide-react";
+import { Plus, RefreshCw, Download, CheckCircle, XCircle, UserX, Trash2, Filter, SlidersHorizontal, MoreVertical, Eye, Edit, Key, Mail, Phone, Building, Bed, MapPin, Users, FileText, IndianRupee, CheckSquare, Square, Search, X, Briefcase, Building2, Globe, LogIn, ShieldCheck, Users2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Upload, AlertTriangle, Calendar, Clock, User, Shield, } from "lucide-react";
 import { toast } from "sonner";
-import { deleteTenant, bulkDeleteTenants, bulkUpdateTenantStatus, bulkUpdateTenantPortalAccess, updateTenantSimple, createCredential, resetCredential, exportTenantsToExcel, listTenants, type Tenant, type TenantFilters, softDeleteTenant,restoreTenant, getTenant } from "@/lib/tenantApi";
+import { deleteTenant, bulkDeleteTenants, bulkUpdateTenantStatus, bulkUpdateTenantPortalAccess, updateTenantSimple, createCredential, resetCredential, exportTenantsToExcel, listTenants, type Tenant, type TenantFilters, softDeleteTenant,restoreTenant, getTenant, processVacatedTenantPayment, processVacatedTenantRefund } from "@/lib/tenantApi";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, } from "@/components/ui/sheet";
@@ -22,6 +22,7 @@ import Swal from "sweetalert2";
 import Link from 'next/link';
 import * as XLSX from 'xlsx';
 import { useAuth } from "@/context/authContext";
+import { VacatedTenantPaymentModal } from "./VacatedTenantPaymentModal";
 
 
 interface TenantsClientProps {
@@ -62,6 +63,11 @@ const [showImportModal, setShowImportModal] = useState(false);
 const [importing, setImporting] = useState(false);
 const { can } = useAuth();
 
+const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+const [selectedVacatedTenant, setSelectedVacatedTenant] = useState<Tenant | null>(null);
+const [paymentModalType, setPaymentModalType] = useState<"refund" | "payment">("refund");
+const [paymentModalAmount, setPaymentModalAmount] = useState(0);
+
 
 // const [filters, setFiltersState] = useState<TenantFilters>({});
 const [filters, setFiltersState] = useState<TenantFilters>({
@@ -97,10 +103,9 @@ const [filters, setFiltersState] = useState<TenantFilters>({
     }
   }, [tenants, selectedTenantIds]);
 
+// In tenants-client.tsx, inside the loadTenants function
 const loadTenants = useCallback(async (customFilters?: TenantFilters) => {
-  // Prevent multiple simultaneous calls
   if (isLoadingRef.current) {
-    // console.log('⏭️ Skipping duplicate loadTenants call');
     return;
   }
   
@@ -108,23 +113,11 @@ const loadTenants = useCallback(async (customFilters?: TenantFilters) => {
   setLoading(true);
   
   try {
-    // If customFilters provided, use them directly - don't override with activeTab
     const useFilters = customFilters || filtersRef.current;
-    
     const res = await listTenants(useFilters);
     
     if (res?.success && Array.isArray(res.data)) {
-      // Debug: Log partner tenants
-    res.data.forEach(tenant => {
-      if (tenant.is_couple_booking && tenant.is_primary_tenant === false) {
-        console.log('Partner tenant:', {
-          id: tenant.id,
-          name: tenant.full_name,
-          is_primary_tenant: tenant.is_primary_tenant,
-          partner_tenant_id: tenant.partner_tenant_id
-        });
-      }
-    });
+      
       setTenants(res.data);
       setCurrentPage(1);
     } else {
@@ -599,11 +592,55 @@ useEffect(() => {
   };
 }, [selectedTenant]);
 
-  // Export to Excel
-  const handleExportToExcel = useCallback(async () => {
+// Export to Excel - Exports based on current tab
+const handleExportToExcel = useCallback(async () => {
   try {
-    // Prepare data for export
-    const exportData = tenants.map(tenant => ({
+    let exportData = [];
+    
+    // If on vacated tab, fetch vacated tenants directly from API
+    if (activeTab === 'vacated') {
+      // Show loading toast
+      toast.loading("Fetching vacated tenants...", { id: "export-loading" });
+      
+      // Fetch vacated tenants from API
+      const response = await listTenants({ vacate_status: 'vacated', pageSize: 1000 });
+      
+      toast.dismiss("export-loading");
+      
+      if (response?.success && Array.isArray(response.data)) {
+        exportData = response.data;
+        toast.success(`Found ${exportData.length} vacated tenants to export`);
+      } else {
+        toast.error("Failed to fetch vacated tenants");
+        return;
+      }
+    } else if (activeTab === 'deleted') {
+      // For deleted tab, fetch deleted tenants
+      toast.loading("Fetching deleted tenants...", { id: "export-loading" });
+      
+      const response = await listTenants({ include_deleted: true, vacate_status: 'vacated', pageSize: 1000 });
+      
+      toast.dismiss("export-loading");
+      
+      if (response?.success && Array.isArray(response.data)) {
+        exportData = response.data;
+        toast.success(`Found ${exportData.length} deleted tenants to export`);
+      } else {
+        toast.error("Failed to fetch deleted tenants");
+        return;
+      }
+    } else {
+      // For All Tenants tab, use current tenants state
+      exportData = tenants;
+    }
+    
+    if (exportData.length === 0) {
+      toast.warning("No data to export");
+      return;
+    }
+    
+    // Prepare data for Excel
+    const excelData = exportData.map(tenant => ({
       'ID': tenant.id,
       'Salutation': tenant.salutation || '',
       'Full Name': tenant.full_name,
@@ -632,19 +669,24 @@ useEffect(() => {
       'Has Login': tenant.has_credentials ? 'Yes' : 'No',
       'Property': tenant.property_name || '',
       'Room Assignment': tenant.current_assignment ? 
-        `Room ${tenant.current_assignment.room_number}, Bed ${tenant.current_assignment.bed_number}` : 'Not assigned'
+        `Room ${tenant.current_assignment.room_number}, Bed ${tenant.current_assignment.bed_number}` : 'Not assigned',
+      // Add vacate information if available
+      'Vacated Date': tenant.vacate_records?.[0]?.requested_vacate_date || '',
+      'Vacate Reason': tenant.vacate_records?.[0]?.vacate_reason_value || '',
+      'Refund Amount': tenant.vacate_records?.[0]?.refundable_amount || 0,
+      'Penalty Amount': tenant.vacate_records?.[0]?.total_penalty_amount || 0,
     }));
 
     // Create worksheet
-    const ws = XLSX.utils.json_to_sheet(exportData);
+    const ws = XLSX.utils.json_to_sheet(excelData);
     
     // Auto-size columns
     const colWidths = [];
-    const headers = Object.keys(exportData[0] || {});
+    const headers = Object.keys(excelData[0] || {});
     headers.forEach(header => {
       const maxLength = Math.max(
         header.length,
-        ...exportData.map(row => String(row[header] || '').length)
+        ...excelData.map(row => String(row[header] || '').length)
       );
       colWidths.push({ wch: Math.min(maxLength + 2, 50) });
     });
@@ -652,40 +694,48 @@ useEffect(() => {
 
     // Create workbook
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Tenants");
     
-    // Add summary sheet (optional)
+    // Add sheet name based on active tab
+    const sheetName = activeTab === 'vacated' ? 'Vacated Tenants' : 
+                      activeTab === 'deleted' ? 'Deleted Vacated Tenants' : 'All Tenants';
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    
+    // Add summary sheet
     const summaryData = [{
       'Metric': 'Total Tenants',
-      'Value': tenants.length
+      'Value': excelData.length
     }, {
       'Metric': 'Active Tenants',
-      'Value': tenants.filter(t => t.is_active).length
+      'Value': excelData.filter(t => t.is_active).length
     }, {
       'Metric': 'Inactive Tenants',
-      'Value': tenants.filter(t => !t.is_active).length
+      'Value': excelData.filter(t => !t.is_active).length
     }, {
       'Metric': 'Portal Access Enabled',
-      'Value': tenants.filter(t => t.portal_access_enabled).length
+      'Value': excelData.filter(t => t.portal_access_enabled).length
     }, {
       'Metric': 'Export Date',
       'Value': new Date().toLocaleString()
+    }, {
+      'Metric': 'Export Type',
+      'Value': activeTab === 'vacated' ? 'Vacated Tenants Only' : 
+               activeTab === 'deleted' ? 'Deleted Vacated Tenants Only' : 'All Tenants'
     }];
     
     const summaryWs = XLSX.utils.json_to_sheet(summaryData);
     XLSX.utils.book_append_sheet(wb, summaryWs, "Summary");
     
     // Generate Excel file
-    const fileName = `tenants_export_${new Date().toISOString().split('T')[0]}.xlsx`;
+    const fileName = `tenants_${activeTab}_export_${new Date().toISOString().split('T')[0]}.xlsx`;
     XLSX.writeFile(wb, fileName);
     
-    toast.success(`Exported ${exportData.length} tenants successfully!`);
+    toast.success(`Exported ${excelData.length} ${sheetName} successfully!`);
     
   } catch (error: any) {
     console.error('Export error:', error);
     toast.error(error.message || "Failed to export tenants");
   }
-}, [tenants]);
+}, [tenants, activeTab]);
 
   // Handle credential creation/reset
   const handleCredentialSubmit = useCallback(async () => {
@@ -789,6 +839,26 @@ const activeFiltersCount = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
     return filteredTenants.slice(start, start + pageSize);
   }, [filteredTenants, currentPage, pageSize]);
+
+
+// Add handlers
+const handleVacatedTenantRefund = useCallback((tenant: Tenant, refundAmount: number) => {
+  setSelectedVacatedTenant(tenant);
+  setPaymentModalAmount(refundAmount);
+  setPaymentModalType("refund");
+  setPaymentModalOpen(true);
+}, []);
+
+const handleVacatedTenantPayment = useCallback((tenant: Tenant, paymentAmount: number) => {
+  setSelectedVacatedTenant(tenant);
+  setPaymentModalAmount(paymentAmount);
+  setPaymentModalType("payment");
+  setPaymentModalOpen(true);
+}, []);
+
+const handlePaymentModalSuccess = useCallback(async () => {
+  await loadTenants();
+}, [loadTenants]);
 
   // Handle delete for vacated tenants - moves to deleted tab
 const handleDeleteVacatedTenant = useCallback(async (tenant: Tenant) => {
@@ -1003,22 +1073,74 @@ const columns = useMemo(() => [
       );
     },
   },
-  {
-    key: "payments",
-    label: "Payments",
-    render: (tenant: Tenant) => {
-      const payments = tenant.payments || [];
-      const paid = payments.filter(p => p.status === 'paid').reduce((sum, p) => sum + (p.amount || 0), 0);
-      const pending = payments.filter(p => p.status === 'pending').reduce((sum, p) => sum + (p.amount || 0), 0);
-      return (
-        <div className="space-y-0.5">
-          <div className="text-[10px] font-semibold text-green-600">₹{paid.toLocaleString()}</div>
-          {pending > 0 && <div className="text-[10px] text-red-500">₹{pending.toLocaleString()}</div>}
-          <div className="text-[9px] text-gray-400">{payments.length} txn</div>
-        </div>
-      );
-    },
+{
+  key: "payments",
+  label: "Payments",
+  render: (tenant: Tenant) => {
+    const payments = tenant.payments || [];
+    const paid = payments.filter(p => p.status === 'paid' || p.status === 'approved').reduce((sum, p) => sum + (p.amount || 0), 0);
+    const pending = payments.filter(p => p.status === 'pending').reduce((sum, p) => sum + (p.amount || 0), 0);
+    
+    // ✅ DEBUG: Log vacate records for each tenant
+    if (tenant.has_vacated) {
+      console.log(`💰 Tenant ${tenant.id} (${tenant.full_name}) has vacate_records:`, tenant.vacate_records);
+    }
+    
+    // Check if tenant is vacated and has refundable amount
+    const isVacated = tenant.has_vacated === true;
+    const vacateRecord = tenant.vacate_records?.[0];
+    const refundableAmount = vacateRecord?.refundable_amount || 0;
+    const totalPenalty = vacateRecord?.total_penalty_amount || 0;
+    const securityDeposit = vacateRecord?.security_deposit_amount || 0;
+    
+    // Determine if we need to show refund/payment button
+    const needsRefund = isVacated && refundableAmount > 0;
+    const needsPayment = isVacated && refundableAmount < 0;
+    
+    console.log(`🔍 Tenant ${tenant.id}: isVacated=${isVacated}, refundableAmount=${refundableAmount}, needsRefund=${needsRefund}`);
+    
+    return (
+      <div className="space-y-1">
+        <div className="text-xs font-semibold text-green-600">₹{paid.toLocaleString()}</div>
+        {pending > 0 && <div className="text-xs text-red-500">₹{pending.toLocaleString()}</div>}
+        <div className="text-[9px] text-gray-400">{payments.length} txn</div>
+        
+        {/* Show Refund/Payment buttons for vacated tenants */}
+        {isVacated && (
+          <div className="mt-2">
+            {needsRefund && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-6 text-[9px] px-2 bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
+                onClick={() => handleVacatedTenantRefund(tenant, refundableAmount, vacateRecord?.id)}
+              >
+                <Shield className="w-2.5 h-2.5 mr-1" />
+                Pay Refund ₹{refundableAmount.toLocaleString()}
+              </Button>
+            )}
+            {needsPayment && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-6 text-[9px] px-2 bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100"
+                onClick={() => handleVacatedTenantPayment(tenant, Math.abs(refundableAmount), vacateRecord?.id)}
+              >
+                <IndianRupee className="w-2.5 h-2.5 mr-1" />
+                Receive Payment ₹{Math.abs(refundableAmount).toLocaleString()}
+              </Button>
+            )}
+            {!needsRefund && !needsPayment && refundableAmount === 0 && (
+              <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-5 bg-gray-100 text-gray-500">
+                Settled
+              </Badge>
+            )}
+          </div>
+        )}
+      </div>
+    );
   },
+},
   {
     key: "is_active",
     label: "Status",
@@ -2238,25 +2360,59 @@ const columns = useMemo(() => [
                     )}
                   </td>
 
-                  {/* Payments Column */}
-                  <td className="px-2 py-2.5">
-                    {(() => {
-                      const payments = tenant.payments || [];
-                      const paid = payments.filter(p => p.status === 'paid').reduce((sum, p) => sum + (p.amount || 0), 0);
-                      const pending = payments.filter(p => p.status === 'pending').reduce((sum, p) => sum + (p.amount || 0), 0);
-                      return (
-                        <div className="space-y-0.5">
-                          <div className="text-[10px] font-semibold text-green-600 flex items-center gap-0.5">
-                            <span>₹{paid.toLocaleString()}</span>
-                          </div>
-                          {pending > 0 && (
-                            <div className="text-[10px] text-red-500">₹{pending.toLocaleString()}</div>
-                          )}
-                          <div className="text-[9px] text-gray-400">{payments.length} txn</div>
-                        </div>
-                      );
-                    })()}
-                  </td>
+{/* Payments Column */}
+<td className="px-2 py-2.5">
+  {(() => {
+    const payments = tenant.payments || [];
+    const paid = payments.filter(p => p.status === 'paid').reduce((sum, p) => sum + (p.amount || 0), 0);
+    const pending = payments.filter(p => p.status === 'pending').reduce((sum, p) => sum + (p.amount || 0), 0);
+    
+    const isVacated = tenant.has_vacated === true;
+    const vacateRecord = tenant.vacate_records?.[0];
+    const refundableAmount = vacateRecord?.refundable_amount || 0;
+    const needsRefund = isVacated && refundableAmount > 0;
+    const needsPayment = isVacated && refundableAmount < 0;
+    
+    return (
+      <div className="space-y-0.5">
+        <div className="text-[10px] font-semibold text-green-600 flex items-center gap-0.5">
+          <span>₹{paid.toLocaleString()}</span>
+        </div>
+        {pending > 0 && (
+          <div className="text-[10px] text-red-500">₹{pending.toLocaleString()}</div>
+        )}
+        <div className="text-[9px] text-gray-400">{payments.length} txn</div>
+        
+        {isVacated && (
+          <div className="mt-2">
+            {needsRefund && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-6 text-[9px] px-2 bg-green-50 text-green-700 border-green-200 hover:bg-green-100 w-full"
+                onClick={() => handleVacatedTenantRefund(tenant, refundableAmount)}
+              >
+                <Shield className="w-2.5 h-2.5 mr-1" />
+                Pay Refund ₹{refundableAmount.toLocaleString()}
+              </Button>
+            )}
+            {needsPayment && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-6 text-[9px] px-2 bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100 w-full"
+                onClick={() => handleVacatedTenantPayment(tenant, Math.abs(refundableAmount))}
+              >
+                <IndianRupee className="w-2.5 h-2.5 mr-1" />
+                Receive Payment ₹{Math.abs(refundableAmount).toLocaleString()}
+              </Button>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  })()}
+</td>
 
                   {/* Status Column */}
                  <td className="px-2 py-2.5">
@@ -2993,6 +3149,16 @@ const columns = useMemo(() => [
       onImport={handleImportFile}
       importing={importing}
     />
+   {selectedVacatedTenant && (
+  <VacatedTenantPaymentModal
+    open={paymentModalOpen}
+    onOpenChange={setPaymentModalOpen}
+    tenant={selectedVacatedTenant}
+    amount={paymentModalAmount}
+    type={paymentModalType}
+    onSuccess={handlePaymentModalSuccess}
+  />
+)}
     </Card>
     </div> 
   );

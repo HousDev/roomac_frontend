@@ -1,4 +1,3 @@
-
 // components/admin/rooms/ChangeBedWizard.tsx
 "use client";
 
@@ -94,6 +93,7 @@ export function ChangeBedWizard({ tenantId, tenantName, open, onOpenChange, onSu
   const [loadingMasters, setLoadingMasters] = useState(false);
   const [sharingTypes, setSharingTypes] = useState<any[]>([]);
   const [changeReasons, setChangeReasons] = useState<ChangeReason[]>([]);
+  const [selectedBedRent, setSelectedBedRent] = useState<number>(0);
 
   // Fetch rooms masters
   const fetchRoomsMasters = async () => {
@@ -300,38 +300,35 @@ export function ChangeBedWizard({ tenantId, tenantName, open, onOpenChange, onSu
     }
   };
 
-  const handleBedSelect = async (bed: AvailableBed) => {
-    setSelectedBed(bed);
-    
-    // CRITICAL FIX: Only calculate rent if we have both room IDs
-    if (currentAssignment && selectedRoom) {
-      try {
-        console.log('Calculating rent difference:', {
-          oldRoomId: currentAssignment.room_id,
-          newRoomId: selectedRoom.id
-        });
-        
-        const rentDiff = await calculateRentDifference(
-          currentAssignment.room_id,
-          selectedRoom.id
-        );
-        
-        setRentDifference(rentDiff);
-        
-        // If rent calculation succeeds, proceed to date selection
-        setCurrentStep('date');
-        
-      } catch (error) {
-        console.error('Error calculating rent difference:', error);
-        toast.warning('Could not calculate rent difference. Proceeding anyway...');
-        // Continue to date step even if rent calculation fails
-        setCurrentStep('date');
-      }
-    } else {
-      console.error('Missing room information for rent calculation');
-      toast.warning('Please select a room first');
+// In ChangeBedWizard.tsx - Update handleBedSelect
+const handleBedSelect = async (bed: AvailableBed) => {
+  // ✅ Try bed_rent first, then tenant_rent, then room rent
+  const bedRent = bed.bed_rent || bed.tenant_rent || selectedRoom?.rent_per_bed || 0;
+  const currentRent = currentAssignment?.rent_per_bed || 0;
+  
+  setSelectedBedRent(bedRent);
+  setSelectedBed(bed);
+  
+  if (currentAssignment && selectedRoom) {
+    try {
+      const rentDiff = await calculateRentDifference(
+        currentAssignment.room_id,
+        selectedRoom.id,
+        currentRent,
+        bedRent,
+        bed.bed_number
+      );
+      
+      
+      setRentDifference(rentDiff);
+      setCurrentStep('date');
+    } catch (error) {
+      console.error('Error calculating rent difference:', error);
+      toast.warning('Could not calculate rent difference. Proceeding anyway...');
+      setCurrentStep('date');
     }
-  };
+  }
+};
 
   // Step 5: Handle date selection
   const handleDateSelect = () => {
@@ -911,68 +908,84 @@ export function ChangeBedWizard({ tenantId, tenantName, open, onOpenChange, onSu
           {renderRoomDetails()}
           
           {/* Available Beds */}
-          <div className="space-y-3">
-            <Label className="text-sm font-medium flex items-center justify-between">
-              <span className="flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-amber-500" />
-                Available Beds in Room {selectedRoom?.room_number}
-              </span>
-              <Badge variant="outline" className="text-xs bg-white hover:bg-gray-50">
-                {availableBeds.length} available
-              </Badge>
-            </Label>
-            
-            {loading ? (
-              <div className="py-6 text-center">
-                <Loader2 className="h-8 w-8 animate-spin mx-auto text-blue-600 mb-2" />
-                <p className="text-gray-600">Loading available beds...</p>
-              </div>
-            ) : availableBeds.length === 0 ? (
-              <div className="text-center py-6 border-2 border-dashed border-gray-300 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors">
-                <Bed className="h-10 w-10 text-gray-400 mx-auto mb-2" />
-                <h4 className="font-semibold text-gray-700">No beds available</h4>
-                <p className="text-sm text-gray-500 mt-1 mb-3">
-                  This room has no available beds
-                </p>
-                <Button
-                  variant="outline"
-                  onClick={() => setCurrentStep('room')}
-                  size="sm"
-                  className="border-blue-300 text-blue-600 hover:bg-blue-50 hover:border-blue-400"
-                >
-                  Choose Different Room
-                </Button>
-              </div>
-            ) : (
-              <div className="grid grid-cols-3 gap-3">
-                {availableBeds.map(bed => (
-                  <Button
-                    key={bed.bed_number}
-                    variant={selectedBed?.bed_number === bed.bed_number ? "default" : "outline"}
-                    className={cn(
-                      "h-auto py-4 flex-col relative overflow-hidden border transition-all",
-                      selectedBed?.bed_number === bed.bed_number 
-                        ? "bg-blue-600 text-white border-blue-600 hover:bg-blue-700"
-                        : "border-gray-300 text-gray-700 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700"
-                    )}
-                    onClick={() => handleBedSelect(bed)}
-                  >
-                    {selectedBed?.bed_number === bed.bed_number && (
-                      <div className="absolute top-0 right-0 w-4 h-4 bg-white rounded-bl-full flex items-center justify-center">
-                        <Check className="h-2 w-2 text-blue-600" />
-                      </div>
-                    )}
-                    <Bed className={cn(
-                      "h-6 w-6 mb-2",
-                      selectedBed?.bed_number === bed.bed_number ? "text-white" : "text-blue-600"
-                    )} />
-                    <span className="text-base font-bold">Bed {bed.bed_number}</span>
-                    <span className="text-xs mt-1 opacity-80">Available</span>
-                  </Button>
-                ))}
+<div className="space-y-3">
+  <Label className="text-sm font-medium flex items-center justify-between">
+    <span className="flex items-center gap-2">
+      <Sparkles className="h-4 w-4 text-amber-500" />
+      Available Beds in Room {selectedRoom?.room_number}
+    </span>
+    <Badge variant="outline" className="text-xs bg-white hover:bg-gray-50">
+      {availableBeds.length} available
+    </Badge>
+  </Label>
+  
+  {loading ? (
+    <div className="py-6 text-center">
+      <Loader2 className="h-8 w-8 animate-spin mx-auto text-blue-600 mb-2" />
+      <p className="text-gray-600">Loading available beds...</p>
+    </div>
+  ) : availableBeds.length === 0 ? (
+    <div className="text-center py-6 border-2 border-dashed border-gray-300 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors">
+      <Bed className="h-10 w-10 text-gray-400 mx-auto mb-2" />
+      <h4 className="font-semibold text-gray-700">No beds available</h4>
+      <p className="text-sm text-gray-500 mt-1 mb-3">
+        This room has no available beds
+      </p>
+      <Button
+        variant="outline"
+        onClick={() => setCurrentStep('room')}
+        size="sm"
+        className="border-blue-300 text-blue-600 hover:bg-blue-50 hover:border-blue-400"
+      >
+        Choose Different Room
+      </Button>
+    </div>
+  ) : (
+    <div className="grid grid-cols-3 gap-3">
+      {availableBeds.map(bed => {
+        // Get bed-specific rent or fallback to room rent
+        const bedRent = bed.bed_rent || bed.tenant_rent || selectedRoom?.rent_per_bed || 0;
+        
+        return (
+          <Button
+            key={bed.bed_number}
+            variant={selectedBed?.bed_number === bed.bed_number ? "default" : "outline"}
+            className={cn(
+              "h-auto py-4 flex-col relative overflow-hidden border transition-all",
+              selectedBed?.bed_number === bed.bed_number 
+                ? "bg-blue-600 text-white border-blue-600 hover:bg-blue-700"
+                : "border-gray-300 text-gray-700 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700"
+            )}
+            onClick={() => handleBedSelect(bed)}
+          >
+            {selectedBed?.bed_number === bed.bed_number && (
+              <div className="absolute top-0 right-0 w-4 h-4 bg-white rounded-bl-full flex items-center justify-center">
+                <Check className="h-2 w-2 text-blue-600" />
               </div>
             )}
-          </div>
+            <Bed className={cn(
+              "h-6 w-6 mb-2",
+              selectedBed?.bed_number === bed.bed_number ? "text-white" : "text-blue-600"
+            )} />
+            <span className="text-base font-bold">Bed {bed.bed_number}</span>
+            {/* ✅ SHOW BED-SPECIFIC RENT */}
+            <div className="flex items-center justify-center mt-1">
+  <span className={cn(
+    "text-xs font-semibold flex items-center",
+    selectedBed?.bed_number === bed.bed_number ? "text-white" : "text-green-600"
+  )}>
+    <IndianRupee className="h-2.5 w-2.5 mr-0.5" />
+    {typeof bedRent === 'number' ? bedRent.toLocaleString() : Number(bedRent || 0).toLocaleString()}
+  </span>
+
+</div>
+            <span className="text-xs mt-1 opacity-80">Available</span>
+          </Button>
+        );
+      })}
+    </div>
+  )}
+</div>
         </div>
       ),
 
@@ -1023,38 +1036,40 @@ export function ChangeBedWizard({ tenantId, tenantName, open, onOpenChange, onSu
               </CardContent>
             </Card>
             
-            {/* New Room */}
-            <Card className="border-green-200 hover:border-green-300 transition-colors">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                  <h4 className="text-sm font-semibold text-green-700">New Assignment</h4>
-                </div>
-                {selectedRoom && selectedBed && (
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Room:</span>
-                      <span className="font-medium">{selectedRoom.room_number}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Bed:</span>
-                      <span className="font-medium">{selectedBed.bed_number}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Rent:</span>
-                      <span className="font-medium text-green-600 flex items-center">
-                        <IndianRupee className="h-3 w-3 mr-1" />
-                        {selectedRoom.rent_per_bed}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Sharing:</span>
-                      <span className="font-medium capitalize">{selectedRoom.sharing_type}</span>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+{/* New Room */}
+<Card className="border-green-200 hover:border-green-300 transition-colors">
+  <CardContent className="p-4">
+    <div className="flex items-center gap-2 mb-3">
+      <div className="w-3 h-3 rounded-full bg-green-500"></div>
+      <h4 className="text-sm font-semibold text-green-700">New Assignment</h4>
+    </div>
+    {selectedRoom && selectedBed && (
+      <div className="space-y-2 text-sm">
+        <div className="flex justify-between items-center">
+          <span className="text-gray-600">Room:</span>
+          <span className="font-medium">{selectedRoom.room_number}</span>
+        </div>
+        <div className="flex justify-between items-center">
+          <span className="text-gray-600">Bed:</span>
+          <span className="font-medium">{selectedBed.bed_number}</span>
+        </div>
+        <div className="flex justify-between items-center">
+          <span className="text-gray-600">Rent:</span>
+          <span className="font-medium text-green-600 flex items-center">
+            <IndianRupee className="h-3 w-3 mr-1" />
+            {/* ✅ USE selectedBedRent instead of selectedRoom.rent_per_bed */}
+            {selectedBedRent.toLocaleString()}
+          </span>
+          
+        </div>
+        <div className="flex justify-between items-center">
+          <span className="text-gray-600">Sharing:</span>
+          <span className="font-medium capitalize">{selectedRoom.sharing_type}</span>
+        </div>
+      </div>
+    )}
+  </CardContent>
+</Card>
           </div>
           
           <div className="space-y-2">
@@ -1093,76 +1108,82 @@ export function ChangeBedWizard({ tenantId, tenantName, open, onOpenChange, onSu
         <div className="space-y-4">
           
           
-          {rentDifference && (
-            <Card className={cn(
-              "border-2 overflow-hidden",
-              rentDifference.type === 'increase' && "border-amber-200 bg-amber-50",
-              rentDifference.type === 'decrease' && "border-emerald-200 bg-emerald-50",
-              rentDifference.type === 'same' && "border-blue-200 bg-blue-50"
+{rentDifference && (
+  <Card className={cn(
+    "border-2 overflow-hidden",
+    rentDifference.type === 'increase' && "border-amber-200 bg-amber-50",
+    rentDifference.type === 'decrease' && "border-emerald-200 bg-emerald-50",
+    rentDifference.type === 'same' && "border-blue-200 bg-blue-50"
+  )}>
+    <CardContent className="p-4">
+      <div className="text-center">
+        <div className="flex items-center justify-center mb-4">
+          {rentDifference.type === 'increase' && <ArrowUpRight className="h-7 w-7 text-amber-600 mr-2" />}
+          {rentDifference.type === 'decrease' && <ArrowDownRight className="h-7 w-7 text-emerald-600 mr-2" />}
+          {rentDifference.type === 'same' && <Minus className="h-7 w-7 text-blue-600 mr-2" />}
+          <div>
+            <h3 className={cn(
+              "text-xl font-bold",
+              rentDifference.type === 'increase' && "text-amber-600",
+              rentDifference.type === 'decrease' && "text-emerald-600",
+              rentDifference.type === 'same' && "text-blue-600"
             )}>
-              <CardContent className="p-4">
-                <div className="text-center">
-                  <div className="flex items-center justify-center mb-4">
-                    {rentDifference.type === 'increase' && <ArrowUpRight className="h-7 w-7 text-amber-600 mr-2" />}
-                    {rentDifference.type === 'decrease' && <ArrowDownRight className="h-7 w-7 text-emerald-600 mr-2" />}
-                    {rentDifference.type === 'same' && <Minus className="h-7 w-7 text-blue-600 mr-2" />}
-                    <div>
-                      <h3 className={cn(
-                        "text-xl font-bold",
-                        rentDifference.type === 'increase' && "text-amber-600",
-                        rentDifference.type === 'decrease' && "text-emerald-600",
-                        rentDifference.type === 'same' && "text-blue-600"
-                      )}>
-                        {rentDifference.type === 'increase' ? '+' : rentDifference.type === 'decrease' ? '-' : ''}
-                        <IndianRupee className="inline h-5 w-5 mr-0.5" />
-                        {Math.abs(rentDifference.difference).toFixed(2)}
-                      </h3>
-                      <Badge className={cn(
-                        "mt-2 text-xs py-1 px-2",
-                        rentDifference.type === 'increase' && "bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-200",
-                        rentDifference.type === 'decrease' && "bg-emerald-100 text-emerald-800 border-emerald-300 hover:bg-emerald-200",
-                        rentDifference.type === 'same' && "bg-blue-100 text-blue-800 border-blue-300 hover:bg-blue-200"
-                      )}>
-                        {rentDifference.type === 'increase' && 'Rent Increase'}
-                        {rentDifference.type === 'decrease' && 'Rent Decrease'}
-                        {rentDifference.type === 'same' && 'No Change'}
-                      </Badge>
-                    </div>
-                  </div>
-                  
-                  {/* Room Numbers */}
-                  <div className="grid grid-cols-2 gap-3 mb-4">
-                    <div className="text-center p-3 bg-white rounded-lg border border-gray-300 shadow-sm hover:shadow-md transition-shadow">
-                      <p className="text-xs text-gray-500 mb-1">From Room</p>
-                      <p className="text-sm font-semibold">Room {rentDifference.old_room_number}</p>
-                    </div>
-                    <div className="text-center p-3 bg-white rounded-lg border border-gray-300 shadow-sm hover:shadow-md transition-shadow">
-                      <p className="text-xs text-gray-500 mb-1">To Room</p>
-                      <p className="text-sm font-semibold">Room {rentDifference.new_room_number}</p>
-                    </div>
-                  </div>
-                  
-                  {/* Rent Comparison */}
-                  <div className="grid grid-cols-2 gap-3 mt-4">
-                    <div className="text-center p-3 bg-white rounded-lg border border-gray-300 shadow-sm hover:shadow-md transition-shadow">
-                      <p className="text-xs text-gray-500 mb-1">Current Rent</p>
-                      <p className="text-lg font-bold flex items-center justify-center">
-                        <IndianRupee className="h-4 w-4 mr-1" />
-                        {rentDifference.old_rent.toFixed(2)}
-                      </p>
-                    </div>
-                    <div className="text-center p-3 bg-white rounded-lg border border-gray-300 shadow-sm hover:shadow-md transition-shadow">
-                      <p className="text-xs text-gray-500 mb-1">New Rent</p>
-                      <p className="text-lg font-bold text-green-600 flex items-center justify-center">
-                        <IndianRupee className="h-4 w-4 mr-1" />
-                        {rentDifference.new_rent.toFixed(2)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+              {rentDifference.type === 'increase' ? '+' : rentDifference.type === 'decrease' ? '-' : ''}
+              <IndianRupee className="inline h-5 w-5 mr-0.5" />
+              {Math.abs(Number(rentDifference.difference) || 0).toFixed(2)}
+            </h3>
+            <Badge className={cn(
+              "mt-2 text-xs py-1 px-2",
+              rentDifference.type === 'increase' && "bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-200",
+              rentDifference.type === 'decrease' && "bg-emerald-100 text-emerald-800 border-emerald-300 hover:bg-emerald-200",
+              rentDifference.type === 'same' && "bg-blue-100 text-blue-800 border-blue-300 hover:bg-blue-200"
+            )}>
+              {rentDifference.type === 'increase' && 'Rent Increase'}
+              {rentDifference.type === 'decrease' && 'Rent Decrease'}
+              {rentDifference.type === 'same' && 'No Change'}
+            </Badge>
+          </div>
+        </div>
+        
+        {/* Room Numbers */}
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          <div className="text-center p-3 bg-white rounded-lg border border-gray-300 shadow-sm hover:shadow-md transition-shadow">
+            <p className="text-xs text-gray-500 mb-1">From Room</p>
+            <p className="text-sm font-semibold">Room {rentDifference.old_room_number}</p>
+          </div>
+          <div className="text-center p-3 bg-white rounded-lg border border-gray-300 shadow-sm hover:shadow-md transition-shadow">
+            <p className="text-xs text-gray-500 mb-1">To Room</p>
+            <p className="text-sm font-semibold">Room {rentDifference.new_room_number}</p>
+          </div>
+        </div>
+        
+        {/* Rent Comparison */}
+        <div className="grid grid-cols-2 gap-3 mt-4">
+          <div className="text-center p-3 bg-white rounded-lg border border-gray-300 shadow-sm hover:shadow-md transition-shadow">
+            <p className="text-xs text-gray-500 mb-1">Current Rent</p>
+            <p className="text-lg font-bold flex items-center justify-center">
+              <IndianRupee className="h-4 w-4 mr-1" />
+              {Number(rentDifference.old_rent || 0).toFixed(2)}
+            </p>
+          </div>
+          <div className="text-center p-3 bg-white rounded-lg border border-gray-300 shadow-sm hover:shadow-md transition-shadow">
+            <p className="text-xs text-gray-500 mb-1">New Rent</p>
+            <p className="text-lg font-bold text-green-600 flex items-center justify-center">
+              <IndianRupee className="h-4 w-4 mr-1" />
+              {Number(rentDifference.new_rent || 0).toFixed(2)}
+            </p>
+            {/* Show room rent for reference if different */}
+            {selectedBedRent !== selectedRoom?.rent_per_bed && (
+              <p className="text-xs text-gray-400 mt-1">
+                Room rent: ₹{selectedRoom?.rent_per_bed}
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+    </CardContent>
+  </Card>
+)}
           
           {rentDifference?.type === 'increase' && (
             <div className="flex items-start gap-2 p-3 border border-amber-200 rounded-lg bg-amber-50 hover:bg-amber-100 transition-colors">
@@ -1275,42 +1296,43 @@ export function ChangeBedWizard({ tenantId, tenantName, open, onOpenChange, onSu
               </CardContent>
             </Card>
             
-            {/* New Assignment */}
-            <Card className="border-green-200 hover:border-green-300 transition-colors">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                  <h4 className="text-sm font-semibold text-green-700">New Assignment</h4>
-                </div>
-                {selectedRoom && selectedBed && (
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Room:</span>
-                      <span className="font-medium">{selectedRoom.room_number}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Bed:</span>
-                      <span className="font-medium">{selectedBed.bed_number}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Rent:</span>
-                      <span className="font-medium text-green-600 flex items-center">
-                        <IndianRupee className="h-3 w-3 mr-1" />
-                        {selectedRoom.rent_per_bed}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Type:</span>
-                      <span className="font-medium capitalize">{selectedRoom.sharing_type}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Property:</span>
-                      <span className="font-medium">{selectedRoom.property_name}</span>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+{/* New Assignment */}
+<Card className="border-green-200 hover:border-green-300 transition-colors">
+  <CardContent className="p-4">
+    <div className="flex items-center gap-2 mb-3">
+      <div className="w-3 h-3 rounded-full bg-green-500"></div>
+      <h4 className="text-sm font-semibold text-green-700">New Assignment</h4>
+    </div>
+    {selectedRoom && selectedBed && (
+      <div className="space-y-2 text-sm">
+        <div className="flex justify-between">
+          <span className="text-gray-600">Room:</span>
+          <span className="font-medium">{selectedRoom.room_number}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-gray-600">Bed:</span>
+          <span className="font-medium">{selectedBed.bed_number}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-gray-600">Rent:</span>
+          <span className="font-medium text-green-600 flex items-center">
+            <IndianRupee className="h-3 w-3 mr-1" />
+            {/* ✅ USE selectedBedRent */}
+            {selectedBedRent.toLocaleString()}
+          </span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-gray-600">Type:</span>
+          <span className="font-medium capitalize">{selectedRoom.sharing_type}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-gray-600">Property:</span>
+          <span className="font-medium">{selectedRoom.property_name}</span>
+        </div>
+      </div>
+    )}
+  </CardContent>
+</Card>
           </div>
           
           {/* Details Grid */}

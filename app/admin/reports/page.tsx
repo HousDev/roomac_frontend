@@ -335,6 +335,46 @@ const generatePropertyPaymentReport = async () => {
   }
 };
 
+  const generatePGRevenueReport = async () => {
+  setLoading(true);
+  setPgRevenueReport(null);
+  setTenantPaymentReport(null);
+  setPropertyPaymentReport(null);
+  setReportData(null);
+  
+  try {
+    let url = `/api/reports/pg-revenue-report?reportType=all_property&periodType=${pgRevenuePeriodType}&year=${pgRevenueYear}`;
+    
+    // Check if we need property-wise report
+    if (filters.propertyId && filters.propertyId !== 'all' && (filters.reportType === 'pg_revenue' || filters.reportType === 'pg_revenue_property')) {
+      url = `/api/reports/pg-revenue-report?reportType=property_wise&periodType=${pgRevenuePeriodType}&propertyId=${filters.propertyId}&year=${pgRevenueYear}`;
+    }
+    
+    const response = await fetch(url);
+    const data = await response.json();
+    
+    if (data.success) {
+      setPgRevenueReport(data.data);
+      setActiveTab('report');
+      toast.success('PG Revenue Report generated successfully');
+      
+      setTimeout(() => {
+        reportSectionRef.current?.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'start' 
+        });
+      }, 100);
+    } else {
+      toast.error(data.message || 'Failed to generate report');
+    }
+  } catch (error) {
+    console.error('Error generating PG revenue report:', error);
+    toast.error('Failed to generate report');
+  } finally {
+    setLoading(false);
+  }
+};
+
   const generateReport = async () => {
     setLoading(true);
     setReportData(null);
@@ -419,6 +459,8 @@ const generatePropertyPaymentReport = async () => {
       setLoading(false);
     }
   };
+
+
 
   const exportToExcel = async () => {
     if (tenantPaymentReport) {
@@ -595,7 +637,67 @@ const generatePropertyPaymentReport = async () => {
       XLSX.writeFile(wb, filename);
       toast.success('Report exported successfully');
       
-    } else if (reportData) {
+    } else if (pgRevenueReport) {
+    // ADD THIS BLOCK - PG Revenue Report Export
+    const wb = XLSX.utils.book_new();
+    
+    // Overall Summary Sheet
+    const overallData = [{
+      'Metric': 'Total Revenue',
+      'Value': pgRevenueReport.overall_summary.total_revenue
+    }, {
+      'Metric': 'Total Expenses',
+      'Value': pgRevenueReport.overall_summary.total_expenses
+    }, {
+      'Metric': 'Net Profit/Loss',
+      'Value': pgRevenueReport.overall_summary.is_profit ? pgRevenueReport.overall_summary.net_profit : -pgRevenueReport.overall_summary.net_loss
+    }, {
+      'Metric': 'Profit/Loss Percentage',
+      'Value': pgRevenueReport.overall_summary.is_profit ? `${pgRevenueReport.overall_summary.net_profit_percent.toFixed(1)}%` : `-${pgRevenueReport.overall_summary.net_loss_percent.toFixed(1)}%`
+    }, {
+      'Metric': 'Average Revenue',
+      'Value': pgRevenueReport.overall_summary.avg_revenue
+    }, {
+      'Metric': 'Total Properties',
+      'Value': pgRevenueReport.overall_summary.properties_count
+    }, {
+      'Metric': 'Total Periods',
+      'Value': pgRevenueReport.overall_summary.total_periods
+    }];
+    
+    const overallWs = XLSX.utils.json_to_sheet(overallData);
+    XLSX.utils.book_append_sheet(wb, overallWs, 'Overall Summary');
+    
+    // Property-wise Sheets
+    for (const property of pgRevenueReport.properties) {
+      const propertyData = property.periods.map((p: any) => ({
+        'Period': p.period,
+        'Revenue (₹)': p.revenue,
+        'Expenses (₹)': p.expenses,
+        'Profit/Loss (₹)': p.is_profit ? p.profit : -p.loss,
+        'Margin (%)': p.is_profit ? p.profit_percent.toFixed(1) : -p.loss_percent.toFixed(1),
+        'Status': p.is_profit ? 'Profit' : 'Loss'
+      }));
+      
+      // Add summary row
+      propertyData.push({
+        'Period': 'TOTAL',
+        'Revenue (₹)': property.summary.total_revenue,
+        'Expenses (₹)': property.summary.total_expenses,
+        'Profit/Loss (₹)': property.summary.is_profit ? property.summary.net_profit : -property.summary.net_loss,
+        'Margin (%)': property.summary.is_profit ? property.summary.net_profit_percent.toFixed(1) : -property.summary.net_loss_percent.toFixed(1),
+        'Status': property.summary.is_profit ? 'Profit' : 'Loss'
+      });
+      
+      const ws = XLSX.utils.json_to_sheet(propertyData);
+      XLSX.utils.book_append_sheet(wb, ws, property.property_name.substring(0, 31));
+    }
+    
+    const filename = `pg_revenue_report_${pgRevenueReport.report_type}_${pgRevenueReport.period_type}_${format(new Date(), 'yyyy-MM-dd')}.xlsx`;
+    XLSX.writeFile(wb, filename);
+    toast.success('Report exported successfully');
+    
+  } else if (reportData) {
       // Existing export logic for other reports
       let exportData: any[] = [];
       let worksheetName = '';
@@ -682,7 +784,7 @@ const generatePropertyPaymentReport = async () => {
   };
 
   const handlePrint = () => {
-    if (!reportData && !tenantPaymentReport && !propertyPaymentReport) {
+    if (!reportData && !tenantPaymentReport && !propertyPaymentReport && !pgRevenueReport) {
       toast.error('No data to print');
       return;
     }
@@ -949,6 +1051,54 @@ const generatePropertyPaymentReport = async () => {
                 )}
               </div>
             )}
+            {/* ADD THIS BLOCK - PG Revenue Report specific filters */}
+{filters.reportType === 'pg_revenue' && (
+  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 mt-2">
+    <div className="space-y-1 sm:space-y-2">
+      <Label className="text-xs">Period Type</Label>
+      <Select value={pgRevenuePeriodType} onValueChange={(value: any) => setPgRevenuePeriodType(value)}>
+        <SelectTrigger className="h-8 sm:h-9 text-xs">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="month_wise" className="text-xs">Month Wise</SelectItem>
+          <SelectItem value="year_wise" className="text-xs">Year Wise</SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+    
+    <div className="space-y-1 sm:space-y-2">
+      <Label className="text-xs">Year</Label>
+      <Select value={pgRevenueYear.toString()} onValueChange={(value) => setPgRevenueYear(parseInt(value))}>
+        <SelectTrigger className="h-8 sm:h-9 text-xs">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {[2022, 2023, 2024, 2025].map(y => (
+            <SelectItem key={y} value={y.toString()} className="text-xs">{y}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+    
+    <div className="space-y-1 sm:space-y-2">
+      <Label className="text-xs">Property (Optional)</Label>
+      <Select value={filters.propertyId} onValueChange={handlePropertyChange}>
+        <SelectTrigger className="h-8 sm:h-9 text-xs">
+          <SelectValue placeholder="All Properties" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all" className="text-xs">🏢 All Properties</SelectItem>
+          {properties.map(property => (
+            <SelectItem key={property.id} value={property.id} className="text-xs">
+              {property.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  </div>
+)}
 
             {/* Generate Button */}
             <div className="flex items-end">
@@ -1438,6 +1588,194 @@ const generatePropertyPaymentReport = async () => {
         <div className="mt-3 text-right text-xs text-gray-500">
           Total Tenants: {propertyPaymentReport.financial_summary?.total_tenants || 0} | 
           Active: {propertyPaymentReport.financial_summary?.active_tenants || 0}
+        </div>
+      </CardContent>
+    </Card>
+  </div>
+)}
+
+{/* PG Revenue Report - ADD THIS AFTER the propertyPaymentReport block */}
+{pgRevenueReport && (
+  <div className="space-y-4">
+    {/* Report Actions */}
+    <div className="flex justify-end gap-1.5 sm:gap-2 mb-3 sm:mb-4">
+      <Button variant="outline" size="sm" onClick={exportToExcel} className="h-7 sm:h-8 text-xs">
+        <Download className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+        Export Excel
+      </Button>
+      <Button variant="outline" size="sm" onClick={handlePrint} className="h-7 sm:h-8 text-xs">
+        <Printer className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+        Print
+      </Button>
+    </div>
+
+    {/* Report Header */}
+    <Card className="border-0 shadow-sm bg-gradient-to-r from-blue-50 to-indigo-50">
+      <CardContent className="p-4">
+        <div className="text-center">
+          <h2 className="text-lg font-bold text-gray-800">PG Revenue Report</h2>
+          <p className="text-xs text-gray-500 mt-1">
+            {pgRevenueReport.report_type === 'all_property' ? 'All Properties' : 'Property Wise'} | 
+            {pgRevenueReport.period_type === 'month_wise' ? 'Month Wise' : 'Year Wise'} | 
+            Year: {pgRevenueReport.year}
+          </p>
+          <p className="text-[10px] text-gray-400 mt-1">Generated on: {new Date(pgRevenueReport.generated_at).toLocaleString()}</p>
+        </div>
+      </CardContent>
+    </Card>
+
+    {/* Overall Summary Cards */}
+    <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+      <div className="bg-blue-50 rounded-lg p-3 text-center">
+        <p className="text-[10px] text-gray-600">Total Revenue</p>
+        <p className="text-lg font-bold text-blue-700">{formatCurrency(pgRevenueReport.overall_summary.total_revenue)}</p>
+      </div>
+      <div className="bg-red-50 rounded-lg p-3 text-center">
+        <p className="text-[10px] text-gray-600">Total Expenses</p>
+        <p className="text-lg font-bold text-red-700">{formatCurrency(pgRevenueReport.overall_summary.total_expenses)}</p>
+      </div>
+      <div className={`${pgRevenueReport.overall_summary.is_profit ? 'bg-green-50' : 'bg-amber-50'} rounded-lg p-3 text-center`}>
+        <p className="text-[10px] text-gray-600">Net {pgRevenueReport.overall_summary.is_profit ? 'Profit' : 'Loss'}</p>
+        <p className={`text-lg font-bold ${pgRevenueReport.overall_summary.is_profit ? 'text-green-700' : 'text-amber-700'}`}>
+          {pgRevenueReport.overall_summary.is_profit 
+            ? formatCurrency(pgRevenueReport.overall_summary.net_profit)
+            : formatCurrency(pgRevenueReport.overall_summary.net_loss)}
+        </p>
+        <p className="text-[10px] text-gray-500">
+          {pgRevenueReport.overall_summary.is_profit 
+            ? `+${pgRevenueReport.overall_summary.net_profit_percent.toFixed(1)}%`
+            : `${pgRevenueReport.overall_summary.net_loss_percent.toFixed(1)}%`}
+        </p>
+      </div>
+      <div className="bg-purple-50 rounded-lg p-3 text-center">
+        <p className="text-[10px] text-gray-600">Average Revenue</p>
+        <p className="text-lg font-bold text-purple-700">{formatCurrency(pgRevenueReport.overall_summary.avg_revenue)}</p>
+        <p className="text-[10px] text-gray-500">per {pgRevenueReport.period_type === 'month_wise' ? 'month' : 'year'}</p>
+      </div>
+      <div className="bg-gray-50 rounded-lg p-3 text-center">
+        <p className="text-[10px] text-gray-600">Properties</p>
+        <p className="text-lg font-bold text-gray-700">{pgRevenueReport.overall_summary.properties_count}</p>
+      </div>
+    </div>
+
+    {/* Property-wise Report Tables */}
+    {pgRevenueReport.properties.map((property: any, idx: number) => (
+      <Card key={idx} className="border-0 shadow-sm overflow-hidden">
+        <CardHeader className="pb-2 px-3 sm:px-6 bg-gradient-to-r from-gray-50 to-white">
+          <CardTitle className="text-sm sm:text-base flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <Building2 className="h-4 w-4 text-blue-600" />
+              <span>{property.property_name}</span>
+              <Badge variant="outline" className="text-[10px]">
+                {property.summary.periods_count} {pgRevenueReport.period_type === 'month_wise' ? 'months' : 'years'}
+              </Badge>
+            </div>
+            <div className="flex items-center gap-3 text-xs">
+              <span className="text-green-600">Revenue: {formatCurrency(property.summary.total_revenue)}</span>
+              <span className="text-red-600">Expenses: {formatCurrency(property.summary.total_expenses)}</span>
+              <span className={property.summary.is_profit ? 'text-green-700 font-semibold' : 'text-amber-700 font-semibold'}>
+                {property.summary.is_profit ? 'Profit' : 'Loss'}: {formatCurrency(property.summary.is_profit ? property.summary.net_profit : property.summary.net_loss)}
+                ({property.summary.is_profit ? `+${property.summary.net_profit_percent.toFixed(1)}%` : `${property.summary.net_loss_percent.toFixed(1)}%`})
+              </span>
+            </div>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="px-3 sm:px-6 pt-4">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 text-xs">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-3 py-2 text-left">{pgRevenueReport.period_type === 'month_wise' ? 'Month' : 'Year'}</th>
+                  <th className="px-3 py-2 text-right">Revenue (₹)</th>
+                  <th className="px-3 py-2 text-right">Expenses (₹)</th>
+                  <th className="px-3 py-2 text-right">Profit/Loss (₹)</th>
+                  <th className="px-3 py-2 text-center">Margin</th>
+                  <th className="px-3 py-2 text-center">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {property.periods.map((period: any, pIdx: number) => (
+                  <tr key={pIdx} className="hover:bg-gray-50">
+                    <td className="px-3 py-2 font-medium">{period.period}</td>
+                    <td className="px-3 py-2 text-right text-green-600">{formatCurrency(period.revenue)}</td>
+                    <td className="px-3 py-2 text-right text-red-600">{formatCurrency(period.expenses)}</td>
+                    <td className={`px-3 py-2 text-right font-semibold ${period.is_profit ? 'text-green-700' : 'text-amber-700'}`}>
+                      {period.is_profit ? formatCurrency(period.profit) : `-${formatCurrency(period.loss)}`}
+                    </td>
+                    <td className="px-3 py-2 text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <Progress 
+                          value={period.is_profit ? period.profit_percent : period.loss_percent} 
+                          className={`h-1.5 w-16 ${period.is_profit ? 'bg-green-100' : 'bg-red-100'}`}
+                        />
+                        <span className="text-[10px]">
+                          {period.is_profit ? `+${period.profit_percent.toFixed(1)}%` : `-${period.loss_percent.toFixed(1)}%`}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 text-center">
+                      <Badge className={period.is_profit ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}>
+                        {period.is_profit ? 'Profit' : 'Loss'}
+                      </Badge>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot className="bg-gray-100">
+                <tr>
+                  <td className="px-3 py-2 font-bold">Total</td>
+                  <td className="px-3 py-2 text-right font-bold text-green-700">{formatCurrency(property.summary.total_revenue)}</td>
+                  <td className="px-3 py-2 text-right font-bold text-red-700">{formatCurrency(property.summary.total_expenses)}</td>
+                  <td className={`px-3 py-2 text-right font-bold ${property.summary.is_profit ? 'text-green-700' : 'text-amber-700'}`}>
+                    {property.summary.is_profit ? formatCurrency(property.summary.net_profit) : `-${formatCurrency(property.summary.net_loss)}`}
+                  </td>
+                  <td className="px-3 py-2 text-center font-bold">
+                    {property.summary.is_profit ? `+${property.summary.net_profit_percent.toFixed(1)}%` : `-${property.summary.net_loss_percent.toFixed(1)}%`}
+                  </td>
+                  <td className="px-3 py-2 text-center"></td>
+                </tr>
+                <tr className="bg-gray-50">
+                  <td className="px-3 py-2 text-xs text-gray-500" colSpan={6}>
+                    Average Revenue per {pgRevenueReport.period_type === 'month_wise' ? 'month' : 'year'}: {formatCurrency(property.summary.avg_revenue)}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+    ))}
+
+    {/* Overall Summary Footer */}
+    <Card className="border-0 shadow-sm bg-gradient-to-r from-gray-100 to-white">
+      <CardContent className="p-4">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+          <div>
+            <p className="text-[10px] text-gray-500">Total Properties</p>
+            <p className="text-lg font-bold">{pgRevenueReport.overall_summary.properties_count}</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-gray-500">Total {pgRevenueReport.period_type === 'month_wise' ? 'Months' : 'Years'}</p>
+            <p className="text-lg font-bold">{pgRevenueReport.overall_summary.total_periods}</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-gray-500">Total Revenue</p>
+            <p className="text-lg font-bold text-green-700">{formatCurrency(pgRevenueReport.overall_summary.total_revenue)}</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-gray-500">Total Expenses</p>
+            <p className="text-lg font-bold text-red-700">{formatCurrency(pgRevenueReport.overall_summary.total_expenses)}</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-gray-500">Net {pgRevenueReport.overall_summary.is_profit ? 'Profit' : 'Loss'}</p>
+            <p className={`text-lg font-bold ${pgRevenueReport.overall_summary.is_profit ? 'text-green-700' : 'text-amber-700'}`}>
+              {formatCurrency(pgRevenueReport.overall_summary.is_profit ? pgRevenueReport.overall_summary.net_profit : pgRevenueReport.overall_summary.net_loss)}
+            </p>
+          </div>
+          <div>
+            <p className="text-[10px] text-gray-500">Average Revenue</p>
+            <p className="text-lg font-bold text-purple-700">{formatCurrency(pgRevenueReport.overall_summary.avg_revenue)}</p>
+          </div>
         </div>
       </CardContent>
     </Card>

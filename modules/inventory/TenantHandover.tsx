@@ -474,43 +474,73 @@ const handleResendOTP = async () => {
   };
 
   // ── Tenant auto-fill — FIX: use toInputDate for dates ────────────────────
-  const handleTenantSelect = async (tenantId: string) => {
-    const t = tenants.find(t => String(t.id) === tenantId);
-    if (!t) return;
+// TenantHandover.tsx - Replace the handleTenantSelect function
+
+const handleTenantSelect = async (tenantId: string) => {
+  const t = tenants.find(t => String(t.id) === tenantId);
+  if (!t) return;
+
+  setFormData(p => ({
+    ...p,
+    tenant_id: String(t.id),
+    tenant_name: t.name || '',
+    tenant_phone: t.phone || '',
+    tenant_email: t.email || '',
+  }));
+
+  try {
+    const res = await tenantDetailsApi.getProfileById(tenantId);
+    const d = res?.data;
+    if (!d) return;
+
+    // ✅ FIX: Extract values from the API response
+    // The data already contains tenant_rent, rent_per_bed, security_deposit, etc.
+    const monthlyRent = safeNum(d.tenant_rent) || safeNum(d.rent_per_bed) || 0;
+    
+    // Get security deposit - try multiple possible sources
+    let securityDeposit = 0;
+    
+    // Option 1: From bed assignment if available
+    if (d.bed_assignment_id) {
+      try {
+        const bedResponse = await fetch(`/api/rooms/bed-assignments/${d.bed_assignment_id}`);
+        const bedResult = await bedResponse.json();
+        if (bedResult.success && bedResult.data) {
+          securityDeposit = safeNum(bedResult.data.security_deposit);
+          console.log("✅ Security deposit from bed assignment:", securityDeposit);
+        }
+      } catch (err) {
+        console.error("Could not fetch bed assignment:", err);
+      }
+    }
+    
+    // Option 2: From property security_deposit
+    if (securityDeposit === 0 && d.property_id) {
+      securityDeposit = await fetchPropertyDeposit(String(d.property_id));
+      console.log("✅ Security deposit from property:", securityDeposit);
+    }
+    
+    // Option 3: From tenant's own security_deposit field
+    if (securityDeposit === 0) {
+      securityDeposit = safeNum(d.security_deposit);
+    }
+
 
     setFormData(p => ({
       ...p,
-      tenant_id: String(t.id),
-      tenant_name: t.name || '',
-      tenant_phone: t.phone || '',
-      tenant_email: t.email || '',
+      property_id: String(d.property_id || ''),
+      property_name: d.property_name || '',
+      room_number: d.room_number || '',
+      bed_number: String(d.bed_number || ''),
+      move_in_date: toInputDate(d.check_in_date) || toInputDate(d.move_in_date) || p.move_in_date,
+      security_deposit: securityDeposit,
+      rent_amount: monthlyRent,
     }));
-
-    try {
-      const res = await tenantDetailsApi.getProfileById(tenantId);
-      const d = res?.data;
-      if (!d) return;
-
-      let deposit = 0;
-      if (d.property_id) {
-        deposit = await fetchPropertyDeposit(String(d.property_id));
-      }
-
-      setFormData(p => ({
-        ...p,
-        property_id: String(d.property_id || ''),
-        property_name: d.property_name || '',
-        room_number: d.room_number || '',
-        bed_number: String(d.bed_number || ''),
-        // FIX: use toInputDate to ensure YYYY-MM-DD format
-        move_in_date: toInputDate(d.check_in_date) || toInputDate(d.move_in_date) || p.move_in_date,
-        security_deposit: deposit,
-        rent_amount: safeNum(d.monthly_rent || d.rent_per_bed || 0),
-      }));
-    } catch (err) {
-      console.error('Could not fetch tenant details:', err);
-    }
-  };
+  } catch (err) {
+    console.error('Could not fetch tenant details:', err);
+    toast.error('Failed to fetch tenant details');
+  }
+};
 
   // ── Property select ───────────────────────────────────────────────────────
   const handlePropertySelect = async (propertyId: string) => {

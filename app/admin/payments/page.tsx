@@ -85,6 +85,8 @@ import {
   Building2,
   Copy,
   Smartphone,
+  Shield,
+  Wallet,
 } from "lucide-react";
 import {
   Table,
@@ -324,6 +326,14 @@ export default function PaymentsPage() {
     send_sms: false,
   });
 
+  const [detailedStats, setDetailedStats] = useState({
+  total_rent_collected: 0,
+  total_deposit_collected: 0,
+  total_refunded: 0,
+  this_month_rent: 0,        // ✅ NEW
+  total_transactions: 0,
+});
+
   useEffect(() => {
     loadData();
   }, []);
@@ -400,6 +410,26 @@ export default function PaymentsPage() {
     fetchBankNames();
   }, []);
 
+  // Add this to loadDetailedStats function
+const loadDetailedStats = async () => {
+  try {
+    const response = await paymentApi.getDetailedPaymentStats();
+    if (response.success && response.data) {
+      setDetailedStats({
+        total_rent_collected: response.data.total_rent_collected || 0,
+        total_deposit_collected: response.data.total_deposit_collected || 0,
+        total_refunded: response.data.total_refunded || 0,
+        this_month_rent: response.data.this_month_rent || 0,        // ✅ NEW
+        total_transactions: response.data.total_transactions || 0,  
+      });
+    }
+  } catch (error) {
+    console.error("Error loading detailed stats:", error);
+  }
+};
+
+
+
   const loadData = async () => {
     setLoading(true);
     try {
@@ -409,6 +439,7 @@ export default function PaymentsPage() {
         loadDemands(),
         loadTenants(),
         loadStats(),
+        loadDetailedStats(),
       ]);
     } catch (error) {
       toast.error("Failed to load data");
@@ -416,6 +447,7 @@ export default function PaymentsPage() {
       setLoading(false);
     }
   };
+  
 
   // In the main component, add useEffect to clear highlight after some time
   useEffect(() => {
@@ -2340,7 +2372,7 @@ export default function PaymentsPage() {
     <div className="bg-slate-50">
       <div className="p-0 sm:p-0 md:p-0 space-y-2 sm:space-y-3">
         {/* Compact Stats Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 sticky top-16 z-10">
+        {/* <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 sticky top-16 z-10">
           <StatCard
             title="Collected"
             value={`₹${stats?.total_collected?.toLocaleString() || "0"}`}
@@ -2369,7 +2401,122 @@ export default function PaymentsPage() {
             color="bg-amber-600"
             bgColor="bg-gradient-to-br from-amber-50 to-amber-100"
           />
+        </div> */}
+
+        {/* Detailed Stats Cards */}
+{/* Detailed Stats Cards - 5 Cards */}
+<div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 sm:gap-2 sticky top-16 z-10">
+  
+  {/* Rent Collected Card */}
+  <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-0 shadow-sm">
+    <CardContent className="p-2 sm:p-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-[10px] sm:text-xs text-blue-700 font-medium">
+            Rent Collected
+          </p>
+          <p className="text-sm sm:text-base font-bold text-blue-800">
+            ₹{detailedStats.total_rent_collected.toLocaleString()}
+          </p>
+          <p className="text-[9px] text-blue-600 mt-0.5">
+            Total rent payments
+          </p>
         </div>
+        <div className="p-1.5 rounded-lg bg-blue-600">
+          <IndianRupee className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
+        </div>
+      </div>
+    </CardContent>
+  </Card>
+
+  {/* Deposit Collected Card */}
+  <Card className="bg-gradient-to-br from-green-50 to-green-100 border-0 shadow-sm">
+    <CardContent className="p-2 sm:p-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-[10px] sm:text-xs text-green-700 font-medium">
+            Deposit Collected
+          </p>
+          <p className="text-sm sm:text-base font-bold text-green-800">
+            ₹{detailedStats.total_deposit_collected.toLocaleString()}
+          </p>
+          <p className="text-[9px] text-green-600 mt-0.5">
+            Total security deposits
+          </p>
+        </div>
+        <div className="p-1.5 rounded-lg bg-green-600">
+          <Shield className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
+        </div>
+      </div>
+    </CardContent>
+  </Card>
+
+  {/* Total Refunded Card */}
+  <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-0 shadow-sm">
+    <CardContent className="p-2 sm:p-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-[10px] sm:text-xs text-orange-700 font-medium">
+            Refunded
+          </p>
+          <p className="text-sm sm:text-base font-bold text-orange-800">
+            ₹{detailedStats.total_refunded.toLocaleString()}
+          </p>
+          <p className="text-[9px] text-orange-600 mt-0.5">
+            Total deposit refunds
+          </p>
+        </div>
+        <div className="p-1.5 rounded-lg bg-orange-600">
+          <ReceiptIndianRupee className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
+        </div>
+      </div>
+    </CardContent>
+  </Card>
+
+  {/* This Month Rent Card */}
+  <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-0 shadow-sm">
+    <CardContent className="p-2 sm:p-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-[10px] sm:text-xs text-purple-700 font-medium">
+            This Month Rent
+          </p>
+          <p className="text-sm sm:text-base font-bold text-purple-800">
+            ₹{detailedStats.this_month_rent.toLocaleString()}
+          </p>
+          <p className="text-[9px] text-purple-600 mt-0.5">
+            {new Date().toLocaleString('default', { month: 'long' })} {new Date().getFullYear()}
+          </p>
+        </div>
+        <div className="p-1.5 rounded-lg bg-purple-600">
+          <Calendar className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
+        </div>
+      </div>
+    </CardContent>
+  </Card>
+
+  {/* Total Transactions Card */}
+  <Card className="bg-gradient-to-br from-cyan-50 to-cyan-100 border-0 shadow-sm">
+    <CardContent className="p-2 sm:p-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-[10px] sm:text-xs text-cyan-700 font-medium">
+            Transactions
+          </p>
+          <p className="text-sm sm:text-base font-bold text-cyan-800">
+            {detailedStats.total_transactions.toLocaleString()}
+          </p>
+          <p className="text-[9px] text-cyan-600 mt-0.5">
+            Total payments processed
+          </p>
+        </div>
+        <div className="p-1.5 rounded-lg bg-cyan-600">
+          <CreditCard className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
+        </div>
+      </div>
+    </CardContent>
+  </Card>
+</div>
 
         {/* Tabs Container */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -5904,39 +6051,28 @@ const PaymentsTable = ({
                                 >
                                   <Eye className="h-3.5 w-3.5" />
                                 </Button>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-7 w-7 p-0 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-full"
-                                  onClick={async () => {
-                                    const tenant = tenants.find(
-                                      (t) => t.id === group.tenant_id,
-                                    );
-
-                                    const propertyId =
-                                      tenant?.current_assignment?.property_id ||
-                                      group.property_id;
-                                    const roomId =
-                                      tenant?.current_assignment?.room_id ||
-                                      group.room_id;
-
-                                    if (tenant && propertyId && roomId) {
-                                      await prefillAndOpenPaymentForm(
-                                        group.tenant_id,
-                                        propertyId,
-                                        roomId,
-                                      );
-                                    } else {
-                                      toast.error(
-                                        "Tenant missing property or room information",
-                                      );
-                                      setIsAddPaymentOpen(true);
-                                    }
-                                  }}
-                                  title="Add Payment"
-                                >
-                                  <Plus className="h-3.5 w-3.5" />
-                                </Button>
+                               {/* Add Payment Button - Hidden if tenant has deposit refund */}
+{!group.payments.some(p => p.payment_type === 'deposit_refund') && (
+  <Button
+    size="sm"
+    variant="ghost"
+    className="h-7 w-7 p-0 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-full"
+    onClick={async () => {
+      const tenant = tenants.find((t) => t.id === group.tenant_id);
+      const propertyId = tenant?.current_assignment?.property_id || group.property_id;
+      const roomId = tenant?.current_assignment?.room_id || group.room_id;
+      if (tenant && propertyId && roomId) {
+        await prefillAndOpenPaymentForm(group.tenant_id, propertyId, roomId);
+      } else {
+        toast.error("Tenant missing property or room information");
+        setIsAddPaymentOpen(true);
+      }
+    }}
+    title="Add Payment"
+  >
+    <Plus className="h-3.5 w-3.5" />
+  </Button>
+)}
                               </div>
                             </TableCell>
                           </TableRow>

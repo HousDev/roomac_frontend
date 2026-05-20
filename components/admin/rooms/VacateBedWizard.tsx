@@ -122,6 +122,17 @@ export function VacateBedWizard({
   const [loadingTenants, setLoadingTenants] = useState(false);
   const [securityDeposit, setSecurityDeposit] = useState<number>(0);
 
+  const [inspectionPenalty, setInspectionPenalty] = useState<{
+  total_penalty: number;
+  items: any[];
+  has_inspection: boolean;
+}>({
+  total_penalty: 0,
+  items: [],
+  has_inspection: false
+});
+const [loadingPenalty, setLoadingPenalty] = useState(false);
+
   // Form state
   const [formData, setFormData] = useState({
     vacateReasonValue: "",
@@ -253,6 +264,58 @@ export function VacateBedWizard({
       }));
     }
   }, [lockinStatus, lockinAcceptedByTenant, noticeGivenByTenant]);
+
+const fetchInspectionPenalty = async (tenantName: string) => {
+  setLoadingPenalty(true);
+  try {
+    // Use tenant name instead of ID
+    const response = await fetch(`/api/move-out-inspections?tenant_name=${encodeURIComponent(tenantName)}`);
+    const result = await response.json();
+    
+    if (result.success && result.data && result.data.length > 0) {
+      // Get the latest inspection
+      const inspection = result.data[0];
+      let items = [];
+      let totalPenalty = 0;
+      
+      if (inspection.inspection_items && Array.isArray(inspection.inspection_items)) {
+        items = inspection.inspection_items.map((item: any) => ({
+          item_name: item.item_name,
+          category: item.category,
+          condition_at_movein: item.condition_at_movein,
+          condition_at_moveout: item.condition_at_moveout,
+          penalty_amount: parseFloat(item.penalty_amount) || 0
+        }));
+        totalPenalty = items.reduce((sum: number, item: any) => sum + item.penalty_amount, 0);
+      }
+      
+      setInspectionPenalty({
+        total_penalty: totalPenalty,
+        items: items,
+        has_inspection: items.length > 0 && totalPenalty > 0
+      });
+      
+      if (totalPenalty > 0) {
+        console.log(`💰 Inspection penalty found: ₹${totalPenalty}`);
+      }
+    } else {
+      setInspectionPenalty({
+        total_penalty: 0,
+        items: [],
+        has_inspection: false
+      });
+    }
+  } catch (error) {
+    console.error("Error fetching inspection penalty:", error);
+    setInspectionPenalty({
+      total_penalty: 0,
+      items: [],
+      has_inspection: false
+    });
+  } finally {
+    setLoadingPenalty(false);
+  }
+};
 
   const formatDateForInput = (dateString: string) => {
     if (!dateString) return "";
@@ -674,6 +737,11 @@ const checkForExistingRequest = async () => {
       setInitialData(data);
       initialDataLoadedRef.current = true;
 
+      // In loadInitialData function, after setting initialData:
+if (data.bedAssignment && data.bedAssignment.tenant_name) {
+  await fetchInspectionPenalty(data.bedAssignment.tenant_name);
+}
+
       if (data.bedAssignment) {
         const deposit = parseFloat(data.bedAssignment.security_deposit) || 
                         parseFloat(data.bedAssignment.rent_per_bed) || 0;
@@ -714,78 +782,84 @@ const checkForExistingRequest = async () => {
     }
   };
 
-  const handleNext = async () => {
-    if (step === 1) {
-      if (!formData.vacateReasonValue) {
-        toast.error("Please select a vacate reason");
-        return;
-      }
-      if (isCoupleBooking) {
-        setStep(2);
-      } else {
-        setStep(3);
-      }
-    } 
-    else if (step === 2 && isCoupleBooking) {
-      const selectedCount = tenantsToVacate.filter(t => t.selected).length;
-      if (selectedCount === 0) {
-        toast.error("Please select at least one tenant to vacate");
-        return;
-      }
-      setStep(3);
-    } 
-    else if (step === 3) {
-      setStep(4);
-    } 
-    else if (step === 4) {
-      setStep(5);
-    } 
-    else if (step === 5) {
-      if (!formData.requestedVacateDate) {
-        toast.error("Please select vacate date");
-        return;
-      }
-      await calculateAllPenalties();
-      setStep(6);
-    } 
-    else if (step === 6) {
-      if (!formData.adminApproved && !isAdminOverrideLockin && !isAdminOverrideNotice) {
-        toast.error("Please approve the vacate request");
-        return;
-      }
-      setStep(7);
+const handleNext = async () => {
+  if (step === 1) {
+    if (!formData.vacateReasonValue) {
+      toast.error("Please select a vacate reason");
+      return;
     }
-  };
-
-  const handleBack = () => {
-    if (step > 1) {
-      if (!isCoupleBooking) {
-        if (step === 3) setStep(1);
-        else if (step === 4) setStep(3);
-        else if (step === 5) setStep(4);
-        else if (step === 6) setStep(5);
-        else setStep(step - 1);
-      } else {
-        setStep(step - 1);
-      }
-    }
-  };
-
-  const getStepTitles = () => {
     if (isCoupleBooking) {
-      return ["Reason", "Select Tenants", "Lock-in", "Notice", "Date", "Summary", "Result"];
+      setStep(2);
     } else {
-      return ["Reason", "Lock-in", "Notice", "Date", "Summary", "Result"];
+      setStep(3); // Lock-in (skipping step 2 for non-couple)
     }
-  };
+  } 
+  else if (step === 2 && isCoupleBooking) {
+    const selectedCount = tenantsToVacate.filter(t => t.selected).length;
+    if (selectedCount === 0) {
+      toast.error("Please select at least one tenant to vacate");
+      return;
+    }
+    setStep(3);
+  } 
+  else if (step === 3) {  // Lock-in
+    setStep(4);  // Go to Notice
+  } 
+  else if (step === 4) {  // Notice
+    setStep(5);  // Go to Inspection
+  } 
+  else if (step === 5) {  // Inspection
+    // Don't validate date here, just go to Date step
+    setStep(6);  // Go to Date
+  } 
+  else if (step === 6) {  // Date
+    if (!formData.requestedVacateDate) {
+      toast.error("Please select vacate date");
+      return;
+    }
+    await calculateAllPenalties();
+    setStep(7);  // Go to Summary
+  } 
+  else if (step === 7) {  // Summary
+    if (!formData.adminApproved && !isAdminOverrideLockin && !isAdminOverrideNotice) {
+      toast.error("Please approve the vacate request");
+      return;
+    }
+    setStep(8);  // Go to Result
+  }
+};
 
-  const getIcons = () => {
-    if (isCoupleBooking) {
-      return [FileText, UsersRound, Lock, Bell, CalendarIcon, CheckCircle, Check];
+const handleBack = () => {
+  if (step > 1) {
+    if (!isCoupleBooking) {
+      if (step === 3) setStep(1);      // Lock-in → Reason
+      else if (step === 4) setStep(3); // Notice → Lock-in
+      else if (step === 5) setStep(4); // Inspection → Notice
+      else if (step === 6) setStep(5); // Date → Inspection
+      else if (step === 7) setStep(6); // Summary → Date
+      else if (step === 8) setStep(7); // Result → Summary
     } else {
-      return [FileText, Lock, Bell, CalendarIcon, CheckCircle, Check];
+      setStep(step - 1); // Couple: all sequential 1-8
     }
-  };
+  }
+};
+
+
+const getStepTitles = () => {
+  if (isCoupleBooking) {
+    return ["Reason", "Select Tenants", "Lock-in", "Notice", "Inspection", "Date", "Summary", "Result"];
+  } else {
+    return ["Reason", "Lock-in", "Notice", "Inspection", "Date", "Summary", "Result"];
+  }
+};
+
+const getIcons = () => {
+  if (isCoupleBooking) {
+    return [FileText, UsersRound, Lock, Bell, Shield, CalendarIcon, CheckCircle, Check];
+  } else {
+    return [FileText, Lock, Bell, Shield, CalendarIcon, CheckCircle, Check];
+  }
+};
 
   const checkLockinStatus = async () => {
     try {
@@ -1151,8 +1225,18 @@ const calculateAllPenalties = async () => {
       noticePenaltyDescription = "No penalty - Notice period completed";
     }
 
+
+    // ✅ ADD INSPECTION PENALTY (from move-out inspection)
+    let inspectionPenaltyAmount = inspectionPenalty.total_penalty;
+    let inspectionPenaltyDescription = "";
+    
+    if (inspectionPenaltyAmount > 0) {
+      inspectionPenaltyDescription = `Move-out inspection penalty (${inspectionPenalty.items.length} damaged/missing items)`;
+      console.log(`🔍 Inspection penalty: ₹${inspectionPenaltyAmount}`);
+    }
+
     // ✅ FIX: Calculate total penalty correctly - ADD both penalties
-    const totalPenalty = lockinPenalty + noticePenalty;
+    const totalPenalty = lockinPenalty + noticePenalty + inspectionPenaltyAmount; 
     const refundableAmount = securityDepositAmount - totalPenalty;
 
     console.log("💰 Penalty Calculation:", {
@@ -1180,6 +1264,7 @@ const calculateAllPenalties = async () => {
         securityDeposit: securityDepositAmount,
         lockinPenalty,
         noticePenalty,
+         inspectionPenalty: inspectionPenaltyAmount,
         totalPenalty,
         refundableAmount: Math.max(0, refundableAmount),
       },
@@ -1209,6 +1294,12 @@ const calculateAllPenalties = async () => {
         message: noticeStatus?.message || "",
         penaltyApplicable: noticePenaltyApplicable && !isAdminOverrideNotice,
       },
+      inspectionPenalty: {
+        amount: inspectionPenaltyAmount,
+        items: inspectionPenalty.items,
+        has_inspection: inspectionPenalty.has_inspection,
+        description: inspectionPenaltyDescription
+      }
     });
   } catch (error) {
     console.error("❌ Error calculating penalties:", error);
@@ -1266,6 +1357,7 @@ const handleSubmit = async () => {
         // Calculate final amounts based on individual override flags
         let finalLockinPenaltyAmount = 0;
         let finalNoticePenaltyAmount = 0;
+        let finalInspectionPenaltyAmount = 0;
         let finalTotalPenaltyAmount = 0;
         let finalRefundableAmount = 0;
         let finalLockinPenaltyApplied = false;
@@ -1274,6 +1366,10 @@ const handleSubmit = async () => {
         // For partial vacate (only one tenant in couple booking), split the amounts
         const isPartialVacateSelected = selectedTenants.length === 1 && tenantsToVacate.length === 2;
         
+finalInspectionPenaltyAmount = isPartialVacateSelected
+          ? Math.floor((inspectionPenalty.total_penalty || 0) / 2)
+          : (inspectionPenalty.total_penalty || 0);
+
         if (isAdminOverrideLockin || isAdminOverrideNotice) {
           // Individual overrides
           if (isAdminOverrideLockin) {
@@ -1296,7 +1392,7 @@ const handleSubmit = async () => {
             finalNoticePenaltyApplied = formData.noticePenaltyApplied;
           }
           
-          finalTotalPenaltyAmount = finalLockinPenaltyAmount + finalNoticePenaltyAmount;
+          finalTotalPenaltyAmount = finalLockinPenaltyAmount + finalNoticePenaltyAmount + finalInspectionPenaltyAmount;
           finalRefundableAmount = (calculation?.financials?.securityDeposit || securityDeposit) - finalTotalPenaltyAmount;
         } 
         else if (existingVacateRequest) {
@@ -1307,7 +1403,7 @@ const handleSubmit = async () => {
           finalNoticePenaltyAmount = isPartialVacateSelected
             ? Math.floor((calculation?.financials?.noticePenalty || 0) / 2)
             : (calculation?.financials?.noticePenalty || 0);
-          finalTotalPenaltyAmount = finalLockinPenaltyAmount + finalNoticePenaltyAmount;
+          finalTotalPenaltyAmount = finalLockinPenaltyAmount + finalNoticePenaltyAmount + finalInspectionPenaltyAmount;
           finalRefundableAmount = isPartialVacateSelected
             ? Math.floor((calculation?.financials?.refundableAmount || formData.securityRefundAmount) / 2)
             : (calculation?.financials?.refundableAmount || formData.securityRefundAmount);
@@ -1322,7 +1418,7 @@ const handleSubmit = async () => {
           finalNoticePenaltyAmount = isPartialVacateSelected
             ? Math.floor((calculation?.financials?.noticePenalty || 0) / 2)
             : (calculation?.financials?.noticePenalty || 0);
-          finalTotalPenaltyAmount = finalLockinPenaltyAmount + finalNoticePenaltyAmount;
+          finalTotalPenaltyAmount = finalLockinPenaltyAmount + finalNoticePenaltyAmount + finalInspectionPenaltyAmount;
           finalRefundableAmount = isPartialVacateSelected
             ? Math.floor((calculation?.financials?.refundableAmount || formData.securityRefundAmount) / 2)
             : (calculation?.financials?.refundableAmount || formData.securityRefundAmount);
@@ -1338,6 +1434,7 @@ const handleSubmit = async () => {
           tenantName: tenant.full_name,
           finalLockinPenaltyAmount,
           finalNoticePenaltyAmount,
+           finalInspectionPenaltyAmount,
           finalTotalPenaltyAmount,
           finalRefundableAmount: safeRefundableAmount,
           finalLockinPenaltyApplied,
@@ -1363,6 +1460,7 @@ const handleSubmit = async () => {
           noticePeriodDays: initialData?.bedAssignment?.notice_period_days || 0,
           noticePenaltyType: initialData?.bedAssignment?.notice_penalty_type || '',
           noticePenaltyAmount: finalNoticePenaltyAmount,
+          inspectionPenaltyAmount: finalInspectionPenaltyAmount,
           securityDepositAmount: initialData?.bedAssignment?.security_deposit || securityDeposit || 0,
           totalPenaltyAmount: finalTotalPenaltyAmount,
           refundableAmount: safeRefundableAmount,
@@ -1518,10 +1616,19 @@ const handleSubmit = async () => {
     onOpenChange(false);
   };
 const getStepIndex = () => {
-  if (isCoupleBooking) return step - 1;
-  // Non-couple skips step 2, so adjust: 1→0, 3→1, 4→2, 5→3, 6→4, 7→5
-  if (step <= 1) return 0;
-  return step - 2;
+  if (isCoupleBooking) {
+    return step - 1; // steps 1-8 → index 0-7, direct mapping
+  } else {
+    // Non-couple steps: 1, 3, 4, 5, 6, 7, 8 (step 2 is skipped)
+    if (step === 1) return 0; // Reason
+    if (step === 3) return 1; // Lock-in
+    if (step === 4) return 2; // Notice
+    if (step === 5) return 3; // Inspection
+    if (step === 6) return 4; // Date
+    if (step === 7) return 5; // Summary
+    if (step === 8) return 6; // Result
+    return 0;
+  }
 };
 
   if (loading && !initialData) {
@@ -2302,8 +2409,79 @@ style={{ width: `${((getStepIndex() + 1) / stepTitles.length) * 100}%` }}
   </div>
 )}
 
+{/* STEP 5: INSPECTION PENALTY */}
+{step === 5 && (
+  <div className="space-y-4 p-2">
+    <div className="bg-purple-50 p-3 rounded-lg">
+      <h3 className="font-medium text-purple-800 mb-1 text-sm">
+        Move-Out Inspection Penalty
+      </h3>
+      <p className="text-xs text-purple-700">
+        Review penalties from move-out inspection for damaged or missing items.
+      </p>
+    </div>
+
+    {loadingPenalty ? (
+      <div className="text-center py-8">
+        <Loader2 className="h-6 w-6 animate-spin mx-auto text-purple-500 mb-2" />
+        <p className="text-xs text-gray-500">Loading inspection data...</p>
+      </div>
+    ) : inspectionPenalty.has_inspection && inspectionPenalty.items.length > 0 ? (
+      <Card className="border-purple-200">
+        <CardContent className="p-3">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-purple-200">
+              <span className="text-sm font-semibold text-purple-800">Item</span>
+              <span className="text-sm font-semibold text-purple-800">Penalty</span>
+            </div>
+            {inspectionPenalty.items.map((item, idx) => (
+              <div key={idx} className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-800">{item.item_name}</p>
+                  <p className="text-xs text-gray-500">
+                    {item.condition_at_movein} → {item.condition_at_moveout}
+                  </p>
+                </div>
+                <Badge className="bg-red-100 text-red-700 text-xs px-2 py-1">
+                  {formatCurrency(item.penalty_amount)}
+                </Badge>
+              </div>
+            ))}
+            <div className="pt-2 border-t border-purple-200 flex items-center justify-between">
+              <span className="text-sm font-bold text-purple-800">Total Penalty</span>
+              <span className="text-lg font-bold text-red-600">
+                {formatCurrency(inspectionPenalty.total_penalty)}
+              </span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    ) : (
+      <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+        <CheckCircle className="h-8 w-8 text-green-500 mx-auto mb-2" />
+        <p className="text-sm font-medium text-green-700">No Inspection Penalties</p>
+        <p className="text-xs text-green-600 mt-1">
+          No damaged or missing items found during move-out inspection.
+        </p>
+      </div>
+    )}
+
+    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+      <div className="flex items-start gap-2">
+        <Info className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+        <div className="flex-1">
+          <p className="text-xs font-medium text-amber-800">Note:</p>
+          <p className="text-xs text-amber-700">
+            Inspection penalties are calculated based on item condition changes
+            from move-in to move-out. These will be deducted from the security deposit.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
             {/* STEP 5: VACATE DATE */}
-            {step === 5 && (
+            {step === 6 && (
               <div className="space-y-4 p-2">
                 <div className="bg-blue-50 p-3 rounded-lg">
                   <h3 className="font-medium text-blue-800 mb-1 text-sm">
@@ -2352,8 +2530,7 @@ style={{ width: `${((getStepIndex() + 1) / stepTitles.length) * 100}%` }}
               </div>
             )}
 
-{/* STEP 6: SUMMARY */}
-{step === 6 && calculation && (
+{step === 7 && calculation && (
   <div className="space-y-4 p-2">
     <div className="bg-blue-50 p-3 rounded-lg">
       <h3 className="font-medium text-blue-800 mb-1 text-sm">
@@ -2439,29 +2616,67 @@ style={{ width: `${((getStepIndex() + 1) / stepTitles.length) * 100}%` }}
             </div>
           )}
 
-          {/* Total Penalties - Show correct total */}
-          <div className="flex justify-between items-center pt-2 border-t">
-            <div className="text-sm font-medium">Total Penalties</div>
-            <div className="font-medium text-sm text-red-600">
-              - {formatCurrency(calculation.financials.totalPenalty)}
-            </div>
-          </div>
+          {/* Inspection Penalty - Show separately */}
+{calculation?.inspectionPenalty?.amount > 0 && (
+  <div className="flex justify-between items-center pt-2 border-t">
+    <div>
+      <div className="text-sm text-gray-600">
+        Inspection Penalty
+      </div>
+      <div className="text-xs text-gray-500">
+        Move-out inspection damages
+      </div>
+    </div>
+    <div className="font-medium text-sm text-red-600">
+      - {formatCurrency(calculation.inspectionPenalty.amount)}
+    </div>
+  </div>
+)}
 
-          {/* Refundable Amount - Show correct refund */}
-          <div className="flex justify-between items-center pt-2 border-t">
-            <div className="font-medium">Refundable Amount</div>
-            <div className={`font-bold ${calculation.financials.refundableAmount > 0 ? "text-green-600" : "text-red-600"}`}>
-              {formatCurrency(calculation.financials.refundableAmount)}
+          {/* Total Penalties - Show correct total including inspection */}
+<div className="flex justify-between items-center pt-2 border-t">
+  <div className="text-sm font-medium">Total Penalties</div>
+  <div className="font-medium text-sm text-red-600">
+    - {formatCurrency(
+      (calculation.financials.lockinPenalty || 0) + 
+      (calculation.financials.noticePenalty || 0) + 
+      (calculation?.inspectionPenalty?.amount || 0)
+    )}
+  </div>
+</div>
+
+{/* Refundable Amount - Show correct refund including inspection deduction */}
+<div className="flex justify-between items-center pt-2 border-t">
+  <div className="font-medium">Refundable Amount</div>
+  <div className={`font-bold ${(calculation.financials.refundableAmount - (calculation?.inspectionPenalty?.amount || 0)) > 0 ? "text-green-600" : "text-red-600"}`}>
+    {formatCurrency(Math.max(0, calculation.financials.refundableAmount - (calculation?.inspectionPenalty?.amount || 0)))}
+  </div>
+</div>
+
+          {/* ✅ ADD REFUND MESSAGE */}
+          {calculation.financials.refundableAmount > 0 && (
+            <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <div className="flex items-start gap-2">
+                <Info className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-amber-800">
+                    Refund Processing
+                  </p>
+                  <p className="text-xs text-amber-700 mt-0.5">
+                    The refund amount of <span className="font-semibold">{formatCurrency(calculation.financials.refundableAmount)}</span> will be processed and sent to the tenant's registered bank account within <span className="font-semibold">15 working days</span> after vacate confirmation.
+                  </p>
+                </div>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </CardContent>
     </Card>
 
+    {/* Rest of the summary card remains the same */}
     <Card className="border">
       <CardContent className="p-3">
         <div className="space-y-3">
-          {/* ✅ Admin Approval - SHOW ONLY when tenant has request AND no admin override active */}
           {existingVacateRequest && !isAdminOverrideLockin && !isAdminOverrideNotice && (
             <div className="flex items-start gap-2">
               <input
@@ -2484,7 +2699,6 @@ style={{ width: `${((getStepIndex() + 1) / stepTitles.length) * 100}%` }}
             </div>
           )}
 
-          {/* ✅ For admin override or no tenant request - show info message */}
           {(!existingVacateRequest || isAdminOverrideLockin || isAdminOverrideNotice) && (
             <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
               <div className="flex items-start gap-2">
@@ -2505,7 +2719,6 @@ style={{ width: `${((getStepIndex() + 1) / stepTitles.length) * 100}%` }}
             </div>
           )}
 
-          {/* Override Status Summary */}
           {(isAdminOverrideLockin || isAdminOverrideNotice) && (
             <div className="p-2 rounded text-xs bg-purple-50 border border-purple-200 text-purple-800">
               <div className="flex items-center gap-1.5">
@@ -2520,7 +2733,6 @@ style={{ width: `${((getStepIndex() + 1) / stepTitles.length) * 100}%` }}
             </div>
           )}
 
-          {/* Tenant Request Info - Show when tenant has request but no override */}
           {existingVacateRequest && !isAdminOverrideLockin && !isAdminOverrideNotice && (
             <div className="p-2 rounded text-xs bg-yellow-50 border border-yellow-200 text-yellow-800">
               <div className="flex items-center gap-1.5">
@@ -2538,91 +2750,122 @@ style={{ width: `${((getStepIndex() + 1) / stepTitles.length) * 100}%` }}
 )}
 
             {/* STEP 7: RESULT */}
-            {step === 7 && (
-              <div className="space-y-4 p-2">
-                <div className="bg-green-50 p-4 rounded-lg text-center">
-                  <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-green-100 mb-3">
-                    <Check className="h-6 w-6 text-green-600" />
-                  </div>
-                  <h3 className="font-medium text-green-800 text-lg mb-1">
-                    Vacate Request Processed Successfully!
-                  </h3>
-                  <p className="text-green-700">
-                    The bed has been marked as vacated.
-                  </p>
-                  <p className="text-sm text-green-600 mt-2">
-                    Closing dialog...
-                  </p>
-                </div>
-              </div>
-            )}
+{/* STEP 8: RESULT */}
+{step === 8 && (
+  <div className="space-y-4 p-2">
+    <div className="bg-green-50 p-4 rounded-lg text-center">
+      <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-green-100 mb-3">
+        <Check className="h-6 w-6 text-green-600" />
+      </div>
+      <h3 className="font-medium text-green-800 text-lg mb-1">
+        Vacate Request Processed Successfully!
+      </h3>
+      <p className="text-green-700">
+        The bed has been marked as vacated.
+      </p>
+      
+      {/* ✅ ADD REFUND MESSAGE IN RESULT STEP */}
+      {calculation?.financials?.refundableAmount > 0 && (
+        <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-left">
+          <div className="flex items-start gap-2">
+            <Info className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-amber-800">
+                Refund Status
+              </p>
+              <p className="text-xs text-amber-700 mt-0.5">
+                The refund amount of <span className="font-semibold">{formatCurrency(calculation.financials.refundableAmount)}</span> will be processed and sent to the tenant's registered bank account within <span className="font-semibold">15 working days</span>.
+              </p>
+              <p className="text-xs text-amber-600 mt-2">
+                The tenant will receive an email notification once the refund is processed.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {calculation?.financials?.refundableAmount === 0 && calculation?.financials?.totalPenalty > 0 && (
+        <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-left">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-red-800">
+                No Refund Due
+              </p>
+              <p className="text-xs text-red-700 mt-0.5">
+                Total penalties of <span className="font-semibold">{formatCurrency(calculation.financials.totalPenalty)}</span> have fully deducted the security deposit of <span className="font-semibold">{formatCurrency(calculation.financials.securityDeposit)}</span>. No refund amount is due.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      <p className="text-sm text-green-600 mt-3">
+        Closing dialog...
+      </p>
+    </div>
+  </div>
+)}
           </div>
         </div>
 
-        <DialogFooter className="gap-2 pt-3 border-t px-4 pb-3 flex-shrink-0 bg-white">
-          {step > 1 && step < 7 && (
-            <Button variant="outline" onClick={handleBack} disabled={loading || calculating} size="sm">
-              Back
-            </Button>
-          )}
+<DialogFooter className="gap-2 pt-3 border-t px-4 pb-3 flex-shrink-0 bg-white">
+  {step > 1 && step < 8 && (
+    <Button variant="outline" onClick={handleBack} disabled={loading || calculating} size="sm">
+      Back
+    </Button>
+  )}
 
-          {step === 1 && (
-            <Button onClick={handleNext} disabled={loading || calculating || loadingMasters || !formData.vacateReasonValue} size="sm">
-              Next
-            </Button>
-          )}
-          
-          {step === 2 && isCoupleBooking && (
-            <Button onClick={handleNext} disabled={loading || tenantsToVacate.filter(t => t.selected).length === 0} size="sm">
-              Next
-            </Button>
-          )}
-          
-          {step === 3 && (
-            <Button onClick={handleNext} disabled={loading || calculating} size="sm">
-              Next
-            </Button>
-          )}
-          
-          {step === 4 && (
-            <Button onClick={handleNext} disabled={loading || calculating} size="sm">
-              Next
-            </Button>
-          )}
-          
-          {step === 5 && (
-            <Button onClick={handleNext} disabled={loading || !formData.requestedVacateDate} size="sm">
-              Calculate Penalties
-            </Button>
-          )}
-          
-          {step === 6 && (
-  <Button 
-    onClick={handleSubmit} 
-    disabled={
-      loading || 
-      // Only require approval when tenant has request AND no admin overrides active
-      (existingVacateRequest && !isAdminOverrideLockin && !isAdminOverrideNotice && !formData.adminApproved)
-    } 
-    size="sm"
-  >
-    {loading ? (
-      <>
-        <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
-        Processing...
-      </>
-    ) : (
-      "Process Vacate"
-    )}
-  </Button>
-)}
-          
-          {step === 7 && (
-            <Button onClick={handleClose} size="sm">
-              Close
-            </Button>
-          )}
-        </DialogFooter>
+  {step === 1 && (
+    <Button onClick={handleNext} disabled={loading || calculating || loadingMasters || !formData.vacateReasonValue} size="sm">
+      Next
+    </Button>
+  )}
+  
+  {step === 2 && isCoupleBooking && (
+    <Button onClick={handleNext} disabled={loading || tenantsToVacate.filter(t => t.selected).length === 0} size="sm">
+      Next
+    </Button>
+  )}
+  
+  {(step === 3 || step === 4 || step === 5) && (
+    <Button onClick={handleNext} disabled={loading || calculating} size="sm">
+      Next
+    </Button>
+  )}
+  
+  {step === 6 && (  // Date step - Calculate Penalties
+    <Button onClick={handleNext} disabled={loading || !formData.requestedVacateDate} size="sm">
+      Calculate Penalties
+    </Button>
+  )}
+  
+  {step === 7 && (  // Summary step - Process
+    <Button 
+      onClick={handleSubmit} 
+      disabled={
+        loading || 
+        (existingVacateRequest && !isAdminOverrideLockin && !isAdminOverrideNotice && !formData.adminApproved)
+      } 
+      size="sm"
+    >
+      {loading ? (
+        <>
+          <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
+          Processing...
+        </>
+      ) : (
+        "Process Vacate"
+      )}
+    </Button>
+  )}
+  
+  {step === 8 && (
+    <Button onClick={handleClose} size="sm">
+      Close
+    </Button>
+  )}
+</DialogFooter>
       </DialogContent>
     </Dialog>
   );

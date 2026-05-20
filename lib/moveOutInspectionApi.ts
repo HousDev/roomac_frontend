@@ -1,3 +1,4 @@
+// moveOutInspectionApi.ts
 import { request } from "@/lib/api";
 
 export interface InspectionItem {
@@ -88,6 +89,24 @@ export interface PenaltyRulesResponse {
   data: PenaltyRule[];
 }
 
+export interface ItemPenalty {
+  item_name: string;
+  category: string;
+  condition_at_movein: string;
+  condition_at_moveout: string;
+  penalty_amount: number;
+}
+
+export interface InspectionPenaltyResponse {
+  success: boolean;
+  data: {
+    total_penalty: number;
+    items: ItemPenalty[];
+    message: string;
+  };
+}
+
+
 // ─── API Functions ────────────────────────────────────────────────────────────
 
 export const getInspections = async (filters?: {
@@ -137,3 +156,19 @@ export const getInspectionStats = async (): Promise<InspectionStatsResponse> =>
 
 export const getDefaultPenaltyRules = async (): Promise<PenaltyRulesResponse> =>
   request<PenaltyRulesResponse>("/api/move-out-inspections/penalty-rules/default", { method: "GET" });
+
+// Get penalty calculation for a specific handover (to be used in vacate wizard)
+export const getPenaltyForHandover = async (handoverId: string): Promise<InspectionPenaltyResponse> => {
+  const response = await request<InspectionPenaltyResponse>(`/api/move-out-inspections/penalty/${handoverId}`, {
+    method: "GET",
+  });
+  return response;
+};
+
+// Get penalty calculation by tenant ID (for vacate wizard)
+export const getPenaltyByTenantId = async (tenantId: number): Promise<InspectionPenaltyResponse> => {
+  const response = await request<InspectionPenaltyResponse>(`/api/move-out-inspections/penalty/tenant/${tenantId}`, {
+    method: "GET",
+  });
+  return response;
+};
