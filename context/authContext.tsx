@@ -1,6 +1,3 @@
-
-
-
 // context/authContext.tsx
 "use client";
 
@@ -10,23 +7,22 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 type User = {
   email: string;
   role: string;
-  loginSource: "admin" | "tenant"; // ✅ NEW
+  loginSource: "admin" | "tenant";
 };
 
 type AuthContextType = {
   user: any;
   isAuthenticated: boolean;
   loading: boolean;
-  setUser:any;
+  setUser: any;
   login: (
     email: string,
     role: "admin" | "tenant",
     token: string,
-    loginSource: "admin" | "tenant" // ✅ NEW
+    loginSource: "admin" | "tenant"
   ) => void;
   logout: () => void;
-    can: (permission: string) => boolean;  // ← ADD THIS
-
+  can: (permission: string) => boolean;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -35,119 +31,72 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   
-  const fetchUser = async () => {
+  const fetchUser = async (email: string) => {
     try {
-      const email = localStorage.getItem("auth_email");
-
-      if (!email || email === "null" || email === "undefined") {
-        console.warn("Invalid email:", email);
-        return;
-      }
-
       const res = await axios.get(
         `${import.meta.env.VITE_API_URL}/api/auth/get-user-details/${email}`
       );
-
       setUser(res.data.user);
+      return true;
     } catch (error) {
-      console.log(error);
+      console.log("Error fetching user:", error);
+      return false;
     }
   };
 
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchUser();
-    }, 100); // small delay
-
-    return () => clearTimeout(timer);
-  }, []);
-
   const login = (
     email: string,
-    role: string ,
+    role: string,
     token: string,
     loginSource: "admin" | "tenant"
   ) => {
     localStorage.setItem("auth_token", token);
     localStorage.setItem("auth_email", email);
     localStorage.setItem("auth_role", role);
-    localStorage.setItem("auth_login_source", loginSource); // ✅ NEW
-
-    fetchUser();
-    setLoading(false)
+    localStorage.setItem("auth_login_source", loginSource);
+    
+    fetchUser(email).finally(() => setLoading(false));
   };
 
   const logout = () => {
-    const loginSource = localStorage.getItem("auth_login_source");
-
     localStorage.removeItem("auth_token");
     localStorage.removeItem("auth_email");
     localStorage.removeItem("auth_role");
     localStorage.removeItem("auth_login_source");
-    localStorage.clear()
+    localStorage.clear();
     setUser(null);
-
-    
-   
-
-
     window.location.href = "/login";
-
-    
   };
 
- useEffect(() => {
-  const token = localStorage.getItem("auth_token");
-  const email = localStorage.getItem("auth_email");
-  const role = localStorage.getItem("auth_role") as "admin" | "tenant";
-  const loginSource = localStorage.getItem("auth_login_source") as "admin" | "tenant";
-
-  if (token && email && role && loginSource) {
-    fetchUser().finally(() => setLoading(false)); // ← CHANGE THIS
-  } else {
-    setLoading(false); // ← AND THIS for when no token
-  }
-}, []);
-
-// const can = (permission: string): boolean => {
-//   // admin role ko sab kuch allow
-//   const role =
-//     (user as any)?.role_name ??
-//     (user as any)?.role ??
-//     null;
-//   if (role === "admin") return true;
- 
-//   // user ki permissions check karo (users table se aayi hain)
-//   const perms: Record<string, boolean> | null =
-//     (user as any)?.permissions ?? null;
-//   if (perms && typeof perms === "object") return Boolean(perms[permission]);
- 
-//   return false;
-// };
-
-const can = (permission: string): boolean => {
-  if (!user) return false;
-
-  const role = user?.role_name ?? user?.role ?? null;
-  if (role === "admin" || role === "Admin") return true;
-
-  const hasCustom = user?.has_custom_permissions;
-
-  if (hasCustom) {
-    // ── User has custom overrides: MERGE role + user ──
-    const rolePerms: Record<string, boolean> = user?.role_permissions ?? {};
-    const userPerms: Record<string, boolean> = user?.permissions ?? {};
+  useEffect(() => {
+    const checkAuth = async () => {
+      const token = localStorage.getItem("auth_token");
+      const email = localStorage.getItem("auth_email");
+      
+      if (token && email && email !== "null" && email !== "undefined") {
+        await fetchUser(email);
+      }
+      setLoading(false);
+    };
     
-    // User override wins, role is the base
-    const merged = { ...rolePerms, ...userPerms };
-    return Boolean(merged[permission]);
-  } else {
-    // ── No custom overrides: just use role permissions ──
-    const rolePerms: Record<string, boolean> = user?.role_permissions ?? {};
-    return Boolean(rolePerms[permission]);
-  }
-};
+    checkAuth();
+  }, []);
+
+  const can = (permission: string): boolean => {
+    if (!user) return false;
+    const role = user?.role_name ?? user?.role ?? null;
+    if (role === "admin" || role === "Admin") return true;
+    const hasCustom = user?.has_custom_permissions;
+    if (hasCustom) {
+      const rolePerms: Record<string, boolean> = user?.role_permissions ?? {};
+      const userPerms: Record<string, boolean> = user?.permissions ?? {};
+      const merged = { ...rolePerms, ...userPerms };
+      return Boolean(merged[permission]);
+    } else {
+      const rolePerms: Record<string, boolean> = user?.role_permissions ?? {};
+      return Boolean(rolePerms[permission]);
+    }
+  };
 
   return (
     <AuthContext.Provider
@@ -158,8 +107,7 @@ const can = (permission: string): boolean => {
         loading,
         login,
         logout,
-              can,   // ← ADD THIS
-
+        can,
       }}
     >
       {children}

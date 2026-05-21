@@ -3,7 +3,7 @@ import { request } from "@/lib/api";
 
 // Types
 export interface ReportFilters {
-  reportType: 'revenue' | 'occupancy' | 'payments' | 'tenants' | 'expenses';
+  reportType: 'revenue' | 'occupancy' | 'payments' | 'tenants' | 'expenses' | 'maintenance'| 'custom';
   startDate: string;
   endDate: string;
   propertyId: string | 'all';

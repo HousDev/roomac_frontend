@@ -3,6 +3,8 @@ import { request } from "@/lib/api";
 import { toast } from "sonner";
 
 export type Tenant = {
+  bed_number: any;
+  room_number: string;
   organization: string;
   course_duration: any;
   student_id: string;
@@ -175,6 +177,7 @@ export type Property = {
 };
 
 export type ApiResult<T = any> = {
+  effective_tenant_id: any;
   url: string;
   additional_documents(additional_documents: any): unknown;
   // additional_documents: any; 
@@ -1251,3 +1254,6 @@ export async function processVacatedTenantPayment(
     body: JSON.stringify(data),
   });
 }
+export const getPrimaryTenantByCoupleId = async (coupleId: string) => {
+  return request(`/api/tenants/couple/${coupleId}/primary`);
+};

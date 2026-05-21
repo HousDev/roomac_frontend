@@ -92,19 +92,19 @@ import NoticePeriodRequestsPage from "@/app/admin/notice-period-requests/page";
 import TemplateCenterPage from "@/app/admin/templates/page";  // Add this li
 
 function App() {
-  const {setUser} =useAuth()
-  const fetchUser = async () => {try{
-const user = await axios.get(import.meta.env.VITE_API_URL+"/api/auth/get-user-details/"+localStorage.getItem('auth_email'))
-console.log(user)
-    setUser(user.data.user)
-}catch(error){
-  console.log(error)
-}
-  }
+//   const {setUser} =useAuth()
+//   const fetchUser = async () => {try{
+// const user = await axios.get(import.meta.env.VITE_API_URL+"/api/auth/get-user-details/"+localStorage.getItem('auth_email'))
+// console.log(user)
+//     setUser(user.data.user)
+// }catch(error){
+//   console.log(error)
+// }
+//   }
 
-  useEffect( () => {
-    fetchUser()
-  }, [])
+//   useEffect( () => {
+//     fetchUser()
+//   }, [])
   return (
     <HelmetProvider>
 
