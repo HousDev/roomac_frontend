@@ -864,8 +864,23 @@ const handleVacatedTenantPayment = useCallback((tenant: Tenant, paymentAmount: n
 }, []);
 
 const handlePaymentModalSuccess = useCallback(async () => {
+  // Force refresh the tenants data
   await loadTenants();
-}, [loadTenants]);
+  // Force a re-render
+  setForceUpdate(prev => prev + 1);
+  // Also refresh the selected tenant if it exists
+  if (selectedVacatedTenant) {
+    const refreshedTenant = await listTenants({ 
+      vacate_status: 'vacated', 
+      pageSize: 1000,
+      search: String(selectedVacatedTenant.id)
+    });
+    if (refreshedTenant?.success && refreshedTenant.data?.length > 0) {
+      const updatedTenant = refreshedTenant.data[0];
+      setSelectedVacatedTenant(updatedTenant);
+    }
+  }
+}, [loadTenants, selectedVacatedTenant]);
 
   // Handle delete for vacated tenants - moves to deleted tab
 const handleDeleteVacatedTenant = useCallback(async (tenant: Tenant) => {
@@ -1087,11 +1102,6 @@ const columns = useMemo(() => [
     const payments = tenant.payments || [];
     const paid = payments.filter(p => p.status === 'paid' || p.status === 'approved').reduce((sum, p) => sum + (p.amount || 0), 0);
     const pending = payments.filter(p => p.status === 'pending').reduce((sum, p) => sum + (p.amount || 0), 0);
-    
-    // ✅ DEBUG: Log vacate records for each tenant
-    if (tenant.has_vacated) {
-      console.log(`💰 Tenant ${tenant.id} (${tenant.full_name}) has vacate_records:`, tenant.vacate_records);
-    }
     
     // Check if tenant is vacated and has refundable amount
     const isVacated = tenant.has_vacated === true;
@@ -2371,16 +2381,24 @@ const columns = useMemo(() => [
 <td className="px-2 py-2.5">
   {(() => {
     const payments = tenant.payments || [];
-   const paid = payments.filter(p => p.status === 'paid' || p.status === 'approved').reduce((sum, p) => sum + (p.amount || 0), 0);
     
+    const paid = payments
+      .filter(p => p.status === 'approved' || p.status === 'paid')
+      .reduce((sum, p) => sum + (p.amount || 0), 0);
+
     const isVacated = tenant.has_vacated === true;
     const vacateRecord = tenant.vacate_records?.[0];
     const refundableAmount = vacateRecord?.refundable_amount || 0;
-    const totalRefunded = tenant.total_refunded || 0;
+
+    const totalRefunded = payments
+      .filter(p => p.payment_type === 'deposit_refund')
+      .reduce((sum, p) => sum + (p.amount || 0), 0);
+
     const remainingRefund = refundableAmount - totalRefunded;
     const needsRefund = isVacated && remainingRefund > 0;
-    const isFullyRefunded = isVacated && remainingRefund <= 0;
-    
+    const isFullyRefunded = isVacated && refundableAmount > 0 && totalRefunded >= refundableAmount;
+    const isSettledNoRefund = isVacated && refundableAmount === 0;
+
     return (
       <div className="space-y-0.5">
         <div className="text-[10px] font-semibold text-green-600 flex items-center gap-0.5">
@@ -2389,7 +2407,7 @@ const columns = useMemo(() => [
         <div className="text-[9px] text-gray-400">{payments.length} txn</div>
         
         {isVacated && (
-          <div className="mt-2">
+          <div className="mt-1">
             {needsRefund && (
               <Button
                 variant="outline"
@@ -2398,12 +2416,17 @@ const columns = useMemo(() => [
                 onClick={() => handleVacatedTenantRefund(tenant, remainingRefund)}
               >
                 <Shield className="w-2.5 h-2.5 mr-1" />
-                Pay Refund ₹{remainingRefund.toLocaleString()}
+                Pay ₹{remainingRefund.toLocaleString()}
               </Button>
             )}
             {isFullyRefunded && (
-              <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-5 bg-green-100 text-green-700 border-green-200 w-full text-center">
+              <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-5 bg-green-100 text-green-700 border-green-200 w-full justify-center">
                 Settled
+              </Badge>
+            )}
+            {isSettledNoRefund && (
+              <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-5 bg-gray-100 text-gray-500 w-full justify-center">
+                No Refund
               </Badge>
             )}
           </div>
