@@ -327,13 +327,30 @@ export default function PaymentsPage() {
   });
 
   const [detailedStats, setDetailedStats] = useState({
-  total_rent_collected: 0,
-  total_deposit_collected: 0,
-  total_refunded: 0,
-  this_month_rent: 0,        // ✅ NEW
-  total_transactions: 0,
-});
+    total_rent_collected: 0,
+    total_deposit_collected: 0,
+    total_refunded: 0,
+    this_month_rent: 0, // ✅ NEW
+    total_transactions: 0,
+  });
 
+  const [paymentPagination, setPaymentPagination] = useState({
+    currentPage: 1,
+    itemsPerPage: 10,
+    totalItems: 0,
+  });
+
+  const [receiptPagination, setReceiptPagination] = useState({
+    currentPage: 1,
+    itemsPerPage: 10,
+    totalItems: 0,
+  });
+
+  const [demandPagination, setDemandPagination] = useState({
+    currentPage: 1,
+    itemsPerPage: 10,
+    totalItems: 0,
+  });
   useEffect(() => {
     loadData();
   }, []);
@@ -411,24 +428,22 @@ export default function PaymentsPage() {
   }, []);
 
   // Add this to loadDetailedStats function
-const loadDetailedStats = async () => {
-  try {
-    const response = await paymentApi.getDetailedPaymentStats();
-    if (response.success && response.data) {
-      setDetailedStats({
-        total_rent_collected: response.data.total_rent_collected || 0,
-        total_deposit_collected: response.data.total_deposit_collected || 0,
-        total_refunded: response.data.total_refunded || 0,
-        this_month_rent: response.data.this_month_rent || 0,        // ✅ NEW
-        total_transactions: response.data.total_transactions || 0,  
-      });
+  const loadDetailedStats = async () => {
+    try {
+      const response = await paymentApi.getDetailedPaymentStats();
+      if (response.success && response.data) {
+        setDetailedStats({
+          total_rent_collected: response.data.total_rent_collected || 0,
+          total_deposit_collected: response.data.total_deposit_collected || 0,
+          total_refunded: response.data.total_refunded || 0,
+          this_month_rent: response.data.this_month_rent || 0, // ✅ NEW
+          total_transactions: response.data.total_transactions || 0,
+        });
+      }
+    } catch (error) {
+      console.error("Error loading detailed stats:", error);
     }
-  } catch (error) {
-    console.error("Error loading detailed stats:", error);
-  }
-};
-
-
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -447,7 +462,6 @@ const loadDetailedStats = async () => {
       setLoading(false);
     }
   };
-  
 
   // In the main component, add useEffect to clear highlight after some time
   useEffect(() => {
@@ -1605,7 +1619,11 @@ const loadDetailedStats = async () => {
     }
   };
 
-  const groupPaymentsByTenant = (payments: any[]) => {
+  const groupPaymentsByTenant = (
+    payments: any[],
+    page: number,
+    itemsPerPage: number,
+  ) => {
     const grouped: { [key: string]: any } = {};
 
     payments.forEach((payment) => {
@@ -1720,7 +1738,16 @@ const loadDetailedStats = async () => {
       return dateB.getTime() - dateA.getTime();
     });
 
-    return groupedArray;
+    const totalItems = groupedArray.length;
+    const startIndex = (page - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const paginatedItems = groupedArray.slice(startIndex, endIndex);
+
+    return {
+      items: paginatedItems,
+      totalItems: totalItems,
+      totalPages: Math.ceil(totalItems / itemsPerPage),
+    };
   };
 
   // Add this function to fetch settings
@@ -1856,6 +1883,27 @@ const loadDetailedStats = async () => {
     if (aValue > bValue) return sortDirection === "asc" ? 1 : -1;
     return 0;
   });
+
+  // Apply pagination to payments data
+  const paginatedPaymentGroups = groupPaymentsByTenant(
+    sortedPayments,
+    paymentPagination.currentPage,
+    paymentPagination.itemsPerPage,
+  );
+
+  // Add this function for demands pagination
+  const paginatedDemandsData = () => {
+    const startIndex =
+      (demandPagination.currentPage - 1) * demandPagination.itemsPerPage;
+    const endIndex = startIndex + demandPagination.itemsPerPage;
+    const paginated = filteredDemands.slice(startIndex, endIndex);
+    return {
+      items: paginated,
+      totalPages: Math.ceil(
+        filteredDemands.length / demandPagination.itemsPerPage,
+      ),
+    };
+  };
   // ===== END OF ADDITION =====
 
   const getDemandStatusBadge = (status: string) => {
@@ -2293,6 +2341,7 @@ const loadDetailedStats = async () => {
   });
 
   // Filtered demands - with null checks to prevent crashes
+  // Filtered demands - with null checks to prevent crashes
   const filteredDemands = demands.filter((demand) => {
     const tenantName = getTenantName(demand.tenant_id).toLowerCase();
 
@@ -2404,119 +2453,119 @@ const loadDetailedStats = async () => {
         </div> */}
 
         {/* Detailed Stats Cards */}
-{/* Detailed Stats Cards - 5 Cards */}
-<div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 sm:gap-2 sticky top-16 z-10">
-  
-  {/* Rent Collected Card */}
-  <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-0 shadow-sm">
-    <CardContent className="p-2 sm:p-3">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-[10px] sm:text-xs text-blue-700 font-medium">
-            Rent Collected
-          </p>
-          <p className="text-sm sm:text-base font-bold text-blue-800">
-            ₹{detailedStats.total_rent_collected.toLocaleString()}
-          </p>
-          <p className="text-[9px] text-blue-600 mt-0.5">
-            Total rent payments
-          </p>
-        </div>
-        <div className="p-1.5 rounded-lg bg-blue-600">
-          <IndianRupee className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
-        </div>
-      </div>
-    </CardContent>
-  </Card>
+        {/* Detailed Stats Cards - 5 Cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 sm:gap-2 sticky top-16 z-10">
+          {/* Rent Collected Card */}
+          <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-0 shadow-sm">
+            <CardContent className="p-2 sm:p-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] sm:text-xs text-blue-700 font-medium">
+                    Rent Collected
+                  </p>
+                  <p className="text-sm sm:text-base font-bold text-blue-800">
+                    ₹{detailedStats.total_rent_collected.toLocaleString()}
+                  </p>
+                  <p className="text-[9px] text-blue-600 mt-0.5">
+                    Total rent payments
+                  </p>
+                </div>
+                <div className="p-1.5 rounded-lg bg-blue-600">
+                  <IndianRupee className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-  {/* Deposit Collected Card */}
-  <Card className="bg-gradient-to-br from-green-50 to-green-100 border-0 shadow-sm">
-    <CardContent className="p-2 sm:p-3">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-[10px] sm:text-xs text-green-700 font-medium">
-            Deposit Collected
-          </p>
-          <p className="text-sm sm:text-base font-bold text-green-800">
-            ₹{detailedStats.total_deposit_collected.toLocaleString()}
-          </p>
-          <p className="text-[9px] text-green-600 mt-0.5">
-            Total security deposits
-          </p>
-        </div>
-        <div className="p-1.5 rounded-lg bg-green-600">
-          <Shield className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
-        </div>
-      </div>
-    </CardContent>
-  </Card>
+          {/* Deposit Collected Card */}
+          <Card className="bg-gradient-to-br from-green-50 to-green-100 border-0 shadow-sm">
+            <CardContent className="p-2 sm:p-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] sm:text-xs text-green-700 font-medium">
+                    Deposit Collected
+                  </p>
+                  <p className="text-sm sm:text-base font-bold text-green-800">
+                    ₹{detailedStats.total_deposit_collected.toLocaleString()}
+                  </p>
+                  <p className="text-[9px] text-green-600 mt-0.5">
+                    Total security deposits
+                  </p>
+                </div>
+                <div className="p-1.5 rounded-lg bg-green-600">
+                  <Shield className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-  {/* Total Refunded Card */}
-  <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-0 shadow-sm">
-    <CardContent className="p-2 sm:p-3">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-[10px] sm:text-xs text-orange-700 font-medium">
-            Refunded
-          </p>
-          <p className="text-sm sm:text-base font-bold text-orange-800">
-            ₹{detailedStats.total_refunded.toLocaleString()}
-          </p>
-          <p className="text-[9px] text-orange-600 mt-0.5">
-            Total deposit refunds
-          </p>
-        </div>
-        <div className="p-1.5 rounded-lg bg-orange-600">
-          <ReceiptIndianRupee className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
-        </div>
-      </div>
-    </CardContent>
-  </Card>
+          {/* Total Refunded Card */}
+          <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-0 shadow-sm">
+            <CardContent className="p-2 sm:p-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] sm:text-xs text-orange-700 font-medium">
+                    Refunded
+                  </p>
+                  <p className="text-sm sm:text-base font-bold text-orange-800">
+                    ₹{detailedStats.total_refunded.toLocaleString()}
+                  </p>
+                  <p className="text-[9px] text-orange-600 mt-0.5">
+                    Total deposit refunds
+                  </p>
+                </div>
+                <div className="p-1.5 rounded-lg bg-orange-600">
+                  <ReceiptIndianRupee className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-  {/* This Month Rent Card */}
-  <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-0 shadow-sm">
-    <CardContent className="p-2 sm:p-3">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-[10px] sm:text-xs text-purple-700 font-medium">
-            This Month Rent
-          </p>
-          <p className="text-sm sm:text-base font-bold text-purple-800">
-            ₹{detailedStats.this_month_rent.toLocaleString()}
-          </p>
-          <p className="text-[9px] text-purple-600 mt-0.5">
-            {new Date().toLocaleString('default', { month: 'long' })} {new Date().getFullYear()}
-          </p>
-        </div>
-        <div className="p-1.5 rounded-lg bg-purple-600">
-          <Calendar className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
-        </div>
-      </div>
-    </CardContent>
-  </Card>
+          {/* This Month Rent Card */}
+          <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-0 shadow-sm">
+            <CardContent className="p-2 sm:p-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] sm:text-xs text-purple-700 font-medium">
+                    This Month Rent
+                  </p>
+                  <p className="text-sm sm:text-base font-bold text-purple-800">
+                    ₹{detailedStats.this_month_rent.toLocaleString()}
+                  </p>
+                  <p className="text-[9px] text-purple-600 mt-0.5">
+                    {new Date().toLocaleString("default", { month: "long" })}{" "}
+                    {new Date().getFullYear()}
+                  </p>
+                </div>
+                <div className="p-1.5 rounded-lg bg-purple-600">
+                  <Calendar className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-  {/* Total Transactions Card */}
-  <Card className="bg-gradient-to-br from-cyan-50 to-cyan-100 border-0 shadow-sm">
-    <CardContent className="p-2 sm:p-3">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-[10px] sm:text-xs text-cyan-700 font-medium">
-            Transactions
-          </p>
-          <p className="text-sm sm:text-base font-bold text-cyan-800">
-            {detailedStats.total_transactions.toLocaleString()}
-          </p>
-          <p className="text-[9px] text-cyan-600 mt-0.5">
-            Total payments processed
-          </p>
+          {/* Total Transactions Card */}
+          <Card className="bg-gradient-to-br from-cyan-50 to-cyan-100 border-0 shadow-sm">
+            <CardContent className="p-2 sm:p-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] sm:text-xs text-cyan-700 font-medium">
+                    Transactions
+                  </p>
+                  <p className="text-sm sm:text-base font-bold text-cyan-800">
+                    {detailedStats.total_transactions.toLocaleString()}
+                  </p>
+                  <p className="text-[9px] text-cyan-600 mt-0.5">
+                    Total payments processed
+                  </p>
+                </div>
+                <div className="p-1.5 rounded-lg bg-cyan-600">
+                  <CreditCard className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
-        <div className="p-1.5 rounded-lg bg-cyan-600">
-          <CreditCard className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
-        </div>
-      </div>
-    </CardContent>
-  </Card>
-</div>
 
         {/* Tabs Container */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -2606,7 +2655,13 @@ const loadDetailedStats = async () => {
               setActiveTab={setActiveTab}
               expandedRows={expandedRows}
               onToggleExpand={toggleRowExpansion}
-              groupPaymentsByTenant={groupPaymentsByTenant}
+              groupPaymentsByTenant={(payments: any[]) =>
+                groupPaymentsByTenant(
+                  payments,
+                  paymentPagination.currentPage,
+                  paymentPagination.itemsPerPage,
+                )
+              }
               setIsAddPaymentOpen={setIsAddPaymentOpen}
               // New props for column filters
               columnFilters={columnFilters}
@@ -2631,17 +2686,29 @@ const loadDetailedStats = async () => {
               fetchProperties={fetchProperties}
               properties={properties}
               prefillAndOpenPaymentForm={prefillAndOpenPaymentForm}
+              pagination={{
+                items: paginatedPaymentGroups.items,
+                currentPage: paymentPagination.currentPage,
+                itemsPerPage: paymentPagination.itemsPerPage,
+                totalItems: paginatedPaymentGroups.totalItems,
+                totalPages: paginatedPaymentGroups.totalPages,
+              }}
+              onPageChange={(page: number) =>
+                setPaymentPagination((prev) => ({ ...prev, currentPage: page }))
+              }
+              onItemsPerPageChange={(size: number) =>
+                setPaymentPagination((prev) => ({
+                  ...prev,
+                  itemsPerPage: size,
+                  currentPage: 1,
+                }))
+              }
             />
           </TabsContent>
 
           {/* Demands Tab Content */}
-          {/* Demands Tab Content */}
-          {/* Demands Tab Content */}
           <TabsContent value="demands" className="mt-0">
-            <Card
-              className="border-0 shadow-sm overflow-y-auto flex flex-col max-h-[400px] sm:max-h-[490px]"
-              
-            >
+            <Card className="border-0 shadow-sm overflow-y-auto flex flex-col max-h-[400px] sm:max-h-[490px]">
               <CardContent className="p-0 flex flex-col flex-1 min-h-0 overflow-hidden">
                 <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
                   <div className="overflow-x-auto flex-1 min-h-0 flex flex-col min-w-0">
@@ -2871,7 +2938,7 @@ const loadDetailedStats = async () => {
                                 </TableCell>
                               </TableRow>
                             ) : (
-                              filteredDemands.map((demand) => {
+                              paginatedDemandsData().items.map((demand) => {
                                 // Get salutation and country code for this tenant
                                 const salutation = getTenantSalutation(
                                   demand.tenant_id,
@@ -2982,6 +3049,35 @@ const loadDetailedStats = async () => {
                     {/* end min-w wrapper */}
                   </div>
                   {/* end overflow-x wrapper */}
+
+                  {/* ADD PAGINATION CONTROLS HERE - RIGHT BEFORE CLOSING CardContent */}
+                  {!loading && filteredDemands.length > 0 && (
+                    <div className="flex-shrink-0 border-t border-gray-200">
+                      <PaginationControls
+                        currentPage={demandPagination.currentPage}
+                        totalPages={Math.ceil(
+                          filteredDemands.length /
+                            demandPagination.itemsPerPage,
+                        )}
+                        onPageChange={(page: number) =>
+                          setDemandPagination((prev) => ({
+                            ...prev,
+                            currentPage: page,
+                          }))
+                        }
+                        itemsPerPage={demandPagination.itemsPerPage}
+                        onItemsPerPageChange={(size: number) =>
+                          setDemandPagination((prev) => ({
+                            ...prev,
+                            itemsPerPage: size,
+                            currentPage: 1,
+                          }))
+                        }
+                        totalItems={filteredDemands.length}
+                        currentItemsCount={paginatedDemandsData().items.length}
+                      />
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -3183,6 +3279,24 @@ const loadDetailedStats = async () => {
               onDownloadReceipt={paymentApi.downloadReceipt}
               showFilterSidebar={showReceiptFilterSidebar}
               setShowFilterSidebar={setShowReceiptFilterSidebar}
+              pagination={{
+                currentPage: receiptPagination.currentPage,
+                itemsPerPage: receiptPagination.itemsPerPage,
+                totalItems: receipts.length,
+                totalPages: Math.ceil(
+                  receipts.length / receiptPagination.itemsPerPage,
+                ),
+              }}
+              onPageChange={(page: number) =>
+                setReceiptPagination((prev) => ({ ...prev, currentPage: page }))
+              }
+              onItemsPerPageChange={(size: number) =>
+                setReceiptPagination((prev) => ({
+                  ...prev,
+                  itemsPerPage: size,
+                  currentPage: 1,
+                }))
+              }
             />
           </TabsContent>
         </Tabs>
@@ -5399,6 +5513,102 @@ const loadDetailedStats = async () => {
   );
 }
 
+// Add this pagination component at the bottom of your file (before the main component exports)
+const PaginationControls = ({
+  currentPage,
+  totalPages,
+  onPageChange,
+  itemsPerPage,
+  onItemsPerPageChange,
+  totalItems,
+  currentItemsCount,
+}: any) => {
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisible = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+
+    if (endPage - startPage + 1 < maxVisible) {
+      startPage = Math.max(1, endPage - maxVisible + 1);
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+      pages.push(i);
+    }
+    return pages;
+  };
+
+  return (
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 bg-white border-t border-slate-200 rounded-b-lg">
+      <div className="flex items-center gap-2 text-xs text-slate-500">
+        <span>Show</span>
+        <Select
+          value={itemsPerPage.toString()}
+          onValueChange={(value) => onItemsPerPageChange(Number(value))}
+        >
+          <SelectTrigger className="h-7 w-[70px] text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {[10, 25, 50, 100].map((size) => (
+              <SelectItem
+                key={size}
+                value={size.toString()}
+                className="text-xs"
+              >
+                {size}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <span>entries</span>
+        <span className="ml-2">
+          Showing {currentItemsCount} of {totalItems} entries
+        </span>
+      </div>
+
+      <div className="flex items-center gap-1">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+          className="h-7 px-2 text-xs"
+        >
+          Previous
+        </Button>
+
+        {getPageNumbers().map((pageNum) => (
+          <Button
+            key={pageNum}
+            variant={currentPage === pageNum ? "default" : "outline"}
+            size="sm"
+            onClick={() => onPageChange(pageNum)}
+            className={`h-7 w-7 p-0 text-xs ${
+              currentPage === pageNum
+                ? "bg-blue-600 hover:bg-blue-700"
+                : "hover:bg-slate-100"
+            }`}
+          >
+            {pageNum}
+          </Button>
+        ))}
+
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onPageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          className="h-7 px-2 text-xs"
+        >
+          Next
+        </Button>
+      </div>
+    </div>
+  );
+};
+
 // Stat Card Component
 const StatCard = ({ title, value, icon: Icon, color, bgColor }: any) => (
   <Card className={`${bgColor} border-0 shadow-sm`}>
@@ -5517,9 +5727,13 @@ const PaymentsTable = ({
   fetchProperties,
   properties,
   prefillAndOpenPaymentForm,
+  pagination,
+  onPageChange,
+  onItemsPerPageChange,
 }: any) => {
   // Group payments by tenant using the passed function
-  const tenantGroups = groupPaymentsByTenant(payments).map((group: any) => ({
+  const { items: paginatedGroups, totalItems, totalPages } = pagination;
+  const tenantGroups = paginatedGroups.map((group: any) => ({
     ...group,
     salutation: getTenantSalutation(group.tenant_id),
     country_code: getTenantCountryCode(group.tenant_id),
@@ -5601,10 +5815,7 @@ const PaymentsTable = ({
   });
 
   return (
-    <Card
-      className="border-0 overflow-y-auto flex flex-col max-h-[400px] sm:max-h-[490px] "
-    
-    >
+    <Card className="border-0 overflow-y-auto flex flex-col max-h-[400px] sm:max-h-[490px] ">
       <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
         {/* Single overflow-x for both header + body */}
         <div className="overflow-x-auto flex-1 min-h-0 flex flex-col min-w-0">
@@ -5897,7 +6108,11 @@ const PaymentsTable = ({
                                       {group.salutation
                                         ? `${group.salutation} `
                                         : ""}
-                                      {group.tenant_name}
+                                      {(group.tenant_name || "")
+                                        .toLowerCase()
+                                        .replace(/\b\w/g, (char: any) =>
+                                          char.toUpperCase(),
+                                        )}
                                     </p>
 
                                     {/* ✅ Add Booking/Online Tag */}
@@ -6051,28 +6266,42 @@ const PaymentsTable = ({
                                 >
                                   <Eye className="h-3.5 w-3.5" />
                                 </Button>
-                               {/* Add Payment Button - Hidden if tenant has deposit refund */}
-{!group.payments.some(p => p.payment_type === 'deposit_refund') && (
-  <Button
-    size="sm"
-    variant="ghost"
-    className="h-7 w-7 p-0 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-full"
-    onClick={async () => {
-      const tenant = tenants.find((t) => t.id === group.tenant_id);
-      const propertyId = tenant?.current_assignment?.property_id || group.property_id;
-      const roomId = tenant?.current_assignment?.room_id || group.room_id;
-      if (tenant && propertyId && roomId) {
-        await prefillAndOpenPaymentForm(group.tenant_id, propertyId, roomId);
-      } else {
-        toast.error("Tenant missing property or room information");
-        setIsAddPaymentOpen(true);
-      }
-    }}
-    title="Add Payment"
-  >
-    <Plus className="h-3.5 w-3.5" />
-  </Button>
-)}
+                                {/* Add Payment Button - Hidden if tenant has deposit refund */}
+                                {!group.payments.some(
+                                  (p) => p.payment_type === "deposit_refund",
+                                ) && (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-7 w-7 p-0 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-full"
+                                    onClick={async () => {
+                                      const tenant = tenants.find(
+                                        (t) => t.id === group.tenant_id,
+                                      );
+                                      const propertyId =
+                                        tenant?.current_assignment
+                                          ?.property_id || group.property_id;
+                                      const roomId =
+                                        tenant?.current_assignment?.room_id ||
+                                        group.room_id;
+                                      if (tenant && propertyId && roomId) {
+                                        await prefillAndOpenPaymentForm(
+                                          group.tenant_id,
+                                          propertyId,
+                                          roomId,
+                                        );
+                                      } else {
+                                        toast.error(
+                                          "Tenant missing property or room information",
+                                        );
+                                        setIsAddPaymentOpen(true);
+                                      }
+                                    }}
+                                    title="Add Payment"
+                                  >
+                                    <Plus className="h-3.5 w-3.5" />
+                                  </Button>
+                                )}
                               </div>
                             </TableCell>
                           </TableRow>
@@ -6093,7 +6322,7 @@ const PaymentsTable = ({
 
                                     <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300">
                                       <div className="overflow-x-auto overflow-y-auto max-h-[250px] sm:max-h-[300px] ">
-                                        <table className="w-full text-sm border-collapse "> 
+                                        <table className="w-full text-sm border-collapse ">
                                           <thead className="sticky top-0 z-10">
                                             <tr className="bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200">
                                               <th className="text-left py-3.5 px-1 font-semibold text-slate-700 text-[11px] uppercase tracking-wider border-r border-slate-300 ">
@@ -6292,35 +6521,46 @@ const PaymentsTable = ({
                                                     </td>
 
                                                     {/* Payment Mode Type */}
-<td className="py-1 px-1 border-r border-slate-200">
-  {modeTypeDisplay !== "-" || payment.bank_name ? (
-    <div className="flex flex-col gap-0.5">
-      
-      {/* Mode Type */}
-      {modeTypeDisplay !== "-" && (
-        <span
-          className="text-[10px] text-slate-600 cursor-help bg-slate-100 px-1.5 py-0.5 rounded w-fit whitespace-nowrap"
-          title={modeTypeTooltip || modeTypeDisplay}
-        >
-          {modeTypeDisplay.length > 20
-            ? modeTypeDisplay.substring(0, 20) + "..."
-            : modeTypeDisplay}
-        </span>
-      )}
+                                                    <td className="py-1 px-1 border-r border-slate-200">
+                                                      {modeTypeDisplay !==
+                                                        "-" ||
+                                                      payment.bank_name ? (
+                                                        <div className="flex flex-col gap-0.5">
+                                                          {/* Mode Type */}
+                                                          {modeTypeDisplay !==
+                                                            "-" && (
+                                                            <span
+                                                              className="text-[10px] text-slate-600 cursor-help bg-slate-100 px-1.5 py-0.5 rounded w-fit whitespace-nowrap"
+                                                              title={
+                                                                modeTypeTooltip ||
+                                                                modeTypeDisplay
+                                                              }
+                                                            >
+                                                              {modeTypeDisplay.length >
+                                                              20
+                                                                ? modeTypeDisplay.substring(
+                                                                    0,
+                                                                    20,
+                                                                  ) + "..."
+                                                                : modeTypeDisplay}
+                                                            </span>
+                                                          )}
 
-      {/* Bank Name */}
-      {payment.bank_name && (
-        <span className="text-[10px] text-slate-600 cursor-help bg-slate-100 px-1.5 py-0.5 rounded w-fit whitespace-nowrap">
-          {payment.bank_name}
-        </span>
-      )}
-    </div>
-  ) : (
-    <span className="text-[11px] text-slate-400">
-      —
-    </span>
-  )}
-</td>
+                                                          {/* Bank Name */}
+                                                          {payment.bank_name && (
+                                                            <span className="text-[10px] text-slate-600 cursor-help bg-slate-100 px-1.5 py-0.5 rounded w-fit whitespace-nowrap">
+                                                              {
+                                                                payment.bank_name
+                                                              }
+                                                            </span>
+                                                          )}
+                                                        </div>
+                                                      ) : (
+                                                        <span className="text-[11px] text-slate-400">
+                                                          —
+                                                        </span>
+                                                      )}
+                                                    </td>
 
                                                     {/* Payment Type */}
                                                     <td className="py-1 px-3 border-r border-slate-200">
@@ -6332,12 +6572,13 @@ const PaymentsTable = ({
                                                             : payment.payment_type ===
                                                                 "security_deposit"
                                                               ? "bg-purple-100 text-purple-700"
-                                                              : payment.payment_type === "deposit_refund"
+                                                              : payment.payment_type ===
+                                                                  "deposit_refund"
                                                                 ? "bg-green-100 text-green-700"
-                                                                : payment.payment_type === "penalty_payment"
-                                                                ? "bg-gray-100 text-gray-700"
-                                                                : "bg-slate-100 text-slate-700"
-                                                              
+                                                                : payment.payment_type ===
+                                                                    "penalty_payment"
+                                                                  ? "bg-gray-100 text-gray-700"
+                                                                  : "bg-slate-100 text-slate-700"
                                                         }`}
                                                       >
                                                         {payment.payment_type ===
@@ -6429,12 +6670,13 @@ const PaymentsTable = ({
 
                                                     {/* Source */}
                                                     <td className="py-1 px-3 border-r border-slate-200">
-                                                       {payment.payment_type === 'deposit_refund' ? (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-[10px] font-medium whitespace-nowrap">
-      <ReceiptIndianRupee className="h-2.5 w-2.5" />
-      Deposit Refund
-    </span>
-  ) : payment.booking_id ? (
+                                                      {payment.payment_type ===
+                                                      "deposit_refund" ? (
+                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-[10px] font-medium whitespace-nowrap">
+                                                          <ReceiptIndianRupee className="h-2.5 w-2.5" />
+                                                          Deposit Refund
+                                                        </span>
+                                                      ) : payment.booking_id ? (
                                                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-[10px] font-medium whitespace-nowrap">
                                                           <Globe className="h-2.5 w-2.5" />
                                                           Online Booking
@@ -6703,6 +6945,16 @@ const PaymentsTable = ({
           </div>
         </SheetContent>
       </Sheet>
+
+      <PaginationControls
+        currentPage={pagination.currentPage}
+        totalPages={pagination.totalPages}
+        onPageChange={onPageChange}
+        itemsPerPage={pagination.itemsPerPage}
+        onItemsPerPageChange={onItemsPerPageChange}
+        totalItems={pagination.totalItems}
+        currentItemsCount={pagination.items.length}
+      />
     </Card>
   );
 };
@@ -6711,15 +6963,18 @@ const PaymentsTable = ({
 const ReceiptsTable = ({
   receipts,
   loading,
-  getTenantSalutation, // Keep this
-  getTenantCountryCode, // Keep this
-  getTenantPhone, // Keep this
-  tenants, // ADD THIS - pass tenants array
+  getTenantSalutation,
+  getTenantCountryCode,
+  getTenantPhone,
+  tenants,
   highlightedReceipt,
   onPreviewReceipt,
   onDownloadReceipt,
   showFilterSidebar,
   setShowFilterSidebar,
+  pagination,
+  onPageChange,
+  onItemsPerPageChange,
 }: any) => {
   // Add state for receipts column filters
   const [receiptFilters, setReceiptFilters] = useState({
@@ -6732,15 +6987,12 @@ const ReceiptsTable = ({
 
   // Enhance receipts with salutation and country code
   const enhancedReceipts = receipts.map((receipt: any) => {
-    // Find the tenant by ID if available, or by name as fallback
     let tenant = null;
 
-    // Try to find by tenant_id if it exists
     if (receipt.tenant_id) {
       tenant = tenants.find((t: any) => t.id === receipt.tenant_id);
     }
 
-    // If not found by ID, try to find by name
     if (!tenant && receipt.tenant_name) {
       tenant = tenants.find((t: any) => t.full_name === receipt.tenant_name);
     }
@@ -6805,20 +7057,20 @@ const ReceiptsTable = ({
     );
   });
 
+  // Calculate paginated receipts
+  const startIndex = (pagination.currentPage - 1) * pagination.itemsPerPage;
+  const endIndex = startIndex + pagination.itemsPerPage;
+  const paginatedReceiptsList = filteredReceipts.slice(startIndex, endIndex);
+
   return (
-    <Card
-      className="border-0 overflow-y-auto flex flex-col max-h-[400px] sm:max-h-[490px]"
-      
-    >
+    <Card className="border-0 overflow-y-auto flex flex-col max-h-[400px] sm:max-h-[490px]">
       <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
         <div className="overflow-x-auto flex-1 min-h-0 flex flex-col min-w-0">
           <div className="min-w-[700px] flex flex-col flex-1 min-h-0">
             <div className="flex-shrink-0">
               <Table>
-                {/* COMPACT HEADER WITH SEARCH BARS */}
                 <TableHeader className="bg-gray-200 border-b border-gray-300">
                   <TableRow className="hover:bg-transparent">
-                    {/* Date Column */}
                     <TableHead className="w-[90px] py-2 px-2 bg-gray-200">
                       <div className="flex flex-col gap-1">
                         <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
@@ -6838,7 +7090,6 @@ const ReceiptsTable = ({
                       </div>
                     </TableHead>
 
-                    {/* Tenant Column - Updated with salutation and phone */}
                     <TableHead className="w-[140px] py-2 px-2 bg-gray-200">
                       <div className="flex flex-col gap-1">
                         <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
@@ -6858,7 +7109,6 @@ const ReceiptsTable = ({
                       </div>
                     </TableHead>
 
-                    {/* Amount Column */}
                     <TableHead className="w-[200px] py-2 px-2 bg-gray-200 text-left">
                       <div className="flex flex-col gap-1">
                         <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
@@ -6879,7 +7129,6 @@ const ReceiptsTable = ({
                       </div>
                     </TableHead>
 
-                    {/* Method/Bank Column */}
                     <TableHead className="w-[80px] py-2 px-2 bg-gray-200">
                       <div className="flex flex-col gap-1">
                         <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
@@ -6899,7 +7148,6 @@ const ReceiptsTable = ({
                       </div>
                     </TableHead>
 
-                    {/* Room/Bed Column */}
                     <TableHead className="w-[100px] py-2 px-2 bg-gray-200">
                       <div className="flex flex-col gap-1">
                         <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
@@ -6919,8 +7167,6 @@ const ReceiptsTable = ({
                       </div>
                     </TableHead>
 
-                    {/* Actions Column */}
-                    {/* Actions Column */}
                     <TableHead className="w-[80px] py-2 px-2 bg-gray-200 text-center">
                       <div className="flex flex-col gap-1 items-center">
                         <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
@@ -6941,6 +7187,7 @@ const ReceiptsTable = ({
                 </TableHeader>
               </Table>
             </div>
+
             <div className="overflow-y-auto flex-1 min-h-0">
               <Table>
                 <colgroup>
@@ -6975,7 +7222,7 @@ const ReceiptsTable = ({
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filteredReceipts.map((receipt: any) => {
+                    paginatedReceiptsList.map((receipt: any) => {
                       return (
                         <TableRow
                           key={receipt.id}
@@ -6989,14 +7236,12 @@ const ReceiptsTable = ({
                             {format(new Date(receipt.payment_date), "dd/MM/yy")}
                           </TableCell>
                           <TableCell className="py-2">
-                            {/* Show salutation + full name */}
                             <p className="text-xs font-medium whitespace-nowrap">
                               {receipt.salutation
                                 ? `${receipt.salutation} `
                                 : ""}
                               {receipt.tenant_name}
                             </p>
-                            {/* Show country code + phone number */}
                             {receipt.phone && (
                               <p className="text-[10px] text-slate-500 whitespace-nowrap">
                                 {receipt.country_code || "+91"} {receipt.phone}
@@ -7058,6 +7303,7 @@ const ReceiptsTable = ({
           </div>
         </div>
       </div>
+
       {/* Receipts Filter Sidebar */}
       <Sheet open={showFilterSidebar} onOpenChange={setShowFilterSidebar}>
         <SheetContent
@@ -7149,6 +7395,19 @@ const ReceiptsTable = ({
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Pagination Controls */}
+      <PaginationControls
+        currentPage={pagination.currentPage}
+        totalPages={Math.ceil(
+          filteredReceipts.length / pagination.itemsPerPage,
+        )}
+        onPageChange={onPageChange}
+        itemsPerPage={pagination.itemsPerPage}
+        onItemsPerPageChange={onItemsPerPageChange}
+        totalItems={filteredReceipts.length}
+        currentItemsCount={paginatedReceiptsList.length}
+      />
     </Card>
   );
 };

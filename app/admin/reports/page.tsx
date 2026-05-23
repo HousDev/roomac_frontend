@@ -74,6 +74,54 @@ import { toast } from "sonner";
 import * as reportApi from "@/lib/reportApi";
 import * as XLSX from "xlsx";
 
+  // Add pagination component
+const ReportPagination = ({ total, page, pageSize, onPageChange, onPageSizeChange }: any) => {
+  const totalPages = Math.ceil(total / pageSize);
+  
+  if (totalPages <= 1) return null;
+  
+  return (
+    <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-200">
+      <div className="flex items-center gap-2 text-xs text-gray-500">
+        <span>Showing {((page - 1) * pageSize) + 1} to {Math.min(page * pageSize, total)} of {total}</span>
+        <select 
+          value={pageSize} 
+          onChange={(e) => onPageSizeChange(Number(e.target.value))}
+          className="border rounded px-1 py-0.5 text-xs"
+        >
+          <option value={10}>10</option>
+          <option value={20}>20</option>
+          <option value={50}>50</option>
+          <option value={100}>100</option>
+        </select>
+      </div>
+      <div className="flex items-center gap-1">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onPageChange(page - 1)}
+          disabled={page === 1}
+          className="h-7 px-2 text-xs"
+        >
+          Previous
+        </Button>
+        <span className="text-xs text-gray-600 px-2">
+          Page {page} of {totalPages}
+        </span>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onPageChange(page + 1)}
+          disabled={page === totalPages}
+          className="h-7 px-2 text-xs"
+        >
+          Next
+        </Button>
+      </div>
+    </div>
+  );
+};
+
 export default function ReportsPage() {
   const [loading, setLoading] = useState(false);
   const [dashboardLoading, setDashboardLoading] = useState(true);
@@ -81,7 +129,13 @@ export default function ReportsPage() {
   const [tenantsList, setTenantsList] = useState<any[]>([]);
   const [selectedProperty, setSelectedProperty] =
     useState<reportApi.PropertyOption | null>(null);
+    const [reportPage, setReportPage] = useState(1);
+const [reportPageSize, setReportPageSize] = useState(20);
+const [reportTotalItems, setReportTotalItems] = useState(0);
   const [selectedTenant, setSelectedTenant] = useState<any>(null);
+  const [revenuePage, setRevenuePage] = useState(1);
+const [revenuePageSize, setRevenuePageSize] = useState(20);
+
   const [dashboardStats, setDashboardStats] =
     useState<reportApi.DashboardStats>({
       totalProperties: 0,
@@ -192,6 +246,8 @@ useEffect(() => {
       console.error("Error loading tenants list:", err);
     }
   };
+
+
 
   const loadPropertyDetails = async () => {
     try {
@@ -2936,34 +2992,7 @@ const generateReport = async () => {
                 </Button>
               </div>
 
-              {/* Summary Stats */}
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 sm:gap-2 mb-3 sm:mb-4">
-                <SummaryStatCard
-                  title="Revenue"
-                  value={formatCurrency(summaryStats.totalRevenue)}
-                  icon={<IndianRupee className="h-3 w-3 sm:h-4 sm:w-4" />}
-                />
-                <SummaryStatCard
-                  title="Payments"
-                  value={summaryStats.totalPayments.toString()}
-                  icon={<CreditCard className="h-3 w-3 sm:h-4 sm:w-4" />}
-                />
-                <SummaryStatCard
-                  title="Tenants"
-                  value={summaryStats.totalTenants.toString()}
-                  icon={<Users className="h-3 w-3 sm:h-4 sm:w-4" />}
-                />
-                <SummaryStatCard
-                  title="Occupancy"
-                  value={`${summaryStats.occupancyRate.toFixed(1)}%`}
-                  icon={<Activity className="h-3 w-3 sm:h-4 sm:w-4" />}
-                />
-                <SummaryStatCard
-                  title="Collection"
-                  value={`${summaryStats.collectionRate.toFixed(1)}%`}
-                  icon={<CheckCircle className="h-3 w-3 sm:h-4 sm:w-4" />}
-                />
-              </div>
+            
 
               {/* Detailed Report */}
               <Card className="border-0 shadow-sm">
@@ -2974,21 +3003,32 @@ const generateReport = async () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="px-3 sm:px-6 overflow-x-auto">
-                  {filters.reportType === "revenue" && (
-                    <RevenueReportDetails
-                      data={reportData}
-                      formatCurrency={formatCurrency}
-                    />
-                  )}
+                  {filters.reportType === "revenue" && reportData && (
+  <RevenueReportDetails 
+    data={reportData} 
+    formatCurrency={formatCurrency}
+    page={revenuePage}
+    pageSize={revenuePageSize}
+    onPageChange={setRevenuePage}
+    onPageSizeChange={(size:any) => { setRevenuePageSize(size); setRevenuePage(1); }}
+  />
+)}
                   {filters.reportType === "payments" && (
                     <PaymentsReportDetails
                       data={reportData}
                       formatCurrency={formatCurrency}
                     />
                   )}
-                  {filters.reportType === "tenants" && (
-                    <TenantsReportDetails data={reportData} />
-                  )}
+                  {filters.reportType === "tenants" && reportData && (
+  <TenantsReportDetails 
+    data={reportData} 
+    formatCurrency={formatCurrency}
+    page={reportPage}
+    pageSize={reportPageSize}
+    onPageChange={setReportPage}
+    onPageSizeChange={(size:any) => { setReportPageSize(size); setReportPage(1); }}
+  />
+)}
                   {filters.reportType === "occupancy" && (
                     <OccupancyReportDetails
                       data={reportData}
@@ -3178,91 +3218,212 @@ function SummaryStatCard({ title, value, icon }: any) {
 }
 
 // Report Detail Components - KEEP EXISTING
-function RevenueReportDetails({ data, formatCurrency }: any) {
+function RevenueReportDetails({ data, formatCurrency, page, pageSize, onPageChange, onPageSizeChange }: any) {
   const summary = data.summary;
-
+  const payments = data.payments || [];
+  const totalPayments = payments.length;
+  
+  // Paginate payments
+  const startIndex = (page - 1) * pageSize;
+  const paginatedPayments = payments.slice(startIndex, startIndex + pageSize);
+  
+  const monthlyData = summary.monthlyBreakdown || [];
+  const propertyData = summary.propertyBreakdown || [];
+  
   return (
-    <div className="space-y-3 sm:space-y-4">
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2">
-        <SummaryCard
-          title="Rent Revenue"
-          value={formatCurrency(summary.rentRevenue || 0)}
-          subtitle={`${summary.rentCount || 0} payments`}
-          bgColor="bg-rose-50"
-        />
-        <SummaryCard
-          title="Deposit Revenue"
-          value={formatCurrency(summary.depositRevenue || 0)}
-          subtitle={`${summary.depositCount || 0} payments`}
-          bgColor="bg-teal-50"
-        />
-        <SummaryCard
-          title="Addon Revenue"
-          value={formatCurrency(summary.addonRevenue || 0)}
-          subtitle={`${summary.addonCount || 0} payments`}
-          bgColor="bg-amber-50"
-        />
-        <SummaryCard
-          title="Total Revenue"
-          value={formatCurrency(summary.totalRevenue || 0)}
-          subtitle={`${summary.paymentCount || 0} payments`}
-          bgColor="bg-indigo-50"
-        />
+    <div className="space-y-4">
+      {/* Executive Summary Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div className="bg-blue-50 rounded-lg p-3">
+          <p className="text-[10px] text-gray-500">Total Revenue</p>
+          <p className="text-2xl font-bold text-blue-700">{formatCurrency(summary.totalRevenue)}</p>
+          <p className="text-[10px] text-gray-500">{summary.totalTransactions} transactions</p>
+        </div>
+        <div className="bg-green-50 rounded-lg p-3">
+          <p className="text-[10px] text-gray-500">Rent Revenue</p>
+          <p className="text-xl font-bold text-green-700">{formatCurrency(summary.revenueByType?.rent?.amount || 0)}</p>
+          <p className="text-[10px] text-gray-500">{summary.revenueByType?.rent?.percentage?.toFixed(1) || 0}% of total</p>
+        </div>
+        <div className="bg-purple-50 rounded-lg p-3">
+          <p className="text-[10px] text-gray-500">Deposit Revenue</p>
+          <p className="text-xl font-bold text-purple-700">{formatCurrency(summary.revenueByType?.security_deposit?.amount || 0)}</p>
+          <p className="text-[10px] text-gray-500">{summary.revenueByType?.security_deposit?.percentage?.toFixed(1) || 0}% of total</p>
+        </div>
+        <div className="bg-amber-50 rounded-lg p-3">
+          <p className="text-[10px] text-gray-500">Avg Daily Revenue</p>
+          <p className="text-xl font-bold text-amber-700">{formatCurrency(summary.averageDailyRevenue)}</p>
+          <p className="text-[10px] text-gray-500">Over {summary.daysInRange} days</p>
+        </div>
+        <div className="bg-indigo-50 rounded-lg p-3">
+          <p className="text-[10px] text-gray-500">Unique Tenants</p>
+          <p className="text-2xl font-bold text-indigo-700">{summary.uniqueTenants}</p>
+          <p className="text-[10px] text-gray-500">Avg: {formatCurrency(summary.averageTransactionValue)}/txn</p>
+        </div>
       </div>
-
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200 text-xs">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-2 py-2 text-left">Payment #</th>
-              <th className="px-2 py-2 text-left">Date</th>
-              <th className="px-2 py-2 text-left">Tenant</th>
-              <th className="px-2 py-2 text-left">Type</th>
-              <th className="px-2 py-2 text-left">Amount</th>
-              <th className="px-2 py-2 text-left">Status</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
-            {data.payments?.slice(0, 10).map((payment: any) => (
-              <tr key={payment.id} className="hover:bg-gray-50">
-                <td className="px-2 py-1.5">
-                  {payment.payment_number || payment.id}
-                </td>
-                <td className="px-2 py-1.5">
-                  {payment.payment_date
-                    ? new Date(payment.payment_date).toLocaleDateString()
-                    : "-"}
-                </td>
-                <td className="px-2 py-1.5 font-medium">
-                  {payment.tenant_name || "N/A"}
-                </td>
-                <td className="px-2 py-1.5">
-                  <Badge variant="outline" className="text-[10px]">
-                    {payment.payment_type || "N/A"}
-                  </Badge>
-                </td>
-                <td className="px-2 py-1.5 font-semibold">
-                  {formatCurrency(payment.amount || 0)}
-                </td>
-                <td className="px-2 py-1.5">
-                  <Badge
-                    variant={
-                      payment.status === "completed" ? "default" : "secondary"
-                    }
-                    className="text-[10px]"
-                  >
-                    {payment.status || "N/A"}
-                  </Badge>
-                </td>
-              </tr>
+      
+      {/* Revenue Distribution */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Revenue by Type - Pie Chart Style */}
+        <div className="border rounded-lg p-3">
+          <h4 className="text-xs font-semibold text-gray-700 mb-2">Revenue by Type</h4>
+          <div className="space-y-2">
+            {Object.entries(summary.revenueByType || {}).map(([type, data]: [string, any]) => (
+              data.amount > 0 && (
+                <div key={type}>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="capitalize">{type.replace('_', ' ')}</span>
+                    <span>{formatCurrency(data.amount)} ({data.percentage.toFixed(1)}%)</span>
+                  </div>
+                  <Progress value={data.percentage} className="h-1.5" />
+                </div>
+              )
             ))}
-          </tbody>
-        </table>
-        {data.payments?.length > 10 && (
-          <p className="text-center text-xs text-gray-500 mt-2">
-            Showing 10 of {data.payments.length} payments
-          </p>
-        )}
+          </div>
+        </div>
+        
+        {/* Revenue by Payment Mode */}
+        <div className="border rounded-lg p-3">
+          <h4 className="text-xs font-semibold text-gray-700 mb-2">Revenue by Payment Mode</h4>
+          <div className="space-y-2">
+            {Object.entries(summary.revenueByMode || {}).map(([mode, data]: [string, any]) => (
+              data.amount > 0 && (
+                <div key={mode}>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="capitalize">{mode.replace('_', ' ')}</span>
+                    <span>{formatCurrency(data.amount)} ({data.percentage.toFixed(1)}%)</span>
+                  </div>
+                  <Progress value={data.percentage} className="h-1.5" />
+                </div>
+              )
+            ))}
+          </div>
+        </div>
+      </div>
+      
+      {/* Monthly Breakdown Table */}
+      {monthlyData.length > 0 && (
+        <div className="border rounded-lg p-3">
+          <h4 className="text-xs font-semibold text-gray-700 mb-2">Monthly Revenue Breakdown</h4>
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-xs">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-2 py-1 text-left">Month</th>
+                  <th className="px-2 py-1 text-right">Total Revenue</th>
+                  <th className="px-2 py-1 text-right">Rent</th>
+                  <th className="px-2 py-1 text-right">Deposit</th>
+                  <th className="px-2 py-1 text-right">Maintenance</th>
+                  <th className="px-2 py-1 text-center">Transactions</th>
+                  <th className="px-2 py-1 text-center">Unique Tenants</th>
+                </tr>
+              </thead>
+              <tbody>
+                {monthlyData.map((month: any) => (
+                  <tr key={month.month_key} className="border-t">
+                    <td className="px-2 py-1 font-medium">{month.month} {month.year}</td>
+                    <td className="px-2 py-1 text-right font-semibold">{formatCurrency(month.total_amount)}</td>
+                    <td className="px-2 py-1 text-right">{formatCurrency(month.rent_amount)}</td>
+                    <td className="px-2 py-1 text-right">{formatCurrency(month.deposit_amount)}</td>
+                    <td className="px-2 py-1 text-right">{formatCurrency(month.maintenance_amount)}</td>
+                    <td className="px-2 py-1 text-center">{month.transaction_count}</td>
+                    <td className="px-2 py-1 text-center">{month.unique_tenants}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot className="bg-gray-100">
+                <tr>
+                  <td className="px-2 py-1 font-bold">TOTAL</td>
+                  <td className="px-2 py-1 text-right font-bold">{formatCurrency(summary.totalRevenue)}</td>
+                  <td className="px-2 py-1 text-right font-bold">{formatCurrency(summary.revenueByType?.rent?.amount || 0)}</td>
+                  <td className="px-2 py-1 text-right font-bold">{formatCurrency(summary.revenueByType?.security_deposit?.amount || 0)}</td>
+                  <td className="px-2 py-1 text-right font-bold">{formatCurrency(summary.revenueByType?.maintenance?.amount || 0)}</td>
+                  <td className="px-2 py-1 text-center font-bold">{summary.totalTransactions}</td>
+                  <td className="px-2 py-1 text-center font-bold">{summary.uniqueTenants}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      )}
+      
+      {/* Property-wise Breakdown */}
+      {propertyData.length > 0 && (
+        <div className="border rounded-lg p-3">
+          <h4 className="text-xs font-semibold text-gray-700 mb-2">Revenue by Property</h4>
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-xs">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-2 py-1 text-left">Property</th>
+                  <th className="px-2 py-1 text-right">Total Revenue</th>
+                  <th className="px-2 py-1 text-right">Rent</th>
+                  <th className="px-2 py-1 text-right">Deposit</th>
+                  <th className="px-2 py-1 text-center">Transactions</th>
+                  <th className="px-2 py-1 text-center">Unique Tenants</th>
+                </tr>
+              </thead>
+              <tbody>
+                {propertyData.map((prop: any) => (
+                  <tr key={prop.property_name} className="border-t">
+                    <td className="px-2 py-1 font-medium">{prop.property_name}</td>
+                    <td className="px-2 py-1 text-right font-semibold">{formatCurrency(prop.total_amount)}</td>
+                    <td className="px-2 py-1 text-right">{formatCurrency(prop.rent_amount)}</td>
+                    <td className="px-2 py-1 text-right">{formatCurrency(prop.deposit_amount)}</td>
+                    <td className="px-2 py-1 text-center">{prop.transaction_count}</td>
+                    <td className="px-2 py-1 text-center">{prop.unique_tenants}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+      
+      {/* Detailed Payments Table */}
+      <div className="border rounded-lg overflow-hidden">
+        <h4 className="text-xs font-semibold text-gray-700 p-3 bg-gray-50 border-b">Transaction Details</h4>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200 text-xs">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-2 py-2 text-left">Date</th>
+                <th className="px-2 py-2 text-left">Tenant</th>
+                <th className="px-2 py-2 text-left">Property</th>
+                <th className="px-2 py-2 text-left">Type</th>
+                <th className="px-2 py-2 text-right">Amount</th>
+                <th className="px-2 py-2 text-left">Mode</th>
+                <th className="px-2 py-2 text-left">Source</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {paginatedPayments.map((payment: any) => (
+                <tr key={payment.id} className="hover:bg-gray-50">
+                  <td className="px-2 py-1.5 whitespace-nowrap">{new Date(payment.payment_date).toLocaleDateString()}</td>
+                  <td className="px-2 py-1.5">
+                    <div className="font-medium">{payment.tenant_name || 'N/A'}</div>
+                    <div className="text-[10px] text-gray-500">{payment.tenant_phone}</div>
+                  </td>
+                  <td className="px-2 py-1.5">{payment.property_name || 'N/A'} / Room {payment.room_number || 'N/A'}</td>
+                  <td className="px-2 py-1.5">
+                    <Badge variant="outline" className="text-[10px]">
+                      {payment.payment_type === 'security_deposit' ? 'Security Deposit' : payment.payment_type || 'Other'}
+                    </Badge>
+                  </td>
+                  <td className="px-2 py-1.5 text-right font-semibold text-green-600">{formatCurrency(payment.amount)}</td>
+                  <td className="px-2 py-1.5 capitalize">{payment.payment_mode || 'N/A'}</td>
+                  <td className="px-2 py-1.5 capitalize">{payment.source || 'N/A'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <ReportPagination 
+          total={totalPayments}
+          page={page}
+          pageSize={pageSize}
+          onPageChange={onPageChange}
+          onPageSizeChange={onPageSizeChange}
+        />
       </div>
     </div>
   );
@@ -3270,156 +3431,351 @@ function RevenueReportDetails({ data, formatCurrency }: any) {
 
 function PaymentsReportDetails({ data, formatCurrency }: any) {
   const summary = data.summary;
-
+  const payments = data.payments || [];
+  
+  const totalAmount = summary.totalAmount || 0;
+  const approvedAmount = summary.statusBreakdown?.approved?.amount || 0;
+  const pendingAmount = summary.statusBreakdown?.pending?.amount || 0;
+  const rejectedAmount = summary.statusBreakdown?.rejected?.amount || 0;
+  const collectionRate = summary.collectionRateByAmount || 0;
+  
+  const monthlyData = summary.monthlyBreakdown || [];
+  const propertyData = summary.propertyBreakdown || [];
+  
   return (
-    <div className="space-y-3 sm:space-y-4">
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2">
-        <SummaryCard
-          title="Completed"
-          value={summary.completedPayments?.toString() || "0"}
-          subtitle={formatCurrency(summary.completedAmount || 0)}
-          bgColor="bg-blue-50"
-        />
-        <SummaryCard
-          title="Pending"
-          value={summary.pendingPayments?.toString() || "0"}
-          subtitle={formatCurrency(summary.pendingAmount || 0)}
-          bgColor="bg-orange-50"
-        />
-        <SummaryCard
-          title="Failed"
-          value={summary.failedPayments?.toString() || "0"}
-          subtitle={formatCurrency(summary.failedAmount || 0)}
-          bgColor="bg-red-50"
-        />
-        <SummaryCard
-          title="Collection Rate"
-          value={`${((summary.completedAmount / (summary.totalAmount || 1)) * 100).toFixed(1)}%`}
-          subtitle={`Total: ${formatCurrency(summary.totalAmount || 0)}`}
-          bgColor="bg-green-50"
-        />
+    <div className="space-y-4">
+      {/* Executive Summary Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="bg-blue-50 rounded-lg p-3">
+          <p className="text-[10px] text-gray-500">Total Transactions</p>
+          <p className="text-2xl font-bold text-blue-700">{summary.totalTransactions}</p>
+          <p className="text-[10px] text-gray-500">Unique Tenants: {summary.uniqueTenants}</p>
+        </div>
+        <div className="bg-green-50 rounded-lg p-3">
+          <p className="text-[10px] text-gray-500">Collection Rate</p>
+          <p className="text-2xl font-bold text-green-700">{collectionRate.toFixed(1)}%</p>
+          <p className="text-[10px] text-gray-500">₹{approvedAmount.toLocaleString()} of ₹{totalAmount.toLocaleString()}</p>
+        </div>
+        <div className="bg-amber-50 rounded-lg p-3">
+          <p className="text-[10px] text-gray-500">Avg Transaction</p>
+          <p className="text-2xl font-bold text-amber-700">{formatCurrency(summary.averageTransactionValue)}</p>
+          <p className="text-[10px] text-gray-500">Pending: ₹{pendingAmount.toLocaleString()}</p>
+        </div>
+        <div className="bg-purple-50 rounded-lg p-3">
+          <p className="text-[10px] text-gray-500">Rent Collection</p>
+          <p className="text-2xl font-bold text-purple-700">{summary.typeBreakdown?.rent?.percentage?.toFixed(1) || 0}%</p>
+          <p className="text-[10px] text-gray-500">Deposit: {summary.typeBreakdown?.security_deposit?.percentage?.toFixed(1) || 0}%</p>
+        </div>
       </div>
-
+      
+      {/* Status & Mode Distribution */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {/* Status Distribution */}
+        <div className="border rounded-lg p-3">
+          <h4 className="text-xs font-semibold text-gray-700 mb-2">Payment Status</h4>
+          <div className="space-y-2">
+            <div>
+              <div className="flex justify-between text-xs mb-1">
+                <span>Approved</span>
+                <span>₹{approvedAmount.toLocaleString()} ({summary.statusBreakdown?.approved?.percentage?.toFixed(1) || 0}%)</span>
+              </div>
+              <Progress value={summary.statusBreakdown?.approved?.percentage || 0} className="h-1.5 bg-green-100" />
+            </div>
+            <div>
+              <div className="flex justify-between text-xs mb-1">
+                <span>Pending</span>
+                <span>₹{pendingAmount.toLocaleString()} ({summary.statusBreakdown?.pending?.percentage?.toFixed(1) || 0}%)</span>
+              </div>
+              <Progress value={summary.statusBreakdown?.pending?.percentage || 0} className="h-1.5 bg-yellow-100" />
+            </div>
+            <div>
+              <div className="flex justify-between text-xs mb-1">
+                <span>Rejected</span>
+                <span>₹{rejectedAmount.toLocaleString()} ({summary.statusBreakdown?.rejected?.percentage?.toFixed(1) || 0}%)</span>
+              </div>
+              <Progress value={summary.statusBreakdown?.rejected?.percentage || 0} className="h-1.5 bg-red-100" />
+            </div>
+          </div>
+        </div>
+        
+        {/* Payment Mode Distribution */}
+        <div className="border rounded-lg p-3">
+          <h4 className="text-xs font-semibold text-gray-700 mb-2">Payment Mode</h4>
+          <div className="space-y-2">
+            {Object.entries(summary.modeBreakdown || {}).map(([mode, data]: [string, any]) => (
+              data.count > 0 && (
+                <div key={mode}>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="capitalize">{mode.replace('_', ' ')}</span>
+                    <span>{data.count} txns (₹{data.amount.toLocaleString()})</span>
+                  </div>
+                  <Progress value={data.percentage} className="h-1" />
+                </div>
+              )
+            ))}
+          </div>
+        </div>
+      </div>
+      
+      {/* Monthly Trend Chart Data */}
+      {monthlyData.length > 0 && (
+        <div className="border rounded-lg p-3">
+          <h4 className="text-xs font-semibold text-gray-700 mb-2">Monthly Trend</h4>
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-xs">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-2 py-1 text-left">Month</th>
+                  <th className="px-2 py-1 text-right">Amount</th>
+                  <th className="px-2 py-1 text-center">Approved</th>
+                  <th className="px-2 py-1 text-center">Pending</th>
+                  <th className="px-2 py-1 text-center">Rejected</th>
+                  <th className="px-2 py-1 text-center">Txns</th>
+                </tr>
+              </thead>
+              <tbody>
+                {monthlyData.map((month: any) => (
+                  <tr key={month.month_key} className="border-t">
+                    <td className="px-2 py-1 font-medium">{month.month} {month.year}</td>
+                    <td className="px-2 py-1 text-right">₹{month.total_amount.toLocaleString()}</td>
+                    <td className="px-2 py-1 text-center text-green-600">{((month.approved_amount / month.total_amount) * 100).toFixed(0)}%</td>
+                    <td className="px-2 py-1 text-center text-amber-600">{((month.pending_amount / month.total_amount) * 100).toFixed(0)}%</td>
+                    <td className="px-2 py-1 text-center text-red-600">{((month.rejected_amount / month.total_amount) * 100).toFixed(0)}%</td>
+                    <td className="px-2 py-1 text-center">{month.transaction_count}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+      
+      {/* Detailed Payments Table */}
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200 text-xs">
-          <thead className="bg-gray-50">
+          <thead className="bg-gray-50 sticky top-0">
             <tr>
-              <th className="px-2 py-2 text-left">Payment #</th>
               <th className="px-2 py-2 text-left">Date</th>
               <th className="px-2 py-2 text-left">Tenant</th>
-              <th className="px-2 py-2 text-left">Amount</th>
-              <th className="px-2 py-2 text-left">Method</th>
+              <th className="px-2 py-2 text-left">Property</th>
+              <th className="px-2 py-2 text-left">Type</th>
+              <th className="px-2 py-2 text-right">Amount</th>
+              <th className="px-2 py-2 text-left">Mode</th>
               <th className="px-2 py-2 text-left">Status</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {data.payments?.slice(0, 10).map((payment: any) => (
+            {payments.slice(0, 20).map((payment: any) => (
               <tr key={payment.id} className="hover:bg-gray-50">
+                <td className="px-2 py-1.5 whitespace-nowrap">{new Date(payment.payment_date).toLocaleDateString()}</td>
                 <td className="px-2 py-1.5">
-                  {payment.payment_number || payment.id}
-                </td>
-                <td className="px-2 py-1.5">
-                  {payment.payment_date
-                    ? new Date(payment.payment_date).toLocaleDateString()
-                    : "-"}
-                </td>
-                <td className="px-2 py-1.5 font-medium">
-                  {payment.tenant_name || "N/A"}
-                </td>
-                <td className="px-2 py-1.5 font-semibold">
-                  {formatCurrency(payment.amount || 0)}
+                  <div className="font-medium">{payment.tenant_name || 'N/A'}</div>
+                  <div className="text-[10px] text-gray-500">{payment.tenant_phone}</div>
                 </td>
                 <td className="px-2 py-1.5">
-                  {payment.payment_method || "N/A"}
+                  {payment.property_name || 'N/A'}<br />
+                  {payment.room_number && `Room ${payment.room_number}`}
                 </td>
                 <td className="px-2 py-1.5">
-                  <Badge
-                    variant={
-                      payment.status === "completed" ? "default" : "secondary"
-                    }
-                    className="text-[10px]"
-                  >
-                    {payment.status || "N/A"}
+                  <Badge variant="outline" className="text-[10px]">
+                    {payment.payment_type === 'security_deposit' ? 'Security Deposit' : payment.payment_type || 'Other'}
+                  </Badge>
+                </td>
+                <td className="px-2 py-1.5 text-right font-semibold">{formatCurrency(payment.amount)}</td>
+                <td className="px-2 py-1.5 capitalize">{payment.payment_mode || 'N/A'}</td>
+                <td className="px-2 py-1.5">
+                  <Badge className={
+                    payment.status === 'approved' || payment.status === 'paid' ? 'bg-green-100 text-green-700' :
+                    payment.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                    payment.status === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-500'
+                  }>
+                    {payment.status || 'N/A'}
                   </Badge>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
-        {data.payments?.length > 10 && (
-          <p className="text-center text-xs text-gray-500 mt-2">
-            Showing 10 of {data.payments.length} payments
-          </p>
-        )}
       </div>
+      {payments.length > 20 && (
+        <p className="text-center text-xs text-gray-500">Showing 20 of {payments.length} payments</p>
+      )}
     </div>
   );
 }
 
-function TenantsReportDetails({ data }: any) {
+function TenantsReportDetails({ data, formatCurrency, page, pageSize, onPageChange, onPageSizeChange }: any) {
   const summary = data.summary;
-
+  const tenants = data.tenants || [];
+  const totalTenants = tenants.length;
+  
+  // Paginate tenants - FIXED: use the props passed in
+  const startIndex = (page - 1) * pageSize;
+  const paginatedTenants = tenants.slice(startIndex, startIndex + pageSize);
+  
+  // Calculate additional stats
+  const totalExpectedRent = summary.financialSummary?.total_expected_rent || 0;
+  const totalRentPaid = summary.financialSummary?.total_rent_paid || 0;
+  const totalRentPending = summary.financialSummary?.total_rent_pending || 0;
+  const collectionRate = summary.financialSummary?.overall_rent_collection_rate || 0;
+  
+  const depositTotal = summary.financialSummary?.total_security_deposit_to_collect || 0;
+  const depositPaid = summary.financialSummary?.total_security_deposit_paid || 0;
+  const depositPending = summary.financialSummary?.total_security_deposit_pending || 0;
+  
+  // Occupation breakdown for display
+  const occupationEntries = Object.entries(summary.occupationBreakdown || {});
+  
   return (
-    <div className="space-y-3 sm:space-y-4">
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2">
-        <SummaryCard
-          title="Active Tenants"
-          value={summary.activeTenants?.toString() || "0"}
-          bgColor="bg-blue-50"
-        />
-        <SummaryCard
-          title="Inactive"
-          value={summary.inactiveTenants?.toString() || "0"}
-          bgColor="bg-gray-50"
-        />
-        <SummaryCard
-          title="With Bookings"
-          value={summary.withActiveBookings?.toString() || "0"}
-          bgColor="bg-green-50"
-        />
-        <SummaryCard
-          title="New This Month"
-          value={summary.newTenantsThisMonth?.toString() || "0"}
-          bgColor="bg-purple-50"
-        />
+    <div className="space-y-4">
+      {/* Executive Summary Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="bg-blue-50 rounded-lg p-3">
+          <p className="text-[10px] text-gray-500">Total Tenants</p>
+          <p className="text-2xl font-bold text-blue-700">{summary.totalTenants}</p>
+          <p className="text-[10px] text-gray-500">Active: {summary.activeTenants} | Inactive: {summary.inactiveTenants}</p>
+        </div>
+        <div className="bg-green-50 rounded-lg p-3">
+          <p className="text-[10px] text-gray-500">Collection Rate</p>
+          <p className="text-2xl font-bold text-green-700">{collectionRate}%</p>
+          <p className="text-[10px] text-gray-500">₹{totalRentPaid.toLocaleString()} of ₹{totalExpectedRent.toLocaleString()}</p>
+        </div>
+        <div className="bg-purple-50 rounded-lg p-3">
+          <p className="text-[10px] text-gray-500">Deposit Collection</p>
+          <p className="text-2xl font-bold text-purple-700">{summary.financialSummary?.overall_deposit_collection_rate || 0}%</p>
+          <p className="text-[10px] text-gray-500">₹{depositPaid.toLocaleString()} of ₹{depositTotal.toLocaleString()}</p>
+        </div>
+        <div className="bg-amber-50 rounded-lg p-3">
+          <p className="text-[10px] text-gray-500">Portal Access</p>
+          <p className="text-2xl font-bold text-amber-700">{summary.withPortalAccess}</p>
+          <p className="text-[10px] text-gray-500">Bed Assigned: {summary.withBedAssignment}</p>
+        </div>
       </div>
-
-      <div className="overflow-x-auto">
+      
+      {/* Demographics Row */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        {/* Gender Distribution */}
+        <div className="border rounded-lg p-3">
+          <h4 className="text-xs font-semibold text-gray-700 mb-2">Gender Distribution</h4>
+          <div className="space-y-1">
+            <div className="flex justify-between text-xs">
+              <span>Male</span>
+              <span className="font-medium">{summary.maleCount} ({summary.genderDistribution?.male || 0}%)</span>
+            </div>
+            <div className="flex justify-between text-xs">
+              <span>Female</span>
+              <span className="font-medium">{summary.femaleCount} ({summary.genderDistribution?.female || 0}%)</span>
+            </div>
+            <div className="flex justify-between text-xs">
+              <span>Other</span>
+              <span className="font-medium">{summary.otherCount} ({summary.genderDistribution?.other || 0}%)</span>
+            </div>
+          </div>
+        </div>
+        
+        {/* New Tenants */}
+        <div className="border rounded-lg p-3">
+          <h4 className="text-xs font-semibold text-gray-700 mb-2">New Tenants</h4>
+          <div className="space-y-1">
+            <div className="flex justify-between text-xs">
+              <span>This Month</span>
+              <span className="font-medium text-green-600">{summary.newTenantsThisMonth}</span>
+            </div>
+            <div className="flex justify-between text-xs">
+              <span>This Year</span>
+              <span className="font-medium text-blue-600">{summary.newTenantsThisYear}</span>
+            </div>
+          </div>
+        </div>
+        
+        {/* Occupation Top Categories */}
+        <div className="border rounded-lg p-3">
+          <h4 className="text-xs font-semibold text-gray-700 mb-2">Top Occupations</h4>
+          <div className="space-y-1">
+            {occupationEntries.slice(0, 3).map(([name, count]) => (
+              <div key={name} className="flex justify-between text-xs">
+                <span className="truncate">{name}</span>
+                <span className="font-medium">{count as number}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+      
+      {/* Tenant-wise Table */}
+      <div className="overflow-x-auto mt-3">
         <table className="min-w-full divide-y divide-gray-200 text-xs">
-          <thead className="bg-gray-50">
+          <thead className="bg-gray-50 sticky top-0">
             <tr>
-              <th className="px-2 py-2 text-left">Name</th>
-              <th className="px-2 py-2 text-left">Phone</th>
-              <th className="px-2 py-2 text-left">Gender</th>
-              <th className="px-2 py-2 text-left">Occupation</th>
-              <th className="px-2 py-2 text-left">Status</th>
+              <th className="px-2 py-2 text-left">Tenant</th>
+              <th className="px-2 py-2 text-left">Property/Room</th>
+              <th className="px-2 py-2 text-center">Months</th>
+              <th className="px-2 py-2 text-right">Monthly Rent</th>
+              <th className="px-2 py-2 text-right">Expected</th>
+              <th className="px-2 py-2 text-right">Paid</th>
+              <th className="px-2 py-2 text-right">Pending</th>
+              <th className="px-2 py-2 text-center">Collection %</th>
+              <th className="px-2 py-2 text-right">Deposit</th>
+              <th className="px-2 py-2 text-right">Deposit Paid</th>
+              <th className="px-2 py-2 text-center">Status</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {data.tenants?.slice(0, 10).map((tenant: any) => (
+            {paginatedTenants.map((tenant: any) => (
               <tr key={tenant.id} className="hover:bg-gray-50">
-                <td className="px-2 py-1.5 font-medium">{tenant.full_name}</td>
-                <td className="px-2 py-1.5">{tenant.phone || "-"}</td>
-                <td className="px-2 py-1.5">{tenant.gender || "N/A"}</td>
-                <td className="px-2 py-1.5">{tenant.occupation || "N/A"}</td>
                 <td className="px-2 py-1.5">
-                  <Badge
-                    variant={tenant.is_active ? "default" : "secondary"}
-                    className="text-[10px]"
-                  >
-                    {tenant.is_active ? "Active" : "Inactive"}
+                  <div className="font-medium">{tenant.full_name}</div>
+                  <div className="text-[10px] text-gray-500">{tenant.email || tenant.phone}</div>
+                </td>
+                <td className="px-2 py-1.5">
+                  {tenant.property_name || 'N/A'}<br />
+                  {tenant.room_number && `Room ${tenant.room_number}`}
+                  {tenant.bed_number && ` / Bed ${tenant.bed_number}`}
+                </td>
+                <td className="px-2 py-1.5 text-center">{tenant.months_since_joining || 0}</td>
+                <td className="px-2 py-1.5 text-right font-semibold">₹{tenant.monthly_rent?.toLocaleString() || 0}</td>
+                <td className="px-2 py-1.5 text-right">₹{tenant.expected_rent?.toLocaleString() || 0}</td>
+                <td className="px-2 py-1.5 text-right text-green-600">₹{tenant.total_rent_paid?.toLocaleString() || 0}</td>
+                <td className="px-2 py-1.5 text-right text-amber-600">₹{tenant.pending_rent?.toLocaleString() || 0}</td>
+                <td className="px-2 py-1.5 text-center">
+                  <div className="flex items-center justify-center gap-1">
+                    <Progress value={parseFloat(tenant.rent_collection_rate) || 0} className="h-1.5 w-12" />
+                    <span className="text-[10px]">{tenant.rent_collection_rate || 0}%</span>
+                  </div>
+                </td>
+                <td className="px-2 py-1.5 text-right">₹{tenant.security_deposit?.toLocaleString() || 0}</td>
+                <td className="px-2 py-1.5 text-right text-green-600">₹{tenant.total_deposit_paid?.toLocaleString() || 0}</td>
+                <td className="px-2 py-1.5 text-center">
+                  <Badge className={tenant.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}>
+                    {tenant.is_active ? 'Active' : 'Inactive'}
                   </Badge>
                 </td>
               </tr>
             ))}
           </tbody>
+          <tfoot className="bg-gray-100">
+            <tr>
+              <td className="px-2 py-2 font-bold" colSpan={4}>TOTAL</td>
+              <td className="px-2 py-2 text-right font-bold">₹{totalExpectedRent.toLocaleString()}</td>
+              <td className="px-2 py-2 text-right font-bold text-green-700">₹{totalRentPaid.toLocaleString()}</td>
+              <td className="px-2 py-2 text-right font-bold text-amber-700">₹{totalRentPending.toLocaleString()}</td>
+              <td className="px-2 py-2 text-center font-bold">{collectionRate}%</td>
+              <td className="px-2 py-2 text-right font-bold">₹{depositTotal.toLocaleString()}</td>
+              <td className="px-2 py-2 text-right font-bold text-green-700">₹{depositPaid.toLocaleString()}</td>
+              <td className="px-2 py-2 text-center"></td>
+            </tr>
+          </tfoot>
         </table>
-        {data.tenants?.length > 10 && (
-          <p className="text-center text-xs text-gray-500 mt-2">
-            Showing 10 of {data.tenants.length} tenants
-          </p>
-        )}
       </div>
+      
+      {/* Add pagination - FIXED: now using props correctly */}
+      <ReportPagination 
+        total={totalTenants}
+        page={page}
+        pageSize={pageSize}
+        onPageChange={onPageChange}
+        onPageSizeChange={onPageSizeChange}
+      />
     </div>
   );
 }

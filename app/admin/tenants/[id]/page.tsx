@@ -1029,9 +1029,9 @@ const rentVal = (() => {
     title="Property"
     value={
       assignment?.property?.name ||
-      tenant.assigned_property_name ||
-      tenant.property_details.name ||
-      "Not Assigned"
+tenant.assigned_property_name ||
+tenant.property_details?.name ||   // ← add optional chaining
+"Not Assigned"
     }
     icon={Building}
     color="bg-amber-600"
