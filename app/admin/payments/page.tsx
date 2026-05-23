@@ -6332,7 +6332,12 @@ const PaymentsTable = ({
                                                             : payment.payment_type ===
                                                                 "security_deposit"
                                                               ? "bg-purple-100 text-purple-700"
-                                                              : "bg-slate-100 text-slate-600"
+                                                              : payment.payment_type === "deposit_refund"
+                                                                ? "bg-green-100 text-green-700"
+                                                                : payment.payment_type === "penalty_payment"
+                                                                ? "bg-gray-100 text-gray-700"
+                                                                : "bg-slate-100 text-slate-700"
+                                                              
                                                         }`}
                                                       >
                                                         {payment.payment_type ===

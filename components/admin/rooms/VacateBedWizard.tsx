@@ -1,7 +1,7 @@
 // components/admin/rooms/VacateBedWizard.tsx
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -40,12 +40,14 @@ import {
   Shield,
   UsersRound,
   Heart,
+  IndianRupee,
 } from "lucide-react";
 import { toast } from "sonner";
 import { vacateApi } from "@/lib/vacateApi";
 import { getMyTenantRequests } from "@/lib/tenantRequestsApi";
 import { updateBedAssignment } from "@/lib/roomsApi";
 import { consumeMasters } from "@/lib/masterApi";
+import { VacatedTenantPaymentModal } from "../tenants/VacatedTenantPaymentModal";
 
 interface MasterValue {
   id: number;
@@ -96,6 +98,7 @@ export function VacateBedWizard({
   const [wizardDisabled, setWizardDisabled] = useState(false);
   const [isCheckingExisting, setIsCheckingExisting] = useState(false);
   const [isCoupleBooking, setIsCoupleBooking] = useState(false);
+  const [hasExistingPayment, setHasExistingPayment] = useState(false);
 
   // Master data states
   const [roomsMasters, setRoomsMasters] = useState<
@@ -106,32 +109,45 @@ export function VacateBedWizard({
 
   // Store tenant vacate request details
   const [tenantVacateData, setTenantVacateData] = useState<any>(null);
-  const [noticeGivenByTenant, setNoticeGivenByTenant] = useState<boolean>(false);
-  const [lockinAcceptedByTenant, setLockinAcceptedByTenant] = useState<boolean>(false);
+  const [noticeGivenByTenant, setNoticeGivenByTenant] =
+    useState<boolean>(false);
+  const [lockinAcceptedByTenant, setLockinAcceptedByTenant] =
+    useState<boolean>(false);
   const [tenantVacateDate, setTenantVacateDate] = useState<string>("");
   const [tenantRequestDate, setTenantRequestDate] = useState<string>("");
   const [tenantVacateReason, setTenantVacateReason] = useState<string>("");
-  const [tenantVacateReasonId, setTenantVacateReasonId] = useState<number | null>(null);
-  const [tenantAgreedToTerms, setTenantAgreedToTerms] = useState<boolean>(false);
+  const [tenantVacateReasonId, setTenantVacateReasonId] = useState<
+    number | null
+  >(null);
+  const [tenantAgreedToTerms, setTenantAgreedToTerms] =
+    useState<boolean>(false);
   const [noticePeriodStatus, setNoticePeriodStatus] = useState<any>(null);
   const [isAdminOverrideLockin, setIsAdminOverrideLockin] = useState(false);
   const [isAdminOverrideNotice, setIsAdminOverrideNotice] = useState(false);
-  
+
   const initialDataLoadedRef = useRef(false);
-  const [tenantsToVacate, setTenantsToVacate] = useState<TenantWithSelection[]>([]);
+  const [tenantsToVacate, setTenantsToVacate] = useState<TenantWithSelection[]>(
+    [],
+  );
   const [loadingTenants, setLoadingTenants] = useState(false);
   const [securityDeposit, setSecurityDeposit] = useState<number>(0);
+  const [receivePaymentModalOpen, setReceivePaymentModalOpen] = useState(false);
+  const [receivePaymentAmount, setReceivePaymentAmount] = useState(0);
+  const [paymentReceived, setPaymentReceived] = useState(false);
+  const [receivePaymentType, setReceivePaymentType] = useState<
+    "refund" | "payment"
+  >("payment");
 
   const [inspectionPenalty, setInspectionPenalty] = useState<{
-  total_penalty: number;
-  items: any[];
-  has_inspection: boolean;
-}>({
-  total_penalty: 0,
-  items: [],
-  has_inspection: false
-});
-const [loadingPenalty, setLoadingPenalty] = useState(false);
+    total_penalty: number;
+    items: any[];
+    has_inspection: boolean;
+  }>({
+    total_penalty: 0,
+    items: [],
+    has_inspection: false,
+  });
+  const [loadingPenalty, setLoadingPenalty] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -183,7 +199,7 @@ const [loadingPenalty, setLoadingPenalty] = useState(false);
             value: reason.name,
           }));
           setVacateReasons(reasons);
-          
+
           if (open && bedAssignment) {
             await checkForExistingRequest();
           }
@@ -254,7 +270,8 @@ const [loadingPenalty, setLoadingPenalty] = useState(false);
   useEffect(() => {
     if (lockinStatus !== null) {
       const isLockinCompleted = lockinStatus.isCompleted || false;
-      const effectiveLockinAccepted = lockinAcceptedByTenant || isLockinCompleted;
+      const effectiveLockinAccepted =
+        lockinAcceptedByTenant || isLockinCompleted;
       const effectiveNoticeAccepted = noticeGivenByTenant;
       const termsAgreed = effectiveLockinAccepted && effectiveNoticeAccepted;
       setTenantAgreedToTerms(termsAgreed);
@@ -265,57 +282,125 @@ const [loadingPenalty, setLoadingPenalty] = useState(false);
     }
   }, [lockinStatus, lockinAcceptedByTenant, noticeGivenByTenant]);
 
-const fetchInspectionPenalty = async (tenantName: string) => {
-  setLoadingPenalty(true);
-  try {
-    // Use tenant name instead of ID
-    const response = await fetch(`/api/move-out-inspections?tenant_name=${encodeURIComponent(tenantName)}`);
-    const result = await response.json();
-    
-    if (result.success && result.data && result.data.length > 0) {
-      // Get the latest inspection
-      const inspection = result.data[0];
-      let items = [];
-      let totalPenalty = 0;
-      
-      if (inspection.inspection_items && Array.isArray(inspection.inspection_items)) {
-        items = inspection.inspection_items.map((item: any) => ({
-          item_name: item.item_name,
-          category: item.category,
-          condition_at_movein: item.condition_at_movein,
-          condition_at_moveout: item.condition_at_moveout,
-          penalty_amount: parseFloat(item.penalty_amount) || 0
-        }));
-        totalPenalty = items.reduce((sum: number, item: any) => sum + item.penalty_amount, 0);
+  const fetchInspectionPenalty = async (tenantName: string) => {
+    setLoadingPenalty(true);
+    try {
+      // Use tenant name instead of ID
+      const response = await fetch(
+        `/api/move-out-inspections?tenant_name=${encodeURIComponent(tenantName)}`,
+      );
+      const result = await response.json();
+
+      if (result.success && result.data && result.data.length > 0) {
+        // Get the latest inspection
+        const inspection = result.data[0];
+        let items = [];
+        let totalPenalty = 0;
+
+        if (
+          inspection.inspection_items &&
+          Array.isArray(inspection.inspection_items)
+        ) {
+          items = inspection.inspection_items.map((item: any) => ({
+            item_name: item.item_name,
+            category: item.category,
+            condition_at_movein: item.condition_at_movein,
+            condition_at_moveout: item.condition_at_moveout,
+            penalty_amount: parseFloat(item.penalty_amount) || 0,
+          }));
+          totalPenalty = items.reduce(
+            (sum: number, item: any) => sum + item.penalty_amount,
+            0,
+          );
+        }
+
+        setInspectionPenalty({
+          total_penalty: totalPenalty,
+          items: items,
+          has_inspection: items.length > 0 && totalPenalty > 0,
+        });
+
+        if (totalPenalty > 0) {
+          console.log(`💰 Inspection penalty found: ₹${totalPenalty}`);
+        }
+      } else {
+        setInspectionPenalty({
+          total_penalty: 0,
+          items: [],
+          has_inspection: false,
+        });
       }
-      
-      setInspectionPenalty({
-        total_penalty: totalPenalty,
-        items: items,
-        has_inspection: items.length > 0 && totalPenalty > 0
-      });
-      
-      if (totalPenalty > 0) {
-        console.log(`💰 Inspection penalty found: ₹${totalPenalty}`);
-      }
-    } else {
+    } catch (error) {
+      console.error("Error fetching inspection penalty:", error);
       setInspectionPenalty({
         total_penalty: 0,
         items: [],
-        has_inspection: false
+        has_inspection: false,
       });
+    } finally {
+      setLoadingPenalty(false);
+    }
+  };
+
+  // Add handler for receive payment
+  const handleReceivePayment = useCallback((amount: number) => {
+    setReceivePaymentAmount(amount);
+    setReceivePaymentType("payment");
+    setReceivePaymentModalOpen(true);
+  }, []);
+
+const handleReceivePaymentSuccess = useCallback(async (amount: number) => {
+  setPaymentReceived(true);
+  toast.success(`Payment of ₹${amount.toLocaleString()} recorded successfully`);
+  
+  // ✅ Close the payment modal
+  setReceivePaymentModalOpen(false);
+  
+  // ✅ The user stays on step 7 (summary) and can now click Process Vacate
+  // No need to recalculate - just mark payment as received
+  
+}, []);
+
+// Add a function to check for existing payments for this tenant
+const checkExistingPayments = useCallback(async () => {
+  if (!tenantDetails?.id) return;
+  
+  try {
+    const token = localStorage.getItem('admin_token');
+    const response = await fetch(`/api/payments/tenant/${tenantDetails.id}`, {
+      headers: {
+        'Authorization': token ? `Bearer ${token}` : '',
+      }
+    });
+    const result = await response.json();
+    
+    if (result.success && result.data) {
+      // Check for any penalty_payment records (payment_type = 'penalty_payment')
+      const penaltyPayments = result.data.filter(
+        (p: any) => p.payment_type === 'penalty_payment' && p.status === 'approved'
+      );
+      
+      if (penaltyPayments.length > 0) {
+        const totalPaid = penaltyPayments.reduce((sum: number, p: any) => sum + parseFloat(p.amount), 0);
+        
+        setPaymentReceived(true);
+      } else {
+        
+        setPaymentReceived(false);
+      }
     }
   } catch (error) {
-    console.error("Error fetching inspection penalty:", error);
-    setInspectionPenalty({
-      total_penalty: 0,
-      items: [],
-      has_inspection: false
-    });
-  } finally {
-    setLoadingPenalty(false);
+    console.error("Error checking existing payments:", error);
+    setPaymentReceived(false);
   }
-};
+}, [tenantDetails]);
+
+// Call this when the wizard opens
+useEffect(() => {
+  if (open && tenantDetails?.id) {
+    checkExistingPayments();
+  }
+}, [open, tenantDetails?.id, checkExistingPayments]);
 
   const formatDateForInput = (dateString: string) => {
     if (!dateString) return "";
@@ -365,81 +450,90 @@ const fetchInspectionPenalty = async (tenantName: string) => {
     }
   };
 
-const extractTenantVacateData = async (vacateRequests: any[]) => {
-  if (!vacateRequests || vacateRequests.length === 0) return null;
+  const extractTenantVacateData = async (vacateRequests: any[]) => {
+    if (!vacateRequests || vacateRequests.length === 0) return null;
 
-  // Get the most recent request (by created date)
-  const sortedRequests = [...vacateRequests].sort((a, b) => 
-    new Date(b.vacate_request_date).getTime() - new Date(a.vacate_request_date).getTime()
-  );
-  const latestRequest = sortedRequests[0];
-  
-  const requestWithId = {
-    ...latestRequest,
-    id: latestRequest.vacate_request_id,
-    status: latestRequest.vacate_status, // Use vacate_status instead of request_status
-    created_at: latestRequest.vacate_request_date,
-  };
-  
-  setTenantVacateData(requestWithId);
-  
-  if (latestRequest.expected_vacate_date) {
-    const tenantDate = latestRequest.expected_vacate_date;
-    setTenantVacateDate(tenantDate);
-    const formattedDate = formatDateForInput(tenantDate);
-    setFormData((prev) => ({
-      ...prev,
-      requestedVacateDate: formattedDate,
-    }));
-  }
+    // Get the most recent request (by created date)
+    const sortedRequests = [...vacateRequests].sort(
+      (a, b) =>
+        new Date(b.vacate_request_date).getTime() -
+        new Date(a.vacate_request_date).getTime(),
+    );
+    const latestRequest = sortedRequests[0];
 
-  if (latestRequest.vacate_request_date) {
-    const requestDate = latestRequest.vacate_request_date.split("T")[0];
-    setTenantRequestDate(requestDate);
-  }
+    const requestWithId = {
+      ...latestRequest,
+      id: latestRequest.vacate_request_id,
+      status: latestRequest.vacate_status, // Use vacate_status instead of request_status
+      created_at: latestRequest.vacate_request_date,
+    };
 
-  const parseBoolean = (value: any): boolean => {
-    if (value === 1 || value === "1" || value === true || value === "true") return true;
-    if (value === 0 || value === "0" || value === false || value === "false") return false;
-    return false;
-  };
+    setTenantVacateData(requestWithId);
 
-  const lockinAcceptedFromTenant = parseBoolean(latestRequest.lockin_penalty_accepted);
-  const noticeAcceptedFromTenant = parseBoolean(latestRequest.notice_penalty_accepted);
-
-  setLockinAcceptedByTenant(lockinAcceptedFromTenant);
-  setNoticeGivenByTenant(noticeAcceptedFromTenant);
-
-  const isLockinCompleted = await checkIfLockinCompleted();
-
-  const effectiveLockinAccepted = lockinAcceptedFromTenant || isLockinCompleted;
-  const effectiveNoticeAccepted = noticeAcceptedFromTenant;
-  const termsAgreed = effectiveLockinAccepted && effectiveNoticeAccepted;
-  setTenantAgreedToTerms(termsAgreed);
-
-  const reasonId = latestRequest.primary_reason_id;
-  const reasonText = latestRequest.primary_reason;
-  
-  if (reasonId) {
-    setTenantVacateReasonId(reasonId);
-    const reason = vacateReasons.find((r: any) => r.id === reasonId);
-    if (reason) {
-      setTenantVacateReason(reason.value);
+    if (latestRequest.expected_vacate_date) {
+      const tenantDate = latestRequest.expected_vacate_date;
+      setTenantVacateDate(tenantDate);
+      const formattedDate = formatDateForInput(tenantDate);
       setFormData((prev) => ({
         ...prev,
-        vacateReasonValue: reason.value,
+        requestedVacateDate: formattedDate,
       }));
     }
-  } else if (reasonText) {
-    setTenantVacateReason(reasonText);
-    setFormData((prev) => ({
-      ...prev,
-      vacateReasonValue: reasonText,
-    }));
-  }
 
-  return requestWithId;
-};
+    if (latestRequest.vacate_request_date) {
+      const requestDate = latestRequest.vacate_request_date.split("T")[0];
+      setTenantRequestDate(requestDate);
+    }
+
+    const parseBoolean = (value: any): boolean => {
+      if (value === 1 || value === "1" || value === true || value === "true")
+        return true;
+      if (value === 0 || value === "0" || value === false || value === "false")
+        return false;
+      return false;
+    };
+
+    const lockinAcceptedFromTenant = parseBoolean(
+      latestRequest.lockin_penalty_accepted,
+    );
+    const noticeAcceptedFromTenant = parseBoolean(
+      latestRequest.notice_penalty_accepted,
+    );
+
+    setLockinAcceptedByTenant(lockinAcceptedFromTenant);
+    setNoticeGivenByTenant(noticeAcceptedFromTenant);
+
+    const isLockinCompleted = await checkIfLockinCompleted();
+
+    const effectiveLockinAccepted =
+      lockinAcceptedFromTenant || isLockinCompleted;
+    const effectiveNoticeAccepted = noticeAcceptedFromTenant;
+    const termsAgreed = effectiveLockinAccepted && effectiveNoticeAccepted;
+    setTenantAgreedToTerms(termsAgreed);
+
+    const reasonId = latestRequest.primary_reason_id;
+    const reasonText = latestRequest.primary_reason;
+
+    if (reasonId) {
+      setTenantVacateReasonId(reasonId);
+      const reason = vacateReasons.find((r: any) => r.id === reasonId);
+      if (reason) {
+        setTenantVacateReason(reason.value);
+        setFormData((prev) => ({
+          ...prev,
+          vacateReasonValue: reason.value,
+        }));
+      }
+    } else if (reasonText) {
+      setTenantVacateReason(reasonText);
+      setFormData((prev) => ({
+        ...prev,
+        vacateReasonValue: reasonText,
+      }));
+    }
+
+    return requestWithId;
+  };
 
   const updateFormWithTenantData = () => {
     if (!initialData || !tenantVacateData) return;
@@ -452,7 +546,9 @@ const extractTenantVacateData = async (vacateRequests: any[]) => {
     }
 
     if (tenantVacateReasonId && vacateReasons.length > 0) {
-      const reason = vacateReasons.find((r: any) => r.id === tenantVacateReasonId);
+      const reason = vacateReasons.find(
+        (r: any) => r.id === tenantVacateReasonId,
+      );
       if (reason) {
         setTenantVacateReason(reason.value);
         newFormData.vacateReasonValue = reason.value;
@@ -463,85 +559,88 @@ const extractTenantVacateData = async (vacateRequests: any[]) => {
     setFormData(newFormData);
   };
 
-const checkForExistingRequest = async () => {
-  try {
-    setIsCheckingExisting(true);
-    setWizardDisabled(true);
+  const checkForExistingRequest = async () => {
+    try {
+      setIsCheckingExisting(true);
+      setWizardDisabled(true);
 
-    let adminToken = localStorage.getItem("auth_token");
-    if (!adminToken) adminToken = localStorage.getItem("admin_token");
-    if (!adminToken) adminToken = localStorage.getItem("token");
-    
-    if (!adminToken) {
-      console.warn("⚠️ No admin token found");
-      setExistingVacateRequest(null);
-      setWizardDisabled(false);
-      return;
-    }
+      let adminToken = localStorage.getItem("auth_token");
+      if (!adminToken) adminToken = localStorage.getItem("admin_token");
+      if (!adminToken) adminToken = localStorage.getItem("token");
 
-    const response = await fetch(
-      `/api/admin/vacate-requests?tenant_id=${tenantDetails?.id}`,
-      {
-        headers: {
-          Authorization: `Bearer ${adminToken}`,
-          "Content-Type": "application/json",
+      if (!adminToken) {
+        console.warn("⚠️ No admin token found");
+        setExistingVacateRequest(null);
+        setWizardDisabled(false);
+        return;
+      }
+
+      const response = await fetch(
+        `/api/admin/vacate-requests?tenant_id=${tenantDetails?.id}`,
+        {
+          headers: {
+            Authorization: `Bearer ${adminToken}`,
+            "Content-Type": "application/json",
+          },
         },
-      }
-    );
+      );
 
-    if (response.status === 401) {
-      console.error("❌ Unauthorized - token invalid");
+      if (response.status === 401) {
+        console.error("❌ Unauthorized - token invalid");
+        setExistingVacateRequest(null);
+        setWizardDisabled(false);
+        return;
+      }
+
+      const result = await response.json();
+
+      let vacateRequests = [];
+      if (result.success && Array.isArray(result.data)) {
+        vacateRequests = result.data;
+      }
+
+      // ✅ FIX: Include ALL statuses, not just pending and in_progress
+      // This will fetch requests that are approved, completed, rejected as well
+      const activeVacateRequests = vacateRequests.filter((request) => {
+        const isVacateRequest = request.vacate_request_id !== undefined;
+        const isForCurrentTenant = request.tenant_id === tenantDetails?.id;
+        // ✅ Include ALL statuses - removed the status filter
+        return isVacateRequest && isForCurrentTenant;
+      });
+
+      console.log("🔍 All vacate requests for tenant:", activeVacateRequests);
+
+      if (activeVacateRequests.length > 0) {
+        const tenantRequest =
+          await extractTenantVacateData(activeVacateRequests);
+        if (tenantRequest) {
+          const requestWithId = {
+            ...tenantRequest,
+            id: tenantRequest.vacate_request_id,
+            status: tenantRequest.request_status,
+            created_at:
+              tenantRequest.vacate_request_date ||
+              tenantRequest.request_created,
+          };
+          setExistingVacateRequest(requestWithId);
+          toast.info("Tenant vacate request found", {
+            description: "Loading tenant's vacate request details...",
+            duration: 1000,
+          });
+        }
+      } else {
+        setExistingVacateRequest(null);
+      }
+
+      setWizardDisabled(false);
+    } catch (error) {
+      console.error("❌ Error checking existing request:", error);
       setExistingVacateRequest(null);
       setWizardDisabled(false);
-      return;
+    } finally {
+      setIsCheckingExisting(false);
     }
-
-    const result = await response.json();
-
-    let vacateRequests = [];
-    if (result.success && Array.isArray(result.data)) {
-      vacateRequests = result.data;
-    }
-
-    // ✅ FIX: Include ALL statuses, not just pending and in_progress
-    // This will fetch requests that are approved, completed, rejected as well
-    const activeVacateRequests = vacateRequests.filter((request) => {
-      const isVacateRequest = request.vacate_request_id !== undefined;
-      const isForCurrentTenant = request.tenant_id === tenantDetails?.id;
-      // ✅ Include ALL statuses - removed the status filter
-      return isVacateRequest && isForCurrentTenant;
-    });
-
-    console.log("🔍 All vacate requests for tenant:", activeVacateRequests);
-
-    if (activeVacateRequests.length > 0) {
-      const tenantRequest = await extractTenantVacateData(activeVacateRequests);
-      if (tenantRequest) {
-        const requestWithId = {
-          ...tenantRequest,
-          id: tenantRequest.vacate_request_id,
-          status: tenantRequest.request_status,
-          created_at: tenantRequest.vacate_request_date || tenantRequest.request_created,
-        };
-        setExistingVacateRequest(requestWithId);
-        toast.info("Tenant vacate request found", {
-          description: "Loading tenant's vacate request details...",
-          duration: 1000,
-        });
-      }
-    } else {
-      setExistingVacateRequest(null);
-    }
-
-    setWizardDisabled(false);
-  } catch (error) {
-    console.error("❌ Error checking existing request:", error);
-    setExistingVacateRequest(null);
-    setWizardDisabled(false);
-  } finally {
-    setIsCheckingExisting(false);
-  }
-};
+  };
 
   const fetchRawTenant = async (tenantId: number) => {
     try {
@@ -561,24 +660,27 @@ const checkForExistingRequest = async () => {
 
       if (!tenant) {
         console.error("Tenant not found");
-        setTenantsToVacate([{
-          id: tenantId,
-          full_name: "Unknown",
-          email: "",
-          phone: "",
-          gender: "",
-          is_primary: false,
-          selected: true,
-        }]);
+        setTenantsToVacate([
+          {
+            id: tenantId,
+            full_name: "Unknown",
+            email: "",
+            phone: "",
+            gender: "",
+            is_primary: false,
+            selected: true,
+          },
+        ]);
         setIsCoupleBooking(false);
         return;
       }
 
       const partnerTenantId = tenant.partner_tenant_id;
       const hasPartner = partnerTenantId && partnerTenantId !== tenant.id;
-      const isCurrentlyCoupleBooking = bedAssignment?.is_couple === true || 
-                                        bedAssignment?.is_couple === 1 || 
-                                        bedAssignment?.is_couple === "1";
+      const isCurrentlyCoupleBooking =
+        bedAssignment?.is_couple === true ||
+        bedAssignment?.is_couple === 1 ||
+        bedAssignment?.is_couple === "1";
 
       setIsCoupleBooking(hasPartner && isCurrentlyCoupleBooking);
 
@@ -587,7 +689,7 @@ const checkForExistingRequest = async () => {
 
         if (partner) {
           const isCurrentPrimary = tenant.is_primary_tenant === 1;
-          
+
           if (isCurrentPrimary) {
             setTenantsToVacate([
               {
@@ -692,15 +794,17 @@ const checkForExistingRequest = async () => {
     } catch (error) {
       console.error("Error fetching partner details:", error);
       toast.error("Failed to load tenant details");
-      setTenantsToVacate([{
-        id: tenantDetails?.id || 0,
-        full_name: tenantDetails?.full_name || "Unknown",
-        email: "",
-        phone: "",
-        gender: "",
-        is_primary: false,
-        selected: true,
-      }]);
+      setTenantsToVacate([
+        {
+          id: tenantDetails?.id || 0,
+          full_name: tenantDetails?.full_name || "Unknown",
+          email: "",
+          phone: "",
+          gender: "",
+          is_primary: false,
+          selected: true,
+        },
+      ]);
     } finally {
       setLoadingTenants(false);
     }
@@ -738,13 +842,15 @@ const checkForExistingRequest = async () => {
       initialDataLoadedRef.current = true;
 
       // In loadInitialData function, after setting initialData:
-if (data.bedAssignment && data.bedAssignment.tenant_name) {
-  await fetchInspectionPenalty(data.bedAssignment.tenant_name);
-}
+      if (data.bedAssignment && data.bedAssignment.tenant_name) {
+        await fetchInspectionPenalty(data.bedAssignment.tenant_name);
+      }
 
       if (data.bedAssignment) {
-        const deposit = parseFloat(data.bedAssignment.security_deposit) || 
-                        parseFloat(data.bedAssignment.rent_per_bed) || 0;
+        const deposit =
+          parseFloat(data.bedAssignment.security_deposit) ||
+          parseFloat(data.bedAssignment.rent_per_bed) ||
+          0;
         setSecurityDeposit(deposit);
       }
 
@@ -765,7 +871,8 @@ if (data.bedAssignment && data.bedAssignment.tenant_name) {
       }
     } catch (error) {
       console.error("Error loading initial data:", error);
-      const errorMessage = error instanceof Error ? error.message : "Failed to load vacate data";
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to load vacate data";
       setError(errorMessage);
       toast.error(errorMessage);
     } finally {
@@ -782,89 +889,124 @@ if (data.bedAssignment && data.bedAssignment.tenant_name) {
     }
   };
 
-const handleNext = async () => {
-  if (step === 1) {
-    if (!formData.vacateReasonValue) {
-      toast.error("Please select a vacate reason");
-      return;
+  const handleNext = async () => {
+    if (step === 1) {
+      if (!formData.vacateReasonValue) {
+        toast.error("Please select a vacate reason");
+        return;
+      }
+      if (isCoupleBooking) {
+        setStep(2);
+      } else {
+        setStep(3); // Lock-in (skipping step 2 for non-couple)
+      }
+    } else if (step === 2 && isCoupleBooking) {
+      const selectedCount = tenantsToVacate.filter((t) => t.selected).length;
+      if (selectedCount === 0) {
+        toast.error("Please select at least one tenant to vacate");
+        return;
+      }
+      setStep(3);
+    } else if (step === 3) {
+      // Lock-in
+      setStep(4); // Go to Notice
+    } else if (step === 4) {
+      // Notice
+      setStep(5); // Go to Inspection
+    } else if (step === 5) {
+      // Inspection
+      // Don't validate date here, just go to Date step
+      setStep(6); // Go to Date
+    } else if (step === 6) {
+      // Date
+      if (!formData.requestedVacateDate) {
+        toast.error("Please select vacate date");
+        return;
+      }
+      await calculateAllPenalties();
+      setStep(7); // Go to Summary
+    } else if (step === 7) {
+      // Summary
+      if (
+        !formData.adminApproved &&
+        !isAdminOverrideLockin &&
+        !isAdminOverrideNotice
+      ) {
+        toast.error("Please approve the vacate request");
+        return;
+      }
+      setStep(8); // Go to Result
     }
+  };
+
+  const handleBack = () => {
+    if (step > 1) {
+      if (!isCoupleBooking) {
+        if (step === 3)
+          setStep(1); // Lock-in → Reason
+        else if (step === 4)
+          setStep(3); // Notice → Lock-in
+        else if (step === 5)
+          setStep(4); // Inspection → Notice
+        else if (step === 6)
+          setStep(5); // Date → Inspection
+        else if (step === 7)
+          setStep(6); // Summary → Date
+        else if (step === 8) setStep(7); // Result → Summary
+      } else {
+        setStep(step - 1); // Couple: all sequential 1-8
+      }
+    }
+  };
+
+  const getStepTitles = () => {
     if (isCoupleBooking) {
-      setStep(2);
+      return [
+        "Reason",
+        "Select Tenants",
+        "Lock-in",
+        "Notice",
+        "Inspection",
+        "Date",
+        "Summary",
+        "Result",
+      ];
     } else {
-      setStep(3); // Lock-in (skipping step 2 for non-couple)
+      return [
+        "Reason",
+        "Lock-in",
+        "Notice",
+        "Inspection",
+        "Date",
+        "Summary",
+        "Result",
+      ];
     }
-  } 
-  else if (step === 2 && isCoupleBooking) {
-    const selectedCount = tenantsToVacate.filter(t => t.selected).length;
-    if (selectedCount === 0) {
-      toast.error("Please select at least one tenant to vacate");
-      return;
-    }
-    setStep(3);
-  } 
-  else if (step === 3) {  // Lock-in
-    setStep(4);  // Go to Notice
-  } 
-  else if (step === 4) {  // Notice
-    setStep(5);  // Go to Inspection
-  } 
-  else if (step === 5) {  // Inspection
-    // Don't validate date here, just go to Date step
-    setStep(6);  // Go to Date
-  } 
-  else if (step === 6) {  // Date
-    if (!formData.requestedVacateDate) {
-      toast.error("Please select vacate date");
-      return;
-    }
-    await calculateAllPenalties();
-    setStep(7);  // Go to Summary
-  } 
-  else if (step === 7) {  // Summary
-    if (!formData.adminApproved && !isAdminOverrideLockin && !isAdminOverrideNotice) {
-      toast.error("Please approve the vacate request");
-      return;
-    }
-    setStep(8);  // Go to Result
-  }
-};
+  };
 
-const handleBack = () => {
-  if (step > 1) {
-    if (!isCoupleBooking) {
-      if (step === 3) setStep(1);      // Lock-in → Reason
-      else if (step === 4) setStep(3); // Notice → Lock-in
-      else if (step === 5) setStep(4); // Inspection → Notice
-      else if (step === 6) setStep(5); // Date → Inspection
-      else if (step === 7) setStep(6); // Summary → Date
-      else if (step === 8) setStep(7); // Result → Summary
+  const getIcons = () => {
+    if (isCoupleBooking) {
+      return [
+        FileText,
+        UsersRound,
+        Lock,
+        Bell,
+        Shield,
+        CalendarIcon,
+        CheckCircle,
+        Check,
+      ];
     } else {
-      setStep(step - 1); // Couple: all sequential 1-8
+      return [FileText, Lock, Bell, Shield, CalendarIcon, CheckCircle, Check];
     }
-  }
-};
-
-
-const getStepTitles = () => {
-  if (isCoupleBooking) {
-    return ["Reason", "Select Tenants", "Lock-in", "Notice", "Inspection", "Date", "Summary", "Result"];
-  } else {
-    return ["Reason", "Lock-in", "Notice", "Inspection", "Date", "Summary", "Result"];
-  }
-};
-
-const getIcons = () => {
-  if (isCoupleBooking) {
-    return [FileText, UsersRound, Lock, Bell, Shield, CalendarIcon, CheckCircle, Check];
-  } else {
-    return [FileText, Lock, Bell, Shield, CalendarIcon, CheckCircle, Check];
-  }
-};
+  };
 
   const checkLockinStatus = async () => {
     try {
-      if (!initialData?.bedAssignment?.lockin_period_months ||
-          initialData.bedAssignment.lockin_period_months === 0) {
+      if (
+        !initialData?.bedAssignment?.lockin_period_months ||
+        initialData.bedAssignment.lockin_period_months === 0
+      ) {
         setLockinStatus({
           isCompleted: true,
           message: "No lock-in period required",
@@ -877,9 +1019,10 @@ const getIcons = () => {
       setCalculating(true);
 
       const checkInDateStr = initialData?.bedAssignment?.check_in_date;
-      const lockinMonths = initialData?.bedAssignment?.lockin_period_months || 0;
+      const lockinMonths =
+        initialData?.bedAssignment?.lockin_period_months || 0;
       const currentDate = new Date();
-      
+
       if (!checkInDateStr) {
         setLockinStatus({
           isCompleted: true,
@@ -897,22 +1040,23 @@ const getIcons = () => {
       const normalizedCurrentDate = new Date(
         currentDate.getFullYear(),
         currentDate.getMonth(),
-        currentDate.getDate()
+        currentDate.getDate(),
       );
       const normalizedLockInEnd = new Date(
         lockInEndDate.getFullYear(),
         lockInEndDate.getMonth(),
-        lockInEndDate.getDate()
+        lockInEndDate.getDate(),
       );
 
       const isCompleted = normalizedCurrentDate >= normalizedLockInEnd;
-      
+
       let remainingDays = 0;
       let remainingMonths = 0;
       let completedMonths = 0;
-      
+
       if (!isCompleted) {
-        const timeDiff = normalizedLockInEnd.getTime() - normalizedCurrentDate.getTime();
+        const timeDiff =
+          normalizedLockInEnd.getTime() - normalizedCurrentDate.getTime();
         remainingDays = Math.ceil(timeDiff / (1000 * 3600 * 24));
         remainingMonths = Math.floor(remainingDays / 30);
         completedMonths = lockinMonths - remainingMonths;
@@ -951,363 +1095,375 @@ const getIcons = () => {
     }
   };
 
-const calculateNoticePeriodStatus = () => {
-  if (!initialData?.bedAssignment) {
-    return null;
-  }
-
-  const bedData = initialData.bedAssignment;
-  const noticePeriodDays = bedData.notice_period_days || 0;
-  const currentDate = new Date();
-  
-  // Get lock-in end date
-  const checkInDateStr = bedData.check_in_date;
-  const lockinMonths = bedData.lockin_period_months || 0;
-  
-  if (!checkInDateStr) {
-    return {
-      isNoticeRequired: false,
-      message: "No check-in date found",
-      penaltyApplicable: false,
-      isCompleted: false,
-    };
-  }
-
-  const checkIn = new Date(checkInDateStr);
-  const lockInEndDate = new Date(checkIn);
-  lockInEndDate.setMonth(checkIn.getMonth() + lockinMonths);
-  
-  // Normalize dates for comparison (remove time component)
-  const normalizedCurrentDate = new Date(
-    currentDate.getFullYear(),
-    currentDate.getMonth(),
-    currentDate.getDate()
-  );
-  const normalizedLockInEnd = new Date(
-    lockInEndDate.getFullYear(),
-    lockInEndDate.getMonth(),
-    lockInEndDate.getDate()
-  );
-
-  // Check if lock-in is completed
-  const isLockinCompleted = normalizedCurrentDate >= normalizedLockInEnd;
-  
-  // Notice period starts from lock-in end date (or today if lock-in is already completed)
-  let noticeStartDate: Date;
-  let noticeEndDate: Date;
-  
-  if (isLockinCompleted) {
-    // Lock-in completed - notice starts from lock-in end date
-    noticeStartDate = lockInEndDate;
-  } else {
-    // Lock-in NOT completed - notice starts from today (tenant wants to vacate now)
-    noticeStartDate = normalizedCurrentDate;
-  }
-  
-  noticeEndDate = new Date(noticeStartDate);
-  noticeEndDate.setDate(noticeStartDate.getDate() + noticePeriodDays);
-  
-  const normalizedNoticeEnd = new Date(
-    noticeEndDate.getFullYear(),
-    noticeEndDate.getMonth(),
-    noticeEndDate.getDate()
-  );
-
-  if (noticePeriodDays === 0) {
-    return {
-      isLockinCompleted,
-      isNoticeRequired: false,
-      message: "No notice period required",
-      penaltyApplicable: false,
-      isCompleted: true,
-      lockInEndDate: normalizedLockInEnd.toISOString().split('T')[0],
-      noticeStartDate: noticeStartDate.toISOString().split('T')[0],
-      noticeEndDate: noticeEndDate.toISOString().split('T')[0],
-      noticePeriodDays: 0,
-      daysGiven: 0,
-      daysRemaining: 0,
-    };
-  }
-
-  // Calculate days given and remaining
-  let daysGiven = 0;
-  let daysRemaining = 0;
-  let isNoticeCompleted = false;
-  
-  if (!isLockinCompleted) {
-    // Lock-in NOT completed - tenant is vacating early
-    // They are not giving proper notice because notice period should start after lock-in
-    // Calculate how many days of notice they would have if they waited for lock-in to complete
-    const daysFromNowToLockinEnd = Math.ceil((normalizedLockInEnd.getTime() - normalizedCurrentDate.getTime()) / (1000 * 3600 * 24));
-    
-    // They are giving 0 days of actual notice because they want to vacate now
-    daysGiven = 0;
-    
-    // The notice period requirement is still noticePeriodDays, but since they're not waiting,
-    // all days are remaining
-    daysRemaining = noticePeriodDays;
-    
-    isNoticeCompleted = false;
-  } else {
-    // Lock-in completed - normal notice calculation
-    isNoticeCompleted = normalizedCurrentDate >= normalizedNoticeEnd;
-    
-    if (isNoticeCompleted) {
-      daysGiven = noticePeriodDays;
-      daysRemaining = 0;
-    } else {
-      const timeDiff = normalizedNoticeEnd.getTime() - normalizedCurrentDate.getTime();
-      daysRemaining = Math.ceil(timeDiff / (1000 * 3600 * 24));
-      daysGiven = noticePeriodDays - daysRemaining;
-      
-      // Ensure non-negative
-      if (daysGiven < 0) daysGiven = 0;
-      if (daysRemaining < 0) daysRemaining = 0;
-    }
-  }
-
-  // ✅ PENALTY APPLIES IF:
-  // 1. Notice period is required
-  // 2. And NOT completed (daysRemaining > 0)
-  // This includes cases where lock-in is not completed (they are not giving proper notice)
-  const penaltyApplicable = noticePeriodDays > 0 && daysRemaining > 0;
-
-  if (isLockinCompleted && isNoticeCompleted) {
-    return {
-      isLockinCompleted: true,
-      isNoticeGiven: true,
-      isCompleted: true,
-      lockInEndDate: normalizedLockInEnd.toISOString().split('T')[0],
-      noticeStartDate: noticeStartDate.toISOString().split('T')[0],
-      noticeEndDate: normalizedNoticeEnd.toISOString().split('T')[0],
-      noticePeriodDays,
-      daysGiven,
-      daysRemaining: 0,
-      message: `✓ Notice period completed (${daysGiven} days given out of required ${noticePeriodDays} days)`,
-      penaltyApplicable: false,
-      waitingForLockin: false
-    };
-  } else if (!isLockinCompleted) {
-    // Lock-in not completed - tenant wants to vacate early
-    return {
-      isLockinCompleted: false,
-      isNoticeGiven: false,
-      isCompleted: false,
-      lockInEndDate: normalizedLockInEnd.toISOString().split('T')[0],
-      noticeStartDate: noticeStartDate.toISOString().split('T')[0],
-      noticeEndDate: normalizedNoticeEnd.toISOString().split('T')[0],
-      noticePeriodDays,
-      daysGiven: 0,
-      daysRemaining: noticePeriodDays,
-      message: `⚠️ Lock-in period not completed. Notice period of ${noticePeriodDays} days required. You are vacating early, so full notice period penalty applies (${noticePeriodDays} days remaining).`,
-      penaltyApplicable: true,  // ✅ PENALTY APPLIES
-      waitingForLockin: true
-    };
-  } else {
-    // Lock-in completed but notice not completed
-    return {
-      isLockinCompleted: true,
-      isNoticeGiven: true,
-      isCompleted: false,
-      lockInEndDate: normalizedLockInEnd.toISOString().split('T')[0],
-      noticeStartDate: noticeStartDate.toISOString().split('T')[0],
-      noticeEndDate: normalizedNoticeEnd.toISOString().split('T')[0],
-      noticePeriodDays,
-      daysGiven,
-      daysRemaining,
-      message: `⚠️ Notice period not completed (${daysGiven} days given, ${daysRemaining} days remaining out of required ${noticePeriodDays} days)`,
-      penaltyApplicable: true,  // ✅ PENALTY APPLIES
-      waitingForLockin: false
-    };
-  }
-};
-
-const calculateAllPenalties = async () => {
-  try {
-    setCalculating(true);
-
+  const calculateNoticePeriodStatus = () => {
     if (!initialData?.bedAssignment) {
-      throw new Error("No bed assignment data");
+      return null;
     }
 
     const bedData = initialData.bedAssignment;
-    const securityDepositAmount = parseFloat(bedData.security_deposit) || 0;
-    const rentPerBed = parseFloat(bedData.rent_per_bed) || 0;
+    const noticePeriodDays = bedData.notice_period_days || 0;
+    const currentDate = new Date();
 
-    if (!lockinStatus) {
-      await checkLockinStatus();
+    // Get lock-in end date
+    const checkInDateStr = bedData.check_in_date;
+    const lockinMonths = bedData.lockin_period_months || 0;
+
+    if (!checkInDateStr) {
+      return {
+        isNoticeRequired: false,
+        message: "No check-in date found",
+        penaltyApplicable: false,
+        isCompleted: false,
+      };
     }
 
-    let lockinPenalty = 0;
-    let lockinPenaltyApplicable = false;
-    let lockinPenaltyDescription = "";
+    const checkIn = new Date(checkInDateStr);
+    const lockInEndDate = new Date(checkIn);
+    lockInEndDate.setMonth(checkIn.getMonth() + lockinMonths);
 
-    // Calculate LOCK-IN PENALTY
-    if (isAdminOverrideLockin) {
-      lockinPenalty = 0;
-      lockinPenaltyApplicable = false;
-      lockinPenaltyDescription = "Waived by admin override";
-    } else if (lockinStatus && lockinStatus.penaltyApplicable) {
-      lockinPenaltyApplicable = true;
-      const penaltyAmount = parseFloat(bedData.lockin_penalty_amount) || 0;
-      const penaltyType = bedData.lockin_penalty_type || "";
+    // Normalize dates for comparison (remove time component)
+    const normalizedCurrentDate = new Date(
+      currentDate.getFullYear(),
+      currentDate.getMonth(),
+      currentDate.getDate(),
+    );
+    const normalizedLockInEnd = new Date(
+      lockInEndDate.getFullYear(),
+      lockInEndDate.getMonth(),
+      lockInEndDate.getDate(),
+    );
 
-      if (penaltyAmount > 0) {
-        if (penaltyType === "percentage" && penaltyAmount < 100) {
-          lockinPenalty = Math.round((securityDepositAmount * penaltyAmount) / 100);
-          lockinPenaltyDescription = `${penaltyAmount}% of security deposit (${formatCurrency(lockinPenalty)})`;
+    // Check if lock-in is completed
+    const isLockinCompleted = normalizedCurrentDate >= normalizedLockInEnd;
+
+    // Notice period starts from lock-in end date (or today if lock-in is already completed)
+    let noticeStartDate: Date;
+    let noticeEndDate: Date;
+
+    if (isLockinCompleted) {
+      // Lock-in completed - notice starts from lock-in end date
+      noticeStartDate = lockInEndDate;
+    } else {
+      // Lock-in NOT completed - notice starts from today (tenant wants to vacate now)
+      noticeStartDate = normalizedCurrentDate;
+    }
+
+    noticeEndDate = new Date(noticeStartDate);
+    noticeEndDate.setDate(noticeStartDate.getDate() + noticePeriodDays);
+
+    const normalizedNoticeEnd = new Date(
+      noticeEndDate.getFullYear(),
+      noticeEndDate.getMonth(),
+      noticeEndDate.getDate(),
+    );
+
+    if (noticePeriodDays === 0) {
+      return {
+        isLockinCompleted,
+        isNoticeRequired: false,
+        message: "No notice period required",
+        penaltyApplicable: false,
+        isCompleted: true,
+        lockInEndDate: normalizedLockInEnd.toISOString().split("T")[0],
+        noticeStartDate: noticeStartDate.toISOString().split("T")[0],
+        noticeEndDate: noticeEndDate.toISOString().split("T")[0],
+        noticePeriodDays: 0,
+        daysGiven: 0,
+        daysRemaining: 0,
+      };
+    }
+
+    // Calculate days given and remaining
+    let daysGiven = 0;
+    let daysRemaining = 0;
+    let isNoticeCompleted = false;
+
+    if (!isLockinCompleted) {
+      // Lock-in NOT completed - tenant is vacating early
+      // They are not giving proper notice because notice period should start after lock-in
+      // Calculate how many days of notice they would have if they waited for lock-in to complete
+      const daysFromNowToLockinEnd = Math.ceil(
+        (normalizedLockInEnd.getTime() - normalizedCurrentDate.getTime()) /
+          (1000 * 3600 * 24),
+      );
+
+      // They are giving 0 days of actual notice because they want to vacate now
+      daysGiven = 0;
+
+      // The notice period requirement is still noticePeriodDays, but since they're not waiting,
+      // all days are remaining
+      daysRemaining = noticePeriodDays;
+
+      isNoticeCompleted = false;
+    } else {
+      // Lock-in completed - normal notice calculation
+      isNoticeCompleted = normalizedCurrentDate >= normalizedNoticeEnd;
+
+      if (isNoticeCompleted) {
+        daysGiven = noticePeriodDays;
+        daysRemaining = 0;
+      } else {
+        const timeDiff =
+          normalizedNoticeEnd.getTime() - normalizedCurrentDate.getTime();
+        daysRemaining = Math.ceil(timeDiff / (1000 * 3600 * 24));
+        daysGiven = noticePeriodDays - daysRemaining;
+
+        // Ensure non-negative
+        if (daysGiven < 0) daysGiven = 0;
+        if (daysRemaining < 0) daysRemaining = 0;
+      }
+    }
+
+    // ✅ PENALTY APPLIES IF:
+    // 1. Notice period is required
+    // 2. And NOT completed (daysRemaining > 0)
+    // This includes cases where lock-in is not completed (they are not giving proper notice)
+    const penaltyApplicable = noticePeriodDays > 0 && daysRemaining > 0;
+
+    if (isLockinCompleted && isNoticeCompleted) {
+      return {
+        isLockinCompleted: true,
+        isNoticeGiven: true,
+        isCompleted: true,
+        lockInEndDate: normalizedLockInEnd.toISOString().split("T")[0],
+        noticeStartDate: noticeStartDate.toISOString().split("T")[0],
+        noticeEndDate: normalizedNoticeEnd.toISOString().split("T")[0],
+        noticePeriodDays,
+        daysGiven,
+        daysRemaining: 0,
+        message: `✓ Notice period completed (${daysGiven} days given out of required ${noticePeriodDays} days)`,
+        penaltyApplicable: false,
+        waitingForLockin: false,
+      };
+    } else if (!isLockinCompleted) {
+      // Lock-in not completed - tenant wants to vacate early
+      return {
+        isLockinCompleted: false,
+        isNoticeGiven: false,
+        isCompleted: false,
+        lockInEndDate: normalizedLockInEnd.toISOString().split("T")[0],
+        noticeStartDate: noticeStartDate.toISOString().split("T")[0],
+        noticeEndDate: normalizedNoticeEnd.toISOString().split("T")[0],
+        noticePeriodDays,
+        daysGiven: 0,
+        daysRemaining: noticePeriodDays,
+        message: `⚠️ Lock-in period not completed. Notice period of ${noticePeriodDays} days required. You are vacating early, so full notice period penalty applies (${noticePeriodDays} days remaining).`,
+        penaltyApplicable: true, // ✅ PENALTY APPLIES
+        waitingForLockin: true,
+      };
+    } else {
+      // Lock-in completed but notice not completed
+      return {
+        isLockinCompleted: true,
+        isNoticeGiven: true,
+        isCompleted: false,
+        lockInEndDate: normalizedLockInEnd.toISOString().split("T")[0],
+        noticeStartDate: noticeStartDate.toISOString().split("T")[0],
+        noticeEndDate: normalizedNoticeEnd.toISOString().split("T")[0],
+        noticePeriodDays,
+        daysGiven,
+        daysRemaining,
+        message: `⚠️ Notice period not completed (${daysGiven} days given, ${daysRemaining} days remaining out of required ${noticePeriodDays} days)`,
+        penaltyApplicable: true, // ✅ PENALTY APPLIES
+        waitingForLockin: false,
+      };
+    }
+  };
+
+  const calculateAllPenalties = async () => {
+    try {
+      setCalculating(true);
+
+      if (!initialData?.bedAssignment) {
+        throw new Error("No bed assignment data");
+      }
+
+      const bedData = initialData.bedAssignment;
+      const securityDepositAmount = parseFloat(bedData.security_deposit) || 0;
+      const rentPerBed = parseFloat(bedData.rent_per_bed) || 0;
+
+      if (!lockinStatus) {
+        await checkLockinStatus();
+      }
+
+      let lockinPenalty = 0;
+      let lockinPenaltyApplicable = false;
+      let lockinPenaltyDescription = "";
+
+      // Calculate LOCK-IN PENALTY
+      if (isAdminOverrideLockin) {
+        lockinPenalty = 0;
+        lockinPenaltyApplicable = false;
+        lockinPenaltyDescription = "Waived by admin override";
+      } else if (lockinStatus && lockinStatus.penaltyApplicable) {
+        lockinPenaltyApplicable = true;
+        const penaltyAmount = parseFloat(bedData.lockin_penalty_amount) || 0;
+        const penaltyType = bedData.lockin_penalty_type || "";
+
+        if (penaltyAmount > 0) {
+          if (penaltyType === "percentage" && penaltyAmount < 100) {
+            lockinPenalty = Math.round(
+              (securityDepositAmount * penaltyAmount) / 100,
+            );
+            lockinPenaltyDescription = `${penaltyAmount}% of security deposit (${formatCurrency(lockinPenalty)})`;
+          } else {
+            lockinPenalty = penaltyAmount;
+            lockinPenaltyDescription = `Fixed penalty (${formatCurrency(lockinPenalty)})`;
+          }
+        } else if (penaltyType) {
+          if (penaltyType.includes("%")) {
+            const percentage = parseInt(penaltyType);
+            lockinPenalty = Math.round(
+              (securityDepositAmount * percentage) / 100,
+            );
+            lockinPenaltyDescription = `${penaltyType} of security deposit (${formatCurrency(lockinPenalty)})`;
+          } else if (penaltyType.includes("one_month_rent")) {
+            lockinPenalty = rentPerBed;
+            lockinPenaltyDescription = `One month rent (${formatCurrency(lockinPenalty)})`;
+          } else {
+            lockinPenalty = rentPerBed;
+            lockinPenaltyDescription = `Standard penalty (${formatCurrency(lockinPenalty)})`;
+          }
         } else {
-          lockinPenalty = penaltyAmount;
-          lockinPenaltyDescription = `Fixed penalty (${formatCurrency(lockinPenalty)})`;
-        }
-      } else if (penaltyType) {
-        if (penaltyType.includes("%")) {
-          const percentage = parseInt(penaltyType);
-          lockinPenalty = Math.round((securityDepositAmount * percentage) / 100);
-          lockinPenaltyDescription = `${penaltyType} of security deposit (${formatCurrency(lockinPenalty)})`;
-        } else if (penaltyType.includes("one_month_rent")) {
           lockinPenalty = rentPerBed;
           lockinPenaltyDescription = `One month rent (${formatCurrency(lockinPenalty)})`;
-        } else {
-          lockinPenalty = rentPerBed;
-          lockinPenaltyDescription = `Standard penalty (${formatCurrency(lockinPenalty)})`;
         }
-      } else {
-        lockinPenalty = rentPerBed;
-        lockinPenaltyDescription = `One month rent (${formatCurrency(lockinPenalty)})`;
+      } else if (lockinStatus?.isCompleted) {
+        lockinPenaltyDescription = "No penalty - Lock-in period completed";
       }
-    } else if (lockinStatus?.isCompleted) {
-      lockinPenaltyDescription = "No penalty - Lock-in period completed";
-    }
 
-    let noticePenalty = 0;
-    let noticePenaltyApplicable = false;
-    let noticePenaltyDescription = "";
+      let noticePenalty = 0;
+      let noticePenaltyApplicable = false;
+      let noticePenaltyDescription = "";
 
-    const noticeStatus = calculateNoticePeriodStatus();
-    setNoticePeriodStatus(noticeStatus);
+      const noticeStatus = calculateNoticePeriodStatus();
+      setNoticePeriodStatus(noticeStatus);
 
-    // Calculate NOTICE PENALTY
-    if (isAdminOverrideNotice) {
-      noticePenalty = 0;
-      noticePenaltyApplicable = false;
-      noticePenaltyDescription = "Waived by admin override";
-    } else if (noticeStatus?.penaltyApplicable) {
-      noticePenaltyApplicable = true;
-      const penaltyAmount = parseFloat(bedData.notice_penalty_amount) || 0;
-      const penaltyType = bedData.notice_penalty_type || "";
+      // Calculate NOTICE PENALTY
+      if (isAdminOverrideNotice) {
+        noticePenalty = 0;
+        noticePenaltyApplicable = false;
+        noticePenaltyDescription = "Waived by admin override";
+      } else if (noticeStatus?.penaltyApplicable) {
+        noticePenaltyApplicable = true;
+        const penaltyAmount = parseFloat(bedData.notice_penalty_amount) || 0;
+        const penaltyType = bedData.notice_penalty_type || "";
 
-      if (penaltyAmount > 0) {
-        if (penaltyType === "percentage" && penaltyAmount < 100) {
-          noticePenalty = Math.round((securityDepositAmount * penaltyAmount) / 100);
-          noticePenaltyDescription = `${penaltyAmount}% of security deposit (${formatCurrency(noticePenalty)})`;
+        if (penaltyAmount > 0) {
+          if (penaltyType === "percentage" && penaltyAmount < 100) {
+            noticePenalty = Math.round(
+              (securityDepositAmount * penaltyAmount) / 100,
+            );
+            noticePenaltyDescription = `${penaltyAmount}% of security deposit (${formatCurrency(noticePenalty)})`;
+          } else {
+            noticePenalty = penaltyAmount;
+            noticePenaltyDescription = `Fixed penalty (${formatCurrency(noticePenalty)})`;
+          }
+        } else if (penaltyType) {
+          if (penaltyType.includes("%")) {
+            const percentage = parseInt(penaltyType);
+            noticePenalty = Math.round(
+              (securityDepositAmount * percentage) / 100,
+            );
+            noticePenaltyDescription = `${penaltyType} of security deposit (${formatCurrency(noticePenalty)})`;
+          } else if (penaltyType.includes("one_month_rent")) {
+            noticePenalty = rentPerBed;
+            noticePenaltyDescription = `One month rent (${formatCurrency(noticePenalty)})`;
+          } else {
+            noticePenalty = rentPerBed;
+            noticePenaltyDescription = `Standard penalty (${formatCurrency(noticePenalty)})`;
+          }
         } else {
-          noticePenalty = penaltyAmount;
-          noticePenaltyDescription = `Fixed penalty (${formatCurrency(noticePenalty)})`;
-        }
-      } else if (penaltyType) {
-        if (penaltyType.includes("%")) {
-          const percentage = parseInt(penaltyType);
-          noticePenalty = Math.round((securityDepositAmount * percentage) / 100);
-          noticePenaltyDescription = `${penaltyType} of security deposit (${formatCurrency(noticePenalty)})`;
-        } else if (penaltyType.includes("one_month_rent")) {
           noticePenalty = rentPerBed;
           noticePenaltyDescription = `One month rent (${formatCurrency(noticePenalty)})`;
-        } else {
-          noticePenalty = rentPerBed;
-          noticePenaltyDescription = `Standard penalty (${formatCurrency(noticePenalty)})`;
         }
-      } else {
-        noticePenalty = rentPerBed;
-        noticePenaltyDescription = `One month rent (${formatCurrency(noticePenalty)})`;
+      } else if (noticeStatus?.isCompleted) {
+        noticePenaltyDescription = "No penalty - Notice period completed";
       }
-    } else if (noticeStatus?.isCompleted) {
-      noticePenaltyDescription = "No penalty - Notice period completed";
-    }
 
+      // ✅ ADD INSPECTION PENALTY (from move-out inspection)
+      let inspectionPenaltyAmount = inspectionPenalty.total_penalty;
+      let inspectionPenaltyDescription = "";
 
-    // ✅ ADD INSPECTION PENALTY (from move-out inspection)
-    let inspectionPenaltyAmount = inspectionPenalty.total_penalty;
-    let inspectionPenaltyDescription = "";
-    
-    if (inspectionPenaltyAmount > 0) {
-      inspectionPenaltyDescription = `Move-out inspection penalty (${inspectionPenalty.items.length} damaged/missing items)`;
-      console.log(`🔍 Inspection penalty: ₹${inspectionPenaltyAmount}`);
-    }
+      if (inspectionPenaltyAmount > 0) {
+        inspectionPenaltyDescription = `Move-out inspection penalty (${inspectionPenalty.items.length} damaged/missing items)`;
+        console.log(`🔍 Inspection penalty: ₹${inspectionPenaltyAmount}`);
+      }
 
-    // ✅ FIX: Calculate total penalty correctly - ADD both penalties
-    const totalPenalty = lockinPenalty + noticePenalty + inspectionPenaltyAmount; 
-    const refundableAmount = securityDepositAmount - totalPenalty;
+      // ✅ FIX: Calculate total penalty correctly - ADD both penalties
+      const totalPenalty =
+        lockinPenalty + noticePenalty + inspectionPenaltyAmount;
+      const refundableAmount = securityDepositAmount - totalPenalty;
 
-    console.log("💰 Penalty Calculation:", {
-      securityDepositAmount,
-      lockinPenalty,
-      noticePenalty,
-      totalPenalty,
-      refundableAmount,
-      isAdminOverrideLockin,
-      isAdminOverrideNotice,
-      lockinPenaltyApplicable,
-      noticePenaltyApplicable
-    });
-
-    setFormData((prev) => ({
-      ...prev,
-      lockinPenaltyApplied: lockinPenalty > 0,
-      noticePenaltyApplied: noticePenalty > 0,
-      finalPenaltyAmount: totalPenalty,
-      securityRefundAmount: Math.max(0, refundableAmount),
-    }));
-
-    setCalculation({
-      financials: {
-        securityDeposit: securityDepositAmount,
+      console.log("💰 Penalty Calculation:", {
+        securityDepositAmount,
         lockinPenalty,
         noticePenalty,
-         inspectionPenalty: inspectionPenaltyAmount,
         totalPenalty,
-        refundableAmount: Math.max(0, refundableAmount),
-      },
-      lockinPolicy: {
-        isCompleted: lockinStatus?.isCompleted || false,
-        periodMonths: bedData.lockin_period_months || 0,
-        penaltyType: bedData.lockin_penalty_type || "",
-        penaltyAmount: bedData.lockin_penalty_amount || 0,
-        penaltyDescription: lockinPenaltyDescription,
-        checkInDate: bedData.check_in_date,
-        lockInEndDate: lockinStatus?.lockInEndDate,
-        penaltyApplicable: lockinPenaltyApplicable && !isAdminOverrideLockin,
-      },
-      noticePolicy: {
-        isNoticeRequired: noticeStatus?.isNoticeRequired ?? true,
-        isNoticeGiven: noticeStatus?.isNoticeGiven || false,
-        isCompleted: noticeStatus?.isCompleted || false,
-        lockInEndDate: noticeStatus?.lockInEndDate || null,
-        noticeStartDate: noticeStatus?.noticeStartDate || null,
-        noticeEndDate: noticeStatus?.noticeEndDate || null,
-        periodDays: noticeStatus?.noticePeriodDays || 0,
-        daysCompleted: noticeStatus?.daysGiven || 0,
-        daysRemaining: noticeStatus?.daysRemaining || 0,
-        penaltyType: bedData.notice_penalty_type || "",
-        penaltyAmount: bedData.notice_penalty_amount || 0,
-        penaltyDescription: noticePenaltyDescription,
-        message: noticeStatus?.message || "",
-        penaltyApplicable: noticePenaltyApplicable && !isAdminOverrideNotice,
-      },
-      inspectionPenalty: {
-        amount: inspectionPenaltyAmount,
-        items: inspectionPenalty.items,
-        has_inspection: inspectionPenalty.has_inspection,
-        description: inspectionPenaltyDescription
-      }
-    });
-  } catch (error) {
-    console.error("❌ Error calculating penalties:", error);
-    toast.error("Error calculating penalties");
-  } finally {
-    setCalculating(false);
-  }
-};
+        refundableAmount,
+        isAdminOverrideLockin,
+        isAdminOverrideNotice,
+        lockinPenaltyApplicable,
+        noticePenaltyApplicable,
+      });
+
+      setFormData((prev) => ({
+        ...prev,
+        lockinPenaltyApplied: lockinPenalty > 0,
+        noticePenaltyApplied: noticePenalty > 0,
+        finalPenaltyAmount: totalPenalty,
+        securityRefundAmount: Math.max(0, refundableAmount),
+      }));
+
+      setCalculation({
+        financials: {
+          securityDeposit: securityDepositAmount,
+          lockinPenalty,
+          noticePenalty,
+          inspectionPenalty: inspectionPenaltyAmount,
+          totalPenalty,
+          refundableAmount: refundableAmount,
+        },
+        lockinPolicy: {
+          isCompleted: lockinStatus?.isCompleted || false,
+          periodMonths: bedData.lockin_period_months || 0,
+          penaltyType: bedData.lockin_penalty_type || "",
+          penaltyAmount: bedData.lockin_penalty_amount || 0,
+          penaltyDescription: lockinPenaltyDescription,
+          checkInDate: bedData.check_in_date,
+          lockInEndDate: lockinStatus?.lockInEndDate,
+          penaltyApplicable: lockinPenaltyApplicable && !isAdminOverrideLockin,
+        },
+        noticePolicy: {
+          isNoticeRequired: noticeStatus?.isNoticeRequired ?? true,
+          isNoticeGiven: noticeStatus?.isNoticeGiven || false,
+          isCompleted: noticeStatus?.isCompleted || false,
+          lockInEndDate: noticeStatus?.lockInEndDate || null,
+          noticeStartDate: noticeStatus?.noticeStartDate || null,
+          noticeEndDate: noticeStatus?.noticeEndDate || null,
+          periodDays: noticeStatus?.noticePeriodDays || 0,
+          daysCompleted: noticeStatus?.daysGiven || 0,
+          daysRemaining: noticeStatus?.daysRemaining || 0,
+          penaltyType: bedData.notice_penalty_type || "",
+          penaltyAmount: bedData.notice_penalty_amount || 0,
+          penaltyDescription: noticePenaltyDescription,
+          message: noticeStatus?.message || "",
+          penaltyApplicable: noticePenaltyApplicable && !isAdminOverrideNotice,
+        },
+        inspectionPenalty: {
+          amount: inspectionPenaltyAmount,
+          items: inspectionPenalty.items,
+          has_inspection: inspectionPenalty.has_inspection,
+          description: inspectionPenaltyDescription,
+        },
+      });
+    } catch (error) {
+      console.error("❌ Error calculating penalties:", error);
+      toast.error("Error calculating penalties");
+    } finally {
+      setCalculating(false);
+    }
+  };
 
   const formatCurrency = (amount: number) => {
     if (isNaN(amount)) return "₹0";
@@ -1337,244 +1493,314 @@ const calculateAllPenalties = async () => {
     }
   };
 
-const handleSubmit = async () => {
-  try {
-    setLoading(true);
+  const handleSubmit = async () => {
+    try {
+      setLoading(true);
 
-    const selectedTenants = tenantsToVacate.filter(t => t.selected);
-    
-    if (selectedTenants.length === 0) {
-      toast.error("Please select at least one tenant to vacate");
-      setLoading(false);
-      return;
-    }
+      const selectedTenants = tenantsToVacate.filter((t) => t.selected);
 
-    const results = [];
-    const errors = [];
+      if (selectedTenants.length === 0) {
+        toast.error("Please select at least one tenant to vacate");
+        setLoading(false);
+        return;
+      }
 
-    for (const tenant of selectedTenants) {
-      try {
-        // Calculate final amounts based on individual override flags
-        let finalLockinPenaltyAmount = 0;
-        let finalNoticePenaltyAmount = 0;
-        let finalInspectionPenaltyAmount = 0;
-        let finalTotalPenaltyAmount = 0;
-        let finalRefundableAmount = 0;
-        let finalLockinPenaltyApplied = false;
-        let finalNoticePenaltyApplied = false;
+      const results = [];
+      const errors = [];
+
+      for (const tenant of selectedTenants) {
+        try {
+          // Calculate final amounts based on individual override flags
+          let finalLockinPenaltyAmount = 0;
+          let finalNoticePenaltyAmount = 0;
+          let finalInspectionPenaltyAmount = 0;
+          let finalTotalPenaltyAmount = 0;
+          let finalRefundableAmount = 0;
+          let finalLockinPenaltyApplied = false;
+          let finalNoticePenaltyApplied = false;
+
+          // For partial vacate (only one tenant in couple booking), split the amounts
+          const isPartialVacateSelected =
+            selectedTenants.length === 1 && tenantsToVacate.length === 2;
+
+          finalInspectionPenaltyAmount = isPartialVacateSelected
+            ? Math.floor((inspectionPenalty.total_penalty || 0) / 2)
+            : inspectionPenalty.total_penalty || 0;
+
+                    // ✅ Calculate the actual refundable amount based on whether payment was received
+        let actualRefundableAmount = calculation?.financials?.refundableAmount || 0;
         
-        // For partial vacate (only one tenant in couple booking), split the amounts
-        const isPartialVacateSelected = selectedTenants.length === 1 && tenantsToVacate.length === 2;
-        
-finalInspectionPenaltyAmount = isPartialVacateSelected
-          ? Math.floor((inspectionPenalty.total_penalty || 0) / 2)
-          : (inspectionPenalty.total_penalty || 0);
-
-        if (isAdminOverrideLockin || isAdminOverrideNotice) {
-          // Individual overrides
-          if (isAdminOverrideLockin) {
-            finalLockinPenaltyAmount = 0;
-            finalLockinPenaltyApplied = false;
-          } else {
-            finalLockinPenaltyAmount = isPartialVacateSelected 
-              ? Math.floor((calculation?.financials?.lockinPenalty || formData.finalPenaltyAmount) / 2)
-              : (calculation?.financials?.lockinPenalty || formData.finalPenaltyAmount);
-            finalLockinPenaltyApplied = formData.lockinPenaltyApplied;
-          }
-          
-          if (isAdminOverrideNotice) {
-            finalNoticePenaltyAmount = 0;
-            finalNoticePenaltyApplied = false;
-          } else {
-            finalNoticePenaltyAmount = isPartialVacateSelected
-              ? Math.floor((calculation?.financials?.noticePenalty || 0) / 2)
-              : (calculation?.financials?.noticePenalty || 0);
-            finalNoticePenaltyApplied = formData.noticePenaltyApplied;
-          }
-          
-          finalTotalPenaltyAmount = finalLockinPenaltyAmount + finalNoticePenaltyAmount + finalInspectionPenaltyAmount;
-          finalRefundableAmount = (calculation?.financials?.securityDeposit || securityDeposit) - finalTotalPenaltyAmount;
-        } 
-        else if (existingVacateRequest) {
-          // Tenant submitted a vacate request - use calculations from the request
-          finalLockinPenaltyAmount = isPartialVacateSelected
-            ? Math.floor((calculation?.financials?.lockinPenalty || formData.finalPenaltyAmount) / 2)
-            : (calculation?.financials?.lockinPenalty || formData.finalPenaltyAmount);
-          finalNoticePenaltyAmount = isPartialVacateSelected
-            ? Math.floor((calculation?.financials?.noticePenalty || 0) / 2)
-            : (calculation?.financials?.noticePenalty || 0);
-          finalTotalPenaltyAmount = finalLockinPenaltyAmount + finalNoticePenaltyAmount + finalInspectionPenaltyAmount;
-          finalRefundableAmount = isPartialVacateSelected
-            ? Math.floor((calculation?.financials?.refundableAmount || formData.securityRefundAmount) / 2)
-            : (calculation?.financials?.refundableAmount || formData.securityRefundAmount);
-          finalLockinPenaltyApplied = formData.lockinPenaltyApplied;
-          finalNoticePenaltyApplied = formData.noticePenaltyApplied;
-        } 
-        else {
-          // No tenant request, admin is processing manually
-          finalLockinPenaltyAmount = isPartialVacateSelected
-            ? Math.floor((calculation?.financials?.lockinPenalty || formData.finalPenaltyAmount) / 2)
-            : (calculation?.financials?.lockinPenalty || formData.finalPenaltyAmount);
-          finalNoticePenaltyAmount = isPartialVacateSelected
-            ? Math.floor((calculation?.financials?.noticePenalty || 0) / 2)
-            : (calculation?.financials?.noticePenalty || 0);
-          finalTotalPenaltyAmount = finalLockinPenaltyAmount + finalNoticePenaltyAmount + finalInspectionPenaltyAmount;
-          finalRefundableAmount = isPartialVacateSelected
-            ? Math.floor((calculation?.financials?.refundableAmount || formData.securityRefundAmount) / 2)
-            : (calculation?.financials?.refundableAmount || formData.securityRefundAmount);
-          finalLockinPenaltyApplied = formData.lockinPenaltyApplied;
-          finalNoticePenaltyApplied = formData.noticePenaltyApplied;
+        // ✅ If payment was received (tenant owed money), set refundable to 0
+        if (paymentReceived && actualRefundableAmount < 0) {
+          actualRefundableAmount = 0;
         }
 
-        // Ensure refund amount is not negative
-        const safeRefundableAmount = Math.max(0, finalRefundableAmount);
 
-        console.log("💰 Submitting with values:", {
-          tenantId: tenant.id,
-          tenantName: tenant.full_name,
-          finalLockinPenaltyAmount,
-          finalNoticePenaltyAmount,
-           finalInspectionPenaltyAmount,
-          finalTotalPenaltyAmount,
-          finalRefundableAmount: safeRefundableAmount,
-          finalLockinPenaltyApplied,
-          finalNoticePenaltyApplied,
-          isAdminOverrideLockin,
-          isAdminOverrideNotice,
-          isPartialVacateSelected
-        });
+          if (isAdminOverrideLockin || isAdminOverrideNotice) {
+            // Individual overrides
+            if (isAdminOverrideLockin) {
+              finalLockinPenaltyAmount = 0;
+              finalLockinPenaltyApplied = false;
+            } else {
+              finalLockinPenaltyAmount = isPartialVacateSelected
+                ? Math.floor(
+                    (calculation?.financials?.lockinPenalty ||
+                      formData.finalPenaltyAmount) / 2,
+                  )
+                : calculation?.financials?.lockinPenalty ||
+                  formData.finalPenaltyAmount;
+              finalLockinPenaltyApplied = formData.lockinPenaltyApplied;
+            }
 
-        const payload = {
-          bedAssignmentId: bedAssignment.id,
-          tenantId: tenant.id,
-          vacateReasonValue: (isAdminOverrideLockin || isAdminOverrideNotice) 
-            ? `Admin forced vacate - ${formData.vacateReasonValue || tenantVacateReason}` 
-            : (tenantVacateReason || formData.vacateReasonValue),
-          isNoticeGiven: noticeGivenByTenant || formData.isNoticeGiven || true,
-          noticeGivenDate: tenantRequestDate || formData.noticeGivenDate || new Date().toISOString().split('T')[0],
-          requestedVacateDate: formData.requestedVacateDate,  
-          tenantAgreed: true,
-          lockinPeriodMonths: initialData?.bedAssignment?.lockin_period_months || 0,
-          lockinPenaltyType: initialData?.bedAssignment?.lockin_penalty_type || '',
-          lockinPenaltyAmount: finalLockinPenaltyAmount,
-          noticePeriodDays: initialData?.bedAssignment?.notice_period_days || 0,
-          noticePenaltyType: initialData?.bedAssignment?.notice_penalty_type || '',
-          noticePenaltyAmount: finalNoticePenaltyAmount,
-          inspectionPenaltyAmount: finalInspectionPenaltyAmount,
-          securityDepositAmount: initialData?.bedAssignment?.security_deposit || securityDeposit || 0,
-          totalPenaltyAmount: finalTotalPenaltyAmount,
-          refundableAmount: safeRefundableAmount,
-          lockinPenaltyApplied: finalLockinPenaltyApplied,
-          noticePenaltyApplied: finalNoticePenaltyApplied,
-          adminApproved: formData.adminApproved,
-          tenantVacateRequestId: existingVacateRequest?.id,
-          isPartialVacate: isPartialVacateSelected,
-          // ✅ IMPORTANT: Send individual override flags, NOT a single isAdminOverride
-          isLockinAdminOverride: isAdminOverrideLockin,
-          isNoticeAdminOverride: isAdminOverrideNotice
-        };
+            if (isAdminOverrideNotice) {
+              finalNoticePenaltyAmount = 0;
+              finalNoticePenaltyApplied = false;
+            } else {
+              finalNoticePenaltyAmount = isPartialVacateSelected
+                ? Math.floor((calculation?.financials?.noticePenalty || 0) / 2)
+                : calculation?.financials?.noticePenalty || 0;
+              finalNoticePenaltyApplied = formData.noticePenaltyApplied;
+            }
 
-        const response = await vacateApi.submitVacateRequest(payload);
-        
-        if (response && response.success) {
-          results.push({
-            tenant_id: tenant.id,
-            tenant_name: tenant.full_name,
-            success: true,
-            message: response.message,
-            financials: response.data?.financials
+            finalTotalPenaltyAmount =
+              finalLockinPenaltyAmount +
+              finalNoticePenaltyAmount +
+              finalInspectionPenaltyAmount;
+            finalRefundableAmount =
+              (calculation?.financials?.securityDeposit || securityDeposit) -
+              finalTotalPenaltyAmount;
+          } else if (existingVacateRequest) {
+            // Tenant submitted a vacate request - use calculations from the request
+            finalLockinPenaltyAmount = isPartialVacateSelected
+              ? Math.floor(
+                  (calculation?.financials?.lockinPenalty ||
+                    formData.finalPenaltyAmount) / 2,
+                )
+              : calculation?.financials?.lockinPenalty ||
+                formData.finalPenaltyAmount;
+            finalNoticePenaltyAmount = isPartialVacateSelected
+              ? Math.floor((calculation?.financials?.noticePenalty || 0) / 2)
+              : calculation?.financials?.noticePenalty || 0;
+            finalTotalPenaltyAmount =
+              finalLockinPenaltyAmount +
+              finalNoticePenaltyAmount +
+              finalInspectionPenaltyAmount;
+            finalRefundableAmount = isPartialVacateSelected
+              ? Math.floor(
+                  (calculation?.financials?.refundableAmount ||
+                    formData.securityRefundAmount) / 2,
+                )
+              : calculation?.financials?.refundableAmount ||
+                formData.securityRefundAmount;
+            finalLockinPenaltyApplied = formData.lockinPenaltyApplied;
+            finalNoticePenaltyApplied = formData.noticePenaltyApplied;
+          } else {
+            // No tenant request, admin is processing manually
+            finalLockinPenaltyAmount = isPartialVacateSelected
+              ? Math.floor(
+                  (calculation?.financials?.lockinPenalty ||
+                    formData.finalPenaltyAmount) / 2,
+                )
+              : calculation?.financials?.lockinPenalty ||
+                formData.finalPenaltyAmount;
+            finalNoticePenaltyAmount = isPartialVacateSelected
+              ? Math.floor((calculation?.financials?.noticePenalty || 0) / 2)
+              : calculation?.financials?.noticePenalty || 0;
+            finalTotalPenaltyAmount =
+              finalLockinPenaltyAmount +
+              finalNoticePenaltyAmount +
+              finalInspectionPenaltyAmount;
+            finalRefundableAmount = isPartialVacateSelected
+              ? Math.floor(
+                  (calculation?.financials?.refundableAmount ||
+                    formData.securityRefundAmount) / 2,
+                )
+              : calculation?.financials?.refundableAmount ||
+                formData.securityRefundAmount;
+            finalLockinPenaltyApplied = formData.lockinPenaltyApplied;
+            finalNoticePenaltyApplied = formData.noticePenaltyApplied;
+          }
+
+          // ✅ If payment was received for negative refundable amount, set to 0
+        const safeRefundableAmount = paymentReceived && finalRefundableAmount < 0 
+          ? 0 
+          : Math.max(0, finalRefundableAmount);
+
+          console.log("💰 Submitting with values:", {
+            tenantId: tenant.id,
+            tenantName: tenant.full_name,
+            finalLockinPenaltyAmount,
+            finalNoticePenaltyAmount,
+            finalInspectionPenaltyAmount,
+            finalTotalPenaltyAmount,
+            finalRefundableAmount: safeRefundableAmount,
+            finalLockinPenaltyApplied,
+            finalNoticePenaltyApplied,
+            isAdminOverrideLockin,
+            isAdminOverrideNotice,
+            isPartialVacateSelected,
           });
-        } else {
+
+          const payload = {
+            bedAssignmentId: bedAssignment.id,
+            tenantId: tenant.id,
+            vacateReasonValue:
+              isAdminOverrideLockin || isAdminOverrideNotice
+                ? `Admin forced vacate - ${formData.vacateReasonValue || tenantVacateReason}`
+                : tenantVacateReason || formData.vacateReasonValue,
+            isNoticeGiven:
+              noticeGivenByTenant || formData.isNoticeGiven || true,
+            noticeGivenDate:
+              tenantRequestDate ||
+              formData.noticeGivenDate ||
+              new Date().toISOString().split("T")[0],
+            requestedVacateDate: formData.requestedVacateDate,
+            tenantAgreed: true,
+            lockinPeriodMonths:
+              initialData?.bedAssignment?.lockin_period_months || 0,
+            lockinPenaltyType:
+              initialData?.bedAssignment?.lockin_penalty_type || "",
+            lockinPenaltyAmount: finalLockinPenaltyAmount,
+            noticePeriodDays:
+              initialData?.bedAssignment?.notice_period_days || 0,
+            noticePenaltyType:
+              initialData?.bedAssignment?.notice_penalty_type || "",
+            noticePenaltyAmount: finalNoticePenaltyAmount,
+            inspectionPenaltyAmount: finalInspectionPenaltyAmount,
+            securityDepositAmount:
+              initialData?.bedAssignment?.security_deposit ||
+              securityDeposit ||
+              0,
+            totalPenaltyAmount: finalTotalPenaltyAmount,
+            refundableAmount: safeRefundableAmount,
+            lockinPenaltyApplied: finalLockinPenaltyApplied,
+            noticePenaltyApplied: finalNoticePenaltyApplied,
+            adminApproved: formData.adminApproved,
+            tenantVacateRequestId: existingVacateRequest?.id,
+            isPartialVacate: isPartialVacateSelected,
+            // ✅ IMPORTANT: Send individual override flags, NOT a single isAdminOverride
+            isLockinAdminOverride: isAdminOverrideLockin,
+            isNoticeAdminOverride: isAdminOverrideNotice,
+             paymentReceived: paymentReceived,  
+          };
+
+          const response = await vacateApi.submitVacateRequest(payload);
+
+          if (response && response.success) {
+            results.push({
+              tenant_id: tenant.id,
+              tenant_name: tenant.full_name,
+              success: true,
+              message: response.message,
+              financials: response.data?.financials,
+            });
+          } else {
+            errors.push({
+              tenant_id: tenant.id,
+              tenant_name: tenant.full_name,
+              error: response?.message || "Failed to submit vacate request",
+            });
+          }
+        } catch (error) {
+          console.error(`Error vacating tenant ${tenant.id}:`, error);
           errors.push({
             tenant_id: tenant.id,
             tenant_name: tenant.full_name,
-            error: response?.message || "Failed to submit vacate request"
+            error: error.message,
           });
         }
-      } catch (error) {
-        console.error(`Error vacating tenant ${tenant.id}:`, error);
-        errors.push({
-          tenant_id: tenant.id,
-          tenant_name: tenant.full_name,
-          error: error.message
-        });
       }
-    }
 
-    if (results.length > 0) {
-      const successMessage = results.map(r => r.tenant_name).join(', ');
-      toast.success(`Successfully vacated: ${successMessage}`);
-      
-      // ✅ HANDLE BED ASSIGNMENT UPDATE FOR PARTIAL VACATE
-      const allTenantsVacated = selectedTenants.length === tenantsToVacate.length;
+      if (results.length > 0) {
+        const successMessage = results.map((r) => r.tenant_name).join(", ");
+        toast.success(`Successfully vacated: ${successMessage}`);
 
-      const originalBedRent = bedAssignment?.tenant_rent || 
-                              initialData?.bedAssignment?.tenant_rent || 
-                              initialData?.bedAssignment?.rent_per_bed || 
-                              bedAssignment?.rent_per_bed || 0;
-      
-      const originalSecurityDeposit = initialData?.bedAssignment?.security_deposit || 
-                                     initialData?.bedAssignment?.rent_per_bed || 
-                                     bedAssignment?.security_deposit || 
-                                     securityDeposit || 0;
-      
-      console.log("💰 Original bed rent to preserve:", originalBedRent);
-      console.log("💰 Original security deposit to preserve:", originalSecurityDeposit);
-      
-      if (allTenantsVacated) {
-        // Both tenants vacated - mark bed as available but preserve rent
-        await updateBedAssignment(bedAssignment.id.toString(), {
-          tenant_id: null,
-          tenant_gender: null,
-          is_available: true,
-          tenant_rent: originalBedRent,
-          is_couple: false,
-          security_deposit: null,
-          vacate_reason: `Both tenants vacated. Bed rent preserved: ${originalBedRent}`
-        });
-        console.log("✅ Both tenants vacated - Bed marked as available with rent preserved:", originalBedRent);
-      } else {
-        // Only one tenant vacated - update bed to remaining tenant
-        const remainingTenant = tenantsToVacate.find(t => !t.selected);
-        if (remainingTenant) {
-          const remainingTenantDetails = await fetchRawTenant(remainingTenant.id);
-          
+        // ✅ HANDLE BED ASSIGNMENT UPDATE FOR PARTIAL VACATE
+        const allTenantsVacated =
+          selectedTenants.length === tenantsToVacate.length;
+
+        const originalBedRent =
+          bedAssignment?.tenant_rent ||
+          initialData?.bedAssignment?.tenant_rent ||
+          initialData?.bedAssignment?.rent_per_bed ||
+          bedAssignment?.rent_per_bed ||
+          0;
+
+        const originalSecurityDeposit =
+          initialData?.bedAssignment?.security_deposit ||
+          initialData?.bedAssignment?.rent_per_bed ||
+          bedAssignment?.security_deposit ||
+          securityDeposit ||
+          0;
+
+        console.log("💰 Original bed rent to preserve:", originalBedRent);
+        console.log(
+          "💰 Original security deposit to preserve:",
+          originalSecurityDeposit,
+        );
+
+        if (allTenantsVacated) {
+          // Both tenants vacated - mark bed as available but preserve rent
           await updateBedAssignment(bedAssignment.id.toString(), {
-            tenant_id: remainingTenant.id,
-            tenant_gender: remainingTenantDetails?.gender || null,
-            is_available: false,
-            is_couple: false,
+            tenant_id: null,
+            tenant_gender: null,
+            is_available: true,
             tenant_rent: originalBedRent,
-            security_deposit: originalSecurityDeposit,
-            vacate_reason: `Partial vacate - ${remainingTenant.full_name} remains. Bed rent preserved: ${originalBedRent}`
+            is_couple: false,
+            security_deposit: null,
+            vacate_reason: `Both tenants vacated. Bed rent preserved: ${originalBedRent}`,
           });
-          console.log(`✅ Single tenant vacated - Bed updated to remaining tenant: ${remainingTenant.full_name} with rent preserved: ${originalBedRent}`);
+          console.log(
+            "✅ Both tenants vacated - Bed marked as available with rent preserved:",
+            originalBedRent,
+          );
+        } else {
+          // Only one tenant vacated - update bed to remaining tenant
+          const remainingTenant = tenantsToVacate.find((t) => !t.selected);
+          if (remainingTenant) {
+            const remainingTenantDetails = await fetchRawTenant(
+              remainingTenant.id,
+            );
+
+            await updateBedAssignment(bedAssignment.id.toString(), {
+              tenant_id: remainingTenant.id,
+              tenant_gender: remainingTenantDetails?.gender || null,
+              is_available: false,
+              is_couple: false,
+              tenant_rent: originalBedRent,
+              security_deposit: originalSecurityDeposit,
+              vacate_reason: `Partial vacate - ${remainingTenant.full_name} remains. Bed rent preserved: ${originalBedRent}`,
+            });
+            console.log(
+              `✅ Single tenant vacated - Bed updated to remaining tenant: ${remainingTenant.full_name} with rent preserved: ${originalBedRent}`,
+            );
+          }
         }
-      }
-      
-      if (onVacateComplete) {
-        onVacateComplete();
+
+        if (onVacateComplete) {
+          onVacateComplete();
+        }
+
+        setStep(7);
+        setTimeout(() => {
+          onOpenChange(false);
+          resetWizard();
+        }, 2000);
       }
 
-      setStep(7);
-      setTimeout(() => {
-        onOpenChange(false);
-        resetWizard();
-      }, 2000);
+      if (errors.length > 0) {
+        const errorMessage = errors
+          .map((e) => `${e.tenant_name}: ${e.error}`)
+          .join("; ");
+        toast.error(`Failed to vacate: ${errorMessage}`);
+      }
+    } catch (error) {
+      console.error("❌ Error submitting vacate request:", error);
+      toast.error(error.message || "Failed to submit vacate request.");
+    } finally {
+      setLoading(false);
     }
-    
-    if (errors.length > 0) {
-      const errorMessage = errors.map(e => `${e.tenant_name}: ${e.error}`).join('; ');
-      toast.error(`Failed to vacate: ${errorMessage}`);
-    }
-    
-  } catch (error) {
-    console.error("❌ Error submitting vacate request:", error);
-    toast.error(error.message || "Failed to submit vacate request.");
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const resetWizard = () => {
     setStep(1);
@@ -1596,6 +1822,7 @@ finalInspectionPenaltyAmount = isPartialVacateSelected
     setWizardDisabled(false);
     setIsAdminOverrideLockin(false);
     setIsAdminOverrideNotice(false);
+    setPaymentReceived(false);  // ✅ Reset payment received state
     setFormData({
       vacateReasonValue: "",
       isNoticeGiven: false,
@@ -1615,21 +1842,21 @@ finalInspectionPenaltyAmount = isPartialVacateSelected
     resetWizard();
     onOpenChange(false);
   };
-const getStepIndex = () => {
-  if (isCoupleBooking) {
-    return step - 1; // steps 1-8 → index 0-7, direct mapping
-  } else {
-    // Non-couple steps: 1, 3, 4, 5, 6, 7, 8 (step 2 is skipped)
-    if (step === 1) return 0; // Reason
-    if (step === 3) return 1; // Lock-in
-    if (step === 4) return 2; // Notice
-    if (step === 5) return 3; // Inspection
-    if (step === 6) return 4; // Date
-    if (step === 7) return 5; // Summary
-    if (step === 8) return 6; // Result
-    return 0;
-  }
-};
+  const getStepIndex = () => {
+    if (isCoupleBooking) {
+      return step - 1; // steps 1-8 → index 0-7, direct mapping
+    } else {
+      // Non-couple steps: 1, 3, 4, 5, 6, 7, 8 (step 2 is skipped)
+      if (step === 1) return 0; // Reason
+      if (step === 3) return 1; // Lock-in
+      if (step === 4) return 2; // Notice
+      if (step === 5) return 3; // Inspection
+      if (step === 6) return 4; // Date
+      if (step === 7) return 5; // Summary
+      if (step === 8) return 6; // Result
+      return 0;
+    }
+  };
 
   if (loading && !initialData) {
     return (
@@ -1694,7 +1921,7 @@ const getStepIndex = () => {
             </div>
             <div className="flex items-center gap-2">
               <span className="text-[10px] bg-white/20 px-1.5 py-0.5 rounded">
-Step {getStepIndex() + 1}/{stepTitles.length}
+                Step {getStepIndex() + 1}/{stepTitles.length}
               </span>
               <button
                 onClick={handleClose}
@@ -1748,16 +1975,24 @@ Step {getStepIndex() + 1}/{stepTitles.length}
                   </div>
                   <div>
                     <div className="text-blue-700">Lock-in Accepted:</div>
-                    <div className={`font-medium ${lockinAcceptedByTenant || lockinStatus?.isCompleted ? "text-green-600" : "text-red-600"}`}>
-                      {lockinAcceptedByTenant || lockinStatus?.isCompleted ? "Yes" : "No"}
+                    <div
+                      className={`font-medium ${lockinAcceptedByTenant || lockinStatus?.isCompleted ? "text-green-600" : "text-red-600"}`}
+                    >
+                      {lockinAcceptedByTenant || lockinStatus?.isCompleted
+                        ? "Yes"
+                        : "No"}
                       {lockinStatus?.isCompleted && (
-                        <span className="text-[10px] text-green-600 ml-1">(Completed)</span>
+                        <span className="text-[10px] text-green-600 ml-1">
+                          (Completed)
+                        </span>
                       )}
                     </div>
                   </div>
                   <div>
                     <div className="text-blue-700">Notice Accepted:</div>
-                    <div className={`font-medium ${noticeGivenByTenant ? "text-green-600" : "text-red-600"}`}>
+                    <div
+                      className={`font-medium ${noticeGivenByTenant ? "text-green-600" : "text-red-600"}`}
+                    >
                       {noticeGivenByTenant ? "Yes" : "No"}
                     </div>
                   </div>
@@ -1794,32 +2029,37 @@ Step {getStepIndex() + 1}/{stepTitles.length}
                   const iconsList = getIcons();
                   const StepIcon = iconsList[index] || Check;
                   return (
-                    <div key={index} className="flex-1 flex flex-col items-center relative">
+                    <div
+                      key={index}
+                      className="flex-1 flex flex-col items-center relative"
+                    >
                       {index < stepTitles.length - 1 && (
                         <div
                           className={`absolute top-3 left-1/2 w-full h-0.5 -translate-x-1/2 ${
-getStepIndex() > index ? "bg-blue-500" : "bg-gray-300"
+                            getStepIndex() > index
+                              ? "bg-blue-500"
+                              : "bg-gray-300"
                           }`}
                         />
                       )}
                       <div
                         className={`w-7 h-7 rounded-full flex items-center justify-center border-2 z-10 mb-1 ${
                           getStepIndex() >= index
-  ? "bg-white border-blue-600 text-blue-600"
-  : "bg-white border-gray-300 text-gray-400"
+                            ? "bg-white border-blue-600 text-blue-600"
+                            : "bg-white border-gray-300 text-gray-400"
                         }`}
                       >
-              {getStepIndex() > index ? (
-  <Check className="h-3 w-3" />
-) : (
-  <StepIcon className="h-3 w-3" />
-)}
+                        {getStepIndex() > index ? (
+                          <Check className="h-3 w-3" />
+                        ) : (
+                          <StepIcon className="h-3 w-3" />
+                        )}
                       </div>
                       <span
                         className={`text-[10px] font-medium truncate w-full text-center ${
-                        getStepIndex() >= index
-  ? "text-blue-600 font-semibold"
-  : "text-gray-500"
+                          getStepIndex() >= index
+                            ? "text-blue-600 font-semibold"
+                            : "text-gray-500"
                         }`}
                       >
                         {title}
@@ -1832,7 +2072,9 @@ getStepIndex() > index ? "bg-blue-500" : "bg-gray-300"
                 <div className="w-full h-1 bg-gray-200 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-blue-500 transition-all duration-300"
-style={{ width: `${((getStepIndex() + 1) / stepTitles.length) * 100}%` }}
+                    style={{
+                      width: `${((getStepIndex() + 1) / stepTitles.length) * 100}%`,
+                    }}
                   />
                 </div>
               </div>
@@ -1859,7 +2101,8 @@ style={{ width: `${((getStepIndex() + 1) / stepTitles.length) * 100}%` }}
                       </span>
                     </div>
                     <p className="text-xs text-amber-700">
-                      This reason has been pre-selected. You can change it if needed.
+                      This reason has been pre-selected. You can change it if
+                      needed.
                     </p>
                   </div>
                 )}
@@ -1912,146 +2155,173 @@ style={{ width: `${((getStepIndex() + 1) / stepTitles.length) * 100}%` }}
             )}
 
             {/* STEP 2: SELECT TENANTS (Only for Couple Bookings) */}
-{step === 2 && isCoupleBooking && (
-  <div className="space-y-4 p-2">
-    <div className="bg-purple-50 p-3 rounded-lg">
-      <h3 className="font-medium text-purple-800 mb-1 text-sm">
-        Select Tenants to Vacate
-      </h3>
-      <p className="text-xs text-purple-700">
-        Select which tenants you want to vacate from this bed.
-        {tenantsToVacate.length > 1 &&
-          " Since this is a couple booking, you can vacate one or both tenants."}
-      </p>
-    </div>
-
-    {loadingTenants ? (
-      <div className="text-center py-8">
-        <Loader2 className="h-6 w-6 animate-spin mx-auto text-purple-500" />
-        <p className="text-sm text-gray-500 mt-2">
-          Loading tenant details...
-        </p>
-      </div>
-    ) : (
-      <Card className="border">
-        <CardContent className="p-3">
-          <div className="space-y-3">
-            <div className="text-sm font-medium mb-2 flex items-center gap-2">
-              <UsersRound className="h-4 w-4 text-purple-600" />
-              Tenants on this bed:
-            </div>
-
-            {tenantsToVacate.map((tenant, idx) => (
-              <div
-                key={tenant.id}
-                className={`p-3 rounded-lg border ${tenant.selected ? "bg-purple-50 border-purple-300" : "bg-gray-50 border-gray-200"}`}
-              >
-                <div className="flex items-start gap-3">
-                  <input
-                    type="checkbox"
-                    id={`tenant_${tenant.id}`}
-                    checked={tenant.selected}
-                    onChange={(e) => {
-                      const updated = tenantsToVacate.map((t) =>
-                        t.id === tenant.id
-                          ? { ...t, selected: e.target.checked }
-                          : t,
-                      );
-                      setTenantsToVacate(updated);
-                    }}
-                    className="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500 mt-1"
-                  />
-                  <div className="flex-1">
-                    <label
-                      htmlFor={`tenant_${tenant.id}`}
-                      className="font-medium text-sm cursor-pointer flex items-center gap-2"
-                    >
-                      {tenant.full_name}
-                      {tenant.is_primary && tenantsToVacate.length > 1 && (
-                        <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
-                          Primary
-                        </Badge>
-                      )}
-                      {!tenant.is_primary && tenantsToVacate.length > 1 && idx === 1 && (
-                        <Badge variant="outline" className="text-xs bg-pink-50 text-pink-700 border-pink-200">
-                          Partner
-                        </Badge>
-                      )}
-                      {!tenant.is_primary && tenantsToVacate.length > 1 && idx === 0 && (
-                        <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">
-                          Partner
-                        </Badge>
-                      )}
-                      {tenantsToVacate.length === 1 && tenant.is_primary && (
-                        <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
-                          Primary
-                        </Badge>
-                      )}
-                    </label>
-
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 mt-2">
-                      <div className="text-xs text-gray-500">
-                        <span className="font-medium">Email:</span>{" "}
-                        {tenant.email || "N/A"}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        <span className="font-medium">Phone:</span>{" "}
-                        {tenant.phone || "N/A"}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        <span className="font-medium">Gender:</span>{" "}
-                        {tenant.gender || "N/A"}
-                      </div>
-                      {tenant.partner_details && (
-                        <div className="text-xs text-gray-500">
-                          <span className="font-medium">Partner:</span>{" "}
-                          {tenant.partner_details.full_name}
-                        </div>
-                      )}
-                    </div>
-
-                    {tenant.partner_details && (
-                      <div className="mt-2 pt-2 border-t border-dashed border-gray-200">
-                        <div className="text-xs text-purple-600 flex items-center gap-1">
-                          <Heart className="h-3 w-3" />
-                          <span>
-                            Partnered with:{" "}
-                            {tenant.partner_details.full_name}
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
+            {step === 2 && isCoupleBooking && (
+              <div className="space-y-4 p-2">
+                <div className="bg-purple-50 p-3 rounded-lg">
+                  <h3 className="font-medium text-purple-800 mb-1 text-sm">
+                    Select Tenants to Vacate
+                  </h3>
+                  <p className="text-xs text-purple-700">
+                    Select which tenants you want to vacate from this bed.
+                    {tenantsToVacate.length > 1 &&
+                      " Since this is a couple booking, you can vacate one or both tenants."}
+                  </p>
                 </div>
-              </div>
-            ))}
 
-            {tenantsToVacate.filter((t) => t.selected).length === 0 && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
-                <AlertCircle className="h-4 w-4 inline mr-2" />
-                Please select at least one tenant to vacate
+                {loadingTenants ? (
+                  <div className="text-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin mx-auto text-purple-500" />
+                    <p className="text-sm text-gray-500 mt-2">
+                      Loading tenant details...
+                    </p>
+                  </div>
+                ) : (
+                  <Card className="border">
+                    <CardContent className="p-3">
+                      <div className="space-y-3">
+                        <div className="text-sm font-medium mb-2 flex items-center gap-2">
+                          <UsersRound className="h-4 w-4 text-purple-600" />
+                          Tenants on this bed:
+                        </div>
+
+                        {tenantsToVacate.map((tenant, idx) => (
+                          <div
+                            key={tenant.id}
+                            className={`p-3 rounded-lg border ${tenant.selected ? "bg-purple-50 border-purple-300" : "bg-gray-50 border-gray-200"}`}
+                          >
+                            <div className="flex items-start gap-3">
+                              <input
+                                type="checkbox"
+                                id={`tenant_${tenant.id}`}
+                                checked={tenant.selected}
+                                onChange={(e) => {
+                                  const updated = tenantsToVacate.map((t) =>
+                                    t.id === tenant.id
+                                      ? { ...t, selected: e.target.checked }
+                                      : t,
+                                  );
+                                  setTenantsToVacate(updated);
+                                }}
+                                className="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500 mt-1"
+                              />
+                              <div className="flex-1">
+                                <label
+                                  htmlFor={`tenant_${tenant.id}`}
+                                  className="font-medium text-sm cursor-pointer flex items-center gap-2"
+                                >
+                                  {tenant.full_name}
+                                  {tenant.is_primary &&
+                                    tenantsToVacate.length > 1 && (
+                                      <Badge
+                                        variant="outline"
+                                        className="text-xs bg-blue-50 text-blue-700 border-blue-200"
+                                      >
+                                        Primary
+                                      </Badge>
+                                    )}
+                                  {!tenant.is_primary &&
+                                    tenantsToVacate.length > 1 &&
+                                    idx === 1 && (
+                                      <Badge
+                                        variant="outline"
+                                        className="text-xs bg-pink-50 text-pink-700 border-pink-200"
+                                      >
+                                        Partner
+                                      </Badge>
+                                    )}
+                                  {!tenant.is_primary &&
+                                    tenantsToVacate.length > 1 &&
+                                    idx === 0 && (
+                                      <Badge
+                                        variant="outline"
+                                        className="text-xs bg-purple-50 text-purple-700 border-purple-200"
+                                      >
+                                        Partner
+                                      </Badge>
+                                    )}
+                                  {tenantsToVacate.length === 1 &&
+                                    tenant.is_primary && (
+                                      <Badge
+                                        variant="outline"
+                                        className="text-xs bg-blue-50 text-blue-700 border-blue-200"
+                                      >
+                                        Primary
+                                      </Badge>
+                                    )}
+                                </label>
+
+                                <div className="grid grid-cols-2 gap-x-4 gap-y-1 mt-2">
+                                  <div className="text-xs text-gray-500">
+                                    <span className="font-medium">Email:</span>{" "}
+                                    {tenant.email || "N/A"}
+                                  </div>
+                                  <div className="text-xs text-gray-500">
+                                    <span className="font-medium">Phone:</span>{" "}
+                                    {tenant.phone || "N/A"}
+                                  </div>
+                                  <div className="text-xs text-gray-500">
+                                    <span className="font-medium">Gender:</span>{" "}
+                                    {tenant.gender || "N/A"}
+                                  </div>
+                                  {tenant.partner_details && (
+                                    <div className="text-xs text-gray-500">
+                                      <span className="font-medium">
+                                        Partner:
+                                      </span>{" "}
+                                      {tenant.partner_details.full_name}
+                                    </div>
+                                  )}
+                                </div>
+
+                                {tenant.partner_details && (
+                                  <div className="mt-2 pt-2 border-t border-dashed border-gray-200">
+                                    <div className="text-xs text-purple-600 flex items-center gap-1">
+                                      <Heart className="h-3 w-3" />
+                                      <span>
+                                        Partnered with:{" "}
+                                        {tenant.partner_details.full_name}
+                                      </span>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+
+                        {tenantsToVacate.filter((t) => t.selected).length ===
+                          0 && (
+                          <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
+                            <AlertCircle className="h-4 w-4 inline mr-2" />
+                            Please select at least one tenant to vacate
+                          </div>
+                        )}
+
+                        {tenantsToVacate.length > 1 &&
+                          tenantsToVacate.filter((t) => t.selected).length ===
+                            1 && (
+                            <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-700 text-sm">
+                              <AlertTriangle className="h-4 w-4 inline mr-2" />
+                              Only one tenant will be vacated. The other tenant
+                              will remain in the bed.
+                            </div>
+                          )}
+
+                        {tenantsToVacate.length > 1 &&
+                          tenantsToVacate.filter((t) => t.selected).length ===
+                            2 && (
+                            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-blue-700 text-sm">
+                              <Info className="h-4 w-4 inline mr-2" />
+                              Both tenants will be vacated. The bed will become
+                              available.
+                            </div>
+                          )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
               </div>
             )}
-
-            {tenantsToVacate.length > 1 && tenantsToVacate.filter((t) => t.selected).length === 1 && (
-              <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-700 text-sm">
-                <AlertTriangle className="h-4 w-4 inline mr-2" />
-                Only one tenant will be vacated. The other tenant will remain in the bed.
-              </div>
-            )}
-
-            {tenantsToVacate.length > 1 && tenantsToVacate.filter((t) => t.selected).length === 2 && (
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-blue-700 text-sm">
-                <Info className="h-4 w-4 inline mr-2" />
-                Both tenants will be vacated. The bed will become available.
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-    )}
-  </div>
-)}
 
             {/* STEP 3: LOCK-IN PERIOD */}
             {step === 3 && (
@@ -2070,43 +2340,73 @@ style={{ width: `${((getStepIndex() + 1) / stepTitles.length) * 100}%` }}
                     <div className="space-y-3">
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <div className="text-xs text-gray-500">Lock-in Period</div>
-                          <div className="font-medium">{bedData.lockin_period_months || 0} months</div>
+                          <div className="text-xs text-gray-500">
+                            Lock-in Period
+                          </div>
+                          <div className="font-medium">
+                            {bedData.lockin_period_months || 0} months
+                          </div>
                         </div>
                         <div>
-                          <div className="text-xs text-gray-500">Penalty Type</div>
+                          <div className="text-xs text-gray-500">
+                            Penalty Type
+                          </div>
                           <div className="font-medium text-sm">
-                            {formatLockinPenaltyType(bedData.lockin_penalty_type) || "No penalty"}
+                            {formatLockinPenaltyType(
+                              bedData.lockin_penalty_type,
+                            ) || "No penalty"}
                           </div>
                         </div>
                         {bedData.lockin_penalty_amount > 0 && (
                           <div>
-                            <div className="text-xs text-gray-500">Penalty Amount</div>
+                            <div className="text-xs text-gray-500">
+                              Penalty Amount
+                            </div>
                             <div className="font-medium text-sm text-red-600">
                               {(() => {
-                                if (bedData.lockin_penalty_type === "percentage" && bedData.lockin_penalty_amount < 100) {
-                                  const calculatedAmount = Math.round((securityDeposit * parseFloat(bedData.lockin_penalty_amount)) / 100);
+                                if (
+                                  bedData.lockin_penalty_type ===
+                                    "percentage" &&
+                                  bedData.lockin_penalty_amount < 100
+                                ) {
+                                  const calculatedAmount = Math.round(
+                                    (securityDeposit *
+                                      parseFloat(
+                                        bedData.lockin_penalty_amount,
+                                      )) /
+                                      100,
+                                  );
                                   return formatCurrency(calculatedAmount);
                                 }
-                                return formatCurrency(bedData.lockin_penalty_amount);
+                                return formatCurrency(
+                                  bedData.lockin_penalty_amount,
+                                );
                               })()}
                             </div>
                           </div>
                         )}
                         <div>
-                          <div className="text-xs text-gray-500">Check-in Date</div>
-                          <div className="font-medium text-sm">{formatDate(bedData.check_in_date)}</div>
+                          <div className="text-xs text-gray-500">
+                            Check-in Date
+                          </div>
+                          <div className="font-medium text-sm">
+                            {formatDate(bedData.check_in_date)}
+                          </div>
                         </div>
                       </div>
 
                       <div className="pt-3 border-t">
-                        <h4 className="font-medium text-sm mb-2">Lock-in Status</h4>
+                        <h4 className="font-medium text-sm mb-2">
+                          Lock-in Status
+                        </h4>
 
                         {calculating ? (
                           <div className="p-2 bg-gray-50 border border-gray-200 rounded">
                             <div className="flex items-center gap-2">
                               <Loader2 className="h-3 w-3 animate-spin text-gray-500" />
-                              <div className="text-xs text-gray-600">Calculating lock-in status...</div>
+                              <div className="text-xs text-gray-600">
+                                Calculating lock-in status...
+                              </div>
                             </div>
                           </div>
                         ) : lockinStatus ? (
@@ -2121,10 +2421,27 @@ style={{ width: `${((getStepIndex() + 1) / stepTitles.length) * 100}%` }}
                           >
                             <div className="flex items-center justify-between mb-1">
                               <div className="font-medium">
-                                {isAdminOverrideLockin ? "🔓 Admin Override Active" : (lockinStatus.isCompleted ? "✓ Lock-in Completed" : "✗ Lock-in Not Completed")}
+                                {isAdminOverrideLockin
+                                  ? "🔓 Admin Override Active"
+                                  : lockinStatus.isCompleted
+                                    ? "✓ Lock-in Completed"
+                                    : "✗ Lock-in Not Completed"}
                               </div>
-                              <Badge variant={isAdminOverrideLockin ? "default" : (lockinStatus.isCompleted ? "default" : "destructive")} className="text-xs">
-                                {isAdminOverrideLockin ? "No Penalty (Admin)" : (lockinStatus.isCompleted ? "No Penalty" : "Penalty Applicable")}
+                              <Badge
+                                variant={
+                                  isAdminOverrideLockin
+                                    ? "default"
+                                    : lockinStatus.isCompleted
+                                      ? "default"
+                                      : "destructive"
+                                }
+                                className="text-xs"
+                              >
+                                {isAdminOverrideLockin
+                                  ? "No Penalty (Admin)"
+                                  : lockinStatus.isCompleted
+                                    ? "No Penalty"
+                                    : "Penalty Applicable"}
                               </Badge>
                             </div>
                             <div className="text-xs">
@@ -2132,20 +2449,27 @@ style={{ width: `${((getStepIndex() + 1) / stepTitles.length) * 100}%` }}
                                 ? "Admin override active - Lock-in penalty will NOT be applied."
                                 : lockinStatus.message}
                             </div>
-                            {!isAdminOverrideLockin && !lockinStatus.isCompleted && lockinStatus.remainingDays > 0 && (
-                              <div className="text-xs mt-1 text-red-600">
-                                ⚠️ {lockinStatus.remainingDays} days remaining in lock-in period
-                              </div>
-                            )}
-                            {!isAdminOverrideLockin && lockinStatus.isCompleted && (
-                              <div className="text-xs mt-1 text-green-600">
-                                ✓ Lock-in completed on {formatDate(lockinStatus.lockInEndDate)}
-                              </div>
-                            )}
+                            {!isAdminOverrideLockin &&
+                              !lockinStatus.isCompleted &&
+                              lockinStatus.remainingDays > 0 && (
+                                <div className="text-xs mt-1 text-red-600">
+                                  ⚠️ {lockinStatus.remainingDays} days remaining
+                                  in lock-in period
+                                </div>
+                              )}
+                            {!isAdminOverrideLockin &&
+                              lockinStatus.isCompleted && (
+                                <div className="text-xs mt-1 text-green-600">
+                                  ✓ Lock-in completed on{" "}
+                                  {formatDate(lockinStatus.lockInEndDate)}
+                                </div>
+                              )}
                           </div>
                         ) : (
                           <div className="p-2 bg-gray-50 border border-gray-200 rounded">
-                            <div className="text-xs text-gray-600">Calculating lock-in status...</div>
+                            <div className="text-xs text-gray-600">
+                              Calculating lock-in status...
+                            </div>
                           </div>
                         )}
                       </div>
@@ -2163,31 +2487,41 @@ style={{ width: `${((getStepIndex() + 1) / stepTitles.length) * 100}%` }}
                       const checked = e.target.checked;
                       setIsAdminOverrideLockin(checked);
                       if (checked) {
-                        toast.info("Admin override enabled - Lock-in penalty will be waived");
+                        toast.info(
+                          "Admin override enabled - Lock-in penalty will be waived",
+                        );
                       } else {
-                        toast.info("Admin override disabled - Standard lock-in rules apply");
+                        toast.info(
+                          "Admin override disabled - Standard lock-in rules apply",
+                        );
                       }
                       calculateAllPenalties();
                     }}
                     className="h-4 w-4 rounded border-purple-300 text-purple-600 focus:ring-purple-500 mt-0.5"
                   />
                   <div className="flex-1">
-                    <Label htmlFor="adminOverrideLockin" className="font-medium text-purple-800">
+                    <Label
+                      htmlFor="adminOverrideLockin"
+                      className="font-medium text-purple-800"
+                    >
                       Admin Override - Waive Lock-in Penalty
                     </Label>
                     <p className="text-xs text-purple-600 mt-0.5">
-                      Check this to bypass lock-in penalty regardless of completion status.
+                      Check this to bypass lock-in penalty regardless of
+                      completion status.
                     </p>
                   </div>
                 </div>
 
                 {/* Tenant Agreement Status for Lock-in */}
                 {existingVacateRequest && !isAdminOverrideLockin && (
-                  <div className={`p-2 rounded text-xs ${
-                    lockinAcceptedByTenant || lockinStatus?.isCompleted
-                      ? "bg-green-50 border border-green-200 text-green-800"
-                      : "bg-red-50 border border-red-200 text-red-800"
-                  }`}>
+                  <div
+                    className={`p-2 rounded text-xs ${
+                      lockinAcceptedByTenant || lockinStatus?.isCompleted
+                        ? "bg-green-50 border border-green-200 text-green-800"
+                        : "bg-red-50 border border-red-200 text-red-800"
+                    }`}
+                  >
                     <div className="flex items-center gap-1.5">
                       {lockinAcceptedByTenant || lockinStatus?.isCompleted ? (
                         <>
@@ -2201,7 +2535,9 @@ style={{ width: `${((getStepIndex() + 1) / stepTitles.length) * 100}%` }}
                       ) : (
                         <>
                           <AlertTriangle className="h-3 w-3 text-red-600 flex-shrink-0" />
-                          <span>⚠️ Tenant has NOT accepted lock-in penalty</span>
+                          <span>
+                            ⚠️ Tenant has NOT accepted lock-in penalty
+                          </span>
                         </>
                       )}
                     </div>
@@ -2211,275 +2547,367 @@ style={{ width: `${((getStepIndex() + 1) / stepTitles.length) * 100}%` }}
             )}
 
             {step === 4 && (
-  <div className="space-y-4 p-2">
-    <div className="bg-blue-50 p-3 rounded-lg">
-      <h3 className="font-medium text-blue-800 mb-1 text-sm">
-        Notice Period Status
-      </h3>
-      <p className="text-xs text-blue-700">
-        {lockinStatus?.isCompleted 
-          ? "Notice period starts after lock-in period is completed."
-          : "⚠️ Lock-in period not completed. Full notice period penalty applies for early vacate."}
-      </p>
-    </div>
-
-    <Card className="border">
-      <CardContent className="p-3">
-        <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <div className="text-xs text-gray-500">Notice Period</div>
-              <div className="font-medium">{bedData.notice_period_days || 0} days</div>
-            </div>
-            <div>
-              <div className="text-xs text-gray-500">Penalty Type</div>
-              <div className="font-medium text-sm">
-                {bedData.notice_penalty_type ? formatLockinPenaltyType(bedData.notice_penalty_type) : "Fixed penalty"}
-              </div>
-            </div>
-            {bedData.notice_penalty_amount > 0 && (
-              <div>
-                <div className="text-xs text-gray-500">Penalty Amount</div>
-                <div className="font-medium text-sm text-red-600">
-                  {(() => {
-                    if (bedData.notice_penalty_type === "percentage" && bedData.notice_penalty_amount < 100) {
-                      const calculatedAmount = Math.round((securityDeposit * parseFloat(bedData.notice_penalty_amount)) / 100);
-                      return formatCurrency(calculatedAmount);
-                    }
-                    return formatCurrency(bedData.notice_penalty_amount);
-                  })()}
-                </div>
-              </div>
-            )}
-            <div>
-              <div className="text-xs text-gray-500">Security Deposit</div>
-              <div className="font-medium text-sm text-green-600">
-                {formatCurrency(bedData.security_deposit || 0)}
-              </div>
-            </div>
-          </div>
-
-          <div className="pt-3 border-t">
-            <h4 className="font-medium text-sm mb-2">Notice Period Calculation</h4>
-
-            {lockinStatus?.lockInEndDate && (
-              <div className="mb-2 p-2 bg-blue-50 border border-blue-200 rounded">
-                <div className="text-xs font-medium text-blue-800 mb-0.5">Lock-in End Date</div>
-                <div className="text-xs text-gray-600">Lock-in completed on: {formatDate(lockinStatus.lockInEndDate)}</div>
-                {!lockinStatus.isCompleted && (
-                  <div className="text-xs text-red-600 mt-1">
-                    ⚠️ Lock-in not completed yet. You are vacating early. Full notice period applies.
-                  </div>
-                )}
-                <div className="text-xs text-gray-600 mt-1">Required notice: {bedData.notice_period_days || 0} days</div>
-                {lockinStatus.isCompleted && (
-                  <div className="text-xs text-gray-600 mt-1">
-                    Notice should be completed by:{" "}
-                    {formatDate(
-                      new Date(
-                        new Date(lockinStatus.lockInEndDate).getTime() +
-                          (bedData.notice_period_days || 0) * 24 * 60 * 60 * 1000
-                      )
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {calculating ? (
-              <div className="p-2 bg-gray-50 border border-gray-200 rounded">
-                <div className="flex items-center gap-2">
-                  <Loader2 className="h-3 w-3 animate-spin text-gray-500" />
-                  <div className="text-xs text-gray-600">Calculating notice period status...</div>
-                </div>
-              </div>
-            ) : noticePeriodStatus ? (
-              <div
-                className={`p-3 rounded border text-sm ${
-                  isAdminOverrideNotice
-                    ? "bg-purple-50 border-purple-200"
-                    : noticePeriodStatus.penaltyApplicable && !noticePeriodStatus.isCompleted
-                      ? "bg-red-50 border-red-200"
-                      : "bg-green-50 border-green-200"
-                }`}
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <div className="font-medium">
-                    {isAdminOverrideNotice ? (
-                      "🔓 Admin Override Active"
-                    ) : noticePeriodStatus.isCompleted ? (
-                      "✓ Notice Period Completed"
-                    ) : (
-                      "✗ Notice Period Not Completed"
-                    )}
-                  </div>
-                  <Badge
-                    variant={
-                      isAdminOverrideNotice
-                        ? "default"
-                        : noticePeriodStatus.isCompleted
-                          ? "default"
-                          : "destructive"
-                    }
-                    className="text-xs"
-                  >
-                    {isAdminOverrideNotice
-                      ? "No Penalty (Admin)"
-                      : noticePeriodStatus.isCompleted
-                        ? "No Penalty"
-                        : "Penalty Applicable"}
-                  </Badge>
-                </div>
-                <div className="text-xs">
-                  {isAdminOverrideNotice
-                    ? "Admin override active - Notice period penalty will NOT be applied."
-                    : noticePeriodStatus.message}
-                </div>
-                {!isAdminOverrideNotice && noticePeriodStatus.penaltyApplicable && noticePeriodStatus.daysRemaining > 0 && (
-                  <div className="text-xs mt-1 text-red-600">
-                    ⚠️ Penalty of {formatCurrency(calculation?.financials?.noticePenalty || 0)} will apply ({noticePeriodStatus.daysRemaining} days short of required notice)
-                  </div>
-                )}
-                {!isAdminOverrideNotice && noticePeriodStatus.noticeEndDate && noticePeriodStatus.isLockinCompleted && (
-                  <div className="text-xs mt-1 text-gray-600">
-                    <span className="font-medium">Notice ends on:</span> {formatDate(noticePeriodStatus.noticeEndDate)}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="p-2 bg-gray-50 border border-gray-200 rounded">
-                <div className="text-xs text-gray-600">Unable to calculate notice period.</div>
-              </div>
-            )}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-
-    {/* Admin Override for Notice */}
-    <div className="flex items-start gap-2 p-3 bg-purple-50 border border-purple-200 rounded-lg">
-      <input
-        type="checkbox"
-        id="adminOverrideNotice"
-        checked={isAdminOverrideNotice}
-        onChange={(e) => {
-          const checked = e.target.checked;
-          setIsAdminOverrideNotice(checked);
-          if (checked) {
-            toast.info("Admin override enabled - Notice period penalty will be waived");
-          } else {
-            toast.info("Admin override disabled - Standard notice period rules apply");
-          }
-          calculateAllPenalties();
-        }}
-        className="h-4 w-4 rounded border-purple-300 text-purple-600 focus:ring-purple-500 mt-0.5"
-      />
-      <div className="flex-1">
-        <Label htmlFor="adminOverrideNotice" className="font-medium text-purple-800">
-          Admin Override - Waive Notice Period Penalty
-        </Label>
-        <p className="text-xs text-purple-600 mt-0.5">
-          Check this to bypass notice period penalty regardless of completion status.
-        </p>
-      </div>
-    </div>
-
-    {/* Tenant Agreement Status for Notice */}
-    {existingVacateRequest && !isAdminOverrideNotice && (
-      <div className={`p-2 rounded text-xs ${
-        noticeGivenByTenant
-          ? "bg-green-50 border border-green-200 text-green-800"
-          : "bg-red-50 border border-red-200 text-red-800"
-      }`}>
-        <div className="flex items-center gap-1.5">
-          {noticeGivenByTenant ? (
-            <>
-              <CheckCircle className="h-3 w-3 text-green-600 flex-shrink-0" />
-              <span>✓ Tenant has accepted notice period terms</span>
-            </>
-          ) : (
-            <>
-              <AlertTriangle className="h-3 w-3 text-red-600 flex-shrink-0" />
-              <span>⚠️ Tenant has NOT accepted notice period terms</span>
-            </>
-          )}
-        </div>
-      </div>
-    )}
-  </div>
-)}
-
-{/* STEP 5: INSPECTION PENALTY */}
-{step === 5 && (
-  <div className="space-y-4 p-2">
-    <div className="bg-purple-50 p-3 rounded-lg">
-      <h3 className="font-medium text-purple-800 mb-1 text-sm">
-        Move-Out Inspection Penalty
-      </h3>
-      <p className="text-xs text-purple-700">
-        Review penalties from move-out inspection for damaged or missing items.
-      </p>
-    </div>
-
-    {loadingPenalty ? (
-      <div className="text-center py-8">
-        <Loader2 className="h-6 w-6 animate-spin mx-auto text-purple-500 mb-2" />
-        <p className="text-xs text-gray-500">Loading inspection data...</p>
-      </div>
-    ) : inspectionPenalty.has_inspection && inspectionPenalty.items.length > 0 ? (
-      <Card className="border-purple-200">
-        <CardContent className="p-3">
-          <div className="space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-purple-200">
-              <span className="text-sm font-semibold text-purple-800">Item</span>
-              <span className="text-sm font-semibold text-purple-800">Penalty</span>
-            </div>
-            {inspectionPenalty.items.map((item, idx) => (
-              <div key={idx} className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-800">{item.item_name}</p>
-                  <p className="text-xs text-gray-500">
-                    {item.condition_at_movein} → {item.condition_at_moveout}
+              <div className="space-y-4 p-2">
+                <div className="bg-blue-50 p-3 rounded-lg">
+                  <h3 className="font-medium text-blue-800 mb-1 text-sm">
+                    Notice Period Status
+                  </h3>
+                  <p className="text-xs text-blue-700">
+                    {lockinStatus?.isCompleted
+                      ? "Notice period starts after lock-in period is completed."
+                      : "⚠️ Lock-in period not completed. Full notice period penalty applies for early vacate."}
                   </p>
                 </div>
-                <Badge className="bg-red-100 text-red-700 text-xs px-2 py-1">
-                  {formatCurrency(item.penalty_amount)}
-                </Badge>
-              </div>
-            ))}
-            <div className="pt-2 border-t border-purple-200 flex items-center justify-between">
-              <span className="text-sm font-bold text-purple-800">Total Penalty</span>
-              <span className="text-lg font-bold text-red-600">
-                {formatCurrency(inspectionPenalty.total_penalty)}
-              </span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    ) : (
-      <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
-        <CheckCircle className="h-8 w-8 text-green-500 mx-auto mb-2" />
-        <p className="text-sm font-medium text-green-700">No Inspection Penalties</p>
-        <p className="text-xs text-green-600 mt-1">
-          No damaged or missing items found during move-out inspection.
-        </p>
-      </div>
-    )}
 
-    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-      <div className="flex items-start gap-2">
-        <Info className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
-        <div className="flex-1">
-          <p className="text-xs font-medium text-amber-800">Note:</p>
-          <p className="text-xs text-amber-700">
-            Inspection penalties are calculated based on item condition changes
-            from move-in to move-out. These will be deducted from the security deposit.
-          </p>
-        </div>
-      </div>
-    </div>
-  </div>
-)}
+                <Card className="border">
+                  <CardContent className="p-3">
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <div className="text-xs text-gray-500">
+                            Notice Period
+                          </div>
+                          <div className="font-medium">
+                            {bedData.notice_period_days || 0} days
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-gray-500">
+                            Penalty Type
+                          </div>
+                          <div className="font-medium text-sm">
+                            {bedData.notice_penalty_type
+                              ? formatLockinPenaltyType(
+                                  bedData.notice_penalty_type,
+                                )
+                              : "Fixed penalty"}
+                          </div>
+                        </div>
+                        {bedData.notice_penalty_amount > 0 && (
+                          <div>
+                            <div className="text-xs text-gray-500">
+                              Penalty Amount
+                            </div>
+                            <div className="font-medium text-sm text-red-600">
+                              {(() => {
+                                if (
+                                  bedData.notice_penalty_type ===
+                                    "percentage" &&
+                                  bedData.notice_penalty_amount < 100
+                                ) {
+                                  const calculatedAmount = Math.round(
+                                    (securityDeposit *
+                                      parseFloat(
+                                        bedData.notice_penalty_amount,
+                                      )) /
+                                      100,
+                                  );
+                                  return formatCurrency(calculatedAmount);
+                                }
+                                return formatCurrency(
+                                  bedData.notice_penalty_amount,
+                                );
+                              })()}
+                            </div>
+                          </div>
+                        )}
+                        <div>
+                          <div className="text-xs text-gray-500">
+                            Security Deposit
+                          </div>
+                          <div className="font-medium text-sm text-green-600">
+                            {formatCurrency(bedData.security_deposit || 0)}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="pt-3 border-t">
+                        <h4 className="font-medium text-sm mb-2">
+                          Notice Period Calculation
+                        </h4>
+
+                        {lockinStatus?.lockInEndDate && (
+                          <div className="mb-2 p-2 bg-blue-50 border border-blue-200 rounded">
+                            <div className="text-xs font-medium text-blue-800 mb-0.5">
+                              Lock-in End Date
+                            </div>
+                            <div className="text-xs text-gray-600">
+                              Lock-in completed on:{" "}
+                              {formatDate(lockinStatus.lockInEndDate)}
+                            </div>
+                            {!lockinStatus.isCompleted && (
+                              <div className="text-xs text-red-600 mt-1">
+                                ⚠️ Lock-in not completed yet. You are vacating
+                                early. Full notice period applies.
+                              </div>
+                            )}
+                            <div className="text-xs text-gray-600 mt-1">
+                              Required notice: {bedData.notice_period_days || 0}{" "}
+                              days
+                            </div>
+                            {lockinStatus.isCompleted && (
+                              <div className="text-xs text-gray-600 mt-1">
+                                Notice should be completed by:{" "}
+                                {formatDate(
+                                  new Date(
+                                    new Date(
+                                      lockinStatus.lockInEndDate,
+                                    ).getTime() +
+                                      (bedData.notice_period_days || 0) *
+                                        24 *
+                                        60 *
+                                        60 *
+                                        1000,
+                                  ),
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {calculating ? (
+                          <div className="p-2 bg-gray-50 border border-gray-200 rounded">
+                            <div className="flex items-center gap-2">
+                              <Loader2 className="h-3 w-3 animate-spin text-gray-500" />
+                              <div className="text-xs text-gray-600">
+                                Calculating notice period status...
+                              </div>
+                            </div>
+                          </div>
+                        ) : noticePeriodStatus ? (
+                          <div
+                            className={`p-3 rounded border text-sm ${
+                              isAdminOverrideNotice
+                                ? "bg-purple-50 border-purple-200"
+                                : noticePeriodStatus.penaltyApplicable &&
+                                    !noticePeriodStatus.isCompleted
+                                  ? "bg-red-50 border-red-200"
+                                  : "bg-green-50 border-green-200"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between mb-1">
+                              <div className="font-medium">
+                                {isAdminOverrideNotice
+                                  ? "🔓 Admin Override Active"
+                                  : noticePeriodStatus.isCompleted
+                                    ? "✓ Notice Period Completed"
+                                    : "✗ Notice Period Not Completed"}
+                              </div>
+                              <Badge
+                                variant={
+                                  isAdminOverrideNotice
+                                    ? "default"
+                                    : noticePeriodStatus.isCompleted
+                                      ? "default"
+                                      : "destructive"
+                                }
+                                className="text-xs"
+                              >
+                                {isAdminOverrideNotice
+                                  ? "No Penalty (Admin)"
+                                  : noticePeriodStatus.isCompleted
+                                    ? "No Penalty"
+                                    : "Penalty Applicable"}
+                              </Badge>
+                            </div>
+                            <div className="text-xs">
+                              {isAdminOverrideNotice
+                                ? "Admin override active - Notice period penalty will NOT be applied."
+                                : noticePeriodStatus.message}
+                            </div>
+                            {!isAdminOverrideNotice &&
+                              noticePeriodStatus.penaltyApplicable &&
+                              noticePeriodStatus.daysRemaining > 0 && (
+                                <div className="text-xs mt-1 text-red-600">
+                                  ⚠️ Penalty of{" "}
+                                  {formatCurrency(
+                                    calculation?.financials?.noticePenalty || 0,
+                                  )}{" "}
+                                  will apply ({noticePeriodStatus.daysRemaining}{" "}
+                                  days short of required notice)
+                                </div>
+                              )}
+                            {!isAdminOverrideNotice &&
+                              noticePeriodStatus.noticeEndDate &&
+                              noticePeriodStatus.isLockinCompleted && (
+                                <div className="text-xs mt-1 text-gray-600">
+                                  <span className="font-medium">
+                                    Notice ends on:
+                                  </span>{" "}
+                                  {formatDate(noticePeriodStatus.noticeEndDate)}
+                                </div>
+                              )}
+                          </div>
+                        ) : (
+                          <div className="p-2 bg-gray-50 border border-gray-200 rounded">
+                            <div className="text-xs text-gray-600">
+                              Unable to calculate notice period.
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Admin Override for Notice */}
+                <div className="flex items-start gap-2 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                  <input
+                    type="checkbox"
+                    id="adminOverrideNotice"
+                    checked={isAdminOverrideNotice}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setIsAdminOverrideNotice(checked);
+                      if (checked) {
+                        toast.info(
+                          "Admin override enabled - Notice period penalty will be waived",
+                        );
+                      } else {
+                        toast.info(
+                          "Admin override disabled - Standard notice period rules apply",
+                        );
+                      }
+                      calculateAllPenalties();
+                    }}
+                    className="h-4 w-4 rounded border-purple-300 text-purple-600 focus:ring-purple-500 mt-0.5"
+                  />
+                  <div className="flex-1">
+                    <Label
+                      htmlFor="adminOverrideNotice"
+                      className="font-medium text-purple-800"
+                    >
+                      Admin Override - Waive Notice Period Penalty
+                    </Label>
+                    <p className="text-xs text-purple-600 mt-0.5">
+                      Check this to bypass notice period penalty regardless of
+                      completion status.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Tenant Agreement Status for Notice */}
+                {existingVacateRequest && !isAdminOverrideNotice && (
+                  <div
+                    className={`p-2 rounded text-xs ${
+                      noticeGivenByTenant
+                        ? "bg-green-50 border border-green-200 text-green-800"
+                        : "bg-red-50 border border-red-200 text-red-800"
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      {noticeGivenByTenant ? (
+                        <>
+                          <CheckCircle className="h-3 w-3 text-green-600 flex-shrink-0" />
+                          <span>✓ Tenant has accepted notice period terms</span>
+                        </>
+                      ) : (
+                        <>
+                          <AlertTriangle className="h-3 w-3 text-red-600 flex-shrink-0" />
+                          <span>
+                            ⚠️ Tenant has NOT accepted notice period terms
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* STEP 5: INSPECTION PENALTY */}
+            {step === 5 && (
+              <div className="space-y-4 p-2">
+                <div className="bg-purple-50 p-3 rounded-lg">
+                  <h3 className="font-medium text-purple-800 mb-1 text-sm">
+                    Move-Out Inspection Penalty
+                  </h3>
+                  <p className="text-xs text-purple-700">
+                    Review penalties from move-out inspection for damaged or
+                    missing items.
+                  </p>
+                </div>
+
+                {loadingPenalty ? (
+                  <div className="text-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin mx-auto text-purple-500 mb-2" />
+                    <p className="text-xs text-gray-500">
+                      Loading inspection data...
+                    </p>
+                  </div>
+                ) : inspectionPenalty.has_inspection &&
+                  inspectionPenalty.items.length > 0 ? (
+                  <Card className="border-purple-200">
+                    <CardContent className="p-3">
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between pb-2 border-b border-purple-200">
+                          <span className="text-sm font-semibold text-purple-800">
+                            Item
+                          </span>
+                          <span className="text-sm font-semibold text-purple-800">
+                            Penalty
+                          </span>
+                        </div>
+                        {inspectionPenalty.items.map((item, idx) => (
+                          <div
+                            key={idx}
+                            className="flex items-center justify-between"
+                          >
+                            <div>
+                              <p className="text-sm font-medium text-gray-800">
+                                {item.item_name}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                {item.condition_at_movein} →{" "}
+                                {item.condition_at_moveout}
+                              </p>
+                            </div>
+                            <Badge className="bg-red-100 text-red-700 text-xs px-2 py-1">
+                              {formatCurrency(item.penalty_amount)}
+                            </Badge>
+                          </div>
+                        ))}
+                        <div className="pt-2 border-t border-purple-200 flex items-center justify-between">
+                          <span className="text-sm font-bold text-purple-800">
+                            Total Penalty
+                          </span>
+                          <span className="text-lg font-bold text-red-600">
+                            {formatCurrency(inspectionPenalty.total_penalty)}
+                          </span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+                    <CheckCircle className="h-8 w-8 text-green-500 mx-auto mb-2" />
+                    <p className="text-sm font-medium text-green-700">
+                      No Inspection Penalties
+                    </p>
+                    <p className="text-xs text-green-600 mt-1">
+                      No damaged or missing items found during move-out
+                      inspection.
+                    </p>
+                  </div>
+                )}
+
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                  <div className="flex items-start gap-2">
+                    <Info className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                    <div className="flex-1">
+                      <p className="text-xs font-medium text-amber-800">
+                        Note:
+                      </p>
+                      <p className="text-xs text-amber-700">
+                        Inspection penalties are calculated based on item
+                        condition changes from move-in to move-out. These will
+                        be deducted from the security deposit.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
             {/* STEP 5: VACATE DATE */}
             {step === 6 && (
               <div className="space-y-4 p-2">
@@ -2497,7 +2925,8 @@ style={{ width: `${((getStepIndex() + 1) / stepTitles.length) * 100}%` }}
                     <div className="flex items-center gap-2">
                       <Calendar className="h-3 w-3 text-blue-600" />
                       <span className="text-sm font-medium text-blue-800">
-                        Tenant requested vacate date: {formatDate(tenantVacateDate)}
+                        Tenant requested vacate date:{" "}
+                        {formatDate(tenantVacateDate)}
                       </span>
                     </div>
                     <p className="text-xs text-blue-700 mt-1">
@@ -2513,16 +2942,21 @@ style={{ width: `${((getStepIndex() + 1) / stepTitles.length) * 100}%` }}
                   <Input
                     type="date"
                     value={formData.requestedVacateDate}
-                    onChange={(e) => handleInputChange("requestedVacateDate", e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("requestedVacateDate", e.target.value)
+                    }
                     required
                     className="h-9"
                   />
                   <div className="text-xs text-gray-500 mt-2">
-                    <div>• This is the actual date tenant will vacate the bed</div>
+                    <div>
+                      • This is the actual date tenant will vacate the bed
+                    </div>
                     <div>• Should be at least today's date</div>
                     {tenantVacateDate && (
                       <div className="text-blue-600">
-                        • Tenant originally requested: {formatDate(tenantVacateDate)}
+                        • Tenant originally requested:{" "}
+                        {formatDate(tenantVacateDate)}
                       </div>
                     )}
                   </div>
@@ -2530,130 +2964,239 @@ style={{ width: `${((getStepIndex() + 1) / stepTitles.length) * 100}%` }}
               </div>
             )}
 
-{step === 7 && calculation && (
-  <div className="space-y-4 p-2">
-    <div className="bg-blue-50 p-3 rounded-lg">
-      <h3 className="font-medium text-blue-800 mb-1 text-sm">
-        Penalty Calculation & Summary
-      </h3>
-      <p className="text-xs text-blue-700">
-        Review penalties and {existingVacateRequest && !isAdminOverrideLockin && !isAdminOverrideNotice ? "approve the tenant's vacate request" : "process the vacate"}.
-      </p>
-    </div>
+            {step === 7 && calculation && (
+              <div className="space-y-4 p-2">
+                <div className="bg-blue-50 p-3 rounded-lg">
+                  <h3 className="font-medium text-blue-800 mb-1 text-sm">
+                    Penalty Calculation & Summary
+                  </h3>
+                  <p className="text-xs text-blue-700">
+                    Review penalties and{" "}
+                    {existingVacateRequest &&
+                    !isAdminOverrideLockin &&
+                    !isAdminOverrideNotice
+                      ? "approve the tenant's vacate request"
+                      : "process the vacate"}
+                    .
+                  </p>
+                </div>
 
-    <Card className="border">
-      <CardContent className="p-3">
-        <h4 className="font-medium text-sm mb-2">Bed & Room Information</h4>
-        <div className="grid grid-cols-2 gap-3">
+                <Card className="border">
+                  <CardContent className="p-3">
+                    <h4 className="font-medium text-sm mb-2">
+                      Bed & Room Information
+                    </h4>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <div className="text-xs text-gray-500">Bed Number</div>
+                        <div className="font-medium text-sm">
+                          {bedData.bed_number}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-gray-500">Room Number</div>
+                        <div className="font-medium text-sm">
+                          {bedData.room_number || "N/A"}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-gray-500">
+                          Check-in Date
+                        </div>
+                        <div className="font-medium text-sm">
+                          {formatDate(bedData.check_in_date)}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-gray-500">Vacate Date</div>
+                        <div className="font-medium text-sm">
+                          {formatDate(formData.requestedVacateDate)}
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="border">
+                  <CardContent className="p-3">
+                    <h4 className="font-medium text-sm mb-2">
+                      Financial Summary
+                    </h4>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <div className="text-sm text-gray-600">
+                          Security Deposit
+                        </div>
+                        <div className="font-medium text-sm">
+                          {formatCurrency(
+                            calculation.financials.securityDeposit,
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Lock-in Penalty - Show independently */}
+                      {calculation.financials.lockinPenalty > 0 && (
+                        <div className="flex justify-between items-center pt-2 border-t">
+                          <div>
+                            <div
+                              className={`text-sm ${isAdminOverrideLockin ? "text-gray-400 line-through" : "text-gray-600"}`}
+                            >
+                              Lock-in Penalty
+                            </div>
+                            {isAdminOverrideLockin && (
+                              <div className="text-xs text-green-600">
+                                (Waived by admin override)
+                              </div>
+                            )}
+                            {!isAdminOverrideLockin &&
+                              lockinStatus &&
+                              !lockinStatus.isCompleted && (
+                                <div className="text-xs text-red-600">
+                                  (Lock-in not completed)
+                                </div>
+                              )}
+                            {!isAdminOverrideLockin &&
+                              lockinStatus &&
+                              lockinStatus.isCompleted && (
+                                <div className="text-xs text-green-600">
+                                  (Lock-in completed - No penalty)
+                                </div>
+                              )}
+                          </div>
+                          <div
+                            className={`font-medium text-sm ${isAdminOverrideLockin ? "text-gray-400 line-through" : "text-red-600"}`}
+                          >
+                            -{" "}
+                            {formatCurrency(
+                              isAdminOverrideLockin
+                                ? 0
+                                : calculation.financials.lockinPenalty,
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Notice Penalty - Show independently */}
+                      {calculation.financials.noticePenalty > 0 && (
+                        <div className="flex justify-between items-center pt-2 border-t">
+                          <div>
+                            <div
+                              className={`text-sm ${isAdminOverrideNotice ? "text-gray-400 line-through" : "text-gray-600"}`}
+                            >
+                              Notice Penalty
+                            </div>
+                            {isAdminOverrideNotice && (
+                              <div className="text-xs text-green-600">
+                                (Waived by admin override)
+                              </div>
+                            )}
+                            {!isAdminOverrideNotice &&
+                              noticePeriodStatus &&
+                              !noticePeriodStatus.isCompleted && (
+                                <div className="text-xs text-red-600">
+                                  (Notice period not completed)
+                                </div>
+                              )}
+                            {!isAdminOverrideNotice &&
+                              noticePeriodStatus &&
+                              noticePeriodStatus.isCompleted && (
+                                <div className="text-xs text-green-600">
+                                  (Notice period completed - No penalty)
+                                </div>
+                              )}
+                          </div>
+                          <div
+                            className={`font-medium text-sm ${isAdminOverrideNotice ? "text-gray-400 line-through" : "text-red-600"}`}
+                          >
+                            -{" "}
+                            {formatCurrency(
+                              isAdminOverrideNotice
+                                ? 0
+                                : calculation.financials.noticePenalty,
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Inspection Penalty - Show separately */}
+      {calculation?.inspectionPenalty?.amount > 0 && (
+        <div className="flex justify-between items-center pt-2 border-t">
           <div>
-            <div className="text-xs text-gray-500">Bed Number</div>
-            <div className="font-medium text-sm">{bedData.bed_number}</div>
+            <div className="text-sm text-gray-600">Inspection Penalty</div>
+            <div className="text-xs text-gray-500">Move-out inspection damages</div>
           </div>
-          <div>
-            <div className="text-xs text-gray-500">Room Number</div>
-            <div className="font-medium text-sm">{bedData.room_number || "N/A"}</div>
-          </div>
-          <div>
-            <div className="text-xs text-gray-500">Check-in Date</div>
-            <div className="font-medium text-sm">{formatDate(bedData.check_in_date)}</div>
-          </div>
-          <div>
-            <div className="text-xs text-gray-500">Vacate Date</div>
-            <div className="font-medium text-sm">{formatDate(formData.requestedVacateDate)}</div>
+          <div className="font-medium text-sm text-red-600">
+            - {formatCurrency(calculation.inspectionPenalty.amount)}
           </div>
         </div>
-      </CardContent>
-    </Card>
+      )}
 
-    <Card className="border">
-      <CardContent className="p-3">
-        <h4 className="font-medium text-sm mb-2">Financial Summary</h4>
-        <div className="space-y-2">
-          <div className="flex justify-between items-center">
-            <div className="text-sm text-gray-600">Security Deposit</div>
-            <div className="font-medium text-sm">{formatCurrency(calculation.financials.securityDeposit)}</div>
+      {/* Total Penalties - Show correct total including inspection */}
+      <div className="flex justify-between items-center pt-2 border-t">
+        <div className="text-sm font-medium">Total Penalties</div>
+        <div className="font-medium text-sm text-red-600">
+          - {formatCurrency(calculation.financials.totalPenalty)}
+        </div>
+      </div>
+
+      {/* ✅ FIXED: Refundable Amount - Show 0 if negative, and show due amount separately */}
+          <div className="flex justify-between items-center pt-2 border-t">
+            <div className="font-medium">
+              {calculation.financials.refundableAmount >= 0 ? "Refundable Amount" : "Amount Due from Tenant"}
+            </div>
+            <div className={`font-bold ${calculation.financials.refundableAmount >= 0 ? "text-green-600" : "text-red-600"}`}>
+              {calculation.financials.refundableAmount >= 0 
+                ? formatCurrency(calculation.financials.refundableAmount)
+                : formatCurrency(Math.abs(calculation.financials.refundableAmount))}
+            </div>
           </div>
 
-          {/* Lock-in Penalty - Show independently */}
-          {calculation.financials.lockinPenalty > 0 && (
-            <div className="flex justify-between items-center pt-2 border-t">
-              <div>
-                <div className={`text-sm ${isAdminOverrideLockin ? "text-gray-400 line-through" : "text-gray-600"}`}>
-                  Lock-in Penalty
+          {/* ✅ ADD RECEIVE PAYMENT SECTION - When tenant owes money (refundableAmount < 0) */}
+          {calculation.financials.refundableAmount < 0 && !paymentReceived && (
+            <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 text-orange-600 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-orange-800">
+                    Payment Required
+                  </p>
+                  <p className="text-xs text-orange-700 mt-0.5">
+                    The tenant needs to pay <span className="font-semibold">{formatCurrency(Math.abs(calculation.financials.refundableAmount))}</span> 
+                      due to penalties ({formatCurrency(calculation.financials.totalPenalty)}) exceeding the security deposit ({formatCurrency(calculation.financials.securityDeposit)}).
+                  </p>
+                  <div className="mt-3">
+                    <Button
+                      size="sm"
+                      className="bg-orange-600 hover:bg-orange-700 text-white"
+                      onClick={() => handleReceivePayment(Math.abs(calculation.financials.refundableAmount))}
+                    >
+                      <IndianRupee className="w-3.5 h-3.5 mr-1" />
+                      Record Payment
+                    </Button>
+                  </div>
                 </div>
-                {isAdminOverrideLockin && <div className="text-xs text-green-600">(Waived by admin override)</div>}
-                {!isAdminOverrideLockin && lockinStatus && !lockinStatus.isCompleted && (
-                  <div className="text-xs text-red-600">(Lock-in not completed)</div>
-                )}
-                {!isAdminOverrideLockin && lockinStatus && lockinStatus.isCompleted && (
-                  <div className="text-xs text-green-600">(Lock-in completed - No penalty)</div>
-                )}
-              </div>
-              <div className={`font-medium text-sm ${isAdminOverrideLockin ? "text-gray-400 line-through" : "text-red-600"}`}>
-                - {formatCurrency(isAdminOverrideLockin ? 0 : calculation.financials.lockinPenalty)}
               </div>
             </div>
           )}
 
-          {/* Notice Penalty - Show independently */}
-          {calculation.financials.noticePenalty > 0 && (
-            <div className="flex justify-between items-center pt-2 border-t">
-              <div>
-                <div className={`text-sm ${isAdminOverrideNotice ? "text-gray-400 line-through" : "text-gray-600"}`}>
-                  Notice Penalty
+          {/* Show success message after payment */}
+          {calculation.financials.refundableAmount < 0 && paymentReceived && (
+            <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+              <div className="flex items-start gap-2">
+                <CheckCircle className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-green-800">
+                    Payment Received
+                  </p>
+                  <p className="text-xs text-green-700 mt-0.5">
+                    Payment has been recorded. You can now proceed with vacate.
+                  </p>
                 </div>
-                {isAdminOverrideNotice && <div className="text-xs text-green-600">(Waived by admin override)</div>}
-                {!isAdminOverrideNotice && noticePeriodStatus && !noticePeriodStatus.isCompleted && (
-                  <div className="text-xs text-red-600">(Notice period not completed)</div>
-                )}
-                {!isAdminOverrideNotice && noticePeriodStatus && noticePeriodStatus.isCompleted && (
-                  <div className="text-xs text-green-600">(Notice period completed - No penalty)</div>
-                )}
-              </div>
-              <div className={`font-medium text-sm ${isAdminOverrideNotice ? "text-gray-400 line-through" : "text-red-600"}`}>
-                - {formatCurrency(isAdminOverrideNotice ? 0 : calculation.financials.noticePenalty)}
               </div>
             </div>
           )}
 
-          {/* Inspection Penalty - Show separately */}
-{calculation?.inspectionPenalty?.amount > 0 && (
-  <div className="flex justify-between items-center pt-2 border-t">
-    <div>
-      <div className="text-sm text-gray-600">
-        Inspection Penalty
-      </div>
-      <div className="text-xs text-gray-500">
-        Move-out inspection damages
-      </div>
-    </div>
-    <div className="font-medium text-sm text-red-600">
-      - {formatCurrency(calculation.inspectionPenalty.amount)}
-    </div>
-  </div>
-)}
-
-          {/* Total Penalties - Show correct total including inspection */}
-<div className="flex justify-between items-center pt-2 border-t">
-  <div className="text-sm font-medium">Total Penalties</div>
-  <div className="font-medium text-sm text-red-600">
-    - {formatCurrency(
-      (calculation.financials.lockinPenalty || 0) + 
-      (calculation.financials.noticePenalty || 0) + 
-      (calculation?.inspectionPenalty?.amount || 0)
-    )}
-  </div>
-</div>
-
-{/* Refundable Amount - Show correct refund including inspection deduction */}
-<div className="flex justify-between items-center pt-2 border-t">
-  <div className="font-medium">Refundable Amount</div>
-  <div className={`font-bold ${(calculation.financials.refundableAmount - (calculation?.inspectionPenalty?.amount || 0)) > 0 ? "text-green-600" : "text-red-600"}`}>
-    {formatCurrency(Math.max(0, calculation.financials.refundableAmount - (calculation?.inspectionPenalty?.amount || 0)))}
-  </div>
-</div>
-
-          {/* ✅ ADD REFUND MESSAGE */}
+          {/* ✅ ADD REFUND MESSAGE - Only when refundableAmount > 0 */}
           {calculation.financials.refundableAmount > 0 && (
             <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
               <div className="flex items-start gap-2">
@@ -2663,210 +3206,310 @@ style={{ width: `${((getStepIndex() + 1) / stepTitles.length) * 100}%` }}
                     Refund Processing
                   </p>
                   <p className="text-xs text-amber-700 mt-0.5">
-                    The refund amount of <span className="font-semibold">{formatCurrency(calculation.financials.refundableAmount)}</span> will be processed and sent to the tenant's registered bank account within <span className="font-semibold">15 working days</span> after vacate confirmation.
+                    The refund amount of <span className="font-semibold">{formatCurrency(calculation.financials.refundableAmount)}</span> 
+                    will be processed and sent to the tenant's registered bank account within 
+                    <span className="font-semibold"> 15 working days</span> after vacate confirmation.
                   </p>
                 </div>
               </div>
             </div>
           )}
-        </div>
-      </CardContent>
-    </Card>
+                    </div>
+                  </CardContent>
+                </Card>
 
-    {/* Rest of the summary card remains the same */}
-    <Card className="border">
-      <CardContent className="p-3">
-        <div className="space-y-3">
-          {existingVacateRequest && !isAdminOverrideLockin && !isAdminOverrideNotice && (
-            <div className="flex items-start gap-2">
-              <input
-                type="checkbox"
-                id="adminApproved"
-                checked={formData.adminApproved}
-                onChange={(e) => handleInputChange("adminApproved", e.target.checked)}
-                className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 mt-0.5"
-              />
-              <div>
-                <label htmlFor="adminApproved" className="font-medium text-sm">
-                  Approve Tenant's Vacate Request
-                </label>
-                <div className="text-xs text-gray-600 space-y-0.5 mt-1">
-                  <div>• I approve this vacate request submitted by the tenant</div>
-                  <div>• Tenant will vacate bed {bedData.bed_number} on {formatDate(formData.requestedVacateDate)}</div>
-                  <div>• Security deposit refund: {formatCurrency(calculation.financials.refundableAmount)}</div>
-                </div>
-              </div>
-            </div>
-          )}
+                {/* Rest of the summary card remains the same */}
+                <Card className="border">
+                  <CardContent className="p-3">
+                    <div className="space-y-3">
+                      {existingVacateRequest &&
+                        !isAdminOverrideLockin &&
+                        !isAdminOverrideNotice && (
+                          <div className="flex items-start gap-2">
+                            <input
+                              type="checkbox"
+                              id="adminApproved"
+                              checked={formData.adminApproved}
+                              onChange={(e) =>
+                                handleInputChange(
+                                  "adminApproved",
+                                  e.target.checked,
+                                )
+                              }
+                              className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 mt-0.5"
+                            />
+                            <div>
+                              <label
+                                htmlFor="adminApproved"
+                                className="font-medium text-sm"
+                              >
+                                Approve Tenant's Vacate Request
+                              </label>
+                              <div className="text-xs text-gray-600 space-y-0.5 mt-1">
+                                <div>
+                                  • I approve this vacate request submitted by
+                                  the tenant
+                                </div>
+                                <div>
+                                  • Tenant will vacate bed {bedData.bed_number}{" "}
+                                  on {formatDate(formData.requestedVacateDate)}
+                                </div>
+                                <div>
+                                  • Security deposit refund:{" "}
+                                  {formatCurrency(
+                                    calculation.financials.refundableAmount,
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
 
-          {(!existingVacateRequest || isAdminOverrideLockin || isAdminOverrideNotice) && (
-            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <div className="flex items-start gap-2">
-                <Info className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-blue-800">
-                    {isAdminOverrideLockin || isAdminOverrideNotice 
-                      ? "Admin Override Active" 
-                      : "Direct Admin Vacate"}
-                  </p>
-                  <p className="text-xs text-blue-700 mt-0.5">
-                    {isAdminOverrideLockin || isAdminOverrideNotice
-                      ? "You have enabled admin override. No approval needed - the bed will be vacated immediately with the selected overrides."
-                      : "You are directly vacating this bed. No tenant approval required. The bed will be vacated immediately."}
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
+                      {(!existingVacateRequest ||
+                        isAdminOverrideLockin ||
+                        isAdminOverrideNotice) && (
+                        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                          <div className="flex items-start gap-2">
+                            <Info className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                            <div className="flex-1">
+                              <p className="text-sm font-medium text-blue-800">
+                                {isAdminOverrideLockin || isAdminOverrideNotice
+                                  ? "Admin Override Active"
+                                  : "Direct Admin Vacate"}
+                              </p>
+                              <p className="text-xs text-blue-700 mt-0.5">
+                                {isAdminOverrideLockin || isAdminOverrideNotice
+                                  ? "You have enabled admin override. No approval needed - the bed will be vacated immediately with the selected overrides."
+                                  : "You are directly vacating this bed. No tenant approval required. The bed will be vacated immediately."}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
 
-          {(isAdminOverrideLockin || isAdminOverrideNotice) && (
-            <div className="p-2 rounded text-xs bg-purple-50 border border-purple-200 text-purple-800">
-              <div className="flex items-center gap-1.5">
-                <Shield className="h-3 w-3 text-purple-600 flex-shrink-0" />
-                <span className="font-medium">Admin Override Status:</span>
-                <span>
-                  {isAdminOverrideLockin && "Lock-in penalty waived "}
-                  {isAdminOverrideLockin && isAdminOverrideNotice && "& "}
-                  {isAdminOverrideNotice && "Notice penalty waived"}
-                </span>
-              </div>
-            </div>
-          )}
+                      {(isAdminOverrideLockin || isAdminOverrideNotice) && (
+                        <div className="p-2 rounded text-xs bg-purple-50 border border-purple-200 text-purple-800">
+                          <div className="flex items-center gap-1.5">
+                            <Shield className="h-3 w-3 text-purple-600 flex-shrink-0" />
+                            <span className="font-medium">
+                              Admin Override Status:
+                            </span>
+                            <span>
+                              {isAdminOverrideLockin &&
+                                "Lock-in penalty waived "}
+                              {isAdminOverrideLockin &&
+                                isAdminOverrideNotice &&
+                                "& "}
+                              {isAdminOverrideNotice && "Notice penalty waived"}
+                            </span>
+                          </div>
+                        </div>
+                      )}
 
-          {existingVacateRequest && !isAdminOverrideLockin && !isAdminOverrideNotice && (
-            <div className="p-2 rounded text-xs bg-yellow-50 border border-yellow-200 text-yellow-800">
-              <div className="flex items-center gap-1.5">
-                <FileText className="h-3 w-3 text-yellow-600 flex-shrink-0" />
-                <span>
-                  Tenant submitted this vacate request. Please review and approve.
-                </span>
+                      {existingVacateRequest &&
+                        !isAdminOverrideLockin &&
+                        !isAdminOverrideNotice && (
+                          <div className="p-2 rounded text-xs bg-yellow-50 border border-yellow-200 text-yellow-800">
+                            <div className="flex items-center gap-1.5">
+                              <FileText className="h-3 w-3 text-yellow-600 flex-shrink-0" />
+                              <span>
+                                Tenant submitted this vacate request. Please
+                                review and approve.
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
-            </div>
-          )}
-        </div>
-      </CardContent>
-    </Card>
-  </div>
-)}
+            )}
 
             {/* STEP 7: RESULT */}
-{/* STEP 8: RESULT */}
-{step === 8 && (
-  <div className="space-y-4 p-2">
-    <div className="bg-green-50 p-4 rounded-lg text-center">
-      <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-green-100 mb-3">
-        <Check className="h-6 w-6 text-green-600" />
-      </div>
-      <h3 className="font-medium text-green-800 text-lg mb-1">
-        Vacate Request Processed Successfully!
-      </h3>
-      <p className="text-green-700">
-        The bed has been marked as vacated.
-      </p>
-      
-      {/* ✅ ADD REFUND MESSAGE IN RESULT STEP */}
-      {calculation?.financials?.refundableAmount > 0 && (
-        <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-left">
-          <div className="flex items-start gap-2">
-            <Info className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
-            <div className="flex-1">
-              <p className="text-sm font-medium text-amber-800">
-                Refund Status
-              </p>
-              <p className="text-xs text-amber-700 mt-0.5">
-                The refund amount of <span className="font-semibold">{formatCurrency(calculation.financials.refundableAmount)}</span> will be processed and sent to the tenant's registered bank account within <span className="font-semibold">15 working days</span>.
-              </p>
-              <p className="text-xs text-amber-600 mt-2">
-                The tenant will receive an email notification once the refund is processed.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {calculation?.financials?.refundableAmount === 0 && calculation?.financials?.totalPenalty > 0 && (
-        <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-left">
-          <div className="flex items-start gap-2">
-            <AlertTriangle className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
-            <div className="flex-1">
-              <p className="text-sm font-medium text-red-800">
-                No Refund Due
-              </p>
-              <p className="text-xs text-red-700 mt-0.5">
-                Total penalties of <span className="font-semibold">{formatCurrency(calculation.financials.totalPenalty)}</span> have fully deducted the security deposit of <span className="font-semibold">{formatCurrency(calculation.financials.securityDeposit)}</span>. No refund amount is due.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      <p className="text-sm text-green-600 mt-3">
-        Closing dialog...
-      </p>
-    </div>
-  </div>
-)}
+            {/* STEP 8: RESULT */}
+            {step === 8 && (
+              <div className="space-y-4 p-2">
+                <div className="bg-green-50 p-4 rounded-lg text-center">
+                  <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-green-100 mb-3">
+                    <Check className="h-6 w-6 text-green-600" />
+                  </div>
+                  <h3 className="font-medium text-green-800 text-lg mb-1">
+                    Vacate Request Processed Successfully!
+                  </h3>
+                  <p className="text-green-700">
+                    The bed has been marked as vacated.
+                  </p>
+
+                  {/* ✅ ADD REFUND MESSAGE IN RESULT STEP */}
+                  {calculation?.financials?.refundableAmount > 0 && (
+                    <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-left">
+                      <div className="flex items-start gap-2">
+                        <Info className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-amber-800">
+                            Refund Status
+                          </p>
+                          <p className="text-xs text-amber-700 mt-0.5">
+                            The refund amount of{" "}
+                            <span className="font-semibold">
+                              {formatCurrency(
+                                calculation.financials.refundableAmount,
+                              )}
+                            </span>{" "}
+                            will be processed and sent to the tenant's
+                            registered bank account within{" "}
+                            <span className="font-semibold">
+                              15 working days
+                            </span>
+                            .
+                          </p>
+                          <p className="text-xs text-amber-600 mt-2">
+                            The tenant will receive an email notification once
+                            the refund is processed.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {calculation?.financials?.refundableAmount === 0 &&
+                    calculation?.financials?.totalPenalty > 0 && (
+                      <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-left">
+                        <div className="flex items-start gap-2">
+                          <AlertTriangle className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-red-800">
+                              No Refund Due
+                            </p>
+                            <p className="text-xs text-red-700 mt-0.5">
+                              Total penalties of{" "}
+                              <span className="font-semibold">
+                                {formatCurrency(
+                                  calculation.financials.totalPenalty,
+                                )}
+                              </span>{" "}
+                              have fully deducted the security deposit of{" "}
+                              <span className="font-semibold">
+                                {formatCurrency(
+                                  calculation.financials.securityDeposit,
+                                )}
+                              </span>
+                              . No refund amount is due.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                  <p className="text-sm text-green-600 mt-3">
+                    Closing dialog...
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
-<DialogFooter className="gap-2 pt-3 border-t px-4 pb-3 flex-shrink-0 bg-white">
-  {step > 1 && step < 8 && (
-    <Button variant="outline" onClick={handleBack} disabled={loading || calculating} size="sm">
-      Back
-    </Button>
-  )}
+        <DialogFooter className="gap-2 pt-3 border-t px-4 pb-3 flex-shrink-0 bg-white">
+          {step > 1 && step < 8 && (
+            <Button
+              variant="outline"
+              onClick={handleBack}
+              disabled={loading || calculating}
+              size="sm"
+            >
+              Back
+            </Button>
+          )}
 
-  {step === 1 && (
-    <Button onClick={handleNext} disabled={loading || calculating || loadingMasters || !formData.vacateReasonValue} size="sm">
-      Next
-    </Button>
-  )}
-  
-  {step === 2 && isCoupleBooking && (
-    <Button onClick={handleNext} disabled={loading || tenantsToVacate.filter(t => t.selected).length === 0} size="sm">
-      Next
-    </Button>
-  )}
-  
-  {(step === 3 || step === 4 || step === 5) && (
-    <Button onClick={handleNext} disabled={loading || calculating} size="sm">
-      Next
-    </Button>
-  )}
-  
-  {step === 6 && (  // Date step - Calculate Penalties
-    <Button onClick={handleNext} disabled={loading || !formData.requestedVacateDate} size="sm">
-      Calculate Penalties
-    </Button>
-  )}
-  
-  {step === 7 && (  // Summary step - Process
-    <Button 
-      onClick={handleSubmit} 
-      disabled={
-        loading || 
-        (existingVacateRequest && !isAdminOverrideLockin && !isAdminOverrideNotice && !formData.adminApproved)
-      } 
-      size="sm"
-    >
-      {loading ? (
-        <>
-          <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
-          Processing...
-        </>
-      ) : (
-        "Process Vacate"
-      )}
-    </Button>
-  )}
-  
-  {step === 8 && (
-    <Button onClick={handleClose} size="sm">
-      Close
-    </Button>
-  )}
-</DialogFooter>
+          {step === 1 && (
+            <Button
+              onClick={handleNext}
+              disabled={
+                loading ||
+                calculating ||
+                loadingMasters ||
+                !formData.vacateReasonValue
+              }
+              size="sm"
+            >
+              Next
+            </Button>
+          )}
+
+          {step === 2 && isCoupleBooking && (
+            <Button
+              onClick={handleNext}
+              disabled={
+                loading ||
+                tenantsToVacate.filter((t) => t.selected).length === 0
+              }
+              size="sm"
+            >
+              Next
+            </Button>
+          )}
+
+          {(step === 3 || step === 4 || step === 5) && (
+            <Button
+              onClick={handleNext}
+              disabled={loading || calculating}
+              size="sm"
+            >
+              Next
+            </Button>
+          )}
+
+          {step === 6 && ( // Date step - Calculate Penalties
+            <Button
+              onClick={handleNext}
+              disabled={loading || !formData.requestedVacateDate}
+              size="sm"
+            >
+              Calculate Penalties
+            </Button>
+          )}
+
+          {step === 7 && ( // Summary step - Process
+            <Button
+              onClick={handleSubmit}
+              disabled={
+                loading ||
+                (existingVacateRequest &&
+                  !isAdminOverrideLockin &&
+                  !isAdminOverrideNotice &&
+                  !formData.adminApproved) ||
+                  (calculation?.financials?.refundableAmount < 0 && !paymentReceived)  // ✅ Disable if payment required but not received
+              }
+              size="sm"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                "Process Vacate"
+              )}
+            </Button>
+          )}
+
+          {step === 8 && (
+            <Button onClick={handleClose} size="sm">
+              Close
+            </Button>
+          )}
+        </DialogFooter>
       </DialogContent>
+      {/* Add Receive Payment Modal */}
+<VacatedTenantPaymentModal
+  open={receivePaymentModalOpen}
+  onOpenChange={setReceivePaymentModalOpen}
+  tenant={{ id: tenantDetails?.id, full_name: tenantDetails?.full_name }}
+  amount={receivePaymentAmount}
+  type={receivePaymentType}
+  onSuccess={handleReceivePaymentSuccess}
+/>
     </Dialog>
   );
 }

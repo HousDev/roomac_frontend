@@ -18,7 +18,7 @@ import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "@/context/authContext";
 import { savePaymentIntent } from "@/lib/paymentRecordApi";
 
-export default function ProtectedRoute() {
+export default function () {
   const { isAuthenticated, loading } = useAuth();
   const location = useLocation();
 

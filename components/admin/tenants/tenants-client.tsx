@@ -114,7 +114,7 @@ const loadTenants = useCallback(async (customFilters?: TenantFilters) => {
   
   try {
     const useFilters = customFilters || filtersRef.current;
-    const res = await listTenants(useFilters);
+    const res = await listTenants({ ...useFilters, pageSize: 1000 });
     
     if (res?.success && Array.isArray(res.data)) {
       
@@ -182,13 +182,10 @@ const handleImportClick = useCallback(() => {
   setShowImportModal(true);
 }, []);
 
-// Add import file handler
-const handleImportFile = async (file: File) => {
+// Enhanced import file handler
+const handleImportFile = async (formData: FormData) => {
   setImporting(true);
   try {
-    const formData = new FormData();
-    formData.append('file', file);
-    
     const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
     const response = await fetch(`${apiUrl}/api/tenants/import`, {
       method: 'POST',
@@ -198,13 +195,16 @@ const handleImportFile = async (file: File) => {
     const result = await response.json();
     
     if (result.success) {
-      toast.success(`Successfully imported ${result.count} tenants`);
+      const targetTab = formData.get('target_tab') as string;
+      toast.success(`Successfully imported ${result.count} tenants to ${targetTab} tab`);
       setShowImportModal(false);
-      await loadTenants(); // Refresh the tenants list
+      
+      // Reload the current tab to show imported data
+      await loadTenants();
       
       if (result.errors && result.errors.length > 0) {
         console.warn('Import errors:', result.errors);
-        // You could show these in a separate dialog if needed
+        toast.warning(`${result.errors.length} rows had errors. Check console for details.`);
       }
     } else {
       throw new Error(result.message || 'Import failed');
@@ -252,11 +252,11 @@ const handleTabChange = useCallback((tab: 'all' | 'vacated' | 'deleted') => {
   // Load data directly based on tab
   let filters;
   if (tab === 'all') {
-    filters = { vacate_status: 'non_vacated', include_deleted: false };
+    filters = { vacate_status: 'non_vacated', include_deleted: false ,pageSize: 1000  };
   } else if (tab === 'vacated') {
-    filters = { vacate_status: 'vacated', include_deleted: false };
+    filters = { vacate_status: 'vacated', include_deleted: false ,pageSize: 1000  };
   } else {
-    filters = { vacate_status: 'vacated', include_deleted: true };
+    filters = { vacate_status: 'vacated', include_deleted: true ,pageSize: 1000  };
   }
   
   handleFilterChange(filters);
@@ -597,28 +597,27 @@ const handleExportToExcel = useCallback(async () => {
   try {
     let exportData = [];
     
-    // If on vacated tab, fetch vacated tenants directly from API
+    // Show loading toast
+    toast.loading(`Exporting ${activeTab} tenants...`, { id: "export-loading" });
+    
+    // Fetch data based on active tab
     if (activeTab === 'vacated') {
-      // Show loading toast
-      toast.loading("Fetching vacated tenants...", { id: "export-loading" });
-      
-      // Fetch vacated tenants from API
       const response = await listTenants({ vacate_status: 'vacated', pageSize: 1000 });
-      
       toast.dismiss("export-loading");
       
       if (response?.success && Array.isArray(response.data)) {
         exportData = response.data;
-        toast.success(`Found ${exportData.length} vacated tenants to export`);
       } else {
         toast.error("Failed to fetch vacated tenants");
         return;
       }
     } else if (activeTab === 'deleted') {
-      // For deleted tab, fetch deleted tenants
-      toast.loading("Fetching deleted tenants...", { id: "export-loading" });
-      
-      const response = await listTenants({ include_deleted: true, vacate_status: 'vacated', pageSize: 1000 });
+      // For deleted tab - fetch soft-deleted, vacated tenants
+      const response = await listTenants({ 
+        include_deleted: true, 
+        vacate_status: 'vacated', 
+        pageSize: 1000 
+      });
       
       toast.dismiss("export-loading");
       
@@ -630,8 +629,10 @@ const handleExportToExcel = useCallback(async () => {
         return;
       }
     } else {
-      // For All Tenants tab, use current tenants state
+      // All Tenants tab - use current tenants state
       exportData = tenants;
+      toast.dismiss("export-loading");
+      toast.success(`Exporting ${exportData.length} tenants`);
     }
     
     if (exportData.length === 0) {
@@ -639,44 +640,49 @@ const handleExportToExcel = useCallback(async () => {
       return;
     }
     
-    // Prepare data for Excel
-    const excelData = exportData.map(tenant => ({
-      'ID': tenant.id,
-      'Salutation': tenant.salutation || '',
-      'Full Name': tenant.full_name,
-      'Email': tenant.email,
-      'Phone': `${tenant.country_code || ''} ${tenant.phone || ''}`.trim(),
-      'Gender': tenant.gender || '',
-      'Date of Birth': tenant.date_of_birth || '',
-      'Occupation Category': tenant.occupation_category || '',
-      'Exact Occupation': tenant.exact_occupation || '',
-      'Organization': tenant.organization || '',
-      'Address': tenant.address || '',
-      'City': tenant.city || '',
-      'State': tenant.state || '',
-      'Pincode': tenant.pincode || '',
-      'Emergency Contact': tenant.emergency_contact_name || '',
-      'Emergency Phone': tenant.emergency_contact_phone || '',
-      'Check-in Date': tenant.check_in_date || '',
-      'Lock-in Period (months)': tenant.lockin_period_months || 0,
-      'Lock-in Penalty': tenant.lockin_penalty_amount || 0,
-      'Lock-in Penalty Type': tenant.lockin_penalty_type || '',
-      'Notice Period (days)': tenant.notice_period_days || 0,
-      'Notice Penalty': tenant.notice_penalty_amount || 0,
-      'Notice Penalty Type': tenant.notice_penalty_type || '',
-      'Portal Access': tenant.portal_access_enabled ? 'Yes' : 'No',
-      'Status': tenant.is_active ? 'Active' : 'Inactive',
-      'Has Login': tenant.has_credentials ? 'Yes' : 'No',
-      'Property': tenant.property_name || '',
-      'Room Assignment': tenant.current_assignment ? 
-        `Room ${tenant.current_assignment.room_number}, Bed ${tenant.current_assignment.bed_number}` : 'Not assigned',
-      // Add vacate information if available
-      'Vacated Date': tenant.vacate_records?.[0]?.requested_vacate_date || '',
-      'Vacate Reason': tenant.vacate_records?.[0]?.vacate_reason_value || '',
-      'Refund Amount': tenant.vacate_records?.[0]?.refundable_amount || 0,
-      'Penalty Amount': tenant.vacate_records?.[0]?.total_penalty_amount || 0,
-    }));
-
+    // Prepare Excel data based on tab type
+    const excelData = exportData.map(tenant => {
+      const baseData = {
+        'ID': tenant.id,
+        'Salutation': tenant.salutation || '',
+        'Full Name': tenant.full_name,
+        'Email': tenant.email,
+        'Phone': `${tenant.country_code || ''} ${tenant.phone || ''}`.trim(),
+        'Gender': tenant.gender || '',
+        'Date of Birth': tenant.date_of_birth || '',
+        'Occupation Category': tenant.occupation_category || '',
+        'Exact Occupation': tenant.exact_occupation || '',
+        'Organization': tenant.organization || '',
+        'Address': tenant.address || '',
+        'City': tenant.city || '',
+        'State': tenant.state || '',
+        'Pincode': tenant.pincode || '',
+        'Emergency Contact': tenant.emergency_contact_name || '',
+        'Emergency Phone': tenant.emergency_contact_phone || '',
+        'Check-in Date': tenant.check_in_date || '',
+        'Portal Access': tenant.portal_access_enabled ? 'Yes' : 'No',
+        'Status': tenant.is_active ? 'Active' : 'Inactive',
+        'Has Login': tenant.has_credentials ? 'Yes' : 'No',
+        'Property': tenant.property_name || '',
+        'Room Assignment': tenant.current_assignment ? 
+          `Room ${tenant.current_assignment.room_number}, Bed ${tenant.current_assignment.bed_number}` : 'Not assigned',
+      };
+      
+      // Add vacate information for vacated/deleted tabs
+      if (activeTab === 'vacated' || activeTab === 'deleted') {
+        return {
+          ...baseData,
+          'Vacated Date': tenant.vacate_records?.[0]?.requested_vacate_date || '',
+          'Vacate Reason': tenant.vacate_records?.[0]?.vacate_reason_value || '',
+          'Refund Amount': tenant.vacate_records?.[0]?.refundable_amount || 0,
+          'Penalty Amount': tenant.vacate_records?.[0]?.total_penalty_amount || 0,
+          'Security Deposit': tenant.vacate_records?.[0]?.security_deposit_amount || 0,
+        };
+      }
+      
+      return baseData;
+    });
+    
     // Create worksheet
     const ws = XLSX.utils.json_to_sheet(excelData);
     
@@ -691,7 +697,7 @@ const handleExportToExcel = useCallback(async () => {
       colWidths.push({ wch: Math.min(maxLength + 2, 50) });
     });
     ws['!cols'] = colWidths;
-
+    
     // Create workbook
     const wb = XLSX.utils.book_new();
     
@@ -705,34 +711,35 @@ const handleExportToExcel = useCallback(async () => {
       'Metric': 'Total Tenants',
       'Value': excelData.length
     }, {
-      'Metric': 'Active Tenants',
-      'Value': excelData.filter(t => t.is_active).length
-    }, {
-      'Metric': 'Inactive Tenants',
-      'Value': excelData.filter(t => !t.is_active).length
-    }, {
-      'Metric': 'Portal Access Enabled',
-      'Value': excelData.filter(t => t.portal_access_enabled).length
-    }, {
       'Metric': 'Export Date',
       'Value': new Date().toLocaleString()
     }, {
       'Metric': 'Export Type',
-      'Value': activeTab === 'vacated' ? 'Vacated Tenants Only' : 
-               activeTab === 'deleted' ? 'Deleted Vacated Tenants Only' : 'All Tenants'
+      'Value': sheetName
     }];
+    
+    // Add tab-specific summary
+    if (activeTab === 'vacated' || activeTab === 'deleted') {
+      const totalRefund = excelData.reduce((sum, t) => sum + (t['Refund Amount'] || 0), 0);
+      const totalPenalty = excelData.reduce((sum, t) => sum + (t['Penalty Amount'] || 0), 0);
+      summaryData.push(
+        { 'Metric': 'Total Refund Amount', 'Value': `₹${totalRefund.toLocaleString()}` },
+        { 'Metric': 'Total Penalty Amount', 'Value': `₹${totalPenalty.toLocaleString()}` }
+      );
+    }
     
     const summaryWs = XLSX.utils.json_to_sheet(summaryData);
     XLSX.utils.book_append_sheet(wb, summaryWs, "Summary");
     
     // Generate Excel file
-    const fileName = `tenants_${activeTab}_export_${new Date().toISOString().split('T')[0]}.xlsx`;
+    const fileName = `tenants_${activeTab}_${new Date().toISOString().split('T')[0]}.xlsx`;
     XLSX.writeFile(wb, fileName);
     
     toast.success(`Exported ${excelData.length} ${sheetName} successfully!`);
     
   } catch (error: any) {
     console.error('Export error:', error);
+    toast.dismiss("export-loading");
     toast.error(error.message || "Failed to export tenants");
   }
 }, [tenants, activeTab]);
@@ -857,8 +864,23 @@ const handleVacatedTenantPayment = useCallback((tenant: Tenant, paymentAmount: n
 }, []);
 
 const handlePaymentModalSuccess = useCallback(async () => {
+  // Force refresh the tenants data
   await loadTenants();
-}, [loadTenants]);
+  // Force a re-render
+  setForceUpdate(prev => prev + 1);
+  // Also refresh the selected tenant if it exists
+  if (selectedVacatedTenant) {
+    const refreshedTenant = await listTenants({ 
+      vacate_status: 'vacated', 
+      pageSize: 1000,
+      search: String(selectedVacatedTenant.id)
+    });
+    if (refreshedTenant?.success && refreshedTenant.data?.length > 0) {
+      const updatedTenant = refreshedTenant.data[0];
+      setSelectedVacatedTenant(updatedTenant);
+    }
+  }
+}, [loadTenants, selectedVacatedTenant]);
 
   // Handle delete for vacated tenants - moves to deleted tab
 const handleDeleteVacatedTenant = useCallback(async (tenant: Tenant) => {
@@ -1080,11 +1102,6 @@ const columns = useMemo(() => [
     const payments = tenant.payments || [];
     const paid = payments.filter(p => p.status === 'paid' || p.status === 'approved').reduce((sum, p) => sum + (p.amount || 0), 0);
     const pending = payments.filter(p => p.status === 'pending').reduce((sum, p) => sum + (p.amount || 0), 0);
-    
-    // ✅ DEBUG: Log vacate records for each tenant
-    if (tenant.has_vacated) {
-      console.log(`💰 Tenant ${tenant.id} (${tenant.full_name}) has vacate_records:`, tenant.vacate_records);
-    }
     
     // Check if tenant is vacated and has refundable amount
     const isVacated = tenant.has_vacated === true;
@@ -2364,48 +2381,53 @@ const columns = useMemo(() => [
 <td className="px-2 py-2.5">
   {(() => {
     const payments = tenant.payments || [];
-    const paid = payments.filter(p => p.status === 'paid').reduce((sum, p) => sum + (p.amount || 0), 0);
-    const pending = payments.filter(p => p.status === 'pending').reduce((sum, p) => sum + (p.amount || 0), 0);
     
+    const paid = payments
+      .filter(p => p.status === 'approved' || p.status === 'paid')
+      .reduce((sum, p) => sum + (p.amount || 0), 0);
+
     const isVacated = tenant.has_vacated === true;
     const vacateRecord = tenant.vacate_records?.[0];
     const refundableAmount = vacateRecord?.refundable_amount || 0;
-    const needsRefund = isVacated && refundableAmount > 0;
-    const needsPayment = isVacated && refundableAmount < 0;
-    
+
+    const totalRefunded = payments
+      .filter(p => p.payment_type === 'deposit_refund')
+      .reduce((sum, p) => sum + (p.amount || 0), 0);
+
+    const remainingRefund = refundableAmount - totalRefunded;
+    const needsRefund = isVacated && remainingRefund > 0;
+    const isFullyRefunded = isVacated && refundableAmount > 0 && totalRefunded >= refundableAmount;
+    const isSettledNoRefund = isVacated && refundableAmount === 0;
+
     return (
       <div className="space-y-0.5">
         <div className="text-[10px] font-semibold text-green-600 flex items-center gap-0.5">
           <span>₹{paid.toLocaleString()}</span>
         </div>
-        {pending > 0 && (
-          <div className="text-[10px] text-red-500">₹{pending.toLocaleString()}</div>
-        )}
         <div className="text-[9px] text-gray-400">{payments.length} txn</div>
         
         {isVacated && (
-          <div className="mt-2">
+          <div className="mt-1">
             {needsRefund && (
               <Button
                 variant="outline"
                 size="sm"
                 className="h-6 text-[9px] px-2 bg-green-50 text-green-700 border-green-200 hover:bg-green-100 w-full"
-                onClick={() => handleVacatedTenantRefund(tenant, refundableAmount)}
+                onClick={() => handleVacatedTenantRefund(tenant, remainingRefund)}
               >
                 <Shield className="w-2.5 h-2.5 mr-1" />
-                Pay Refund ₹{refundableAmount.toLocaleString()}
+                Pay ₹{remainingRefund.toLocaleString()}
               </Button>
             )}
-            {needsPayment && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-6 text-[9px] px-2 bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100 w-full"
-                onClick={() => handleVacatedTenantPayment(tenant, Math.abs(refundableAmount))}
-              >
-                <IndianRupee className="w-2.5 h-2.5 mr-1" />
-                Receive Payment ₹{Math.abs(refundableAmount).toLocaleString()}
-              </Button>
+            {isFullyRefunded && (
+              <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-5 bg-green-100 text-green-700 border-green-200 w-full justify-center">
+                Settled
+              </Badge>
+            )}
+            {isSettledNoRefund && (
+              <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-5 bg-gray-100 text-gray-500 w-full justify-center">
+                No Refund
+              </Badge>
             )}
           </div>
         )}
@@ -3148,6 +3170,7 @@ const columns = useMemo(() => [
       onClose={() => setShowImportModal(false)}
       onImport={handleImportFile}
       importing={importing}
+      currentTab={activeTab}
     />
    {selectedVacatedTenant && (
   <VacatedTenantPaymentModal

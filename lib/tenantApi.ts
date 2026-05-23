@@ -3,6 +3,8 @@ import { request } from "@/lib/api";
 import { toast } from "sonner";
 
 export type Tenant = {
+  bed_number: any;
+  room_number: string;
   organization: string;
   course_duration: any;
   student_id: string;
@@ -149,8 +151,14 @@ original_id?: number;
     status: string;
     refundable_amount: number;
     total_penalty_amount: number;
+    security_deposit_amount: number;
+    rent_amount: number;  // ✅ ADD THIS LINE
+    inspection_penalty_amount?: number;
+    lockin_penalty_amount?: number;
+    notice_penalty_amount?: number;
     created_at: string;
   }>;
+   total_refunded?: number;  
 };
 
 // Add to Property type
@@ -169,6 +177,7 @@ export type Property = {
 };
 
 export type ApiResult<T = any> = {
+  effective_tenant_id: any;
   url: string;
   additional_documents(additional_documents: any): unknown;
   // additional_documents: any; 
@@ -1245,3 +1254,6 @@ export async function processVacatedTenantPayment(
     body: JSON.stringify(data),
   });
 }
+export const getPrimaryTenantByCoupleId = async (coupleId: string) => {
+  return request(`/api/tenants/couple/${coupleId}/primary`);
+};

@@ -420,21 +420,24 @@ const handleResendOTP = async () => {
     }
   }, [statusFilter, propertyFilter]);
 
-  const loadTenants = useCallback(async () => {
-    try {
-      const res = await listTenants({ is_active: true });
-      const list = res?.data || [];
-      const arr = Array.isArray(list) ? list : [];
-      setTenants(arr.map((t: any) => ({
-        id: String(t.id),
-        name: t.full_name || '',
-        phone: t.phone || '',
-        email: t.email || '',
-      })));
-    } catch (err) {
-      console.error('Could not load tenants:', err);
-    }
-  }, []);
+const loadTenants = useCallback(async () => {
+  try {
+    // ✅ Increase pageSize to 1000 to get all tenants
+    // Also remove is_active filter to get all tenants (including inactive if needed)
+    const res = await listTenants({ pageSize: 1000, is_active: true });
+    const list = res?.data || [];
+    const arr = Array.isArray(list) ? list : [];
+    
+    setTenants(arr.map((t: any) => ({
+      id: String(t.id),
+      name: t.full_name || '',
+      phone: t.phone || '',
+      email: t.email || '',
+    })));
+  } catch (err) {
+    console.error('Could not load tenants:', err);
+  }
+}, []);
 
   const loadProperties = useCallback(async () => {
     try {
@@ -507,7 +510,6 @@ const handleTenantSelect = async (tenantId: string) => {
         const bedResult = await bedResponse.json();
         if (bedResult.success && bedResult.data) {
           securityDeposit = safeNum(bedResult.data.security_deposit);
-          console.log("✅ Security deposit from bed assignment:", securityDeposit);
         }
       } catch (err) {
         console.error("Could not fetch bed assignment:", err);
@@ -517,7 +519,6 @@ const handleTenantSelect = async (tenantId: string) => {
     // Option 2: From property security_deposit
     if (securityDeposit === 0 && d.property_id) {
       securityDeposit = await fetchPropertyDeposit(String(d.property_id));
-      console.log("✅ Security deposit from property:", securityDeposit);
     }
     
     // Option 3: From tenant's own security_deposit field
