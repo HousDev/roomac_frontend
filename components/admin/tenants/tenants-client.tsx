@@ -186,36 +186,61 @@ const handleImportClick = useCallback(() => {
 const handleImportFile = async (formData: FormData) => {
   setImporting(true);
   try {
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+    const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
     const response = await fetch(`${apiUrl}/api/tenants/import`, {
-      method: 'POST',
+      method: "POST",
       body: formData,
     });
-    
+ 
     const result = await response.json();
-    
+ 
     if (result.success) {
-      const targetTab = formData.get('target_tab') as string;
-      toast.success(`Successfully imported ${result.count} tenants to ${targetTab} tab`);
-      setShowImportModal(false);
-      
-      // Reload the current tab to show imported data
-      await loadTenants();
-      
-      if (result.errors && result.errors.length > 0) {
-        console.warn('Import errors:', result.errors);
-        toast.warning(`${result.errors.length} rows had errors. Check console for details.`);
+      const { summary } = result.data || {};
+ 
+      // ── Primary success toast ──────────────────────────────────────────
+      if (summary?.imported > 0) {
+        toast.success(
+          `Successfully imported ${summary.imported} tenant${summary.imported !== 1 ? "s" : ""}`
+        );
+      } else {
+        toast.info("No new tenants were imported.");
       }
+ 
+      // ── Couple rows skipped ────────────────────────────────────────────
+      if (summary?.skipped_couples > 0) {
+        toast.warning(
+          `${summary.skipped_couples} couple/partner row${
+            summary.skipped_couples !== 1 ? "s" : ""
+          } skipped — create couple tenants manually via Add Tenant.`,
+          { duration: 6000 }
+        );
+      }
+ 
+      // ── Rows with errors ───────────────────────────────────────────────
+      if (summary?.errors > 0) {
+        toast.error(
+          `${summary.errors} row${summary.errors !== 1 ? "s" : ""} had errors`,
+          { duration: 5000 }
+        );
+        // Log individual errors to console for debugging
+        if (result.data?.errors?.length) {
+          console.warn("Import row errors:", result.data.errors);
+        }
+      }
+ 
+      setShowImportModal(false);
+      await loadTenants();
     } else {
-      throw new Error(result.message || 'Import failed');
+      throw new Error(result.message || "Import failed");
     }
   } catch (error: any) {
-    console.error('Import error:', error);
-    toast.error(error.message || 'Failed to import tenants');
+    console.error("Import error:", error);
+    toast.error(error.message || "Failed to import tenants");
   } finally {
     setImporting(false);
   }
 };
+ 
 
   // Handle column search change with debounce
   useEffect(() => {
@@ -2313,7 +2338,9 @@ const columns = useMemo(() => [
      <div className="min-w-0">
         <div className="font-medium text-xs text-gray-900 truncate leading-tight ">
           <span className="text-gray-500 mr-1">{(tenant.salutation || '').toUpperCase()}</span>
-          {(tenant.full_name || "").toUpperCase()}
+          {(tenant.full_name || "")
+  .toLowerCase()
+  .replace(/\b\w/g, (char) => char.toUpperCase())}
         </div>
         <div className="text-[10px] text-gray-400 capitalize leading-tight">{tenant.gender?.toLowerCase() || 'N/A'}</div>
         <div className="text-[9px] text-blue-600 font-semibold">TID-{tenant.id}</div>
