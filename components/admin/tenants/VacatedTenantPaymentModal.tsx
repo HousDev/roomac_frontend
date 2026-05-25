@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Shield, IndianRupee } from "lucide-react";
+import { Loader2, Shield, IndianRupee, Calendar } from "lucide-react";
 import { toast } from "sonner";
 import { processVacatedTenantRefund, processVacatedTenantPayment } from "@/lib/tenantApi";
 
@@ -49,6 +49,9 @@ export function VacatedTenantPaymentModal({
   const [bankName, setBankName] = useState("");
   const [transactionId, setTransactionId] = useState("");
   const [remark, setRemark] = useState("");
+  const [transactionDate, setTransactionDate] = useState<string>(
+    new Date().toISOString().split("T")[0]
+  );
 
   const handleSubmit = async () => {
     setLoading(true);
@@ -58,6 +61,7 @@ export function VacatedTenantPaymentModal({
         payment_mode: paymentMode,
         bank_name: paymentMode === "bank_transfer" ? bankName : undefined,
         transaction_id: transactionId || undefined,
+        payment_date: transactionDate,
         remark: remark || undefined,
       };
 
@@ -92,6 +96,7 @@ export function VacatedTenantPaymentModal({
     setPaymentMode(type === "refund" ? "bank_transfer" : "online");
     setBankName("");
     setTransactionId("");
+    setTransactionDate(new Date().toISOString().split("T")[0]);
     setRemark("");
   };
 
@@ -99,7 +104,7 @@ export function VacatedTenantPaymentModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {isRefund ? (
@@ -121,6 +126,24 @@ export function VacatedTenantPaymentModal({
           <div className="bg-gray-50 p-3 rounded-lg text-center">
             <p className="text-sm text-gray-500 mb-1">Amount</p>
             <p className="text-2xl font-bold text-green-600">₹{amount.toLocaleString()}</p>
+          </div>
+
+          {/* Transaction Date */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium flex items-center gap-2">
+              <Calendar className="h-4 w-4" />
+              Transaction Date *
+            </Label>
+            <Input
+              type="date"
+              value={transactionDate}
+              onChange={(e) => setTransactionDate(e.target.value)}
+              max={new Date().toISOString().split("T")[0]}
+              className="h-9"
+            />
+            <p className="text-xs text-gray-500">
+              Select the date when the {isRefund ? "refund was processed" : "payment was received"}
+            </p>
           </div>
 
           {/* Payment Mode */}
@@ -184,7 +207,7 @@ export function VacatedTenantPaymentModal({
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="bottom-0 sticky bg-white">
           <Button
             variant="outline"
             onClick={() => {

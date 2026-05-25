@@ -3207,6 +3207,7 @@ const columns = useMemo(() => [
     amount={paymentModalAmount}
     type={paymentModalType}
     onSuccess={handlePaymentModalSuccess}
+    className="max-h-[300px]"
   />
 )}
     </Card>
