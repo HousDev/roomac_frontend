@@ -1258,12 +1258,12 @@ export default function PaymentsPage() {
           paymentData.year = currentDate.getFullYear();
         }
       } else {
-        // For security deposit or other payment types, use current date
-        const currentDate = new Date();
-        paymentData.month = currentDate.toLocaleString("default", {
-          month: "long",
-        });
-        paymentData.year = currentDate.getFullYear();
+         // Derive month/year from the selected transaction date
+  const txDate = newPayment.payment_date
+    ? new Date(newPayment.payment_date)
+    : new Date();
+  paymentData.month = txDate.toLocaleString("default", { month: "long" });
+  paymentData.year = txDate.getFullYear();
       }
 
       console.log("Sending payment data:", paymentData);
@@ -1597,6 +1597,15 @@ export default function PaymentsPage() {
         }
       }
 
+       // ✅ ADD THIS: For security deposit, derive month/year from payment_date
+    if (paymentData.payment_type === "security_deposit") {
+      const txDate = paymentData.payment_date 
+        ? new Date(paymentData.payment_date) 
+        : new Date();
+      paymentData.month = txDate.toLocaleString("default", { month: "long" });
+      paymentData.year = txDate.getFullYear();
+    }
+
       const response = await paymentApi.updatePayment(
         selectedPayment.id,
         paymentData,
@@ -1738,10 +1747,30 @@ export default function PaymentsPage() {
       return dateB.getTime() - dateA.getTime();
     });
 
-    const totalItems = groupedArray.length;
-    const startIndex = (page - 1) * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
-    const paginatedItems = groupedArray.slice(startIndex, endIndex);
+     // ✅ ADD: Apply column filters BEFORE pagination
+  const searchTerm = columnFilters?.tenant_name?.toLowerCase() || "";
+  const filteredArray = searchTerm
+    ? groupedArray.filter((group: any) => {
+        const salutation = getTenantSalutation(group.tenant_id) || "";
+        const fullName = `${salutation} ${group.tenant_name || ""}`.toLowerCase();
+        const roomNumber = (group.room_number || "").toString().toLowerCase();
+        const propertyName = (group.property_name || "").toLowerCase();
+        const bedNumber = (group.bed_number || "").toString().toLowerCase();
+
+        return (
+          fullName.includes(searchTerm) ||
+          roomNumber.includes(searchTerm) ||
+          propertyName.includes(searchTerm) ||
+          bedNumber.includes(searchTerm)
+        );
+      })
+    : groupedArray;
+
+     const totalItems = filteredArray.length;
+  const startIndex = (page - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedItems = filteredArray.slice(startIndex, endIndex);
+
 
     return {
       items: paginatedItems,
@@ -1811,16 +1840,39 @@ export default function PaymentsPage() {
 
   // Filter payments based on column filters
   const columnFilteredPayments = payments.filter((payment) => {
+    const searchTerm = columnFilters.tenant_name?.toLowerCase() || "";
+    const tenantName = getTenantName(payment.tenant_id).toLowerCase();
+
+    // Get tenant details for room/property search
+    const completeTenant = tenants.find((t) => t.id === payment.tenant_id);
+    const roomNumber = (
+      completeTenant?.room_number ||
+      completeTenant?.current_assignment?.room_number ||
+      payment.room_number || ""
+    ).toString().toLowerCase();
+    const propertyName = (
+      completeTenant?.property_name ||
+      completeTenant?.current_assignment?.property_name ||
+      payment.property_name || ""
+    ).toLowerCase();
+    const bedNumber = (
+      completeTenant?.bed_number ||
+      completeTenant?.current_assignment?.bed_number ||
+      payment.bed_number || ""
+    ).toString().toLowerCase();
+
+
     const matchesDate =
       !columnFilters.payment_date ||
       new Date(payment.payment_date).toISOString().split("T")[0] ===
         columnFilters.payment_date;
 
-    const matchesTenant =
-      !columnFilters.tenant_name ||
-      getTenantName(payment.tenant_id)
-        .toLowerCase()
-        .includes(columnFilters.tenant_name.toLowerCase());
+     const matchesTenant =
+      !searchTerm ||
+      tenantName.includes(searchTerm) ||
+      roomNumber.includes(searchTerm) ||
+      propertyName.includes(searchTerm) ||
+      bedNumber.includes(searchTerm);
 
     const matchesMinAmount =
       !columnFilters.min_amount ||
@@ -5741,13 +5793,6 @@ const PaymentsTable = ({
 
   // Filter groups based on column filters
   const filteredGroups = tenantGroups.filter((group: any) => {
-    // Filter by tenant name (including salutation)
-    if (columnFilters?.tenant_name) {
-      const fullName = `${group.salutation} ${group.tenant_name}`.toLowerCase();
-      if (!fullName.includes(columnFilters.tenant_name.toLowerCase())) {
-        return false;
-      }
-    }
 
     // Filter by payment count
     if (columnFilters?.payment_count) {
@@ -5840,16 +5885,17 @@ const PaymentsTable = ({
                           <ArrowUpDown className="h-2.5 w-2.5 text-gray-500" />
                         </div>
                         <Input
-                          placeholder="Search name..."
-                          className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
-                          value={columnFilters?.tenant_name || ""}
-                          onChange={(e) =>
-                            setColumnFilters?.({
-                              ...columnFilters,
-                              tenant_name: e.target.value,
-                            })
-                          }
-                        />
+  placeholder="Search name / room / property..."
+  className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
+  value={columnFilters?.tenant_name || ""}
+  onChange={(e) => {
+    setColumnFilters?.({
+      ...columnFilters,
+      tenant_name: e.target.value,
+    });
+    onPageChange?.(1); // ✅ Reset to page 1 on search
+  }}
+/>
                       </div>
                     </TableHead>
 
@@ -6267,9 +6313,7 @@ const PaymentsTable = ({
                                   <Eye className="h-3.5 w-3.5" />
                                 </Button>
                                 {/* Add Payment Button - Hidden if tenant has deposit refund */}
-                                {!group.payments.some(
-                                  (p) => p.payment_type === "deposit_refund",
-                                ) && (
+                               
                                   <Button
                                     size="sm"
                                     variant="ghost"
@@ -6301,7 +6345,7 @@ const PaymentsTable = ({
                                   >
                                     <Plus className="h-3.5 w-3.5" />
                                   </Button>
-                                )}
+                              
                               </div>
                             </TableCell>
                           </TableRow>
@@ -6710,7 +6754,8 @@ const PaymentsTable = ({
                                                           payment.status ===
                                                             "paid" ||
                                                           payment.status ===
-                                                            "partial") &&
+                                                            "partial" ||
+                                                          payment.status === "refund") &&
                                                           canApprove && (
                                                             <button
                                                               className="h-7 w-7 rounded-lg text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 flex items-center justify-center transition-all duration-200"
@@ -6721,6 +6766,7 @@ const PaymentsTable = ({
                                                               }
                                                               title="Approve"
                                                             >
+            
                                                               <CheckCircle2 className="h-3.5 w-3.5" />
                                                             </button>
                                                           )}
@@ -6731,7 +6777,8 @@ const PaymentsTable = ({
                                                           payment.status ===
                                                             "paid" ||
                                                           payment.status ===
-                                                            "partial") &&
+                                                            "partial" ||
+                                                          payment.status === "refund") &&
                                                           canReject && (
                                                             <button
                                                               className="h-7 w-7 rounded-lg text-red-600 hover:text-red-700 hover:bg-red-50 flex items-center justify-center transition-all duration-200"
@@ -6752,7 +6799,8 @@ const PaymentsTable = ({
                                                           (payment.status ===
                                                             "pending" ||
                                                             payment.status ===
-                                                              "paid") &&
+                                                              "paid" ||
+                                                            payment.status === "refund") &&
                                                           canEdit && (
                                                             <button
                                                               className="h-7 w-7 rounded-lg text-blue-600 hover:text-blue-700 hover:bg-blue-50 flex items-center justify-center transition-all duration-200"

@@ -79,6 +79,7 @@ import * as paymentApi from "@/lib/paymentRecordApi";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { request } from "@/lib/api";
 
 // Add this interface for Partner Details
 interface PartnerDetails {
@@ -633,8 +634,6 @@ const loadTenant = async () => {
 const loadPayments = async () => {
   setLoadingPayments(true);
   try {
-    // Use the already-resolved effective tenant ID from loadTenant
-    // Fall back to tid only if effectiveTenantIdForPayments is not yet set
     const paymentTenantId = effectiveTenantIdForPayments || tid;
     
     console.log("📊 Loading payments for tenant ID:", tid);
@@ -653,8 +652,8 @@ const loadPayments = async () => {
       console.log("📊 Payment form data received:", paymentFormResult.data);
       setPaymentSummary(paymentFormResult.data);
       
-      const paymentsResult = await fetch(`http://localhost:3001/api/payments/tenant/${paymentTenantId}`);
-      const paymentsData = await paymentsResult.json();
+      // Use the same request utility as the rest of the app
+      const paymentsData: any = await request(`/api/payments/tenant/${paymentTenantId}`);
       if (paymentsData.success) {
         console.log("📊 Payment records:", paymentsData.data);
         setPayments(paymentsData.data || []);
