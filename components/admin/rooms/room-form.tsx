@@ -827,7 +827,10 @@ export function RoomForm({
     fd.append('allow_couples', formData.allow_couples ? 'true' : 'false');
     fd.append('is_active', formData.is_active ? 'true' : 'false');
     fd.append('amenities', JSON.stringify(formData.amenities));
-    fd.append('room_gender_preference', formData.room_gender_preference.join(','));
+    fd.append(
+      'room_gender_preference',
+      JSON.stringify(formData.room_gender_preference)
+    );
     fd.append('description', formData.description || '');
     fd.append('video_label', formData.video_label || '');
     fd.append('photo_labels', JSON.stringify(formData.photo_labels || {}));
