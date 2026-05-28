@@ -120,7 +120,7 @@ import React from "react";
 import { getLatestRentPayment } from "@/lib/paymentRecordApi";
 import { LedgerReportDialog } from "@/components/admin/payments/LedgerReportDialog";
 import { useSocketIO } from "@/hooks/useSocketIO";
-
+import { getMasterItemsByTab, getMasterValues } from "@/lib/masterApi";
 // Types
 interface PaymentFormData {
   tenant: {
@@ -254,6 +254,8 @@ export default function PaymentsPage() {
   const [loadingBankNames, setLoadingBankNames] = useState(false);
   const [customBankName, setCustomBankName] = useState("");
   const [showCustomBankInput, setShowCustomBankInput] = useState(false);
+  const [paymentModes, setPaymentModes] = useState<Array<{ id: number; name: string }>>([]);
+const [loadingPaymentModes, setLoadingPaymentModes] = useState(false);
   const { on, connected } = useSocketIO();
   const [lastUpdateTime, setLastUpdateTime] = useState<Date | null>(null);
 
@@ -269,6 +271,10 @@ export default function PaymentsPage() {
     status: "all",
     remark: "",
   });
+
+const [filterPropertyId, setFilterPropertyId] = useState("all");
+const [filterStartDate, setFilterStartDate] = useState("");
+const [filterEndDate, setFilterEndDate] = useState("");
   // ===== END OF ADDITION =====
 
   // Filters
@@ -305,7 +311,7 @@ export default function PaymentsPage() {
     booking_id: null as number | null,
     payment_type: "rent",
     amount: "",
-    payment_mode: "cash",
+    payment_mode: "",
     bank_name: "",
     transaction_id: "",
     payment_date: new Date().toISOString().split("T")[0],
@@ -422,9 +428,35 @@ export default function PaymentsPage() {
     }
   };
 
+  const fetchPaymentModes = async () => {
+  setLoadingPaymentModes(true);
+  try {
+    // Fetch from Common tab for "PaymentMethod" master item
+    const tabRes = await getMasterItemsByTab("Common");
+    const tabList = Array.isArray(tabRes.data) ? tabRes.data : [];
+    const paymentMethodItem = tabList.find(
+      (i: any) => i.name?.toLowerCase().replace(/\s+/g, "") === "paymentmethod"
+    );
+    if (paymentMethodItem) {
+      const valRes = await getMasterValues(paymentMethodItem.id);
+      const vals = Array.isArray(valRes.data) ? valRes.data : [];
+      const modes = vals
+        .filter((v: any) => v.isactive === 1)
+        .map((v: any) => ({ id: String(v.id), name: v.name || v.value || "" }));
+      setPaymentModes(modes);
+      console.log("✅ Payment modes loaded:", modes);
+    }
+  } catch (error) {
+    console.error("Error fetching payment modes:", error);
+  } finally {
+    setLoadingPaymentModes(false);
+  }
+};
+
   // Call fetchBankNames when component mounts
   useEffect(() => {
     fetchBankNames();
+    fetchPaymentModes();
   }, []);
 
   // Add this to loadDetailedStats function
@@ -800,7 +832,7 @@ export default function PaymentsPage() {
       tenant_id: tenantId,
       booking_id: null,
       amount: "",
-      payment_mode: "cash",
+      payment_mode: "",
       bank_name: "",
       transaction_id: "",
       remark: "",
@@ -1249,14 +1281,12 @@ export default function PaymentsPage() {
             month: "long",
           });
           paymentData.year = currentDate.getFullYear();
-        } else {
-          // Fallback to current month
-          const currentDate = new Date();
-          paymentData.month = currentDate.toLocaleString("default", {
-            month: "long",
-          });
-          paymentData.year = currentDate.getFullYear();
-        }
+       } else {
+  // Fallback to the selected transaction date (not current date)
+  const txDate = newPayment.payment_date ? new Date(newPayment.payment_date) : new Date();
+  paymentData.month = txDate.toLocaleString("default", { month: "long" });
+  paymentData.year = txDate.getFullYear();
+}
       } else {
          // Derive month/year from the selected transaction date
   const txDate = newPayment.payment_date
@@ -1377,7 +1407,7 @@ export default function PaymentsPage() {
       booking_id: null,
       payment_type: "rent",
       amount: "",
-      payment_mode: "cash",
+      payment_mode: "",
       bank_name: "",
       transaction_id: "",
       payment_date: new Date().toISOString().split("T")[0],
@@ -1732,6 +1762,14 @@ export default function PaymentsPage() {
       ) {
         grouped[tenantId].last_payment_date = payment.payment_date;
       }
+
+      // Track first payment date
+if (
+  !grouped[tenantId].first_payment_date ||
+  paymentDate < new Date(grouped[tenantId].first_payment_date)
+) {
+  grouped[tenantId].first_payment_date = payment.payment_date;
+}
     });
     // ✅ SORT: Most recent payment first (descending order by last_payment_date)
     const groupedArray = Object.values(grouped);
@@ -2414,12 +2452,23 @@ export default function PaymentsPage() {
       );
 
     // Due date range filters
-    const matchesFromDate =
-      !demandFilters.from_date ||
-      new Date(demand.due_date) >= new Date(demandFilters.from_date);
-    const matchesToDate =
-      !demandFilters.to_date ||
-      new Date(demand.due_date) <= new Date(demandFilters.to_date);
+   const matchesFromDate = (() => {
+  if (!demandFilters.from_date) return true;
+  const dueDate = new Date(demand.due_date);
+  dueDate.setHours(0, 0, 0, 0);
+  const fromDate = new Date(demandFilters.from_date);
+  fromDate.setHours(0, 0, 0, 0);
+  return dueDate >= fromDate;
+})();
+
+const matchesToDate = (() => {
+  if (!demandFilters.to_date) return true;
+  const dueDate = new Date(demand.due_date);
+  dueDate.setHours(23, 59, 59, 999);
+  const toDate = new Date(demandFilters.to_date);
+  toDate.setHours(23, 59, 59, 999);
+  return dueDate <= toDate;
+})();
 
     // Amount filter
     const matchesAmount =
@@ -2721,6 +2770,12 @@ export default function PaymentsPage() {
               handleSort={handleSort}
               sortField={sortField}
               sortDirection={sortDirection}
+              filterPropertyId={filterPropertyId}
+setFilterPropertyId={setFilterPropertyId}
+filterStartDate={filterStartDate}
+setFilterStartDate={setFilterStartDate}
+filterEndDate={filterEndDate}
+setFilterEndDate={setFilterEndDate}
               canApprove={can("approve_payments")}
               canReject={can("reject_payments")}
               canEdit={can("edit_payments")}
@@ -2738,6 +2793,7 @@ export default function PaymentsPage() {
               fetchProperties={fetchProperties}
               properties={properties}
               prefillAndOpenPaymentForm={prefillAndOpenPaymentForm}
+              
               pagination={{
                 items: paginatedPaymentGroups.items,
                 currentPage: paymentPagination.currentPage,
@@ -3850,37 +3906,42 @@ export default function PaymentsPage() {
                 <Label className="text-[11px] font-medium text-slate-600">
                   Payment Mode *
                 </Label>
-                <Select
-                  value={newPayment.payment_mode}
-                  onValueChange={(value) =>
-                    setNewPayment({
-                      ...newPayment,
-                      payment_mode: value,
-                      bank_name: "",
-                    })
-                  }
-                >
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="cash" className="text-xs">
-                      💵 Cash
-                    </SelectItem>
-                    <SelectItem value="online" className="text-xs">
-                      🌐 Online
-                    </SelectItem>
-                    <SelectItem value="bank_transfer" className="text-xs">
-                      🏦 Bank Transfer
-                    </SelectItem>
-                    <SelectItem value="cheque" className="text-xs">
-                      📝 Cheque
-                    </SelectItem>
-                    <SelectItem value="card" className="text-xs">
-                      💳 Card
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
+          <Select
+  value={newPayment.payment_mode}
+  onValueChange={(value) => {
+    setNewPayment({
+      ...newPayment,
+      payment_mode: value,
+      bank_name: "",
+    });
+  }}
+>
+  <SelectTrigger className="h-8 text-xs">
+    <SelectValue placeholder="Select payment mode..." />
+  </SelectTrigger>
+  <SelectContent>
+    {loadingPaymentModes ? (
+      <div className="px-2 py-4 text-center text-xs text-slate-500">
+        <Loader2 className="h-3 w-3 animate-spin inline mr-1" />
+        Loading...
+      </div>
+    ) : paymentModes.length === 0 ? (
+      <div className="px-2 py-4 text-center text-xs text-slate-500">
+        No payment modes available
+      </div>
+    ) : (
+      paymentModes.map((mode) => (
+        <SelectItem
+          key={mode.id}
+          value={mode.name.toLowerCase().replace(/\s+/g, '_')}
+          className="text-xs"
+        >
+          {mode.name}
+        </SelectItem>
+      ))
+    )}
+  </SelectContent>
+</Select>
               </div>
 
               {/* Date */}
@@ -5756,6 +5817,12 @@ const PaymentsTable = ({
   onToggleExpand,
   groupPaymentsByTenant,
   setIsAddPaymentOpen,
+  filterPropertyId,
+setFilterPropertyId,
+filterStartDate,
+setFilterStartDate,
+filterEndDate,
+setFilterEndDate,
   // New props for column filters
   columnFilters,
   setColumnFilters,
@@ -5783,6 +5850,9 @@ const PaymentsTable = ({
   onPageChange,
   onItemsPerPageChange,
 }: any) => {
+
+  const [ignoreDateFilters, setIgnoreDateFilters] = useState(false);
+const [roomFilter, setRoomFilter] = useState("");
   // Group payments by tenant using the passed function
   const { items: paginatedGroups, totalItems, totalPages } = pagination;
   const tenantGroups = paginatedGroups.map((group: any) => ({
@@ -5847,14 +5917,74 @@ const PaymentsTable = ({
         return false;
     }
 
-    // Filter by last payment date
-    if (columnFilters?.payment_date && group.last_payment_date) {
-      const searchDate = columnFilters.payment_date;
-      const groupDate = format(new Date(group.last_payment_date), "dd/MM/yy");
-      if (!groupDate.includes(searchDate)) {
-        return false;
-      }
-    }
+// Filter by last payment date – timezone-safe, works on raw date string
+if (columnFilters?.payment_date && group.last_payment_date) {
+  const searchTerm = columnFilters.payment_date.toLowerCase().trim();
+  if (searchTerm === "") return true;
+
+  // Convert last_payment_date to a Date object
+  const lastPayDate = new Date(group.last_payment_date);
+  if (isNaN(lastPayDate.getTime())) return false;
+
+  const day = lastPayDate.getDate();
+  const month = lastPayDate.getMonth() + 1;
+  const year = lastPayDate.getFullYear();
+
+  // Format variations for matching
+  const formats = [
+    `${day.toString().padStart(2, '0')}/${month.toString().padStart(2, '0')}/${year}`,        // dd/mm/yyyy
+    `${day.toString().padStart(2, '0')}/${month.toString().padStart(2, '0')}/${year.toString().slice(-2)}`, // dd/mm/yy
+    `${day}/${month}/${year}`,
+    `${day}/${month}/${year.toString().slice(-2)}`,
+    month.toString().padStart(2, '0'),   // mm
+    month.toString(),                    // m
+    year.toString(),                     // yyyy
+    year.toString().slice(-2),           // yy
+    lastPayDate.toLocaleString('default', { month: 'long' }).toLowerCase(), // full month name
+    lastPayDate.toLocaleString('default', { month: 'short' }).toLowerCase()  // short month name
+  ];
+
+  const matches = formats.some(format => format.includes(searchTerm));
+  if (!matches) return false;
+}
+
+
+// Property filter - ignore when "all" is selected
+// Property filter - ignore when "all" is selected
+if (filterPropertyId && filterPropertyId !== "all") {
+  const groupPropertyId = (
+    group.property_id ||
+    tenants.find((t: any) => t.id === group.tenant_id)?.current_assignment?.property_id
+  )?.toString();
+  if (groupPropertyId !== filterPropertyId) return false;
+}
+// Room number filter
+if (roomFilter && group.room_number) {
+  if (!group.room_number.toString().toLowerCase().includes(roomFilter.toLowerCase())) return false;
+}
+
+// Date filters - only apply if not ignored
+if (!ignoreDateFilters && (filterStartDate || filterEndDate)) {
+  // Start Date = First Payment Date
+  if (filterStartDate) {
+    if (!group.first_payment_date) return false;
+    const firstDate = new Date(group.first_payment_date);
+    firstDate.setHours(0, 0, 0, 0);
+    const startDate = new Date(filterStartDate);
+    startDate.setHours(0, 0, 0, 0);
+    if (firstDate < startDate) return false;
+  }
+  // End Date = Last Payment Date
+  if (filterEndDate) {
+    if (!group.last_payment_date) return false;
+    const lastDate = new Date(group.last_payment_date);
+    lastDate.setHours(23, 59, 59, 999);
+    const endDate = new Date(filterEndDate);
+    endDate.setHours(23, 59, 59, 999);
+    if (lastDate > endDate) return false;
+  }
+}
+
 
     return true;
   });
@@ -6041,12 +6171,13 @@ const PaymentsTable = ({
                           type="text"
                           className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
                           value={columnFilters?.payment_date || ""}
-                          onChange={(e) =>
-                            setColumnFilters?.({
-                              ...columnFilters,
-                              payment_date: e.target.value,
-                            })
-                          }
+                          onChange={(e) => {
+  setColumnFilters?.({
+    ...columnFilters,
+    payment_date: e.target.value,
+  });
+  onPageChange?.(1); // reset to page 1
+}}
                         />
                       </div>
                     </TableHead>
@@ -6267,16 +6398,13 @@ const PaymentsTable = ({
                               </div>
                             </TableCell>
 
-                            <TableCell className="py-3 text-center">
-                              <span className="text-xs text-slate-600">
-                                {group.last_payment_date
-                                  ? format(
-                                      new Date(group.last_payment_date),
-                                      "dd MMM yy",
-                                    )
-                                  : "No payments"}
-                              </span>
-                            </TableCell>
+                          <TableCell className="py-3 text-center">
+  <span className="text-xs text-slate-600 whitespace-nowrap">
+    {group.last_payment_date
+      ? format(new Date(group.last_payment_date), "dd/MM/yyyy")
+      : "No payments"}
+  </span>
+</TableCell>
 
                             <TableCell
                               className="py-3 text-center"
@@ -6925,22 +7053,30 @@ const PaymentsTable = ({
                   className="h-8 text-xs"
                 />
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs font-semibold text-blue-700">
-                  Last Payment Date
-                </Label>
-                <Input
-                  placeholder="dd/mm/yy"
-                  value={columnFilters?.payment_date || ""}
-                  onChange={(e) =>
-                    setColumnFilters?.({
-                      ...columnFilters,
-                      payment_date: e.target.value,
-                    })
-                  }
-                  className="h-8 text-xs"
-                />
-              </div>
+           <div className="space-y-1">
+  <Label className="text-xs font-semibold text-blue-700">Property</Label>
+  <Select value={filterPropertyId} onValueChange={setFilterPropertyId}>
+    <SelectTrigger className="h-8 text-xs">
+      <SelectValue placeholder="All Properties" />
+    </SelectTrigger>
+    <SelectContent>
+<SelectItem value="all">All Properties</SelectItem>
+      {properties.map((prop: any) => (
+        <SelectItem key={prop.id} value={prop.id.toString()}>{prop.name}</SelectItem>
+      ))}
+    </SelectContent>
+  </Select>
+</div>
+
+<div className="space-y-1">
+<Label className="text-xs font-semibold text-blue-700">Start Date (First Payment)</Label>
+  <Input type="date" value={filterStartDate} onChange={(e) => setFilterStartDate(e.target.value)} className="h-8 text-xs" />
+</div>
+
+<div className="space-y-1">
+  <Label className="text-xs font-semibold text-blue-700">End Date (Last Payment)</Label>
+  <Input type="date" value={filterEndDate} onChange={(e) => setFilterEndDate(e.target.value)} className="h-8 text-xs" />
+</div>
               <div className="space-y-1">
                 <Label className="text-xs font-semibold text-blue-700">
                   Payment Count
@@ -6958,30 +7094,59 @@ const PaymentsTable = ({
                   className="h-8 text-xs"
                 />
               </div>
+              <div className="space-y-1">
+  <Label className="text-xs font-semibold text-blue-700">Room Number</Label>
+  <Input
+    placeholder="Search room number..."
+    value={roomFilter}
+    onChange={(e) => setRoomFilter(e.target.value)}
+    className="h-8 text-xs"
+  />
+</div>
+
+<div className="space-y-1">
+  <label className="flex items-center gap-2 cursor-pointer">
+    <input
+      type="checkbox"
+      checked={ignoreDateFilters}
+      onChange={(e) => setIgnoreDateFilters(e.target.checked)}
+      className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+    />
+    <span className="text-xs font-semibold text-blue-700">Ignore Date Filters</span>
+  </label>
+  <p className="text-[10px] text-gray-500 ml-5">
+    Show all data regardless of last payment date
+  </p>
+</div>
             </div>
             <div className="border-t p-3 flex gap-2 bg-gray-50 flex-shrink-0">
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex-1 text-xs h-8"
-                onClick={() =>
-                  setColumnFilters?.({
-                    payment_date: "",
-                    tenant_name: "",
-                    amount: "",
-                    min_amount: "",
-                    max_amount: "",
-                    payment_mode: "all",
-                    transaction_id: "",
-                    month: "",
-                    status: "all",
-                    remark: "",
-                    payment_count: "",
-                  })
-                }
-              >
-                <RefreshCw className="w-3 h-3 mr-1" /> Reset
-              </Button>
+             <Button
+  variant="outline"
+  size="sm"
+  className="flex-1 text-xs h-8"
+  onClick={() => {
+    setColumnFilters?.({
+      payment_date: "",
+      tenant_name: "",
+      amount: "",
+      min_amount: "",
+      max_amount: "",
+      payment_mode: "all",
+      transaction_id: "",
+      month: "",
+      status: "all",
+      remark: "",
+      payment_count: "",
+    });
+setFilterPropertyId("all");
+    setFilterStartDate("");
+    setFilterEndDate("");
+    setRoomFilter("");
+setIgnoreDateFilters(false);
+  }}
+>
+  <RefreshCw className="w-3 h-3 mr-1" /> Reset
+</Button>
               <Button
                 size="sm"
                 className="flex-1 text-xs h-8 bg-blue-600 hover:bg-blue-700"
@@ -7052,14 +7217,15 @@ const ReceiptsTable = ({
       phone: tenant?.phone || receipt.tenant_phone || "",
     };
   });
-
+const [ignoreReceiptDateFilter, setIgnoreReceiptDateFilter] = useState(false);
   // Filter receipts based on column filters
   const filteredReceipts = enhancedReceipts.filter((receipt: any) => {
-    const matchesDate =
-      !receiptFilters.date ||
-      format(new Date(receipt.payment_date), "dd/MM/yy").includes(
-        receiptFilters.date,
-      );
+   const matchesDate =
+  ignoreReceiptDateFilter ||
+  !receiptFilters.date ||
+  format(new Date(receipt.payment_date), "dd/MM/yy").includes(
+    receiptFilters.date,
+  );
 
     const fullName =
       `${receipt.salutation} ${receipt.tenant_name}`.toLowerCase();
@@ -7119,7 +7285,7 @@ const ReceiptsTable = ({
               <Table>
                 <TableHeader className="bg-gray-200 border-b border-gray-300">
                   <TableRow className="hover:bg-transparent">
-                    <TableHead className="w-[90px] py-2 px-2 bg-gray-200">
+                    <TableHead className="w-[100px] py-2 px-2 bg-gray-200">
                       <div className="flex flex-col gap-1">
                         <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
                           Date
@@ -7138,7 +7304,7 @@ const ReceiptsTable = ({
                       </div>
                     </TableHead>
 
-                    <TableHead className="w-[140px] py-2 px-2 bg-gray-200">
+                    <TableHead className="w-[160px] py-2 px-2 bg-gray-200">
                       <div className="flex flex-col gap-1">
                         <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
                           Tenant
@@ -7157,7 +7323,7 @@ const ReceiptsTable = ({
                       </div>
                     </TableHead>
 
-                    <TableHead className="w-[200px] py-2 px-2 bg-gray-200 text-left">
+                    <TableHead className="w-[150px] py-2 px-2 bg-gray-200 text-left">
                       <div className="flex flex-col gap-1">
                         <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
                           Amount
@@ -7177,7 +7343,7 @@ const ReceiptsTable = ({
                       </div>
                     </TableHead>
 
-                    <TableHead className="w-[80px] py-2 px-2 bg-gray-200">
+                    <TableHead className="w-[150px] py-2 px-2 bg-gray-200">
                       <div className="flex flex-col gap-1">
                         <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
                           Method/Bank
@@ -7196,7 +7362,7 @@ const ReceiptsTable = ({
                       </div>
                     </TableHead>
 
-                    <TableHead className="w-[100px] py-2 px-2 bg-gray-200">
+                    <TableHead className="w-[120px] py-2 px-2 bg-gray-200">
                       <div className="flex flex-col gap-1">
                         <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
                           Room/Bed
@@ -7239,13 +7405,13 @@ const ReceiptsTable = ({
             <div className="overflow-y-auto flex-1 min-h-0">
               <Table>
                 <colgroup>
-                  <col style={{ width: "120px" }} />
-                  <col style={{ width: "80px" }} />
-                  <col style={{ width: "80px" }} />
-                  <col style={{ width: "120px" }} />
-                  <col style={{ width: "100px" }} />
-                  <col style={{ width: "60px" }} />
-                </colgroup>
+  <col style={{ width: "100px" }} />   {/* Date */}
+  <col style={{ width: "160px" }} />   {/* Tenant */}
+  <col style={{ width: "150px" }} />   {/* Amount */}
+  <col style={{ width: "150px" }} />   {/* Method/Bank */}
+  <col style={{ width: "120px" }} />   {/* Room/Bed */}
+  <col style={{ width: "80px" }} />    {/* Actions */}
+</colgroup>
                 <TableBody>
                   {loading ? (
                     <TableRow>
@@ -7283,23 +7449,24 @@ const ReceiptsTable = ({
                           <TableCell className="py-2 text-xs whitespace-nowrap">
                             {format(new Date(receipt.payment_date), "dd/MM/yy")}
                           </TableCell>
-                          <TableCell className="py-2">
-                            <p className="text-xs font-medium whitespace-nowrap">
-                              {receipt.salutation
-                                ? `${receipt.salutation} `
-                                : ""}
-                              {receipt.tenant_name}
-                            </p>
-                            {receipt.phone && (
-                              <p className="text-[10px] text-slate-500 whitespace-nowrap">
-                                {receipt.country_code || "+91"} {receipt.phone}
-                              </p>
-                            )}
-                          </TableCell>
-                          <TableCell className="py-2 text-xs font-medium whitespace-nowrap">
+                        <TableCell className="py-2 text-center">
+  <div className="flex flex-col items-center justify-center">
+    <p className="text-xs font-medium whitespace-nowrap">
+      {receipt.salutation ? `${receipt.salutation} ` : ""}
+      {receipt.tenant_name}
+    </p>
+
+    {receipt.phone && (
+      <p className="text-[10px] text-slate-500 whitespace-nowrap">
+        {receipt.country_code || "+91"} {receipt.phone}
+      </p>
+    )}
+  </div>
+</TableCell>
+                          <TableCell className="py-2 text-xs font-medium whitespace-nowrap text-center">
                             ₹{receipt.amount.toLocaleString()}
                           </TableCell>
-                          <TableCell className="py-2">
+                          <TableCell className="py-2 text-center">
                             <p className="text-xs capitalize whitespace-nowrap">
                               {receipt.payment_mode}
                             </p>
@@ -7309,7 +7476,7 @@ const ReceiptsTable = ({
                               </p>
                             )}
                           </TableCell>
-                          <TableCell className="py-2">
+                          <TableCell className="py-2 text-center">
                             <p className="text-xs whitespace-nowrap">
                               {receipt.room_number || "N/A"}
                             </p>

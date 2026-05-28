@@ -887,16 +887,16 @@ export default function OffersSlider({ offers }: OffersSliderProps) {
   });
 
   const handleNextOfferSlide = useCallback(() => {
-    setCurrentOfferIndex((prev) => 
-      prev === Math.ceil(activeOffers.length / 1) - 1 ? 0 : prev + 1
-    );
-  }, [activeOffers.length]);
+  setCurrentOfferIndex((prev) => 
+    prev === Math.ceil(activeOffers.length / 2) - 1 ? 0 : prev + 1
+  );
+}, [activeOffers.length]);
 
-  const handlePrevOfferSlide = useCallback(() => {
-    setCurrentOfferIndex((prev) => 
-      prev === 0 ? Math.ceil(activeOffers.length / 1) - 1 : prev - 1
-    );
-  }, [activeOffers.length]);
+const handlePrevOfferSlide = useCallback(() => {
+  setCurrentOfferIndex((prev) => 
+    prev === 0 ? Math.ceil(activeOffers.length / 2) - 1 : prev - 1
+  );
+}, [activeOffers.length]);
 
   // LOGIC PRESERVED: Auto-play
   useEffect(() => {
@@ -907,6 +907,12 @@ export default function OffersSlider({ offers }: OffersSliderProps) {
     return () => clearInterval(interval);
   }, [activeOffers.length, handleNextOfferSlide]);
 
+  useEffect(() => {
+  const totalSlides = Math.ceil(activeOffers.length / 2);
+  if (currentOfferIndex >= totalSlides && totalSlides > 0) {
+    setCurrentOfferIndex(totalSlides - 1);
+  }
+}, [activeOffers.length, currentOfferIndex]);
   return (
     <section className="relative py-16 px-4 overflow-hidden bg-slate-50">
       {/* MODERN MESH BACKGROUND */}

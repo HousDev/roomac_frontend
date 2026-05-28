@@ -355,19 +355,7 @@ onClosePopup();
         />
       </div>
 
-      {/* City */}
-      <div className="space-y-0.5 sm:space-y-1">
-        <Label className="text-[11px] sm:text-xs font-medium text-slate-600">
-          City *
-        </Label>
-        <Input
-          name="city"
-          value={formData.city}
-          onChange={onChange}
-          required
-          className="h-8 sm:h-9 text-xs sm:text-sm px-2 sm:px-3"
-        />
-      </div>
+      
 
       {/* Locality */}
       <div className="space-y-0.5 sm:space-y-1">
@@ -377,6 +365,20 @@ onClosePopup();
         <Input
           name="locality"
           value={formData.locality}
+          onChange={onChange}
+          required
+          className="h-8 sm:h-9 text-xs sm:text-sm px-2 sm:px-3"
+        />
+      </div>
+
+      {/* City */}
+      <div className="space-y-0.5 sm:space-y-1">
+        <Label className="text-[11px] sm:text-xs font-medium text-slate-600">
+          City *
+        </Label>
+        <Input
+          name="city"
+          value={formData.city}
           onChange={onChange}
           required
           className="h-8 sm:h-9 text-xs sm:text-sm px-2 sm:px-3"
