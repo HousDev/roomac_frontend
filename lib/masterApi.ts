@@ -11,6 +11,7 @@ export const STATIC_TABS = [
   // Add these new tabs
   { id: 'roles', name: 'Roles', icon: 'Users' },
   { id: 'departments', name: 'Departments', icon: 'Building2' },
+
 ] as const;
 
 export type TabName = typeof STATIC_TABS[number]['name'];

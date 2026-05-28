@@ -15,7 +15,7 @@ import MasterItemCards from "@/components/admin/masters/MasterItemCards";
 import DeleteConfirmModal from "@/components/admin/masters/DeleteConfirmModal";
 import ItemFormModal from "@/components/admin/masters/ItemFormModal";
 import Loading from "@/components/admin/masters/loading";
-
+import CategoryMappingTab from "@/components/admin/masters/CategoryMappingTab";
 interface MasterItem {
   id: number;
   name: string;
@@ -46,7 +46,8 @@ export default function MasterItemsPage() {
   const [showItemForm, setShowItemForm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<number | null>(null);
   const [itemToDelete, setItemToDelete] = useState<MasterItem | null>(null);
-  
+  const [activeSectionName, setActiveSectionName] = useState<string>("");
+
   // Form data
   const [itemFormData, setItemFormData] = useState({
     id: null as number | null,
@@ -221,21 +222,30 @@ export default function MasterItemsPage() {
 
       <div className="max-w-8xl mx-auto p-0 md:p-0 space-y-4 mt-3">
         {/* Horizontal Tabs */}
-        <HorizontalTabList
-          activeTab={activeTab}
-          onTabClick={handleTabChange}
-          itemCounts={itemCounts}
-        />
+       <HorizontalTabList
+  activeTab={activeTab}
+  onTabClick={(tabName) => {
+    if (tabName === "Category Mapping") return;
+    handleTabChange(tabName);
+  }}
+  itemCounts={itemCounts}
+  activeSectionName={activeSectionName}
+  onSectionClick={setActiveSectionName}
+/>
 
         {/* Items Grid */}
-        <MasterItemCards
-          items={filteredItems}
-          loading={loading}
-          onEditItem={handleEditItem}
-          onDeleteItem={handleDeleteClick}
-          onViewValues={handleViewValues}
-          onNewItem={handleNewItem}
-        />
+        {activeSectionName === 'Category Mapping' ? (
+  <CategoryMappingTab />
+) : (
+  <MasterItemCards
+    items={filteredItems}
+    loading={loading}
+    onEditItem={handleEditItem}
+    onDeleteItem={handleDeleteClick}
+    onViewValues={handleViewValues}
+    onNewItem={handleNewItem}
+  />
+)}
       </div>
 
       {/* Modals */}

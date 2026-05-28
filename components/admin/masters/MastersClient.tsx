@@ -26,6 +26,9 @@ import DeleteConfirmModal from "./DeleteConfirmModal";
 import TabFormModal from "./TabFormModal";
 import ItemFormModal from "./ItemFormModal";
 
+import CategoryMappingTab from "./CategoryMappingTab"; // new component
+
+
 interface Tab {
   id: number;
   name: string;
@@ -73,7 +76,8 @@ export default function MastersClient({ initialTabs }: MastersClientProps) {
   const [showEditTabModal, setShowEditTabModal] = useState<Tab | null>(null);
   const [showDeleteItemConfirm, setShowDeleteItemConfirm] = useState<number | null>(null);
   const [showDeleteTabConfirm, setShowDeleteTabConfirm] = useState<Tab | null>(null);
-  
+  const [activeSectionName, setActiveSectionName] = useState<string>(""); 
+
   // Form data states
   const [itemFormData, setItemFormData] = useState({
     id: null as number | null,
@@ -357,28 +361,38 @@ const loadItemsForTab = useCallback(async (tab: Tab | null) => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header
-        onRefresh={handleManualRefresh}
-        onNewTab={() => setShowNewTabModal(true)}
-        onNewItem={() => setShowItemForm(true)}
-        loadingTabs={loadingTabs}
-        loadingItems={loadingItems}
-        activeTab={activeTab?.name || ""}
-      />
+     <Header
+  onRefresh={handleManualRefresh}
+  onNewItem={() => {
+    if (activeSectionName === 'Category Mapping') return;
+    setShowItemForm(true);
+  }}
+  loading={loadingTabs || loadingItems}
+  activeTab={activeSectionName === 'Category Mapping' ? '' : (activeTab?.name || "")}
+  searchQuery={searchQuery}
+  onSearchChange={setSearchQuery}
+/>
 
       <div className="max-w-8xl mx-auto p-0 md:p-0 space-y-4">
         {/* Horizontal Tabs - Clean */}
-        <HorizontalTabList
-          tabs={tabs}
-          activeTab={activeTab}
-          loading={loadingTabs}
-          onTabClick={setActiveTab}
-          onEditTab={(tab) => {
-            setEditTabName(tab.name);
-            setShowEditTabModal(tab);
-          }}
-          onDeleteTab={setShowDeleteTabConfirm}
-        />
+<HorizontalTabList
+  activeTab={activeTab?.name || ""}
+  onTabClick={(tabName) => {
+    if (tabName === "Category Mapping") {
+      setActiveSectionName("Category Mapping");
+      return;
+    }
+    const tab = tabs.find(t => t.name === tabName);
+    if (tab) {
+      setActiveTab(tab);
+      setActiveSectionName("");
+    }
+  }}
+  itemCounts={{}}
+  activeSectionName={activeSectionName}
+  onSectionClick={setActiveSectionName}
+/>
+
 
         {/* Compact Search Bar */}
         <div className="flex items-center gap-3 bg-white p-3 rounded-xl shadow-sm border">
@@ -394,20 +408,22 @@ const loadItemsForTab = useCallback(async (tab: Tab | null) => {
         </div>
 
         {/* Items Grid */}
-        {activeTab ? (
-          <MasterItemCards
-            items={filteredItems}
-            loading={loadingItems}
-            onEditItem={handleEditItem}
-            onDeleteItem={setShowDeleteItemConfirm}
-            onViewValues={(id) => router.push(`/admin/masters/${id}`)}
-            onNewItem={() => setShowItemForm(true)}
-          />
-        ) : (
-          <div className="bg-white rounded-xl shadow-sm p-8 text-center">
-            <p className="text-gray-500">Select a tab to view items</p>
-          </div>
-        )}
+      {activeSectionName === 'Category Mapping' ? (
+  <CategoryMappingTab /> 
+) : activeTab ? (
+  <MasterItemCards
+    items={filteredItems}
+    loading={loadingItems}
+    onEditItem={handleEditItem}
+    onDeleteItem={setShowDeleteItemConfirm}
+    onViewValues={(id) => router.push(`/admin/masters/${id}`)}
+    onNewItem={() => setShowItemForm(true)}
+  />
+) : (
+  <div className="bg-white rounded-xl shadow-sm p-8 text-center">
+    <p className="text-gray-500">Select a tab to view items</p>
+  </div>
+)}
       </div>
 
       {/* Modals */}
