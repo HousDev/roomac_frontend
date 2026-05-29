@@ -275,6 +275,7 @@ const [loadingPaymentModes, setLoadingPaymentModes] = useState(false);
 const [filterPropertyId, setFilterPropertyId] = useState("all");
 const [filterStartDate, setFilterStartDate] = useState("");
 const [filterEndDate, setFilterEndDate] = useState("");
+const [ignoreDateFilters, setIgnoreDateFilters] = useState(false);
   // ===== END OF ADDITION =====
 
   // Filters
@@ -1786,23 +1787,62 @@ if (
     });
 
      // ✅ ADD: Apply column filters BEFORE pagination
-  const searchTerm = columnFilters?.tenant_name?.toLowerCase() || "";
-  const filteredArray = searchTerm
-    ? groupedArray.filter((group: any) => {
-        const salutation = getTenantSalutation(group.tenant_id) || "";
-        const fullName = `${salutation} ${group.tenant_name || ""}`.toLowerCase();
-        const roomNumber = (group.room_number || "").toString().toLowerCase();
-        const propertyName = (group.property_name || "").toLowerCase();
-        const bedNumber = (group.bed_number || "").toString().toLowerCase();
+ // ✅ Apply column filters BEFORE pagination (tenant + payment date)
+const searchTerm = columnFilters?.tenant_name?.toLowerCase() || "";
+const paymentDateSearch = columnFilters?.payment_date?.trim() || "";
 
-        return (
-          fullName.includes(searchTerm) ||
-          roomNumber.includes(searchTerm) ||
-          propertyName.includes(searchTerm) ||
-          bedNumber.includes(searchTerm)
-        );
-      })
-    : groupedArray;
+const filteredArray = groupedArray.filter((group: any) => {
+  // 1. Tenant name + room + property + bed filter
+  if (searchTerm) {
+    const salutation = getTenantSalutation(group.tenant_id) || "";
+    const fullName = `${salutation} ${group.tenant_name || ""}`.toLowerCase();
+    const roomNumber = (group.room_number || "").toString().toLowerCase();
+    const propertyName = (group.property_name || "").toLowerCase();
+    const bedNumber = (group.bed_number || "").toString().toLowerCase();
+
+    const matchesTenant =
+      fullName.includes(searchTerm) ||
+      roomNumber.includes(searchTerm) ||
+      propertyName.includes(searchTerm) ||
+      bedNumber.includes(searchTerm);
+
+    if (!matchesTenant) return false;
+  }
+
+  // 2. Payment date filter (dd/MM/yy format)
+  if (paymentDateSearch !== "") {
+    if (!group.last_payment_date) return false;
+    const formatted = format(new Date(group.last_payment_date), "dd/MM/yy");
+    if (!formatted.includes(paymentDateSearch)) return false;
+  }
+  
+  // ✅ DATE RANGE FILTER (Start Date / End Date from sidebar)
+  if (!ignoreDateFilters && (filterStartDate || filterEndDate)) {
+    if (!group.last_payment_date) return false;
+    const lastDate = new Date(group.last_payment_date);
+    lastDate.setHours(12, 0, 0, 0);
+    if (filterStartDate && filterEndDate) {
+      const startDate = new Date(filterStartDate);
+      startDate.setHours(0, 0, 0, 0);
+      const endDate = new Date(filterEndDate);
+      endDate.setHours(23, 59, 59, 999);
+      if (lastDate < startDate || lastDate > endDate) return false;
+    } else if (filterStartDate) {
+  const startDate = new Date(filterStartDate);
+  startDate.setHours(0, 0, 0, 0);
+  const lastDateOnly = new Date(lastDate);
+  lastDateOnly.setHours(0, 0, 0, 0);
+  if (lastDateOnly.getTime() < startDate.getTime()) return false;
+} else if (filterEndDate) {
+  const endDate = new Date(filterEndDate);
+  endDate.setHours(0, 0, 0, 0);
+  const lastDateOnly = new Date(lastDate);
+  lastDateOnly.setHours(0, 0, 0, 0);
+  if (lastDateOnly.getTime() !== endDate.getTime()) return false;
+}
+  }
+  return true;
+});
 
      const totalItems = filteredArray.length;
   const startIndex = (page - 1) * itemsPerPage;
@@ -1877,89 +1917,83 @@ if (
   };
 
   // Filter payments based on column filters
-  const columnFilteredPayments = payments.filter((payment) => {
-    const searchTerm = columnFilters.tenant_name?.toLowerCase() || "";
-    const tenantName = getTenantName(payment.tenant_id).toLowerCase();
+  // Filter payments based on column filters (without date – handled later in groupPaymentsByTenant)
+const columnFilteredPayments = payments.filter((payment) => {
+  const searchTerm = columnFilters.tenant_name?.toLowerCase() || "";
+  const tenantName = getTenantName(payment.tenant_id).toLowerCase();
 
-    // Get tenant details for room/property search
-    const completeTenant = tenants.find((t) => t.id === payment.tenant_id);
-    const roomNumber = (
-      completeTenant?.room_number ||
-      completeTenant?.current_assignment?.room_number ||
-      payment.room_number || ""
-    ).toString().toLowerCase();
-    const propertyName = (
-      completeTenant?.property_name ||
-      completeTenant?.current_assignment?.property_name ||
-      payment.property_name || ""
-    ).toLowerCase();
-    const bedNumber = (
-      completeTenant?.bed_number ||
-      completeTenant?.current_assignment?.bed_number ||
-      payment.bed_number || ""
-    ).toString().toLowerCase();
+  // Get tenant details for room/property search
+  const completeTenant = tenants.find((t) => t.id === payment.tenant_id);
+  const roomNumber = (
+    completeTenant?.room_number ||
+    completeTenant?.current_assignment?.room_number ||
+    payment.room_number || ""
+  ).toString().toLowerCase();
+  const propertyName = (
+    completeTenant?.property_name ||
+    completeTenant?.current_assignment?.property_name ||
+    payment.property_name || ""
+  ).toLowerCase();
+  const bedNumber = (
+    completeTenant?.bed_number ||
+    completeTenant?.current_assignment?.bed_number ||
+    payment.bed_number || ""
+  ).toString().toLowerCase();
 
+  const matchesTenant =
+    !searchTerm ||
+    tenantName.includes(searchTerm) ||
+    roomNumber.includes(searchTerm) ||
+    propertyName.includes(searchTerm) ||
+    bedNumber.includes(searchTerm);
 
-    const matchesDate =
-      !columnFilters.payment_date ||
-      new Date(payment.payment_date).toISOString().split("T")[0] ===
-        columnFilters.payment_date;
+  const matchesMinAmount =
+    !columnFilters.min_amount ||
+    payment.amount >= parseFloat(columnFilters.min_amount);
 
-     const matchesTenant =
-      !searchTerm ||
-      tenantName.includes(searchTerm) ||
-      roomNumber.includes(searchTerm) ||
-      propertyName.includes(searchTerm) ||
-      bedNumber.includes(searchTerm);
+  const matchesMaxAmount =
+    !columnFilters.max_amount ||
+    payment.amount <= parseFloat(columnFilters.max_amount);
 
-    const matchesMinAmount =
-      !columnFilters.min_amount ||
-      payment.amount >= parseFloat(columnFilters.min_amount);
+  const matchesMode =
+    columnFilters.payment_mode === "all" ||
+    payment.payment_mode === columnFilters.payment_mode;
 
-    const matchesMaxAmount =
-      !columnFilters.max_amount ||
-      payment.amount <= parseFloat(columnFilters.max_amount);
-
-    const matchesMode =
-      columnFilters.payment_mode === "all" ||
-      payment.payment_mode === columnFilters.payment_mode;
-
-    const matchesTransactionId =
-      !columnFilters.transaction_id ||
-      (payment.transaction_id &&
-        payment.transaction_id
-          .toLowerCase()
-          .includes(columnFilters.transaction_id.toLowerCase()));
-
-    const matchesMonth =
-      !columnFilters.month ||
-      `${payment.month} ${payment.year}`
+  const matchesTransactionId =
+    !columnFilters.transaction_id ||
+    (payment.transaction_id &&
+      payment.transaction_id
         .toLowerCase()
-        .includes(columnFilters.month.toLowerCase());
+        .includes(columnFilters.transaction_id.toLowerCase()));
 
-    const matchesStatus =
-      columnFilters.status === "all" ||
-      (payment.status || "pending") === columnFilters.status;
+  const matchesMonth =
+    !columnFilters.month ||
+    `${payment.month} ${payment.year}`
+      .toLowerCase()
+      .includes(columnFilters.month.toLowerCase());
 
-    const matchesRemark =
-      !columnFilters.remark ||
-      (payment.remark &&
-        payment.remark
-          .toLowerCase()
-          .includes(columnFilters.remark.toLowerCase()));
+  const matchesStatus =
+    columnFilters.status === "all" ||
+    (payment.status || "pending") === columnFilters.status;
 
-    return (
-      matchesDate &&
-      matchesTenant &&
-      matchesMinAmount &&
-      matchesMaxAmount &&
-      matchesMode &&
-      matchesTransactionId &&
-      matchesMonth &&
-      matchesStatus &&
-      matchesRemark
-    );
-  });
+  const matchesRemark =
+    !columnFilters.remark ||
+    (payment.remark &&
+      payment.remark
+        .toLowerCase()
+        .includes(columnFilters.remark.toLowerCase()));
+
+  return (
+    matchesTenant &&
+    matchesMinAmount &&
+    matchesMaxAmount &&
+    matchesMode &&
+    matchesTransactionId &&
+    matchesMonth &&
+    matchesStatus &&
+    matchesRemark
+  );
+});
 
   // Sort payments
   const sortedPayments = [...columnFilteredPayments].sort((a, b) => {
@@ -2562,7 +2596,7 @@ const matchesToDate = (() => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-[10px] sm:text-xs text-blue-700 font-medium">
-                    Rent Collected
+                    Total Rent Collected
                   </p>
                   <p className="text-sm sm:text-base font-bold text-blue-800">
                     ₹{detailedStats.total_rent_collected.toLocaleString()}
@@ -2584,7 +2618,7 @@ const matchesToDate = (() => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-[10px] sm:text-xs text-green-700 font-medium">
-                    Deposit Collected
+                    Current Deposit Collected
                   </p>
                   <p className="text-sm sm:text-base font-bold text-green-800">
                     ₹{detailedStats.total_deposit_collected.toLocaleString()}
@@ -2606,7 +2640,7 @@ const matchesToDate = (() => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-[10px] sm:text-xs text-orange-700 font-medium">
-                    Refunded
+                    Refunded / Penalties Collected
                   </p>
                   <p className="text-sm sm:text-base font-bold text-orange-800">
                     ₹{detailedStats.total_refunded.toLocaleString()}
@@ -2776,6 +2810,8 @@ filterStartDate={filterStartDate}
 setFilterStartDate={setFilterStartDate}
 filterEndDate={filterEndDate}
 setFilterEndDate={setFilterEndDate}
+ignoreDateFilters={ignoreDateFilters}
+setIgnoreDateFilters={setIgnoreDateFilters}
               canApprove={can("approve_payments")}
               canReject={can("reject_payments")}
               canEdit={can("edit_payments")}
@@ -5656,23 +5692,23 @@ const PaginationControls = ({
     <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 bg-white border-t border-slate-200 rounded-b-lg">
       <div className="flex items-center gap-2 text-xs text-slate-500">
         <span>Show</span>
-        <Select
-          value={itemsPerPage.toString()}
-          onValueChange={(value) => onItemsPerPageChange(Number(value))}
-        >
+       <Select
+  value={itemsPerPage >= 999999 ? "All" : itemsPerPage.toString()}
+  onValueChange={(value) => onItemsPerPageChange(value === "All" ? 999999 : Number(value))}
+>
           <SelectTrigger className="h-7 w-[70px] text-xs">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {[10, 25, 50, 100].map((size) => (
-              <SelectItem
-                key={size}
-                value={size.toString()}
-                className="text-xs"
-              >
-                {size}
-              </SelectItem>
-            ))}
+          {[10, 25, 50, 100, "All"].map((size) => (
+  <SelectItem
+    key={size}
+    value={size.toString()}
+    className="text-xs"
+  >
+    {size}
+  </SelectItem>
+))}
           </SelectContent>
         </Select>
         <span>entries</span>
@@ -5823,6 +5859,9 @@ filterStartDate,
 setFilterStartDate,
 filterEndDate,
 setFilterEndDate,
+ignoreDateFilters,
+setIgnoreDateFilters,
+
   // New props for column filters
   columnFilters,
   setColumnFilters,
@@ -5851,7 +5890,6 @@ setFilterEndDate,
   onItemsPerPageChange,
 }: any) => {
 
-  const [ignoreDateFilters, setIgnoreDateFilters] = useState(false);
 const [roomFilter, setRoomFilter] = useState("");
   // Group payments by tenant using the passed function
   const { items: paginatedGroups, totalItems, totalPages } = pagination;
@@ -5918,35 +5956,15 @@ const [roomFilter, setRoomFilter] = useState("");
     }
 
 // Filter by last payment date – timezone-safe, works on raw date string
-if (columnFilters?.payment_date && group.last_payment_date) {
-  const searchTerm = columnFilters.payment_date.toLowerCase().trim();
-  if (searchTerm === "") return true;
-
-  // Convert last_payment_date to a Date object
-  const lastPayDate = new Date(group.last_payment_date);
-  if (isNaN(lastPayDate.getTime())) return false;
-
-  const day = lastPayDate.getDate();
-  const month = lastPayDate.getMonth() + 1;
-  const year = lastPayDate.getFullYear();
-
-  // Format variations for matching
-  const formats = [
-    `${day.toString().padStart(2, '0')}/${month.toString().padStart(2, '0')}/${year}`,        // dd/mm/yyyy
-    `${day.toString().padStart(2, '0')}/${month.toString().padStart(2, '0')}/${year.toString().slice(-2)}`, // dd/mm/yy
-    `${day}/${month}/${year}`,
-    `${day}/${month}/${year.toString().slice(-2)}`,
-    month.toString().padStart(2, '0'),   // mm
-    month.toString(),                    // m
-    year.toString(),                     // yyyy
-    year.toString().slice(-2),           // yy
-    lastPayDate.toLocaleString('default', { month: 'long' }).toLowerCase(), // full month name
-    lastPayDate.toLocaleString('default', { month: 'short' }).toLowerCase()  // short month name
-  ];
-
-  const matches = formats.some(format => format.includes(searchTerm));
-  if (!matches) return false;
-}
+// NAYA - replace karo:
+// if (columnFilters?.payment_date) {
+//   const searchTerm = columnFilters.payment_date.trim();
+//   if (searchTerm !== "") {
+//     if (!group.last_payment_date) return false;
+//     const formatted = format(new Date(group.last_payment_date), "dd/MM/yy");
+//     if (!formatted.includes(searchTerm)) return false;
+//   }
+// }
 
 
 // Property filter - ignore when "all" is selected
@@ -5964,26 +5982,36 @@ if (roomFilter && group.room_number) {
 }
 
 // Date filters - only apply if not ignored
-if (!ignoreDateFilters && (filterStartDate || filterEndDate)) {
-  // Start Date = First Payment Date
-  if (filterStartDate) {
-    if (!group.first_payment_date) return false;
-    const firstDate = new Date(group.first_payment_date);
-    firstDate.setHours(0, 0, 0, 0);
-    const startDate = new Date(filterStartDate);
-    startDate.setHours(0, 0, 0, 0);
-    if (firstDate < startDate) return false;
-  }
-  // End Date = Last Payment Date
-  if (filterEndDate) {
-    if (!group.last_payment_date) return false;
-    const lastDate = new Date(group.last_payment_date);
-    lastDate.setHours(23, 59, 59, 999);
-    const endDate = new Date(filterEndDate);
-    endDate.setHours(23, 59, 59, 999);
-    if (lastDate > endDate) return false;
-  }
-}
+// NAYA - replace karo:
+// if (!ignoreDateFilters && (filterStartDate || filterEndDate)) {
+//   if (filterStartDate && filterEndDate) {
+//     // BOTH dates set: last_payment_date must be between start and end
+//     if (!group.last_payment_date) return false;
+//     const lastDate = new Date(group.last_payment_date);
+//     lastDate.setHours(12, 0, 0, 0);
+//     const startDate = new Date(filterStartDate);
+//     startDate.setHours(0, 0, 0, 0);
+//     const endDate = new Date(filterEndDate);
+//     endDate.setHours(23, 59, 59, 999);
+//     if (lastDate < startDate || lastDate > endDate) return false;
+//   } else if (filterStartDate) {
+//     // Only start date: last_payment_date >= start date
+//     if (!group.last_payment_date) return false;
+//     const lastDate = new Date(group.last_payment_date);
+//     lastDate.setHours(12, 0, 0, 0);
+//     const startDate = new Date(filterStartDate);
+//     startDate.setHours(0, 0, 0, 0);
+//     if (lastDate < startDate) return false;
+//   } else if (filterEndDate) {
+//     // Only end date: last_payment_date <= end date
+//     if (!group.last_payment_date) return false;
+//     const lastDate = new Date(group.last_payment_date);
+//     lastDate.setHours(12, 0, 0, 0);
+//     const endDate = new Date(filterEndDate);
+//     endDate.setHours(23, 59, 59, 999);
+//     if (lastDate > endDate) return false;
+//   }
+// }
 
 
     return true;
@@ -7069,12 +7097,12 @@ if (!ignoreDateFilters && (filterStartDate || filterEndDate)) {
 </div>
 
 <div className="space-y-1">
-<Label className="text-xs font-semibold text-blue-700">Start Date (First Payment)</Label>
+<Label className="text-xs font-semibold text-blue-700">Start Date (Last Pay From)</Label>
   <Input type="date" value={filterStartDate} onChange={(e) => setFilterStartDate(e.target.value)} className="h-8 text-xs" />
 </div>
 
 <div className="space-y-1">
-  <Label className="text-xs font-semibold text-blue-700">End Date (Last Payment)</Label>
+<Label className="text-xs font-semibold text-blue-700">End Date (Last Pay To)</Label>
   <Input type="date" value={filterEndDate} onChange={(e) => setFilterEndDate(e.target.value)} className="h-8 text-xs" />
 </div>
               <div className="space-y-1">
@@ -7108,8 +7136,8 @@ if (!ignoreDateFilters && (filterStartDate || filterEndDate)) {
   <label className="flex items-center gap-2 cursor-pointer">
     <input
       type="checkbox"
-      checked={ignoreDateFilters}
-      onChange={(e) => setIgnoreDateFilters(e.target.checked)}
+checked={ignoreDateFilters}
+onChange={(e) => setIgnoreDateFilters?.(e.target.checked)}
       className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
     />
     <span className="text-xs font-semibold text-blue-700">Ignore Date Filters</span>
