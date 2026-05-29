@@ -210,7 +210,7 @@ export default function MasterItemsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className=" bg-gray-50">
       <Header
         onRefresh={loadItems}
         onNewItem={handleNewItem}

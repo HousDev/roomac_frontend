@@ -2791,15 +2791,7 @@ if (partnerDetails.full_name) {
     <Input
       type="date"
       value={formData.check_in_date}
-      max={
-        new Date(
-          new Date().getFullYear(),
-          new Date().getMonth() + 1,
-          0,
-        )
-          .toISOString()
-          .split("T")[0]
-      }
+     
       onChange={(e) => handleCheckInDateChange(e.target.value)}
       className={`pl-8 ${F}`}
     />

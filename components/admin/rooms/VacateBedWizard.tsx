@@ -858,17 +858,14 @@ useEffect(() => {
         await fetchPartnerDetails(data.bedAssignment.tenant_id);
       }
 
-      if (!tenantVacateDate) {
-        const today = new Date();
-        const defaultVacateDate = new Date(today);
-        defaultVacateDate.setDate(today.getDate() + 30);
-        const formattedDate = defaultVacateDate.toISOString().split("T")[0];
-
-        setFormData((prev) => ({
-          ...prev,
-          requestedVacateDate: formattedDate,
-        }));
-      }
+    if (!tenantVacateDate) {
+  const today = new Date();
+  const formattedDate = today.toISOString().split("T")[0];
+  setFormData((prev) => ({
+    ...prev,
+    requestedVacateDate: formattedDate,
+  }));
+}
     } catch (error) {
       console.error("Error loading initial data:", error);
       const errorMessage =
@@ -2927,17 +2924,16 @@ const calculateNoticePeriodStatus = () => {
 
                 <div>
                   <Label className="text-sm font-medium mb-1.5 block">
-                    Actual Vacate Date *
+                    Actual Vacate Date*
                   </Label>
-                  <Input
-                    type="date"
-                    value={formData.requestedVacateDate}
-                    onChange={(e) =>
-                      handleInputChange("requestedVacateDate", e.target.value)
-                    }
-                    required
-                    className="h-9"
-                  />
+                <Input 
+  type="date" 
+  value={formData.requestedVacateDate || new Date().toISOString().split("T")[0]} 
+  onChange={(e) => handleInputChange("requestedVacateDate", e.target.value)} 
+  min={new Date().toISOString().split("T")[0]}
+  required 
+  className="h-9" 
+/>
                   <div className="text-xs text-gray-500 mt-2">
                     <div>
                       • This is the actual date tenant will vacate the bed

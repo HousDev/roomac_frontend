@@ -107,12 +107,7 @@ category_id: initialData?.category_id || selectedCategory.trim(),        categor
               <label className="text-xs font-semibold text-gray-700">
                 Sub Categories <span className="text-red-500">*</span>
               </label>
-              <button
-                onClick={addSubcategory}
-                className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium"
-              >
-                <Plus size={12} /> Add Sub Category
-              </button>
+              
             </div>
 
             {selectedSubcategories.length === 0 ? (
@@ -145,6 +140,12 @@ category_id: initialData?.category_id || selectedCategory.trim(),        categor
               </div>
             )}
 
+<button
+                onClick={addSubcategory}
+                className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium mt-2"
+              >
+                <Plus size={12} /> Add Sub Category
+              </button>
             {selectedSubcategories.length > 0 && (
               <div className="mt-2 text-xs text-gray-400">
                 {selectedSubcategories.filter(s => s.subcategory_name.trim()).length} subcategories added
