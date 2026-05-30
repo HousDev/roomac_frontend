@@ -2486,13 +2486,10 @@ const columnFilteredPayments = payments.filter((payment) => {
       );
 
     // Due date range filters
-   const matchesFromDate = (() => {
+  const matchesFromDate = (() => {
   if (!demandFilters.from_date) return true;
-  const dueDate = new Date(demand.due_date);
-  dueDate.setHours(0, 0, 0, 0);
-  const fromDate = new Date(demandFilters.from_date);
-  fromDate.setHours(0, 0, 0, 0);
-  return dueDate >= fromDate;
+  const formatted = format(new Date(demand.due_date), "dd/MM/yy");
+  return formatted.includes(demandFilters.from_date.trim());
 })();
 
 const matchesToDate = (() => {
@@ -2924,24 +2921,26 @@ setIgnoreDateFilters={setIgnoreDateFilters}
                               </TableHead>
 
                               {/* Due Date Column */}
-                              <TableHead className="w-[100px] py-2 px-2 bg-gray-200">
-                                <div className="flex flex-col gap-1">
-                                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
-                                    Due Date
-                                  </span>
-                                  <Input
-                                    type="date"
-                                    className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
-                                    value={demandFilters.from_date || ""}
-                                    onChange={(e) =>
-                                      setDemandFilters({
-                                        ...demandFilters,
-                                        from_date: e.target.value,
-                                      })
-                                    }
-                                  />
-                                </div>
-                              </TableHead>
+                            {/* Due Date Column */}
+<TableHead className="w-[100px] py-2 px-2 bg-gray-200">
+  <div className="flex flex-col gap-1">
+    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
+      Due Date
+    </span>
+    <Input
+      type="text"
+      placeholder="dd/mm/yy"
+      className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
+      value={demandFilters.from_date || ""}
+      onChange={(e) =>
+        setDemandFilters({
+          ...demandFilters,
+          from_date: e.target.value,
+        })
+      }
+    />
+  </div>
+</TableHead>
 
                               {/* Status Column */}
                               <TableHead className="w-[100px] py-2 px-2 bg-gray-200">

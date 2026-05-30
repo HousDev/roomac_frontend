@@ -32,7 +32,7 @@ interface TenantsClientProps {
 }
 
 // Pagination constants
-const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, "All"] as const;
 
 export default function TenantsClient({
   initialData = [],
@@ -1154,7 +1154,7 @@ const columns = useMemo(() => [
               <Button
                 variant="outline"
                 size="sm"
-                className="h-6 text-[9px] px-2 bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
+                className="h-6 text-[9px] px-2 bg-green-50 text-green-700 border-green-200 hover:bg-green-600"
                 onClick={() => handleVacatedTenantRefund(tenant, refundableAmount, vacateRecord?.id)}
               >
                 <Shield className="w-2.5 h-2.5 mr-1" />
@@ -1165,7 +1165,7 @@ const columns = useMemo(() => [
               <Button
                 variant="outline"
                 size="sm"
-                className="h-6 text-[9px] px-2 bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100"
+                className="h-6 text-[9px] px-2 bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-600"
                 onClick={() => handleVacatedTenantPayment(tenant, Math.abs(refundableAmount), vacateRecord?.id)}
               >
                 <IndianRupee className="w-2.5 h-2.5 mr-1" />
@@ -1452,18 +1452,22 @@ const columns = useMemo(() => [
         <div className="flex items-center gap-1 ml-2">
           <span className="text-gray-400 hidden sm:inline">Rows:</span>
           <Select
-            value={String(pageSize)}
+            value={pageSize === totalTenants && totalTenants > 100 ? "All" : String(pageSize)}
             onValueChange={(val) => {
-              setPageSize(Number(val));
+              if (val === "All") {
+                setPageSize(totalTenants || 99999);
+              } else {
+                setPageSize(Number(val));
+              }
               setCurrentPage(1);
             }}
           >
             <SelectTrigger className="h-6 w-14 text-[10px] border-gray-200 px-1">
-              <SelectValue>{pageSize}</SelectValue>
+              <SelectValue>{pageSize === totalTenants && totalTenants > 100 ? "All" : pageSize}</SelectValue>
             </SelectTrigger>
             <SelectContent>
               {PAGE_SIZE_OPTIONS.map((size) => (
-                <SelectItem key={size} value={String(size)} className="text-xs">{size}</SelectItem>
+                <SelectItem key={String(size)} value={String(size)} className="text-xs">{size}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -2439,7 +2443,7 @@ const columns = useMemo(() => [
               <Button
                 variant="outline"
                 size="sm"
-                className="h-6 text-[9px] px-2 bg-green-50 text-green-700 border-green-200 hover:bg-green-100 w-full"
+                className="h-6 text-[9px] px-2 bg-green-50 text-green-700 border-green-200 hover:bg-green-600 w-full"
                 onClick={() => handleVacatedTenantRefund(tenant, remainingRefund)}
               >
                 <Shield className="w-2.5 h-2.5 mr-1" />
