@@ -337,7 +337,9 @@ const [ignoreDateFilters, setIgnoreDateFilters] = useState(false);
     total_rent_collected: 0,
     total_deposit_collected: 0,
     total_refunded: 0,
-    this_month_rent: 0, // ✅ NEW
+    this_month_rent: 0,
+     total_penalties_collected: 0,
+     total_pending_amount: 0, // ✅ NEW
     total_transactions: 0,
   });
 
@@ -461,22 +463,42 @@ const [ignoreDateFilters, setIgnoreDateFilters] = useState(false);
   }, []);
 
   // Add this to loadDetailedStats function
+  // const loadDetailedStats = async () => {
+  //   try {
+  //     const response = await paymentApi.getDetailedPaymentStats();
+  //     if (response.success && response.data) {
+  //       setDetailedStats({
+  //         total_rent_collected: response.data.total_rent_collected || 0,
+  //         total_deposit_collected: response.data.total_deposit_collected || 0,
+  //         total_refunded: response.data.total_refunded || 0,
+  //         this_month_rent: response.data.this_month_rent || 0, // ✅ NEW
+  //         total_transactions: response.data.total_transactions || 0,
+  //       });
+  //     }
+  //   } catch (error) {
+  //     console.error("Error loading detailed stats:", error);
+  //   }
+  // };
+
+
   const loadDetailedStats = async () => {
-    try {
-      const response = await paymentApi.getDetailedPaymentStats();
-      if (response.success && response.data) {
-        setDetailedStats({
-          total_rent_collected: response.data.total_rent_collected || 0,
-          total_deposit_collected: response.data.total_deposit_collected || 0,
-          total_refunded: response.data.total_refunded || 0,
-          this_month_rent: response.data.this_month_rent || 0, // ✅ NEW
-          total_transactions: response.data.total_transactions || 0,
-        });
-      }
-    } catch (error) {
-      console.error("Error loading detailed stats:", error);
+  try {
+    const response = await paymentApi.getDetailedPaymentStats();
+    if (response.success && response.data) {
+      setDetailedStats({
+        total_rent_collected: response.data.total_rent_collected || 0,
+        total_deposit_collected: response.data.total_deposit_collected || 0,
+        total_refunded: response.data.total_refunded || 0,
+        total_penalties_collected: response.data.total_penalties_collected || 0,
+        total_pending_amount: response.data.total_pending_amount || 0, // 👈 ADD
+        this_month_rent: response.data.this_month_rent || 0,
+        total_transactions: response.data.total_transactions || 0,
+      });
     }
-  };
+  } catch (error) {
+    console.error("Error loading detailed stats:", error);
+  }
+};
 
   const loadData = async () => {
     setLoading(true);
@@ -2586,7 +2608,7 @@ const matchesToDate = (() => {
 
         {/* Detailed Stats Cards */}
         {/* Detailed Stats Cards - 5 Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 sm:gap-2 sticky top-16 z-10">
+        <div className="grid grid-cols-2 sm:grid-cols-7 gap-1.5 sm:gap-2 sticky top-16 z-10">
           {/* Rent Collected Card */}
           <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-0 shadow-sm">
             <CardContent className="p-2 sm:p-3">
@@ -2632,26 +2654,49 @@ const matchesToDate = (() => {
           </Card>
 
           {/* Total Refunded Card */}
-          <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-0 shadow-sm">
-            <CardContent className="p-2 sm:p-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-[10px] sm:text-xs text-orange-700 font-medium">
-                    Refunded / Penalties Collected
-                  </p>
-                  <p className="text-sm sm:text-base font-bold text-orange-800">
-                    ₹{detailedStats.total_refunded.toLocaleString()}
-                  </p>
-                  <p className="text-[9px] text-orange-600 mt-0.5">
-                    Total deposit refunds
-                  </p>
-                </div>
-                <div className="p-1.5 rounded-lg bg-orange-600">
-                  <ReceiptIndianRupee className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+      {/* ✅ REFUNDS CARD (money paid OUT) */}
+<Card className="bg-gradient-to-br from-green-50 to-green-100 border-0 shadow-sm">
+  <CardContent className="p-2 sm:p-3">
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-[10px] sm:text-xs text-green-700 font-medium">
+          Total Refunded
+        </p>
+        <p className="text-sm sm:text-base font-bold text-green-800">
+          ₹{detailedStats.total_refunded.toLocaleString()}
+        </p>
+        <p className="text-[9px] text-green-600 mt-0.5">
+          Amount refunded to tenants
+        </p>
+      </div>
+      <div className="p-1.5 rounded-lg bg-green-600">
+        <ReceiptIndianRupee className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
+      </div>
+    </div>
+  </CardContent>
+</Card>
+
+{/* ✅ PENALTIES COLLECTED CARD (money received FROM tenants) */}
+<Card className="bg-gradient-to-br from-red-50 to-red-100 border-0 shadow-sm">
+  <CardContent className="p-2 sm:p-3">
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-[10px] sm:text-xs text-red-700 font-medium">
+          Penalties Collected
+        </p>
+        <p className="text-sm sm:text-base font-bold text-red-800">
+          ₹{detailedStats.total_penalties_collected.toLocaleString()}
+        </p>
+        <p className="text-[9px] text-red-600 mt-0.5">
+          Amount collected from tenants
+        </p>
+      </div>
+      <div className="p-1.5 rounded-lg bg-red-600">
+        <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
+      </div>
+    </div>
+  </CardContent>
+</Card>
 
           {/* This Month Rent Card */}
           <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-0 shadow-sm">
@@ -2675,6 +2720,28 @@ const matchesToDate = (() => {
               </div>
             </CardContent>
           </Card>
+
+
+<Card className="bg-gradient-to-br from-yellow-50 to-amber-100 border-0 shadow-sm">
+  <CardContent className="p-2 sm:p-3">
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-[10px] sm:text-xs text-amber-700 font-medium">
+          Total Pending
+        </p>
+        <p className="text-sm sm:text-base font-bold text-amber-800">
+          ₹{detailedStats.total_pending_amount.toLocaleString()}
+        </p>
+        <p className="text-[9px] text-amber-600 mt-0.5">
+          Awaiting approval
+        </p>
+      </div>
+      <div className="p-1.5 rounded-lg bg-amber-600">
+        <Clock className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
+      </div>
+    </div>
+  </CardContent>
+</Card>
 
           {/* Total Transactions Card */}
           <Card className="bg-gradient-to-br from-cyan-50 to-cyan-100 border-0 shadow-sm">
