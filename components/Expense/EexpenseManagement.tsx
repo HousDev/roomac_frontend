@@ -387,6 +387,7 @@ const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
   const [filterPanelOpen, setFilterPanelOpen] = useState(false);
 const [filterMonth, setFilterMonth] = useState("");
 const [filterFromDate, setFilterFromDate] = useState("");
+const [ignoreDateFilters, setIgnoreDateFilters] = useState(false);
 const [filterToDate, setFilterToDate] = useState("");
 const [filterSubCat, setFilterSubCat] = useState("All");
 const [filterVendor, setFilterVendor] = useState("All");
@@ -628,13 +629,18 @@ const loadExpenses = useCallback(async () => {
   if (filterStatus !== "All" && e.status !== filterStatus) return false;
   if (filterProp !== "All" && e.property_name !== filterProp) return false;
   if (filterVendor !== "All" && e.vendor_name !== filterVendor) return false;
-  if (filterMonth && !e.expense_date?.startsWith(filterMonth)) return false;
-  if (filterFromDate && e.expense_date < filterFromDate) return false;
-  if (filterToDate && e.expense_date > filterToDate) return false;
+  
+  // ✅ Date filters – only apply if ignoreDateFilters is false
+  if (!ignoreDateFilters) {
+    if (filterMonth && !e.expense_date?.startsWith(filterMonth)) return false;
+    if (filterFromDate && e.expense_date < filterFromDate) return false;
+    if (filterToDate && e.expense_date > filterToDate) return false;
+  }
+  
   if (search && ![e.category_name, e.vendor_name, e.added_by_name]
     .some((v) => v?.toLowerCase().includes(search.toLowerCase()))) return false;
   return true;
-}), [expenses, filterCat, filterSubCat, filterStatus, filterProp, filterVendor, filterMonth, filterFromDate, filterToDate, search]);
+}), [expenses, filterCat, filterSubCat, filterStatus, filterProp, filterVendor, filterMonth, filterFromDate, filterToDate, search, ignoreDateFilters]);
 
   /* ── Items helpers ─────────────────────────────────────────────────────── */
   const setItems = (items: any[]) => setForm((f) => ({ ...f, items }));
@@ -2602,7 +2608,7 @@ useEffect(() => {
       
       {/* Header */}
       <div style={{ padding: "18px 20px", borderBottom: "1px solid #F0F3FA", display: "flex", justifyContent: "space-between", alignItems: "center", background: "linear-gradient(135deg,#1A2B6D,#3B5BDB)" }}>
-        <span style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>🔍 Advanced Filters</span>
+        <span style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}> Advanced Filters</span>
         <button onClick={() => setFilterPanelOpen(false)}
           style={{ width: 28, height: 28, borderRadius: 7, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.1)", cursor: "pointer", fontSize: 16, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
       </div>
@@ -2626,6 +2632,23 @@ useEffect(() => {
             style={{ width: "100%", padding: "8px 12px", border: "1px solid #E8ECF4", borderRadius: 8, fontSize: 12, outline: "none" }} placeholder="To" />
         </div>
 
+{/* Ignore Date Filters Checkbox */}
+<div style={{ marginBottom: 16 }}>
+  <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+    <input
+      type="checkbox"
+      checked={ignoreDateFilters}
+      onChange={(e) => setIgnoreDateFilters(e.target.checked)}
+      style={{ width: 16, height: 16, cursor: "pointer" }}
+    />
+    <span style={{ fontSize: 11, fontWeight: 600, color: "#374151" }}>
+      Ignore Date Filters
+    </span>
+  </label>
+  <div style={{ fontSize: 9, color: "#8892A4", marginTop: 4, marginLeft: 24 }}>
+    Month and date range will be ignored
+  </div>
+</div>
         {/* Property */}
         <div style={{ marginBottom: 16 }}>
           <label style={{ fontSize: 11, fontWeight: 700, color: "#374151", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>Property</label>
@@ -2706,7 +2729,7 @@ useEffect(() => {
         <button onClick={() => {
           setFilterCat("All"); setFilterSubCat("All"); setFilterStatus("All");
           setFilterProp("All"); setFilterVendor("All");
-          setFilterMonth(""); setFilterFromDate(""); setFilterToDate("");
+          setFilterMonth(""); setFilterFromDate(""); setFilterToDate("");setIgnoreDateFilters(false);
         }} style={{ flex: 1, padding: "8px", border: "1px solid #E8ECF4", borderRadius: 8, background: "#F8FAFF", fontSize: 12, fontWeight: 600, color: "#374151", cursor: "pointer" }}>
           Reset
         </button>
