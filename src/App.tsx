@@ -1,4 +1,4 @@
-  
+
 
 // src/App.tsx
 import { Routes, Route, Navigate } from "react-router-dom";
@@ -54,7 +54,9 @@ import AdminAccountDeletionPage from "../app/admin/account-deletion-requests/pag
 import AdminSupportTicketsPage from "@/app/admin/support-tickets/page";
 
 import PermissionsPage from "../app/admin/permissions/page";
-
+import EmailHistoryPage from "../components/admin/communications/EmailHistory/page";
+import WhatsAppHistory from "../components/admin/communications/whatsapp-history/page";
+import SMSHistory from "../components/admin/communications/sms-history/page";
 
 /* ================= TENANT ================= */
 import TenantLoginPage from "../app/tenant/login/page";
@@ -92,23 +94,23 @@ import NoticePeriodRequestsPage from "@/app/admin/notice-period-requests/page";
 import TemplateCenterPage from "@/app/admin/templates/page";  // Add this li
 
 function App() {
-//   const {setUser} =useAuth()
-//   const fetchUser = async () => {try{
-// const user = await axios.get(import.meta.env.VITE_API_URL+"/api/auth/get-user-details/"+localStorage.getItem('auth_email'))
-// console.log(user)
-//     setUser(user.data.user)
-// }catch(error){
-//   console.log(error)
-// }
-//   }
+  //   const {setUser} =useAuth()
+  //   const fetchUser = async () => {try{
+  // const user = await axios.get(import.meta.env.VITE_API_URL+"/api/auth/get-user-details/"+localStorage.getItem('auth_email'))
+  // console.log(user)
+  //     setUser(user.data.user)
+  // }catch(error){
+  //   console.log(error)
+  // }
+  //   }
 
-//   useEffect( () => {
-//     fetchUser()
-//   }, [])
+  //   useEffect( () => {
+  //     fetchUser()
+  //   }, [])
   return (
     <HelmetProvider>
 
-      <Toaster position="top-right" richColors closeButton/>
+      <Toaster position="top-right" richColors closeButton />
 
       <Routes>
 
@@ -134,7 +136,7 @@ function App() {
             <Route path="dashboard" element={<AdminDashboardPage />} />
             <Route path="properties" element={<AdminPropertiesPage />} />
             <Route path="properties/:id" element={<AdminPropertyIdPage />} />
-  <Route path="templates" element={<TemplateCenterPage />} />  {/* ← ADD THIS LINE */}
+            <Route path="templates" element={<TemplateCenterPage />} />  {/* ← ADD THIS LINE */}
 
             <Route path="rooms" element={<AdminRoomsPage />} />
             <Route path="tenants" element={<AdminTenantsPage />} />
@@ -145,6 +147,18 @@ function App() {
             <Route path="reports" element={<AdminReportsPage />} />
             <Route path="enquiries" element={<AdminEnquiriesPage />} />
             <Route path="notifications" element={<AdminNotificationsPage />} />
+            <Route
+              path="communications/email-history"
+              element={<EmailHistoryPage />}
+            />
+            <Route
+              path="communications/whatsapp-history"
+              element={<WhatsAppHistory />}
+            />
+            <Route
+              path="communications/sms-history"
+              element={<SMSHistory />}
+            />
             <Route path="staff" element={<AdminStaffPage />} />
             <Route path="offers" element={<AdminOffersPage />} />
             <Route path="add-ons" element={<AdminAddOnsPage />} />
@@ -155,13 +169,13 @@ function App() {
             <Route path="inventory/handover" element={<TenantHandover />} />
             <Route path="inventory/inspection" element={<MoveOutInspection />} />
             <Route path="inventory/settlements" element={<Settlements />} />
-            <Route path="inventory/penalty-rules" element={<PenaltyRules/>} />
+            <Route path="inventory/penalty-rules" element={<PenaltyRules />} />
 
 
             <Route path="visitors/dashboard" element={<VisitorDashboard />} />
             <Route path="visitors/logs" element={<VisitorLogs />} />
             <Route path="visitors/new-entry" element={<NewVisitorEntry />} />
-            <Route path="visitors/restrictions" element={<VisitorRestrictions/>} />
+            <Route path="visitors/restrictions" element={<VisitorRestrictions />} />
 
             <Route path="document-center" element={<DocumentCenter />} />
             <Route path="document-center/templates" element={<TemplateManager />} />
@@ -171,8 +185,8 @@ function App() {
             <Route path="masters" element={<AdminMastersPage />} />
             <Route path="masters/:itemId" element={<AdminMastersValues />} />
             <Route path="settings" element={<AdminSettingsPage />} />
-            <Route path="settings/integration" element={<AdminIntegrationSettingsPage />} />  
-<Route path="permissions" element={<PermissionsPage />} />
+            <Route path="settings/integration" element={<AdminIntegrationSettingsPage />} />
+            <Route path="permissions" element={<PermissionsPage />} />
 
             <Route path="profile" element={<AdminProfilePage />} />
             <Route path="requests" element={<RequestsPage />} />
@@ -184,30 +198,30 @@ function App() {
             <Route path="change-bed-requests" element={<AdminChangeBedRequestsPage />} />
             <Route path="account-deletion-requests" element={<AdminAccountDeletionPage />} />
             <Route path="notice-period-requests" element={<NoticePeriodRequestsPage />} />
-              <Route path="support-tickets" element={<AdminSupportTicketsPage />} />
+            <Route path="support-tickets" element={<AdminSupportTicketsPage />} />
 
           </Route>
 
         </Route>
-       
+
         <Route path="/login" element={<PublicRoute />}>
-  <Route index element={<TenantLoginPage />} />
-</Route>
+          <Route index element={<TenantLoginPage />} />
+        </Route>
 
         <Route element={<ProtectedRoute />}>
-  <Route path="/tenant" element={<TenantLayout />}>
-    <Route path="portal" element={<TenantPortalPage />} />
-    <Route path="dashboard" element={<TenantPortalPage />} />
-    <Route path="profile" element={<TenantProfilePage />} />
-    <Route path="documents" element={<TenantDocumentsPage />} />
-    <Route path="my-documents" element={<TenantMyDocumentsPage />} />
-    <Route path="requests" element={<TenantRequestsPage />} />
-    <Route path="settings" element={<TenantSettingsPage />} />
-    <Route path="support" element={<SupportPage />} />
-    <Route path="payments" element={<TenantPaymentsPage />} />
-    <Route path="notifications" element={<TenantNotificationsPage />} />
-  </Route>
-</Route>
+          <Route path="/tenant" element={<TenantLayout />}>
+            <Route path="portal" element={<TenantPortalPage />} />
+            <Route path="dashboard" element={<TenantPortalPage />} />
+            <Route path="profile" element={<TenantProfilePage />} />
+            <Route path="documents" element={<TenantDocumentsPage />} />
+            <Route path="my-documents" element={<TenantMyDocumentsPage />} />
+            <Route path="requests" element={<TenantRequestsPage />} />
+            <Route path="settings" element={<TenantSettingsPage />} />
+            <Route path="support" element={<SupportPage />} />
+            <Route path="payments" element={<TenantPaymentsPage />} />
+            <Route path="notifications" element={<TenantNotificationsPage />} />
+          </Route>
+        </Route>
 
       </Routes>
     </HelmetProvider>

@@ -302,9 +302,14 @@ const distributeRentEqually = (total: number, count: number): number[] => {
 };
 
 const generateFloorOptions = (totalFloors: number | string | undefined | null): string[] => {
+  const options = ['Ground Floor'];
   const num = parseInt(String(totalFloors || '0'));
-  if (!num || num <= 0) return [];
-  return Array.from({ length: num }, (_, i) => String(i + 1));
+  if (num && num > 0) {
+    for (let i = 1; i <= num; i++) {
+      options.push(`Floor ${i}`);
+    }
+  }
+  return options;
 };
 
 const F = ({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) => (
@@ -1041,7 +1046,7 @@ const goToNextTab = () => {
 
                       <div className="grid grid-cols-2 gap-1.5">
                         <F label="Floor">
-                          <Select 
+                          <Select
                             value={formData.floor}
                             onValueChange={v => setFormData((p: RoomFormData) => ({ ...p, floor: v }))}
                             disabled={!formData.property_id || roomLimitReached}
@@ -1052,17 +1057,17 @@ const goToNextTab = () => {
                             <SelectContent>
                               {propertyFloorOptions.length > 0
                                 ? propertyFloorOptions.map(f => (
-                                    <SelectItem key={f} value={f}>
-                                      <div className="flex items-center gap-1.5">
-                                        <Layers className="h-3 w-3 text-slate-400" />
-                                        <span className="text-[10px]">Floor {f}</span>
-                                      </div>
-                                    </SelectItem>
-                                  ))
+                                  <SelectItem key={f} value={f}>
+                                    <div className="flex items-center gap-1.5">
+                                      <Layers className="h-3 w-3 text-slate-400" />
+                                      <span className="text-[10px]">{f}</span>
+                                    </div>
+                                  </SelectItem>
+                                ))
                                 : <div className="px-2 py-2 text-[10px] text-slate-500 flex items-center gap-1">
-                                    <AlertCircle className="h-3 w-3 text-amber-500" />
-                                    {!formData.property_id ? 'Select a property first' : 'No floors configured'}
-                                  </div>
+                                  <AlertCircle className="h-3 w-3 text-amber-500" />
+                                  {!formData.property_id ? 'Select a property first' : 'No floors configured'}
+                                </div>
                               }
                             </SelectContent>
                           </Select>

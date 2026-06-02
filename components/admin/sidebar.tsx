@@ -62,6 +62,26 @@ const documentItems = [
   { href: '/admin/document-center/templates', label: 'Templates', icon: Layout },
 ];
 
+const communicationItems = [
+  {
+    href: "/admin/communications/email-history",
+    label: "Email History",
+    icon: Mail,
+    comingSoon: false
+  },
+  {
+    href: "/admin/communications/whatsapp-history",
+    label: "WhatsApp History",
+    icon: Mail,
+    comingSoon: true
+  },
+  {
+    href: "/admin/communications/sms-history",
+    label: "SMS History",
+    icon: Mail,
+    comingSoon: true
+  },
+];
 // Separate component for submenu items with tooltip
 function SubmenuItemWithTooltip({ reqItem, reqActive, sidebarOpen }: {
   reqItem: any;
@@ -135,6 +155,97 @@ function SubmenuItemWithTooltip({ reqItem, reqActive, sidebarOpen }: {
     </li>
   );
 }
+
+// function SubmenuItemWithTooltip({ reqItem, reqActive, sidebarOpen }: {
+//   reqItem: any;
+//   reqActive: boolean;
+//   sidebarOpen: boolean;
+// }) {
+//   const ReqIcon = reqItem.icon;
+//   const [showTooltip, setShowTooltip] = useState(false);
+//   const timerRef = useRef<NodeJS.Timeout>();
+
+//   const handleMouseEnter = () => {
+//     timerRef.current = setTimeout(() => {
+//       setShowTooltip(true);
+//     }, 500);
+//   };
+
+//   const handleMouseLeave = () => {
+//     if (timerRef.current) {
+//       clearTimeout(timerRef.current);
+//     }
+//     setShowTooltip(false);
+//   };
+
+//   useEffect(() => {
+//     return () => {
+//       if (timerRef.current) {
+//         clearTimeout(timerRef.current);
+//       }
+//     };
+//   }, []);
+
+//   useEffect(() => {
+//     const currentPath = window.location.pathname;
+//     if (currentPath.startsWith('/admin') && currentPath !== '/admin') {
+//       localStorage.setItem('admin_last_path', currentPath);
+//     }
+//   }, []);
+
+//   const handleClick = (e: React.MouseEvent, isComingSoon: boolean) => {
+//     if (isComingSoon) {
+//       e.preventDefault();
+//     }
+//   };
+
+//   return (
+//     <li key={reqItem.href}>
+//       <Link
+//         href={reqItem.comingSoon ? "#" : reqItem.href}
+//         onClick={(e) => handleClick(e, reqItem.comingSoon)}
+//         className={`
+//           relative group flex items-center gap-2 w-[155px] px-2 py-1.5 pl-5 rounded-xl transition-all duration-200
+//           ${reqActive && !reqItem.comingSoon
+//             ? 'bg-[#F5C000]/20 text-[#F5C000]'
+//             : reqItem.comingSoon
+//               ? 'text-blue-100/50 cursor-not-allowed hover:bg-white/5'
+//               : 'text-blue-100 hover:bg-white/10 hover:text-white'
+//           }
+//         `}
+//         onMouseEnter={handleMouseEnter}
+//         onMouseLeave={handleMouseLeave}
+//       >
+//         {reqActive && !reqItem.comingSoon && (
+//           <span className="absolute left-0 top-2 bottom-2 w-0.5 rounded-full bg-[#F5C000]" />
+//         )}
+//         <div className="flex items-center gap-2 flex-1">
+//           <div
+//             className={`
+//               h-4 w-4 rounded-md flex items-center justify-center transition-all p-0.5 flex-shrink-0
+//               ${reqActive && !reqItem.comingSoon
+//                 ? 'bg-[#F5C000]/20 text-[#F5C000]'
+//                 : reqItem.comingSoon
+//                   ? 'bg-white/5 text-blue-200/50'
+//                   : 'bg-white/10 text-blue-200 group-hover:text-white'
+//               }
+//             `}
+//           >
+//             <ReqIcon className="h-2.5 w-2.5" />
+//           </div>
+//           <span className="text-xs font-normal tracking-wide whitespace-nowrap overflow-hidden text-ellipsis flex-1">
+//             {reqItem.label}
+//           </span>
+//           {reqItem.comingSoon && (
+//             <span className="text-[9px] px-1 py-0.5 rounded bg-amber-500/20 text-amber-400 whitespace-nowrap">
+//               Soon
+//             </span>
+//           )}
+//         </div>
+//       </Link>
+//     </li>
+//   );
+// }
 
 // Separate component for collapsed sidebar items with tooltip
 function CollapsedSidebarItem({
@@ -266,6 +377,7 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
   const [inventoryOpen, setInventoryOpen] = useState(false);
   const [visitorsOpen, setVisitorsOpen] = useState(false);
   const [documentsOpen, setDocumentsOpen] = useState(false);
+  const [communicationOpen, setCommunicationOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [requestCounts, setRequestCounts] = useState<RequestCounts>({
     complaints: 0,
@@ -292,7 +404,13 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
     { href: '/admin/expenses',     label: 'Expenses',     icon: ReceiptIndianRupee, permission: 'view_expenses' },
     { href: '/admin/reports',      label: 'Reports',      icon: BarChart3,     permission: 'view_reports' },
     { href: '/admin/document-center', label: 'Documents', icon: FileText,      permission: 'view_documents' },
-    { href: '/admin/enquiries',    label: 'Enquiries',    icon: Mail,          permission: 'view_enquiries' },
+    { href: '/admin/enquiries', label: 'Enquiries', icon: Mail, permission: 'view_enquiries' },
+    {
+      href: "#",  // Change this to "#" so it's not clickable
+      label: "Communication",
+      icon: Mail,
+      permission: "view_communications",
+    },
     { href: '/admin/notifications',label: 'Notifications',icon: Bell,          permission: 'view_notifications' },
     { href: '/admin/requests',     label: 'Requests',     icon: Clock,         permission: 'view_requests' },
     { href: '/admin/staff',        label: 'Staffs',       icon: UserCog,       permission: 'view_staff' },
@@ -359,6 +477,8 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
     setVisitorsOpen(false);
     setSettingsOpen(false);
     setDocumentsOpen(false);
+    setCommunicationOpen(false);
+
   }, []);
 
   // Handle click outside for mobile sidebar
@@ -434,6 +554,17 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSidebarProps)
     const isVisitorsPage = pathname.includes('/admin/visitors');
     if (isVisitorsPage) {
       setVisitorsOpen(true);
+    }
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!pathname) return;
+
+    const isCommunicationPage =
+      pathname.includes("/admin/communications");
+
+    if (isCommunicationPage) {
+      setCommunicationOpen(true);
     }
   }, [pathname]);
 
@@ -535,7 +666,9 @@ const isNotificationsItem = item.href === '/admin/notifications';
 const isRequestsItem      = item.href === '/admin/requests';
 const isInventoryItem     = item.href === '/admin/inventory';
 const isVisitorsItem      = item.href === '/admin/visitors';
-const isSettingsItem      = item.href === '/admin/settings';
+    const isSettingsItem = item.href === '/admin/settings';
+    const isCommunicationItem =
+      item.label === "Communication";  
     if (!sidebarOpen) {
       if (isDocumentsItem) {
         return (
@@ -602,6 +735,23 @@ const isSettingsItem      = item.href === '/admin/settings';
         );
       }
 
+      if (isCommunicationItem) {
+        return (
+          <li key="communication-collapsed" className="flex justify-center">
+            <CollapsedSidebarItem
+              item={{ href: '#', label: 'Communication', icon: Mail }}
+              active={communicationOpen}
+              sidebarOpen={sidebarOpen}
+              setSidebarOpen={setSidebarOpen}
+              handleIconClick={handleIconClick}
+              onClick={() => {
+                if (setSidebarOpen) setSidebarOpen(true);
+                setCommunicationOpen(!communicationOpen);
+              }}
+            />
+          </li>
+        );
+      }
       if (isVisitorsItem) {
         return (
           <li key="visitors-collapsed" className="flex justify-center">
@@ -856,6 +1006,58 @@ const isSettingsItem      = item.href === '/admin/settings';
                     key={visItem.href}
                     reqItem={visItem}
                     reqActive={visActive}
+                    sidebarOpen={sidebarOpen}
+                  />
+                );
+              })}
+            </ul>
+          )}
+        </li>
+      );
+    }
+
+    if (isCommunicationItem) {
+      return (
+        <li key="communication-group">
+          <button
+            onClick={() => setCommunicationOpen(!communicationOpen)}
+            className={`
+          relative group flex items-center justify-between w-full px-2.5 py-2 rounded-xl transition-all duration-200
+          ${communicationOpen
+                ? 'bg-[#F5C000]/15 text-[#F5C000]'
+                : 'text-blue-100 hover:bg-white/10 hover:text-white'
+              }
+        `}
+          >
+            {communicationOpen && (
+              <span className="absolute left-0 top-2 bottom-2 w-0.5 rounded-full bg-[#F5C000]" />
+            )}
+            <div className="flex items-center gap-2.5">
+              <div className={`h-8 w-8 rounded-xl flex items-center justify-center transition-all flex-shrink-0
+            ${communicationOpen
+                  ? 'bg-[#F5C000]/20 text-[#F5C000]'
+                  : 'bg-white/10 text-blue-200 group-hover:bg-white/15 group-hover:text-white'
+                }`}>
+                <Icon className="h-4 w-4" />
+              </div>
+              <span className="font-normal tracking-wide whitespace-nowrap text-xs">{item.label}</span>
+            </div>
+            {communicationOpen ? (
+              <ChevronDown className="h-3.5 w-3.5 flex-shrink-0 text-blue-300" />
+            ) : (
+              <ChevronRight className="h-3.5 w-3.5 flex-shrink-0 text-blue-300" />
+            )}
+          </button>
+
+          {communicationOpen && (
+            <ul className="space-y-0.5 mt-0.5 ml-2">
+              {communicationItems.map((commItem) => {
+                const commActive = isActive(commItem.href) && !commItem.comingSoon;
+                return (
+                  <SubmenuItemWithTooltip
+                    key={commItem.label}
+                    reqItem={commItem}
+                    reqActive={commActive}
                     sidebarOpen={sidebarOpen}
                   />
                 );
