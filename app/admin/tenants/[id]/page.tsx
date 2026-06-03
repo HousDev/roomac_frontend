@@ -968,7 +968,7 @@ const rentVal = (() => {
           </div>
           <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 text-slate-500 text-xs">
             <Calendar className="w-3 h-3" />
-            Joined{" "}
+            Tenant Created {" "}
             {tenant.created_at
               ? new Date(tenant.created_at).toLocaleDateString("en-IN", {
                   month: "short",

@@ -48,8 +48,13 @@ const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
   const [credentialPassword, setCredentialPassword] = useState("");
   const [credentialLoading, setCredentialLoading] = useState(false);
 const [selectedTenantIds, setSelectedTenantIds] = useState<string[]>([]);  const [isFilterSidebarOpen, setIsFilterSidebarOpen] = useState(false);
-// Update the activeTab state to include 'deleted'
-const [activeTab, setActiveTab] = useState<'all' | 'vacated' | 'deleted'>('all');
+// 1. Change the initial state to read from sessionStorage:
+const [activeTab, setActiveTab] = useState<'all' | 'vacated' | 'deleted'>(() => {
+  if (typeof window !== 'undefined') {
+    return (sessionStorage.getItem('tenants_active_tab') as 'all' | 'vacated' | 'deleted') || 'all';
+  }
+  return 'all';
+});
 const [forceUpdate, setForceUpdate] = useState(0);
 
 
@@ -262,9 +267,10 @@ const handleFilterChange = useCallback((newFilters: TenantFilters) => {
   loadTenants(mergedFilters);
 }, [loadTenants]);
 
-// Instead, load data only when tab is clicked
+// 2. Update handleTabChange to save to sessionStorage:
 const handleTabChange = useCallback((tab: 'all' | 'vacated' | 'deleted') => {
   setActiveTab(tab);
+  sessionStorage.setItem('tenants_active_tab', tab); // ← ADD THIS
   setColumnSearch({
     name: "",
     contact: "",
@@ -274,21 +280,21 @@ const handleTabChange = useCallback((tab: 'all' | 'vacated' | 'deleted') => {
     status: "",
   });
   
-  // Load data directly based on tab
   let filters;
   if (tab === 'all') {
-    filters = { vacate_status: 'non_vacated', include_deleted: false ,pageSize: 1000  };
+    filters = { vacate_status: 'non_vacated', include_deleted: false, pageSize: 1000 };
   } else if (tab === 'vacated') {
-    filters = { vacate_status: 'vacated', include_deleted: false ,pageSize: 1000  };
+    filters = { vacate_status: 'vacated', include_deleted: false, pageSize: 1000 };
   } else {
-    filters = { vacate_status: 'vacated', include_deleted: true ,pageSize: 1000  };
+    filters = { vacate_status: 'vacated', include_deleted: true, pageSize: 1000 };
   }
   
   handleFilterChange(filters);
 }, [handleFilterChange]);
 
-  const handleClearAll = useCallback(() => {
+ const handleClearAll = useCallback(() => {
   setActiveTab('all');
+  sessionStorage.setItem('tenants_active_tab', 'all'); // ← ADD THIS
   setColumnSearch({
     name: "",
     contact: "",
@@ -299,6 +305,24 @@ const handleTabChange = useCallback((tab: 'all' | 'vacated' | 'deleted') => {
   });
   handleFilterChange({ vacate_status: 'non_vacated' });
 }, [handleFilterChange]);
+
+// 3. On initial mount, load data for the restored tab:
+useEffect(() => {
+  const savedTab = (sessionStorage.getItem('tenants_active_tab') as 'all' | 'vacated' | 'deleted') || 'all';
+  
+  let initialFilters;
+  if (savedTab === 'all') {
+    initialFilters = { vacate_status: 'non_vacated', include_deleted: false, pageSize: 1000 };
+  } else if (savedTab === 'vacated') {
+    initialFilters = { vacate_status: 'vacated', include_deleted: false, pageSize: 1000 };
+  } else {
+    initialFilters = { vacate_status: 'vacated', include_deleted: true, pageSize: 1000 };
+  }
+  
+  filtersRef.current = initialFilters;
+  setFiltersState(initialFilters);
+  loadTenants(initialFilters);
+}, []); // ← runs once on mount
 
 // Clear all filters (but keep the current tab's vacate_status)
 const clearAllFilters = useCallback(() => {

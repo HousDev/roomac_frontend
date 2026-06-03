@@ -1,3 +1,4 @@
+// app/admin/reports/page.tsx
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -122,6 +123,37 @@ const ReportPagination = ({ total, page, pageSize, onPageChange, onPageSizeChang
   );
 };
 
+  // Add these helper functions at the top of the file, before the component
+const getFinancialYear = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = date.getMonth(); // 0-11 (Jan=0, Apr=3)
+  if (month >= 3) { // April to December
+    return `${year}-${year + 1}`;
+  } else { // January to March
+    return `${year - 1}-${year}`;
+  }
+};
+
+const getFinancialYearStartYear = (financialYear: string): number => {
+  return parseInt(financialYear.split('-')[0]);
+};
+
+// Helper to get all available financial years from payments data
+const getAvailableFinancialYearsFromPayments = (payments: any[]): string[] => {
+  const years = new Set<string>();
+  payments.forEach(payment => {
+    if (payment.payment_date) {
+      years.add(getFinancialYear(new Date(payment.payment_date)));
+    }
+  });
+  // Add current and previous years
+  const currentYear = getFinancialYear(new Date());
+  years.add(currentYear);
+  years.add(`${parseInt(currentYear.split('-')[0]) - 1}-${parseInt(currentYear.split('-')[0])}`);
+  years.add(`${parseInt(currentYear.split('-')[0]) - 2}-${parseInt(currentYear.split('-')[0]) - 1}`);
+  return Array.from(years).sort().reverse();
+};
+
 export default function ReportsPage() {
   const [loading, setLoading] = useState(false);
   const [dashboardLoading, setDashboardLoading] = useState(true);
@@ -201,6 +233,8 @@ const [revenuePageSize, setRevenuePageSize] = useState(20);
     "month" | "year"
   >("month");
   const [occupancyYear, setOccupancyYear] = useState(new Date().getFullYear());
+   const [selectedFinancialYear, setSelectedFinancialYear] = useState(getFinancialYear(new Date()));
+  const [availableFinancialYears, setAvailableFinancialYears] = useState<string[]>([]);
 
   // Load properties on mount
   useEffect(() => {
@@ -246,8 +280,6 @@ useEffect(() => {
       console.error("Error loading tenants list:", err);
     }
   };
-
-
 
   const loadPropertyDetails = async () => {
     try {
@@ -536,56 +568,59 @@ const loadDashboardStats = async () => {
   };
 
   // Add this function after generateReport or generatePropertyPaymentReport
-  const generatePGRevenueReport = async () => {
-    setLoading(true);
-    setPgRevenueReport(null);
-    setTenantPaymentReport(null);
-    setPropertyPaymentReport(null);
-    setReportData(null);
+const generatePGRevenueReport = async () => {
+  setLoading(true);
+  setPgRevenueReport(null);
+  setTenantPaymentReport(null);
+  setPropertyPaymentReport(null);
+  setReportData(null);
 
-    try {
-      // Determine if we need property-wise or all properties
-      let reportType = "all_property";
-      if (
-        filters.reportType === "pg_revenue_property" ||
-        (filters.propertyId && filters.propertyId !== "all")
-      ) {
-        reportType = "property_wise";
-      }
-
-      let url = `/api/reports/pg-revenue-report?reportType=${reportType}&periodType=${pgRevenuePeriodType}&year=${pgRevenueYear}`;
-
-      if (
-        reportType === "property_wise" &&
-        filters.propertyId &&
-        filters.propertyId !== "all"
-      ) {
-        url = `/api/reports/pg-revenue-report?reportType=property_wise&periodType=${pgRevenuePeriodType}&propertyId=${filters.propertyId}&year=${pgRevenueYear}`;
-      }
-
-      const response = await fetch(url);
-      const data = await response.json();
-
-      if (data.success) {
-        setPgRevenueReport(data.data);
-        setActiveTab("report");
-
-        setTimeout(() => {
-          reportSectionRef.current?.scrollIntoView({
-            behavior: "smooth",
-            block: "start",
-          });
-        }, 100);
-      } else {
-        toast.error(data.message || "Failed to generate report");
-      }
-    } catch (error) {
-      console.error("Error generating PG revenue report:", error);
-      toast.error("Failed to generate report");
-    } finally {
-      setLoading(false);
+  try {
+    // Determine if we need property-wise or all properties
+    let reportType = "all_property";
+    if (
+      filters.reportType === "pg_revenue_property" ||
+      (filters.propertyId && filters.propertyId !== "all")
+    ) {
+      reportType = "property_wise";
     }
-  };
+
+    // ✅ USE FINANCIAL YEAR for the year parameter
+    const yearForApi = getFinancialYearStartYear(selectedFinancialYear);
+    
+    let url = `/api/reports/pg-revenue-report?reportType=${reportType}&periodType=${pgRevenuePeriodType}&year=${yearForApi}`;
+
+    if (
+      reportType === "property_wise" &&
+      filters.propertyId &&
+      filters.propertyId !== "all"
+    ) {
+      url = `/api/reports/pg-revenue-report?reportType=property_wise&periodType=${pgRevenuePeriodType}&propertyId=${filters.propertyId}&year=${yearForApi}`;
+    }
+
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.success) {
+      setPgRevenueReport(data.data);
+      setActiveTab("report");
+
+      setTimeout(() => {
+        reportSectionRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      }, 100);
+    } else {
+      toast.error(data.message || "Failed to generate report");
+    }
+  } catch (error) {
+    console.error("Error generating PG revenue report:", error);
+    toast.error("Failed to generate report");
+  } finally {
+    setLoading(false);
+  }
+};
 
 const generateOccupancyReport = async () => {
   setLoading(true);
@@ -1238,6 +1273,16 @@ const generateReport = async () => {
       tenant.email?.toLowerCase().includes(tenantSearchTerm.toLowerCase()),
   );
 
+
+
+// Add this useEffect after loading payments
+useEffect(() => {
+  if (paymentDetails.length > 0) {
+    const years = getAvailableFinancialYearsFromPayments(paymentDetails);
+    setAvailableFinancialYears(years);
+  }
+}, [paymentDetails]);
+
   return (
     <div className="p-1 sm:p-4 md:p-4 space-y-3 sm:space-y-4 md:space-y-6 max-w-full overflow-x-hidden -mt-7">
       {/* Stats Cards Row */}
@@ -1501,53 +1546,60 @@ const generateReport = async () => {
     </div>
 
     {/* PG Revenue Report Specific Filters - SEPARATE ROW */}
-    {filters.reportType === 'pg_revenue' && (
-      <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3 mt-3 pt-3 border-t border-gray-100">
-        <div className="space-y-1 sm:space-y-2">
-          <Label className="text-xs">Period Type</Label>
-          <Select value={pgRevenuePeriodType} onValueChange={(value: any) => setPgRevenuePeriodType(value)}>
-            <SelectTrigger className="h-8 sm:h-9 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="month_wise" className="text-xs">Month Wise</SelectItem>
-              <SelectItem value="year_wise" className="text-xs">Year Wise</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        
-        <div className="space-y-1 sm:space-y-2">
-          <Label className="text-xs">Year</Label>
-          <Select value={pgRevenueYear.toString()} onValueChange={(value) => setPgRevenueYear(parseInt(value))}>
-            <SelectTrigger className="h-8 sm:h-9 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {[2022, 2023, 2024, 2025, 2026].map(y => (
-                <SelectItem key={y} value={y.toString()} className="text-xs">{y}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        
-        <div className="space-y-1 sm:space-y-2">
-          <Label className="text-xs">Property (Optional)</Label>
-          <Select value={filters.propertyId} onValueChange={handlePropertyChange}>
-            <SelectTrigger className="h-8 sm:h-9 text-xs">
-              <SelectValue placeholder="All Properties" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all" className="text-xs">🏢 All Properties</SelectItem>
-              {properties.map(property => (
-                <SelectItem key={property.id} value={property.id} className="text-xs">
-                  {property.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-    )}
+{filters.reportType === 'pg_revenue' && (
+  <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3 mt-3 pt-3 border-t border-gray-100">
+    {/* Period Type */}
+    <div className="space-y-1 sm:space-y-2">
+      <Label className="text-xs">Period Type</Label>
+      <Select value={pgRevenuePeriodType} onValueChange={(value: any) => setPgRevenuePeriodType(value)}>
+        <SelectTrigger className="h-8 sm:h-9 text-xs">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="month_wise" className="text-xs">Month Wise</SelectItem>
+          <SelectItem value="year_wise" className="text-xs">Year Wise</SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+    
+    {/* ✅ ADD FINANCIAL YEAR DROPDOWN */}
+    <div className="space-y-1 sm:space-y-2">
+      <Label className="text-xs">Financial Year</Label>
+      <select 
+        value={selectedFinancialYear} 
+        onChange={(e) => {
+          setSelectedFinancialYear(e.target.value);
+          setPgRevenueYear(getFinancialYearStartYear(e.target.value));
+        }}
+        className="w-full h-8 sm:h-9 text-xs border rounded-md px-2 py-1 bg-white"
+      >
+        {availableFinancialYears.map(year => (
+          <option key={year} value={year}>
+            FY {year}
+          </option>
+        ))}
+      </select>
+    </div>
+    
+    {/* Property (Optional) - This already exists */}
+    <div className="space-y-1 sm:space-y-2">
+      <Label className="text-xs">Property (Optional)</Label>
+      <Select value={filters.propertyId} onValueChange={handlePropertyChange}>
+        <SelectTrigger className="h-8 sm:h-9 text-xs">
+          <SelectValue placeholder="All Properties" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all" className="text-xs">🏢 All Properties</SelectItem>
+          {properties.map(property => (
+            <SelectItem key={property.id} value={property.id} className="text-xs">
+              {property.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  </div>
+)}
 
     {/* Occupancy Report Specific Filters - SEPARATE ROW */}
     {filters.reportType === 'occupancy' && (
@@ -2540,51 +2592,56 @@ const generateReport = async () => {
                                 ? "Month"
                                 : "Year"}
                             </th>
-                            <th className="px-3 py-2 text-right">
-                              Revenue (₹)
-                            </th>
-                            <th className="px-3 py-2 text-right">
-                              Expenses (₹)
-                            </th>
-                            <th className="px-3 py-2 text-right">
-                              Profit/Loss (₹)
-                            </th>
-                            <th className="px-3 py-2 text-center">Status</th>
+                            {/* ✅ ADD THESE NEW COLUMNS - Revenue Breakdown */}
+                  <th className="px-3 py-2 text-right">Total Revenue (₹)</th>
+                  <th className="px-3 py-2 text-right">Rent (₹)</th>
+                  <th className="px-3 py-2 text-right">Deposit (₹)</th>
+                  {/* End of new columns */}
+                  <th className="px-3 py-2 text-right">Expenses (₹)</th>
+                  <th className="px-3 py-2 text-right">Profit/Loss (₹)</th>
+                  <th className="px-3 py-2 text-center">Status</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200">
-                          {property.periods.map((period: any, pIdx: number) => (
-                            <tr key={pIdx} className="hover:bg-gray-50">
-                              <td className="px-3 py-2 font-medium">
-                                {period.period}
-                              </td>
-                              <td className="px-3 py-2 text-right text-green-600">
-                                {formatCurrency(period.revenue)}
-                              </td>
-                              <td className="px-3 py-2 text-right text-red-600">
-                                {formatCurrency(period.expenses)}
-                              </td>
-                              <td
-                                className={`px-3 py-2 text-right font-semibold ${period.is_profit ? "text-green-700" : "text-amber-700"}`}
-                              >
-                                {period.is_profit
-                                  ? formatCurrency(period.profit)
-                                  : `-${formatCurrency(Math.abs(period.profit))}`}
-                              </td>
-                              <td className="px-3 py-2 text-center">
-                                <Badge
-                                  className={
-                                    period.is_profit
-                                      ? "bg-green-100 text-green-700"
-                                      : "bg-red-100 text-red-700"
-                                  }
-                                >
-                                  {period.is_profit ? "Profit" : "Loss"}
-                                </Badge>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
+                {property.periods.map((period: any, pIdx: number) => (
+                  <tr key={pIdx} className="hover:bg-gray-50">
+                    <td className="px-3 py-2 font-medium">
+                      {period.period}
+                    </td>
+                    {/* ✅ ADD THESE NEW CELLS - Revenue Breakdown */}
+                    <td className="px-3 py-2 text-right text-green-600 font-semibold">
+                      {formatCurrency(period.revenue)}
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      {formatCurrency(period.revenue_breakdown?.rent || 0)}
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      {formatCurrency(period.revenue_breakdown?.deposit || 0)}
+                    </td>
+                   
+                    {/* End of new cells */}
+                    <td className="px-3 py-2 text-right text-red-600">
+                      {formatCurrency(period.expenses)}
+                    </td>
+                    <td className={`px-3 py-2 text-right font-semibold ${period.is_profit ? "text-green-700" : "text-amber-700"}`}>
+                      {period.is_profit
+                        ? formatCurrency(period.profit)
+                        : `-${formatCurrency(Math.abs(period.profit))}`}
+                    </td>
+                    <td className="px-3 py-2 text-center">
+                      <Badge
+                        className={
+                          period.is_profit
+                            ? "bg-green-100 text-green-700"
+                            : "bg-red-100 text-red-700"
+                        }
+                      >
+                        {period.is_profit ? "Profit" : "Loss"}
+                      </Badge>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
                         <tfoot className="bg-gray-100">
                           <tr>
                             <td className="px-3 py-2 font-bold">Total</td>

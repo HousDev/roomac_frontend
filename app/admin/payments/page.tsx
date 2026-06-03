@@ -254,8 +254,10 @@ export default function PaymentsPage() {
   const [loadingBankNames, setLoadingBankNames] = useState(false);
   const [customBankName, setCustomBankName] = useState("");
   const [showCustomBankInput, setShowCustomBankInput] = useState(false);
-  const [paymentModes, setPaymentModes] = useState<Array<{ id: number; name: string }>>([]);
-const [loadingPaymentModes, setLoadingPaymentModes] = useState(false);
+  const [paymentModes, setPaymentModes] = useState<
+    Array<{ id: number; name: string }>
+  >([]);
+  const [loadingPaymentModes, setLoadingPaymentModes] = useState(false);
   const { on, connected } = useSocketIO();
   const [lastUpdateTime, setLastUpdateTime] = useState<Date | null>(null);
 
@@ -272,10 +274,9 @@ const [loadingPaymentModes, setLoadingPaymentModes] = useState(false);
     remark: "",
   });
 
-const [filterPropertyId, setFilterPropertyId] = useState("all");
-const [filterStartDate, setFilterStartDate] = useState("");
-const [filterEndDate, setFilterEndDate] = useState("");
-const [ignoreDateFilters, setIgnoreDateFilters] = useState(false);
+  const [filterPropertyId, setFilterPropertyId] = useState("all");
+  const [filterStartDate, setFilterStartDate] = useState("");
+  const [filterEndDate, setFilterEndDate] = useState("");
   // ===== END OF ADDITION =====
 
   // Filters
@@ -336,10 +337,11 @@ const [ignoreDateFilters, setIgnoreDateFilters] = useState(false);
   const [detailedStats, setDetailedStats] = useState({
     total_rent_collected: 0,
     total_deposit_collected: 0,
-    total_refunded: 0,
+    net_deposit_collected: 0, // ✅ NEW: Deposit after refunds
+    total_refunded: 0, // ✅ UPDATED: deposit_refund + penalty_payment
+    total_penalties_collected: 0, // ✅ UPDATED: From vacate_records only
+    current_month_expected_pending: 0,
     this_month_rent: 0,
-     total_penalties_collected: 0,
-     total_pending_amount: 0, // ✅ NEW
     total_transactions: 0,
   });
 
@@ -432,29 +434,33 @@ const [ignoreDateFilters, setIgnoreDateFilters] = useState(false);
   };
 
   const fetchPaymentModes = async () => {
-  setLoadingPaymentModes(true);
-  try {
-    // Fetch from Common tab for "PaymentMethod" master item
-    const tabRes = await getMasterItemsByTab("Common");
-    const tabList = Array.isArray(tabRes.data) ? tabRes.data : [];
-    const paymentMethodItem = tabList.find(
-      (i: any) => i.name?.toLowerCase().replace(/\s+/g, "") === "paymentmethod"
-    );
-    if (paymentMethodItem) {
-      const valRes = await getMasterValues(paymentMethodItem.id);
-      const vals = Array.isArray(valRes.data) ? valRes.data : [];
-      const modes = vals
-        .filter((v: any) => v.isactive === 1)
-        .map((v: any) => ({ id: String(v.id), name: v.name || v.value || "" }));
-      setPaymentModes(modes);
-      console.log("✅ Payment modes loaded:", modes);
+    setLoadingPaymentModes(true);
+    try {
+      // Fetch from Common tab for "PaymentMethod" master item
+      const tabRes = await getMasterItemsByTab("Common");
+      const tabList = Array.isArray(tabRes.data) ? tabRes.data : [];
+      const paymentMethodItem = tabList.find(
+        (i: any) =>
+          i.name?.toLowerCase().replace(/\s+/g, "") === "paymentmethod",
+      );
+      if (paymentMethodItem) {
+        const valRes = await getMasterValues(paymentMethodItem.id);
+        const vals = Array.isArray(valRes.data) ? valRes.data : [];
+        const modes = vals
+          .filter((v: any) => v.isactive === 1)
+          .map((v: any) => ({
+            id: String(v.id),
+            name: v.name || v.value || "",
+          }));
+        setPaymentModes(modes);
+        console.log("✅ Payment modes loaded:", modes);
+      }
+    } catch (error) {
+      console.error("Error fetching payment modes:", error);
+    } finally {
+      setLoadingPaymentModes(false);
     }
-  } catch (error) {
-    console.error("Error fetching payment modes:", error);
-  } finally {
-    setLoadingPaymentModes(false);
-  }
-};
+  };
 
   // Call fetchBankNames when component mounts
   useEffect(() => {
@@ -463,42 +469,27 @@ const [ignoreDateFilters, setIgnoreDateFilters] = useState(false);
   }, []);
 
   // Add this to loadDetailedStats function
-  // const loadDetailedStats = async () => {
-  //   try {
-  //     const response = await paymentApi.getDetailedPaymentStats();
-  //     if (response.success && response.data) {
-  //       setDetailedStats({
-  //         total_rent_collected: response.data.total_rent_collected || 0,
-  //         total_deposit_collected: response.data.total_deposit_collected || 0,
-  //         total_refunded: response.data.total_refunded || 0,
-  //         this_month_rent: response.data.this_month_rent || 0, // ✅ NEW
-  //         total_transactions: response.data.total_transactions || 0,
-  //       });
-  //     }
-  //   } catch (error) {
-  //     console.error("Error loading detailed stats:", error);
-  //   }
-  // };
-
-
   const loadDetailedStats = async () => {
-  try {
-    const response = await paymentApi.getDetailedPaymentStats();
-    if (response.success && response.data) {
-      setDetailedStats({
-        total_rent_collected: response.data.total_rent_collected || 0,
-        total_deposit_collected: response.data.total_deposit_collected || 0,
-        total_refunded: response.data.total_refunded || 0,
-        total_penalties_collected: response.data.total_penalties_collected || 0,
-        total_pending_amount: response.data.total_pending_amount || 0, // 👈 ADD
-        this_month_rent: response.data.this_month_rent || 0,
-        total_transactions: response.data.total_transactions || 0,
-      });
+    try {
+      const response = await paymentApi.getDetailedPaymentStats();
+      if (response.success && response.data) {
+        setDetailedStats({
+          total_rent_collected: response.data.total_rent_collected || 0,
+          total_deposit_collected: response.data.total_deposit_collected || 0,
+          net_deposit_collected: response.data.net_deposit_collected || 0,
+          total_refunded: response.data.total_refunded || 0,
+          total_penalties_collected:
+            response.data.total_penalties_collected || 0,
+          current_month_expected_pending:
+            response.data.current_month_expected_pending || 0, // ✅ NEW
+          this_month_rent: response.data.this_month_rent || 0,
+          total_transactions: response.data.total_transactions || 0,
+        });
+      }
+    } catch (error) {
+      console.error("Error loading detailed stats:", error);
     }
-  } catch (error) {
-    console.error("Error loading detailed stats:", error);
-  }
-};
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -777,7 +768,7 @@ const [ignoreDateFilters, setIgnoreDateFilters] = useState(false);
   const loadTenants = async () => {
     try {
       // Use listTenantsOptimized or listTenantsWithAssignments to get full tenant data
-      const response = await listTenants({ is_active: true, pageSize: 500 });
+      const response = await listTenants({ pageSize: 500 });
       if (response.success && response.data) {
         setTenants(response.data);
         console.log(
@@ -1304,19 +1295,23 @@ const [ignoreDateFilters, setIgnoreDateFilters] = useState(false);
             month: "long",
           });
           paymentData.year = currentDate.getFullYear();
-       } else {
-  // Fallback to the selected transaction date (not current date)
-  const txDate = newPayment.payment_date ? new Date(newPayment.payment_date) : new Date();
-  paymentData.month = txDate.toLocaleString("default", { month: "long" });
-  paymentData.year = txDate.getFullYear();
-}
+        } else {
+          // Fallback to the selected transaction date (not current date)
+          const txDate = newPayment.payment_date
+            ? new Date(newPayment.payment_date)
+            : new Date();
+          paymentData.month = txDate.toLocaleString("default", {
+            month: "long",
+          });
+          paymentData.year = txDate.getFullYear();
+        }
       } else {
-         // Derive month/year from the selected transaction date
-  const txDate = newPayment.payment_date
-    ? new Date(newPayment.payment_date)
-    : new Date();
-  paymentData.month = txDate.toLocaleString("default", { month: "long" });
-  paymentData.year = txDate.getFullYear();
+        // Derive month/year from the selected transaction date
+        const txDate = newPayment.payment_date
+          ? new Date(newPayment.payment_date)
+          : new Date();
+        paymentData.month = txDate.toLocaleString("default", { month: "long" });
+        paymentData.year = txDate.getFullYear();
       }
 
       console.log("Sending payment data:", paymentData);
@@ -1650,14 +1645,14 @@ const [ignoreDateFilters, setIgnoreDateFilters] = useState(false);
         }
       }
 
-       // ✅ ADD THIS: For security deposit, derive month/year from payment_date
-    if (paymentData.payment_type === "security_deposit") {
-      const txDate = paymentData.payment_date 
-        ? new Date(paymentData.payment_date) 
-        : new Date();
-      paymentData.month = txDate.toLocaleString("default", { month: "long" });
-      paymentData.year = txDate.getFullYear();
-    }
+      // ✅ ADD THIS: For security deposit, derive month/year from payment_date
+      if (paymentData.payment_type === "security_deposit") {
+        const txDate = paymentData.payment_date
+          ? new Date(paymentData.payment_date)
+          : new Date();
+        paymentData.month = txDate.toLocaleString("default", { month: "long" });
+        paymentData.year = txDate.getFullYear();
+      }
 
       const response = await paymentApi.updatePayment(
         selectedPayment.id,
@@ -1717,6 +1712,7 @@ const [ignoreDateFilters, setIgnoreDateFilters] = useState(false);
           rejected_count: 0,
           has_online_booking: false,
           has_manual_payment: false,
+          is_vacated: !completeTenant || !completeTenant.current_assignment,
           // ✅ ADD ROOM AND BED INFO
           room_number:
             completeTenant?.room_number ||
@@ -1787,12 +1783,12 @@ const [ignoreDateFilters, setIgnoreDateFilters] = useState(false);
       }
 
       // Track first payment date
-if (
-  !grouped[tenantId].first_payment_date ||
-  paymentDate < new Date(grouped[tenantId].first_payment_date)
-) {
-  grouped[tenantId].first_payment_date = payment.payment_date;
-}
+      if (
+        !grouped[tenantId].first_payment_date ||
+        paymentDate < new Date(grouped[tenantId].first_payment_date)
+      ) {
+        grouped[tenantId].first_payment_date = payment.payment_date;
+      }
     });
     // ✅ SORT: Most recent payment first (descending order by last_payment_date)
     const groupedArray = Object.values(grouped);
@@ -1808,69 +1804,30 @@ if (
       return dateB.getTime() - dateA.getTime();
     });
 
-     // ✅ ADD: Apply column filters BEFORE pagination
- // ✅ Apply column filters BEFORE pagination (tenant + payment date)
-const searchTerm = columnFilters?.tenant_name?.toLowerCase() || "";
-const paymentDateSearch = columnFilters?.payment_date?.trim() || "";
+    // ✅ ADD: Apply column filters BEFORE pagination
+    const searchTerm = columnFilters?.tenant_name?.toLowerCase() || "";
+    const filteredArray = searchTerm
+      ? groupedArray.filter((group: any) => {
+          const salutation = getTenantSalutation(group.tenant_id) || "";
+          const fullName =
+            `${salutation} ${group.tenant_name || ""}`.toLowerCase();
+          const roomNumber = (group.room_number || "").toString().toLowerCase();
+          const propertyName = (group.property_name || "").toLowerCase();
+          const bedNumber = (group.bed_number || "").toString().toLowerCase();
 
-const filteredArray = groupedArray.filter((group: any) => {
-  // 1. Tenant name + room + property + bed filter
-  if (searchTerm) {
-    const salutation = getTenantSalutation(group.tenant_id) || "";
-    const fullName = `${salutation} ${group.tenant_name || ""}`.toLowerCase();
-    const roomNumber = (group.room_number || "").toString().toLowerCase();
-    const propertyName = (group.property_name || "").toLowerCase();
-    const bedNumber = (group.bed_number || "").toString().toLowerCase();
+          return (
+            fullName.includes(searchTerm) ||
+            roomNumber.includes(searchTerm) ||
+            propertyName.includes(searchTerm) ||
+            bedNumber.includes(searchTerm)
+          );
+        })
+      : groupedArray;
 
-    const matchesTenant =
-      fullName.includes(searchTerm) ||
-      roomNumber.includes(searchTerm) ||
-      propertyName.includes(searchTerm) ||
-      bedNumber.includes(searchTerm);
-
-    if (!matchesTenant) return false;
-  }
-
-  // 2. Payment date filter (dd/MM/yy format)
-  if (paymentDateSearch !== "") {
-    if (!group.last_payment_date) return false;
-    const formatted = format(new Date(group.last_payment_date), "dd/MM/yy");
-    if (!formatted.includes(paymentDateSearch)) return false;
-  }
-  
-  // ✅ DATE RANGE FILTER (Start Date / End Date from sidebar)
-  if (!ignoreDateFilters && (filterStartDate || filterEndDate)) {
-    if (!group.last_payment_date) return false;
-    const lastDate = new Date(group.last_payment_date);
-    lastDate.setHours(12, 0, 0, 0);
-    if (filterStartDate && filterEndDate) {
-      const startDate = new Date(filterStartDate);
-      startDate.setHours(0, 0, 0, 0);
-      const endDate = new Date(filterEndDate);
-      endDate.setHours(23, 59, 59, 999);
-      if (lastDate < startDate || lastDate > endDate) return false;
-    } else if (filterStartDate) {
-  const startDate = new Date(filterStartDate);
-  startDate.setHours(0, 0, 0, 0);
-  const lastDateOnly = new Date(lastDate);
-  lastDateOnly.setHours(0, 0, 0, 0);
-  if (lastDateOnly.getTime() < startDate.getTime()) return false;
-} else if (filterEndDate) {
-  const endDate = new Date(filterEndDate);
-  endDate.setHours(0, 0, 0, 0);
-  const lastDateOnly = new Date(lastDate);
-  lastDateOnly.setHours(0, 0, 0, 0);
-  if (lastDateOnly.getTime() !== endDate.getTime()) return false;
-}
-  }
-  return true;
-});
-
-     const totalItems = filteredArray.length;
-  const startIndex = (page - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const paginatedItems = filteredArray.slice(startIndex, endIndex);
-
+    const totalItems = filteredArray.length;
+    const startIndex = (page - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const paginatedItems = filteredArray.slice(startIndex, endIndex);
 
     return {
       items: paginatedItems,
@@ -1939,83 +1896,95 @@ const filteredArray = groupedArray.filter((group: any) => {
   };
 
   // Filter payments based on column filters
-  // Filter payments based on column filters (without date – handled later in groupPaymentsByTenant)
-const columnFilteredPayments = payments.filter((payment) => {
-  const searchTerm = columnFilters.tenant_name?.toLowerCase() || "";
-  const tenantName = getTenantName(payment.tenant_id).toLowerCase();
+  const columnFilteredPayments = payments.filter((payment) => {
+    const searchTerm = columnFilters.tenant_name?.toLowerCase() || "";
+    const tenantName = getTenantName(payment.tenant_id).toLowerCase();
 
-  // Get tenant details for room/property search
-  const completeTenant = tenants.find((t) => t.id === payment.tenant_id);
-  const roomNumber = (
-    completeTenant?.room_number ||
-    completeTenant?.current_assignment?.room_number ||
-    payment.room_number || ""
-  ).toString().toLowerCase();
-  const propertyName = (
-    completeTenant?.property_name ||
-    completeTenant?.current_assignment?.property_name ||
-    payment.property_name || ""
-  ).toLowerCase();
-  const bedNumber = (
-    completeTenant?.bed_number ||
-    completeTenant?.current_assignment?.bed_number ||
-    payment.bed_number || ""
-  ).toString().toLowerCase();
+    // Get tenant details for room/property search
+    const completeTenant = tenants.find((t) => t.id === payment.tenant_id);
+    const roomNumber = (
+      completeTenant?.room_number ||
+      completeTenant?.current_assignment?.room_number ||
+      payment.room_number ||
+      ""
+    )
+      .toString()
+      .toLowerCase();
+    const propertyName = (
+      completeTenant?.property_name ||
+      completeTenant?.current_assignment?.property_name ||
+      payment.property_name ||
+      ""
+    ).toLowerCase();
+    const bedNumber = (
+      completeTenant?.bed_number ||
+      completeTenant?.current_assignment?.bed_number ||
+      payment.bed_number ||
+      ""
+    )
+      .toString()
+      .toLowerCase();
 
-  const matchesTenant =
-    !searchTerm ||
-    tenantName.includes(searchTerm) ||
-    roomNumber.includes(searchTerm) ||
-    propertyName.includes(searchTerm) ||
-    bedNumber.includes(searchTerm);
+    const matchesDate =
+      !columnFilters.payment_date ||
+      new Date(payment.payment_date).toISOString().split("T")[0] ===
+        columnFilters.payment_date;
 
-  const matchesMinAmount =
-    !columnFilters.min_amount ||
-    payment.amount >= parseFloat(columnFilters.min_amount);
+    const matchesTenant =
+      !searchTerm ||
+      tenantName.includes(searchTerm) ||
+      roomNumber.includes(searchTerm) ||
+      propertyName.includes(searchTerm) ||
+      bedNumber.includes(searchTerm);
 
-  const matchesMaxAmount =
-    !columnFilters.max_amount ||
-    payment.amount <= parseFloat(columnFilters.max_amount);
+    const matchesMinAmount =
+      !columnFilters.min_amount ||
+      payment.amount >= parseFloat(columnFilters.min_amount);
 
-  const matchesMode =
-    columnFilters.payment_mode === "all" ||
-    payment.payment_mode === columnFilters.payment_mode;
+    const matchesMaxAmount =
+      !columnFilters.max_amount ||
+      payment.amount <= parseFloat(columnFilters.max_amount);
 
-  const matchesTransactionId =
-    !columnFilters.transaction_id ||
-    (payment.transaction_id &&
-      payment.transaction_id
+    const matchesMode =
+      columnFilters.payment_mode === "all" ||
+      payment.payment_mode === columnFilters.payment_mode;
+
+    const matchesTransactionId =
+      !columnFilters.transaction_id ||
+      (payment.transaction_id &&
+        payment.transaction_id
+          .toLowerCase()
+          .includes(columnFilters.transaction_id.toLowerCase()));
+
+    const matchesMonth =
+      !columnFilters.month ||
+      `${payment.month} ${payment.year}`
         .toLowerCase()
-        .includes(columnFilters.transaction_id.toLowerCase()));
+        .includes(columnFilters.month.toLowerCase());
 
-  const matchesMonth =
-    !columnFilters.month ||
-    `${payment.month} ${payment.year}`
-      .toLowerCase()
-      .includes(columnFilters.month.toLowerCase());
+    const matchesStatus =
+      columnFilters.status === "all" ||
+      (payment.status || "pending") === columnFilters.status;
 
-  const matchesStatus =
-    columnFilters.status === "all" ||
-    (payment.status || "pending") === columnFilters.status;
+    const matchesRemark =
+      !columnFilters.remark ||
+      (payment.remark &&
+        payment.remark
+          .toLowerCase()
+          .includes(columnFilters.remark.toLowerCase()));
 
-  const matchesRemark =
-    !columnFilters.remark ||
-    (payment.remark &&
-      payment.remark
-        .toLowerCase()
-        .includes(columnFilters.remark.toLowerCase()));
-
-  return (
-    matchesTenant &&
-    matchesMinAmount &&
-    matchesMaxAmount &&
-    matchesMode &&
-    matchesTransactionId &&
-    matchesMonth &&
-    matchesStatus &&
-    matchesRemark
-  );
-});
+    return (
+      matchesDate &&
+      matchesTenant &&
+      matchesMinAmount &&
+      matchesMaxAmount &&
+      matchesMode &&
+      matchesTransactionId &&
+      matchesMonth &&
+      matchesStatus &&
+      matchesRemark
+    );
+  });
 
   // Sort payments
   const sortedPayments = [...columnFilteredPayments].sort((a, b) => {
@@ -2508,20 +2477,20 @@ const columnFilteredPayments = payments.filter((payment) => {
       );
 
     // Due date range filters
-  const matchesFromDate = (() => {
-  if (!demandFilters.from_date) return true;
-  const formatted = format(new Date(demand.due_date), "dd/MM/yy");
-  return formatted.includes(demandFilters.from_date.trim());
-})();
+    const matchesFromDate = (() => {
+      if (!demandFilters.from_date) return true;
+      const formatted = format(new Date(demand.due_date), "dd/MM/yy");
+      return formatted.includes(demandFilters.from_date.trim());
+    })();
 
-const matchesToDate = (() => {
-  if (!demandFilters.to_date) return true;
-  const dueDate = new Date(demand.due_date);
-  dueDate.setHours(23, 59, 59, 999);
-  const toDate = new Date(demandFilters.to_date);
-  toDate.setHours(23, 59, 59, 999);
-  return dueDate <= toDate;
-})();
+    const matchesToDate = (() => {
+      if (!demandFilters.to_date) return true;
+      const dueDate = new Date(demand.due_date);
+      dueDate.setHours(23, 59, 59, 999);
+      const toDate = new Date(demandFilters.to_date);
+      toDate.setHours(23, 59, 59, 999);
+      return dueDate <= toDate;
+    })();
 
     // Amount filter
     const matchesAmount =
@@ -2612,156 +2581,129 @@ const matchesToDate = (() => {
           {/* Rent Collected Card */}
           <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-0 shadow-sm">
             <CardContent className="p-2 sm:p-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-[10px] sm:text-xs text-blue-700 font-medium">
-                    Total Rent Collected
-                  </p>
-                  <p className="text-sm sm:text-base font-bold text-blue-800">
-                    ₹{detailedStats.total_rent_collected.toLocaleString()}
-                  </p>
-                  <p className="text-[9px] text-blue-600 mt-0.5">
-                    Total rent payments
-                  </p>
-                </div>
-                <div className="p-1.5 rounded-lg bg-blue-600">
-                  <IndianRupee className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
-                </div>
+              <div className="flex items-center gap-1.5 mb-1">
+                <IndianRupee className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-blue-600" />
+                <p className="text-[9px] sm:text-[10px] text-blue-700 font-medium">
+                  Rent Collected
+                </p>
               </div>
+              <p className="text-xs sm:text-sm font-bold text-blue-800">
+                ₹{detailedStats.total_rent_collected.toLocaleString()}
+              </p>
+              <p className="text-[8px] text-blue-600 mt-0.5">
+                Total rent payments
+              </p>
             </CardContent>
           </Card>
 
-          {/* Deposit Collected Card */}
+          {/* Net Deposit Card */}
           <Card className="bg-gradient-to-br from-green-50 to-green-100 border-0 shadow-sm">
             <CardContent className="p-2 sm:p-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-[10px] sm:text-xs text-green-700 font-medium">
-                    Current Deposit Collected
-                  </p>
-                  <p className="text-sm sm:text-base font-bold text-green-800">
-                    ₹{detailedStats.total_deposit_collected.toLocaleString()}
-                  </p>
-                  <p className="text-[9px] text-green-600 mt-0.5">
-                    Total security deposits
-                  </p>
-                </div>
-                <div className="p-1.5 rounded-lg bg-green-600">
-                  <Shield className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
-                </div>
+              <div className="flex items-center gap-1.5 mb-1">
+                <Shield className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-green-600" />
+                <p className="text-[9px] sm:text-[10px] text-green-700 font-medium">
+                  Net Deposit
+                </p>
               </div>
+              <p className="text-xs sm:text-sm font-bold text-green-800">
+                ₹{detailedStats.net_deposit_collected.toLocaleString()}
+              </p>
+              <p className="text-[8px] text-green-600 mt-0.5">
+                Collected: ₹
+                {detailedStats.total_deposit_collected.toLocaleString()}
+              </p>
             </CardContent>
           </Card>
 
           {/* Total Refunded Card */}
-      {/* ✅ REFUNDS CARD (money paid OUT) */}
-<Card className="bg-gradient-to-br from-green-50 to-green-100 border-0 shadow-sm">
-  <CardContent className="p-2 sm:p-3">
-    <div className="flex items-center justify-between">
-      <div>
-        <p className="text-[10px] sm:text-xs text-green-700 font-medium">
-          Total Refunded
-        </p>
-        <p className="text-sm sm:text-base font-bold text-green-800">
-          ₹{detailedStats.total_refunded.toLocaleString()}
-        </p>
-        <p className="text-[9px] text-green-600 mt-0.5">
-          Amount refunded to tenants
-        </p>
-      </div>
-      <div className="p-1.5 rounded-lg bg-green-600">
-        <ReceiptIndianRupee className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
-      </div>
-    </div>
-  </CardContent>
-</Card>
+          <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-0 shadow-sm">
+            <CardContent className="p-2 sm:p-3">
+              <div className="flex items-center gap-1.5 mb-1">
+                <ReceiptIndianRupee className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-orange-600" />
+                <p className="text-[9px] sm:text-[10px] text-orange-700 font-medium">
+                  Total Refunded
+                </p>
+              </div>
+              <p className="text-xs sm:text-sm font-bold text-orange-800">
+                ₹{detailedStats.total_refunded.toLocaleString()}
+              </p>
+              <p className="text-[8px] text-orange-600 mt-0.5">
+                Deposit refunds
+              </p>
+            </CardContent>
+          </Card>
 
-{/* ✅ PENALTIES COLLECTED CARD (money received FROM tenants) */}
-<Card className="bg-gradient-to-br from-red-50 to-red-100 border-0 shadow-sm">
-  <CardContent className="p-2 sm:p-3">
-    <div className="flex items-center justify-between">
-      <div>
-        <p className="text-[10px] sm:text-xs text-red-700 font-medium">
-          Penalties Collected
-        </p>
-        <p className="text-sm sm:text-base font-bold text-red-800">
-          ₹{detailedStats.total_penalties_collected.toLocaleString()}
-        </p>
-        <p className="text-[9px] text-red-600 mt-0.5">
-          Amount collected from tenants
-        </p>
-      </div>
-      <div className="p-1.5 rounded-lg bg-red-600">
-        <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
-      </div>
-    </div>
-  </CardContent>
-</Card>
+          {/* Penalties Collected Card */}
+          <Card className="bg-gradient-to-br from-red-50 to-red-100 border-0 shadow-sm">
+            <CardContent className="p-2 sm:p-3">
+              <div className="flex items-center gap-1.5 mb-1">
+                <AlertCircle className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-red-600" />
+                <p className="text-[9px] sm:text-[10px] text-red-700 font-medium">
+                  Penalties Collected
+                </p>
+              </div>
+              <p className="text-xs sm:text-sm font-bold text-red-800">
+                ₹{detailedStats.total_penalties_collected.toLocaleString()}
+              </p>
+              <p className="text-[8px] text-red-600 mt-0.5">
+                From vacated tenants
+              </p>
+            </CardContent>
+          </Card>
 
           {/* This Month Rent Card */}
           <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-0 shadow-sm">
             <CardContent className="p-2 sm:p-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-[10px] sm:text-xs text-purple-700 font-medium">
-                    This Month Rent
-                  </p>
-                  <p className="text-sm sm:text-base font-bold text-purple-800">
-                    ₹{detailedStats.this_month_rent.toLocaleString()}
-                  </p>
-                  <p className="text-[9px] text-purple-600 mt-0.5">
-                    {new Date().toLocaleString("default", { month: "long" })}{" "}
-                    {new Date().getFullYear()}
-                  </p>
-                </div>
-                <div className="p-1.5 rounded-lg bg-purple-600">
-                  <Calendar className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
-                </div>
+              <div className="flex items-center gap-1.5 mb-1">
+                <Calendar className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-purple-600" />
+                <p className="text-[9px] sm:text-[10px] text-purple-700 font-medium">
+                  This Month Rent
+                </p>
               </div>
+              <p className="text-xs sm:text-sm font-bold text-purple-800">
+                ₹{detailedStats.this_month_rent.toLocaleString()}
+              </p>
+              <p className="text-[8px] text-purple-600 mt-0.5">
+                {new Date().toLocaleString("default", { month: "long" })}{" "}
+                {new Date().getFullYear()}
+              </p>
             </CardContent>
           </Card>
 
-
-<Card className="bg-gradient-to-br from-yellow-50 to-amber-100 border-0 shadow-sm">
-  <CardContent className="p-2 sm:p-3">
-    <div className="flex items-center justify-between">
-      <div>
-        <p className="text-[10px] sm:text-xs text-amber-700 font-medium">
-          Total Pending
-        </p>
-        <p className="text-sm sm:text-base font-bold text-amber-800">
-          ₹{detailedStats.total_pending_amount.toLocaleString()}
-        </p>
-        <p className="text-[9px] text-amber-600 mt-0.5">
-          Awaiting approval
-        </p>
-      </div>
-      <div className="p-1.5 rounded-lg bg-amber-600">
-        <Clock className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
-      </div>
-    </div>
-  </CardContent>
-</Card>
+          {/* Current Month Pending Card */}
+          <Card className="bg-gradient-to-br from-amber-50 to-amber-100 border-0 shadow-sm">
+            <CardContent className="p-2 sm:p-3">
+              <div className="flex items-center gap-1.5 mb-1">
+                <Clock className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-amber-600" />
+                <p className="text-[9px] sm:text-[10px] text-amber-700 font-medium">
+                  Current Month Pending
+                </p>
+              </div>
+              <p className="text-xs sm:text-sm font-bold text-amber-800">
+                ₹{detailedStats.current_month_expected_pending.toLocaleString()}
+              </p>
+              <p className="text-[8px] text-amber-600 mt-0.5">
+                {new Date().toLocaleString("default", { month: "long" })}{" "}
+                {new Date().getFullYear()} • Pending rent
+              </p>
+            </CardContent>
+          </Card>
 
           {/* Total Transactions Card */}
           <Card className="bg-gradient-to-br from-cyan-50 to-cyan-100 border-0 shadow-sm">
             <CardContent className="p-2 sm:p-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-[10px] sm:text-xs text-cyan-700 font-medium">
-                    Transactions
-                  </p>
-                  <p className="text-sm sm:text-base font-bold text-cyan-800">
-                    {detailedStats.total_transactions.toLocaleString()}
-                  </p>
-                  <p className="text-[9px] text-cyan-600 mt-0.5">
-                    Total payments processed
-                  </p>
-                </div>
-                <div className="p-1.5 rounded-lg bg-cyan-600">
-                  <CreditCard className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
-                </div>
+              <div className="flex items-center gap-1.5 mb-1">
+                <CreditCard className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-cyan-600" />
+                <p className="text-[9px] sm:text-[10px] text-cyan-700 font-medium">
+                  Transactions
+                </p>
               </div>
+              <p className="text-xs sm:text-sm font-bold text-cyan-800">
+                {detailedStats.total_transactions.toLocaleString()}
+              </p>
+              <p className="text-[8px] text-cyan-600 mt-0.5">
+                Total payments processed
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -2869,13 +2811,11 @@ const matchesToDate = (() => {
               sortField={sortField}
               sortDirection={sortDirection}
               filterPropertyId={filterPropertyId}
-setFilterPropertyId={setFilterPropertyId}
-filterStartDate={filterStartDate}
-setFilterStartDate={setFilterStartDate}
-filterEndDate={filterEndDate}
-setFilterEndDate={setFilterEndDate}
-ignoreDateFilters={ignoreDateFilters}
-setIgnoreDateFilters={setIgnoreDateFilters}
+              setFilterPropertyId={setFilterPropertyId}
+              filterStartDate={filterStartDate}
+              setFilterStartDate={setFilterStartDate}
+              filterEndDate={filterEndDate}
+              setFilterEndDate={setFilterEndDate}
               canApprove={can("approve_payments")}
               canReject={can("reject_payments")}
               canEdit={can("edit_payments")}
@@ -2893,7 +2833,6 @@ setIgnoreDateFilters={setIgnoreDateFilters}
               fetchProperties={fetchProperties}
               properties={properties}
               prefillAndOpenPaymentForm={prefillAndOpenPaymentForm}
-              
               pagination={{
                 items: paginatedPaymentGroups.items,
                 currentPage: paymentPagination.currentPage,
@@ -2988,26 +2927,25 @@ setIgnoreDateFilters={setIgnoreDateFilters}
                               </TableHead>
 
                               {/* Due Date Column */}
-                            {/* Due Date Column */}
-<TableHead className="w-[100px] py-2 px-2 bg-gray-200">
-  <div className="flex flex-col gap-1">
-    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
-      Due Date
-    </span>
-    <Input
-      type="text"
-      placeholder="dd/mm/yy"
-      className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
-      value={demandFilters.from_date || ""}
-      onChange={(e) =>
-        setDemandFilters({
-          ...demandFilters,
-          from_date: e.target.value,
-        })
-      }
-    />
-  </div>
-</TableHead>
+                              <TableHead className="w-[100px] py-2 px-2 bg-gray-200">
+                                <div className="flex flex-col gap-1">
+                                  <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
+                                    Due Date
+                                  </span>
+                                  <Input
+                                    type="text"
+                                    placeholder="dd/mm/yy"
+                                    className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
+                                    value={demandFilters.from_date || ""}
+                                    onChange={(e) =>
+                                      setDemandFilters({
+                                        ...demandFilters,
+                                        from_date: e.target.value,
+                                      })
+                                    }
+                                  />
+                                </div>
+                              </TableHead>
 
                               {/* Status Column */}
                               <TableHead className="w-[100px] py-2 px-2 bg-gray-200">
@@ -4008,42 +3946,42 @@ setIgnoreDateFilters={setIgnoreDateFilters}
                 <Label className="text-[11px] font-medium text-slate-600">
                   Payment Mode *
                 </Label>
-          <Select
-  value={newPayment.payment_mode}
-  onValueChange={(value) => {
-    setNewPayment({
-      ...newPayment,
-      payment_mode: value,
-      bank_name: "",
-    });
-  }}
->
-  <SelectTrigger className="h-8 text-xs">
-    <SelectValue placeholder="Select payment mode..." />
-  </SelectTrigger>
-  <SelectContent>
-    {loadingPaymentModes ? (
-      <div className="px-2 py-4 text-center text-xs text-slate-500">
-        <Loader2 className="h-3 w-3 animate-spin inline mr-1" />
-        Loading...
-      </div>
-    ) : paymentModes.length === 0 ? (
-      <div className="px-2 py-4 text-center text-xs text-slate-500">
-        No payment modes available
-      </div>
-    ) : (
-      paymentModes.map((mode) => (
-        <SelectItem
-          key={mode.id}
-          value={mode.name.toLowerCase().replace(/\s+/g, '_')}
-          className="text-xs"
-        >
-          {mode.name}
-        </SelectItem>
-      ))
-    )}
-  </SelectContent>
-</Select>
+                <Select
+                  value={newPayment.payment_mode}
+                  onValueChange={(value) => {
+                    setNewPayment({
+                      ...newPayment,
+                      payment_mode: value,
+                      bank_name: "",
+                    });
+                  }}
+                >
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="Select payment mode..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {loadingPaymentModes ? (
+                      <div className="px-2 py-4 text-center text-xs text-slate-500">
+                        <Loader2 className="h-3 w-3 animate-spin inline mr-1" />
+                        Loading...
+                      </div>
+                    ) : paymentModes.length === 0 ? (
+                      <div className="px-2 py-4 text-center text-xs text-slate-500">
+                        No payment modes available
+                      </div>
+                    ) : (
+                      paymentModes.map((mode) => (
+                        <SelectItem
+                          key={mode.id}
+                          value={mode.name.toLowerCase().replace(/\s+/g, "_")}
+                          className="text-xs"
+                        >
+                          {mode.name}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Date */}
@@ -5758,23 +5696,23 @@ const PaginationControls = ({
     <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 bg-white border-t border-slate-200 rounded-b-lg">
       <div className="flex items-center gap-2 text-xs text-slate-500">
         <span>Show</span>
-       <Select
-  value={itemsPerPage >= 999999 ? "All" : itemsPerPage.toString()}
-  onValueChange={(value) => onItemsPerPageChange(value === "All" ? 999999 : Number(value))}
->
+        <Select
+          value={itemsPerPage.toString()}
+          onValueChange={(value) => onItemsPerPageChange(Number(value))}
+        >
           <SelectTrigger className="h-7 w-[70px] text-xs">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-          {[10, 25, 50, 100, "All"].map((size) => (
-  <SelectItem
-    key={size}
-    value={size.toString()}
-    className="text-xs"
-  >
-    {size}
-  </SelectItem>
-))}
+            {[10, 25, 50, 100].map((size) => (
+              <SelectItem
+                key={size}
+                value={size.toString()}
+                className="text-xs"
+              >
+                {size}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
         <span>entries</span>
@@ -5920,14 +5858,11 @@ const PaymentsTable = ({
   groupPaymentsByTenant,
   setIsAddPaymentOpen,
   filterPropertyId,
-setFilterPropertyId,
-filterStartDate,
-setFilterStartDate,
-filterEndDate,
-setFilterEndDate,
-ignoreDateFilters,
-setIgnoreDateFilters,
-
+  setFilterPropertyId,
+  filterStartDate,
+  setFilterStartDate,
+  filterEndDate,
+  setFilterEndDate,
   // New props for column filters
   columnFilters,
   setColumnFilters,
@@ -5955,8 +5890,8 @@ setIgnoreDateFilters,
   onPageChange,
   onItemsPerPageChange,
 }: any) => {
-
-const [roomFilter, setRoomFilter] = useState("");
+  const [ignoreDateFilters, setIgnoreDateFilters] = useState(false);
+  const [roomFilter, setRoomFilter] = useState("");
   // Group payments by tenant using the passed function
   const { items: paginatedGroups, totalItems, totalPages } = pagination;
   const tenantGroups = paginatedGroups.map((group: any) => ({
@@ -5967,7 +5902,6 @@ const [roomFilter, setRoomFilter] = useState("");
 
   // Filter groups based on column filters
   const filteredGroups = tenantGroups.filter((group: any) => {
-
     // Filter by payment count
     if (columnFilters?.payment_count) {
       const count = parseInt(columnFilters.payment_count);
@@ -6021,64 +5955,79 @@ const [roomFilter, setRoomFilter] = useState("");
         return false;
     }
 
-// Filter by last payment date – timezone-safe, works on raw date string
-// NAYA - replace karo:
-// if (columnFilters?.payment_date) {
-//   const searchTerm = columnFilters.payment_date.trim();
-//   if (searchTerm !== "") {
-//     if (!group.last_payment_date) return false;
-//     const formatted = format(new Date(group.last_payment_date), "dd/MM/yy");
-//     if (!formatted.includes(searchTerm)) return false;
-//   }
-// }
+    // Filter by last payment date – timezone-safe, works on raw date string
+    if (columnFilters?.payment_date && group.last_payment_date) {
+      const searchTerm = columnFilters.payment_date.toLowerCase().trim();
+      if (searchTerm === "") return true;
 
+      // Convert last_payment_date to a Date object
+      const lastPayDate = new Date(group.last_payment_date);
+      if (isNaN(lastPayDate.getTime())) return false;
 
-// Property filter - ignore when "all" is selected
-// Property filter - ignore when "all" is selected
-if (filterPropertyId && filterPropertyId !== "all") {
-  const groupPropertyId = (
-    group.property_id ||
-    tenants.find((t: any) => t.id === group.tenant_id)?.current_assignment?.property_id
-  )?.toString();
-  if (groupPropertyId !== filterPropertyId) return false;
-}
-// Room number filter
-if (roomFilter && group.room_number) {
-  if (!group.room_number.toString().toLowerCase().includes(roomFilter.toLowerCase())) return false;
-}
+      const day = lastPayDate.getDate();
+      const month = lastPayDate.getMonth() + 1;
+      const year = lastPayDate.getFullYear();
 
-// Date filters - only apply if not ignored
-// NAYA - replace karo:
-// if (!ignoreDateFilters && (filterStartDate || filterEndDate)) {
-//   if (filterStartDate && filterEndDate) {
-//     // BOTH dates set: last_payment_date must be between start and end
-//     if (!group.last_payment_date) return false;
-//     const lastDate = new Date(group.last_payment_date);
-//     lastDate.setHours(12, 0, 0, 0);
-//     const startDate = new Date(filterStartDate);
-//     startDate.setHours(0, 0, 0, 0);
-//     const endDate = new Date(filterEndDate);
-//     endDate.setHours(23, 59, 59, 999);
-//     if (lastDate < startDate || lastDate > endDate) return false;
-//   } else if (filterStartDate) {
-//     // Only start date: last_payment_date >= start date
-//     if (!group.last_payment_date) return false;
-//     const lastDate = new Date(group.last_payment_date);
-//     lastDate.setHours(12, 0, 0, 0);
-//     const startDate = new Date(filterStartDate);
-//     startDate.setHours(0, 0, 0, 0);
-//     if (lastDate < startDate) return false;
-//   } else if (filterEndDate) {
-//     // Only end date: last_payment_date <= end date
-//     if (!group.last_payment_date) return false;
-//     const lastDate = new Date(group.last_payment_date);
-//     lastDate.setHours(12, 0, 0, 0);
-//     const endDate = new Date(filterEndDate);
-//     endDate.setHours(23, 59, 59, 999);
-//     if (lastDate > endDate) return false;
-//   }
-// }
+      // Format variations for matching
+      const formats = [
+        `${day.toString().padStart(2, "0")}/${month.toString().padStart(2, "0")}/${year}`, // dd/mm/yyyy
+        `${day.toString().padStart(2, "0")}/${month.toString().padStart(2, "0")}/${year.toString().slice(-2)}`, // dd/mm/yy
+        `${day}/${month}/${year}`,
+        `${day}/${month}/${year.toString().slice(-2)}`,
+        month.toString().padStart(2, "0"), // mm
+        month.toString(), // m
+        year.toString(), // yyyy
+        year.toString().slice(-2), // yy
+        lastPayDate.toLocaleString("default", { month: "long" }).toLowerCase(), // full month name
+        lastPayDate.toLocaleString("default", { month: "short" }).toLowerCase(), // short month name
+      ];
 
+      const matches = formats.some((format) => format.includes(searchTerm));
+      if (!matches) return false;
+    }
+
+    // Property filter - ignore when "all" is selected
+    // Property filter - ignore when "all" is selected
+    if (filterPropertyId && filterPropertyId !== "all") {
+      const groupPropertyId = (
+        group.property_id ||
+        tenants.find((t: any) => t.id === group.tenant_id)?.current_assignment
+          ?.property_id
+      )?.toString();
+      if (groupPropertyId !== filterPropertyId) return false;
+    }
+    // Room number filter
+    if (roomFilter && group.room_number) {
+      if (
+        !group.room_number
+          .toString()
+          .toLowerCase()
+          .includes(roomFilter.toLowerCase())
+      )
+        return false;
+    }
+
+    // Date filters - only apply if not ignored
+    if (!ignoreDateFilters && (filterStartDate || filterEndDate)) {
+      // Start Date = First Payment Date
+      if (filterStartDate) {
+        if (!group.first_payment_date) return false;
+        const firstDate = new Date(group.first_payment_date);
+        firstDate.setHours(0, 0, 0, 0);
+        const startDate = new Date(filterStartDate);
+        startDate.setHours(0, 0, 0, 0);
+        if (firstDate < startDate) return false;
+      }
+      // End Date = Last Payment Date
+      if (filterEndDate) {
+        if (!group.last_payment_date) return false;
+        const lastDate = new Date(group.last_payment_date);
+        lastDate.setHours(23, 59, 59, 999);
+        const endDate = new Date(filterEndDate);
+        endDate.setHours(23, 59, 59, 999);
+        if (lastDate > endDate) return false;
+      }
+    }
 
     return true;
   });
@@ -6088,16 +6037,27 @@ if (roomFilter && group.room_number) {
       <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
         {/* Single overflow-x for both header + body */}
         <div className="overflow-x-auto flex-1 min-h-0 flex flex-col min-w-0">
-          <div className="min-w-[900px] flex flex-col flex-1 min-h-0">
+          <div className="min-w-[10px] flex flex-col flex-1 min-h-0">
             <div className="flex-shrink-0">
-              <Table>
+              <Table className="table-fixed w-full">
+            <colgroup>
+  <col style={{ width: "36px" }} />
+  <col style={{ width: "280px" }} />
+  <col style={{ width: "55px" }} />
+  <col style={{ width: "115px" }} />
+  <col style={{ width: "105px" }} />
+  <col style={{ width: "115px" }} />
+  <col style={{ width: "115px" }} />
+  <col style={{ width: "115px" }} />
+  <col style={{ width: "95px" }} />
+</colgroup>
                 <TableHeader className="bg-gray-200 border-b border-gray-300">
                   <TableRow className="hover:bg-transparent">
                     {/* Expand Column */}
-                    <TableHead className="w-6 py-2 px-1 bg-gray-200"></TableHead>
+                    <TableHead className="py-2 px-1 bg-gray-200"></TableHead>
 
                     {/* Tenant Column - Updated with salutation filter */}
-                    <TableHead className="w-[300px] py-2 px-2 bg-gray-200">
+                    <TableHead className="py-2 px-2 bg-gray-200">
                       <div className="flex flex-col gap-1">
                         <div
                           className="flex items-center gap-1 cursor-pointer"
@@ -6109,22 +6069,22 @@ if (roomFilter && group.room_number) {
                           <ArrowUpDown className="h-2.5 w-2.5 text-gray-500" />
                         </div>
                         <Input
-  placeholder="Search name / room / property..."
-  className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
-  value={columnFilters?.tenant_name || ""}
-  onChange={(e) => {
-    setColumnFilters?.({
-      ...columnFilters,
-      tenant_name: e.target.value,
-    });
-    onPageChange?.(1); // ✅ Reset to page 1 on search
-  }}
-/>
+                          placeholder="Search name / room / property..."
+                          className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
+                          value={columnFilters?.tenant_name || ""}
+                          onChange={(e) => {
+                            setColumnFilters?.({
+                              ...columnFilters,
+                              tenant_name: e.target.value,
+                            });
+                            onPageChange?.(1); // ✅ Reset to page 1 on search
+                          }}
+                        />
                       </div>
                     </TableHead>
 
                     {/* CNT Column */}
-                    <TableHead className="w-[55px] py-2 px-2 bg-gray-200 text-center">
+                    <TableHead className="py-2 px-2 bg-gray-200 text-center">
                       <div className="flex flex-col gap-1 items-center">
                         <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
                           CNT
@@ -6145,13 +6105,13 @@ if (roomFilter && group.room_number) {
                     </TableHead>
 
                     {/* Amount Column */}
-                    <TableHead className="w-[110px] py-2 px-2 bg-gray-200 text-right">
+                    <TableHead className="py-2 px-2 bg-gray-200 text-right">
                       <div className="flex flex-col gap-1 items-end">
                         <div
                           className="flex items-center gap-1 cursor-pointer"
                           onClick={() => handleSort?.("total_amount")}
                         >
-                          <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
+                          <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide text-left">
                             Total Amount
                           </span>
                           <ArrowUpDown className="h-2.5 w-2.5 text-gray-500" />
@@ -6171,10 +6131,10 @@ if (roomFilter && group.room_number) {
                       </div>
                     </TableHead>
                     {/* ✅ NEW: Paid Amount Column (Approved) */}
-                    <TableHead className="w-[100px] py-2 px-2 bg-gray-200 text-right">
-                      <div className="flex flex-col gap-1 items-end">
-                        <span className="font-semibold text-green-700 text-[10px] uppercase tracking-wide">
-                          Paid (₹)
+                    <TableHead className="py-2 px-2 bg-gray-200 text-right">
+  <div className="flex flex-col gap-1 items-end">
+    <span className="font-semibold text-green-700 text-[10px] uppercase tracking-wide">
+      Paid (₹)
                         </span>
                       </div>
                       <Input
@@ -6192,10 +6152,10 @@ if (roomFilter && group.room_number) {
                     </TableHead>
 
                     {/* ✅ NEW: Rejected Amount Column */}
-                    <TableHead className="w-[100px] py-2 px-2 bg-gray-200 text-right">
-                      <div className="flex flex-col gap-1 items-end">
-                        <span className="font-semibold text-red-700 text-[10px] uppercase tracking-wide">
-                          Rejected (₹)
+                    <TableHead className="py-2 px-2 bg-gray-200 text-right">
+  <div className="flex flex-col gap-1 items-end">
+    <span className="font-semibold text-red-700 text-[10px] uppercase tracking-wide">
+      Rejected (₹)
                         </span>
                         <Input
                           placeholder="Search amount..."
@@ -6213,11 +6173,10 @@ if (roomFilter && group.room_number) {
                     </TableHead>
 
                     {/* Status Column */}
-                    <TableHead className="w-[100px] py-2 px-2 bg-gray-200">
-                      <div className="flex flex-col gap-1">
-                        <div
-                          className="flex items-center gap-1 cursor-pointer"
-                          onClick={() => handleSort?.("status")}
+                   <TableHead className="py-2 px-2 bg-gray-200">
+  <div className="flex flex-col gap-1">
+    <div className="flex items-center gap-1 cursor-pointer"
+      onClick={() => handleSort?.("status")}
                         >
                           <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
                             Status
@@ -6255,10 +6214,10 @@ if (roomFilter && group.room_number) {
                     </TableHead>
 
                     {/* Last Pay Column */}
-                    <TableHead className="w-[100px] py-2 px-2 bg-gray-200">
-                      <div className="flex flex-col gap-1">
-                        <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
-                          Last Pay
+                    <TableHead className="py-2 px-2 bg-gray-200">
+  <div className="flex flex-col gap-1">
+    <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
+      Last Pay
                         </span>
                         <Input
                           placeholder="dd/mm/yy"
@@ -6266,19 +6225,19 @@ if (roomFilter && group.room_number) {
                           className="h-6 text-[10px] bg-white border-gray-300 focus:border-blue-400 px-2 font-normal w-full"
                           value={columnFilters?.payment_date || ""}
                           onChange={(e) => {
-  setColumnFilters?.({
-    ...columnFilters,
-    payment_date: e.target.value,
-  });
-  onPageChange?.(1); // reset to page 1
-}}
+                            setColumnFilters?.({
+                              ...columnFilters,
+                              payment_date: e.target.value,
+                            });
+                            onPageChange?.(1); // reset to page 1
+                          }}
                         />
                       </div>
                     </TableHead>
 
                     {/* Actions Column */}
                     {/* Actions Column */}
-                    <TableHead className="w-[80px] py-2 px-2 bg-gray-200 text-center">
+                    <TableHead className="py-2 px-2 bg-gray-200 text-center">
                       <div className="flex flex-col gap-1 items-center">
                         <span className="font-semibold text-gray-700 text-[10px] uppercase tracking-wide">
                           Actions
@@ -6299,17 +6258,18 @@ if (roomFilter && group.room_number) {
               </Table>
             </div>
             <div className="overflow-y-auto flex-1 min-h-0">
-              <Table>
-                <colgroup>
-                  <col style={{ width: "24px" }} />
-                  <col style={{ width: "400px" }} />
-                  <col style={{ width: "55px" }} />
-                  <col style={{ width: "150px" }} />
-                  <col style={{ width: "170px" }} />
-                  <col style={{ width: "150px" }} />
-                  <col style={{ width: "200px" }} />
-                  <col style={{ width: "80px" }} />
-                </colgroup>
+              <Table className="table-fixed w-full">
+         <colgroup>
+  <col style={{ width: "36px" }} />
+  <col style={{ width: "280px" }} />
+  <col style={{ width: "55px" }} />
+  <col style={{ width: "115px" }} />
+  <col style={{ width: "105px" }} />
+  <col style={{ width: "115px" }} />
+  <col style={{ width: "115px" }} />
+  <col style={{ width: "115px" }} />
+  <col style={{ width: "95px" }} />
+</colgroup>
                 <TableBody>
                   {loading ? (
                     <TableRow>
@@ -6347,12 +6307,12 @@ if (roomFilter && group.room_number) {
                           {/* Parent Row - Tenant Card with Salutation and Country Code */}
                           <TableRow
                             className={`
-    group cursor-pointer transition-all duration-200
+    group cursor-pointer transition-all duration-200 border-b border-slate-200
     ${isExpanded ? "bg-blue-50/50 shadow-inner" : "hover:bg-slate-50/80"}
   `}
                             onClick={() => onToggleExpand(group.tenant_id)}
                           >
-                            <TableCell className="py-3">
+                            <TableCell className="py-3 border-r border-slate-200">
                               <div
                                 className={`
         w-6 h-6 rounded-full flex items-center justify-center transition-all duration-200
@@ -6367,7 +6327,7 @@ if (roomFilter && group.room_number) {
                               </div>
                             </TableCell>
 
-                            <TableCell className="py-3">
+                            <TableCell className="py-3 border-r border-slate-200">
                               <div className="flex items-center gap-3">
                                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-800 to-blue-600 flex items-center justify-center text-white font-semibold text-xs shadow-md">
                                   {group.tenant_name?.charAt(0).toUpperCase()}
@@ -6386,21 +6346,18 @@ if (roomFilter && group.room_number) {
                                         )}
                                     </p>
 
-                                    {/* ✅ Add Booking/Online Tag */}
-                                    {group.has_online_booking && (
-                                      <Badge className="bg-purple-100 text-purple-700 border-purple-200 text-[10px] px-1.5 py-0">
-                                        <Globe className="h-2.5 w-2.5 mr-0.5" />
-                                        Online
+                                    {/* ✅ ADD VACATED / ACTIVE TAG */}
+                                    {group.is_vacated ? (
+                                      <Badge className="bg-red-100 text-red-700 border-red-200 text-[10px] px-1.5 py-0">
+                                        <DoorOpen className="h-2.5 w-2.5 mr-0.5" />
+                                        Vacated
+                                      </Badge>
+                                    ) : (
+                                      <Badge className="bg-green-100 text-green-700 border-green-200 text-[10px] px-1.5 py-0">
+                                        <CheckCircle2 className="h-2.5 w-2.5 mr-0.5" />
+                                        Active
                                       </Badge>
                                     )}
-
-                                    {group.has_manual_payment &&
-                                      !group.has_online_booking && (
-                                        <Badge className="bg-orange-100 text-orange-700 border-orange-200 text-[10px] px-1.5 py-0">
-                                          <User className="h-2.5 w-2.5 mr-0.5" />
-                                          Manual
-                                        </Badge>
-                                      )}
                                   </div>
 
                                   {/* Show country code + phone number */}
@@ -6434,7 +6391,7 @@ if (roomFilter && group.room_number) {
                               </div>
                             </TableCell>
 
-                            <TableCell className="py-3 text-center">
+                            <TableCell className="py-3 text-center border-r border-slate-200">
                               <Badge
                                 variant="outline"
                                 className="bg-blue-50 text-blue-700 border-blue-200 text-xs px-2 py-0.5"
@@ -6443,14 +6400,14 @@ if (roomFilter && group.room_number) {
                               </Badge>
                             </TableCell>
 
-                            <TableCell className="py-3 text-right">
+                            <TableCell className="py-3 text-right border-r border-slate-200">
                               <span className="text-sm font-bold text-green-600">
                                 ₹{group.total_amount.toLocaleString()}
                               </span>
                             </TableCell>
 
                             {/* ✅ NEW: Paid Amount Column (Approved) */}
-                            <TableCell className="py-3 text-right">
+                            <TableCell className="py-3 text-right border-r border-slate-200">
                               <span className="text-sm font-bold text-green-600">
                                 ₹
                                 {group.total_paid_amount?.toLocaleString() || 0}
@@ -6461,7 +6418,7 @@ if (roomFilter && group.room_number) {
                             </TableCell>
 
                             {/* ✅ NEW: Rejected Amount Column */}
-                            <TableCell className="py-3 text-right">
+                            <TableCell className="py-3 text-right border-r border-slate-200">
                               <span className="text-sm font-bold text-red-600">
                                 ₹
                                 {group.total_rejected_amount?.toLocaleString() ||
@@ -6472,7 +6429,7 @@ if (roomFilter && group.room_number) {
     )} */}
                             </TableCell>
 
-                            <TableCell className="py-3">
+                            <TableCell className="py-3 border-r border-slate-200">
                               <div className="flex items-center justify-center gap-1">
                                 {group.approved_count > 0 && (
                                   <Badge className="bg-green-100 text-green-700 border-green-200 text-xs px-1.5 py-0.5">
@@ -6492,16 +6449,19 @@ if (roomFilter && group.room_number) {
                               </div>
                             </TableCell>
 
-                          <TableCell className="py-3 text-center">
-  <span className="text-xs text-slate-600 whitespace-nowrap">
-    {group.last_payment_date
-      ? format(new Date(group.last_payment_date), "dd/MM/yyyy")
-      : "No payments"}
-  </span>
-</TableCell>
+                            <TableCell className="py-3 text-center border-r border-slate-200">
+                              <span className="text-xs text-slate-600 whitespace-nowrap">
+                                {group.last_payment_date
+                                  ? format(
+                                      new Date(group.last_payment_date),
+                                      "dd/MM/yyyy",
+                                    )
+                                  : "No payments"}
+                              </span>
+                            </TableCell>
 
                             <TableCell
-                              className="py-3 text-center"
+                              className="py-3 text-center border-r border-slate-200"
                               onClick={(e) => e.stopPropagation()}
                             >
                               <div className="flex items-center justify-center gap-1">
@@ -6535,39 +6495,38 @@ if (roomFilter && group.room_number) {
                                   <Eye className="h-3.5 w-3.5" />
                                 </Button>
                                 {/* Add Payment Button - Hidden if tenant has deposit refund */}
-                               
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    className="h-7 w-7 p-0 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-full"
-                                    onClick={async () => {
-                                      const tenant = tenants.find(
-                                        (t) => t.id === group.tenant_id,
+
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 w-7 p-0 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-full"
+                                  onClick={async () => {
+                                    const tenant = tenants.find(
+                                      (t) => t.id === group.tenant_id,
+                                    );
+                                    const propertyId =
+                                      tenant?.current_assignment?.property_id ||
+                                      group.property_id;
+                                    const roomId =
+                                      tenant?.current_assignment?.room_id ||
+                                      group.room_id;
+                                    if (tenant && propertyId && roomId) {
+                                      await prefillAndOpenPaymentForm(
+                                        group.tenant_id,
+                                        propertyId,
+                                        roomId,
                                       );
-                                      const propertyId =
-                                        tenant?.current_assignment
-                                          ?.property_id || group.property_id;
-                                      const roomId =
-                                        tenant?.current_assignment?.room_id ||
-                                        group.room_id;
-                                      if (tenant && propertyId && roomId) {
-                                        await prefillAndOpenPaymentForm(
-                                          group.tenant_id,
-                                          propertyId,
-                                          roomId,
-                                        );
-                                      } else {
-                                        toast.error(
-                                          "Tenant missing property or room information",
-                                        );
-                                        setIsAddPaymentOpen(true);
-                                      }
-                                    }}
-                                    title="Add Payment"
-                                  >
-                                    <Plus className="h-3.5 w-3.5" />
-                                  </Button>
-                              
+                                    } else {
+                                      toast.error(
+                                        "Tenant missing property or room information",
+                                      );
+                                      setIsAddPaymentOpen(true);
+                                    }
+                                  }}
+                                  title="Add Payment"
+                                >
+                                  <Plus className="h-3.5 w-3.5" />
+                                </Button>
                               </div>
                             </TableCell>
                           </TableRow>
@@ -6977,7 +6936,8 @@ if (roomFilter && group.room_number) {
                                                             "paid" ||
                                                           payment.status ===
                                                             "partial" ||
-                                                          payment.status === "refund") &&
+                                                          payment.status ===
+                                                            "refund") &&
                                                           canApprove && (
                                                             <button
                                                               className="h-7 w-7 rounded-lg text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 flex items-center justify-center transition-all duration-200"
@@ -6988,7 +6948,6 @@ if (roomFilter && group.room_number) {
                                                               }
                                                               title="Approve"
                                                             >
-            
                                                               <CheckCircle2 className="h-3.5 w-3.5" />
                                                             </button>
                                                           )}
@@ -7000,7 +6959,8 @@ if (roomFilter && group.room_number) {
                                                             "paid" ||
                                                           payment.status ===
                                                             "partial" ||
-                                                          payment.status === "refund") &&
+                                                          payment.status ===
+                                                            "refund") &&
                                                           canReject && (
                                                             <button
                                                               className="h-7 w-7 rounded-lg text-red-600 hover:text-red-700 hover:bg-red-50 flex items-center justify-center transition-all duration-200"
@@ -7022,7 +6982,8 @@ if (roomFilter && group.room_number) {
                                                             "pending" ||
                                                             payment.status ===
                                                               "paid" ||
-                                                            payment.status === "refund") &&
+                                                            payment.status ===
+                                                              "refund") &&
                                                           canEdit && (
                                                             <button
                                                               className="h-7 w-7 rounded-lg text-blue-600 hover:text-blue-700 hover:bg-blue-50 flex items-center justify-center transition-all duration-200"
@@ -7147,30 +7108,51 @@ if (roomFilter && group.room_number) {
                   className="h-8 text-xs"
                 />
               </div>
-           <div className="space-y-1">
-  <Label className="text-xs font-semibold text-blue-700">Property</Label>
-  <Select value={filterPropertyId} onValueChange={setFilterPropertyId}>
-    <SelectTrigger className="h-8 text-xs">
-      <SelectValue placeholder="All Properties" />
-    </SelectTrigger>
-    <SelectContent>
-<SelectItem value="all">All Properties</SelectItem>
-      {properties.map((prop: any) => (
-        <SelectItem key={prop.id} value={prop.id.toString()}>{prop.name}</SelectItem>
-      ))}
-    </SelectContent>
-  </Select>
-</div>
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold text-blue-700">
+                  Property
+                </Label>
+                <Select
+                  value={filterPropertyId}
+                  onValueChange={setFilterPropertyId}
+                >
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="All Properties" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Properties</SelectItem>
+                    {properties.map((prop: any) => (
+                      <SelectItem key={prop.id} value={prop.id.toString()}>
+                        {prop.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-<div className="space-y-1">
-<Label className="text-xs font-semibold text-blue-700">Start Date (Last Pay From)</Label>
-  <Input type="date" value={filterStartDate} onChange={(e) => setFilterStartDate(e.target.value)} className="h-8 text-xs" />
-</div>
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold text-blue-700">
+                  Start Date (First Payment)
+                </Label>
+                <Input
+                  type="date"
+                  value={filterStartDate}
+                  onChange={(e) => setFilterStartDate(e.target.value)}
+                  className="h-8 text-xs"
+                />
+              </div>
 
-<div className="space-y-1">
-<Label className="text-xs font-semibold text-blue-700">End Date (Last Pay To)</Label>
-  <Input type="date" value={filterEndDate} onChange={(e) => setFilterEndDate(e.target.value)} className="h-8 text-xs" />
-</div>
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold text-blue-700">
+                  End Date (Last Payment)
+                </Label>
+                <Input
+                  type="date"
+                  value={filterEndDate}
+                  onChange={(e) => setFilterEndDate(e.target.value)}
+                  className="h-8 text-xs"
+                />
+              </div>
               <div className="space-y-1">
                 <Label className="text-xs font-semibold text-blue-700">
                   Payment Count
@@ -7189,58 +7171,62 @@ if (roomFilter && group.room_number) {
                 />
               </div>
               <div className="space-y-1">
-  <Label className="text-xs font-semibold text-blue-700">Room Number</Label>
-  <Input
-    placeholder="Search room number..."
-    value={roomFilter}
-    onChange={(e) => setRoomFilter(e.target.value)}
-    className="h-8 text-xs"
-  />
-</div>
+                <Label className="text-xs font-semibold text-blue-700">
+                  Room Number
+                </Label>
+                <Input
+                  placeholder="Search room number..."
+                  value={roomFilter}
+                  onChange={(e) => setRoomFilter(e.target.value)}
+                  className="h-8 text-xs"
+                />
+              </div>
 
-<div className="space-y-1">
-  <label className="flex items-center gap-2 cursor-pointer">
-    <input
-      type="checkbox"
-checked={ignoreDateFilters}
-onChange={(e) => setIgnoreDateFilters?.(e.target.checked)}
-      className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-    />
-    <span className="text-xs font-semibold text-blue-700">Ignore Date Filters</span>
-  </label>
-  <p className="text-[10px] text-gray-500 ml-5">
-    Show all data regardless of last payment date
-  </p>
-</div>
+              <div className="space-y-1">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={ignoreDateFilters}
+                    onChange={(e) => setIgnoreDateFilters(e.target.checked)}
+                    className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-xs font-semibold text-blue-700">
+                    Ignore Date Filters
+                  </span>
+                </label>
+                <p className="text-[10px] text-gray-500 ml-5">
+                  Show all data regardless of last payment date
+                </p>
+              </div>
             </div>
             <div className="border-t p-3 flex gap-2 bg-gray-50 flex-shrink-0">
-             <Button
-  variant="outline"
-  size="sm"
-  className="flex-1 text-xs h-8"
-  onClick={() => {
-    setColumnFilters?.({
-      payment_date: "",
-      tenant_name: "",
-      amount: "",
-      min_amount: "",
-      max_amount: "",
-      payment_mode: "all",
-      transaction_id: "",
-      month: "",
-      status: "all",
-      remark: "",
-      payment_count: "",
-    });
-setFilterPropertyId("all");
-    setFilterStartDate("");
-    setFilterEndDate("");
-    setRoomFilter("");
-setIgnoreDateFilters(false);
-  }}
->
-  <RefreshCw className="w-3 h-3 mr-1" /> Reset
-</Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1 text-xs h-8"
+                onClick={() => {
+                  setColumnFilters?.({
+                    payment_date: "",
+                    tenant_name: "",
+                    amount: "",
+                    min_amount: "",
+                    max_amount: "",
+                    payment_mode: "all",
+                    transaction_id: "",
+                    month: "",
+                    status: "all",
+                    remark: "",
+                    payment_count: "",
+                  });
+                  setFilterPropertyId("all");
+                  setFilterStartDate("");
+                  setFilterEndDate("");
+                  setRoomFilter("");
+                  setIgnoreDateFilters(false);
+                }}
+              >
+                <RefreshCw className="w-3 h-3 mr-1" /> Reset
+              </Button>
               <Button
                 size="sm"
                 className="flex-1 text-xs h-8 bg-blue-600 hover:bg-blue-700"
@@ -7311,15 +7297,15 @@ const ReceiptsTable = ({
       phone: tenant?.phone || receipt.tenant_phone || "",
     };
   });
-const [ignoreReceiptDateFilter, setIgnoreReceiptDateFilter] = useState(false);
+  const [ignoreReceiptDateFilter, setIgnoreReceiptDateFilter] = useState(false);
   // Filter receipts based on column filters
   const filteredReceipts = enhancedReceipts.filter((receipt: any) => {
-   const matchesDate =
-  ignoreReceiptDateFilter ||
-  !receiptFilters.date ||
-  format(new Date(receipt.payment_date), "dd/MM/yy").includes(
-    receiptFilters.date,
-  );
+    const matchesDate =
+      ignoreReceiptDateFilter ||
+      !receiptFilters.date ||
+      format(new Date(receipt.payment_date), "dd/MM/yy").includes(
+        receiptFilters.date,
+      );
 
     const fullName =
       `${receipt.salutation} ${receipt.tenant_name}`.toLowerCase();
@@ -7499,13 +7485,13 @@ const [ignoreReceiptDateFilter, setIgnoreReceiptDateFilter] = useState(false);
             <div className="overflow-y-auto flex-1 min-h-0">
               <Table>
                 <colgroup>
-  <col style={{ width: "100px" }} />   {/* Date */}
-  <col style={{ width: "160px" }} />   {/* Tenant */}
-  <col style={{ width: "150px" }} />   {/* Amount */}
-  <col style={{ width: "150px" }} />   {/* Method/Bank */}
-  <col style={{ width: "120px" }} />   {/* Room/Bed */}
-  <col style={{ width: "80px" }} />    {/* Actions */}
-</colgroup>
+                  <col style={{ width: "100px" }} /> {/* Date */}
+                  <col style={{ width: "160px" }} /> {/* Tenant */}
+                  <col style={{ width: "150px" }} /> {/* Amount */}
+                  <col style={{ width: "150px" }} /> {/* Method/Bank */}
+                  <col style={{ width: "120px" }} /> {/* Room/Bed */}
+                  <col style={{ width: "80px" }} /> {/* Actions */}
+                </colgroup>
                 <TableBody>
                   {loading ? (
                     <TableRow>
@@ -7543,20 +7529,23 @@ const [ignoreReceiptDateFilter, setIgnoreReceiptDateFilter] = useState(false);
                           <TableCell className="py-2 text-xs whitespace-nowrap">
                             {format(new Date(receipt.payment_date), "dd/MM/yy")}
                           </TableCell>
-                        <TableCell className="py-2 text-center">
-  <div className="flex flex-col items-center justify-center">
-    <p className="text-xs font-medium whitespace-nowrap">
-      {receipt.salutation ? `${receipt.salutation} ` : ""}
-      {receipt.tenant_name}
-    </p>
+                          <TableCell className="py-2 text-center">
+                            <div className="flex flex-col items-center justify-center">
+                              <p className="text-xs font-medium whitespace-nowrap">
+                                {receipt.salutation
+                                  ? `${receipt.salutation} `
+                                  : ""}
+                                {receipt.tenant_name}
+                              </p>
 
-    {receipt.phone && (
-      <p className="text-[10px] text-slate-500 whitespace-nowrap">
-        {receipt.country_code || "+91"} {receipt.phone}
-      </p>
-    )}
-  </div>
-</TableCell>
+                              {receipt.phone && (
+                                <p className="text-[10px] text-slate-500 whitespace-nowrap">
+                                  {receipt.country_code || "+91"}{" "}
+                                  {receipt.phone}
+                                </p>
+                              )}
+                            </div>
+                          </TableCell>
                           <TableCell className="py-2 text-xs font-medium whitespace-nowrap text-center">
                             ₹{receipt.amount.toLocaleString()}
                           </TableCell>

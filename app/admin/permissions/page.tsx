@@ -70,7 +70,8 @@ const PERMISSIONS_LIST = [
 { action: "export_rooms", label: "Export Rooms", module: "Rooms" },
 { action: "import_rooms", label: "Import Rooms", module: "Rooms" },
 { action: "manage_beds", label: "Manage Beds", module: "Rooms" },
-
+// ✅ ADD THIS NEW PERMISSION
+  { action: "view_rooms_assigned_only", label: "View Only Assigned Property Rooms", module: "Rooms" },
 
 { action: "view_tenants", label: "View Tenants", module: "Tenants" },
 { action: "create_tenants", label: "Create Tenants", module: "Tenants" },
