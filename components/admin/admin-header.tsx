@@ -683,7 +683,33 @@ export function AdminHeader({
                   className="flex items-center gap-1 h-auto p-1 md:p-2 hover:bg-slate-300"
                 >
                   <Avatar className="h-6 w-6">
-                    <AvatarImage src={user ? process.env.NEXT_PUBLIC_API_URL + "/uploads/staff-documents/" + user.photo_url : profileImage} alt="Admin" />
+                    {/* <AvatarImage src={user ? process.env.NEXT_PUBLIC_API_URL + "/uploads/staff-documents/" + user.photo_url : profileImage} alt="Admin" /> */}
+
+
+<AvatarImage
+  src={
+    user?.photo_url
+      ? user.photo_url.startsWith('http')
+        ? user.photo_url
+        : user.photo_url.startsWith('/uploads/')
+          ? `${import.meta.env.VITE_API_URL}${user.photo_url}`
+          : `${import.meta.env.VITE_API_URL}/uploads/staff-documents/${user.photo_url}`
+      : profileImage
+      ? `${import.meta.env.VITE_API_URL}/uploads/staff-documents/${profileImage}`
+      : ''
+  }
+  alt="Admin"
+/>
+                    {/* <AvatarImage
+  src={
+    user?.photo_url
+      ? user.photo_url.startsWith('/uploads/')
+        ? `${process.env.NEXT_PUBLIC_API_URL}${user.photo_url}`
+        : `${process.env.NEXT_PUBLIC_API_URL}/uploads/avatars/${user.photo_url}`
+      : profileImage
+  }
+  alt="Admin"
+/> */}
                     <AvatarFallback className="bg-gradient-to-br from-[#004AAD] to-blue-500 text-white font-semibold">
                       {getInitials()}
                     </AvatarFallback>

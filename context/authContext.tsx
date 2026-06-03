@@ -22,6 +22,7 @@ type AuthContextType = {
     loginSource: "admin" | "tenant"
   ) => void;
   logout: () => void;
+  updateUser: (updates: Partial<any>) => void;
   can: (permission: string) => boolean;
 };
 
@@ -68,6 +69,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     window.location.href = "/login";
   };
 
+  const updateUser = (updates: Partial<any>) => {
+  setUser((prev: any) => prev ? { ...prev, ...updates } : prev);
+};
   useEffect(() => {
     const checkAuth = async () => {
       const token = localStorage.getItem("auth_token");
@@ -108,6 +112,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         login,
         logout,
         can,
+         updateUser,
       }}
     >
       {children}

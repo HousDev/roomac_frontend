@@ -4,6 +4,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { CardContent } from "@/components/ui/card";
+import { useAuth } from "@/context/authContext";
 import {
   Dialog,
   DialogClose,
@@ -75,6 +76,7 @@ export default function StaffClientPage({
 }: StaffClientPageProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { user, updateUser } = useAuth();
 
   // State management
   const [staff, setStaff] = useState<StaffMember[]>(initialStaff);
@@ -315,15 +317,26 @@ export default function StaffClientPage({
             : undefined,
       });
 
-      if (editingStaff) {
-        const response = await updateStaff(editingStaff.id, formDataObj);
-        toast.success("Staff updated successfully");
+     if (editingStaff) {
+  const response = await updateStaff(editingStaff.id, formDataObj);
+  toast.success("Staff updated successfully");
 
-        // Update editingStaff with the new data from server
-        if (response && response.data) {
-          setEditingStaff(response.data);
-        }
-      } else {
+  // Update editingStaff with the new data from server
+  if (response && response.data) {
+    setEditingStaff(response.data);
+
+    // ✅ ADD THESE LINES — update header if logged-in user edited their own profile
+    if (response.data.email === user?.email) {
+      updateUser({
+        name: response.data.name,
+        salutation: response.data.salutation,
+        phone: response.data.phone,
+        photo_url: response.data.photo_url,
+        current_address: response.data.current_address,
+      });
+    }
+  }
+} else {
         await addStaff(formDataObj);
         toast.success("Staff added successfully");
       }
