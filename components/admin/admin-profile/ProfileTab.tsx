@@ -68,14 +68,24 @@ export default function ProfileTab({
 
   const displayRole = profileData.role || (profileData.email?.includes('admin') ? 'Super Admin' : 'Administrator');
 
-  const avatarSrc = profileData.avatar_url
-    ? `${import.meta.env.VITE_API_URL}/uploads/staff-documents/${profileData.avatar_url}`
-    : undefined;
+  // const avatarSrc = profileData.avatar_url
+  //   ? `${import.meta.env.VITE_API_URL}/uploads/staff-documents/${profileData.avatar_url}`
+  //   : undefined;
 
-  const salutationLabel = (s: string) => {
-    const map: Record<string, string> = { mr: 'Mr.', mrs: 'Mrs.', ms: 'Ms.', dr: 'Dr.', prof: 'Prof.' };
-    return map[s?.toLowerCase()] || s || '';
+  const avatarSrc = profileData.avatar_url
+  ? profileData.avatar_url.startsWith('/uploads/')
+    ? `${import.meta.env.VITE_API_URL}${profileData.avatar_url}`
+    : `${import.meta.env.VITE_API_URL}/uploads/staff-documents/${profileData.avatar_url}`
+  : undefined;
+
+ const salutationLabel = (s: string) => {
+  const map: Record<string, string> = { 
+    'Mr': 'Mr.', 'Mrs': 'Mrs.', 'Miss': 'Miss', 'Dr': 'Dr.', 'Prof': 'Prof.',
+    // keep lowercase fallbacks for old data
+    'mr': 'Mr.', 'mrs': 'Mrs.', 'ms': 'Mrs.', 'dr': 'Dr.', 'prof': 'Prof.'
   };
+  return map[s] || s || '';
+};
 
   return (
     <>
@@ -340,16 +350,17 @@ export default function ProfileTab({
               <div style={{ display: 'flex', gap: 8 }}>
                 <select
                   className="pt-sel"
-                  value={profileData.salutation || 'mr'}
+                  value={profileData.salutation || ''}
                   onChange={(e) => handleInputChange('salutation', e.target.value)}
                   disabled={loading}
                   style={{ minWidth: 80 }}
                 >
-                  <option value="mr">Mr.</option>
-                  <option value="mrs">Mrs.</option>
-                  <option value="ms">Ms.</option>
-                  <option value="dr">Dr.</option>
-                  <option value="prof">Prof.</option>
+<option value="">--</option>
+  <option value="Mr">Mr.</option>
+  <option value="Mrs">Mrs.</option>
+  <option value="Miss">Miss</option>
+  <option value="Dr">Dr.</option>
+  <option value="Prof">Prof.</option>
                 </select>
                 <input
                   className="pt-inp"
@@ -411,6 +422,7 @@ export default function ProfileTab({
                     className="pt-inp with-icon"
                     value={profileData.phone}
                     onChange={(e) => handleInputChange('phone', e.target.value)}
+                  maxLength={10}
                     disabled={loading}
                     placeholder="Enter phone number"
                   />

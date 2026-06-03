@@ -41,10 +41,15 @@ export default function ProfileClient({ initialProfile, initialNotifications }: 
   const [loading, setLoading] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
 
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
+const salMap: Record<string, string> = {
+  'mr': 'Mr', 'mrs': 'Mrs', 'miss': 'Miss', 'dr': 'Dr', 'prof': 'Prof',
+  'Mr': 'Mr', 'Mrs': 'Mrs', 'Miss': 'Miss', 'Dr': 'Dr', 'Prof': 'Prof',
+};
+const rawSal = user?.salutation || '';
 
-  const [profileData, setProfileData] = useState<ProfileData>({
-    salutation: user?.salutation || '',
+const [profileData, setProfileData] = useState<ProfileData>({
+  salutation: salMap[rawSal] || rawSal,
     full_name: user?.name || '',
     email: user?.email || localStorage.getItem("auth_email") || '',
     phone: user?.phone || '',
@@ -64,8 +69,16 @@ export default function ProfileClient({ initialProfile, initialNotifications }: 
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>(initialNotifications);
 
   useEffect(() => {
-    setProfileData({
-      salutation: user?.salutation || '',
+  // Normalize salutation to match dropdown option values
+  const rawSal = user?.salutation || '';
+  const salMap: Record<string, string> = {
+    'mr': 'Mr', 'mrs': 'Mrs', 'miss': 'Miss', 'dr': 'Dr', 'prof': 'Prof',
+    'Mr': 'Mr', 'Mrs': 'Mrs', 'Miss': 'Miss', 'Dr': 'Dr', 'Prof': 'Prof',
+  };
+  const normalizedSal = salMap[rawSal] || rawSal;
+
+  setProfileData({
+    salutation: normalizedSal,
       full_name: user?.name || '',
       email: user?.email || localStorage.getItem("auth_email") || '',
       phone: user?.phone || '',
@@ -139,10 +152,19 @@ export default function ProfileClient({ initialProfile, initialNotifications }: 
 
       const result = await updateProfile(updateData);
 
-      if (result.success) {
-        toast.dismiss(toastId);
-        toast.success("Profile updated successfully");
-      } else {
+    if (result.success) {
+  toast.dismiss(toastId);
+  toast.success("Profile updated successfully");
+  // ✅ ADD THESE LINES:
+  updateUser({
+    name: profileData.full_name,
+    salutation: profileData.salutation,
+    phone: profileData.phone,
+    phone_country_code: profileData.phone_country_code,
+    current_address: profileData.address,
+    bio: profileData.bio,
+  });
+} else {
         toast.dismiss(toastId);
         toast.error(result.message || "Failed to update profile");
       }
@@ -152,7 +174,7 @@ export default function ProfileClient({ initialProfile, initialNotifications }: 
     } finally {
       setLoading(false);
     }
-  }, [profileData]);
+  }, [profileData ,updateUser]);
 
   const handlePasswordChange = useCallback(async () => {
     if (passwordData.new_password !== passwordData.confirm_password) {
@@ -227,11 +249,13 @@ export default function ProfileClient({ initialProfile, initialNotifications }: 
       setAvatarUploading(true);
       const result = await uploadAvatar(file);
 
-      if (result.success && result.avatar_url) {
-        setProfileData(prev => ({ ...prev, avatar_url: result.avatar_url! }));
-        toast.dismiss(toastId);
-        toast.success("Profile picture updated");
-      } else {
+     if (result.success && result.avatar_url) {
+  setProfileData(prev => ({ ...prev, avatar_url: result.avatar_url! }));
+  toast.dismiss(toastId);
+  toast.success("Profile picture updated");
+  // ✅ ADD THIS LINE:
+  updateUser({ photo_url: result.avatar_url });
+} else {
         toast.dismiss(toastId);
         toast.error(result.message || "Failed to upload avatar");
       }
@@ -241,7 +265,7 @@ export default function ProfileClient({ initialProfile, initialNotifications }: 
     } finally {
       setAvatarUploading(false);
     }
-  }, []);
+  }, [updateUser]);
 
   const handleCancelProfileChanges = useCallback(() => {
     fetchProfile();

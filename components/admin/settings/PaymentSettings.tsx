@@ -96,7 +96,7 @@ function PhonePeInlineCard({ settings, updateSetting, showSecrets, toggleSecretV
                 <div className="relative"><Input type={showSecrets.phonepe_salt_key ? 'text' : 'password'} value={draft.phonepe_salt_key || ''} onChange={(e) => handleDraftChange('phonepe_salt_key', e.target.value)} placeholder="Enter Salt Key" className="h-9 text-xs border-slate-300 pr-9" /><button type="button" className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600" onClick={() => toggleSecretVisibility('phonepe_salt_key')}>{showSecrets.phonepe_salt_key ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}</button></div>
               </div>
               <div className="space-y-1"><Label className="text-xs text-slate-600 font-medium">Salt Index <span className="text-red-500">*</span></Label>
-                <Input value={draft.phonepe_salt_index || '1'} onChange={(e) => handleDraftChange('phonepe_salt_index', e.target.value)} placeholder="1" className="h-9 text-xs border-slate-300" />
+                <Input value={draft.phonepe_salt_index || ''} onChange={(e) => handleDraftChange('phonepe_salt_index', e.target.value)} placeholder="1" className="h-9 text-xs border-slate-300" />
                 <p className="text-[11px] text-slate-400">Usually 1, check your PhonePe dashboard</p>
               </div>
               <div className="bg-purple-50 border border-purple-200 rounded-lg p-2.5 flex items-start gap-2">
