@@ -350,28 +350,26 @@ export const processPhotoUrls = (photoUrls: any)=> {
 
 // Bulk update rooms
 export const bulkUpdateRooms = async (roomIds: string[], action: 'activate' | 'inactivate' | 'delete') => {
-  const response = await fetch('/api/rooms/bulk-update', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ room_ids: roomIds, action })
+  return request<ApiResult<any>>("/api/rooms/bulk-update", {
+    method: "POST",
+    body: JSON.stringify({ room_ids: roomIds, action }),
   });
-  return await response.json();
 };
 
 // Get filter data
 export const getFilterData = async () => {
-  const response = await fetch('/api/rooms/filters/data');
-  return await response.json();
+  return request<ApiResult<any>>("/api/rooms/filters/data", {
+    method: "GET",
+  });
 };
 
-// Get filtered rooms
+
 export const getFilteredRooms = async (filters: any) => {
-  const response = await fetch('/api/rooms/filter', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(filters)
+  // Use the request function which automatically adds the auth token
+  return request<ApiResult<any>>("/api/rooms/filter", {
+    method: "POST",
+    body: JSON.stringify(filters),
   });
-  return await response.json();
 };
 
 

@@ -81,7 +81,7 @@ const PERMISSIONS_LIST = [
 { action: "import_tenants", label: "Import Tenants", module: "Tenants" },
 { action: "manage_tenant_credentials", label: "Manage Credentials", module: "Tenants" },
 { action: "manage_tenant_portal", label: "Manage Portal Access", module: "Tenants" },
-
+{ action: "view_tenants_assigned_only", label: "View Only Assigned Property Tenants", module: "Tenants" },
 
   { action: "view_payments", label: "View Payments", module: "Payments" },
 { action: "create_payments", label: "Create Payments", module: "Payments" },

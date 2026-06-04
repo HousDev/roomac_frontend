@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { DoorOpen, Plus, Search, Bed, Users, Building2, RefreshCw, SlidersHorizontal, Download, Upload, Check, X, Trash2, BedDouble, Filter } from 'lucide-react';
 import { toast } from "sonner";
-import { type RoomResponse ,processPhotoUrls, getMediaUrl} from '@/lib/roomsApi';
+import { type RoomResponse ,processPhotoUrls, getMediaUrl, getFilteredRooms} from '@/lib/roomsApi';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -378,31 +378,19 @@ const fetchFilteredRooms = useCallback(async (filters: FilterState) => {
       limit: itemsPerPage
     };
     
-    const response = await fetch('/api/rooms/filter', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(processedFilters)
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Server error response:', errorText);
-      throw new Error(`Server responded with status ${response.status}`);
-    }
-
-    const result = await response.json();
+    // ✅ Use the API function that includes auth token
+    const result = await getFilteredRooms(processedFilters);
     
-    if (result.success) {
-      // ✅ Enrich filtered rooms with tenant names
+    if (result && result.success) {
       const roomsWithTenants = await enrichRoomsWithTenantNames(result.data);
       setRooms(roomsWithTenants);
-      const totalPages = Math.ceil(result.pagination.total / itemsPerPage);
+      const totalPages = Math.ceil(result.pagination?.total / itemsPerPage);
       if (currentPage > totalPages && totalPages > 0) {
         setCurrentPage(totalPages);
       }
       setSelectedRooms([]);
     } else {
-      toast.error('Failed to load rooms: ' + (result.message || 'Unknown error'));
+      toast.error('Failed to load rooms: ' + (result?.message || 'Unknown error'));
     }
   } catch (error: any) {
     console.error('Error fetching filtered rooms:', error);
