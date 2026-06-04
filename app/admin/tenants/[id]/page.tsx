@@ -1883,7 +1883,7 @@ tenant.property_details?.name ||   // ← add optional chaining
 )}
 
       {/* Payment Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {!paymentSummary?.is_vacated ? (
           <>
             <PaymentCard
@@ -1939,10 +1939,10 @@ tenant.property_details?.name ||   // ← add optional chaining
             />
           </>
         )}
-      </div>
+      </div> */}
 
       {/* Security Deposit Information for Vacated Tenants */}
-      {paymentSummary?.is_vacated && paymentSummary?.vacate_info?.security_deposit > 0 && (
+      {/* {paymentSummary?.is_vacated && paymentSummary?.vacate_info?.security_deposit > 0 && (
         <div className="bg-white rounded-xl border border-slate-200 p-5">
           <div className="flex items-center gap-3 mb-4 pb-3 border-b border-slate-200">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 text-white flex items-center justify-center shadow-sm">
@@ -1973,8 +1973,155 @@ tenant.property_details?.name ||   // ← add optional chaining
             </div>
           </div>
         </div>
-      )}
+      )} */}
 
+
+{/* Payment Summary + Security Deposit Section */}
+<div
+  className={`grid gap-4 ${
+    paymentSummary?.is_vacated &&
+    paymentSummary?.vacate_info?.security_deposit > 0
+      ? "grid-cols-1 lg:grid-cols-3"
+      : "grid-cols-1"
+  }`}
+>
+  {/* Payment Summary Cards */}
+  <div
+    className={`${
+      paymentSummary?.is_vacated &&
+      paymentSummary?.vacate_info?.security_deposit > 0
+        ? "lg:col-span-2"
+        : ""
+    }`}
+  >
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {!paymentSummary?.is_vacated ? (
+        <>
+          <PaymentCard
+            label="Total Paid"
+            value={`₹${(
+              paymentSummary?.total_paid || 0
+            ).toLocaleString()}`}
+            gradient="from-emerald-500 to-emerald-600"
+            icon={<TrendingUp className="w-3 h-3" />}
+          />
+          <PaymentCard
+            label="Total Pending"
+            value={`₹${(
+              paymentSummary?.total_pending || 0
+            ).toLocaleString()}`}
+            gradient="from-orange-500 to-orange-600"
+            icon={<Clock className="w-3 h-3" />}
+          />
+          <PaymentCard
+            label="Monthly Rent"
+            value={`₹${(
+              paymentSummary?.monthly_rent || 0
+            ).toLocaleString()}`}
+            gradient="from-blue-500 to-blue-600"
+            icon={<IndianRupee className="w-3 h-3" />}
+          />
+          <PaymentCard
+            label="Months Joined"
+            value={String(
+              paymentSummary?.total_months_since_joining || "0"
+            )}
+            gradient="from-purple-500 to-purple-600"
+            icon={<CalendarDays className="w-3 h-3" />}
+          />
+        </>
+      ) : (
+        <>
+          <PaymentCard
+            label="Total Rent Paid"
+            value={`₹${(
+              paymentSummary?.total_rent_paid || 0
+            ).toLocaleString()}`}
+            gradient="from-emerald-500 to-emerald-600"
+            icon={<IndianRupee className="w-3 h-3" />}
+          />
+          <PaymentCard
+            label="Rent Payment Count"
+            value={String(
+              paymentSummary?.rent_payment_count || "0"
+            )}
+            gradient="from-blue-500 to-blue-600"
+            icon={<CreditCard className="w-3 h-3" />}
+          />
+          <PaymentCard
+            label="Security Deposit"
+            value={`₹${(
+              paymentSummary?.vacate_info?.security_deposit || 0
+            ).toLocaleString()}`}
+            gradient="from-amber-500 to-amber-600"
+            icon={<Shield className="w-3 h-3" />}
+          />
+          <PaymentCard
+            label="Deposit Paid"
+            value={`₹${(
+              paymentSummary?.security_deposit_info?.paid || 0
+            ).toLocaleString()}`}
+            gradient="from-green-500 to-green-600"
+            icon={<Wallet className="w-3 h-3" />}
+          />
+        </>
+      )}
+    </div>
+  </div>
+
+  {/* Security Deposit Information */}
+  {paymentSummary?.is_vacated &&
+    paymentSummary?.vacate_info?.security_deposit > 0 && (
+      <div className="bg-white rounded-xl border border-slate-200 p-5 h-fit">
+        <div className="flex items-center gap-3 mb-4 pb-3 border-b border-slate-200">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 text-white flex items-center justify-center shadow-sm">
+            <Shield className="w-4 h-4" />
+          </div>
+          <h3 className="font-lexend font-semibold text-slate-900">
+            Security Deposit Information
+          </h3>
+        </div>
+
+        <div className="space-y-3">
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-slate-600">
+              Security Deposit
+            </span>
+            <span className="font-semibold">
+              ₹
+              {(
+                paymentSummary.vacate_info.security_deposit || 0
+              ).toLocaleString()}
+            </span>
+          </div>
+
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-slate-600">
+              Total Penalty
+            </span>
+            <span className="font-semibold text-red-600">
+              ₹
+              {(
+                paymentSummary.vacate_info.total_penalty || 0
+              ).toLocaleString()}
+            </span>
+          </div>
+
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-slate-600">
+              Refund Amount
+            </span>
+            <span className="font-semibold text-green-600">
+              ₹
+              {(
+                paymentSummary.vacate_info.refundable_amount || 0
+              ).toLocaleString()}
+            </span>
+          </div>
+        </div>
+      </div>
+    )}
+</div>
       {/* Payment History - ONE TABLE FOR ALL PAYMENTS */}
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
         <div className="flex items-center gap-3 p-4 pb-0 border-b border-slate-200">
